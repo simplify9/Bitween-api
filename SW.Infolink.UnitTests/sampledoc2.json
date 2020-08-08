@@ -1,0 +1,301 @@
+{
+  "Parcel": {
+    "Audit": {
+      "CreatedOn": "2020-02-02T12:57:05.6486329Z",
+      "ModifiedOn": null,
+      "CreatedBy": "AAA/0009",
+      "ModifiedBy": null
+    },
+    "Number": {
+      "Scheme": "default",
+      "Value": "0000018081"
+    },
+    "Attachments": [],
+    "References": [
+      {
+        "Type": "abc",
+        "Value": "123",
+        "CompositeReference": "abc:123"
+      },
+      {
+        "Type": "def",
+        "Value": "456",
+        "CompositeReference": "def:456"
+      }
+    ],
+    "Product": "BEDEFRT001",
+    "ProductType": "FRT",
+    "ShipDate": "2020-01-25T05:44:12.251Z",
+    "Shipper": {
+      "Name": "QA Shipper",
+      "Phones": [ "4411111110", "5611111110" ],
+      "Emails": [ "shipper@primary-email.com", "shipper@secondary-email.com" ],
+      "Address": {
+        "Country": "BE",
+        "City": "Brussels",
+        "State": "",
+        "Street": [ "Keizersgracht 1", "Koerierstersplein 2" ],
+        "PostCode": ""
+      }
+    },
+    "Consignee": {
+      "Name": "QA Consignee",
+      "Phones": [ "4422222220", "5622222220" ],
+      "Emails": [ "consignee@primary-email.com", "consignee@secondary-email.com" ],
+      "Address": {
+        "Country": "AE",
+        "City": "Berlin",
+        "State": "",
+        "Street": [ "Al Thanya street 1" ],
+        "PostCode": "NA"
+      }
+    },
+    "Account": {
+      "Name": "QA Company",
+      "Currency": "USD",
+      "ForEntity": null,
+      "InvoicePaymentDueIn": 15,
+      "Audit": {
+        "CreatedOn": "2019-11-07T06:46:36.1340765",
+        "ModifiedOn": "2020-01-29T12:38:04.7358626",
+        "CreatedBy": "Ellen",
+        "ModifiedBy": "Ellen"
+      },
+      "BillingInfo": {
+        "Name": "QA Online Merchant",
+        "Phones": [ "12345" ],
+        "Emails": [ "account@email.com" ],
+        "Address": {
+          "Country": "AE",
+          "City": "Dubai",
+          "State": "Dubai Emirate",
+          "Street": [ "Sheikh Zayed Road" ],
+          "PostCode": "0000"
+        }
+      },
+      "Contracts": [
+        {
+          "Product": "QA00000004",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": false,
+          "From": "2019-01-01T00:00:00",
+          "To": null,
+          "Ratesheet": "QA001     ",
+          "Charges": [ "cclearance" ]
+        },
+        {
+          "Product": "NLAESTD001",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": true,
+          "From": "2019-01-01T00:00:00",
+          "To": null,
+          "Ratesheet": "Standard  ",
+          "Charges": [ "cclearance" ]
+        },
+        {
+          "Product": "HUxxSTD001",
+          "ChargeType": "Customer",
+          "AutoCalculate": false,
+          "From": "2019-01-01T00:00:00",
+          "To": "2020-01-24T00:00:00",
+          "Ratesheet": "Standard  ",
+          "Charges": [ "vat       ", "duty      " ]
+        },
+        {
+          "Product": "xxxxSTD001",
+          "ChargeType": "Customer",
+          "AutoCalculate": false,
+          "From": "2019-01-01T00:00:00",
+          "To": null,
+          "Ratesheet": "Standard  ",
+          "Charges": null
+        },
+        {
+          "Product": "AEJOFRT001",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": true,
+          "From": "2019-01-01T00:00:00",
+          "To": null,
+          "Ratesheet": "Standard  ",
+          "Charges": [ "vat       " ]
+        },
+        {
+          "Product": "BEDEFRT001",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": false,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": null,
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "BEDESTD001",
+          "ChargeType": "Customer",
+          "AutoCalculate": false,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": null,
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "CNAEFRT001",
+          "ChargeType": "Customer",
+          "AutoCalculate": true,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": "Standard  ",
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "CNAESTD001",
+          "ChargeType": "Customer",
+          "AutoCalculate": true,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": "Standard  ",
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "NLAEFRT001",
+          "ChargeType": "Customer",
+          "AutoCalculate": true,
+          "From": "2019-12-04T07:51:17.6740031",
+          "To": "2019-12-31T07:51:17.6740031",
+          "Ratesheet": "QA001     ",
+          "Charges": [ "vat       ", "duty      " ]
+        },
+        {
+          "Product": "BEDEFRT001",
+          "ChargeType": "Delivery",
+          "AutoCalculate": false,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": "Standard  ",
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "BEDESTD001",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": false,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": "Standard  ",
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "BEAESTD001",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": false,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": "Standard  ",
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "BEDEFRT001",
+          "ChargeType": "Customer",
+          "AutoCalculate": false,
+          "From": "2019-11-01T09:35:52.118",
+          "To": "2020-12-31T09:35:52.118",
+          "Ratesheet": "Standard  ",
+          "Charges": [ "discount10", "fuelcodeci" ]
+        },
+        {
+          "Product": "CYCZ###001",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": false,
+          "From": "2019-11-01T09:35:52.118",
+          "To": null,
+          "Ratesheet": null,
+          "Charges": [ "cclearance" ]
+        },
+        {
+          "Product": "CYCZ###001",
+          "ChargeType": "Customer",
+          "AutoCalculate": false,
+          "From": "2019-01-01T00:00:00",
+          "To": null,
+          "Ratesheet": null,
+          "Charges": [ "cclearance" ]
+        },
+        {
+          "Product": "CNAEFRT001",
+          "ChargeType": "CustomsClearance",
+          "AutoCalculate": false,
+          "From": "2019-01-01T00:00:00",
+          "To": null,
+          "Ratesheet": null,
+          "Charges": [ "cclearance" ]
+        }
+      ],
+      "Number": "0009",
+      "Entity": "AAA"
+    },
+    "Weight": {
+      "Value": 100.0,
+      "Unit": "kg"
+    },
+    "ChargeWeight": {
+      "Value": 100.0,
+      "Unit": "kg"
+    },
+    "Dimensions": {
+      "Length": 1.0,
+      "Width": 2.0,
+      "Height": 3.0,
+      "Unit": "cm"
+    },
+    "ContainedIn": [],
+    "Items": [
+      {
+        "Weight": {
+          "Value": 4.0,
+          "Unit": "kg"
+        },
+        "Dimensions": {
+          "Length": 5.0,
+          "Width": 6.0,
+          "Height": 7.0,
+          "Unit": "cm"
+        },
+        "CustomsValue": {
+          "Amount": 8.0,
+          "Currency": "USD"
+        },
+        "OriginCountry": "NL",
+        "Description": "QA Item 1",
+        "Sku": null,
+        "HSCode": "hs11111",
+        "Quantity": 9
+      },
+      {
+        "Weight": {
+          "Value": 11.0,
+          "Unit": "kg"
+        },
+        "Dimensions": {
+          "Length": 12.0,
+          "Width": 13.0,
+          "Height": 14.0,
+          "Unit": "cm"
+        },
+        "CustomsValue": {
+          "Amount": 15.0,
+          "Currency": "EUR"
+        },
+        "OriginCountry": "NL",
+        "Description": "QA Item 2",
+        "Sku": null,
+        "HSCode": "hs22222",
+        "Quantity": 16
+      }
+    ],
+    "Services": [ "COD", "INS" ]
+  },
+  "Partner": {
+    "Type": "FUL",
+    "Entity": "AAA",
+    "Name": "QA"
+  },
+  "Source": "ParcelCreatedEvent"
+}

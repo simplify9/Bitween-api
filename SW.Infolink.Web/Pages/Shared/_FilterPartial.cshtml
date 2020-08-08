@@ -1,0 +1,61 @@
+﻿
+@model SearchFilterModel
+
+    <div class="card card-default">
+        <div class="card-header">@ViewData["Title"]</div>
+        <div class="card-body">
+
+            @for (var i = 0; i < Model.Lines.Count; i++)
+            {
+                <div class="form-group row">
+                    <div class="col-auto">
+                        <select asp-for="@Model.Lines[i].FieldName" asp-items="Model.Fields" class="form-control">
+                            <option value="">Pick one</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        @*EqualsTo = 1,
+                        NotEqualsTo = 2,
+                        BeginsWith = 3,
+                        Contains = 4,
+                        GreaterThan = 5,
+                        GreaterThanOrEquals = 6,
+                        LessThan = 7,
+                        LessThanOrEquals = 8,
+                        EqualsToList = 9*@
+
+                        <select asp-for="@Model.Lines[i].Operator" class="form-control">
+                            <option value="1">=</option>
+                            <option value="2">&lt;&gt;</option>
+                            <option value="3">Starts with</option>
+                            <option value="4">Contains</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <input type="text" asp-for="@Model.Lines[i].Value" class="form-control" />
+                    </div>
+                </div>
+            }
+
+            <div class="form-group row">
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary" asp-page-handler="">Search</button>
+                    <button class="btn" disabled="@(Model.Lines.Count<10 ? null : "disbaled")" asp-page-handler="AddFilter">Add Filter</button>
+                    <button class="btn" disabled="@(Model.Lines.Count==0 ? "disabled" : null)" asp-page-handler="DeleteFilter">Delete Filter</button>
+                </div>
+            </div>
+
+
+            @for (var i = 0; i < Model.Fields.Count; i++)
+            {
+                <input type="hidden" asp-for="@Model.Fields[i].Value" />
+                <input type="hidden" asp-for="@Model.Fields[i].Text" />
+            }
+        </div>
+        @if (ViewData["Title"].ToString() != "Xchanges") {
+        <div class="m-2 row align-content-end">
+            <a asp-page="./Edit">Add New</a>
+
+        </div>
+        }
+    </div>

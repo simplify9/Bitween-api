@@ -1,0 +1,21 @@
+﻿
+@model PagerModel
+<div>
+    @if (Model.TotalPages > 1)
+    {
+        <ul class="pagination">
+            <li class="page-item ">
+                <button disabled="@(Model.CurrentPage == 1 ? "disabled" : null)" asp-route-p="1" type="submit" class="page-link">First</button>
+            </li>
+            <li class="page-item ">
+                <button disabled="@(Model.CurrentPage == 1 ? "disabled" : null)" asp-route-p="@(Model.CurrentPage - 1)" type="submit" class="page-link">Previous</button>
+            </li>
+            <li class="page-item ">
+                <button disabled="@(Model.CurrentPage < Model.TotalPages ? null : "disbaled" )" asp-route-p="@(Model.CurrentPage + 1)" type="submit" class="page-link">Next</button>
+            </li>
+            <li class="page-item ">
+                <button disabled="@(Model.CurrentPage < Model.TotalPages ? null : "disbaled" )" asp-route-p="@Model.TotalPages" type="submit" class="page-link">Last</button>
+            </li>
+        </ul>
+    }
+</div>

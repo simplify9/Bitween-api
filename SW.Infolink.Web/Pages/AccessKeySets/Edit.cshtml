@@ -1,0 +1,30 @@
+﻿@page "{id:int?}"
+@model SW.Infolink.Web.Pages.AccessKeySets.EditModel
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Create" : "Edit"; ;
+}
+
+
+<div class="card card-default">
+    <div class="card-header">@ViewData["Title"]</div>
+    <div class="card-body">
+        <form method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="AccessKeySet.Name"></label>
+                <input asp-for="AccessKeySet.Name" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label asp-for="AccessKeySet.Key1"></label>
+                <input asp-for="AccessKeySet.Key1" class="form-control" />
+            </div>
+            <div class="form-group">
+                <label asp-for="AccessKeySet.Key2"></label>
+                <input asp-for="AccessKeySet.Key2" class="form-control" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-page="/AccessKeySets/Index" class="btn btn-secondary" role="button">Cancel</a>
+        </form>
+    </div>
+</div>

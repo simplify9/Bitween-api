@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Services\AccessKeySetService.cs" />
+    <Compile Remove="Services\AdapterService.cs" />
+    <Compile Remove="Services\DocumemtService.cs" />
+    <Compile Remove="Services\InfolinkRepo.cs" />
+    <Compile Remove="Services\ReceiverService.cs" />
+    <Compile Remove="Services\SubscriberService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="9.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="3.1.6" />
+    <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="2.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SW.Infolink.Sdk\SW.Infolink.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,18 @@
+﻿@page "{id:int}"
+@model SW.Infolink.Web.Pages.AccessKeySets.DeleteModel
+@{
+}
+
+<div class="card card-default">
+    <div class="card-body">
+        <form id="profile-form" method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <div class="form-group">
+                <p>Do you want to delete this?</p>
+            </div>
+            <button type="submit" class="btn btn-default">Yes</button>
+            <a asp-page="/AccessKeySets/Index" class="btn btn-secondary" role="button">No</a>
+
+        </form>
+    </div>
+</div>

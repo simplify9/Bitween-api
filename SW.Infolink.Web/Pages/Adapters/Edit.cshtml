@@ -1,0 +1,64 @@
+﻿@page "{id:int?}"
+@model SW.Infolink.Web.Pages.Adapters.EditModel
+@{
+    ViewData["Title"] = Model.Id == 0 ? "Create" : "Edit";
+    var disabled = Model.Id != 0;
+}
+
+<div class="card card-default">
+    <div class="card-header">@ViewData["Title"]</div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Adapter.Name"></label>
+                <input asp-for="Adapter.Name" class="form-control" required />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Adapter.Type"></label>
+                <select asp-for="Adapter.Type" class="form-control dropdown" disabled="@disabled"
+                        asp-items="Html.GetEnumSelectList<AdapterType>()">
+                    <option selected class="form-control dropdown-item">None</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Adapter.DocumentId">Document Name</label>
+                <select asp-for="Adapter.DocumentId" class="form-control dropdown" asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<DocumentRow>>($"documents?{new SearchyRequest()}")).Result.Select(k => new SelectListItem { Text = k.Name, Value = k.Id.ToString() })" required>
+                    <option selected="selected" class="form-control dropdown-item">None</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Upload"></label>
+                <div class="input-group ">
+                    <div class="custom-file">
+                        <input asp-for="Upload" type="file" class="custom-file-input" id="validatedCustomFile">
+                        <label class="custom-file-label" for="validatedCustomFile">@Model.Adapter.Name</label>
+                        <div class="invalid-feedback">Example invalid custom file feedback</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Adapter.Description"></label>
+                <textarea asp-for="Adapter.Description" class="form-control" rows="5" id="comment" placeholder="Description..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Properties"></label>
+                <textarea asp-for="Properties" class="form-control" rows="5" id="comment" placeholder="Property1=P1;&#x0aProperty2=P2;"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Adapter.Timeout"></label>
+                <input asp-for="Adapter.Timeout" class="form-control" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-page="/Adapters/Index" class="btn btn-secondary" role="button">Cancel</a>
+        </form>
+    </div>
+</div>
+

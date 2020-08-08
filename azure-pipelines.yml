@@ -1,0 +1,133 @@
+name: $(version)
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+- group: Chartmuseum
+- name: imageName
+  value: 'infolink'
+- name: containerRegistry
+  value: 'simplyworks.azurecr.io'
+- name: major
+  value: 2
+- name: minor
+  value: 0
+- name: version
+  value: $[format('{0}.{1}.{2}', variables['major'], variables['minor'], counter(format('{0}.{1}', variables['major'], variables['minor']), 0))]
+
+
+jobs:
+
+- job: dotnet
+  displayName: build, test and pack nuget
+  steps:
+
+  - task: UseDotNet@2
+    displayName: 'Use .NET Core sdk 3.1.100'
+    inputs:
+      packageType: sdk
+      version: 3.1.100
+      installationPath: $(Agent.ToolsDirectory)/dotnet
+
+  - task: DotNetCoreCLI@2
+    displayName: Restore
+    inputs:
+      command: 'restore'
+      projects: '**/*.csproj'
+
+  - task: DotNetCoreCLI@2
+    displayName: Build
+    inputs:
+      projects: '**/*.csproj'
+      arguments: '--configuration Release'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet test'
+    inputs:
+      command: test
+      projects: '**/*Tests/*.csproj'
+
+  - task: DotNetCoreCLI@2
+    displayName: 'dotnet pack'
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    inputs:
+      command: pack
+      packagesToPack: 'SW.Infolink.Sdk/SW.Infolink.Sdk.csproj;'
+      nobuild: true
+      versioningScheme: byBuildNumber
+
+  - task: NuGetCommand@2
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+    inputs:
+      command: 'push'
+      packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+      nuGetFeedType: 'external'
+      publishFeedCredentials: 'swnuget' 
+
+- job: build
+  displayName: Build, push image and chart and deploy to playground
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+  steps:
+
+  - task: VersionDotNetCoreAssemblies@2
+    inputs:
+      Path: '$(Build.SourcesDirectory)'
+      VersionNumber: '$(Build.BuildNumber)'
+      Injectversion: False
+      VersionRegex: '\d+\.\d+\.\d+'
+      FilenamePattern: '.csproj'
+      SDKNames: 'Microsoft.NET.Sdk'
+      OutputVersion: 'OutputedVersion'
+
+  - task: Docker@2
+    displayName: Build and push an image to container registry
+    inputs:
+      command: buildAndPush
+      repository: $(imageName)
+      dockerfile: $(Build.SourcesDirectory)/Dockerfile
+      containerRegistry: simplyworksacr
+      tags: |
+        $(version)
+        latest
+
+  - task: HelmInstaller@0
+    displayName: 'Install Helm 3.2.4'
+    inputs:
+      helmVersion: '3.2.4'
+      checkLatestHelmVersion: false
+      installKubectl: false
+
+  - task: HelmDeploy@0
+    displayName: Helm package
+    inputs:
+      command: package
+      chartPath: charts/default
+      arguments: --version $(version) --app-version $(version)
+
+  - task: Bash@3
+    displayName: 'Upload to chart museum'
+    inputs:
+      targetType: 'inline'
+      script: |
+        for f in $(Build.ArtifactStagingDirectory)/*.tgz
+        do 
+          echo "Uploading @$f"
+          curl --data-binary "@$f" https://charts.sf9.io/api/charts --user $(CmUser):$(CmPassword)
+        done 
+
+  - task: HelmDeploy@0
+    displayName: 'Deploy to playground'
+    inputs:
+      connectionType: 'Kubernetes Service Connection'
+      kubernetesServiceConnection: 'k8s-s9'
+      namespace: 'playground'
+      command: 'upgrade'
+      chartName: '$(imageName)'
+      chartVersion: $(version)
+      releaseName: '$(imageName)'
+      overrideValues: 'db=$(dbconnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io}'
+      arguments: --repo https://charts.sf9.io

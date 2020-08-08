@@ -1,0 +1,48 @@
+﻿@page "{id:int?}"
+@model SW.Infolink.Web.Pages.Documents.EditModel
+@{
+
+    ViewData["Title"] = Model.Id == 0 ? "Create" : "Edit";
+    var disabled = Model.Id != 0;
+
+}
+
+
+<div class="card card-default">
+    <div class="card-header">@ViewData["Title"]</div>
+    <div class="card-body">
+        <form method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+
+            <div class="form-group">
+                <label asp-for="Id"></label>
+                <input asp-for="Id" class="form-control" disabled="@disabled"  />
+            </div>
+            
+            <div class="form-group">
+                <label asp-for="Document.Name"></label>
+                <input asp-for="Document.Name" class="form-control"  />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Document.DuplicateInterval">Duplicate Interval</label>
+                <input asp-for="Document.DuplicateInterval" class="form-control"  />
+            </div>
+
+            <div class="form-group">
+                <input type="checkbox" asp-for="Document.BusEnabled" class="input-group-sm" />
+                <label class="form-check-label" asp-for="Document.BusEnabled"></label>
+                <input asp-for="Document.BusMessageTypeName" class="form-control" placeholder="Bus Message Type Name" />
+            </div>
+
+            <div class="form-group">
+                <label asp-for="PromotedProperties">Promoted Properties</label>
+                <textarea asp-for="PromotedProperties" class="form-control" rows="5" placeholder="PropertyKey1=PropertyValue1;&#x0aPropertyKey2=PropertyValue2;"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a asp-page="/Documents/Index" class="btn btn-secondary" role="button">Cancel</a>
+
+        </form>
+    </div>
+</div>

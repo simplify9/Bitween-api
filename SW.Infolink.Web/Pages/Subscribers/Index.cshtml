@@ -1,0 +1,108 @@
+﻿@page
+
+@model SW.Infolink.Web.Pages.Subscribers.IndexModel
+@{
+    ViewData["Title"] = "Subscribers";
+}
+@functions{
+
+    string GetTitle()
+    {
+        string _page = Request.Query["p"].ToString();
+        if (!string.IsNullOrEmpty(_page))
+        {
+            return _page.Replace('-', ' ');
+        }
+        else
+        {
+            return "All Contacts";
+        }
+    }
+}
+
+<form method="post">
+
+    <partial name="_FilterPartial" model="Model.SearchFilter" />
+
+    <partial name="_AlertPartial" model="Model.Alert" />
+
+    @if (Model.Data != null && Model.Pager.TotalCount > 0)
+    {
+
+        <table class="table table-striped table-sm table-bordered mt-3">
+
+            <tr>
+                <th>ID</th>
+                <th>Subscriber</th>
+
+                <th>Document</th>
+                <th>Handler</th>
+                <th>Mapper</th>
+                <th>KeySet</th>
+                <th>Props</th>
+                <th>Temp</th>
+                <th>Inactive</th>
+                <th>Aggregate</th>
+                <th>Schedule</th>
+                <th>Action</th>
+            </tr>
+
+            @foreach (var item in Model.Data)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td style="word-break:break-all;">@item.Name</td>
+                    <td style="word-break:break-all;">@item.DocumentName</td>
+                    <td style="word-break:break-all;">@item.HandlerName</td>
+                    <td style="word-break:break-all;">@item.MapperName</td>
+                    <td style="word-break:break-all;">@item.KeySetName</td>
+                    <td style="word-break:break-all;">
+                        @{
+                            if (item.Properties != null)
+                            {
+                                foreach (var i in item.Properties)
+                                {
+                                    <text> @i.Key = @i.Value;</text>
+                                }
+                            }
+                        }
+                    </td>
+                    <td>@item.Temporary</td>
+                    <td>@item.Inactive</td>
+                    <td>@item.Aggregate</td>
+                    @{
+                        var timeSpans = "";
+                        var timeSpans2 = "2";
+                        if (item.Schedules?.Count > 0)
+                        {
+
+                            foreach (var s in item.Schedules)
+                            {
+
+
+
+                                timeSpans += $"{s.Recurrence}={s.On};";
+
+
+                            }
+                        }
+                    }
+
+                    <td style="word-break:break-all;">@timeSpans.ToString()</td>
+
+                    <td style="color:lightgray"><a asp-page="./Edit" asp-route-id="@item.Id">Edit</a>|<a asp-page="./Delete" asp-route-id="@item.Id">Delete</a></td>
+
+
+                </tr>
+            }
+
+
+
+
+        </table>
+    }
+
+    <partial name="_PageNumberButtons" model="Model.Pager" />
+
+</form>
+

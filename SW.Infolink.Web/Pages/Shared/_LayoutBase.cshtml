@@ -1,0 +1,26 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Infolink</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    @* reference Bootstrap – see Bootstrap docs for version-specific line of code *@
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/fontawesome.css" />
+    <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/solid.min.css">
+    <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/regular.min.css">
+</head>
+<body>
+    @RenderBody()
+    <div style="height:100px">
+        <footer class="border-top footer ">
+            <div class="container">
+                &copy; 2019 - Infolink (@this.GetType().Assembly.GetName().Version) - <a asp-area="" asp-page="/Privacy">Privacy</a>
+            </div>
+        </footer>
+    </div>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

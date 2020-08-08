@@ -1,0 +1,26 @@
+﻿@page
+@model SW.Infolink.Web.Pages.LoginModel
+@{
+    Layout = "_LayoutBase";
+}
+<div class="container mt-5">
+    <div class="card card-default">
+        <div class="card-header">Login Required</div>
+        <div class="card-body">
+            <form method="post">
+                <div asp-validation-summary="All" class="text-danger"></div>
+                <div class="form-group ">
+                    <label asp-for="Username" >Username</label>
+                    <input asp-for="Username" type="text" class="form-control" placeholder="Username">
+                </div>
+                <div class="form-group ">
+                    <label asp-for="Password" >Password</label>
+                    <input asp-for="Password" type="password" class="form-control" placeholder="Password">
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+
