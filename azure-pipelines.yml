@@ -8,6 +8,7 @@ pool:
 
 variables:
 - group: Chartmuseum
+- group: RabbitMQ
 - name: imageName
   value: 'infolink'
 - name: containerRegistry
@@ -107,7 +108,6 @@ jobs:
       command: package
       chartPath: charts/default
       arguments: --version $(version) --app-version $(version)
-      updatedependency: true
 
   - task: Bash@3
     displayName: 'Upload to chart museum'
@@ -130,5 +130,5 @@ jobs:
       chartName: '$(imageName)'
       chartVersion: $(version)
       releaseName: '$(imageName)'
-      overrideValues: 'db=$(dbconnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io}'
+      overrideValues: 'db=$(dbconnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(RabbitMQConnection)'
       arguments: --repo https://charts.sf9.io

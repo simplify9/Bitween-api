@@ -72,4 +72,7 @@ global:
     esUser: ""
     esPassword: ""
 
+  bus:
+    rabbitUrl: ""
+
 
