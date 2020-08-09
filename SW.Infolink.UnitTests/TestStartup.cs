@@ -79,7 +79,7 @@ namespace SW.Infolink.UnitTests
                 };
                 ctxt.Add(doc3);
 
-                var adp = new Adapter(AdapterType.Mapper, "TestAdapter", 1, "");
+                var adp = new Adapter(AdapterType.Mapper, "TestAdapter", "");
                 ctxt.Add(adp);
 
                 var sub1 = new Subscriber("Test", 1)

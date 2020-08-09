@@ -108,6 +108,7 @@ jobs:
       command: package
       chartPath: charts/default
       arguments: --version $(version) --app-version $(version)
+      updatedependency: true
 
   - task: Bash@3
     displayName: 'Upload to chart museum'

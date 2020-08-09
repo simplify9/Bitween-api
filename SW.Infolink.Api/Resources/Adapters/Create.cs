@@ -20,7 +20,7 @@ namespace SW.Infolink.Api.Resources.Adapters
 
         async public Task<object> Handle(AdapterConfig model)
         {
-            var entity = new Adapter((AdapterType)model.Type, model.Name, model.DocumentId, model.ServerlessId)
+            var entity = new Adapter((AdapterType)model.Type, model.Name, model.ServerlessId)
             {
                 Properties = model.Properties.ToDictionary(),
                 Description = model.Description,

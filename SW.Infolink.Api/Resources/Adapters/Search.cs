@@ -32,7 +32,7 @@ namespace SW.Infolink.Api.Resources.Adapters
                             Timeout = e.Timeout,
                             Type = e.Type,
                             Description = e.Description,
-                            DocumentId = e.DocumentId
+                            //DocumentId = e.DocumentId
                         };
 
             sr.TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync();

@@ -26,7 +26,7 @@ namespace SW.Infolink.Api.Resources.Adapters
                 Select(adapter => new AdapterConfig
                 {
                     Description = adapter.Description,
-                    DocumentId = adapter.DocumentId,
+                    //DocumentId = adapter.DocumentId,
                     //Hash = adapter.Hash,
                     Name = adapter.Name,
                     //Package = null,

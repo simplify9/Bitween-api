@@ -37,8 +37,13 @@ namespace SW.Infolink
                 b.ToTable("Adapters", schema);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.ServerlessId).IsUnicode(false).HasMaxLength(200);
-                //b.Property(p => p.Hash).IsRequired().IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.Properties).StoreAsJson();
+
+                //b.HasData(
+                //    new Adapter(AdapterType.Handler, "", ""),
+                //    new Adapter(AdapterType.Handler, "", ""),
+                //    new Adapter(AdapterType.Handler, "", "")
+                //    );
             });
 
             modelBuilder.Entity<Document>(b =>
@@ -104,16 +109,14 @@ namespace SW.Infolink
         {
             try
             {
-                using (var transaction = Database.BeginTransaction())
-                {
-                    var affectedRecords = await base.SaveChangesAsync(cancellationToken);
+                using var transaction = Database.BeginTransaction();
+                var affectedRecords = await base.SaveChangesAsync(cancellationToken);
 
-                    await ChangeTracker.DispatchDomainEvents(domainEventDispatcher);
+                await ChangeTracker.DispatchDomainEvents(domainEventDispatcher);
 
-                    await transaction.CommitAsync();
+                await transaction.CommitAsync();
 
-                    return affectedRecords;
-                }
+                return affectedRecords;
 
             }
             catch (DbUpdateException dbUpdateException)

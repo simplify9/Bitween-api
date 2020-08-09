@@ -11,18 +11,18 @@ namespace SW.Infolink.Domain
         {
         }
 
-        public Adapter(AdapterType type, string name, int documentId, string serverlessId) 
+        public Adapter(AdapterType type, string name, string serverlessId) 
         {
             Type = type;
             Name = name;
-            DocumentId = documentId;
+            //DocumentId = documentId;
             Properties = new Dictionary<string, string>();
             ServerlessId = serverlessId;
         }
 
         public AdapterType Type { get; private set; }
         public string Name { get; set; }
-        public int DocumentId { get; set; }
+        //public int DocumentId { get; set; }
         public string Description { get; set; }
         public int Timeout { get; set; }
         public string ServerlessId { get; set; }
