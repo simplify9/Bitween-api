@@ -11,8 +11,6 @@ variables:
 - group: RabbitMQ
 - name: imageName
   value: 'infolink'
-- name: containerRegistry
-  value: 'simplyworks.azurecr.io'
 - name: major
   value: 2
 - name: minor
@@ -90,7 +88,7 @@ jobs:
       command: buildAndPush
       repository: $(imageName)
       dockerfile: $(Build.SourcesDirectory)/Dockerfile
-      containerRegistry: simplyworksacr
+      containerRegistry: 'simplyworks.azurecr.io'
       tags: |
         $(version)
         latest
