@@ -12,7 +12,7 @@ variables:
 - name: imageName
   value: 'infolink'
 - name: version
-  value: $[format('{0}.{1}.{2}', 2, 0, counter('2.0', 0))]
+  value: $[format('2.0.{0}', counter('2.0', 0))]
 
 jobs:
 

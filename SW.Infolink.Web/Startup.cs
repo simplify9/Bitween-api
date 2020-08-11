@@ -46,7 +46,7 @@ namespace SW.Infolink.Web
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
             services.AddDomainEvents(typeof(InfolinkDbContext).Assembly);
             services.AddCqApi(typeof(InfolinkDbContext).Assembly);
-            services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
+            services.AddApiClient<IInfolinkClient, InfolinkClient, InfolinkClientOptions>();
             services.AddCloudFiles();
             services.AddServerless();
             services.AddScoped<RequestContext>();
