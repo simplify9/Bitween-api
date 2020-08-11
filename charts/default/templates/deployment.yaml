@@ -82,6 +82,30 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: db
 
+            - name: CloudFiles__AccessKeyId
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesAccessKeyId
+
+            - name: CloudFiles__SecretAccessKey 
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesSecretAccessKey
+
+            - name: CloudFiles__ServiceUrl 
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesServiceUrl
+
+            - name: CloudFiles__BucketName 
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesBucketName
+
             - name: ConnectionStrings__RabbitMQ 
               valueFrom:
                 secretKeyRef:

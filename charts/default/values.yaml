@@ -75,4 +75,10 @@ global:
   bus:
     rabbitUrl: ""
 
+  cloudFiles:
+    accessKeyId: ""
+    secretAccessKey: ""
+    serviceUrl: ""
+    bucketName: ""
+
 

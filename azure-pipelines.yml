@@ -8,17 +8,11 @@ pool:
 
 variables:
 - group: Chartmuseum
-- name: containerRegistry
-  value: 'simplyworks.azurecr.io'
+- group: S3Bucket
 - name: imageName
   value: 'infolink'
-- name: major
-  value: 2
-- name: minor
-  value: 0
 - name: version
-  value: $[format('{0}.{1}.{2}', variables['major'], variables['minor'], counter(format('{0}.{1}', variables['major'], variables['minor']), 0))]
-
+  value: $[format('{0}.{1}.{2}', 2, 0, counter('2.0', 0))]
 
 jobs:
 
@@ -130,5 +124,5 @@ jobs:
       chartName: '$(imageName)'
       chartVersion: $(version)
       releaseName: '$(imageName)'
-      overrideValues: 'db=$(dbConnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(rabbitUrl)'
+      overrideValues: 'db=$(dbConnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(rabbitUrl),global.cloudFiles.secretAccessKey=$(SecretAccessKey),global.cloudFiles.accessKeyId=$(AccessKeyId),global.cloudFiles.serviceUrl=$(ServiceUrl),global.cloudFiles.bucketName=$(BucketName)'
       arguments: --repo https://charts.sf9.io
