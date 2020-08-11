@@ -8,6 +8,8 @@ pool:
 
 variables:
 - group: Chartmuseum
+- name: containerRegistry
+  value: 'simplyworks.azurecr.io'
 - name: imageName
   value: 'infolink'
 - name: major
@@ -87,7 +89,7 @@ jobs:
       command: buildAndPush
       repository: $(imageName)
       dockerfile: $(Build.SourcesDirectory)/Dockerfile
-      containerRegistry: 'simplyworks.azurecr.io'
+      containerRegistry: containerRegistry
       tags: |
         $(version)
         latest
