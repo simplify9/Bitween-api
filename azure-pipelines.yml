@@ -89,7 +89,7 @@ jobs:
       command: buildAndPush
       repository: $(imageName)
       dockerfile: $(Build.SourcesDirectory)/Dockerfile
-      containerRegistry: containerRegistry
+      containerRegistry: simplyworksacr
       tags: |
         $(version)
         latest
