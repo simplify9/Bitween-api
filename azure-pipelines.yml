@@ -8,7 +8,6 @@ pool:
 
 variables:
 - group: Chartmuseum
-- group: RabbitMQ
 - name: imageName
   value: 'infolink'
 - name: major
@@ -129,5 +128,5 @@ jobs:
       chartName: '$(imageName)'
       chartVersion: $(version)
       releaseName: '$(imageName)'
-      overrideValues: 'db=$(dbconnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(RabbitMQConnection)'
+      overrideValues: 'db=$(dbConnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(rabbitUrl)'
       arguments: --repo https://charts.sf9.io

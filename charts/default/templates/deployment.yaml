@@ -1,3 +1,138 @@
-{{- include "swlib.deployment" (list . "{{ .Chart.Name }}.deployment") -}}
-{{- define "{{ .Chart.Name }}.deployment" -}}
-{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "project.fullname" . }}
+  labels:
+    app: {{ template "project.name" . }}
+    chart: {{ template "project.chart" . }}
+    draft: {{ .Values.draft | default "draft-app" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "project.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "project.name" . }}
+        draft: {{ .Values.draft | default "draft-app" }}
+        release: {{ .Release.Name }}
+      annotations:
+        buildID: {{ .Values.buildID | default "" | quote }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "simplyworks.azurecr.io/{{ .Chart.Name }}:{{ .Chart.Version }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          {{- if .Values.probes.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          {{- end }}
+          env:
+
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ .Values.global.environment }}
+
+            - name: SwLogger__ApplicationName
+              value: {{ template "project.fullname" . }}
+
+            - name: SwLogger__ElasticsearchEnvironments
+              value: {{ .Values.global.environment }}
+
+            {{- if .Values.global.logger.esUrl }}
+            - name: SwLogger__ElasticsearchUrl
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: esUrl
+            {{- end }}
+
+            {{- if .Values.global.logger.esUser }}
+            - name: SwLogger__ElasticsearchUser
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: esUser
+            {{- end }}
+
+            {{- if .Values.global.logger.esPassword }}
+            - name: SwLogger__ElasticsearchPassword
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: esPassword
+            {{- end }}
+
+            - name: {{ .Values.dbConnectionStringName }} 
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: db
+
+            - name: ConnectionStrings__RabbitMQ 
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: rabbitUrl
+
+            - name: Token__Key
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: tokenKey
+
+            - name: Token__Issuer
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: tokenIssuer
+
+            - name: Token__Audience
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: tokenAudience
+
+
+
+            {{- $root := . }}
+            {{- range $key, $values := .Values.secrets }}
+
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: {{ $key }}
+
+            {{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
