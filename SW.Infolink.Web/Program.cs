@@ -14,7 +14,7 @@ namespace SW.Infolink.Web
     {
         public static void Main(string[] args)
         {
-            CreateHostBuilder(args).Build().MigrateDatabase<InfolinkDbContext>().Run();
+            CreateHostBuilder(args).UseSwLogger().Build().MigrateDatabase<InfolinkDbContext>().Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
@@ -26,8 +26,7 @@ namespace SW.Infolink.Web
                     {
                         options.Limits.MaxRequestBodySize = 52428800; //50MB
                     });
-                })
-                .UseSwLogger();
+                });
 
     }
 }
