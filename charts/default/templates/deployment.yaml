@@ -52,6 +52,9 @@ spec:
             - name: SwLogger__ElasticsearchEnvironments
               value: {{ .Values.global.environment }}
 
+            - name: InfolinkClient__BaseUrl
+              value: http://{{ template "project.fullname" . }}/cqapi/
+
             {{- if .Values.global.logger.esUrl }}
             - name: SwLogger__ElasticsearchUrl
               valueFrom:
