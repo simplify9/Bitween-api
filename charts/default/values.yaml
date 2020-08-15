@@ -58,6 +58,8 @@ db: ""
 
 dbConnectionStringName: ConnectionStrings__InfolinkDb
 
+databaseType: "mysql"
+
 global:
 
   environment: Development
