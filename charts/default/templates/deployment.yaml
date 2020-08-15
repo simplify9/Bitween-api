@@ -46,6 +46,9 @@ spec:
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.global.environment }}
 
+            - name: DatabaseType
+              value: {{ .Values.databaseType }}
+
             - name: SwLogger__ApplicationName
               value: {{ template "project.fullname" . }}
 
