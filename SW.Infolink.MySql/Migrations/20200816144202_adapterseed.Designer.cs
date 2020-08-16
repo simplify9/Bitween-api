@@ -2,15 +2,17 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Infolink;
 
 namespace SW.Infolink.MySql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    partial class InfolinkDbContextModelSnapshot : ModelSnapshot
+    [Migration("20200816144202_adapterseed")]
+    partial class adapterseed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
