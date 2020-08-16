@@ -3,10 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using SW.EfCoreExtensions;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain;
+using SW.EfCoreExtensions;
 
 namespace SW.Infolink.Api.Resources.Adapters
 {
@@ -32,7 +32,8 @@ namespace SW.Infolink.Api.Resources.Adapters
                             Timeout = e.Timeout,
                             Type = e.Type,
                             Description = e.Description,
-                            //DocumentId = e.DocumentId
+                            //DocumentId = e.DocumentId,
+                            ServerlessId = e.ServerlessId
                         };
 
             sr.TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync();
