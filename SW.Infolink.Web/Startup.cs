@@ -91,9 +91,10 @@ namespace SW.Infolink.Web
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Token:Key"]))
                     };
                 })
-                .AddCookie(configureOptions =>
+                .AddCookie(options =>
                 {
-                    configureOptions.LoginPath = "/login";
+                    options.Cookie.Name = "InfolinkUser";
+                    options.LoginPath = "/login";
                 });
         }
 
@@ -104,6 +105,8 @@ namespace SW.Infolink.Web
             {
                 app.UseDeveloperExceptionPage();
             }
+
+            app.UsePathBase("/_infolink");
 
             app.UseStaticFiles();
             app.UseRouting();
