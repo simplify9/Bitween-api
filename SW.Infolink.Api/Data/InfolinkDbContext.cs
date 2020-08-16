@@ -40,17 +40,17 @@ namespace SW.Infolink
                 b.Property(p => p.Properties).StoreAsJson();
 
                 b.HasData(
-                    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "infolink.jsontocsvmapper"),
-                    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "infolink.jsontoxmlmapper"),
-                    new Adapter(AdapterType.Handler, "As2FileHandler", "infolink.as2filehandler"),
-                    new Adapter(AdapterType.Handler, "FtpFileHandler", "infolink.ftpfilehandler"),
-                    new Adapter(AdapterType.Handler, "HttpFileHandler", "infolink.httpfilehandler"),
-                    new Adapter(AdapterType.Handler, "SftpFileHandler", "infolink.sftpfilehandler"),
-                    new Adapter(AdapterType.Handler, "S3FileHandler", "infolink.s3filehandler"),
-                    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "infolink.azureblobfilehandler"),
-                    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "infolink.azureBlobfilereceiver"),
-                    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "infolink.sftpfilereceiver"),
-                    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "infolink.ftpfilereceiver")
+                    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "infolink.jsontocsvmapper") { Id = 1 },
+                    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "infolink.jsontoxmlmapper") { Id = 2 },
+                    new Adapter(AdapterType.Handler, "As2FileHandler", "infolink.as2filehandler") { Id = 3 },
+                    new Adapter(AdapterType.Handler, "FtpFileHandler", "infolink.ftpfilehandler") { Id = 4 },
+                    new Adapter(AdapterType.Handler, "HttpFileHandler", "infolink.httpfilehandler") { Id = 5 },
+                    new Adapter(AdapterType.Handler, "SftpFileHandler", "infolink.sftpfilehandler") { Id = 6 },
+                    new Adapter(AdapterType.Handler, "S3FileHandler", "infolink.s3filehandler") { Id = 7 },
+                    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "infolink.azureblobfilehandler") { Id = 8 },
+                    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "infolink.azureBlobfilereceiver") { Id = 9 },
+                    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "infolink.sftpfilereceiver") { Id = 10 },
+                    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "infolink.ftpfilereceiver") { Id = 11 }
                     );
             });
 
