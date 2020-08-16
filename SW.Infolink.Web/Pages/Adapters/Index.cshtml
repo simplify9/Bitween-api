@@ -19,6 +19,7 @@
                 <th>Timeout</th>
                 <th>Properties</th>
                 <th>Description</th>
+                <th>ServerlessId</th>
                 <th>Action</th>
             </tr>
 
@@ -39,6 +40,7 @@
                         }
                     </td>
                     <td>@item.Description</td>
+                    <td>@item.ServerlessId</td>
                     <td style="color:lightgray"><a asp-page="./Edit" asp-route-id="@item.Id">Edit</a>|<a asp-page="./Delete" asp-route-id="@item.Id">Delete</a></td>
                 </tr>
             }

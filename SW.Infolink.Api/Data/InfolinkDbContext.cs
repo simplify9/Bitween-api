@@ -40,17 +40,17 @@ namespace SW.Infolink
                 b.Property(p => p.Properties).StoreAsJson();
 
                 b.HasData(
-                    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "JsonToCsvMapper"),
-                    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "JsonToXmlMapper"),
-                    new Adapter(AdapterType.Handler, "As2FileHandler", "As2FileHandler"),
-                    new Adapter(AdapterType.Handler, "FtpFileHandler", "FtpFileHandler"),
-                    new Adapter(AdapterType.Handler, "HttpFileHandler", "HttpFileHandler"),
-                    new Adapter(AdapterType.Handler, "SftpFileHandler", "SftpFileHandler"),
-                    new Adapter(AdapterType.Handler, "S3FileHandler", "S3FileHandler"),
-                    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "AzureBlobFileHandler"),
-                    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "AzureBlobFileReceiver"),
-                    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "SftpFileReceiver"),
-                    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "FtpFileReceiver")
+                    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "infolink.jsontocsvmapper"),
+                    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "infolink.jsontoxmlmapper"),
+                    new Adapter(AdapterType.Handler, "As2FileHandler", "infolink.as2filehandler"),
+                    new Adapter(AdapterType.Handler, "FtpFileHandler", "infolink.ftpfilehandler"),
+                    new Adapter(AdapterType.Handler, "HttpFileHandler", "infolink.httpfilehandler"),
+                    new Adapter(AdapterType.Handler, "SftpFileHandler", "infolink.sftpfilehandler"),
+                    new Adapter(AdapterType.Handler, "S3FileHandler", "infolink.s3filehandler"),
+                    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "infolink.azureblobfilehandler"),
+                    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "infolink.azureBlobfilereceiver"),
+                    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "infolink.sftpfilereceiver"),
+                    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "infolink.ftpfilereceiver")
                     );
             });
 

@@ -15,7 +15,6 @@ namespace SW.Infolink.Domain
         {
             Type = type;
             Name = name;
-            //DocumentId = documentId;
             Properties = new Dictionary<string, string>();
             ServerlessId = serverlessId;
         }
