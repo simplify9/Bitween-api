@@ -39,11 +39,19 @@ namespace SW.Infolink
                 b.Property(p => p.ServerlessId).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.Properties).StoreAsJson();
 
-                //b.HasData(
-                //    new Adapter(AdapterType.Handler, "", ""),
-                //    new Adapter(AdapterType.Handler, "", ""),
-                //    new Adapter(AdapterType.Handler, "", "")
-                //    );
+                b.HasData(
+                    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "JsonToCsvMapper"),
+                    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "JsonToXmlMapper"),
+                    new Adapter(AdapterType.Handler, "As2FileHandler", "As2FileHandler"),
+                    new Adapter(AdapterType.Handler, "FtpFileHandler", "FtpFileHandler"),
+                    new Adapter(AdapterType.Handler, "HttpFileHandler", "HttpFileHandler"),
+                    new Adapter(AdapterType.Handler, "SftpFileHandler", "SftpFileHandler"),
+                    new Adapter(AdapterType.Handler, "S3FileHandler", "S3FileHandler"),
+                    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "AzureBlobFileHandler"),
+                    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "AzureBlobFileReceiver"),
+                    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "SftpFileReceiver"),
+                    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "FtpFileReceiver")
+                    );
             });
 
             modelBuilder.Entity<Document>(b =>
