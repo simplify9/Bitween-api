@@ -47,7 +47,7 @@ spec:
               value: {{ .Values.global.environment }}
 
             - name: DatabaseType
-              value: {{ .Values.databaseType }}
+              value: {{ .Values.dbType }}
 
             - name: SwLogger__ApplicationName
               value: {{ template "project.fullname" . }}
