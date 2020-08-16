@@ -14,9 +14,7 @@ metadata:
     heritage: {{ .Release.Service }}
 
   annotations:
-  {{- if ne $ingressPath "/"}}
-    nginx.ingress.kubernetes.io/rewrite-target: /$2 
-  {{- end -}}
+
 {{- with .Values.ingress.annotations }}    
 
 
@@ -40,16 +38,9 @@ spec:
     - host: {{ . }} 
       http:
         paths:
-        {{- if ne $ingressPath "/"}}
-        - path: "{{ $ingressPath }}(/|$)(.*)"
-          backend:
-            serviceName: {{ $fullName }}
-            servicePort: http
-        {{ else }}
         - path: {{ $ingressPath }}
           backend:
             serviceName: {{ $fullName }}
             servicePort: http
-        {{- end -}}
   {{- end }}
 {{- end }}
