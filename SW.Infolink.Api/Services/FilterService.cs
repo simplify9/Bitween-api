@@ -34,59 +34,58 @@ namespace SW.Infolink
 
         void Prepare()
         {
-            using (var scope = ssf.CreateScope())
+            using var scope = ssf.CreateScope();
+
+            var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+
+            documentFilter.Clear();
+
+            var docs = repo.List<Document>();
+
+            foreach (var doc in docs)
             {
-                var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
 
-                documentFilter.Clear();
+                var df = new DocumentFilter();
+                documentFilter.Add(doc.Id, df);
 
-                var docs = repo.List<Document>();
+                var subs = repo.List(new SubscribersByDocument(doc.Id));//.Select
 
-                foreach (var doc in docs)
+                if (doc.PromotedProperties.Count == 0)
                 {
-
-                    var df = new DocumentFilter();
-                    documentFilter.Add(doc.Id, df);
-
-                    var subs = repo.List(new SubscribersByDocument(doc.Id));//.Select
-
-                    if (doc.PromotedProperties.Count == 0)
+                    df.SubscribersWihtoutPropertyFilter = subs.Select(e => e.Id).ToArray();
+                }
+                else
+                {
+                    foreach (var iprop in doc.PromotedProperties)
                     {
-                        df.SubscribersWihtoutPropertyFilter = subs.Select(e => e.Id).ToArray();
-                    }
-                    else
-                    {
-                        foreach (var iprop in doc.PromotedProperties)
+
+                        var pf = new PropertyFilter(iprop.Value);
+                        df.Properties.Add(iprop.Key, pf);
+
+                        foreach (var sub in subs)
                         {
-
-                            var pf = new PropertyFilter(iprop.Value);
-                            df.Properties.Add(iprop.Key, pf);
-
-                            foreach (var sub in subs)
+                            if (sub.DocumentFilter.TryGetValue(iprop.Key, out var val))
                             {
-                                if (sub.DocumentFilter.TryGetValue(iprop.Key, out var val))
+                                var valarr = val.Split(",".ToArray(), StringSplitOptions.RemoveEmptyEntries);
+                                foreach (var valitem in valarr)
                                 {
-                                    var valarr = val.Split(",".ToArray(), StringSplitOptions.RemoveEmptyEntries);
-                                    foreach (var valitem in valarr)
+                                    var valclean = valitem.Replace("\"", "").Trim().ToLower();
+                                    if (string.IsNullOrEmpty(valclean))
                                     {
-                                        var valclean = valitem.Replace("\"", "").Trim().ToLower();
-                                        if (string.IsNullOrEmpty(valclean))
-                                        {
-                                            throw new InfolinkException();
-                                        }
-                                        else
-                                        {
-                                            if (!pf.SubscribersByValues.ContainsKey(valclean))
-                                                pf.SubscribersByValues[valclean] = new List<int>();
-                                            pf.SubscribersByValues[valclean].Add(sub.Id);
-                                        }
+                                        throw new InfolinkException();
                                     }
+                                    else
+                                    {
+                                        if (!pf.SubscribersByValues.ContainsKey(valclean))
+                                            pf.SubscribersByValues[valclean] = new List<int>();
+                                        pf.SubscribersByValues[valclean].Add(sub.Id);
+                                    }
+                                }
 
-                                }
-                                else
-                                {
-                                    pf.Ignored.Add(sub.Id);
-                                }
+                            }
+                            else
+                            {
+                                pf.Ignored.Add(sub.Id);
                             }
                         }
                     }

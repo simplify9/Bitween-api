@@ -1,5 +1,4 @@
-﻿
-using SW.PrimitiveTypes;
+﻿using SW.PrimitiveTypes;
 using System;
 using System.Runtime.Serialization;
 

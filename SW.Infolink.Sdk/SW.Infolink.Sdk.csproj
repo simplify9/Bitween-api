@@ -12,8 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="2.0.12" />
-    <PackageReference Include="SimplyWorks.HttpExtensions" Version="2.0.3" />
+    <PackageReference Include="SimplyWorks.HttpExtensions" Version="2.0.12" />
   </ItemGroup>
 
   <ItemGroup>

@@ -6,16 +6,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="3.1.6">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="3.1.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Humanizer.Core" Version="2.8.26" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.6" />
-    <PackageReference Include="SimplyWorks.Bus" Version="2.0.1" />
-    <PackageReference Include="SimplyWorks.CloudFiles.Extensions" Version="2.0.0" />
-    <PackageReference Include="SimplyWorks.CqApi" Version="2.0.3" />
-    <PackageReference Include="SimplyWorks.DomainEvents" Version="2.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.7" />
+    <PackageReference Include="SimplyWorks.Bus" Version="2.0.4" />
+    <PackageReference Include="SimplyWorks.CloudFiles.Extensions" Version="2.0.3" />
+    <PackageReference Include="SimplyWorks.CqApi" Version="2.0.13" />
+    <PackageReference Include="SimplyWorks.DomainEvents" Version="2.0.1" />
     <PackageReference Include="SimplyWorks.Logger" Version="2.0.2" />
     <PackageReference Include="SimplyWorks.Serverless" Version="2.0.0" />
   </ItemGroup>

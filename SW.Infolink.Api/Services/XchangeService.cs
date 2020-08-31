@@ -9,30 +9,17 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    public class XchangeService :
-        IConsume<PipelineFinishedMessage>
+    public class XchangeService : IConsume<PipelineFinishedMessage>
     {
-        //readonly InfolinkRepo repo;
         readonly XchangeDmsService infolinkDms;
-        //readonly InfolinkSettings settings;
-        //readonly XchangePipelineService xchangePipeline;
         private readonly InfolinkDbContext dbContext;
-        private readonly FilterService filterService;
-
-        //readonly XchangeDms xchangeDms;
 
         public XchangeService(
             XchangeDmsService infolinkDms,
-            //InfolinkSettings settings,
-            //XchangePipelineService xchangePipeline,
-            InfolinkDbContext dbContext,
-            FilterService filterService)
+            InfolinkDbContext dbContext)
         {
             this.infolinkDms = infolinkDms;
-            //this.settings = settings;
-            //this.xchangePipeline = xchangePipeline;
             this.dbContext = dbContext;
-            this.filterService = filterService;
         }
 
         public async Task<int> Retry(int xchangeId)

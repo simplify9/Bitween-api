@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace SW.Infolink.Web
 {
-    internal static class ModelMappingExtensions
+    internal static class MappingExtensions
     {
         public static Dictionary<string, string> ToDictionary(this string Properties)
         {
@@ -55,7 +55,6 @@ namespace SW.Infolink.Web
             ICollection<Schedule> sch = schedules;
             return sch.Concat(schedule.ToSchedules()).ToList();
         }
-
 
         public static string FromSchedules(this ICollection<Schedule> schedules)
         {
