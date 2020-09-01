@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SW.Infolink
+namespace SW.Infolink.Model
 {
     //public class ReceiverRequest
     //{

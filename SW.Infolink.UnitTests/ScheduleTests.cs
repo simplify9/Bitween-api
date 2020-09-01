@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SW.Infolink.Domain;
+using SW.Infolink.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;

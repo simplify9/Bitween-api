@@ -1,9 +1,7 @@
-﻿
-
+﻿using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace SW.Infolink.Domain
 {
@@ -19,7 +17,6 @@ namespace SW.Infolink.Domain
         }
 
         public string Name { get; set; }
-        //public int KeySetId { get; set; }
         public int DocumentId { get; set; }
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
@@ -31,25 +28,17 @@ namespace SW.Infolink.Domain
         public ICollection<Schedule> Schedules { get; private set; }
         public int ResponseSubscriberId { get; set; }
 
-        public DateTime? NextSchedule()
-        {
-            DateTime? nextSchedule = null;
-            foreach (var sched in Schedules)
-            {
-                var tmpNext = sched.Next();
-                if (nextSchedule == null || tmpNext < nextSchedule)
-                    nextSchedule = tmpNext;
-            }
-            return nextSchedule;
-        }
-
-        //public SubscriberDto ToSubscriberDto()
+        //public DateTime? NextSchedule()
         //{
-        //    return new SubscriberDto
+        //    DateTime? nextSchedule = null;
+        //    foreach (var sched in Schedules)
         //    {
-        //        Id = Id,
-        //        Properties = Properties.ToDictionary()
-        //    };
+        //        var tmpNext = sched.Next();
+        //        if (nextSchedule == null || tmpNext < nextSchedule)
+        //            nextSchedule = tmpNext;
+        //    }
+        //    return nextSchedule;
         //}
+
     }
 }

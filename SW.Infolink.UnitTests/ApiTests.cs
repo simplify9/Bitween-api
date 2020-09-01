@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
+using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 
 namespace SW.Infolink.UnitTests

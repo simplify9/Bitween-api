@@ -7,6 +7,7 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain;
 using SW.EfCoreExtensions;
+using SW.Infolink.Model;
 
 namespace SW.Infolink.Api.Resources.Adapters
 {

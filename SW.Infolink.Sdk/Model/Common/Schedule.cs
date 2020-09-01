@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace SW.Infolink
+namespace SW.Infolink.Model
 {
     public class Schedule : ValueObject
     {

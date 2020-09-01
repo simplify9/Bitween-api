@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SW.Bus;
 using SW.CqApi;
 using SW.Infolink.Domain;
+using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 
 namespace SW.Infolink.UnitTests

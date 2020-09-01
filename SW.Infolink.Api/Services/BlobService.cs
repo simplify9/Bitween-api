@@ -1,4 +1,5 @@
-﻿using SW.PrimitiveTypes;
+﻿using SW.Infolink.Model;
+using SW.PrimitiveTypes;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
+using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;

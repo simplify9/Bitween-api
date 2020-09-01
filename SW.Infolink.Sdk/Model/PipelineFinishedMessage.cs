@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace SW.Infolink
+namespace SW.Infolink.Model
 {
     public class PipelineFinishedMessage 
     {

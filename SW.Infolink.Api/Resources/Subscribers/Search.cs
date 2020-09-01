@@ -7,6 +7,7 @@ using SW.EfCoreExtensions;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain;
+using SW.Infolink.Model;
 
 namespace SW.Infolink.Api.Resources.Subscribers
 {

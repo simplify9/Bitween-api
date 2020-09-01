@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SW.EfCoreExtensions;
+using SW.Infolink.Api;
 using SW.Infolink.Domain;
 using SW.PrimitiveTypes;
 using System;
@@ -104,7 +105,7 @@ namespace SW.Infolink
                             if (!string.IsNullOrWhiteSpace(rec.ReceiverId))
                             {
                                 await RunReceiver(rec.ReceiverId, startupParameters , sub.Id);
-                                rec.ReceiveOn = rec.NextSchedule();
+                                rec.ReceiveOn = rec.Schedules.Next();
                                 await dbContext.SaveChangesAsync();
                             }
 

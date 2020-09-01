@@ -11,6 +11,7 @@ using SW.Infolink.Domain;
 using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
 using SW.PrimitiveTypes;
+using SW.Infolink.Model;
 
 namespace SW.Infolink
 {

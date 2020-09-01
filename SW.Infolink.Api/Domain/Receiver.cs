@@ -1,9 +1,7 @@
-﻿
-
+﻿using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace SW.Infolink.Domain
 {
@@ -24,17 +22,16 @@ namespace SW.Infolink.Domain
         public IReadOnlyDictionary<string, string> Properties { get; set; }
         public DateTime? ReceiveOn { get; set; }
 
-        public DateTime? NextSchedule()
-        {
-            DateTime? nextSchedule = null;
-            foreach (var sched in Schedules)
-            {
-                var tmpNext = sched.Next();
-                if (nextSchedule == null || tmpNext < nextSchedule)
-                    nextSchedule = tmpNext;
-            }
-            return nextSchedule;
-        }
-
+        //public DateTime? NextSchedule()
+        //{
+        //    DateTime? nextSchedule = null;
+        //    foreach (var sched in Schedules)
+        //    {
+        //        var tmpNext = sched.Next();
+        //        if (nextSchedule == null || tmpNext < nextSchedule)
+        //            nextSchedule = tmpNext;
+        //    }
+        //    return nextSchedule;
+        //}
     }
 }

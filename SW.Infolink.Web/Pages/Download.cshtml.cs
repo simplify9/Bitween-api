@@ -10,6 +10,7 @@ using SW.HttpExtensions;
 using SW.Infolink;
 using SW.Infolink.Api.Resources.Blobs;
 using SW.Infolink.Domain;
+using SW.Infolink.Model;
 using SW.Infolink.Sdk;
 
 namespace SW.Infolink.Web.Pages

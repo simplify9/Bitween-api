@@ -20,6 +20,7 @@ using SW.HttpExtensions;
 using SW.Logger;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
+using SW.SimplyRazor;
 
 namespace SW.Infolink.Web
 {
@@ -73,11 +74,22 @@ namespace SW.Infolink.Web
             });
 
             services.AddHealthChecks();
+
             services.AddRazorPages(options =>
             {
+                options.Conventions.AuthorizePage("/_Host");
                 options.Conventions.AuthorizeFolder("/");
                 options.Conventions.AllowAnonymousToPage("/Login");
+
             });
+            services.AddServerSideBlazor();
+            services.AddSimplyRazor(config =>
+            {
+                //config.ApiBaseUri = new Uri(Configuration["ApiUrl"]);
+                //config.BlobsUri = new Uri(Configuration["BlobsUrl"]);
+                config.DefaultApiClientFactory = sp => sp.GetService<InfolinkClient>();
+            });
+
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>
@@ -116,9 +128,10 @@ namespace SW.Infolink.Web
             app.UseRequestContextLogEnricher();
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapRazorPages();
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
+                endpoints.MapBlazorHub();
+                endpoints.MapFallbackToPage("/_Host");
             });
         }
     }

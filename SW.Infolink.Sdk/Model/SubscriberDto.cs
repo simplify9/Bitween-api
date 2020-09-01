@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace SW.Infolink
+namespace SW.Infolink.Model
 {
     public class SubscriberDto 
     {

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SW.Infolink;
+using SW.Infolink.Model;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 

@@ -1,4 +1,5 @@
 ﻿using SW.Infolink.Domain;
+using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;

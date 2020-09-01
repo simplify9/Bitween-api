@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="9.2.0" />
-    <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="2.0.6" />
+    <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="2.0.8" />
   </ItemGroup>
 
   <ItemGroup>

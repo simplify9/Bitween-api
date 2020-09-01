@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using SW.Infolink;
+using SW.Infolink.Model;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 

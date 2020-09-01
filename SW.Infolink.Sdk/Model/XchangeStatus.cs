@@ -1,4 +1,4 @@
-﻿namespace SW.Infolink
+﻿namespace SW.Infolink.Model
 {
     public enum XchangeStatus
     {
