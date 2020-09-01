@@ -80,13 +80,14 @@ namespace SW.Infolink
                 b.Property(p => p.DocumentFilter).StoreAsJson();
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
-
+                b.HasMany(p => p.Receivers).WithOne(p => p.Subscriber).IsRequired(true).HasForeignKey("SubscriberId").OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Receiver>(b =>
             {
                 b.ToTable("Receivers", schema);
                 b.Property(p => p.Id).ValueGeneratedNever();
+                b.Property(p => p.Id).HasSequenceGenerator();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
                 b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("ReceiverSchedules", schema));
                 b.Property(p => p.Properties).StoreAsJson();

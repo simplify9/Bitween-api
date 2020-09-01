@@ -12,7 +12,6 @@ namespace SW.Infolink.Domain
             Name = name ?? throw new ArgumentNullException(nameof(name));
             PromotedProperties = new Dictionary<string, string>();
         }
-
         public string Name { get; set; }
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }

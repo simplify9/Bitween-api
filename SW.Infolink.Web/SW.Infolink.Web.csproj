@@ -6,11 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="OldPages\Index.cshtml.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Remove="OldPages\Index.cshtml" />
+    <Compile Remove="OldPages\**" />
+    <Content Remove="OldPages\**" />
+    <EmbeddedResource Remove="OldPages\**" />
+    <None Remove="OldPages\**" />
   </ItemGroup>
 
 

@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Api.Resources.Documents
 {
-    [HandlerName("update")]
     class Update : ICommandHandler<int, DocumentConfig>
     {
         private readonly InfolinkDbContext dbContext;

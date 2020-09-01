@@ -7,6 +7,7 @@ namespace SW.Infolink.Model
 {
     public class DocumentConfig
     {
+        public int Id { get; set; }
         public string Name { get; set; }
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }

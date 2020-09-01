@@ -10,7 +10,6 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Api.Resources.Subscribers
 {
-    [HandlerName("update")]
     class Update : ICommandHandler<int, SubscriberConfig>
     {
         private readonly InfolinkDbContext dbContext;

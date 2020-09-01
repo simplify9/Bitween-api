@@ -1,0 +1,90 @@
+﻿@typeparam TModel
+@inject NavigationManager navigationManager
+@inject InfolinkClient infolinkClient
+@inject NotifyService notifyService
+
+<h3>Edit @Title</h3>
+
+<Ready Value="model">
+    <IsReady>
+        <div class="row">
+            <div class="col-xl-7 mt-2">
+                <SimplyForm @bind-Value="model">
+                    @ChildContent
+                </SimplyForm>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xl-7 mt-4 mb-2">
+                <BusyButton class="btn btn-primary" OnClick="OnSave">
+                    <Title>
+                        Save
+                    </Title>
+                </BusyButton>
+                <BusyButton class="btn btn-primary">
+                    <Title>
+                        Delete
+                    </Title>
+                    <IfBusy>
+                        <Confirm Title="Delete" OnClick="result => OnConfirmDelete(result, context)">
+                            <p>Are you sure you want to delete this @Title?</p>
+                        </Confirm>
+                    </IfBusy>
+                </BusyButton>
+                <a class="btn btn-secondary" href="@ReturnUrl">Cancel</a>
+            </div>
+        </div>
+    </IsReady>
+</Ready>
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+    [Parameter]
+    public string Title { get; set; }
+
+    [Parameter]
+    public string ApiUrl { get; set; }
+
+    [Parameter]
+    public string ReturnUrl { get; set; }
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+    TModel model;
+
+    async protected override Task OnParametersSetAsync()
+    {
+        var apiResult = await infolinkClient.GetById<TModel>(ApiUrl, Id);
+        await notifyService.NotifyOnApiResult(apiResult);
+        if (apiResult.Success)
+            model = apiResult.Response;
+    }
+
+    async Task OnSave(IBusyButton busyButton)
+    {
+        var apiResult = await infolinkClient.Update($"{ApiUrl}/{Id}", model);
+        await notifyService.NotifyOnApiResult(apiResult);
+        if (apiResult.Success)
+            navigationManager.NavigateTo(ReturnUrl);
+
+        await busyButton.SetBusy(false);
+    }
+
+    async Task OnConfirmDelete(bool result, IBusyButton busyButton)
+    {
+        if (result)
+        {
+            var apiResult = await infolinkClient.Delete(ApiUrl);
+            await notifyService.NotifyOnApiResult(apiResult);
+            if (apiResult.Success)
+                navigationManager.NavigateTo(ReturnUrl);
+        }
+
+        await busyButton.SetBusy(false);
+    }
+
+}

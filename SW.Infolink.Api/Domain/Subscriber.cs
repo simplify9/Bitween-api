@@ -7,11 +7,16 @@ namespace SW.Infolink.Domain
 {
     public class Subscriber : BaseEntity
     {
+        //private Subscriber()
+        //{
+        //}
+
         public Subscriber(string name, int documentId)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             DocumentId = documentId;
             Schedules = new List<Schedule>();
+            Receivers = new List<Receiver>();
             Properties = new Dictionary<string, string>();
             DocumentFilter = new Dictionary<string, string>();
         }
@@ -26,19 +31,8 @@ namespace SW.Infolink.Domain
         public IReadOnlyDictionary<string, string> DocumentFilter { get; set; }
         public bool Inactive { get; set; }
         public ICollection<Schedule> Schedules { get; private set; }
+        public ICollection<Receiver> Receivers { get; private set; }
         public int ResponseSubscriberId { get; set; }
-
-        //public DateTime? NextSchedule()
-        //{
-        //    DateTime? nextSchedule = null;
-        //    foreach (var sched in Schedules)
-        //    {
-        //        var tmpNext = sched.Next();
-        //        if (nextSchedule == null || tmpNext < nextSchedule)
-        //            nextSchedule = tmpNext;
-        //    }
-        //    return nextSchedule;
-        //}
 
     }
 }

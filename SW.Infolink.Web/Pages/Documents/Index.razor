@@ -1,0 +1,24 @@
+﻿@page "/documents"
+@inject NavigationManager navigationManager
+
+<h3>Documents</h3>
+
+<Search PageSize="10" SearchUrl="documents" TModel="DocumentRow" OnItem="@(item => navigationManager.NavigateTo($"documents/{item.Item.Id}"))"
+        Height="400px" Width="max-content">
+
+    <Commands>
+        <a href="documents/create">New document</a>
+    </Commands>
+
+    <Columns>
+        <Field Name="Id"></Field>
+        <Field Name="@nameof(DocumentRow.Name)" />
+        <Field Name="@nameof(DocumentRow.BusMessageTypeName)" />
+
+    </Columns>
+
+</Search>
+
+@code {
+
+}

@@ -47,7 +47,7 @@ namespace SW.Infolink.Web
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
             services.AddDomainEvents(typeof(InfolinkDbContext).Assembly);
             services.AddCqApi(typeof(InfolinkDbContext).Assembly);
-            services.AddApiClient<IInfolinkClient, InfolinkClient, InfolinkClientOptions>();
+            services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
             services.AddCloudFiles();
             services.AddServerless();
             services.AddScoped<RequestContext>();
@@ -87,7 +87,7 @@ namespace SW.Infolink.Web
             {
                 //config.ApiBaseUri = new Uri(Configuration["ApiUrl"]);
                 //config.BlobsUri = new Uri(Configuration["BlobsUrl"]);
-                config.DefaultApiClientFactory = sp => sp.GetService<IInfolinkClient>();
+                config.DefaultApiClientFactory = sp => sp.GetService<InfolinkClient>();
             });
 
 

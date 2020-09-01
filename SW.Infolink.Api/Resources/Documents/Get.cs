@@ -26,6 +26,7 @@ namespace SW.Infolink.Api.Resources.Documents
                 Search("Id", key).
                 Select(document => new DocumentConfig
                 {
+                    Id = document.Id,
                     Name = document.Name,
                     BusEnabled = document.BusEnabled,
                     BusMessageTypeName = document.BusMessageTypeName,
