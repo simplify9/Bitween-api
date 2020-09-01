@@ -34,14 +34,14 @@ namespace SW.Infolink.UnitTests
         {
         }
 
-        [TestMethod]
-        public async Task TestAdapterSearch()
-        {
-            using var scope = server.Services.CreateScope();
-            var ctxt = scope.ServiceProvider.GetService<InfolinkDbContext>();
-            var Conditions = new List<SearchyCondition> { new SearchyCondition(new List<SearchyFilter> { new SearchyFilter("Id", SearchyRule.EqualsTo, 1) }) };
-            var x = await ctxt.Set<Adapter>().Search(Conditions).ToListAsync();
-        }
+        //[TestMethod]
+        //public async Task TestAdapterSearch()
+        //{
+        //    using var scope = server.Services.CreateScope();
+        //    var ctxt = scope.ServiceProvider.GetService<InfolinkDbContext>();
+        //    var Conditions = new List<SearchyCondition> { new SearchyCondition(new List<SearchyFilter> { new SearchyFilter("Id", SearchyRule.EqualsTo, 1) }) };
+        //    //var x = await ctxt.Set<Adapter>().Search(Conditions).ToListAsync();
+        //}
 
         [TestMethod]
         public async Task TestXchangeSearch()
@@ -53,13 +53,13 @@ namespace SW.Infolink.UnitTests
             //var d = new Document(1, "Doc1");
             //ctxt.Add(d);
 
-            var k = new AccessKeySet("test", "1234", "5678");
+            //var k = new AccessKeySet("test", "1234", "5678");
 
-            ctxt.Add(k);
+            //ctxt.Add(k);
 
             var s = new Subscriber("Test", 1)
             {
-                KeySetId = 1
+                //KeySetId = 1
             };
             ctxt.Add(s);
             ctxt.SaveChanges();

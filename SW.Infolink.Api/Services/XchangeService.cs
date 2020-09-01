@@ -11,11 +11,11 @@ namespace SW.Infolink
 {
     public class XchangeService : IConsume<PipelineFinishedMessage>
     {
-        readonly XchangeDmsService infolinkDms;
+        readonly BlobService infolinkDms;
         private readonly InfolinkDbContext dbContext;
 
         public XchangeService(
-            XchangeDmsService infolinkDms,
+            BlobService infolinkDms,
             InfolinkDbContext dbContext)
         {
             this.infolinkDms = infolinkDms;

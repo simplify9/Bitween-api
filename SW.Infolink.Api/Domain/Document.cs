@@ -1,5 +1,4 @@
-﻿
-using SW.PrimitiveTypes;
+﻿using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
 
@@ -19,6 +18,5 @@ namespace SW.Infolink.Domain
         public string BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
         public IReadOnlyDictionary<string, string> PromotedProperties { get;  set; }
-
     }
 }

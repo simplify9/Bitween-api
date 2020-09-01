@@ -90,7 +90,7 @@ namespace SW.Infolink
                             subscriber = await repo.FindAsync<Subscriber>(subId);
                         }
 
-                        var xchangeDms = scope.ServiceProvider.GetRequiredService<XchangeDmsService>();
+                        var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
                         JToken xf = JToken.Parse(await xchangeDms.GetFile(xchange.Id, XchangeFileType.Input));
 
                         if (subscriber.Aggregate)

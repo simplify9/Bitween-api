@@ -90,48 +90,48 @@ namespace SW.Infolink.UnitTests
 
         }
 
-        [TestMethod]
-        public async Task TestGetAccessKeySet()
-        {
+        //[TestMethod]
+        //public async Task TestGetAccessKeySet()
+        //{
 
-            AccessKeySetConfig accessKeySetConfig = new AccessKeySetConfig { Key1="1",Key2="2" ,Name="test"};
-            var body = JsonConvert.SerializeObject(accessKeySetConfig);
-            using var client = server.CreateClient();
+        //    AccessKeySetConfig accessKeySetConfig = new AccessKeySetConfig { Key1="1",Key2="2" ,Name="test"};
+        //    var body = JsonConvert.SerializeObject(accessKeySetConfig);
+        //    using var client = server.CreateClient();
 
-            await client.PostAsync("/cqapi/accesskeysets", new StringContent(body, Encoding.UTF8, "application/json"));
+        //    await client.PostAsync("/cqapi/accesskeysets", new StringContent(body, Encoding.UTF8, "application/json"));
 
-            var response = await client.GetAsync("/cqapi/accesskeysets/1");
-            var responseBody = await response.Content.ReadAsStringAsync();
+        //    var response = await client.GetAsync("/cqapi/accesskeysets/1");
+        //    var responseBody = await response.Content.ReadAsStringAsync();
 
-            Assert.AreEqual(response.StatusCode, HttpStatusCode.OK);
+        //    Assert.AreEqual(response.StatusCode, HttpStatusCode.OK);
 
-            //var getaccessks = serviceProvider.GetService<IGettable<AccessKeySetConfig>>();
+        //    //var getaccessks = serviceProvider.GetService<IGettable<AccessKeySetConfig>>();
 
-            //var result = await getaccessks.Get("1");
+        //    //var result = await getaccessks.Get("1");
 
-            //var getaccessks1 = serviceProvider.GetService<ILookable<AccessKeySetConfig>>();
-            //var result1 = await getaccessks1.LookupList(null, new PrimitiveTypes.SearchyRequest("Id", PrimitiveTypes.SearchyRule.EqualsTo, 1));
+        //    //var getaccessks1 = serviceProvider.GetService<ILookable<AccessKeySetConfig>>();
+        //    //var result1 = await getaccessks1.LookupList(null, new PrimitiveTypes.SearchyRequest("Id", PrimitiveTypes.SearchyRule.EqualsTo, 1));
 
-            //var getadapter = serviceProvider.GetService<IGettable<AdapterConfig>>();
+        //    //var getadapter = serviceProvider.GetService<IGettable<AdapterConfig>>();
 
-            //var result2 = await getadapter.Get("1");
+        //    //var result2 = await getadapter.Get("1");
 
-            //var updateadapter = serviceProvider.GetService<IUpdatable<AdapterConfig>>();
+        //    //var updateadapter = serviceProvider.GetService<IUpdatable<AdapterConfig>>();
 
-            //result2.Description = "test desc";
-            ////result2.Properties.Add("ss", "sss");
+        //    //result2.Description = "test desc";
+        //    ////result2.Properties.Add("ss", "sss");
 
-            //await updateadapter.Update("1", result2);
+        //    //await updateadapter.Update("1", result2);
 
-            //var getreceiver = serviceProvider.GetService<IGettable<ReceiverConfig>>();
+        //    //var getreceiver = serviceProvider.GetService<IGettable<ReceiverConfig>>();
 
-            //var result3 = await getreceiver.Get("1");
+        //    //var result3 = await getreceiver.Get("1");
 
-            //var updateReceiver = serviceProvider.GetService<IUpdatable<ReceiverConfig>>();
-            //result3.Schedules.Remove(result3.Schedules.First());
-            //result3.Schedules.Add(new Schedule(Recurrence.Monthly, TimeSpan.FromMinutes(10)));
+        //    //var updateReceiver = serviceProvider.GetService<IUpdatable<ReceiverConfig>>();
+        //    //result3.Schedules.Remove(result3.Schedules.First());
+        //    //result3.Schedules.Add(new Schedule(Recurrence.Monthly, TimeSpan.FromMinutes(10)));
 
-        }
+        //}
 
         [TestMethod]
         public void TestValueTypes()

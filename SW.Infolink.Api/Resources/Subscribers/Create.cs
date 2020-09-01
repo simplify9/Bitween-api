@@ -26,7 +26,7 @@ namespace SW.Infolink.Api.Resources.Subscribers
                 DocumentFilter = model.DocumentFilter.ToDictionary(),
                 HandlerId = model.HandlerId,
                 Inactive = model.Inactive,
-                KeySetId = model.KeySetId,
+                //KeySetId = model.KeySetId,
                 MapperId = model.MapperId,
                 Properties = model.Properties.ToDictionary(),
                 Temporary = model.Temporary,

@@ -79,7 +79,7 @@ namespace SW.Infolink
                             logger.LogInformation($"Starting to receive for subscriber: '{rec.Id}', adapter: '{rec.ReceiverId}'.");
 
                             var sub = await dbContext.FindAsync<Subscriber>(rec.Id);
-                            var adapter = await dbContext.FindAsync<Adapter>(rec.ReceiverId);
+                            //var adapter = await dbContext.FindAsync<Adapter>(rec.ReceiverId);
                             //var adapterSvc = scope.ServiceProvider.GetRequiredService<AdapterService>();
                             //var adapterpath = await adapterSvc.Install(rec.ReceiverId);
 
@@ -101,9 +101,9 @@ namespace SW.Infolink
                             //};
 
 
-                            if (!string.IsNullOrWhiteSpace(adapter.ServerlessId))
+                            if (!string.IsNullOrWhiteSpace(rec.ReceiverId))
                             {
-                                await RunReceiver(adapter.ServerlessId, startupParameters , sub.Id);
+                                await RunReceiver(rec.ReceiverId, startupParameters , sub.Id);
                                 rec.ReceiveOn = rec.NextSchedule();
                                 await dbContext.SaveChangesAsync();
                             }

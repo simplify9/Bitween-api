@@ -85,51 +85,52 @@ namespace SW.Infolink.UnitTests
         }
 
 
-        [TestMethod]
-        public async Task TestMailBoxService()
-        {
-            using var scope = server.Services.CreateScope();
-            var ctxt = scope.ServiceProvider.GetService<InfolinkDbContext>();
+        //[TestMethod]
+        //public async Task TestMailBoxService()
+        //{
+        //    using var scope = server.Services.CreateScope();
+        //    var ctxt = scope.ServiceProvider.GetService<InfolinkDbContext>();
 
-            //var d = new Document(1, "Doc1");
-            //ctxt.Add(d);
+        //    //var d = new Document(1, "Doc1");
+        //    //ctxt.Add(d);
 
-            var k = new AccessKeySet("test", "1234", "5678");
-           await ctxt.AddAsync(k);
+        //    var k = new AccessKeySet("test", "1234", "5678");
+        //   await ctxt.AddAsync(k);
 
-            var s = new Subscriber("Test", 1)
-            {
-                KeySetId = 1
-            };
-           await ctxt.AddAsync(s);
-           await ctxt.SaveChangesAsync();
+        //    var s = new Subscriber("Test", 1)
+        //    {
+        //        KeySetId = 1
+        //    };
+        //   await ctxt.AddAsync(s);
+        //   await ctxt.SaveChangesAsync();
 
-            var xsvc = scope.ServiceProvider.GetService<XchangeService>();
+        //    var xsvc = scope.ServiceProvider.GetService<XchangeService>();
 
-            var xchangeid= await xsvc.Submit(s.Id, new XchangeFile("test"));
+        //    var xchangeid= await xsvc.Submit(s.Id, new XchangeFile("test"));
 
-            //var msvc = services.GetService<MailboxService>();
-            var cred = new SubscriptionCredential(s.Id, "1234");
-            await ValidateSubscriber(cred, ctxt);
+        //    //var msvc = services.GetService<MailboxService>();
+        //    var cred = new SubscriptionCredential(s.Id, "1234");
+        //    await ValidateSubscriber(cred, ctxt);
 
-            var xs = await ctxt.ListAsync(new XchangesByDateAndDeliveryFlag(cred.SubscriberId, DateTime.UtcNow.AddDays(-1),null));
+        //    var xs = await ctxt.ListAsync(new XchangesByDateAndDeliveryFlag(cred.SubscriberId, DateTime.UtcNow.AddDays(-1),null));
 
-            var arr =xs.Select(e => e.Id).ToArray();
-            //var arr = ctxt.Set<XchangeMailboxItem>().Listas(cred, DateTime.UtcNow.AddDays(-1));
+        //    var arr =xs.Select(e => e.Id).ToArray();
+        //    //var arr = ctxt.Set<XchangeMailboxItem>().Listas(cred, DateTime.UtcNow.AddDays(-1));
 
-            //var doc = await msvc.Get(cred, xchangeid);
-        }
+        //    //var doc = await msvc.Get(cred, xchangeid);
+        //}
 
-        async Task ValidateSubscriber(SubscriptionCredential credential, DbContext dbContext)
-        {
-            var sub = await dbContext.FindAsync<Subscriber>(credential.SubscriberId);
-            if (sub == null) throw new InfolinkException();
-            if (sub.KeySetId == 0) throw new InfolinkException();
+        //async Task ValidateSubscriber(SubscriptionCredential credential, DbContext dbContext)
+        //{
+        //    var sub = await dbContext.FindAsync<Subscriber>(credential.SubscriberId);
+        //    if (sub == null) throw new InfolinkException();
+        //    if (sub.KeySetId == 0) throw new InfolinkException();
 
-            var ks = await dbContext.ListAsync(new AccessKeySetyByKey(sub.KeySetId, credential.Key));
+        //    var ks = await dbContext.ListAsync(new AccessKeySetyByKey(sub.KeySetId, credential.Key));
 
-            if (ks.Count != 1) throw new InfolinkException();
-        }
+        //    if (ks.Count != 1) throw new InfolinkException();
+        //}
+
         [TestMethod]
         public async Task TestSubmitXchangeScheduledMonthly()
         {

@@ -12,36 +12,29 @@ namespace SW.Infolink.Api.Resources.Adapters
 {
     class Search : ISearchyHandler
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly ServerlessOptions serverlessOptions;
+        private readonly ICloudFilesService cloudFilesService;
 
-        public Search(InfolinkDbContext dbContext)
+        public Search(ServerlessOptions serverlessOptions, ICloudFilesService cloudFilesService)
         {
-            this.dbContext = dbContext;
+            this.serverlessOptions = serverlessOptions;
+            this.cloudFilesService = cloudFilesService;
         }
 
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
             var sr = new SearchyResponse<AdapterRow>();
 
-            var query = from e in dbContext.Set<Adapter>()
-                        select new AdapterRow
-                        {
-                            Id = e.Id,
-                            Name = e.Name,
-                            Properties = e.Properties.ToDictionary(),
-                            Timeout = e.Timeout,
-                            Type = e.Type,
-                            Description = e.Description,
-                            //DocumentId = e.DocumentId,
-                            ServerlessId = e.ServerlessId
-                        };
+            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}")).Where(item => item.Size > 0);
 
-            sr.TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync();
+            sr.TotalCount = cloudFilesList.Count();
+            sr.Result = cloudFilesList.Select(item => new AdapterRow
+            {
+                Id = item.Key.Substring(serverlessOptions.AdapterRemotePath.Length + 1)
+            });
 
-            var results = query.AsNoTracking().Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
-
-            sr.Result = await results.ToListAsync();
             return sr;
+
         }
     }
 }

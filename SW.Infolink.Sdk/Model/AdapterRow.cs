@@ -5,9 +5,9 @@ using System.Text;
 
 namespace SW.Infolink
 {
-    public class AdapterRow : AdapterConfig
+    public class AdapterRow 
     {
-        public int Id { get; set; }
+        public string Id { get; set; }
     }
 
 }

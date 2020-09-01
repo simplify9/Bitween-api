@@ -19,14 +19,15 @@ namespace SW.Infolink.Api.Resources.Blobs
         }
         public async Task<object> Handle(XchangeBlobDto request)
         {
-            var c = (await dbContext.Set<XchangeBlob>().FindAsync(request.Id,(XchangeFileType) request.Type));
+            return null;
+            //var c = (await dbContext.Set<XchangeBlob>().FindAsync(request.Id,(XchangeFileType) request.Type));
 
-            using (var ms = new MemoryStream(c.Content)) // File.Create(file))
-            using (var zips = new GZipStream(ms, CompressionMode.Decompress))
-            using (var reader = new BinaryReader(zips))
-            {
-                return new XchangeBlobDto { Content = reader.ReadString() };
-            };
+            //using (var ms = new MemoryStream(c.Content)) // File.Create(file))
+            //using (var zips = new GZipStream(ms, CompressionMode.Decompress))
+            //using (var reader = new BinaryReader(zips))
+            //{
+            //    return new XchangeBlobDto { Content = reader.ReadString() };
+            //};
         }
     }
 

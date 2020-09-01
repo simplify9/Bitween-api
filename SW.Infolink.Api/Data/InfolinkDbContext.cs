@@ -31,28 +31,28 @@ namespace SW.Infolink
                 schema = "infolink";
             }
 
-            modelBuilder.Entity<Adapter>(b =>
-            {
+            //modelBuilder.Entity<Adapter>(b =>
+            //{
 
-                b.ToTable("Adapters", schema);
-                b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.ServerlessId).IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.Properties).StoreAsJson();
+            //    b.ToTable("Adapters", schema);
+            //    b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
+            //    b.Property(p => p.ServerlessId).IsUnicode(false).HasMaxLength(200);
+            //    b.Property(p => p.Properties).StoreAsJson();
 
-                b.HasData(
-                    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "infolink.jsontocsvmapper") { Id = 1 },
-                    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "infolink.jsontoxmlmapper") { Id = 2 },
-                    new Adapter(AdapterType.Handler, "As2FileHandler", "infolink.as2filehandler") { Id = 3 },
-                    new Adapter(AdapterType.Handler, "FtpFileHandler", "infolink.ftpfilehandler") { Id = 4 },
-                    new Adapter(AdapterType.Handler, "HttpFileHandler", "infolink.httpfilehandler") { Id = 5 },
-                    new Adapter(AdapterType.Handler, "SftpFileHandler", "infolink.sftpfilehandler") { Id = 6 },
-                    new Adapter(AdapterType.Handler, "S3FileHandler", "infolink.s3filehandler") { Id = 7 },
-                    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "infolink.azureblobfilehandler") { Id = 8 },
-                    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "infolink.azureBlobfilereceiver") { Id = 9 },
-                    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "infolink.sftpfilereceiver") { Id = 10 },
-                    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "infolink.ftpfilereceiver") { Id = 11 }
-                    );
-            });
+            //    //b.HasData(
+            //    //    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "infolink.jsontocsvmapper") { Id = 1 },
+            //    //    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "infolink.jsontoxmlmapper") { Id = 2 },
+            //    //    new Adapter(AdapterType.Handler, "As2FileHandler", "infolink.as2filehandler") { Id = 3 },
+            //    //    new Adapter(AdapterType.Handler, "FtpFileHandler", "infolink.ftpfilehandler") { Id = 4 },
+            //    //    new Adapter(AdapterType.Handler, "HttpFileHandler", "infolink.httpfilehandler") { Id = 5 },
+            //    //    new Adapter(AdapterType.Handler, "SftpFileHandler", "infolink.sftpfilehandler") { Id = 6 },
+            //    //    new Adapter(AdapterType.Handler, "S3FileHandler", "infolink.s3filehandler") { Id = 7 },
+            //    //    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "infolink.azureblobfilehandler") { Id = 8 },
+            //    //    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "infolink.azureBlobfilereceiver") { Id = 9 },
+            //    //    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "infolink.sftpfilereceiver") { Id = 10 },
+            //    //    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "infolink.ftpfilereceiver") { Id = 11 }
+            //    //    );
+            //});
 
             modelBuilder.Entity<Document>(b =>
             {
@@ -63,13 +63,13 @@ namespace SW.Infolink
                 b.Property(p => p.PromotedProperties).StoreAsJson();
             });
 
-            modelBuilder.Entity<AccessKeySet>(b =>
-            {
-                b.ToTable("AccessKeySets", schema);
-                b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.Key1).HasMaxLength(1024).IsUnicode(false).IsRequired();
-                b.Property(p => p.Key2).HasMaxLength(1024).IsUnicode(false).IsRequired();
-            });
+            //modelBuilder.Entity<AccessKeySet>(b =>
+            //{
+            //    b.ToTable("AccessKeySets", schema);
+            //    b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
+            //    b.Property(p => p.Key1).HasMaxLength(1024).IsUnicode(false).IsRequired();
+            //    b.Property(p => p.Key2).HasMaxLength(1024).IsUnicode(false).IsRequired();
+            //});
 
             modelBuilder.Entity<Subscriber>(b =>
             {
@@ -78,6 +78,9 @@ namespace SW.Infolink
                 b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("SubscriberSchedules", schema));
                 b.Property(p => p.Properties).StoreAsJson();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
+                b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+
             });
 
             modelBuilder.Entity<Receiver>(b =>
@@ -87,6 +90,7 @@ namespace SW.Infolink
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
                 b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("ReceiverSchedules", schema));
                 b.Property(p => p.Properties).StoreAsJson();
+                b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false).IsRequired();   
 
             });
 
@@ -96,6 +100,11 @@ namespace SW.Infolink
                 b.Property(p => p.References).IsSeparatorDelimited().HasMaxLength(1024);
                 b.Property(p => p.InputFileHash).IsRequired().IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.InputFileName).HasMaxLength(200);
+                b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+
+
+
 
                 b.HasIndex(i => i.InputFileHash);
                 b.HasIndex(i => i.DeliveredOn);
@@ -104,13 +113,13 @@ namespace SW.Infolink
 
             });
 
-            modelBuilder.Entity<XchangeBlob>(b =>
-            {
-                b.ToTable("XchangeFiles", schema);
-                b.HasKey(k => new { k.Id, k.Type });
-                b.Property(p => p.Type).HasConversion<byte>();
+            //modelBuilder.Entity<XchangeBlob>(b =>
+            //{
+            //    b.ToTable("XchangeFiles", schema);
+            //    b.HasKey(k => new { k.Id, k.Type });
+            //    b.Property(p => p.Type).HasConversion<byte>();
 
-            });
+            //});
         }
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

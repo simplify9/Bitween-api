@@ -9,7 +9,7 @@ namespace SW.Infolink.Domain
 {
     public class Receiver : BaseEntity
     {
-        public Receiver(int id, string name, int receiverId)
+        public Receiver(int id, string name, string receiverId)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Id = id;
@@ -20,7 +20,7 @@ namespace SW.Infolink.Domain
 
         public string Name { get; set; }
         public ICollection<Schedule> Schedules { get; private set; }
-        public int ReceiverId { get; set; }
+        public string ReceiverId { get; set; }
         public IReadOnlyDictionary<string, string> Properties { get; set; }
         public DateTime? ReceiveOn { get; set; }
 
@@ -36,13 +36,5 @@ namespace SW.Infolink.Domain
             return nextSchedule;
         }
 
-        public ReceiverDto ToReceiverDto()
-        {
-            return new ReceiverDto
-            {
-                //Id = Id,
-                Properties = Properties.ToDictionary()
-            };
-        }
     }
 }

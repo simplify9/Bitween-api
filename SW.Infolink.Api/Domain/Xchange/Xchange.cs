@@ -1,9 +1,5 @@
-﻿
-
-using SW.PrimitiveTypes;
+﻿using SW.PrimitiveTypes;
 using System;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace SW.Infolink.Domain
 {
@@ -63,8 +59,8 @@ namespace SW.Infolink.Domain
 
         public int SubscriberId { get; private set; }
         public int DocumentId { get; private set; }
-        public int HandlerId { get; set; }
-        public int MapperId { get; set; }
+        public string HandlerId { get; set; }
+        public string MapperId { get; set; }
         public string[] References { get; private set; }
         public XchangeStatus Status { get;private set; }
         public string Exception { get;private set; }
@@ -77,12 +73,5 @@ namespace SW.Infolink.Domain
         public DateTime? DeliverOn { get; private set; }
         public int ResponseXchangeId { get; set; }
 
-        //public XchangeDto ToXchangeDto()
-        //{
-        //    return new XchangeDto
-        //    {
-        //        Id = Id
-        //    };
-        //}
     }
 }

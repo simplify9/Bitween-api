@@ -25,24 +25,18 @@
 
             <div class="form-group">
                 <label asp-for="Subscriber.HandlerId">Handler</label>
-                <select asp-for="Subscriber.HandlerId" class="form-control dropdown" asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<AdapterRow>>($"adapters?{new SearchyRequest(new SearchyCondition("Type",SearchyRule.EqualsTo,AdapterType.Handler)).ToString()}")).Result.Select(k => new SelectListItem { Text = k.Name, Value = k.Id.ToString() })">
+                <select asp-for="Subscriber.HandlerId" class="form-control dropdown" asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<AdapterRow>>($"adapters?{new SearchyRequest(new SearchyCondition("Type",SearchyRule.EqualsTo,AdapterType.Handler)).ToString()}")).Result.Select(k => new SelectListItem { Text = k.Id, Value = k.Id.ToString() })">
                     <option selected="selected" class="form-control dropdown-item" value="">None</option>
                 </select>
             </div>
 
             <div class="form-group">
                 <label asp-for="Subscriber.MapperId">Mapper</label>
-                <select asp-for="Subscriber.MapperId" class="form-control dropdown" asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<AdapterRow>>($"adapters?{new SearchyRequest(new SearchyCondition("Type",SearchyRule.EqualsTo,AdapterType.Mapper)).ToString()}")).Result.Select(k => new SelectListItem { Text = k.Name, Value = k.Id.ToString() })">
+                <select asp-for="Subscriber.MapperId" class="form-control dropdown" asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<AdapterRow>>($"adapters?{new SearchyRequest(new SearchyCondition("Type",SearchyRule.EqualsTo,AdapterType.Mapper)).ToString()}")).Result.Select(k => new SelectListItem { Text = k.Id, Value = k.Id.ToString() })">
                     <option selected="selected" class="form-control dropdown-item" value="">None</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label asp-for="Subscriber.KeySetId">Key Set Name</label>
-                <select asp-for="Subscriber.KeySetId" class="form-control dropdown" asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<AccessKeySetRow>>($"accesskeysets?{new SearchyRequest()}")).Result.Select(k => new SelectListItem { Text = k.Name, Value = k.Id.ToString() })">
-                    <option selected="selected" class="form-control dropdown-item" value="">Please select</option>
-                </select>
-            </div>
             <div class="form-group">
                 <label asp-for="Subscriber.ResponseSubscriberId ">Response Subscriber</label>
                 <select asp-for="Subscriber.ResponseSubscriberId" class="form-control dropdown" asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<SubscriberRow>>($"subscribers?{new SearchyRequest()}")).Result.Select(k => new SelectListItem { Text = k.Name, Value = k.Id.ToString() })">

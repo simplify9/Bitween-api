@@ -18,11 +18,11 @@ namespace SW.Infolink
         private readonly InfolinkDbContext dbContext;
 
         //readonly AdapterService adapterService;
-        private readonly XchangeDmsService infolinkDms;
+        private readonly BlobService infolinkDms;
         private readonly IPublish publish;
         private readonly IServiceProvider serviceProvider;
 
-        public PipelineService(InfolinkDbContext dbContext, XchangeDmsService infolinkDms, IPublish publish, IServiceProvider serviceProvider)
+        public PipelineService(InfolinkDbContext dbContext, BlobService infolinkDms, IPublish publish, IServiceProvider serviceProvider)
         {
             this.dbContext = dbContext;
             //this.adapterService = adapterService;
@@ -42,7 +42,7 @@ namespace SW.Infolink
                 var fileData = await infolinkDms.GetFile(message.XchangeId, XchangeFileType.Input);
                 var file = new XchangeFile(fileData, message.InputFileName);
 
-                if (message.MapperId != 0)
+                if (message.MapperId != null)
                 {
                     file = await Run(message.MapperId, message.XchangeId, file, message.SubscriberId, message.SubscriberProperties);
                 }
@@ -53,13 +53,13 @@ namespace SW.Infolink
                 }
                 await infolinkDms.AddFile(message.XchangeId, XchangeFileType.Output, file);
 
-                if (message.HandlerId != 0)
+                if (message.HandlerId != null)
                 {
                     var responseFile = await Run(message.HandlerId, message.XchangeId, file, message.SubscriberId, message.SubscriberProperties);
 
                     if (responseFile is null)
                     {
-                        responseFile= new XchangeFile("");
+                        responseFile = new XchangeFile("");
                     }
                     await infolinkDms.AddFile(message.XchangeId, XchangeFileType.Response, responseFile);
                     //if (subscriber.ResponseSubscriberId != 0)
@@ -97,7 +97,7 @@ namespace SW.Infolink
         }
 
 
-        async Task<XchangeFile> Run(int adapterId, int xchangeId, XchangeFile xchangeFile, int subscriberId, IDictionary<string, string> subscriberProperties)
+        async Task<XchangeFile> Run(string adapterId, int xchangeId, XchangeFile xchangeFile, int subscriberId, IDictionary<string, string> subscriberProperties)
         {
 
 
@@ -115,9 +115,9 @@ namespace SW.Infolink
             //    }
             //};
 
-            var serverlessId = await dbContext.Set<Adapter>().Where(p => p.Id == adapterId).Select(p => p.ServerlessId).SingleAsync();
+            //var serverlessId = await dbContext.Set<Adapter>().Where(p => p.Id == adapterId).Select(p => p.ServerlessId).SingleAsync();
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-            await serverless.StartAsync(serverlessId,subscriberProperties);
+            await serverless.StartAsync(adapterId, subscriberProperties);
 
             var pres = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
 

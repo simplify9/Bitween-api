@@ -30,7 +30,7 @@ namespace SW.Infolink.Api.Resources.Subscribers
                     DocumentId = subscriber.DocumentId,
                     HandlerId = subscriber.HandlerId,
                     Inactive = subscriber.Inactive,
-                    KeySetId = subscriber.KeySetId,
+                    //KeySetId = subscriber.KeySetId,
                     MapperId = subscriber.MapperId,
                     Name = subscriber.Name,
                     Properties = subscriber.Properties.ToDictionary(),

@@ -25,10 +25,10 @@ namespace SW.Infolink.Api.Resources.Subscribers
 
             var query = from subscriber in dbContext.Set<Subscriber>()
                         join document in dbContext.Set<Document>() on subscriber.DocumentId equals document.Id
-                        join mapper in dbContext.Set<Adapter>() on subscriber.MapperId equals mapper.Id into sm
-                        from mapper in sm.DefaultIfEmpty()
-                        join handler in dbContext.Set<Adapter>() on subscriber.HandlerId equals handler.Id into sh
-                        from handler in sh.DefaultIfEmpty()
+                        //join mapper in dbContext.Set<Adapter>() on subscriber.MapperId equals mapper.Id into sm
+                        //from mapper in sm.DefaultIfEmpty()
+                        //join handler in dbContext.Set<Adapter>() on subscriber.HandlerId equals handler.Id into sh
+                        //from handler in sh.DefaultIfEmpty()
                         select new SubscriberRow
                         {
                             Id = subscriber.Id,
@@ -38,9 +38,9 @@ namespace SW.Infolink.Api.Resources.Subscribers
                             DocumentName = document.Name,
                             HandlerId = subscriber.HandlerId,
                             Inactive = subscriber.Inactive,
-                            HandlerName = handler.Name,
+                            //HandlerName = handler.Name,
                             MapperId = subscriber.MapperId,
-                            MapperName = mapper.Name,
+                            //MapperName = mapper.Name,
                             Aggregate = subscriber.Aggregate,
                             Temporary = subscriber.Temporary,
                             Schedules = subscriber.Schedules

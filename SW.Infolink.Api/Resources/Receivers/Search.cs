@@ -24,8 +24,8 @@ namespace SW.Infolink.Api.Resources.Receivers
             var sr = new SearchyResponse<ReceiverRow>();
 
             var query = from receiver in dbContext.Set<Receiver>()
-                        join adapter in dbContext.Set<Adapter>() on receiver.ReceiverId equals adapter.Id into ar
-                        from adapter in ar.DefaultIfEmpty()
+                        //join adapter in dbContext.Set<Adapter>() on receiver.ReceiverId equals adapter.Id into ar
+                        //from adapter in ar.DefaultIfEmpty()
                         select new ReceiverRow
                         {
                             Id = receiver.Id,
@@ -34,7 +34,7 @@ namespace SW.Infolink.Api.Resources.Receivers
                             Properties = receiver.Properties.ToDictionary(),
                             ReceiveOn = receiver.ReceiveOn,
                             //Schedules = receiver.Schedules,
-                            AdapterName = adapter.Name
+                            //AdapterName = adapter.Name
                         };
 
             sr.TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync();

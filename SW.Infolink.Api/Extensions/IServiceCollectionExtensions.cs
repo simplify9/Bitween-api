@@ -12,7 +12,7 @@ namespace SW.Infolink
             services.AddSingleton<FilterService>();
 
             services.AddScoped<PipelineService>();
-            services.AddScoped<XchangeDmsService>();
+            services.AddScoped<BlobService>();
             services.AddScoped<XchangeService>();
 
             return services;

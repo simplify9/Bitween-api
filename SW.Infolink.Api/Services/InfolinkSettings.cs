@@ -11,8 +11,9 @@ namespace SW.Infolink
             this.configuration = configuration.GetSection(section);
         }
 
-        public string AdapterRootPath => configuration.GetValue(nameof(AdapterRootPath), "./adapters");
+        public string AdapterPath => configuration.GetValue(nameof(AdapterPath), "./adapters");
         public string AdminCredentials => configuration.GetValue(nameof(AdminCredentials), "admin:1234512345");
+        public string DocumentPrefix => configuration.GetValue(nameof(DocumentPrefix), "infolinkdocs");
 
     }
 }

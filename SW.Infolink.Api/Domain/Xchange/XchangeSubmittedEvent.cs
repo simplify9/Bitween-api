@@ -10,6 +10,5 @@ namespace SW.Infolink.Domain
     {
         public Xchange Xchange { get; set; }
         public Subscriber Subscriber { get; set; }
-        //public bool IgnoreSchedule { get; set; }
     }
 }

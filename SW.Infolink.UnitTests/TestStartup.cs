@@ -79,8 +79,8 @@ namespace SW.Infolink.UnitTests
                 };
                 ctxt.Add(doc3);
 
-                var adp = new Adapter(AdapterType.Mapper, "TestAdapter", "");
-                ctxt.Add(adp);
+                //var adp = new Adapter(AdapterType.Mapper, "TestAdapter", "");
+                //ctxt.Add(adp);
 
                 var sub1 = new Subscriber("Test", 1)
                 {
@@ -89,7 +89,7 @@ namespace SW.Infolink.UnitTests
                         { "Origin", "AMM"},
                         { "Destination", "DXB"}
                     },
-                    MapperId = 1
+                    MapperId = "1"
                 };
                 ctxt.Add(sub1);
 
@@ -129,7 +129,7 @@ namespace SW.Infolink.UnitTests
                 };
                 ctxt.Add(sub7);
 
-                var rec = new Receiver(1, "test", 2);
+                var rec = new Receiver(1, "test", "2");
                 rec.Schedules.Add(new Schedule(Recurrence.Daily, TimeSpan.FromMinutes(5)));
                 rec.Schedules.Add(new Schedule(Recurrence.Daily, TimeSpan.FromMinutes(55)));
 

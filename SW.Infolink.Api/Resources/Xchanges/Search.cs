@@ -22,19 +22,19 @@ namespace SW.Infolink.Api.Resources.Xchanges
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
             var query = from xchange in dbContext.Set<Xchange>()
-                        join mapper in dbContext.Set<Adapter>() on xchange.MapperId equals mapper.Id into xm
-                        from mapper in xm.DefaultIfEmpty()
-                        join handler in dbContext.Set<Adapter>() on xchange.HandlerId equals handler.Id into xh
-                        from handler in xh.DefaultIfEmpty()
+                        //join mapper in dbContext.Set<Adapter>() on xchange.MapperId equals mapper.Id into xm
+                        //from mapper in xm.DefaultIfEmpty()
+                        //join handler in dbContext.Set<Adapter>() on xchange.HandlerId equals handler.Id into xh
+                        //from handler in xh.DefaultIfEmpty()
                         join document in dbContext.Set<Document>() on xchange.DocumentId equals document.Id
                         join subscriber in dbContext.Set<Subscriber>() on xchange.SubscriberId equals subscriber.Id
                         select new XchangeRow
                         {
                             Id = xchange.Id,
                             HandlerId = xchange.HandlerId,
-                            HandlerName = handler.Name,
+                            //HandlerName = handler.Name,
                             MapperId = xchange.MapperId,
-                            MapperName = mapper.Name,
+                            //MapperName = mapper.Name,
                             DocumentId = xchange.DocumentId,
                             DocumentName = document.Name,
                             StartedOn = xchange.StartedOn,

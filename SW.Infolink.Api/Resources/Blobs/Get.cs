@@ -21,7 +21,7 @@ namespace SW.Infolink.Api.Resources.Blobs
 
         async public Task<object> Handle(int key, bool lookup = false)
         {
-            return (await dbContext.Set<XchangeBlob>().FindAsync(key));
+            return null;//(await dbContext.Set<XchangeBlob>().FindAsync(key));
         }
     }
 }

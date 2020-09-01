@@ -17,7 +17,7 @@
             <div class="form-group">
                 <label asp-for="Receiver.ReceiverId">Adapter</label>
                 <select asp-for="Receiver.ReceiverId" class="form-control dropdown" disabled="@isEditForm"
-                        asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<AdapterRow>>($"adapters?{new SearchyRequest(new SearchyCondition("Type",SearchyRule.EqualsTo,AdapterType.Receiver)).ToString()}")).Result.Select(k => new SelectListItem { Text = k.Name, Value = k.Id.ToString() })">
+                        asp-items="@(await Model.ApiService.GetAsync<SearchyResponse<AdapterRow>>($"adapters?{new SearchyRequest(new SearchyCondition("Type",SearchyRule.EqualsTo,AdapterType.Receiver)).ToString()}")).Result.Select(k => new SelectListItem { Text = k.Id, Value = k.Id.ToString() })">
                     <option selected="selected" class="form-control dropdown-item" value="">None</option>
                 </select>
                 @if (isEditForm)
