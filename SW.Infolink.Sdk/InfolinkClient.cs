@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Sdk
 {
-    public class InfolinkClient : ApiClientBase<InfolinkClientOptions>, IInfolinkClient, IBasicApiClient
+    public class InfolinkClient : ApiClientBase<InfolinkClientOptions>, IInfolinkClient
     {
         public InfolinkClient(HttpClient httpClient, RequestContext requestContext, InfolinkClientOptions infolinkClientOptions) : base(httpClient, requestContext, infolinkClientOptions)
         {
@@ -82,19 +82,19 @@ namespace SW.Infolink.Sdk
                 DeleteAsync(false);
         }
 
-        public Task<ApiResult<SearchyResponse<TModel>>> Search<TModel>(string url)
+        async public Task<ApiResult<string>> LookupValue(string searchUrl)
         {
-            throw new NotImplementedException();
+            return await Builder.Path(searchUrl).AsApiResult<string>().GetAsync();
         }
 
-        public Task<ApiResult<IDictionary<string, string>>> Search(string url)
+        public Task<ApiResult<SearchyResponse<TModel>>> Search<TModel>(string searchUrl)
         {
-            throw new NotImplementedException();
+            return Builder.Path(searchUrl).AsApiResult<SearchyResponse<TModel>>().GetAsync();
         }
 
-        public Task<ApiResult<string>> LookupValue(string url)
+        public Task<ApiResult<IDictionary<string, string>>> Search(string searchUrl)
         {
-            throw new NotImplementedException();
+            return Builder.Path(searchUrl).AsApiResult<IDictionary<string, string>>().GetAsync();
         }
     }
 }

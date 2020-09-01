@@ -87,7 +87,7 @@ namespace SW.Infolink.Web
             {
                 //config.ApiBaseUri = new Uri(Configuration["ApiUrl"]);
                 //config.BlobsUri = new Uri(Configuration["BlobsUrl"]);
-                config.DefaultApiClientFactory = sp => sp.GetService<InfolinkClient>();
+                config.DefaultApiClientFactory = sp => sp.GetService<IInfolinkClient>();
             });
 
 

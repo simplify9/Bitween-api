@@ -1,8 +1,16 @@
 ﻿@page "/"
+@inject NavigationManager navigationManager
 
 <h3>Dashboard</h3>
 
-<p>Coming Soon!</p>
+<Search PageSize="10" SearchUrl="xchanges" TModel="XchangeRow" OnItem="@(item => navigationManager.NavigateTo($"admin/carriers/{item.Item.Id}"))"
+        Height="400px" Width="max-content">
+    <Columns>
+        <Field Name="Id"></Field>
+        <Field Name="SubscriberName" />
+    </Columns>
+
+</Search>
 
 @code {
 
