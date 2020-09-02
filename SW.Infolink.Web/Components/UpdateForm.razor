@@ -10,7 +10,7 @@
         <div class="row">
             <div class="col-xl-7 mt-2">
                 <SimplyForm @bind-Value="model">
-                    @ChildContent
+                    @ChildContent(model)
                 </SimplyForm>
             </div>
         </div>
@@ -52,7 +52,7 @@
     public string ReturnUrl { get; set; }
 
     [Parameter]
-    public RenderFragment ChildContent { get; set; }
+    public RenderFragment<TModel> ChildContent { get; set; }
 
     TModel model;
 
@@ -78,7 +78,7 @@
     {
         if (result)
         {
-            var apiResult = await infolinkClient.Delete(ApiUrl);
+            var apiResult = await infolinkClient.Delete($"{ApiUrl}/{Id}");
             await notifyService.NotifyOnApiResult(apiResult);
             if (apiResult.Success)
                 navigationManager.NavigateTo(ReturnUrl);

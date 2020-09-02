@@ -4,7 +4,6 @@ using System.Runtime.Serialization;
 
 namespace SW.Infolink
 {
-
     public class InfolinkException : SWException
     {
         public InfolinkException() {}

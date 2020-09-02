@@ -3,13 +3,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Infolink</title>
-    <link rel="stylesheet" href="~/css/site.css" />
-    @* reference Bootstrap – see Bootstrap docs for version-specific line of code *@
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/fontawesome.css" />
-    <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/solid.min.css">
-    <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/regular.min.css">
+
+    <title>Infolink</title>
+
+    <base href="~/" />
+
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/site.css" />
+    <link rel="stylesheet" href="_content/SimplyWorks.SimplyRazor/simply.razor.css" />
+
 </head>
 <body>
     @RenderBody()
@@ -20,7 +23,5 @@
             </div>
         </footer>
     </div>
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

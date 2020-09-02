@@ -82,9 +82,9 @@ namespace SW.Infolink.Sdk
         //        DeleteAsync(false);
         //}
 
-        public Task<ApiResult<int>> Create<TRequest>(string url, TRequest payload)
+        public Task<ApiResult<int?>> Create<TRequest>(string url, TRequest payload)
         {
-            return Builder.Jwt().Path(url).AsApiResult<int>().PostAsync(payload);
+            return Builder.Jwt().Path(url).AsApiResult<int?>().PostAsync(payload);
         }
 
         public Task<ApiResult<TResponse>> GetById<TResponse>(string url, int id)

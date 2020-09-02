@@ -21,7 +21,7 @@ namespace SW.Infolink
         readonly IServiceScopeFactory ssf;
         readonly ILogger<FilterService> logger;
         readonly ReaderWriterLockSlim documentFilterLock = new ReaderWriterLockSlim();
-        readonly IDictionary<int, DocumentFilter> documentFilter = new Dictionary<int, DocumentFilter>();
+        readonly IDictionary<int, DocumentFilter> documentFilterDictionary = new Dictionary<int, DocumentFilter>();
 
 
         DateTime documentFilterPreparedOn;
@@ -39,7 +39,7 @@ namespace SW.Infolink
 
             var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
 
-            documentFilter.Clear();
+            documentFilterDictionary.Clear();
 
             var docs = repo.List<Document>();
 
@@ -47,7 +47,7 @@ namespace SW.Infolink
             {
 
                 var df = new DocumentFilter();
-                documentFilter.Add(doc.Id, df);
+                documentFilterDictionary.Add(doc.Id, df);
 
                 var subs = repo.List(new SubscribersByDocument(doc.Id));//.Select
 
@@ -120,17 +120,20 @@ namespace SW.Infolink
             documentFilterLock.EnterReadLock();
             try
             {
-                if (documentFilter[documentId].Properties.Count == 0)
+                if (!documentFilterDictionary.TryGetValue(documentId, out var documentFilter))
+                    throw new InfolinkException($"Document number {documentId} not found"); 
+
+                if (documentFilter.Properties.Count == 0)
                 {
-                    return documentFilter[documentId].SubscribersWihtoutPropertyFilter;
+                    return documentFilter.SubscribersWihtoutPropertyFilter;
                 }
 
                 JToken doc = JObject.Parse(xchangeFile.Data);
                 HashSet<int> matchall = null;
 
-                foreach (var prop in documentFilter[documentId].Properties.Keys)
+                foreach (var prop in documentFilter.Properties.Keys)
                 {
-                    var pf = documentFilter[documentId].Properties[prop];
+                    var pf = documentFilter.Properties[prop];
 
                     HashSet<int> matchallprop = new HashSet<int>(pf.Ignored);
 

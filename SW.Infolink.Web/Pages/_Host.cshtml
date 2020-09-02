@@ -1,47 +1,22 @@
 ﻿@page "/"
 @{
-    Layout = null;
+    Layout = "_LayoutBase";
 }
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>Infolink</title>
+<app>
+    <component type="typeof(App)" render-mode="Server" />
+</app>
 
-    <base href="~/" />
+<div id="blazor-error-ui">
+    <environment include="Staging,Production">
+        An error has occurred. This application may no longer respond until reloaded.
+    </environment>
+    <environment include="Development">
+        An unhandled exception has occurred. See browser dev tools for details.
+    </environment>
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
 
-    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
-    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/site.css" />
-    <link rel="stylesheet" href="_content/SimplyWorks.SimplyRazor/simply.razor.css" />
-
-    @* reference Bootstrap – see Bootstrap docs for version-specific line of code *@
-    @*<link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />*@
-    @*<link rel="stylesheet" href="~/lib/fonts/fontawesome/css/fontawesome.css" />
-        <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/solid.min.css">
-        <link rel="stylesheet" href="~/lib/fonts/fontawesome/css/regular.min.css">*@
-</head>
-<body>
-
-    <app>
-        <component type="typeof(App)" render-mode="Server" />
-    </app>
-
-    <div id="blazor-error-ui">
-        <environment include="Staging,Production">
-            An error has occurred. This application may no longer respond until reloaded.
-        </environment>
-        <environment include="Development">
-            An unhandled exception has occurred. See browser dev tools for details.
-        </environment>
-        <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
-    </div>
-
-    <script src="_framework/blazor.server.js"></script>
-    <script src="_content/SimplyWorks.SimplyRazor/simply.razor.js"></script>
-
-</body>
-</html>
+<script src="_framework/blazor.server.js"></script>
+<script src="_content/SimplyWorks.SimplyRazor/simply.razor.js"></script>

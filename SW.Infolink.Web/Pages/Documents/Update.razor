@@ -5,9 +5,9 @@
 
     <Field Name="@nameof(DocumentConfig.Id)" ReadOnly="true" />
     <Field Name="@nameof(DocumentConfig.Name)" />
-    <Field Name="@nameof(DocumentConfig.DuplicateInterval)" />
+    <Field Name="@nameof(DocumentConfig.DuplicateInterval)"  />
     <Field Name="@nameof(DocumentConfig.BusEnabled)" />
-    <Field Name="@nameof(DocumentConfig.BusMessageTypeName)" />
+    <Field Name="@nameof(DocumentConfig.BusMessageTypeName)" ReadOnly="!context.BusEnabled" />
     <Field Name="@nameof(DocumentConfig.PromotedProperties)" />
 
 </UpdateForm>

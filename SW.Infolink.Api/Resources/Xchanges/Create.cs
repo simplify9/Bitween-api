@@ -1,22 +1,17 @@
 ﻿using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SW.Infolink.Api.Resources.Xchanges
 {
     class Create : ICommandHandler<XchangeRequest>
     {
-        private readonly InfolinkDbContext dbContext;
         private readonly XchangeService xchangeService;
         private readonly FilterService filterService;
 
-        public Create(InfolinkDbContext dbContext, XchangeService xchangeService, FilterService filterService)
+        public Create(XchangeService xchangeService, FilterService filterService)
         {
-            this.dbContext = dbContext;
             this.xchangeService = xchangeService;
             this.filterService = filterService;
         }
@@ -26,26 +21,23 @@ namespace SW.Infolink.Api.Resources.Xchanges
             if (request.SubscriberId > 0)
             {
                 var id = await xchangeService.Submit(request.SubscriberId,
-                    request.File,
+                    new XchangeFile(request.Data, request.Filename),
                     request.References,
-                    request.IgnoreSchedule);
+                    false);
 
-                return id.ToString();//CreatedAtAction(nameof(GetTodoItem), new { id = item.Id }, item);
+                return id.ToString();
 
             }
             else if (request.DocumentId > 0)
             {
-
-
-                var subscribers = filterService.Filter(request.DocumentId, request.File);
+                var subscribers = filterService.Filter(request.DocumentId, new XchangeFile(request.Data, request.Filename));
 
                 foreach (var sub in subscribers)
                 {
-                    await xchangeService.Submit(sub, request.File);
+                    await xchangeService.Submit(sub, new XchangeFile(request.Data, request.Filename));
                 }
 
                 return null;
-
             }
             else
             {

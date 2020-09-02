@@ -7,15 +7,10 @@ namespace SW.Infolink.Model
 {
     public class XchangeRequest
     {
-
         public int DocumentId { get; set; }
-
         public int SubscriberId { get; set; }
-
-        public XchangeFile File { get; set; }
-
+        public string Filename { get; set; }
+        public string Data { get; set; }
         public string[] References { get; set; }
-
-        public bool IgnoreSchedule { get; set; }
     }
 }

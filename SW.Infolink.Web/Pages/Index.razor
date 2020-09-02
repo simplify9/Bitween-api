@@ -5,6 +5,10 @@
 
 <Search PageSize="10" SearchUrl="xchanges" TModel="XchangeRow" OnItem="@(item => navigationManager.NavigateTo($"admin/carriers/{item.Item.Id}"))"
         Height="400px" Width="max-content">
+    <Commands>
+        <a href="submit">New exchange</a>
+    </Commands>
+
     <Columns>
         <Field Name="Id"></Field>
         <Field Name="SubscriberName" />

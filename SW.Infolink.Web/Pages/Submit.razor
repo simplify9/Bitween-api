@@ -1,0 +1,44 @@
+﻿@page "/submit"
+@inject NavigationManager navigationManager
+@inject InfolinkClient infolinkClient
+@inject NotifyService notifyService
+
+
+<h3>Submit Exchange</h3>
+
+<div class="row">
+    <div class="col-xl-7 mt-2">
+
+        <SimplyForm @bind-Value="model">
+            <Field Name="@nameof(XchangeRequest.DocumentId)" />
+            <Field Name="@nameof(XchangeRequest.SubscriberId)" />
+            <Field Name="@nameof(XchangeRequest.Data)" InputType="InputType.Multiline" rows="" />
+        </SimplyForm>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-7 mt-4 mb-2">
+        <BusyButton OnClick="OnSubmit" class="btn btn-primary">
+            <Title>
+                Submit
+            </Title>
+        </BusyButton>
+        <a class="btn btn-secondary" href="">Cancel</a>
+    </div>
+</div>
+
+@code {
+
+    XchangeRequest model = new XchangeRequest();
+
+    async Task OnSubmit(IBusyButton busyButton)
+    {
+        var apiResult = await infolinkClient.Create("xchanges", model);
+        await notifyService.NotifyOnApiResult(apiResult);
+        if (apiResult.Success)
+            navigationManager.NavigateTo("/");
+
+        await busyButton.SetBusy(false);
+    }
+
+}
