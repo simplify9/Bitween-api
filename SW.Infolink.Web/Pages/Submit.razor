@@ -10,9 +10,18 @@
     <div class="col-xl-7 mt-2">
 
         <SimplyForm @bind-Value="model">
-            <Field Name="@nameof(XchangeRequest.DocumentId)" />
-            <Field Name="@nameof(XchangeRequest.SubscriberId)" />
-            <Field Name="@nameof(XchangeRequest.Data)" InputType="InputType.Multiline" rows="" />
+            <Field Name="@nameof(SubmitXchange.Option)" />
+
+            @if (model.Option == XchangeRequestOption.SubscriberId)
+            {
+                <Field Name="@nameof(SubmitXchange.SubscriberId)" Lookup="subscribers" />
+            }
+            else
+            {
+                <Field Name="@nameof(SubmitXchange.DocumentId)" Lookup="documents" />
+            }
+
+            <Field Name="@nameof(SubmitXchange.Data)" InputType="InputType.Multiline" rows="" />
         </SimplyForm>
     </div>
 </div>
@@ -29,7 +38,7 @@
 
 @code {
 
-    XchangeRequest model = new XchangeRequest();
+    SubmitXchange model = new SubmitXchange();
 
     async Task OnSubmit(IBusyButton busyButton)
     {

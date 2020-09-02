@@ -34,10 +34,17 @@ namespace SW.Infolink.Api.Resources.Documents
                             PromotedProperties = document.PromotedProperties.ToDictionary()
                         };
 
+            query = query.AsNoTracking();
+
+            if (lookup)
+            {
+                return await query.Search(searchyRequest.Conditions).ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
+            }
+
             var searchyResponse = new SearchyResponse<DocumentRow>
             {
-                Result = await query.AsNoTracking().Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync(),
-                TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync()
+                Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync(),
+                TotalCount = await query.Search(searchyRequest.Conditions).CountAsync()
             };
 
             return searchyResponse;

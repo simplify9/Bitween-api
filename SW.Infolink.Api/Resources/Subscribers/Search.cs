@@ -22,7 +22,6 @@ namespace SW.Infolink.Api.Resources.Subscribers
 
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
-            var sr = new SearchyResponse<SubscriberRow>();
 
             var query = from subscriber in dbContext.Set<Subscriber>()
                         join document in dbContext.Set<Document>() on subscriber.DocumentId equals document.Id
@@ -48,11 +47,20 @@ namespace SW.Infolink.Api.Resources.Subscribers
 
                         };
 
-            sr.TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync();
+            query = query.AsNoTracking();
 
-            var results = query.AsNoTracking().Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
+            if (lookup)
+            {
+                return await query.Search(searchyRequest.Conditions).ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
+            }
 
-            sr.Result = await results.ToListAsync();
+            var sr = new SearchyResponse<SubscriberRow>
+            {
+                TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
+                Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()
+            };
+
+
             return sr;
         }
     }
