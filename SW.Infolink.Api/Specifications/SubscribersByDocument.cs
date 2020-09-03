@@ -7,13 +7,13 @@ using System.Text;
 
 namespace SW.Infolink
 {
-    class SubscribersByDocument : ISpecification<Subscriber>
+    class SubscribersByDocument : ISpecification<Subscription>
     {
         public SubscribersByDocument(int DocumentId, bool Inactive = false)
         {
             Criteria = e => e.DocumentId == DocumentId && e.Inactive == Inactive;
         }
 
-        public Expression<Func<Subscriber, bool>> Criteria { get; }
+        public Expression<Func<Subscription, bool>> Criteria { get; }
     }
 }

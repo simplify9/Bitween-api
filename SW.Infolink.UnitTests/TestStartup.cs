@@ -83,7 +83,7 @@ namespace SW.Infolink.UnitTests
                 //var adp = new Adapter(AdapterType.Mapper, "TestAdapter", "");
                 //ctxt.Add(adp);
 
-                var sub1 = new Subscriber("Test", 1)
+                var sub1 = new Subscription("Test", 1)
                 {
                     DocumentFilter = new Dictionary<string, string>
                     {
@@ -94,7 +94,7 @@ namespace SW.Infolink.UnitTests
                 };
                 ctxt.Add(sub1);
 
-                var sub2 = new Subscriber("Test", 1)
+                var sub2 = new Subscription("Test", 1)
                 {
                     DocumentFilter = new Dictionary<string, string>
                     {
@@ -103,7 +103,7 @@ namespace SW.Infolink.UnitTests
                 };
                 ctxt.Add(sub2);
 
-                var sub3 = new Subscriber("Test", 1)
+                var sub3 = new Subscription("Test", 1)
                 {
                     DocumentFilter = new Dictionary<string, string>
                     {
@@ -112,16 +112,16 @@ namespace SW.Infolink.UnitTests
                 };
                 ctxt.Add(sub3);
 
-                var sub4 = new Subscriber("Test", 22);
+                var sub4 = new Subscription("Test", 22);
                 ctxt.Add(sub4);
 
-                var sub5 = new Subscriber("Test", 22);
+                var sub5 = new Subscription("Test", 22);
                 ctxt.Add(sub5);
 
-                var sub6 = new Subscriber("Test", 22);
+                var sub6 = new Subscription("Test", 22);
                 ctxt.Add(sub6);
 
-                var sub7 = new Subscriber("Test", 3)
+                var sub7 = new Subscription("Test", 3)
                 {
                     DocumentFilter = new Dictionary<string, string>
                     {

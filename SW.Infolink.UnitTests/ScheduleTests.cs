@@ -4,6 +4,7 @@ using SW.Infolink.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using SW.Infolink.Api;
 
 namespace SW.Infolink.UnitTests
 {
@@ -24,11 +25,11 @@ namespace SW.Infolink.UnitTests
 
             var n = s.Next();
 
-//            TimeSpan[] tsarraydaily1 =
-//{
-//                TimeSpan.FromHours(5),
-//                TimeSpan.FromHours(23)
-//            };
+            //            TimeSpan[] tsarraydaily1 =
+            //{
+            //                TimeSpan.FromHours(5),
+            //                TimeSpan.FromHours(23)
+            //            };
 
             var s1 = new Schedule(Recurrence.Daily, TimeSpan.FromHours(5));
 
@@ -51,11 +52,11 @@ namespace SW.Infolink.UnitTests
 
             var n = s.Next();
 
-//            TimeSpan[] tsarraydaily1 =
-//{
-//                TimeSpan.FromMinutes(5),
-//                TimeSpan.FromMinutes(23)
-//            };
+            //            TimeSpan[] tsarraydaily1 =
+            //{
+            //                TimeSpan.FromMinutes(5),
+            //                TimeSpan.FromMinutes(23)
+            //            };
 
             var s1 = new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(5));
 
@@ -68,32 +69,32 @@ namespace SW.Infolink.UnitTests
         [TestMethod]
         public void TestNextSchedule()
         {
-//            TimeSpan[] tsarraydaily =
-//{
-//                TimeSpan.FromHours(5),
-//                TimeSpan.FromHours(20)
-//            };
+            //            TimeSpan[] tsarraydaily =
+            //{
+            //                TimeSpan.FromHours(5),
+            //                TimeSpan.FromHours(20)
+            //            };
 
             var ds = new Schedule(Recurrence.Daily, TimeSpan.FromHours(20));
 
-            
 
-//            TimeSpan[] tsarrayhourly =
-//{
-//                TimeSpan.FromMinutes(5),
-//                TimeSpan.FromMinutes(23)
-//            };
+
+            //            TimeSpan[] tsarrayhourly =
+            //{
+            //                TimeSpan.FromMinutes(5),
+            //                TimeSpan.FromMinutes(23)
+            //            };
 
             var hs = new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(23));
 
-            var sub = new Subscriber("test", 1);
+            var sub = new Subscription("test", 1);
 
-            var nsched = sub.NextSchedule();
+            var nsched = sub.Schedules.Next();
 
             sub.Schedules.Add(ds);
             sub.Schedules.Add(hs);
 
-            var nsched1 = sub.NextSchedule();
+            var nsched1 = sub.Schedules.Next();
 
         }
     }

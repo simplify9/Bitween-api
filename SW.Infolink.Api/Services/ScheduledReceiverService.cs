@@ -79,20 +79,20 @@ namespace SW.Infolink
 
                             logger.LogInformation($"Starting to receive for subscriber: '{rec.Id}', adapter: '{rec.ReceiverId}'.");
 
-                            var sub = await dbContext.FindAsync<Subscriber>(rec.Id);
+                            var sub = await dbContext.FindAsync<Subscription>(rec.Id);
                             //var adapter = await dbContext.FindAsync<Adapter>(rec.ReceiverId);
                             //var adapterSvc = scope.ServiceProvider.GetRequiredService<AdapterService>();
                             //var adapterpath = await adapterSvc.Install(rec.ReceiverId);
 
                             var startupParameters = rec.Properties.ToDictionary();
-                            foreach (var subprop in sub.Properties)
-                            {
-                                var subvValue = subprop.Value;
-                                if (!startupParameters.TryGetValue(subprop.Key,out subvValue))
-                                {                                    
-                                    startupParameters.Add(subprop.Key, subprop.Value);
-                                }
-                            }
+                            //foreach (var subprop in sub.Properties)
+                            //{
+                            //    var subvValue = subprop.Value;
+                            //    if (!startupParameters.TryGetValue(subprop.Key,out subvValue))
+                            //    {                                    
+                            //        startupParameters.Add(subprop.Key, subprop.Value);
+                            //    }
+                            //}
                                 
 
                             //var rreq = new ReceiverRequest
@@ -147,10 +147,11 @@ namespace SW.Infolink
                     logger.LogInformation($"Submitting received file for subscriber: '{subscriberId}'.");
                     var xchangeService = scope.ServiceProvider.GetService<XchangeService>();
 
-                    await xchangeService.Submit(
-                        subscriberId,
-                        new XchangeFile(xchangeFile.Data, xchangeFile.Filename),
-                        null);
+                    //await xchangeService.Submit(
+                    //    subscriberId,
+                    //    new XchangeFile(xchangeFile.Data, xchangeFile.Filename),
+                    //    null);
+                    await xchangeService.RunSubscriptionXchange(subscriberId, xchangeFile);
                 }
 
                 await serverless.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);

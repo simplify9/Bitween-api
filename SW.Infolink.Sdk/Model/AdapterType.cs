@@ -1,9 +1,9 @@
-﻿namespace SW.Infolink.Model
-{
-    public enum AdapterType
-    {
-        Handler,
-        Mapper,
-        Receiver
-    }
-}
+﻿//namespace SW.Infolink.Model
+//{
+//    public enum AdapterType
+//    {
+//        Handler,
+//        Mapper,
+//        Receiver
+//    }
+//}

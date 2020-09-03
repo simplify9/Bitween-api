@@ -13,7 +13,7 @@ using SW.Infolink.Model;
 namespace SW.Infolink.Api.Resources.Xchanges
 {
     [HandlerName("retry")]
-    class Retry : ICommandHandler<int, XchangeRequest>
+    class Retry : ICommandHandler<object>
     {
         private readonly InfolinkDbContext dbContext;
         public XchangeService XchangeService { get; }
@@ -25,10 +25,10 @@ namespace SW.Infolink.Api.Resources.Xchanges
 
 
 
-        public async Task<object> Handle(int key, XchangeRequest request)
+        public async Task<object> Handle(object obj)
         {
-
-            await XchangeService.Retry(key);
+            
+            //await XchangeService.Retry(key);
             return null;
         }
     }

@@ -53,7 +53,7 @@ namespace SW.Infolink
 
                 if (doc.PromotedProperties.Count == 0)
                 {
-                    df.SubscribersWihtoutPropertyFilter = subs.Select(e => e.Id).ToArray();
+                    df.SubscriptionsWithNoPropertyFilter.Hits = subs.Select(e => e.Id).ToHashSet();
                 }
                 else
                 {
@@ -95,7 +95,7 @@ namespace SW.Infolink
 
         }
 
-        public IEnumerable<int> Filter(int documentId, XchangeFile xchangeFile)
+        public FilterResult Filter(int documentId, XchangeFile xchangeFile)
         {
             if (xchangeFile is null)
             {
@@ -121,15 +121,15 @@ namespace SW.Infolink
             try
             {
                 if (!documentFilterDictionary.TryGetValue(documentId, out var documentFilter))
-                    throw new InfolinkException($"Document number {documentId} not found"); 
+                    throw new InfolinkException($"Document number {documentId} not found");
 
                 if (documentFilter.Properties.Count == 0)
                 {
-                    return documentFilter.SubscribersWihtoutPropertyFilter;
+                    return documentFilter.SubscriptionsWithNoPropertyFilter;
                 }
 
                 JToken doc = JObject.Parse(xchangeFile.Data);
-                HashSet<int> matchall = null;
+                FilterResult filterResult = null;
 
                 foreach (var prop in documentFilter.Properties.Keys)
                 {
@@ -144,15 +144,19 @@ namespace SW.Infolink
 
                     var val = node.Value<string>() == null ? string.Empty : node.Value<string>().ToLower().Trim();
 
+                    filterResult.Properties.Add(prop, val);
+
                     if (pf.SubscribersByValues.TryGetValue(val, out var lstall))
                         matchallprop.UnionWith(lstall);
 
-                    if (matchall == null) matchall = matchallprop;
-                    else matchall.IntersectWith(matchallprop);
+                    if (filterResult.Hits == null)
+                        filterResult.Hits = matchallprop;
+                    else
+                        filterResult.Hits.IntersectWith(matchallprop);
 
                 }
 
-                return matchall;
+                return filterResult;
             }
             finally
             {

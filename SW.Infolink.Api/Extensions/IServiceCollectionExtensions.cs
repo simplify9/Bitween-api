@@ -11,7 +11,7 @@ namespace SW.Infolink
             services.AddSingleton<InfolinkSettings>();
             services.AddSingleton<FilterService>();
 
-            services.AddScoped<PipelineService>();
+            //services.AddScoped<PipelineService>();
             services.AddScoped<BlobService>();
             services.AddScoped<XchangeService>();
 

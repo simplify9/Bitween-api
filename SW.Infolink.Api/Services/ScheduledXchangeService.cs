@@ -64,19 +64,24 @@ namespace SW.Infolink
                 using (var scope = sp.CreateScope())
                 {
 
-                    var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
 
-                    var xchangeList = (await repo.ListAsync(new XchangesDueForDelivery(rd))).OrderBy(e => e.SubscriberId);
-                    
+                    var xchangeList = from xchange in dbContext.Set<Xchange>()
+                                      join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.XchangeId
+                                      join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.XchangeId into xd
+                                      from delivery in xd.DefaultIfEmpty()
+                                      where result.Success == true && delivery == null
+                                      select xchange;
+
                     if (xchangeList.Count() == 0) return;
 
                     int subId = 0;
-                    Subscriber subscriber = null;
+                    Subscription subscriber = null;
                     JArray jArray = null;
 
                     foreach (var xchange in xchangeList)
                     {
-                        if (xchange.SubscriberId != subId)
+                        if (xchange.SubscriptionId != subId)
                         {
                             if (subId != 0)
                             {
@@ -86,9 +91,9 @@ namespace SW.Infolink
                             }
 
                             //start with new subscriber
-                            subId = xchange.SubscriberId;
+                            subId = xchange.SubscriptionId.Value;
                             jArray = new JArray();
-                            subscriber = await repo.FindAsync<Subscriber>(subId);
+                            subscriber = await dbContext.FindAsync<Subscription>(subId);
                         }
 
                         var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
@@ -100,8 +105,8 @@ namespace SW.Infolink
                         else
                             await Send(scope, subscriber.Id, xf);
 
-                        xchange.DeliveredOn = DateTime.UtcNow;
-                        await repo.SaveChangesAsync();
+                        dbContext.Add(new XchangeDelivery(xchange.Id));
+                        await dbContext.SaveChangesAsync();
 
                     }
 
@@ -118,7 +123,8 @@ namespace SW.Infolink
         private async Task Send(IServiceScope scope, int subscriberId, object jArray)
         {
             var xchangeService = scope.ServiceProvider.GetService<XchangeService>();
-            await xchangeService.Submit(subscriberId, new XchangeFile(jArray.ToString()), null, true);
+            //await xchangeService.RunSubscriptionXchange(subscriberId, new XchangeFile(jArray.ToString()))
+            //await xchangeService.Submit(subscriberId, new XchangeFile(jArray.ToString()), null, true);
         }
         private void AddTokensToArray(JArray jArray, JToken jtoken)
         {

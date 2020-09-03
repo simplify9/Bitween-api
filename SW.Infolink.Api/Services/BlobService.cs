@@ -19,7 +19,7 @@ namespace SW.Infolink
             this.infolinkSettings = infolinkSettings;
         }
 
-        public async Task AddFile(int xchangeId, XchangeFileType type, XchangeFile file)
+        public async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
         {
             await cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings
             {
@@ -28,7 +28,7 @@ namespace SW.Infolink
             });
         }
 
-        public async Task<string> GetFile(int xchangeId, XchangeFileType type)
+        public async Task<string> GetFile(string xchangeId, XchangeFileType type)
         {
 
             //var c = (await dbCtxt.Set<XchangeBlob>().FindAsync(xchangeId, xchangeBlobType));

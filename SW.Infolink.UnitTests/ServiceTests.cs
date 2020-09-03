@@ -143,7 +143,7 @@ namespace SW.Infolink.UnitTests
 
 
             //monthly
-            var s = new Subscriber("Test", 1);
+            var s = new Subscription("Test", 1);
             var scheds = new List<string>();
             //scheds.Add("14.15:30:00");
             //scheds.Add("17.15:30:00");
@@ -175,7 +175,7 @@ namespace SW.Infolink.UnitTests
             var ctxt = scope.ServiceProvider.GetService<InfolinkDbContext>();
 
             //weekly
-            var s = new Subscriber("Test", 1);
+            var s = new Subscription("Test", 1);
             var scheds = new List<string>();
             
             //scheds.Add("6.15:30:00");
@@ -225,7 +225,7 @@ namespace SW.Infolink.UnitTests
             //xchange2.DeliverOn = DateTime.UtcNow.AddDays(-1);
             //xchange3.DeliverOn = DateTime.UtcNow.AddDays(-1);
 
-            var s = new Subscriber("Test", 1);
+            var s = new Subscription("Test", 1);
             s.Aggregate = true;
             await  ctxt.AddAsync(s);
             await ctxt.AddAsync(xchange);

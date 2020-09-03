@@ -31,10 +31,10 @@ namespace SW.Infolink.Api.Resources.Xchanges
                     MapperId = xchange.MapperId,
                     DocumentId = xchange.DocumentId,
                     StartedOn = xchange.StartedOn,
-                    FinishedOn = xchange.FinishedOn,
-                    SubscriberId = xchange.SubscriberId,
-                    Status = xchange.Status,
-                    Exception = xchange.Exception,
+                    //FinishedOn = xchange.FinishedOn,
+                    SubscriberId = xchange.SubscriptionId,
+                    //Status = xchange.Status,
+                    //Exception = xchange.Exception,
                     InputFileName = xchange.InputFileName  
 
                 }).SingleOrDefaultAsync();

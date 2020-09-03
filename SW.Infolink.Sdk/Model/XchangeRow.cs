@@ -7,8 +7,8 @@ namespace SW.Infolink.Model
 {
     public class XchangeRow
     {
-        public int Id { get; set; }
-        public int SubscriberId { get; set; }
+        public string Id { get; set; }
+        public int? SubscriberId { get; set; }
         public string SubscriberName { get; set; }
         public int DocumentId { get; set; }
         public string DocumentName { get; set; }

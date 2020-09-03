@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SW.Infolink.Model
 {
-    public class AdapterRow 
+    public class AdapterRow
     {
         public string Id { get; set; }
     }

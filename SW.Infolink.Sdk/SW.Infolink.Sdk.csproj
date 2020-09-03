@@ -9,6 +9,7 @@
     <PackageProjectUrl>https://github.com/simplify9/Infolink</PackageProjectUrl>
     <RepositoryUrl>https://github.com/simplify9/Infolink</RepositoryUrl>
     <PackageIcon>icon.png</PackageIcon>
+    <RootNamespace>SW.Infolink</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

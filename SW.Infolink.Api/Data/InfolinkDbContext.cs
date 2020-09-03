@@ -25,16 +25,15 @@ namespace SW.Infolink
         {
             base.OnModelCreating(modelBuilder);
 
-            string schema = null;
-            if (configuration["Database"]?.ToLower() == "mssql")
-            {
-                schema = "infolink";
-            }
+            //if (configuration["Database"]?.ToLower() == "mssql")
+            //{
+            //    schema = "infolink";
+            //}
 
             //modelBuilder.Entity<Adapter>(b =>
             //{
 
-            //    b.ToTable("Adapters", schema);
+            //    b.ToTable("Adapters");
             //    b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
             //    b.Property(p => p.ServerlessId).IsUnicode(false).HasMaxLength(200);
             //    b.Property(p => p.Properties).StoreAsJson();
@@ -56,67 +55,106 @@ namespace SW.Infolink
 
             modelBuilder.Entity<Document>(b =>
             {
-                b.ToTable("Documents", schema);
+                b.ToTable("Documents");
                 b.Property(p => p.Id).ValueGeneratedNever();
-                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.Property(p => p.Name).HasMaxLength(100).IsUnicode(false).IsRequired();
                 b.Property(p => p.BusMessageTypeName).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.PromotedProperties).StoreAsJson();
+
+                b.HasIndex(p => p.Name).IsUnique();
             });
 
-            //modelBuilder.Entity<AccessKeySet>(b =>
-            //{
-            //    b.ToTable("AccessKeySets", schema);
-            //    b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-            //    b.Property(p => p.Key1).HasMaxLength(1024).IsUnicode(false).IsRequired();
-            //    b.Property(p => p.Key2).HasMaxLength(1024).IsUnicode(false).IsRequired();
-            //});
-
-            modelBuilder.Entity<Subscriber>(b =>
+            modelBuilder.Entity<Partner>(b =>
             {
-                b.ToTable("Subscribers", schema);
+                b.ToTable("Partners");
+                b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
+                b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
+                b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey("PartnerId").OnDelete(DeleteBehavior.SetNull);
+                b.OwnsMany(p => p.ApiCredentials, apicred =>
+                {
+                    apicred.ToTable("PartnerApiCredentials");
+                    apicred.Property(p => p.Name).IsRequired().HasMaxLength(500);
+                    apicred.Property(p => p.Key).IsRequired().IsUnicode(false).HasMaxLength(500);
+                    apicred.HasIndex(p => p.Key).IsUnique();
+                    apicred.WithOwner().HasForeignKey("PartnerId");
+                });
+            });
+
+            modelBuilder.Entity<Subscription>(b =>
+            {
+                b.ToTable("Subscribers");
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("SubscriberSchedules", schema));
-                b.Property(p => p.Properties).StoreAsJson();
+                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("SubscriberSchedules"));
+                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.MapperProperties).StoreAsJson();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
-                b.HasMany(p => p.Receivers).WithOne(p => p.Subscriber).IsRequired(true).HasForeignKey("SubscriberId").OnDelete(DeleteBehavior.Cascade);
+                b.HasMany(p => p.Receivers).WithOne(p => p.Subscription).IsRequired(true).HasForeignKey("SubscriberId").OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.ResponseSubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Receiver>(b =>
             {
-                b.ToTable("Receivers", schema);
-                b.Property(p => p.Id).ValueGeneratedNever();
-                b.Property(p => p.Id).HasSequenceGenerator();
+                b.ToTable("Receivers");
+                //b.Property(p => p.Id).ValueGeneratedNever();
+                //b.Property(p => p.Id).HasSequenceGenerator();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("ReceiverSchedules", schema));
+                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("ReceiverSchedules"));
                 b.Property(p => p.Properties).StoreAsJson();
-                b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false).IsRequired();   
+                b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false).IsRequired();
 
             });
 
             modelBuilder.Entity<Xchange>(b =>
             {
-                b.ToTable("Xchanges", schema);
+                b.ToTable("Xchanges");
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.References).IsSeparatorDelimited().HasMaxLength(1024);
                 b.Property(p => p.InputFileHash).IsRequired().IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.InputFileName).HasMaxLength(200);
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
-
-
-
+                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.MapperProperties).StoreAsJson();
 
                 b.HasIndex(i => i.InputFileHash);
-                b.HasIndex(i => i.DeliveredOn);
                 b.HasIndex(i => i.DeliverOn);
-                b.HasIndex(i => i.SubscriberId);
+                b.HasIndex(i => i.SubscriptionId);
+
+            });
+
+            modelBuilder.Entity<XchangeResult>(b =>
+            {
+                b.ToTable("XchangeResults");
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.XchangeId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<XchangeDelivery>(b =>
+            {
+                b.ToTable("XchangeDeliveries");
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+                b.HasIndex(i => i.DeliveredOn);
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.XchangeId).OnDelete(DeleteBehavior.Cascade);
+
+            });
+
+            modelBuilder.Entity<XchangePromotedProperties>(b =>
+            {
+                b.ToTable("XchangePromotedProperties");
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.Properties).StoreAsJson();
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.XchangeId).OnDelete(DeleteBehavior.Cascade);
 
             });
 
             //modelBuilder.Entity<XchangeBlob>(b =>
             //{
-            //    b.ToTable("XchangeFiles", schema);
+            //    b.ToTable("XchangeFiles");
             //    b.HasKey(k => new { k.Id, k.Type });
             //    b.Property(p => p.Type).HasConversion<byte>();
 

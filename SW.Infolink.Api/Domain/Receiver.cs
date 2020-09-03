@@ -22,7 +22,7 @@ namespace SW.Infolink.Domain
         public IReadOnlyDictionary<string, string> Properties { get; set; }
         public DateTime? ReceiveOn { get; set; }
 
-        public Subscriber Subscriber { get; set; }
+        public Subscription Subscription { get; set; }
 
         //public DateTime? NextSchedule()
         //{

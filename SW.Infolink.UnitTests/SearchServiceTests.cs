@@ -57,7 +57,7 @@ namespace SW.Infolink.UnitTests
 
             //ctxt.Add(k);
 
-            var s = new Subscriber("Test", 1)
+            var s = new Subscription("Test", 1)
             {
                 //KeySetId = 1
             };

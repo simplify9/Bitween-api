@@ -28,7 +28,7 @@ namespace SW.Infolink.Api.Resources.Xchanges
                         //join handler in dbContext.Set<Adapter>() on xchange.HandlerId equals handler.Id into xh
                         //from handler in xh.DefaultIfEmpty()
                         join document in dbContext.Set<Document>() on xchange.DocumentId equals document.Id
-                        join subscriber in dbContext.Set<Subscriber>() on xchange.SubscriberId equals subscriber.Id
+                        join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id
                         select new XchangeRow
                         {
                             Id = xchange.Id,
@@ -39,11 +39,11 @@ namespace SW.Infolink.Api.Resources.Xchanges
                             DocumentId = xchange.DocumentId,
                             DocumentName = document.Name,
                             StartedOn = xchange.StartedOn,
-                            FinishedOn = xchange.FinishedOn,
-                            SubscriberId = xchange.SubscriberId,
+                            //FinishedOn = xchange.FinishedOn,
+                            SubscriberId = xchange.SubscriptionId,
                             SubscriberName = subscriber.Name,
-                            Status = xchange.Status,
-                            Exception = xchange.Exception
+                            //Status = xchange.Status,
+                            //Exception = xchange.Exception
                         };
 
             var searchyResponse = new SearchyResponse<XchangeRow>

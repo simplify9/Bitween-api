@@ -6,10 +6,10 @@ namespace SW.Infolink
 {
     public static class ModelBuilderExtensions
     {
-        public static OwnedNavigationBuilder<TOwner, Schedule> BuildSchedule<TOwner>(this OwnedNavigationBuilder<TOwner, Schedule> builder, string table, string schema)
+        public static OwnedNavigationBuilder<TOwner, Schedule> BuildSchedule<TOwner>(this OwnedNavigationBuilder<TOwner, Schedule> builder, string table)
             where TOwner : class
         {
-            builder.ToTable(table, schema);
+            builder.ToTable(table);
             builder.Property<int>("Id");
             builder.HasKey("Id");
             builder.Property(p => p.Recurrence).HasColumnName("Recurrence").HasConversion<byte>();
