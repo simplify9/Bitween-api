@@ -19,7 +19,6 @@ namespace SW.Infolink.Domain
         }
 
         public string XchangeId { get; private set; }
-        public string  Value { get; private set; }
         public IReadOnlyDictionary<string, string> Properties { get; private set; }
     }
 }

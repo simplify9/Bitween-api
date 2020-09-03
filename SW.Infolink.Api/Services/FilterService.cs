@@ -129,7 +129,7 @@ namespace SW.Infolink
                 }
 
                 JToken doc = JObject.Parse(xchangeFile.Data);
-                FilterResult filterResult = null;
+                var filterResult = new FilterResult();
 
                 foreach (var prop in documentFilter.Properties.Keys)
                 {

@@ -2,9 +2,9 @@
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Domain
+namespace SW.Infolink.Domain
 {
-    class PublishEvents : IHandle<BaseDomainEvent>
+    class PublishEvents : IHandle<XchangeCreatedEvent>
     {
         private readonly IPublish publish;
 
@@ -13,7 +13,7 @@ namespace SW.Infolink.Api.Domain
             this.publish = publish;
         }
 
-        async public Task Handle(BaseDomainEvent domainEvent)
+        async public Task Handle(XchangeCreatedEvent domainEvent)
         {
             await publish.Publish(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
         }

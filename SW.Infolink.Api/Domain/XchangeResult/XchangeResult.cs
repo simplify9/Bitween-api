@@ -9,12 +9,14 @@ namespace SW.Infolink.Domain
         {
         }
 
-        public XchangeResult(string xchangeId, string exception = null, string responseXchangeId = null)
+        public XchangeResult(string xchangeId, string responseXchangeId = null, string exception = null)
         {
+            Success = exception == null;
+            Exception = exception.ToString();
             Id = Guid.NewGuid().ToString("N");
             XchangeId = xchangeId;
-            Success = exception == null;
-            Exception = exception;
+            Success = true;
+            FinishedOn = DateTime.Now;
             ResponseXchangeId = responseXchangeId;
             Events.Add(new XchangeResultCreatedEvent
             {
@@ -25,7 +27,7 @@ namespace SW.Infolink.Domain
         public string XchangeId { get; private set; }
         public bool Success { get; private set; }
         public string Exception { get; private set; }
-        public DateTime? FinishedOn { get; private set; }
+        public DateTime FinishedOn { get; private set; }
         public string ResponseXchangeId { get; private set; }
     }
 }

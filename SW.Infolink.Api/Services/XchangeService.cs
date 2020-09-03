@@ -78,6 +78,8 @@ namespace SW.Infolink
             xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
             if (xchangeFile is null)
                 throw new InfolinkException($"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
+            else
+                await infolinkDms.AddFile(xchange.Id, XchangeFileType.Output, xchangeFile);
 
             return xchangeFile;
         }
@@ -97,16 +99,12 @@ namespace SW.Infolink
         async Task IConsume<XchangeCreatedEvent>.Process(XchangeCreatedEvent message)
         {
             var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+            Xchange responseXchange = null;
 
             if (xchange.SubscriptionId != null && xchange.DeliverOn == null)
             {
                 var file = new XchangeFile(await infolinkDms.GetFile(xchange.Id, XchangeFileType.Input), xchange.InputFileName);
-
-                XchangeFile outputFile = null;
                 file = await RunMapper(xchange, file);
-                await infolinkDms.AddFile(xchange.Id, XchangeFileType.Output, outputFile);
-
-                Xchange responseXchange = null;
 
                 var responseFile = await RunHandler(xchange, file);
 
@@ -116,9 +114,11 @@ namespace SW.Infolink
                     responseXchange = await CreateXchange(subscription, responseFile);
                 }
 
-                dbContext.Add(new XchangeResult(xchange.Id, null, responseXchange?.Id));
-                await dbContext.SaveChangesAsync();
             }
+
+            dbContext.Add(new XchangeResult(xchange.Id, responseXchange?.Id));
+            await dbContext.SaveChangesAsync();
+
         }
     }
 
