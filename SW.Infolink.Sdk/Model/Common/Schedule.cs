@@ -1,8 +1,5 @@
 ﻿using SW.PrimitiveTypes;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace SW.Infolink.Model
 {
@@ -11,7 +8,6 @@ namespace SW.Infolink.Model
         public Schedule(Recurrence recurrence, TimeSpan on, bool backwards = false)
         {
             Recurrence = recurrence;
-
             On = on;
             Backwards = backwards;
 
@@ -49,11 +45,7 @@ namespace SW.Infolink.Model
         {
             if (Recurrence == Recurrence.None) throw new ArgumentException();
 
-            //var onminutes = On.TotalMinutes;
-            //Array.Sort(onminutes);
-
-            var now = (currentDate==default)  ? DateTime.UtcNow : currentDate;
-            //IEnumerable<DateTime> dates = null;
+            var now = currentDate == default ? DateTime.UtcNow : currentDate;
             DateTime nextSelectedDate = default; // = null;
 
             switch (Recurrence)

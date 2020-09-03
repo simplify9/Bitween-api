@@ -2,13 +2,11 @@
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Resources.Subscribers
+namespace SW.Infolink.Api.Resources.Subscriptions
 {
     class Update : ICommandHandler<int, SubscriptionConfig>
     {

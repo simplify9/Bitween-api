@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
@@ -15,11 +16,13 @@ namespace SW.Infolink.Api.Resources.Xchanges
         private readonly XchangeService xchangeService;
         private readonly InfolinkDbContext dbContext;
 
-        public Create(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext)
+
+        public Create(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext, IServiceProvider serviceProvider)
         {
             this.requestContext = requestContext;
             this.xchangeService = xchangeService;
             this.dbContext = dbContext;
+            var ss = serviceProvider.GetServices(typeof(IHandle<XchangeCreatedEvent>));
         }
 
         async public Task<object> Handle(string documentName, object request)

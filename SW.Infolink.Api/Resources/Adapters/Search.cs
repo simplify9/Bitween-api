@@ -1,12 +1,6 @@
 ﻿using SW.PrimitiveTypes;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using System.Linq;
-using Microsoft.EntityFrameworkCore;
-using SW.Infolink.Domain;
-using SW.EfCoreExtensions;
 using SW.Infolink.Model;
 
 namespace SW.Infolink.Api.Resources.Adapters
@@ -24,10 +18,13 @@ namespace SW.Infolink.Api.Resources.Adapters
 
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
+
+            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}")).Where(item => item.Size > 0).ToList();
+
+            if (lookup)
+                return cloudFilesList.ToDictionary(k => k.Key, v => v.Key);
+
             var sr = new SearchyResponse<AdapterRow>();
-
-            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}")).Where(item => item.Size > 0);
-
             sr.TotalCount = cloudFilesList.Count();
             sr.Result = cloudFilesList.Select(item => new AdapterRow
             {

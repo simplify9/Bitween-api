@@ -57,62 +57,61 @@ namespace SW.Infolink
         {
             try
             {
-                var rd = DateTime.UtcNow;
+                //var rd = DateTime.UtcNow;
 
-                if (state != null) rd = (DateTime)state;
+                //if (state != null) rd = (DateTime)state;
 
-                using (var scope = sp.CreateScope())
+                using var scope = sp.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+
+                var xchangeQuery = from xchange in dbContext.Set<Xchange>()
+                                   join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.XchangeId
+                                   join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.XchangeId into xd
+                                   from delivery in xd.DefaultIfEmpty()
+                                   where result.Success == true && delivery == null && xchange.DeliverOn < DateTime.UtcNow
+                                   select xchange;
+
+                var xchangeList = await xchangeQuery.ToListAsync();
+
+                if (xchangeList.Count() == 0) return;
+
+                int subId = 0;
+                Subscription subscription = null;
+                JArray jArray = null;
+
+                foreach (var xchange in xchangeList)
                 {
-
-                    var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
-
-                    var xchangeList = from xchange in dbContext.Set<Xchange>()
-                                      join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.XchangeId
-                                      join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.XchangeId into xd
-                                      from delivery in xd.DefaultIfEmpty()
-                                      where result.Success == true && delivery == null
-                                      select xchange;
-
-                    if (xchangeList.Count() == 0) return;
-
-                    int subId = 0;
-                    Subscription subscriber = null;
-                    JArray jArray = null;
-
-                    foreach (var xchange in xchangeList)
+                    if (xchange.SubscriptionId != subId)
                     {
-                        if (xchange.SubscriptionId != subId)
+                        if (subId != 0)
                         {
-                            if (subId != 0)
-                            {
-                                //send!
-                                if (subscriber.Aggregate)
-                                    await Send(scope, subscriber.Id, jArray);
-                            }
-
-                            //start with new subscriber
-                            subId = xchange.SubscriptionId.Value;
-                            jArray = new JArray();
-                            subscriber = await dbContext.FindAsync<Subscription>(subId);
+                            //send!
+                            if (subscription.Aggregate)
+                                await Send(scope, subscription.Id, jArray);
                         }
 
-                        var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
-                        JToken xf = JToken.Parse(await xchangeDms.GetFile(xchange.Id, XchangeFileType.Input));
-
-                        if (subscriber.Aggregate)
-                            //jArray.Add(xf);
-                            AddTokensToArray(jArray, xf);
-                        else
-                            await Send(scope, subscriber.Id, xf);
-
-                        dbContext.Add(new XchangeDelivery(xchange.Id));
-                        await dbContext.SaveChangesAsync();
-
+                        //start with new subscriber
+                        subId = xchange.SubscriptionId.Value;
+                        jArray = new JArray();
+                        subscription = await dbContext.FindAsync<Subscription>(subId);
                     }
 
-                    if (subscriber.Aggregate)
-                        await Send(scope, subscriber.Id, jArray);
+                    var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
+                    JToken xf = JToken.Parse(await xchangeDms.GetFile(xchange.Id, XchangeFileType.Input));
+
+                    if (subscription.Aggregate)
+                        //jArray.Add(xf);
+                        AddTokensToArray(jArray, xf);
+                    else
+                        await Send(scope, subscription.Id, xf);
+
+                    dbContext.Add(new XchangeDelivery(xchange.Id));
+                    await dbContext.SaveChangesAsync();
+
                 }
+
+                if (subscription.Aggregate)
+                    await Send(scope, subscription.Id, jArray);
             }
             catch (Exception ex)
             {

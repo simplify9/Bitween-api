@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 
-namespace SW.Infolink.Api.Resources.Subscribers
+namespace SW.Infolink.Api.Resources.Subscriptions
 {
     class Search : ISearchyHandler
     {
@@ -39,12 +39,10 @@ namespace SW.Infolink.Api.Resources.Subscribers
                             DocumentName = document.Name,
                             HandlerId = subscriber.HandlerId,
                             Inactive = subscriber.Inactive,
-                            //HandlerName = handler.Name,
                             MapperId = subscriber.MapperId,
-                            //MapperName = mapper.Name,
                             Aggregate = subscriber.Aggregate,
                             Temporary = subscriber.Temporary,
-                            Schedules = subscriber.Schedules
+                            //Schedules = subscriber.Schedules
 
                         };
 

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Resources.Subscribers
+namespace SW.Infolink.Api.Resources.Subscriptions
 {
     class Delete : IDeleteHandler<int>
     {

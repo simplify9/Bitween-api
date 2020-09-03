@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SW.Infolink.Model;
 
-namespace SW.Infolink.Api.Resources.Subscribers
+namespace SW.Infolink.Api.Resources.Subscriptions
 {
     class Get : IGetHandler<int>
     {
@@ -37,7 +37,7 @@ namespace SW.Infolink.Api.Resources.Subscribers
                     MapperProperties = subscriber.MapperProperties.ToDictionary(),
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
-                    Schedules = subscriber.Schedules
+                    //Schedules = subscriber.Schedules
 
                 }).SingleOrDefaultAsync();
         }

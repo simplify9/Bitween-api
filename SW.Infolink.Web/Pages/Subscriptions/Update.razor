@@ -1,0 +1,39 @@
+﻿@page "/subscriptions/{Id:int}"
+
+
+<UpdateForm Title="Document" TModel="SubscriptionConfig" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id">
+
+    <Tabs Height="400px">
+        <Tab Title="General">
+            <Field Name="@nameof(SubscriptionConfig.Name)" />
+            <Field Name="@nameof(SubscriptionConfig.Inactive)" />
+            <Field Name="@nameof(SubscriptionConfig.Aggregate)" />
+        </Tab>
+        <Tab Title="Schedules">
+
+        </Tab>
+        <Tab Title="Mapper">
+            <Field Name="@nameof(SubscriptionConfig.MapperId)" Lookup="adapters" />
+            <Field Name="@nameof(SubscriptionConfig.MapperProperties)" />
+
+        </Tab>
+
+        <Tab Title="Handler">
+            <Field Name="@nameof(SubscriptionConfig.HandlerId)" Lookup="adapters" />
+            <Field Name="@nameof(SubscriptionConfig.HandlerProperties)" />
+
+        </Tab>
+        <Tab Title="Receivers">
+
+        </Tab>
+
+    </Tabs>
+
+</UpdateForm>
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+}

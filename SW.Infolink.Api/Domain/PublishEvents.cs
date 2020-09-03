@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Domain
 {
-    class PublishEvents : IHandle<XchangeCreatedEvent>
+    public class PublishEvents : IHandle<XchangeCreatedEvent>
     {
         private readonly IPublish publish;
 

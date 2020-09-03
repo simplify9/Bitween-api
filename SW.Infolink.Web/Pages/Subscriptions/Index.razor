@@ -1,4 +1,4 @@
-﻿@page "/subscribers"
+﻿@page "/subscriptions"
 @inject NavigationManager navigationManager
 
 <h3>Subscribers</h3>
@@ -6,7 +6,7 @@
 <Search PageSize="10" SearchUrl="subscribers" TModel="SubscriptionRow" OnItem="@(item => navigationManager.NavigateTo($"subscribers/{item.Item.Id}"))"
         Height="400px" Width="max-content">
     <Commands>
-        <a href="subscribers/create">New subscriber</a>
+        <a href="subscriptions/create">New subscription</a>
     </Commands>
 
     <Columns>

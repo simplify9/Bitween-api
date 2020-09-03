@@ -11,9 +11,9 @@ namespace SW.Infolink.Domain
 
         public XchangeResult(string xchangeId, string responseXchangeId = null, string exception = null)
         {
-            Success = exception == null;
-            Exception = exception.ToString();
             Id = Guid.NewGuid().ToString("N");
+            Success = exception == null;
+            Exception = exception;
             XchangeId = xchangeId;
             Success = true;
             FinishedOn = DateTime.Now;

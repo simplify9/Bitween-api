@@ -21,6 +21,7 @@ using SW.Logger;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 using SW.SimplyRazor;
+using SW.Infolink.Domain;
 
 namespace SW.Infolink.Web
 {
@@ -51,6 +52,7 @@ namespace SW.Infolink.Web
             services.AddCloudFiles();
             services.AddServerless();
             services.AddScoped<RequestContext>();
+            //services.AddScoped<IHandle<XchangeCreatedEvent>, PublishEvents>();
 
             services.AddDbContext<InfolinkDbContext>(c =>
             {

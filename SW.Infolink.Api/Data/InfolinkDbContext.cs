@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.PrimitiveTypes;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -62,6 +63,7 @@ namespace SW.Infolink
                 b.Property(p => p.PromotedProperties).StoreAsJson();
 
                 b.HasIndex(p => p.Name).IsUnique();
+                b.HasIndex(p => p.BusMessageTypeName).IsUnique();
             });
 
             modelBuilder.Entity<Partner>(b =>
@@ -152,13 +154,6 @@ namespace SW.Infolink
 
             });
 
-            //modelBuilder.Entity<XchangeBlob>(b =>
-            //{
-            //    b.ToTable("XchangeFiles");
-            //    b.HasKey(k => new { k.Id, k.Type });
-            //    b.Property(p => p.Type).HasConversion<byte>();
-
-            //});
         }
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -167,13 +162,23 @@ namespace SW.Infolink
             {
                 using var transaction = Database.BeginTransaction();
                 var affectedRecords = await base.SaveChangesAsync(cancellationToken);
-
                 await ChangeTracker.DispatchDomainEvents(domainEventDispatcher);
+                //var entitiesWithEvents = ChangeTracker.Entries<IGeneratesDomainEvents>()
+                //    .Select(e => e.Entity)
+                //    .Where(e => e.Events.Any())
+                //    .ToArray();
 
+                //foreach (var entity in entitiesWithEvents)
+                //{
+                //    var events = entity.Events.ToArray();
+                //    entity.Events.Clear();
+                //    foreach (var domainEvent in events)
+                //    {
+                //        await domainEventDispatcher.Dispatch(domainEvent);
+                //    }
+                //}
                 await transaction.CommitAsync();
-
                 return affectedRecords;
-
             }
             catch (DbUpdateException dbUpdateException)
             {

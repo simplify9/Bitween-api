@@ -21,23 +21,9 @@ namespace SW.Infolink.Api.Resources.Documents
 
         async public Task<object> Handle(DocumentConfig model)
         {
-            var entity = new Document(model.Id, model.Name)
-            {
-                //Aggregate = model.Aggregate,
-                //DocumentFilter = model.DocumentFilter.ToDictionary(),
-                //HandlerId = model.HandlerId,
-                //Inactive = model.Inactive,
-                ////KeySetId = model.KeySetId,
-                //MapperId = model.MapperId,
-                //Properties = model.Properties.ToDictionary(),
-                //Temporary = model.Temporary,
-                //ResponseSubscriberId = model.ResponseSubscriberId
-
-            };
-
-            dbContext.Add(entity);
+            var entity = new Document(model.Id, model.Name);
+            dbContext.Add(new Document(model.Id, model.Name));
             await dbContext.SaveChangesAsync();
-
             return entity.Id;
         }
     }

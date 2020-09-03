@@ -1,0 +1,11 @@
+﻿@page "/subscriptions/create"
+
+
+<CreateForm Title="Subscription" TModel="SubscriptionConfig" ApiUrl="subscriptions" ReturnUrl="subscriptions">
+    <Field Name="@nameof(SubscriptionConfig.Name)" />
+    <Field Name="@nameof(SubscriptionConfig.DocumentId)" Lookup="documents" />
+</CreateForm>
+
+@code {
+
+}
