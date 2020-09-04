@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using SW.Infolink.Model;
 
-namespace SW.Infolink.Api.Resources.Adapters
+namespace SW.Infolink.Resources.Adapters
 {
     class Search : ISearchyHandler
     {
@@ -19,7 +19,7 @@ namespace SW.Infolink.Api.Resources.Adapters
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
 
-            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}")).Where(item => item.Size > 0).ToList();
+            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}/infolink.mappers")).Where(item => item.Size > 0).ToList();
 
             if (lookup)
                 return cloudFilesList.ToDictionary(k => k.Key, v => v.Key);

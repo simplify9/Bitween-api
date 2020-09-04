@@ -354,3 +354,4 @@ MigrationBackup/
 charts/default/Chart.lock
 charts/default/charts/swlib-2.0.11.tgz
 /charts/default/charts/swlib-2.0.12.tgz
+/SW.Infolink.Web/adapters

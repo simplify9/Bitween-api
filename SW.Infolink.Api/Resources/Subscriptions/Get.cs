@@ -27,14 +27,14 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                 Select(subscriber => new SubscriptionConfig
                 {
                     Aggregate = subscriber.Aggregate,
-                    DocumentFilter = subscriber.DocumentFilter.ToDictionary(),
+                    DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
                     DocumentId = subscriber.DocumentId,
                     HandlerId = subscriber.HandlerId,
                     Inactive = subscriber.Inactive,
-                    //KeySetId = subscriber.KeySetId,
                     MapperId = subscriber.MapperId,
                     Name = subscriber.Name,
-                    MapperProperties = subscriber.MapperProperties.ToDictionary(),
+                    MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),
+                    HandlerProperties = subscriber.HandlerProperties.ToKeyAndValueCollection(),
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
                     //Schedules = subscriber.Schedules

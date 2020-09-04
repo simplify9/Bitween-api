@@ -1,6 +1,6 @@
 ﻿@page "/subscriptions/{Id:int}"
 
-<UpdateForm Title="Document" TModel="SubscriptionConfig" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id">
+<UpdateForm Title="Subscription" TModel="SubscriptionConfig" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id">
     <Tabs Height="400px">
         <Tab Title="General">
             <Field Name="@nameof(SubscriptionConfig.Name)" />
@@ -32,11 +32,48 @@
             </Subform>
         </Tab>
         <Tab Title="Filter">
-            <Field Name="@nameof(SubscriptionConfig.DocumentFilter)" />
+            <Subform Name="@nameof(SubscriptionConfig.DocumentFilter)">
+                <Columns>
+                    <Field Text="Action">
+                        <ColumnHeader Context="fieldContext">
+                            Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                        </ColumnHeader>
+                        <ColumnValue Context="fieldContext">
+                            <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                            <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                        </ColumnValue>
+                    </Field>
+                    <Field Name="@nameof(KeyAndValue.Key)" />
+                    <Field Name="@nameof(KeyAndValue.Value)" />
+                </Columns>
+                <Form>
+                    <Field Name="@nameof(KeyAndValue.Key)" Lookup="@($"documents/{context.DocumentId}/properties")" />
+                    <Field Name="@nameof(KeyAndValue.Value)" />
+                </Form>
+            </Subform>
+
         </Tab>
         <Tab Title="Mapper">
             <Field Name="@nameof(SubscriptionConfig.MapperId)" Lookup="adapters" />
-            <Field Name="@nameof(SubscriptionConfig.MapperProperties)" />
+            <Subform Name="@nameof(SubscriptionConfig.MapperProperties)">
+                <Columns>
+                    <Field Text="Action">
+                        <ColumnHeader Context="fieldContext">
+                            Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                        </ColumnHeader>
+                        <ColumnValue Context="fieldContext">
+                            <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                            <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                        </ColumnValue>
+                    </Field>
+                    <Field Name="@nameof(KeyAndValue.Key)" />
+                    <Field Name="@nameof(KeyAndValue.Value)" />
+                </Columns>
+                <Form>
+                    <Field Name="@nameof(KeyAndValue.Key)" Lookup="@($"adapters/jjj/properties")" />
+                    <Field Name="@nameof(KeyAndValue.Value)" />
+                </Form>
+            </Subform>
         </Tab>
         <Tab Title="Handler">
             <Field Name="@nameof(SubscriptionConfig.HandlerId)" Lookup="adapters" />
@@ -49,6 +86,10 @@
 </UpdateForm>
 
 @code {
+
+    KeyValuePair<string, string> kvp = new KeyValuePair<string, string>();
+
+    
 
     [Parameter]
     public int Id { get; set; }
