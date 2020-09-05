@@ -10,8 +10,13 @@
     </Commands>
 
     <Columns>
-        <Field Name="Id"></Field>
-        <Field Name="SubscriberName" />
+        <Field Name="@nameof(XchangeRow.Id)"></Field>
+        <Field Name="@nameof(XchangeRow.DocumentName)" />
+        <Field Name="@nameof(XchangeRow.SubscriptionName)" />
+        <Field Name="@nameof(XchangeRow.StartedOn)" />
+        <Field Name="@nameof(XchangeRow.FinishedOn)" />
+        <Field Name="@nameof(XchangeRow.Status)" />
+
     </Columns>
 
 </Search>

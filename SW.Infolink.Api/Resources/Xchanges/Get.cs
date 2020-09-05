@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SW.Infolink.Model;
 
-namespace SW.Infolink.Api.Resources.Xchanges
+namespace SW.Infolink.Resources.Xchanges
 {
     class Get : IGetHandler<int>
     {
@@ -32,7 +32,7 @@ namespace SW.Infolink.Api.Resources.Xchanges
                     DocumentId = xchange.DocumentId,
                     StartedOn = xchange.StartedOn,
                     //FinishedOn = xchange.FinishedOn,
-                    SubscriberId = xchange.SubscriptionId,
+                    SubscriptionId = xchange.SubscriptionId,
                     //Status = xchange.Status,
                     //Exception = xchange.Exception,
                     InputFileName = xchange.InputFileName  

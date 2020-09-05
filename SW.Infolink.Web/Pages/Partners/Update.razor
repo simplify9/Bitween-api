@@ -19,17 +19,15 @@
         </Columns>
         <Form>
             <Field Name="@nameof(KeyAndValue.Key)" />
-            <Field Name="@nameof(KeyAndValue.Value)" />
         </Form>
     </Subform>
 
-    <Subform Name="@nameof(PartnerConfig.Subscriptions)">
+    <Subform Name="@nameof(PartnerConfig.Subscriptions)" >
         <Columns>
             <Field Name="@nameof(SubscriptionRow.Id)" />
             <Field Name="@nameof(SubscriptionRow.Name)" />
             <Field Name="@nameof(SubscriptionRow.Type)" />
         </Columns>
-
     </Subform>
 
 </UpdateForm>

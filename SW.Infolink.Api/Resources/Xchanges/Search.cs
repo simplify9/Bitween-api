@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 
-namespace SW.Infolink.Api.Resources.Xchanges
+namespace SW.Infolink.Resources.Xchanges
 {
     class Search : ISearchyHandler
     {
@@ -23,32 +23,31 @@ namespace SW.Infolink.Api.Resources.Xchanges
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
             var query = from xchange in dbContext.Set<Xchange>()
-                        //join mapper in dbContext.Set<Adapter>() on xchange.MapperId equals mapper.Id into xm
-                        //from mapper in xm.DefaultIfEmpty()
-                        //join handler in dbContext.Set<Adapter>() on xchange.HandlerId equals handler.Id into xh
-                        //from handler in xh.DefaultIfEmpty()
+                        join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.XchangeId into xr
+                        from result in xr.DefaultIfEmpty()
+                        join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.XchangeId into xd
+                        from delivery in xd.DefaultIfEmpty()
                         join document in dbContext.Set<Document>() on xchange.DocumentId equals document.Id
-                        join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id
+                        join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id into xs
+                        from subscriber in xs.DefaultIfEmpty()
                         select new XchangeRow
                         {
                             Id = xchange.Id,
                             HandlerId = xchange.HandlerId,
-                            //HandlerName = handler.Name,
                             MapperId = xchange.MapperId,
-                            //MapperName = mapper.Name,
                             DocumentId = xchange.DocumentId,
                             DocumentName = document.Name,
                             StartedOn = xchange.StartedOn,
-                            //FinishedOn = xchange.FinishedOn,
-                            SubscriberId = xchange.SubscriptionId,
-                            SubscriberName = subscriber.Name,
-                            //Status = xchange.Status,
+                            FinishedOn = result.FinishedOn,
+                            SubscriptionId = xchange.SubscriptionId,
+                            SubscriptionName = subscriber.Name,
+                            Status = result.Success,
                             //Exception = xchange.Exception
                         };
 
             var searchyResponse = new SearchyResponse<XchangeRow>
             {
-                Result = await query.AsNoTracking().Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync(),
+                Result = await query.OrderByDescending(p => p.StartedOn).AsNoTracking().Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync(),
                 TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync()
             };
 

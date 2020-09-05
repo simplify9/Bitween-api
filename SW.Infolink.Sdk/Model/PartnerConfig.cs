@@ -10,7 +10,7 @@ namespace SW.Infolink.Model
     {
         public string Name { get; set; }
 
-        public ICollection<ApiCredential> ApiCredentials { get; set; }
+        public ICollection<KeyAndValue> ApiCredentials { get; set; }
         public ICollection<SubscriptionRow> Subscriptions { get; set; }
 
 

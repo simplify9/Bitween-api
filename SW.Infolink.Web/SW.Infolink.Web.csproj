@@ -26,7 +26,7 @@
     <PackageReference Include="SimplyWorks.CqApi" Version="2.0.13" />
     <PackageReference Include="SimplyWorks.Logger" Version="2.0.2" />
     <PackageReference Include="SimplyWorks.Serverless" Version="2.0.1" />
-    <PackageReference Include="SimplyWorks.SimplyRazor" Version="3.0.17" />
+    <PackageReference Include="SimplyWorks.SimplyRazor" Version="3.0.18" />
   </ItemGroup>
 
   <ItemGroup>

@@ -24,7 +24,13 @@ namespace SW.Infolink.Resources.Partners
                 Select(partner => new PartnerConfig
                 {
                     Name = partner.Name,
-                    ApiCredentials = partner.ApiCredentials.ToList(),
+
+                    ApiCredentials = partner.ApiCredentials.Select(cred => new KeyAndValue 
+                    { 
+                        Key = cred.Name,
+                        Value = cred.Key
+                    }).ToList(),
+
                     Subscriptions = partner.Subscriptions.Select(sub => new SubscriptionRow
                     {
                         Id = sub.Id,

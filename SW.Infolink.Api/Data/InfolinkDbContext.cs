@@ -156,7 +156,7 @@ namespace SW.Infolink
             {
                 using var transaction = Database.BeginTransaction();
                 var affectedRecords = await base.SaveChangesAsync(cancellationToken);
-                //await ChangeTracker.DispatchDomainEvents(domainEventDispatcher);
+                await ChangeTracker.PublishEvents(publish);
                 //var entitiesWithEvents = ChangeTracker.Entries<IGeneratesDomainEvents>()
                 //    .Select(e => e.Entity)
                 //    .Where(e => e.Events.Any())

@@ -4,6 +4,7 @@ using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -21,7 +22,7 @@ namespace SW.Infolink.Resources.Partners
         async public Task<object> Handle(int key, PartnerConfig model)
         {
             var entity = await dbContext.FindAsync<Partner>(key);
-            entity.SetApiCredentials(model.ApiCredentials);
+            entity.SetApiCredentials(model.ApiCredentials.Select(kv => new ApiCredential(kv.Key, kv.Value)));
             dbContext.Entry(entity).SetProperties(model);
             await dbContext.SaveChangesAsync();
             return null;

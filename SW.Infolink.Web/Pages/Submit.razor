@@ -42,7 +42,7 @@
 
     async Task OnSubmit(IBusyButton busyButton)
     {
-        var apiResult = await infolinkClient.Create("xchanges", model);
+        var apiResult = await infolinkClient.Update($"xchanges/{model.DocumentId}", model.Data);
         await notifyService.NotifyOnApiResult(apiResult);
         if (apiResult.Success)
             navigationManager.NavigateTo("/");

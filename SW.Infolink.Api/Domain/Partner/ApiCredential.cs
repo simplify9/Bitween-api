@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SW.Infolink.Model
+namespace SW.Infolink.Domain
 {
     public class ApiCredential
     {
@@ -20,14 +20,12 @@ namespace SW.Infolink.Model
         public override bool Equals(object obj)
         {
             return obj is ApiCredential credential &&
-                   Name == credential.Name &&
-                   Key == credential.Key;
-            //Key2 == credential.Key2;
+                   Name == credential.Name;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Name, Key);
+            return HashCode.Combine(Name);
         }
     }
 }

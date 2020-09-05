@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SW.Infolink.Model;
 
-namespace SW.Infolink.Api.Resources.Xchanges
+namespace SW.Infolink.Resources.Xchanges
 {
     [HandlerName("retry")]
     class Retry : ICommandHandler<object>

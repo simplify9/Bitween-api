@@ -8,8 +8,8 @@ namespace SW.Infolink.Model
     public class XchangeRow
     {
         public string Id { get; set; }
-        public int? SubscriberId { get; set; }
-        public string SubscriberName { get; set; }
+        public int? SubscriptionId { get; set; }
+        public string SubscriptionName { get; set; }
         public int DocumentId { get; set; }
         public string DocumentName { get; set; }
         public string HandlerId { get; set; }
@@ -17,7 +17,7 @@ namespace SW.Infolink.Model
         public string MapperId { get; set; }
         //public string MapperName { get; set; }
         public IEnumerable<string> References { get; set; }
-        public XchangeStatus  Status { get; set; }
+        public bool  Status { get; set; }
         public string StatusString { get; set; }
         public string Exception { get; set; }
         public DateTime? DeliveredOn { get; set; }

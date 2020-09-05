@@ -8,16 +8,16 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Resources.Xchanges
+namespace SW.Infolink.Resources.Xchanges
 {
-    class Create : ICommandHandler<string, object>
+    class Update : ICommandHandler<string, object>
     {
         private readonly RequestContext requestContext;
         private readonly XchangeService xchangeService;
         private readonly InfolinkDbContext dbContext;
 
 
-        public Create(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext, IServiceProvider serviceProvider)
+        public Update(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext, IServiceProvider serviceProvider)
         {
             this.requestContext = requestContext;
             this.xchangeService = xchangeService;
@@ -25,13 +25,25 @@ namespace SW.Infolink.Api.Resources.Xchanges
             var ss = serviceProvider.GetServices(typeof(IHandle<XchangeCreatedEvent>));
         }
 
-        async public Task<object> Handle(string documentName, object request)
+        async public Task<object> Handle(string documentIdOrName, object request)
         {
+
+            Document document = null;
+
+            if (int.TryParse(documentIdOrName, out var documentId))
+            {
+                document = await dbContext.FindAsync<Document>(documentId);
+            }
+            else
+            {
+                document = await dbContext.Set<Document>().Where(doc => doc.Name == documentIdOrName).SingleOrDefaultAsync();
+            }
+
+            if (document == null) throw new InfolinkException("Document name not found.");
+
             var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
             if (partnerKey == null)
             {
-                var document = await dbContext.Set<Document>().Where(doc => doc.Name == documentName).SingleOrDefaultAsync();
-                if (document == null) throw new SWException("Document name not found.");
                 await xchangeService.RunFilterXchange(document.Id, new XchangeFile(request.ToString()));
             }
 
