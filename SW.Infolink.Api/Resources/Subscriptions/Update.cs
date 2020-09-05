@@ -20,9 +20,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
         async public Task<object> Handle(int key, SubscriptionConfig model)
         {
             var entity = await dbContext.FindAsync<Subscription>(key);
-
             dbContext.Entry(entity).SetProperties(model);
-
             var updatedSchedules = model.Schedules.Select(dto => new Schedule((Recurrence)dto.Recurrence, dto.On, dto.Backwards)).ToList();
             entity.Schedules.Update(updatedSchedules);
 

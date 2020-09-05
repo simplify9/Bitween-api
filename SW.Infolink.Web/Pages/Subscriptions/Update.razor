@@ -70,7 +70,7 @@
                     <Field Name="@nameof(KeyAndValue.Value)" />
                 </Columns>
                 <Form>
-                    <Field Name="@nameof(KeyAndValue.Key)" Lookup="@($"adapters/jjj/properties")" />
+                    <Field Name="@nameof(KeyAndValue.Key)" Lookup="@($"adapters/{context.MapperId}/properties")" />
                     <Field Name="@nameof(KeyAndValue.Value)" />
                 </Form>
             </Subform>
@@ -79,9 +79,13 @@
             <Field Name="@nameof(SubscriptionConfig.HandlerId)" Lookup="adapters" />
             <Field Name="@nameof(SubscriptionConfig.HandlerProperties)" />
         </Tab>
-        <Tab Title="Receivers">
+        @if (context.Type == SubscriptionType.Receiving)
+        {
+            <Tab Title="Receivers">
 
-        </Tab>
+            </Tab>
+        }
+
     </Tabs>
 </UpdateForm>
 
@@ -89,7 +93,7 @@
 
     KeyValuePair<string, string> kvp = new KeyValuePair<string, string>();
 
-    
+
 
     [Parameter]
     public int Id { get; set; }

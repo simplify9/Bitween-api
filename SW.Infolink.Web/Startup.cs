@@ -10,7 +10,6 @@ using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using Pomelo.EntityFrameworkCore.MySql.Storage;
 using SW.Bus;
 using SW.CqApi;
-using SW.DomainEvents;
 using SW.CloudFiles.Extensions;
 using SW.Serverless;
 using Microsoft.IdentityModel.Tokens;
@@ -46,7 +45,7 @@ namespace SW.Infolink.Web
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
-            services.AddDomainEvents(typeof(InfolinkDbContext).Assembly);
+            //services.AddDomainEvents(typeof(InfolinkDbContext).Assembly);
             services.AddCqApi(typeof(InfolinkDbContext).Assembly);
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
             services.AddCloudFiles();

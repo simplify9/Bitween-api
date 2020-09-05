@@ -11,15 +11,13 @@ namespace SW.Infolink
 {
     public class InfolinkDbContext : DbContext
     {
-        private readonly IConfiguration configuration;
-        private readonly IDomainEventDispatcher domainEventDispatcher;
+        private readonly IPublish publish;
 
         public const string ConnectionString = "InfolinkDb";
 
-        public InfolinkDbContext(DbContextOptions options, IConfiguration configuration, IDomainEventDispatcher domainEventDispatcher) : base(options)
+        public InfolinkDbContext(DbContextOptions options, IPublish publish) : base(options)
         {
-            this.configuration = configuration;
-            this.domainEventDispatcher = domainEventDispatcher;
+            this.publish = publish;
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -64,6 +62,9 @@ namespace SW.Infolink
 
                 b.HasIndex(p => p.Name).IsUnique();
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();
+
+                b.HasMany<Subscription>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
+
             });
 
             modelBuilder.Entity<Partner>(b =>
@@ -71,7 +72,7 @@ namespace SW.Infolink
                 b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey("PartnerId").OnDelete(DeleteBehavior.SetNull);
+                b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p=> p.PartnerId).OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>
                 {
                     apicred.ToTable("PartnerApiCredentials");
@@ -86,26 +87,19 @@ namespace SW.Infolink
             {
                 b.ToTable("Subscribers");
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("SubscriberSchedules"));
+                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("SubscriptionSchedules"));
+                b.OwnsMany(p => p.ReceiveSchedules, schedules => schedules.BuildSchedule("SubscriptionReceiveSchedules"));
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
+                b.Property(p => p.ReceiverProperties).StoreAsJson();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
-                b.HasMany(p => p.Receivers).WithOne(p => p.Subscription).IsRequired(true).HasForeignKey("SubscriberId").OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Type).HasConversion<byte>();  
+
                 b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.ResponseSubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-            });
-
-            modelBuilder.Entity<Receiver>(b =>
-            {
-                b.ToTable("Receivers");
-                //b.Property(p => p.Id).ValueGeneratedNever();
-                //b.Property(p => p.Id).HasSequenceGenerator();
-                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("ReceiverSchedules"));
-                b.Property(p => p.Properties).StoreAsJson();
-                b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false).IsRequired();
-
+            
             });
 
             modelBuilder.Entity<Xchange>(b =>
@@ -162,7 +156,7 @@ namespace SW.Infolink
             {
                 using var transaction = Database.BeginTransaction();
                 var affectedRecords = await base.SaveChangesAsync(cancellationToken);
-                await ChangeTracker.DispatchDomainEvents(domainEventDispatcher);
+                //await ChangeTracker.DispatchDomainEvents(domainEventDispatcher);
                 //var entitiesWithEvents = ChangeTracker.Entries<IGeneratesDomainEvents>()
                 //    .Select(e => e.Entity)
                 //    .Where(e => e.Events.Any())

@@ -1,0 +1,21 @@
+﻿@page "/partners"
+@inject NavigationManager navigationManager
+
+<h3>Partners</h3>
+
+<Search PageSize="10" SearchUrl="partners" TModel="PartnerRow" OnItem="@(item => navigationManager.NavigateTo($"partners/{item.Item.Id}"))"
+        Height="400px" Width="max-content">
+
+    <Commands>
+        <a href="partners/create">New partner</a>
+    </Commands>
+
+    <Columns>
+        <Field Name="@nameof(PartnerRow.Name)" />
+    </Columns>
+
+</Search>
+
+@code {
+
+}

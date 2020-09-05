@@ -1,16 +1,11 @@
-﻿using SW.EfCoreExtensions;
-using SW.Infolink.Domain;
+﻿using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Resources.Documents
+namespace SW.Infolink.Resources.Partners
 {
-    class Create : ICommandHandler<DocumentConfig>
+    class Create : ICommandHandler<PartnerConfig>
     {
         private readonly InfolinkDbContext dbContext;
 
@@ -19,9 +14,9 @@ namespace SW.Infolink.Api.Resources.Documents
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(DocumentConfig model)
+        async public Task<object> Handle(PartnerConfig model)
         {
-            var entity = new Document(model.Id, model.Name);
+            var entity = new Partner(model.Name);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             return entity.Id;

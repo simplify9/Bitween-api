@@ -22,7 +22,7 @@ namespace SW.Infolink.Resources.Adapters
 
         async public Task<object> Handle(string key, bool lookup = false)
         {
-            await serverless.StartAsync("infolink.mappers.sample");
+            await serverless.StartAsync(key);
 
             var expected = await serverless.GetExpectedStartupValues();
 

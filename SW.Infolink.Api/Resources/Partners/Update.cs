@@ -7,9 +7,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Resources.Documents
+namespace SW.Infolink.Resources.Partners
 {
-    class Update : ICommandHandler<int, DocumentConfig>
+    class Update : ICommandHandler<int, PartnerConfig>
     {
         private readonly InfolinkDbContext dbContext;
 
@@ -18,10 +18,10 @@ namespace SW.Infolink.Api.Resources.Documents
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(int key, DocumentConfig model)
+        async public Task<object> Handle(int key, PartnerConfig model)
         {
-            var entity = await dbContext.FindAsync<Document>(key);
-            entity.PromotedProperties = model.PromotedProperties.ToDictionary();
+            var entity = await dbContext.FindAsync<Partner>(key);
+            entity.SetApiCredentials(model.ApiCredentials);
             dbContext.Entry(entity).SetProperties(model);
             await dbContext.SaveChangesAsync();
             return null;

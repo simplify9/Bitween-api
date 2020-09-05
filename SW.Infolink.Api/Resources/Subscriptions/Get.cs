@@ -32,11 +32,15 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     HandlerId = subscriber.HandlerId,
                     Inactive = subscriber.Inactive,
                     MapperId = subscriber.MapperId,
+                    ReceiverId = subscriber.ReceiverId,
                     Name = subscriber.Name,
                     MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),
                     HandlerProperties = subscriber.HandlerProperties.ToKeyAndValueCollection(),
+                    ReceiverProperties = subscriber.ReceiverProperties.ToKeyAndValueCollection(),
+                    Type = subscriber.Type,
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
+                    //ReceiveSchedules = subscriber.ReceiveSchedules,
                     //Schedules = subscriber.Schedules
 
                 }).SingleOrDefaultAsync();

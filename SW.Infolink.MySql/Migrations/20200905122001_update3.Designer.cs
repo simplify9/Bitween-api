@@ -2,15 +2,17 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Infolink;
 
 namespace SW.Infolink.MySql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    partial class InfolinkDbContextModelSnapshot : ModelSnapshot
+    [Migration("20200905122001_update3")]
+    partial class update3
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -133,8 +135,6 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("tinyint unsigned");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DocumentId");
 
                     b.HasIndex("PartnerId");
 
@@ -326,12 +326,6 @@ namespace SW.Infolink.MySql.Migrations
 
             modelBuilder.Entity("SW.Infolink.Domain.Subscription", b =>
                 {
-                    b.HasOne("SW.Infolink.Domain.Document", null)
-                        .WithMany()
-                        .HasForeignKey("DocumentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("SW.Infolink.Domain.Partner", null)
                         .WithMany("Subscriptions")
                         .HasForeignKey("PartnerId")

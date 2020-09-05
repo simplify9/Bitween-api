@@ -79,12 +79,12 @@ namespace SW.Infolink
 
                             logger.LogInformation($"Starting to receive for subscriber: '{rec.Id}', adapter: '{rec.ReceiverId}'.");
 
-                            var sub = await dbContext.FindAsync<Subscription>(rec.Id);
+                            //var sub = await dbContext.FindAsync<Subscription>(rec.Id);
                             //var adapter = await dbContext.FindAsync<Adapter>(rec.ReceiverId);
                             //var adapterSvc = scope.ServiceProvider.GetRequiredService<AdapterService>();
                             //var adapterpath = await adapterSvc.Install(rec.ReceiverId);
 
-                            var startupParameters = rec.Properties.ToDictionary();
+                            var startupParameters = rec.ReceiverProperties.ToDictionary();
                             //foreach (var subprop in sub.Properties)
                             //{
                             //    var subvValue = subprop.Value;
@@ -104,7 +104,7 @@ namespace SW.Infolink
 
                             if (!string.IsNullOrWhiteSpace(rec.ReceiverId))
                             {
-                                await RunReceiver(rec.ReceiverId, startupParameters , sub.Id);
+                                await RunReceiver(rec.ReceiverId, startupParameters , rec.Id);
                                 rec.ReceiveOn = rec.Schedules.Next();
                                 await dbContext.SaveChangesAsync();
                             }

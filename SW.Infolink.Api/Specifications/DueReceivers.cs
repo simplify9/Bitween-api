@@ -7,7 +7,7 @@ using System.Text;
 
 namespace SW.Infolink
 {
-    class DueReceivers : ISpecification<Receiver>
+    class DueReceivers : ISpecification<Subscription>
     {
         public DueReceivers(DateTime? asOf = null)
         {
@@ -17,7 +17,7 @@ namespace SW.Infolink
                 || e.ReceiveOn == null;
         }
 
-        public Expression<Func<Receiver, bool>> Criteria { get; }
+        public Expression<Func<Subscription, bool>> Criteria { get; }
 
     }
 }

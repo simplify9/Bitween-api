@@ -1,9 +1,6 @@
-﻿using SW.PrimitiveTypes;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using System;
 
-namespace SW.Infolink.Domain
+namespace SW.Infolink.Model
 {
     public class ApiCredential
     {

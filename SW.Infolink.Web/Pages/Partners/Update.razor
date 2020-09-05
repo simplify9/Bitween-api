@@ -1,0 +1,42 @@
+﻿@page "/partners/{Id:int}"
+
+
+<UpdateForm Title="Partner" TModel="PartnerConfig" ApiUrl="partners" ReturnUrl="partners" Id="Id">
+
+    <Field Name="@nameof(PartnerConfig.Name)" />
+    <Subform Name="@nameof(PartnerConfig.ApiCredentials)">
+        <Columns>
+            <Field Text="Action">
+                <ColumnHeader Context="fieldContext">
+                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                </ColumnHeader>
+                <ColumnValue Context="fieldContext">
+                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                </ColumnValue>
+            </Field>
+            <Field Name="@nameof(KeyAndValue.Key)" />
+            <Field Name="@nameof(KeyAndValue.Value)" />
+        </Columns>
+        <Form>
+            <Field Name="@nameof(KeyAndValue.Key)" />
+            <Field Name="@nameof(KeyAndValue.Value)" />
+        </Form>
+    </Subform>
+
+    <Subform Name="@nameof(PartnerConfig.Subscriptions)">
+        <Columns>
+            <Field Name="@nameof(SubscriptionRow.Id)" />
+            <Field Name="@nameof(SubscriptionRow.Name)" />
+            <Field Name="@nameof(SubscriptionRow.Type)" />
+        </Columns>
+
+    </Subform>
+
+</UpdateForm>
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+}

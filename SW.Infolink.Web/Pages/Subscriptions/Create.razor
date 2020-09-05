@@ -4,6 +4,9 @@
 <CreateForm Title="Subscription" TModel="SubscriptionConfig" ApiUrl="subscriptions" ReturnUrl="subscriptions">
     <Field Name="@nameof(SubscriptionConfig.Name)" />
     <Field Name="@nameof(SubscriptionConfig.DocumentId)" Lookup="documents" />
+    <Field Name="@nameof(SubscriptionConfig.Type)" />
+    <Field Name="@nameof(SubscriptionConfig.PartnerId)" Lookup="partners" />
+
 </CreateForm>
 
 @code {

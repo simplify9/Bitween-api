@@ -18,17 +18,18 @@ namespace SW.Infolink.Resources.Adapters
 
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
+            var index = serverlessOptions.AdapterRemotePath.Length + 1;
 
             var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}/infolink.mappers")).Where(item => item.Size > 0).ToList();
 
             if (lookup)
-                return cloudFilesList.ToDictionary(k => k.Key, v => v.Key);
+                return cloudFilesList.ToDictionary(k => k.Key.Substring(index), v => v.Key.Substring(index));
 
             var sr = new SearchyResponse<AdapterRow>();
             sr.TotalCount = cloudFilesList.Count();
             sr.Result = cloudFilesList.Select(item => new AdapterRow
             {
-                Id = item.Key.Substring(serverlessOptions.AdapterRemotePath.Length + 1)
+                Id = item.Key.Substring(index)
             });
 
             return sr;
