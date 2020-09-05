@@ -37,15 +37,29 @@ namespace SW.Infolink.Domain
         public string MapperId { get; set; }
         public bool Temporary { get; set; }
         public bool Aggregate { get; set; }
-        public IReadOnlyDictionary<string, string> HandlerProperties { get; set; }
-        public IReadOnlyDictionary<string, string> MapperProperties { get; set; }
-        public IReadOnlyDictionary<string, string> DocumentFilter { get; set; }
+
+        public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
+        public IReadOnlyDictionary<string, string> MapperProperties { get; private set; }
+        public IReadOnlyDictionary<string, string> ReceiverProperties { get; private set; }
+        public IReadOnlyDictionary<string, string> DocumentFilter { get; private set; }
+
+        public void SetDictionaries(
+            IReadOnlyDictionary<string, string> handler, 
+            IReadOnlyDictionary<string, string> mapper, 
+            IReadOnlyDictionary<string, string> receiver, 
+            IReadOnlyDictionary<string, string> document)
+        {
+            HandlerProperties = handler;
+            MapperProperties = mapper;
+            ReceiverProperties = receiver;
+            DocumentFilter = document;
+        }
+
         public bool Inactive { get; set; }
         public ICollection<Schedule> Schedules { get; private set; }
         public int? ResponseSubscriptionId { get; set; }
         public ICollection<Schedule> ReceiveSchedules { get; private set; }
         public string ReceiverId { get; set; }
-        public IReadOnlyDictionary<string, string> ReceiverProperties { get; set; }
         public DateTime? ReceiveOn { get; set; }
     }
 }

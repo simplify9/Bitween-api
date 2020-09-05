@@ -6,12 +6,25 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Model
 {
-    public class SubscriptionConfig
+
+    public class SubscriptionCreate
     {
         public string Name { get; set; }
         public int DocumentId { get; set; }
         public SubscriptionType Type { get; set; }
         public int? PartnerId { get; set; }
+
+    }
+
+    public class SubscriptionSearch : SubscriptionUpdate
+    {
+        public int Id { get; set; }
+        public string DocumentName { get; set; }
+    }
+
+
+    public class SubscriptionUpdate : SubscriptionCreate
+    {
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
         public string ReceiverId { get; set; }
@@ -24,7 +37,6 @@ namespace SW.Infolink.Model
         public bool Inactive { get; set; }
         public ICollection<ScheduleView> Schedules { get; set; }
         public ICollection<ScheduleView> ReceiveSchedules { get; set; }
-
         public int? ResponseSubscriptionId { get; set; }
 
     }

@@ -24,7 +24,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
         {
             return await dbContext.Set<Subscription>().AsNoTracking().
                 Search("Id", key).
-                Select(subscriber => new SubscriptionConfig
+                Select(subscriber => new SubscriptionUpdate
                 {
                     Aggregate = subscriber.Aggregate,
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),

@@ -29,7 +29,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                         //from mapper in sm.DefaultIfEmpty()
                         //join handler in dbContext.Set<Adapter>() on subscriber.HandlerId equals handler.Id into sh
                         //from handler in sh.DefaultIfEmpty()
-                        select new SubscriptionRow
+                        select new SubscriptionSearch
                         {
                             Id = subscriber.Id,
                             Name = subscriber.Name,
@@ -52,7 +52,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                 return await query.Search(searchyRequest.Conditions).ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
             }
 
-            var sr = new SearchyResponse<SubscriptionRow>
+            var sr = new SearchyResponse<SubscriptionSearch>
             {
                 TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
                 Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()

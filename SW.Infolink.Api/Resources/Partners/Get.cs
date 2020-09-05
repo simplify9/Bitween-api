@@ -31,7 +31,7 @@ namespace SW.Infolink.Resources.Partners
                         Value = $"{cred.Key.Remove(5)}...(hidden)"
                     }).ToList(),
 
-                    Subscriptions = partner.Subscriptions.Select(sub => new SubscriptionRow
+                    Subscriptions = partner.Subscriptions.Select(sub => new SubscriptionSearch
                     {
                         Id = sub.Id,
                         Name = sub.Name,

@@ -3,7 +3,7 @@
 
 <h3>Subscriptions</h3>
 
-<Search PageSize="10" SearchUrl="subscriptions" TModel="SubscriptionRow" OnItem="@(item => navigationManager.NavigateTo($"subscriptions/{item.Item.Id}"))"
+<Search PageSize="10" SearchUrl="subscriptions" TModel="SubscriptionSearch" OnItem="@(item => navigationManager.NavigateTo($"subscriptions/{item.Item.Id}"))"
         Height="400px" Width="max-content">
     <Commands>
         <a href="subscriptions/create">New subscription</a>
@@ -11,8 +11,8 @@
 
     <Columns>
         <Field Name="Id"></Field>
-        <Field Name="@nameof(SubscriptionRow.Name)" />
-        <Field Name="@nameof(SubscriptionRow.Type)" />
+        <Field Name="@nameof(SubscriptionSearch.Name)" />
+        <Field Name="@nameof(SubscriptionSearch.Type)" />
     </Columns>
 
 </Search>

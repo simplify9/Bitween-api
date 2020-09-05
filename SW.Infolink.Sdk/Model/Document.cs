@@ -5,6 +5,12 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Model
 {
+
+    public class DocumentRow : DocumentConfig
+    {
+
+    }
+
     public class DocumentConfig
     {
         public int Id { get; set; }

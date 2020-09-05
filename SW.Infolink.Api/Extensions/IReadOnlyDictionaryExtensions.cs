@@ -22,6 +22,11 @@ namespace SW.Infolink
             }).ToList();
         }
 
+        public static Dictionary<string, string> ToDictionary(this ICollection<KeyAndValue> dict)
+        {
+            return dict.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        }
+
         public static Dictionary<TKey, TValue> ToDictionary<TKey, TValue>(this IDictionary<TKey, TValue> dict)
         {
             return dict.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);

@@ -57,10 +57,6 @@ namespace SW.Infolink
         {
             try
             {
-                //var rd = DateTime.UtcNow;
-
-                //if (state != null) rd = (DateTime)state;
-
                 using var scope = sp.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
 
@@ -68,7 +64,7 @@ namespace SW.Infolink
                                    join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.XchangeId
                                    join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.XchangeId into xd
                                    from delivery in xd.DefaultIfEmpty()
-                                   where result.Success == true && delivery == null && xchange.DeliverOn < DateTime.UtcNow
+                                   where result.Success == true && delivery == null && xchange.DeliverOn != null && xchange.DeliverOn < DateTime.UtcNow
                                    select xchange;
 
                 var xchangeList = await xchangeQuery.ToListAsync();
