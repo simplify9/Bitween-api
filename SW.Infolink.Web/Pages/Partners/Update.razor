@@ -1,10 +1,12 @@
 ﻿@page "/partners/{Id:int}"
+@inject InfolinkClient infolinkClient
+@inject NotifyService notify
 
 
 <UpdateForm Title="Partner" TModel="PartnerConfig" ApiUrl="partners" ReturnUrl="partners" Id="Id">
 
     <Field Name="@nameof(PartnerConfig.Name)" />
-    <Subform Name="@nameof(PartnerConfig.ApiCredentials)">
+    <Subform Name="@nameof(PartnerConfig.ApiCredentials)" OnItem="OnApiCredItem">
         <Columns>
             <Field Text="Action">
                 <ColumnHeader Context="fieldContext">
@@ -22,7 +24,7 @@
         </Form>
     </Subform>
 
-    <Subform Name="@nameof(PartnerConfig.Subscriptions)" >
+    <Subform Name="@nameof(PartnerConfig.Subscriptions)">
         <Columns>
             <Field Name="@nameof(SubscriptionRow.Id)" />
             <Field Name="@nameof(SubscriptionRow.Name)" />
@@ -36,5 +38,19 @@
 
     [Parameter]
     public int Id { get; set; }
+
+    async Task OnApiCredItem(TableItem tableItem)
+    {
+        if (tableItem.Flag == TableItemFlag.Added)
+        {
+            var apiResult = await infolinkClient.GeneratePartnerApiKey();
+            await notify.NotifyOnApiResult(apiResult);
+            if (apiResult.Success)
+            {
+                ((KeyAndValue)tableItem.Item).Value = apiResult.Response;
+            }
+        }
+
+    }
 
 }

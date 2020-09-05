@@ -1,9 +1,10 @@
-﻿using SW.PrimitiveTypes;
+﻿using SW.Infolink.Model;
+using SW.PrimitiveTypes;
 using System;
 
-namespace SW.Infolink.Model
+namespace SW.Infolink.Domain
 {
-    public class Schedule : ValueObject
+    public class Schedule 
     {
         public Schedule(Recurrence recurrence, TimeSpan on, bool backwards = false)
         {
@@ -40,6 +41,19 @@ namespace SW.Infolink.Model
         public Recurrence Recurrence { get; private set; }
         public TimeSpan On { get; private set; }
         public bool Backwards { get; private set; }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Schedule schedule &&
+                   Recurrence == schedule.Recurrence &&
+                   On.Equals(schedule.On) &&
+                   Backwards == schedule.Backwards;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Recurrence, On, Backwards);
+        }
 
         public DateTime Next(DateTime currentDate = default)
         {

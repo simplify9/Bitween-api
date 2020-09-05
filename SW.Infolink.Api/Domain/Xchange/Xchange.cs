@@ -51,6 +51,6 @@ namespace SW.Infolink.Domain
         public int InputFileSize { get; private set; }
         public string InputFileHash { get; private set; }
         public DateTime? DeliverOn { get; private set; }
-        public int? ResponseSubscriptionId { get; set; }
+        public int? ResponseSubscriptionId { get; private set; }
     }
 }

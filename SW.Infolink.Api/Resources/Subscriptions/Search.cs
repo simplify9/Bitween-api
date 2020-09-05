@@ -33,8 +33,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                         {
                             Id = subscriber.Id,
                             Name = subscriber.Name,
-                            //MapperProperties = subscriber.MapperProperties.ToDictionary(),
-                            //HandlerProperties = subscriber.HandlerProperties.ToDictionary(),
+                            Type = subscriber.Type,
                             DocumentId = subscriber.DocumentId,
                             DocumentName = document.Name,
                             HandlerId = subscriber.HandlerId,

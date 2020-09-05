@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Newtonsoft.Json;
 using SW.PrimitiveTypes;
 using System;
@@ -27,6 +30,24 @@ namespace SW.Infolink
                     await publish.Publish(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
                 }
             }
+        }
+
+        public static PropertyBuilder<TimeSpan> IsTimeSpan(this PropertyBuilder<TimeSpan> builder)
+        {
+            ValueConverter<TimeSpan, double> converter = new ValueConverter<TimeSpan, double>(
+                v => v.TotalSeconds,
+                v => TimeSpan.FromSeconds(v));
+
+            //ValueComparer<TimeSpan> comparer = new ValueComparer<TimeSpan>(
+            //    (l, r) => JsonConvert.SerializeObject(l) == JsonConvert.SerializeObject(r),
+            //    v => v == null ? 0 : JsonConvert.SerializeObject(v).GetHashCode(),
+            //    v => JsonConvert.DeserializeObject<TProperty>(JsonConvert.SerializeObject(v)));
+
+            builder.HasConversion(converter);
+            //builder.Metadata.SetValueConverter(converter);
+            //builder.Metadata.SetValueComparer(comparer);
+
+            return builder;
         }
     }
 }

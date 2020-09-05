@@ -9,10 +9,7 @@ namespace SW.Infolink.Model
     public class PartnerConfig
     {
         public string Name { get; set; }
-
         public ICollection<KeyAndValue> ApiCredentials { get; set; }
         public ICollection<SubscriptionRow> Subscriptions { get; set; }
-
-
     }
 }

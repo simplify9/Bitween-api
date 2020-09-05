@@ -40,8 +40,26 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     Type = subscriber.Type,
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
-                    //ReceiveSchedules = subscriber.ReceiveSchedules,
-                    //Schedules = subscriber.Schedules
+
+                    Schedules = subscriber.Schedules.Select(s => new ScheduleView
+                    {
+                        Backwards = s.Backwards,
+                        Recurrence = s.Recurrence,
+                        Days = s.On.Days,
+                        Hours = s.On.Hours,
+                        Minutes = s.On.Minutes
+
+                    }).ToList(),
+
+                    ReceiveSchedules = subscriber.ReceiveSchedules.Select(s => new ScheduleView
+                    {
+                        Backwards = s.Backwards,
+                        Recurrence = s.Recurrence,
+                        Days = s.On.Days,
+                        Hours = s.On.Hours,
+                        Minutes = s.On.Minutes
+
+                    }).ToList()
 
                 }).SingleOrDefaultAsync();
         }

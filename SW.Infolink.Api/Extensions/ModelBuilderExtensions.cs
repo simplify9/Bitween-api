@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using SW.Infolink.Domain;
 using SW.Infolink.Model;
 
 namespace SW.Infolink
@@ -12,7 +13,8 @@ namespace SW.Infolink
             builder.ToTable(table);
             builder.Property<int>("Id");
             builder.HasKey("Id");
-            builder.Property(p => p.Recurrence).HasColumnName("Recurrence").HasConversion<byte>();
+            builder.Property(p => p.On).IsTimeSpan();
+            builder.Property(p => p.Recurrence).HasConversion<byte>();
             return builder;
         }
     }

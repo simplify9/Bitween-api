@@ -1,10 +1,11 @@
-﻿using SW.Infolink.Model;
+﻿using SW.Infolink.Domain;
+using SW.Infolink.Model;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace SW.Infolink.Api
+namespace SW.Infolink
 {
     public static class IEnumerableOfScheduleExtensions
     {

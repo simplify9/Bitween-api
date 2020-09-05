@@ -46,6 +46,13 @@ namespace SW.Infolink.Resources.Xchanges
             {
                 await xchangeService.RunFilterXchange(document.Id, new XchangeFile(request.ToString()));
             }
+            else
+            {
+                //validate the partner key and get sub id
+                //create an sub based xchange
+
+                //await Task.Delay()  
+            }
 
             return null;
 

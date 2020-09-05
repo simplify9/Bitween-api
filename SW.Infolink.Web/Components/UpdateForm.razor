@@ -56,7 +56,7 @@
 
     TModel model;
 
-    async protected override Task OnParametersSetAsync()
+    async protected override Task OnInitializedAsync()
     {
         var apiResult = await infolinkClient.GetById<TModel>(ApiUrl, Id);
         await notifyService.NotifyOnApiResult(apiResult);

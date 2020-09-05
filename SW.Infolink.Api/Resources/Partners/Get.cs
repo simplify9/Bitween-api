@@ -25,10 +25,10 @@ namespace SW.Infolink.Resources.Partners
                 {
                     Name = partner.Name,
 
-                    ApiCredentials = partner.ApiCredentials.Select(cred => new KeyAndValue 
-                    { 
+                    ApiCredentials = partner.ApiCredentials.Select(cred => new KeyAndValue
+                    {
                         Key = cred.Name,
-                        Value = cred.Key
+                        Value = $"{cred.Key.Remove(5)}...(hidden)"
                     }).ToList(),
 
                     Subscriptions = partner.Subscriptions.Select(sub => new SubscriptionRow
@@ -37,7 +37,7 @@ namespace SW.Infolink.Resources.Partners
                         Name = sub.Name,
                         Type = sub.Type
 
-                    }).ToList() 
+                    }).ToList()
 
                 }).AsNoTracking().SingleOrDefaultAsync();
         }

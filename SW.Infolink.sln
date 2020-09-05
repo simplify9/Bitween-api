@@ -19,7 +19,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SW.Infolink.Sdk", "SW.Infol
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Adapters", "Adapters", "{5F58DD63-8ABF-4148-A594-0D9881F39142}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Infolink.SampleMapper", "SW.Infolink.SampleMapper\SW.Infolink.SampleMapper.csproj", "{2A3CEEB9-32A4-4F6F-BB3B-D786B92A7212}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SW.Infolink.SampleMapper", "SW.Infolink.SampleMapper\SW.Infolink.SampleMapper.csproj", "{2A3CEEB9-32A4-4F6F-BB3B-D786B92A7212}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

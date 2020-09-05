@@ -26,7 +26,7 @@ namespace SW.Infolink
         async public Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file)
         {
             var xchange = new Xchange(subscription, file);
-            await infolinkDms.AddFile(xchange.Id, XchangeFileType.Output, file);
+            await infolinkDms.AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
         }
@@ -34,7 +34,7 @@ namespace SW.Infolink
         async public Task<Xchange> CreateXchange(int documentId, XchangeFile file)
         {
             var xchange = new Xchange(documentId, file);
-            await infolinkDms.AddFile(xchange.Id, XchangeFileType.Output, file);
+            await infolinkDms.AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
         }
@@ -54,18 +54,7 @@ namespace SW.Infolink
         {
 
             var xchange = await CreateXchange(documentId, file);
-            var result = filterService.Filter(documentId, file);
-
-            dbContext.Add(new XchangePromotedProperties(xchange.Id, result.Properties));
-
-            foreach (var subscriptionId in result.Hits)
-            {
-                var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
-                await CreateXchange(subscription, file);
-            }
-
             await dbContext.SaveChangesAsync();
-
             return xchange.Id;
         }
 
@@ -100,10 +89,10 @@ namespace SW.Infolink
         {
             var xchange = await dbContext.FindAsync<Xchange>(message.Id);
             Xchange responseXchange = null;
+            var file = new XchangeFile(await infolinkDms.GetFile(xchange.Id, XchangeFileType.Input), xchange.InputFileName);
 
             if (xchange.SubscriptionId != null && xchange.DeliverOn == null)
             {
-                var file = new XchangeFile(await infolinkDms.GetFile(xchange.Id, XchangeFileType.Input), xchange.InputFileName);
                 file = await RunMapper(xchange, file);
 
                 var responseFile = await RunHandler(xchange, file);
@@ -114,6 +103,18 @@ namespace SW.Infolink
                     responseXchange = await CreateXchange(subscription, responseFile);
                 }
 
+            }
+            else if (xchange.SubscriptionId == null)
+            {
+                var result = filterService.Filter(xchange.DocumentId, file);
+
+                dbContext.Add(new XchangePromotedProperties(xchange.Id, result.Properties));
+
+                foreach (var subscriptionId in result.Hits)
+                {
+                    var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
+                    await CreateXchange(subscription, file);
+                }
             }
 
             dbContext.Add(new XchangeResult(xchange.Id, responseXchange?.Id));
