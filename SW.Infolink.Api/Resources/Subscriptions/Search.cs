@@ -43,6 +43,8 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                             Aggregate = subscriber.Aggregate,
                             Temporary = subscriber.Temporary,
                             //Schedules = subscriber.Schedules
+                            ReceiveOn = subscriber.ReceiveOn,
+
 
                         };
 

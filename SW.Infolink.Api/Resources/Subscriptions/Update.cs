@@ -27,7 +27,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
             dbContext.Entry(entity).SetProperties(model);
 
             entity.Schedules.Update(model.Schedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
-            entity.ReceiveSchedules.Update(model.ReceiveSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
+            entity.SetReceiveSchedules(model.ReceiveSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
 
             entity.SetDictionaries(
                 model.HandlerProperties.ToDictionary(),

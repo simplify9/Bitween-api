@@ -38,6 +38,7 @@ namespace SW.Infolink.Model
         public ICollection<ScheduleView> Schedules { get; set; }
         public ICollection<ScheduleView> ReceiveSchedules { get; set; }
         public int? ResponseSubscriptionId { get; set; }
+        public DateTime? ReceiveOn { get; set; }
 
     }
 }

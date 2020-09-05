@@ -17,7 +17,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
 
         async public Task<object> Handle(SubscriptionCreate model)
         {
-            var entity = new Subscription(model.Name, model.DocumentId, model.Type);
+            var entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             return entity.Id;

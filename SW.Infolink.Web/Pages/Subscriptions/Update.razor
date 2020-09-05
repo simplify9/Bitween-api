@@ -1,7 +1,7 @@
 ﻿@page "/subscriptions/{Id:int}"
 
 <UpdateForm Title="Subscription" TModel="SubscriptionUpdate" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id">
-    <Tabs Height="400px">
+    <Tabs >
         <Tab Title="General">
             <Field Name="@nameof(SubscriptionUpdate.Name)" />
             <Field Name="@nameof(SubscriptionUpdate.DocumentId)" Lookup="documents" ReadOnly="true" />
@@ -51,6 +51,7 @@
                         <ScheduleForm />
                     </Form>
                 </Subform>
+                <Field Name="@nameof(SubscriptionUpdate.ReceiveOn)" ReadOnly="true" />
             </Tab>
         }
 
@@ -126,7 +127,27 @@
         </Tab>
         <Tab Title="Handler">
             <Field Name="@nameof(SubscriptionUpdate.HandlerId)" Lookup="adapters" />
-            <Field Name="@nameof(SubscriptionUpdate.HandlerProperties)" />
+            <Subform Name="@nameof(SubscriptionUpdate.HandlerProperties)">
+                <Columns>
+                    <Field Text="Action">
+                        <ColumnHeader Context="fieldContext">
+                            Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                        </ColumnHeader>
+                        <ColumnValue Context="fieldContext">
+                            <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                            <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                        </ColumnValue>
+                    </Field>
+                    <Field Name="@nameof(KeyAndValue.Key)" />
+                    <Field Name="@nameof(KeyAndValue.Value)" />
+                </Columns>
+                <Form>
+                    <Field Name="@nameof(KeyAndValue.Key)" Lookup="@($"adapters/{context.HandlerId}/properties")" />
+                    <Field Name="@nameof(KeyAndValue.Value)" />
+                </Form>
+            </Subform>
+            <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)" Lookup="subscriptions" />
+
         </Tab>
 
 

@@ -41,6 +41,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     Type = subscriber.Type,
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
+                    ReceiveOn = subscriber.ReceiveOn,
 
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {

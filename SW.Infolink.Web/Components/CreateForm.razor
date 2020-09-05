@@ -4,14 +4,6 @@
 @inject NotifyService notifyService
 
 <h3>New @Title</h3>
-
-<div class="row">
-    <div class="col-xl-7 mt-2">
-        <SimplyForm @bind-Value="model">
-            @ChildContent
-        </SimplyForm>
-    </div>
-</div>
 <div class="row">
     <div class="col-xl-7 mt-4 mb-2">
         <BusyButton class="btn btn-primary" OnClick="OnSave">
@@ -20,6 +12,13 @@
             </Title>
         </BusyButton>
         <a class="btn btn-secondary" href="@ReturnUrl">Cancel</a>
+    </div>
+</div>
+<div class="row">
+    <div class="col-xl-7 mt-2">
+        <SimplyForm @bind-Value="model">
+            @ChildContent
+        </SimplyForm>
     </div>
 </div>
 @code {

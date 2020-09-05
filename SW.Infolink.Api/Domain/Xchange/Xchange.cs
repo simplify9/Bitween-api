@@ -36,7 +36,7 @@ namespace SW.Infolink.Domain
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
 
             if (!ignoreSchedule)
-                DeliverOn = subscription?.Schedules.Next();
+                DeliverOn = subscription?.Schedules.Next() ;
         }
 
         public int? SubscriptionId { get; private set; }

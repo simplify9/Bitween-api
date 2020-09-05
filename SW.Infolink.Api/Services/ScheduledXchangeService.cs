@@ -102,12 +102,12 @@ namespace SW.Infolink
                         await Send(scope, subscription.Id, xf);
 
                     dbContext.Add(new XchangeDelivery(xchange.Id));
-                    await dbContext.SaveChangesAsync();
-
                 }
 
                 if (subscription.Aggregate)
                     await Send(scope, subscription.Id, jArray);
+
+                await dbContext.SaveChangesAsync();
             }
             catch (Exception ex)
             {
@@ -117,7 +117,7 @@ namespace SW.Infolink
 
         private async Task Send(IServiceScope scope, int subscriberId, object jArray)
         {
-            var xchangeService = scope.ServiceProvider.GetService<XchangeService>();
+            //var xchangeService = scope.ServiceProvider.GetService<XchangeService>();
             //await xchangeService.RunSubscriptionXchange(subscriberId, new XchangeFile(jArray.ToString()))
             //await xchangeService.Submit(subscriberId, new XchangeFile(jArray.ToString()), null, true);
         }

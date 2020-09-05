@@ -38,9 +38,9 @@ namespace SW.Infolink
             return xchange.Id;
         }
 
-        async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file)
+        async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file, bool ignoreSchedule = false)
         {
-            var xchange = new Xchange(subscription, file);
+            var xchange = new Xchange(subscription, file, null, ignoreSchedule);
             await infolinkDms.AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;

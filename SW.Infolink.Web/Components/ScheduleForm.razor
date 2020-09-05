@@ -1,16 +1,24 @@
-﻿<Field Name="@nameof(ScheduleView.Recurrence)" />
-<div class="row">
-    <div class="col-md-4">
-        <Field Name="@nameof(ScheduleView.Days)" Text="" />
-    </div>
-    <div class="col-md-4">
-        <Field Name="@nameof(ScheduleView.Hours)" Text="" />
-    </div>
-    <div class="col-md-4">
-        <Field Name="@nameof(ScheduleView.Minutes)" Text="" />
+﻿<div class="row">
+    <div class="col-md-12">
+        <Field Name="@nameof(ScheduleView.Recurrence)" />
     </div>
 </div>
-<Field Name="@nameof(ScheduleView.Backwards)" />
+<div class="row">
+    <div class="col-md-4">
+        <Field Name="@nameof(ScheduleView.Days)" Text="" Placeholder="Day" />
+    </div>
+    <div class="col-md-4">
+        <Field Name="@nameof(ScheduleView.Hours)" Text="" Placeholder="Hour" />
+    </div>
+    <div class="col-md-4">
+        <Field Name="@nameof(ScheduleView.Minutes)" Text="" Placeholder="Minute" />
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <Field Name="@nameof(ScheduleView.Backwards)" />
+    </div>
+</div>
 
 
 @code {

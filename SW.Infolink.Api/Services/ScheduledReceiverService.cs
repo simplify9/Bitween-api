@@ -105,14 +105,13 @@ namespace SW.Infolink
                             if (!string.IsNullOrWhiteSpace(rec.ReceiverId))
                             {
                                 await RunReceiver(rec.ReceiverId, startupParameters , rec.Id);
-                                rec.ReceiveOn = rec.Schedules.Next();
+                                rec.SetReceiveSchedules(); // = rec.Schedules.Next();
                                 await dbContext.SaveChangesAsync();
                             }
 
                         }
                         catch (Exception ex)
                         {
-                            //019-11-10T06:05:25.378659425Z: [INFO]  [06:05:25 ERR] An error occurred while processing receiver:3
                             logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
                         }
 

@@ -8,13 +8,6 @@
 <Ready Value="model">
     <IsReady>
         <div class="row">
-            <div class="col-xl-7 mt-2">
-                <SimplyForm @bind-Value="model">
-                    @ChildContent(model)
-                </SimplyForm>
-            </div>
-        </div>
-        <div class="row">
             <div class="col-xl-7 mt-4 mb-2">
                 <BusyButton class="btn btn-primary" OnClick="OnSave">
                     <Title>
@@ -32,6 +25,14 @@
                     </IfBusy>
                 </BusyButton>
                 <a class="btn btn-secondary" href="@ReturnUrl">Cancel</a>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-xl-7 mt-2">
+                <SimplyForm @bind-Value="model">
+                    @ChildContent(model)
+                </SimplyForm>
             </div>
         </div>
     </IsReady>
