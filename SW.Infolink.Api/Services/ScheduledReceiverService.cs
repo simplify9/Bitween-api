@@ -151,7 +151,7 @@ namespace SW.Infolink
                     //    subscriberId,
                     //    new XchangeFile(xchangeFile.Data, xchangeFile.Filename),
                     //    null);
-                    await xchangeService.RunSubscriptionXchange(subscriberId, xchangeFile);
+                    await xchangeService.SubmitSubscriptionXchange(subscriberId, xchangeFile);
                 }
 
                 await serverless.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);

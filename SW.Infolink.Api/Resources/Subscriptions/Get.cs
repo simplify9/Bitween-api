@@ -34,6 +34,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     MapperId = subscriber.MapperId,
                     ReceiverId = subscriber.ReceiverId,
                     Name = subscriber.Name,
+                    PartnerId = subscriber.PartnerId,
                     MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),
                     HandlerProperties = subscriber.HandlerProperties.ToKeyAndValueCollection(),
                     ReceiverProperties = subscriber.ReceiverProperties.ToKeyAndValueCollection(),

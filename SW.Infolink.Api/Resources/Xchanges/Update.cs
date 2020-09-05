@@ -44,7 +44,7 @@ namespace SW.Infolink.Resources.Xchanges
             var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
             if (partnerKey == null)
             {
-                await xchangeService.RunFilterXchange(document.Id, new XchangeFile(request.ToString()));
+                await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
             }
             else
             {

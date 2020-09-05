@@ -23,7 +23,22 @@ namespace SW.Infolink
             this.serviceProvider = serviceProvider;
         }
 
-        async public Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file)
+        async public Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file)
+        {
+            var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
+            var xchange = await CreateXchange(subscription, file);
+            await dbContext.SaveChangesAsync();
+            return xchange.Id;
+        }
+
+        async public Task<string> SubmitFilterXchange(int documentId, XchangeFile file)
+        {
+            var xchange = await CreateXchange(documentId, file);
+            await dbContext.SaveChangesAsync();
+            return xchange.Id;
+        }
+
+        async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file)
         {
             var xchange = new Xchange(subscription, file);
             await infolinkDms.AddFile(xchange.Id, XchangeFileType.Input, file);
@@ -31,31 +46,12 @@ namespace SW.Infolink
             return xchange;
         }
 
-        async public Task<Xchange> CreateXchange(int documentId, XchangeFile file)
+        async Task<Xchange> CreateXchange(int documentId, XchangeFile file)
         {
             var xchange = new Xchange(documentId, file);
             await infolinkDms.AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
-        }
-
-        async public Task<string> RunSubscriptionXchange(int subscriptionId, XchangeFile file)
-        {
-            var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
-            var xchange = await CreateXchange(subscription, file);
-
-            await dbContext.SaveChangesAsync();
-
-            return xchange.Id;
-        }
-
-
-        async public Task<string> RunFilterXchange(int documentId, XchangeFile file)
-        {
-
-            var xchange = await CreateXchange(documentId, file);
-            await dbContext.SaveChangesAsync();
-            return xchange.Id;
         }
 
         async Task<XchangeFile> RunMapper(Xchange xchange, XchangeFile xchangeFile)

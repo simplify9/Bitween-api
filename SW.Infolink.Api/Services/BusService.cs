@@ -41,7 +41,7 @@ namespace SW.Infolink
             var map = await GetMessageTypeNameToDocumentIdMap();
 
             var xf = new XchangeFile(message);
-            await xchangeService.RunFilterXchange(map[messageTypeName], xf);
+            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf);
         }
 
         async private Task<IReadOnlyDictionary<string, int>> GetMessageTypeNameToDocumentIdMap()

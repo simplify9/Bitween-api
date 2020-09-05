@@ -34,7 +34,7 @@ namespace SW.Infolink.Domain
                     if (on.TotalDays >= 28) throw new ArgumentException();
                     break;
 
-                case Recurrence.None:
+                default:
                     throw new ArgumentException();
             }
         }
@@ -57,7 +57,7 @@ namespace SW.Infolink.Domain
 
         public DateTime Next(DateTime currentDate = default)
         {
-            if (Recurrence == Recurrence.None) throw new ArgumentException();
+            //if (Recurrence == Recurrence.None) throw new ArgumentException();
 
             var now = currentDate == default ? DateTime.UtcNow : currentDate;
             DateTime nextSelectedDate = default; // = null;

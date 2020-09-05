@@ -35,6 +35,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                             Name = subscriber.Name,
                             Type = subscriber.Type,
                             DocumentId = subscriber.DocumentId,
+                            
                             DocumentName = document.Name,
                             HandlerId = subscriber.HandlerId,
                             Inactive = subscriber.Inactive,

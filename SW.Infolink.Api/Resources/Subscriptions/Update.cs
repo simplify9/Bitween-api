@@ -45,6 +45,33 @@ namespace SW.Infolink.Api.Resources.Subscriptions
             {
                 RuleFor(i => i.Name).NotEmpty();
 
+                When(i => i.MapperId != null, () =>
+                {
+                    RuleFor(i => i.MapperProperties).CustomAsync(async (i, context, ct) =>
+                    {
+                        var serverless = serviceProvider.GetService<IServerlessService>();
+                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).MapperId);
+                        var mustProps = (await serverless.GetExpectedStartupValues()).Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase).Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
+                        if (missing.Any())
+                            context.AddFailure($"Missing: {string.Join(",", missing) }");
+                    });
+                });
+
+                When(i => i.HandlerId != null, () =>
+                {
+                    RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
+                    {
+                        var serverless = serviceProvider.GetService<IServerlessService>();
+                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).HandlerId);
+                        var mustProps = (await serverless.GetExpectedStartupValues()).Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase).Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
+                        if (missing.Any())
+                            context.AddFailure($"Missing: {string.Join(",", missing) }");
+                    });
+                });
+
+
                 When(i => i.Type == SubscriptionType.Receiving, () =>
                 {
                     RuleFor(i => i.ReceiverId).NotEmpty();

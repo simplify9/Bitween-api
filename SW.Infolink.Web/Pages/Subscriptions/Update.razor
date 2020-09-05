@@ -5,8 +5,8 @@
         <Tab Title="General">
             <Field Name="@nameof(SubscriptionUpdate.Name)" />
             <Field Name="@nameof(SubscriptionUpdate.DocumentId)" Lookup="documents" ReadOnly="true" />
+            <Field Name="@nameof(SubscriptionUpdate.PartnerId)" Lookup="partners" ReadOnly="true" />
             <Field Name="@nameof(SubscriptionUpdate.Inactive)" />
-            <Field Name="@nameof(SubscriptionUpdate.Aggregate)" />
         </Tab>
 
         @if (context.Type == SubscriptionType.Receiving)
@@ -48,9 +48,7 @@
                         <Field Name="@nameof(ScheduleView.Backwards)" />
                     </Columns>
                     <Form>
-                        <Field Name="@nameof(ScheduleView.Recurrence)" />
-                        <ScheduleTime />
-                        <Field Name="@nameof(ScheduleView.Backwards)" />
+                        <ScheduleForm />
                     </Form>
                 </Subform>
             </Tab>
@@ -59,6 +57,8 @@
         @if (context.Type == SubscriptionType.FilterResult)
         {
             <Tab Title="Schedules">
+                <Field Name="@nameof(SubscriptionUpdate.Aggregate)" />
+
                 <Subform Name="@nameof(SubscriptionUpdate.Schedules)">
                     <Columns>
                         <Field Text="Action">
@@ -74,9 +74,7 @@
                         <Field Name="@nameof(ScheduleView.Backwards)" />
                     </Columns>
                     <Form>
-                        <Field Name="@nameof(ScheduleView.Recurrence)" />
-                        <ScheduleTime />
-                        <Field Name="@nameof(ScheduleView.Backwards)" />
+                        <ScheduleForm />
                     </Form>
                 </Subform>
             </Tab>

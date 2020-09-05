@@ -1,9 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.PrimitiveTypes;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -23,34 +21,6 @@ namespace SW.Infolink
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-
-            //if (configuration["Database"]?.ToLower() == "mssql")
-            //{
-            //    schema = "infolink";
-            //}
-
-            //modelBuilder.Entity<Adapter>(b =>
-            //{
-
-            //    b.ToTable("Adapters");
-            //    b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-            //    b.Property(p => p.ServerlessId).IsUnicode(false).HasMaxLength(200);
-            //    b.Property(p => p.Properties).StoreAsJson();
-
-            //    //b.HasData(
-            //    //    new Adapter(AdapterType.Mapper, "JsonToCsvMapper", "infolink.jsontocsvmapper") { Id = 1 },
-            //    //    new Adapter(AdapterType.Mapper, "JsonToXmlMapper", "infolink.jsontoxmlmapper") { Id = 2 },
-            //    //    new Adapter(AdapterType.Handler, "As2FileHandler", "infolink.as2filehandler") { Id = 3 },
-            //    //    new Adapter(AdapterType.Handler, "FtpFileHandler", "infolink.ftpfilehandler") { Id = 4 },
-            //    //    new Adapter(AdapterType.Handler, "HttpFileHandler", "infolink.httpfilehandler") { Id = 5 },
-            //    //    new Adapter(AdapterType.Handler, "SftpFileHandler", "infolink.sftpfilehandler") { Id = 6 },
-            //    //    new Adapter(AdapterType.Handler, "S3FileHandler", "infolink.s3filehandler") { Id = 7 },
-            //    //    new Adapter(AdapterType.Handler, "AzureBlobFileHandler", "infolink.azureblobfilehandler") { Id = 8 },
-            //    //    new Adapter(AdapterType.Receiver, "AzureBlobFileReceiver", "infolink.azureBlobfilereceiver") { Id = 9 },
-            //    //    new Adapter(AdapterType.Receiver, "SftpFileReceiver", "infolink.sftpfilereceiver") { Id = 10 },
-            //    //    new Adapter(AdapterType.Receiver, "FtpFileReceiver", "infolink.ftpfilereceiver") { Id = 11 }
-            //    //    );
-            //});
 
             modelBuilder.Entity<Document>(b =>
             {
@@ -157,20 +127,7 @@ namespace SW.Infolink
                 using var transaction = Database.BeginTransaction();
                 var affectedRecords = await base.SaveChangesAsync(cancellationToken);
                 await ChangeTracker.PublishEvents(publish);
-                //var entitiesWithEvents = ChangeTracker.Entries<IGeneratesDomainEvents>()
-                //    .Select(e => e.Entity)
-                //    .Where(e => e.Events.Any())
-                //    .ToArray();
 
-                //foreach (var entity in entitiesWithEvents)
-                //{
-                //    var events = entity.Events.ToArray();
-                //    entity.Events.Clear();
-                //    foreach (var domainEvent in events)
-                //    {
-                //        await domainEventDispatcher.Dispatch(domainEvent);
-                //    }
-                //}
                 await transaction.CommitAsync();
                 return affectedRecords;
             }
