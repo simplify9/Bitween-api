@@ -15,7 +15,7 @@ using SW.Infolink.Model;
 
 namespace SW.Infolink
 {
-    public class FilterService
+    internal class FilterService
     {
 
         readonly IServiceScopeFactory ssf;

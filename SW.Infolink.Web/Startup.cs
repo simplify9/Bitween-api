@@ -39,19 +39,25 @@ namespace SW.Infolink.Web
         {
             services.AddInfolink();
             services.AddInfolinkHostedServices();
+
             services.AddBus(config =>
             {
                 config.ApplicationName = "infolink";
             });
+
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
             //services.AddDomainEvents(typeof(InfolinkDbContext).Assembly);
-            services.AddCqApi(typeof(InfolinkDbContext).Assembly);
+            services.AddCqApi(configure => 
+                {
+                    configure.RolePrefix = "Infolink";
+                },
+                typeof(InfolinkDbContext).Assembly);
+
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
             services.AddCloudFiles();
             services.AddServerless();
             services.AddScoped<RequestContext>();
-            //services.AddScoped<IHandle<XchangeCreatedEvent>, PublishEvents>();
 
             services.AddDbContext<InfolinkDbContext>(c =>
             {
@@ -78,7 +84,6 @@ namespace SW.Infolink.Web
 
             services.AddRazorPages(options =>
             {
-                //options.Conventions.AuthorizePage("/_Host");
                 options.Conventions.AuthorizeFolder("/");
                 options.Conventions.AllowAnonymousToPage("/Login");
 
@@ -120,7 +125,6 @@ namespace SW.Infolink.Web
             }
 
             app.UsePathBase("/_infolink");
-
             app.UseStaticFiles();
             app.UseRouting();
             app.UseAuthentication();

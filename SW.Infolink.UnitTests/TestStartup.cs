@@ -20,7 +20,7 @@ namespace SW.Infolink.UnitTests
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddInfolink();
-            services.AddSingleton<ScheduledXchangeService>();
+            //services.AddSingleton<ScheduledXchangeService>();
             services.AddSingleton<IDomainEventDispatcher, MockDispatcher>();
             //services.AddBusPublishMock();
             services.AddCqApi(typeof(InfolinkDbContext).Assembly);

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    public class XchangeService : IConsume<XchangeCreatedEvent>
+    internal class XchangeService : IConsume<XchangeCreatedEvent>
     {
         readonly BlobService infolinkDms;
         private readonly InfolinkDbContext dbContext;

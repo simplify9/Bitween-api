@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    public class ScheduledXchangeService : IHostedService, IDisposable
+    internal class ScheduledXchangeService : IHostedService, IDisposable
     {
         readonly ILogger logger;
         readonly IServiceProvider sp;

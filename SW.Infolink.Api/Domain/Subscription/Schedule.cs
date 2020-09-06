@@ -4,7 +4,7 @@ using System;
 
 namespace SW.Infolink.Domain
 {
-    public class Schedule 
+    public class Schedule
     {
         public Schedule(Recurrence recurrence, TimeSpan on, bool backwards = false)
         {
@@ -35,7 +35,7 @@ namespace SW.Infolink.Domain
                     break;
 
                 default:
-                    throw new ArgumentException();
+                    throw new InfolinkException();
             }
         }
         public Recurrence Recurrence { get; private set; }
@@ -55,52 +55,43 @@ namespace SW.Infolink.Domain
             return HashCode.Combine(Recurrence, On, Backwards);
         }
 
-        public DateTime Next(DateTime currentDate = default)
+        public DateTime Next(DateTime? currentDate = null)
         {
-            //if (Recurrence == Recurrence.None) throw new ArgumentException();
-
-            var now = currentDate == default ? DateTime.UtcNow : currentDate;
-            DateTime nextSelectedDate = default; // = null;
+            var utcNow = currentDate == null ? DateTime.UtcNow : currentDate.Value;
+            DateTime nextSelectedDate;
 
             switch (Recurrence)
             {
                 case Recurrence.Hourly:
-                    //dates = ;
-                    nextSelectedDate = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0).Add(On);//  (onminutes).AddHours(1);
-                    if (nextSelectedDate < now) nextSelectedDate.AddHours(1);
-                    break;
+                    nextSelectedDate = new DateTime(utcNow.Year, utcNow.Month, utcNow.Day, utcNow.Hour, 0, 0, DateTimeKind.Utc).Add(On);
+                    if (nextSelectedDate < utcNow) 
+                        nextSelectedDate = nextSelectedDate.AddHours(1);
+                    return nextSelectedDate;
 
                 case Recurrence.Daily:
-                    //dates = onminutes.Select(e => new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddMinutes(e));
-                    nextSelectedDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).Add(On);
-                    if (nextSelectedDate < now) nextSelectedDate.AddDays(1);
-                    break;
+                    nextSelectedDate = new DateTime(utcNow.Year, utcNow.Month, utcNow.Day, 0, 0, 0, DateTimeKind.Utc).Add(On);
+                    if (nextSelectedDate < utcNow) 
+                        nextSelectedDate = nextSelectedDate.AddDays(1);
+                    return nextSelectedDate;
 
                 case Recurrence.Weekly:
-                    //DayOfWeek.Sunday =0
-                    nextSelectedDate = new DateTime(now.Year, now.Month, now.Day, 0, 0, 0).AddDays(-(byte)now.DayOfWeek).Add(On);
-                    if (nextSelectedDate < now) nextSelectedDate.AddDays(7);
-                    //dates = onminutes.Select(e => new DateTime(now.Year, now.Month, 18, 0, 0, 0).AddDays(-(byte)(DayOfWeek.Wednesday)).AddMinutes(e));
-                    //var datesSubFromNowWeekly = dates.Select(e => e).Where(e => DateTime.Compare(e, DateTime.UtcNow) > 0);
-                    //if (datesSubFromNowWeekly.Count() > 0) nextSelectedDate = datesSubFromNowWeekly.First();
-                    //if (nextSelectedDate == null) nextSelectedDate = dates.First().AddDays(7);
-
-                    break;
+                    nextSelectedDate = new DateTime(utcNow.Year, utcNow.Month, utcNow.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(-(byte)utcNow.DayOfWeek).Add(On);
+                    if (nextSelectedDate < utcNow) 
+                        nextSelectedDate = nextSelectedDate.AddDays(7);
+                    return nextSelectedDate;
 
                 case Recurrence.Monthly:
-                    nextSelectedDate = new DateTime(now.Year, now.Month, 1, 0, 0, 0).Add(On);
-                    if (nextSelectedDate < now) nextSelectedDate.AddMonths(1);
-                    //var datesSubFromNowMonthly = dates.Select(e => e).Where(e => DateTime.Compare(e, DateTime.UtcNow) > 0);//.First().AddMonths(1 );
-                    //if (datesSubFromNowMonthly.Count() > 0) nextSelectedDate = datesSubFromNowMonthly.First();
-                    //if (nextSelectedDate == null) nextSelectedDate = dates.First().AddMonths(1);
-                    break;
+                    TimeSpan _on = On;
+                    if (_on.TotalDays >= 1)
+                        _on = On.Subtract(TimeSpan.FromDays(1));
+                    nextSelectedDate = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc).Add(_on);
+                    if (nextSelectedDate < utcNow) 
+                        nextSelectedDate = nextSelectedDate.AddMonths(1);
+                    return nextSelectedDate;
+
+                default:
+                    throw new InfolinkException();
             }
-
-            //DateTime selectedDate = dates.Where(d => d > now).FirstOrDefault();
-
-            //if (selectedDate == default) selectedDate = nextSelectedDate.Value;
-
-            return nextSelectedDate;
         }
     }
 
