@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 

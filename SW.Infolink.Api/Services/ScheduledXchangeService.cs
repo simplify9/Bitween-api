@@ -93,11 +93,11 @@ namespace SW.Infolink
                     }
 
                     var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
-                    JToken xf = JToken.Parse(await xchangeDms.GetFile(xchange.Id, XchangeFileType.Input));
+                    var xf = JToken.Parse(await xchangeDms.GetFile(xchange.Id, XchangeFileType.Input));
 
                     if (subscription.Aggregate)
                         //jArray.Add(xf);
-                        AddTokensToArray(jArray, xf);
+                        AddTokenToArray(jArray, xf);
                     else
                         await Send(scope, subscription.Id, xf);
 
@@ -115,28 +115,28 @@ namespace SW.Infolink
             }
         }
 
-        private async Task Send(IServiceScope scope, int subscriberId, object jArray)
+        private async Task Send(IServiceScope scope, int subscriberId, JToken token)
         {
             //var xchangeService = scope.ServiceProvider.GetService<XchangeService>();
             //await xchangeService.RunSubscriptionXchange(subscriberId, new XchangeFile(jArray.ToString()))
             //await xchangeService.Submit(subscriberId, new XchangeFile(jArray.ToString()), null, true);
         }
-        private void AddTokensToArray(JArray jArray, JToken jtoken)
+        private void AddTokenToArray(JArray jArray, JToken jtoken)
         {
-            if (jArray != null)
+            //if (jArray != null)
+            //{
+            if (jtoken is JArray)
             {
-                if (jtoken is JArray)
+                foreach (JToken token in jtoken)
                 {
-                    foreach (JToken token in jtoken)
-                    {
-                        jArray.Add(token);
-                    }
-                }
-                else if (jtoken is JObject)
-                {
-                    jArray.Add(jtoken);
+                    jArray.Add(token);
                 }
             }
+            else if (jtoken is JObject)
+            {
+                jArray.Add(jtoken);
+            }
+            //}
 
         }
     }

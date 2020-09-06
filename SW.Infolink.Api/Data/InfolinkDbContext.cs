@@ -126,7 +126,7 @@ namespace SW.Infolink
             {
                 using var transaction = Database.BeginTransaction();
                 var affectedRecords = await base.SaveChangesAsync(cancellationToken);
-                await ChangeTracker.PublishEvents(publish);
+                await ChangeTracker.PublishDomainEvents(publish);
 
                 await transaction.CommitAsync();
                 return affectedRecords;
