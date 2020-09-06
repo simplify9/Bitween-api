@@ -13,7 +13,7 @@ namespace SW.Infolink
 
         public string AdapterPath => configuration.GetValue(nameof(AdapterPath), "./adapters");
         public string AdminCredentials => configuration.GetValue(nameof(AdminCredentials), "admin:1234512345");
-        public string DocumentPrefix => configuration.GetValue(nameof(DocumentPrefix), "infolinkdocs");
+        public string DocumentPrefix => configuration.GetValue(nameof(DocumentPrefix), "temp30/infolinkdocs");
 
     }
 }

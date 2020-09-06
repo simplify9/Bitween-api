@@ -87,14 +87,14 @@ namespace SW.Infolink.UnitTests
 
             var hs = new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(23));
 
-            var sub = new Subscription("test", 1);
+            //var sub = new Subscription("test", 1);
 
-            var nsched = sub.Schedules.Next();
+            //var nsched = sub.Schedules.Next();
 
-            sub.Schedules.Add(ds);
-            sub.Schedules.Add(hs);
+            //sub.Schedules.Add(ds);
+            //sub.Schedules.Add(hs);
 
-            var nsched1 = sub.Schedules.Next();
+            //var nsched1 = sub.Schedules.Next();
 
         }
     }

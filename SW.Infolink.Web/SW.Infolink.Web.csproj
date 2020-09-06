@@ -6,15 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="OldPages\**" />
-    <Content Remove="OldPages\**" />
-    <EmbeddedResource Remove="OldPages\**" />
-    <None Remove="OldPages\**" />
-  </ItemGroup>
-
-
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="3.1.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -37,7 +28,6 @@
 
   <ItemGroup>
     <Folder Include="adapters\" />
-    <Folder Include="OldPages\" />
   </ItemGroup>
 
   <ProjectExtensions><VisualStudio><UserProperties properties_4launchsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>

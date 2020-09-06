@@ -42,7 +42,7 @@ namespace SW.Infolink
                 b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p=> p.PartnerId).OnDelete(DeleteBehavior.Restrict);
+                b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>
                 {
                     apicred.ToTable("PartnerApiCredentials");
@@ -66,10 +66,11 @@ namespace SW.Infolink
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.Type).HasConversion<byte>();  
+                b.Property(p => p.Type).HasConversion<byte>();
 
+                //b.HasIndex(p => new { p.PartnerId, p.DocumentId }).IsUnique();
                 b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.ResponseSubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-            
+
             });
 
             modelBuilder.Entity<Xchange>(b =>

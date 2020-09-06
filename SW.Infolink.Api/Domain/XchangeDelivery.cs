@@ -20,7 +20,7 @@ namespace SW.Infolink.Domain
         }
 
         public string XchangeId { get; private set; }
-        public DateTime DeliveredOn { get; set; }
+        public DateTime DeliveredOn { get; private set; }
 
     }
 }

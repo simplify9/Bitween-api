@@ -78,7 +78,7 @@ namespace SW.Infolink.Web
 
             services.AddRazorPages(options =>
             {
-                options.Conventions.AuthorizePage("/_Host");
+                //options.Conventions.AuthorizePage("/_Host");
                 options.Conventions.AuthorizeFolder("/");
                 options.Conventions.AllowAnonymousToPage("/Login");
 
