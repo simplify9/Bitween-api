@@ -22,7 +22,6 @@ namespace SW.Infolink.Resources.Xchanges
             this.requestContext = requestContext;
             this.xchangeService = xchangeService;
             this.dbContext = dbContext;
-            var ss = serviceProvider.GetServices(typeof(IHandle<XchangeCreatedEvent>));
         }
 
         async public Task<object> Handle(string documentIdOrName, object request)

@@ -33,7 +33,7 @@ namespace SW.Infolink
         {
             logger.LogInformation("Service is starting.");
 
-            timer = new Timer(async o => await Run(o), null, TimeSpan.FromSeconds(5),
+            timer = new Timer(async state => await Run(state), null, TimeSpan.FromSeconds(5),
                 TimeSpan.FromSeconds(61));
 
             return Task.CompletedTask;

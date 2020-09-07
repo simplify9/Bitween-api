@@ -2,7 +2,7 @@
 
 namespace SW.Infolink.Domain
 {
-    public class XchangeCreatedEvent : BaseDomainEvent
+    internal class XchangeCreatedEvent : BaseDomainEvent
     {
         public string Id { get; set; }
     }

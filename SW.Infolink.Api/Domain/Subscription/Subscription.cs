@@ -32,7 +32,6 @@ namespace SW.Infolink.Domain
         public SubscriptionType Type { get; private set; }
         public int? PartnerId { get; private set; }
         public bool Temporary { get; private set; }
-
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
         public bool Aggregate { get; set; }
@@ -60,8 +59,6 @@ namespace SW.Infolink.Domain
 
         public string ReceiverId { get; set; }
 
-
-
         readonly HashSet<Schedule> _ReceiveSchedules;
         public IReadOnlyCollection<Schedule> ReceiveSchedules => _ReceiveSchedules;
         public void SetReceiveSchedules(IEnumerable<Schedule> schedules = null)
@@ -70,6 +67,22 @@ namespace SW.Infolink.Domain
             ReceiveOn = _ReceiveSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
         }
         public DateTime? ReceiveOn { get; private set; }
+
+        public void SetReceiveResult(string exception = null)
+        {
+            if (exception == null)
+            {
+                ReceiveConsecutiveFailures = 0;
+                ReceiveLastException = null;
+                return;
+            }
+
+            ReceiveConsecutiveFailures += 1;
+            ReceiveLastException = exception;
+        }
+
+        public int ReceiveConsecutiveFailures { get; private set; }
+        public string ReceiveLastException { get; private set; }
 
 
     }
