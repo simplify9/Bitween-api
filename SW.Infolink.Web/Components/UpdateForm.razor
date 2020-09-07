@@ -53,11 +53,19 @@
     public string ReturnUrl { get; set; }
 
     [Parameter]
+    public bool StayAfterSave { get; set; }
+
+    [Parameter]
     public RenderFragment<TModel> ChildContent { get; set; }
 
     TModel model;
 
     async protected override Task OnInitializedAsync()
+    {
+        await GetModel();
+    }
+
+    async Task GetModel()
     {
         var apiResult = await infolinkClient.GetById<TModel>(ApiUrl, Id);
         await notifyService.NotifyOnApiResult(apiResult);
@@ -70,7 +78,10 @@
         var apiResult = await infolinkClient.Update($"{ApiUrl}/{Id}", model);
         await notifyService.NotifyOnApiResult(apiResult);
         if (apiResult.Success)
-            navigationManager.NavigateTo(ReturnUrl);
+            if (StayAfterSave)
+                await GetModel();
+            else
+                navigationManager.NavigateTo(ReturnUrl);
 
         await busyButton.SetBusy(false);
     }

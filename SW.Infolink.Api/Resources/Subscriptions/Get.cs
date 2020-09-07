@@ -42,6 +42,8 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
                     ReceiveOn = subscriber.ReceiveOn,
+                    ReceiveConsecutiveFailures = subscriber.ReceiveConsecutiveFailures,
+                    ReceiveLastException = subscriber.ReceiveLastException,
 
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {

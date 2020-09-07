@@ -1,7 +1,7 @@
 ﻿@page "/subscriptions/{Id:int}"
 
-<UpdateForm Title="Subscription" TModel="SubscriptionUpdate" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id">
-    <Tabs >
+<UpdateForm Title="Subscription" TModel="SubscriptionUpdate" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id" StayAfterSave="true">
+    <Tabs>
         <Tab Title="General">
             <Field Name="@nameof(SubscriptionUpdate.Name)" />
             <Field Name="@nameof(SubscriptionUpdate.DocumentId)" Lookup="documents" ReadOnly="true" />
@@ -52,6 +52,8 @@
                     </Form>
                 </Subform>
                 <Field Name="@nameof(SubscriptionUpdate.ReceiveOn)" ReadOnly="true" />
+                <Field Name="@nameof(SubscriptionUpdate.ReceiveConsecutiveFailures)" ReadOnly="true" />
+                <Field Name="@nameof(SubscriptionUpdate.ReceiveLastException)" ReadOnly="true" InputType="InputType.Multiline" />
             </Tab>
         }
 
@@ -157,8 +159,6 @@
 @code {
 
     KeyValuePair<string, string> kvp = new KeyValuePair<string, string>();
-
-
 
     [Parameter]
     public int Id { get; set; }

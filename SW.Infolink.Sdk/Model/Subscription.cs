@@ -39,6 +39,9 @@ namespace SW.Infolink.Model
         public ICollection<ScheduleView> ReceiveSchedules { get; set; }
         public int? ResponseSubscriptionId { get; set; }
         public DateTime? ReceiveOn { get; set; }
+        public int ReceiveConsecutiveFailures { get;  set; }
+        public string ReceiveLastException { get;  set; }
+
 
     }
 }
