@@ -1,4 +1,5 @@
-﻿using SW.Infolink.Domain;
+﻿using SW.EfCoreExtensions;
+using SW.Infolink.Domain;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
@@ -18,7 +19,7 @@ namespace SW.Infolink.Resources.Partners
 
         async public Task<object> Handle(int key)
         {
-            await dbContext.DeleteByKey<Partner>(key);
+            await dbContext.DeleteByKeyAsync<Partner>(key);
             return null;
         }
     }

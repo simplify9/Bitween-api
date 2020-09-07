@@ -22,7 +22,7 @@ namespace SW.Infolink.Resources.Adapters
 
         async public Task<object> Handle(string key, bool lookup = false)
         {
-            await serverless.StartAsync(key);
+            await serverless.StartAsync(key, null);
 
             var expected = await serverless.GetExpectedStartupValues();
 

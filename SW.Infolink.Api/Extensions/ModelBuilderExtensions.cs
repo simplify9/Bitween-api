@@ -6,7 +6,7 @@ using SW.Infolink.Model;
 
 namespace SW.Infolink
 {
-    public static class ModelBuilderExtensions
+    internal static class ModelBuilderExtensions
     {
         public static OwnedNavigationBuilder<TOwner, Schedule> BuildSchedule<TOwner>(this OwnedNavigationBuilder<TOwner, Schedule> builder, string table)
             where TOwner : class

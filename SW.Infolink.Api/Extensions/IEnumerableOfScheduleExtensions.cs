@@ -7,7 +7,7 @@ using System.Text;
 
 namespace SW.Infolink
 {
-    public static class IEnumerableOfScheduleExtensions
+    internal static class IEnumerableOfScheduleExtensions
     {
         public static DateTime? Next(this IEnumerable<Schedule> schedules)
         {

@@ -82,7 +82,7 @@ namespace SW.Infolink
         async Task RunReceiver(IServiceProvider serviceProvider, string serverlessId, IDictionary<string, string> startupParameters, int subId)
         {
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-            await serverless.StartAsync(serverlessId, startupParameters);
+            await serverless.StartAsync(serverlessId, null, startupParameters);
             await serverless.InvokeAsync(nameof(IInfolinkReceiver.Initialize), null);
             var fileList = await serverless.InvokeAsync<IEnumerable<string>>(nameof(IInfolinkReceiver.ListFiles), null);
 

@@ -51,7 +51,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     RuleFor(i => i.MapperProperties).CustomAsync(async (i, context, ct) =>
                     {
                         var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).MapperId);
+                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).MapperId, null);
                         var mustProps = (await serverless.GetExpectedStartupValues()).Where(p => p.Value.Optional == false).Select(p => p.Key);
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase).Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                         if (missing.Any())
@@ -64,7 +64,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
                     {
                         var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).HandlerId);
+                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).HandlerId, null);
                         var mustProps = (await serverless.GetExpectedStartupValues()).Where(p => p.Value.Optional == false).Select(p => p.Key);
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase).Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                         if (missing.Any())
@@ -83,7 +83,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                         RuleFor(i => i.ReceiverProperties).CustomAsync(async (i, context, ct) =>
                         {
                             var serverless = serviceProvider.GetService<IServerlessService>();
-                            await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).ReceiverId);
+                            await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).ReceiverId, null);
                             var mustProps = (await serverless.GetExpectedStartupValues()).Where(p => p.Value.Optional == false).Select(p => p.Key);
                             var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase).Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                             if (missing.Any())
