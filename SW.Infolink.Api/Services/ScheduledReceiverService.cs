@@ -13,11 +13,9 @@ namespace SW.Infolink
 {
     internal class ScheduledReceiverService : IHostedService, IDisposable
     {
-
         readonly ILogger logger;
         readonly IServiceProvider sp;
         Timer timer;
-
 
         public ScheduledReceiverService(IServiceProvider sp, ILogger<ScheduledReceiverService> logger)
         {
@@ -64,13 +62,13 @@ namespace SW.Infolink
                         await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
                         rec.SetReceiveSchedules();
                         rec.SetReceiveResult();
-                        await dbContext.SaveChangesAsync();
                     }
                     catch (Exception ex)
                     {
                         rec.SetReceiveResult(ex.ToString());
                         logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
                     }
+                    await dbContext.SaveChangesAsync();
                 }
             }
             catch (Exception ex)

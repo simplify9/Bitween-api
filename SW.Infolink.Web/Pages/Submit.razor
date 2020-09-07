@@ -14,11 +14,11 @@
 
             @if (model.Option == XchangeRequestOption.SubscriberId)
             {
-                <Field Name="@nameof(SubmitXchange.SubscriberId)" Lookup="subscribers" />
+                <Field Name="@nameof(SubmitXchange.SubscriberId)" Lookup="@Lookup.FromSearchy("subscribers")" />
             }
             else
             {
-                <Field Name="@nameof(SubmitXchange.DocumentId)" Lookup="documents" />
+                <Field Name="@nameof(SubmitXchange.DocumentId)" Lookup="@Lookup.FromSearchy("documents")" />
             }
 
             <Field Name="@nameof(SubmitXchange.Data)" InputType="InputType.Multiline" rows="" />

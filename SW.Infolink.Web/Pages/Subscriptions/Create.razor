@@ -3,9 +3,9 @@
 
 <CreateForm Title="Subscription" TModel="SubscriptionCreate" ApiUrl="subscriptions" ReturnUrl="subscriptions">
     <Field Name="@nameof(SubscriptionCreate.Name)" />
-    <Field Name="@nameof(SubscriptionCreate.DocumentId)" Lookup="documents" />
+    <Field Name="@nameof(SubscriptionCreate.DocumentId)" Lookup="@Lookup.FromSearchy("documents")" />
     <Field Name="@nameof(SubscriptionCreate.Type)" />
-    <Field Name="@nameof(SubscriptionCreate.PartnerId)" Lookup="partners" />
+    <Field Name="@nameof(SubscriptionCreate.PartnerId)" Lookup="@Lookup.FromSearchy("partners")" />
 
 </CreateForm>
 
