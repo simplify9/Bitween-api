@@ -18,7 +18,7 @@ namespace SW.Infolink.Resources.Partners
 
         async public Task<object> Handle(int key)
         {
-            await dbContext.Delete<Partner>(key);
+            await dbContext.DeleteByKey<Partner>(key);
             return null;
         }
     }

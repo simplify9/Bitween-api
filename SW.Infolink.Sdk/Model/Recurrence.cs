@@ -2,9 +2,9 @@
 {
     public enum Recurrence
     {
-        Hourly = 1,
-        Daily = 2,
-        Weekly = 3,
-        Monthly = 4
+        Hourly = 0,
+        Daily = 1,
+        Weekly = 2,
+        Monthly = 3
     }
 }

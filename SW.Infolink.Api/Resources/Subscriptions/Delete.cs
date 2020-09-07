@@ -18,7 +18,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
 
         async public Task<object> Handle(int key)
         {
-            await dbContext.Delete<Subscription>(key);
+            await dbContext.DeleteByKey<Subscription>(key);
             return null;
         }
     }

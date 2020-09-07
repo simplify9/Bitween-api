@@ -44,6 +44,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
             public Validate(IServiceProvider serviceProvider)
             {
                 RuleFor(i => i.Name).NotEmpty();
+                RuleFor(i => i.Schedules).NotEmpty().When(i => i.Aggregate);
 
                 When(i => i.MapperId != null, () =>
                 {

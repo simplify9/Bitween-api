@@ -4,7 +4,7 @@ namespace SW.Infolink.Domain
 {
     public class ApiCredential
     {
-        public ApiCredential()
+        private ApiCredential()
         {
         }
 

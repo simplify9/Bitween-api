@@ -18,7 +18,7 @@ namespace SW.Infolink.Api.Resources.Documents
 
         async public Task<object> Handle(int key)
         {
-            await dbContext.Delete<Document>(key);
+            await dbContext.DeleteByKey<Document>(key);
             return null;
         }
     }
