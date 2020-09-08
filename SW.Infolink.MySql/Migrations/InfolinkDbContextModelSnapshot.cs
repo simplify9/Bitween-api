@@ -68,6 +68,13 @@ namespace SW.Infolink.MySql.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Partners");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Name = "SYSTEM"
+                        });
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Subscription", b =>
@@ -335,6 +342,15 @@ namespace SW.Infolink.MySql.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("PartnerId");
+
+                            b1.HasData(
+                                new
+                                {
+                                    PartnerId = 1,
+                                    Id = 1,
+                                    Key = "7facc758283844b49cc4ffd26a75b1de",
+                                    Name = "default"
+                                });
                         });
                 });
 

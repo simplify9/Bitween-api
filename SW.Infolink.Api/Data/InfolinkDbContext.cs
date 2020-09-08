@@ -50,7 +50,24 @@ namespace SW.Infolink
                     apicred.Property(p => p.Key).IsRequired().IsUnicode(false).HasMaxLength(500);
                     apicred.HasIndex(p => p.Key).IsUnique();
                     apicred.WithOwner().HasForeignKey("PartnerId");
+
+                    apicred.HasData(
+                        new
+                        {
+                            Id = 1,
+                            PartnerId = Partner.SystemId,
+                            Name = "default",
+                            Key = "7facc758283844b49cc4ffd26a75b1de",
+                        });
                 });
+
+                b.HasData(
+                    new
+                    {
+                        Id = Partner.SystemId,
+                        Name = "SYSTEM"
+                    });
+
             });
 
             modelBuilder.Entity<Subscription>(b =>

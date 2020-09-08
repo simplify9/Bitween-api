@@ -36,33 +36,47 @@ namespace SW.Infolink.Resources.Xchanges
                 document = await dbContext.Set<Document>().Where(doc => doc.Name == documentIdOrName).SingleOrDefaultAsync();
             }
 
-            if (document == null) throw new InfolinkException("Document name not found.");
+            if (document == null)
+                throw new SWNotFoundException("Document");
 
             var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
             if (partnerKey == null)
+                throw new SWUnauthorizedException();
+
+            var partnerQuery = from partner in dbContext.Set<Partner>()
+                                    where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
+                                    select partner;
+
+            var par = await partnerQuery.AsNoTracking().SingleOrDefaultAsync();
+            if (par == null)
+                throw new SWUnauthorizedException();
+
+            if (par.Id == Partner.SystemId)
             {
                 await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
+                return null;
             }
-            else
+
+            var subscriptionQuery = from subscription in dbContext.Set<Subscription>() 
+                                    where subscription.DocumentId == document.Id && subscription.PartnerId == par.Id
+                                    select subscription;
+
+            var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
+
+            if (sub == null)
+                throw new SWNotFoundException("Subscription");
+
+            var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, new XchangeFile(request.ToString()));
+
+            var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
+            if (int.TryParse(waitResponseHeader, out var waitResponse) && waitResponse > 0 && waitResponse < 60)
             {
-                var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
-                                        join partner in dbContext.Set<Partner>() on subscription.PartnerId equals partner.Id
-                                        where subscription.DocumentId == document.Id && partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
-                                        select subscription;
-
-                var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
-
-                var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, new XchangeFile(request.ToString()));
-
-                var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
-                if (int.TryParse(waitResponseHeader, out var waitResponse))
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(2));
-                    var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-                    if (xchangeResult != null && xchangeResult.ResponseSize != 0)
-                        return await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                }
+                await Task.Delay(TimeSpan.FromSeconds(waitResponse));
+                var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
+                if (xchangeResult != null && xchangeResult.ResponseSize != 0)
+                    return await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
             }
+
 
             return null;
         }

@@ -9,6 +9,7 @@ namespace SW.Infolink.Domain
 {
     class Partner : BaseEntity
     {
+        public const int SystemId = 1;
 
         private Partner()
         {

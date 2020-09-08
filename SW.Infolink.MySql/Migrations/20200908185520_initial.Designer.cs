@@ -9,14 +9,14 @@ using SW.Infolink;
 namespace SW.Infolink.MySql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    [Migration("20200905122001_update3")]
-    partial class update3
+    [Migration("20200908185520_initial")]
+    partial class initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "3.1.7")
+                .HasAnnotation("ProductVersion", "3.1.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("SW.Infolink.Domain.Document", b =>
@@ -70,6 +70,13 @@ namespace SW.Infolink.MySql.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Partners");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Name = "SYSTEM"
+                        });
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Subscription", b =>
@@ -114,6 +121,12 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
+                    b.Property<int>("ReceiveConsecutiveFailures")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReceiveLastException")
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+
                     b.Property<DateTime?>("ReceiveOn")
                         .HasColumnType("datetime(6)");
 
@@ -134,7 +147,17 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<byte>("Type")
                         .HasColumnType("tinyint unsigned");
 
+                    b.Property<string>("ValidatorId")
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+
+                    b.Property<string>("ValidatorProperties")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
+                        .HasMaxLength(200)
+                        .IsUnicode(false);
+
                     b.HasKey("Id");
+
+                    b.HasIndex("DocumentId");
 
                     b.HasIndex("PartnerId");
 
@@ -165,17 +188,17 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<string>("HandlerProperties")
                         .HasColumnType("longtext CHARACTER SET utf8mb4");
 
-                    b.Property<string>("InputFileHash")
+                    b.Property<string>("InputHash")
                         .IsRequired()
                         .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
-                    b.Property<string>("InputFileName")
+                    b.Property<string>("InputName")
                         .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200);
 
-                    b.Property<int>("InputFileSize")
+                    b.Property<int>("InputSize")
                         .HasColumnType("int");
 
                     b.Property<string>("MapperId")
@@ -203,7 +226,7 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.HasIndex("DeliverOn");
 
-                    b.HasIndex("InputFileHash");
+                    b.HasIndex("InputHash");
 
                     b.HasIndex("SubscriptionId");
 
@@ -220,17 +243,9 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<DateTime>("DeliveredOn")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<string>("XchangeId")
-                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
-                        .HasMaxLength(50)
-                        .IsUnicode(false);
-
                     b.HasKey("Id");
 
                     b.HasIndex("DeliveredOn");
-
-                    b.HasIndex("XchangeId")
-                        .IsUnique();
 
                     b.ToTable("XchangeDeliveries");
                 });
@@ -245,15 +260,7 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<string>("Properties")
                         .HasColumnType("longtext CHARACTER SET utf8mb4");
 
-                    b.Property<string>("XchangeId")
-                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
-                        .HasMaxLength(50)
-                        .IsUnicode(false);
-
                     b.HasKey("Id");
-
-                    b.HasIndex("XchangeId")
-                        .IsUnique();
 
                     b.ToTable("XchangePromotedProperties");
                 });
@@ -271,21 +278,37 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<DateTime>("FinishedOn")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("OutputHash")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
+                        .HasMaxLength(50)
+                        .IsUnicode(false);
+
+                    b.Property<string>("OutputName")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
+                        .HasMaxLength(200);
+
+                    b.Property<int>("OutputSize")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResponseHash")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
+                        .HasMaxLength(50)
+                        .IsUnicode(false);
+
+                    b.Property<string>("ResponseName")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
+                        .HasMaxLength(200);
+
+                    b.Property<int>("ResponseSize")
+                        .HasColumnType("int");
+
                     b.Property<string>("ResponseXchangeId")
                         .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<bool>("Success")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("XchangeId")
-                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
-                        .HasMaxLength(50)
-                        .IsUnicode(false);
-
                     b.HasKey("Id");
-
-                    b.HasIndex("XchangeId")
-                        .IsUnique();
 
                     b.ToTable("XchangeResults");
                 });
@@ -321,11 +344,26 @@ namespace SW.Infolink.MySql.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("PartnerId");
+
+                            b1.HasData(
+                                new
+                                {
+                                    PartnerId = 1,
+                                    Id = 1,
+                                    Key = "7facc758283844b49cc4ffd26a75b1de",
+                                    Name = "default"
+                                });
                         });
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Subscription", b =>
                 {
+                    b.HasOne("SW.Infolink.Domain.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("SW.Infolink.Domain.Partner", null)
                         .WithMany("Subscriptions")
                         .HasForeignKey("PartnerId")
@@ -336,7 +374,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasForeignKey("SW.Infolink.Domain.Subscription", "ResponseSubscriptionId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.OwnsMany("SW.Infolink.Model.Schedule", "ReceiveSchedules", b1 =>
+                    b.OwnsMany("SW.Infolink.Domain.Schedule", "ReceiveSchedules", b1 =>
                         {
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
@@ -345,11 +383,10 @@ namespace SW.Infolink.MySql.Migrations
                             b1.Property<bool>("Backwards")
                                 .HasColumnType("tinyint(1)");
 
-                            b1.Property<TimeSpan>("On")
-                                .HasColumnType("time(6)");
+                            b1.Property<double>("On")
+                                .HasColumnType("double");
 
                             b1.Property<byte>("Recurrence")
-                                .HasColumnName("Recurrence")
                                 .HasColumnType("tinyint unsigned");
 
                             b1.Property<int>("SubscriptionId")
@@ -365,7 +402,7 @@ namespace SW.Infolink.MySql.Migrations
                                 .HasForeignKey("SubscriptionId");
                         });
 
-                    b.OwnsMany("SW.Infolink.Model.Schedule", "Schedules", b1 =>
+                    b.OwnsMany("SW.Infolink.Domain.Schedule", "Schedules", b1 =>
                         {
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
@@ -374,11 +411,10 @@ namespace SW.Infolink.MySql.Migrations
                             b1.Property<bool>("Backwards")
                                 .HasColumnType("tinyint(1)");
 
-                            b1.Property<TimeSpan>("On")
-                                .HasColumnType("time(6)");
+                            b1.Property<double>("On")
+                                .HasColumnType("double");
 
                             b1.Property<byte>("Recurrence")
-                                .HasColumnName("Recurrence")
                                 .HasColumnType("tinyint unsigned");
 
                             b1.Property<int>("SubscriptionId")
@@ -399,24 +435,27 @@ namespace SW.Infolink.MySql.Migrations
                 {
                     b.HasOne("SW.Infolink.Domain.Xchange", null)
                         .WithOne()
-                        .HasForeignKey("SW.Infolink.Domain.XchangeDelivery", "XchangeId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .HasForeignKey("SW.Infolink.Domain.XchangeDelivery", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.XchangePromotedProperties", b =>
                 {
                     b.HasOne("SW.Infolink.Domain.Xchange", null)
                         .WithOne()
-                        .HasForeignKey("SW.Infolink.Domain.XchangePromotedProperties", "XchangeId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .HasForeignKey("SW.Infolink.Domain.XchangePromotedProperties", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.XchangeResult", b =>
                 {
                     b.HasOne("SW.Infolink.Domain.Xchange", null)
                         .WithOne()
-                        .HasForeignKey("SW.Infolink.Domain.XchangeResult", "XchangeId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .HasForeignKey("SW.Infolink.Domain.XchangeResult", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
