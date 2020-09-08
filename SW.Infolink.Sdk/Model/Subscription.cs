@@ -7,6 +7,13 @@ using System.Threading.Tasks;
 namespace SW.Infolink.Model
 {
 
+    public enum SubscriptionType
+    {
+        FilterResult = 1,
+        ApiCall = 2,
+        Receiving = 4,
+    }
+
     public class SubscriptionCreate
     {
         public string Name { get; set; }

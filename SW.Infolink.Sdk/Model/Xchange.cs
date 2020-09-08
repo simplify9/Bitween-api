@@ -5,6 +5,13 @@ using System.Text;
 
 namespace SW.Infolink.Model
 {
+    public enum XchangeFileType
+    {
+        Input,
+        Output,
+        Response
+    }
+
     public class XchangeRow
     {
         public string Id { get; set; }

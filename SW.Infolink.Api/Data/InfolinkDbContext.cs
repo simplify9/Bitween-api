@@ -107,6 +107,7 @@ namespace SW.Infolink
                 b.HasIndex(i => i.InputHash);
                 b.HasIndex(i => i.DeliverOn);
                 b.HasIndex(i => i.SubscriptionId);
+                b.HasIndex(i => i.StartedOn);
 
             });
 
