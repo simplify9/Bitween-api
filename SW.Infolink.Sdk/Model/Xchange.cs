@@ -13,9 +13,7 @@ namespace SW.Infolink.Model
         public int DocumentId { get; set; }
         public string DocumentName { get; set; }
         public string HandlerId { get; set; }
-        //public string HandlerName { get; set; }
         public string MapperId { get; set; }
-        //public string MapperName { get; set; }
         public IEnumerable<string> References { get; set; }
         public bool  Status { get; set; }
         public string StatusString { get; set; }
@@ -27,5 +25,9 @@ namespace SW.Infolink.Model
         public int InputFileSize { get; set; }
         public string InputFileHash { get; set; }
         public DateTime? DeliverOn { get; set; }
+        public string InputUrl { get; set; }
+        public string OutputUrl { get; set; }
+        public string ResponseUrl { get; set; }
+
     }
 }

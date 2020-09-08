@@ -94,7 +94,10 @@ namespace SW.Infolink
             });
         }
 
-        //public string GeFile
+        public string GetFileUrl(string xchangeId, XchangeFileType type)
+        {
+            return cloudFiles.GetUrl($"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}");
+        }
 
         public async Task<string> GetFile(string xchangeId, XchangeFileType type)
         {
@@ -105,43 +108,55 @@ namespace SW.Infolink
 
         async Task IConsume<XchangeCreatedEvent>.Process(XchangeCreatedEvent message)
         {
-            var xchange = await dbContext.FindAsync<Xchange>(message.Id);
-            var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
 
             Xchange responseXchange = null;
             XchangeFile outputFile = null;
             XchangeFile responseFile = null;
 
-            if (xchange.SubscriptionId != null && xchange.DeliverOn == null)
+            var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+            if (xchange == null) throw new InfolinkException($"Could not find xchnage id: {message.Id}");
+
+            try
             {
-                outputFile = await RunMapper(xchange, inputFile);
+                var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
 
-                responseFile = await RunHandler(xchange, outputFile);
 
-                if (xchange.ResponseSubscriptionId != null && responseFile != null)
+                if (xchange.SubscriptionId != null && xchange.DeliverOn == null)
                 {
-                    var subscription = await dbContext.FindAsync<Subscription>(xchange.ResponseSubscriptionId.Value);
-                    responseXchange = await CreateXchange(subscription, responseFile);
+                    outputFile = await RunMapper(xchange, inputFile);
+
+                    responseFile = await RunHandler(xchange, outputFile);
+
+                    if (xchange.ResponseSubscriptionId != null && responseFile != null)
+                    {
+                        var subscription = await dbContext.FindAsync<Subscription>(xchange.ResponseSubscriptionId.Value);
+                        responseXchange = await CreateXchange(subscription, responseFile);
+                    }
+
+                }
+                else if (xchange.SubscriptionId == null)
+                {
+                    var result = filterService.Filter(xchange.DocumentId, inputFile);
+
+                    dbContext.Add(new XchangePromotedProperties(xchange.Id, result.Properties));
+
+                    foreach (var subscriptionId in result.Hits)
+                    {
+                        var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
+                        await CreateXchange(subscription, inputFile);
+                    }
                 }
 
+                dbContext.Add(new XchangeResult(xchange.Id, outputFile, responseFile, responseXchange?.Id));
+                var tracker = dbContext.ChangeTracker.Entries();
+                await dbContext.SaveChangesAsync();
+
             }
-            else if (xchange.SubscriptionId == null)
+            catch (Exception ex)
             {
-                var result = filterService.Filter(xchange.DocumentId, inputFile);
-
-                dbContext.Add(new XchangePromotedProperties(xchange.Id, result.Properties));
-
-                foreach (var subscriptionId in result.Hits)
-                {
-                    var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
-                    await CreateXchange(subscription, inputFile);
-                }
+                dbContext.Add(new XchangeResult(xchange.Id, outputFile, responseFile, responseXchange?.Id, ex.ToString()));
+                await dbContext.SaveChangesAsync();
             }
-
-            dbContext.Add(new XchangeResult(xchange.Id, outputFile, responseFile, responseXchange?.Id));
-            var tracker = dbContext.ChangeTracker.Entries();
-            await dbContext.SaveChangesAsync();
-
         }
     }
 

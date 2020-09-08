@@ -3,8 +3,7 @@
 
 <h3>Dashboard</h3>
 
-<Search PageSize="10" SearchUrl="xchanges" TModel="XchangeRow" OnItem="@(item => navigationManager.NavigateTo($"admin/carriers/{item.Item.Id}"))"
-        Height="400px" Width="max-content">
+<Search PageSize="10" SearchUrl="xchanges" TModel="XchangeRow" Height="400px" Width="max-content">
     <Commands>
         <a href="submit">New exchange</a>
     </Commands>
@@ -16,6 +15,22 @@
         <Field Name="@nameof(XchangeRow.StartedOn)" />
         <Field Name="@nameof(XchangeRow.FinishedOn)" />
         <Field Name="@nameof(XchangeRow.Status)" />
+        <Field Text="Action">
+            <ColumnHeader >
+                Files
+            </ColumnHeader>
+            <ColumnValue Context="fieldContext">
+                <a target="_blank" href="@(((XchangeRow)fieldContext.Model).InputUrl)">
+                    <span class="oi oi-account-login" aria-hidden="true"></span>
+                </a>
+                <a target="_blank" href="@(((XchangeRow)fieldContext.Model).OutputUrl)">
+                    <span class="oi oi-account-logout" aria-hidden="true"></span>
+                </a>
+                <a target="_blank" href="@(((XchangeRow)fieldContext.Model).ResponseUrl)">
+                    <span class="oi oi-envelope-closed" aria-hidden="true"></span>
+                </a>
+            </ColumnValue>
+        </Field>
 
     </Columns>
 

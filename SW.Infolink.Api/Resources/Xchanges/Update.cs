@@ -47,7 +47,7 @@ namespace SW.Infolink.Resources.Xchanges
             {
                 var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
                                         join partner in dbContext.Set<Partner>() on subscription.PartnerId equals partner.Id
-                                        where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
+                                        where subscription.DocumentId == document.Id && partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
                                         select subscription;
 
                 var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();

@@ -14,10 +14,12 @@ namespace SW.Infolink.Resources.Xchanges
     class Search : ISearchyHandler
     {
         private readonly InfolinkDbContext dbContext;
+        private readonly XchangeService xchangeService;
 
-        public Search(InfolinkDbContext dbContext)
+        public Search(InfolinkDbContext dbContext, XchangeService xchangeService)
         {
             this.dbContext = dbContext;
+            this.xchangeService = xchangeService;
         }
 
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
@@ -42,6 +44,10 @@ namespace SW.Infolink.Resources.Xchanges
                             SubscriptionId = xchange.SubscriptionId,
                             SubscriptionName = subscriber.Name,
                             Status = result.Success,
+                            InputUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Input),
+                            OutputUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Output),
+                            ResponseUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Response),
+
                             //Exception = xchange.Exception
                         };
 
