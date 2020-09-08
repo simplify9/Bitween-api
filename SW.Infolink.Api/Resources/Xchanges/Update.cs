@@ -28,13 +28,9 @@ namespace SW.Infolink.Resources.Xchanges
             Document document = null;
 
             if (int.TryParse(documentIdOrName, out var documentId))
-            {
                 document = await dbContext.FindAsync<Document>(documentId);
-            }
             else
-            {
                 document = await dbContext.Set<Document>().Where(doc => doc.Name == documentIdOrName).SingleOrDefaultAsync();
-            }
 
             if (document == null)
                 throw new SWNotFoundException("Document");

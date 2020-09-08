@@ -16,11 +16,12 @@ namespace SW.Infolink.Resources.Xchanges
     class Retry : ICommandHandler<object>
     {
         private readonly InfolinkDbContext dbContext;
-        public XchangeService XchangeService { get; }
+        private readonly XchangeService xchangeService;
+
         public Retry(InfolinkDbContext dbContext, XchangeService xchangeService)
         {
             this.dbContext = dbContext;
-            XchangeService = xchangeService;
+            this.xchangeService = xchangeService;
         }
 
 

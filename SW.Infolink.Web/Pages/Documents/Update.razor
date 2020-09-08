@@ -4,7 +4,7 @@
 <UpdateForm Title="Document" TModel="DocumentConfig" ApiUrl="documents" ReturnUrl="documents" Id="Id">
 
     <Field Name="@nameof(DocumentConfig.Id)" ReadOnly="true" />
-    <Field Name="@nameof(DocumentConfig.Name)" />
+    <Field Name="@nameof(DocumentConfig.Name)" ReadOnly="true" />
     <Field Name="@nameof(DocumentConfig.DuplicateInterval)"  />
     <Field Name="@nameof(DocumentConfig.BusEnabled)" />
     <Field Name="@nameof(DocumentConfig.BusMessageTypeName)" ReadOnly="!context.BusEnabled" />

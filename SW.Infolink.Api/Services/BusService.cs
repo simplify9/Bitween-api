@@ -15,17 +15,13 @@ namespace SW.Infolink
     {
         private const string MessageTypeNameToDocumentId = "MessageTypeNameToDocumentId";
 
-        private readonly ILogger<BusService> logger;
-        private readonly FilterService filterService;
         private readonly XchangeService xchangeService;
         private readonly IMemoryCache memoryCache;
         private readonly InfolinkDbContext dbContext;
 
 
-        public BusService(ILogger<BusService> logger, FilterService filterService, XchangeService xchangeService, IMemoryCache memoryCache, InfolinkDbContext dbContext)
+        public BusService(XchangeService xchangeService, IMemoryCache memoryCache, InfolinkDbContext dbContext)
         {
-            this.logger = logger;
-            this.filterService = filterService;
             this.xchangeService = xchangeService;
             this.memoryCache = memoryCache;
             this.dbContext = dbContext;
