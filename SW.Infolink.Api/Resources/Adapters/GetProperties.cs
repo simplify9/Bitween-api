@@ -26,7 +26,7 @@ namespace SW.Infolink.Resources.Adapters
 
             var expected = await serverless.GetExpectedStartupValues();
 
-            return expected.ToList().ToDictionary(k => k.Key, v => v.Key);
+            return expected.ToList().ToDictionary(k => k.Key, v => $"{v.Key} {(v.Value.Optional ? string.Empty : " *")}");
         }
     }
 

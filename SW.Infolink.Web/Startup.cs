@@ -51,6 +51,7 @@ namespace SW.Infolink.Web
             services.AddCqApi(configure => 
                 {
                     configure.RolePrefix = "Infolink";
+                    configure.UrlPrefix = "api"; 
                 },
                 typeof(InfolinkDbContext).Assembly);
 
@@ -129,7 +130,7 @@ namespace SW.Infolink.Web
             app.UseRouting();
             app.UseAuthentication();
             app.UseAuthorization();
-            app.UseHttpUserRequestContext();
+            app.UseHttpAsRequestContext();
             app.UseRequestContextLogEnricher();
             app.UseEndpoints(endpoints =>
             {

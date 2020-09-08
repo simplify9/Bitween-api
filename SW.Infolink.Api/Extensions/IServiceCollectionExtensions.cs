@@ -9,7 +9,7 @@ namespace SW.Infolink
         {
             services.AddSingleton<InfolinkSettings>();
             services.AddSingleton<FilterService>();
-            services.AddScoped<BlobService>();
+            //services.AddScoped<BlobService>();
             services.AddScoped<XchangeService>();
 
             return services;

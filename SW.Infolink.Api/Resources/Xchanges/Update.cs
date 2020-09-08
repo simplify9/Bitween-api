@@ -16,7 +16,6 @@ namespace SW.Infolink.Resources.Xchanges
         private readonly XchangeService xchangeService;
         private readonly InfolinkDbContext dbContext;
 
-
         public Update(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext, IServiceProvider serviceProvider)
         {
             this.requestContext = requestContext;
@@ -26,7 +25,6 @@ namespace SW.Infolink.Resources.Xchanges
 
         async public Task<object> Handle(string documentIdOrName, object request)
         {
-
             Document document = null;
 
             if (int.TryParse(documentIdOrName, out var documentId))
@@ -47,39 +45,26 @@ namespace SW.Infolink.Resources.Xchanges
             }
             else
             {
-                //validate the partner key and get sub id
-                //create an sub based xchange
+                var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
+                                        join partner in dbContext.Set<Partner>() on subscription.PartnerId equals partner.Id
+                                        where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
+                                        select subscription;
 
-                //await Task.Delay()  
+                var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
+
+                var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, new XchangeFile(request.ToString()));
+
+                var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
+                if (int.TryParse(waitResponseHeader, out var waitResponse))
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2));
+                    var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
+                    if (xchangeResult != null && xchangeResult.ResponseSize != 0)
+                        return await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                }
             }
 
             return null;
-
-            //if (request.SubscriberId > 0)
-            //{
-            //    var id = await xchangeService.Submit(request.SubscriberId,
-            //        request.File,
-            //        request.References,
-            //        false);
-
-            //    return id.ToString();
-
-            //}
-            //else if (request.DocumentId > 0)
-            //{
-            //    var subscribers = filterService.Filter(request.DocumentId, request.File);
-
-            //    foreach (var sub in subscribers)
-            //    {
-            //        await xchangeService.Submit(sub, request.File);
-            //    }
-
-            //    return null;
-            //}
-            //else
-            //{
-            //    throw new ArgumentException();
-            //}
         }
     }
 }

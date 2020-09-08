@@ -35,7 +35,7 @@ namespace SW.Infolink.Resources.Xchanges
                     SubscriptionId = xchange.SubscriptionId,
                     //Status = xchange.Status,
                     //Exception = xchange.Exception,
-                    InputFileName = xchange.InputFileName  
+                    InputFileName = xchange.InputName  
 
                 }).SingleOrDefaultAsync();
         }

@@ -14,6 +14,7 @@ namespace SW.Infolink.Web
     {
         public static void Main(string[] args)
         {
+            //var id = (long)(DateTime.UtcNow.Subtract(new DateTime(2010, 1, 1)).TotalMilliseconds * 1000); 
             CreateHostBuilder(args).UseSwLogger().Build().MigrateDatabase<InfolinkDbContext>().Run();
         }
 

@@ -62,10 +62,12 @@ namespace SW.Infolink
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
                 b.Property(p => p.ReceiverProperties).StoreAsJson();
+                b.Property(p => p.ValidatorProperties).StoreAsJson();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.ValidatorProperties).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.Type).HasConversion<byte>();
 
                 //b.HasIndex(p => new { p.PartnerId, p.DocumentId }).IsUnique();
@@ -78,14 +80,14 @@ namespace SW.Infolink
                 b.ToTable("Xchanges");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.References).IsSeparatorDelimited().HasMaxLength(1024);
-                b.Property(p => p.InputFileHash).IsRequired().IsUnicode(false).HasMaxLength(50);
-                b.Property(p => p.InputFileName).HasMaxLength(200);
+                b.Property(p => p.InputHash).IsRequired().IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.InputName).HasMaxLength(200);
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
 
-                b.HasIndex(i => i.InputFileHash);
+                b.HasIndex(i => i.InputHash);
                 b.HasIndex(i => i.DeliverOn);
                 b.HasIndex(i => i.SubscriptionId);
 
@@ -95,17 +97,20 @@ namespace SW.Infolink
             {
                 b.ToTable("XchangeResults");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
-                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.XchangeId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.OutputHash).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.OutputName).HasMaxLength(200);
+                b.Property(p => p.ResponseHash).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.ResponseName).HasMaxLength(200);
+
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<XchangeDelivery>(b =>
             {
                 b.ToTable("XchangeDeliveries");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
-                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
                 b.HasIndex(i => i.DeliveredOn);
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.XchangeId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
 
             });
 
@@ -113,9 +118,8 @@ namespace SW.Infolink
             {
                 b.ToTable("XchangePromotedProperties");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
-                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.Properties).StoreAsJson();
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.XchangeId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
 
             });
 
@@ -123,22 +127,22 @@ namespace SW.Infolink
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            try
-            {
-                using var transaction = Database.BeginTransaction();
-                var affectedRecords = await base.SaveChangesAsync(cancellationToken);
-                await ChangeTracker.PublishDomainEvents(publish);
+            //try
+            //{
+            using var transaction = Database.BeginTransaction();
+            var affectedRecords = await base.SaveChangesAsync(cancellationToken);
+            await ChangeTracker.PublishDomainEvents(publish);
 
-                await transaction.CommitAsync();
-                return affectedRecords;
-            }
-            catch (DbUpdateException dbUpdateException)
-            {
-                if (dbUpdateException.InnerException == null)
-                    throw new SWException($"Data Error: {dbUpdateException.Message}");
-                else
-                    throw new SWException($"Data Error: {dbUpdateException.InnerException.Message}");
-            }
+            await transaction.CommitAsync();
+            return affectedRecords;
+            //}
+            //catch (DbUpdateException dbUpdateException)
+            //{
+            //    if (dbUpdateException.InnerException == null)
+            //        throw new SWException($"Data Error: {dbUpdateException.Message}");
+            //    else
+            //        throw new SWException($"Data Error: {dbUpdateException.InnerException.Message}");
+            //}
         }
     }
 }

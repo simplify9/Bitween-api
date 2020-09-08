@@ -28,9 +28,13 @@ namespace SW.Infolink.Model
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
         public string ReceiverId { get; set; }
+        public string ValidatorId { get; set; }
+
         public bool Temporary { get; set; }
         public bool Aggregate { get; set; }
         public ICollection<KeyAndValue> HandlerProperties { get; set; }
+        public ICollection<KeyAndValue> ValidatorProperties { get; set; }
+
         public ICollection<KeyAndValue> MapperProperties { get; set; }
         public ICollection<KeyAndValue> ReceiverProperties { get; set; }
         public ICollection<KeyAndValue> DocumentFilter { get; set; }

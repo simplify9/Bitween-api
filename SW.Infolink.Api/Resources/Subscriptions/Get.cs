@@ -38,12 +38,14 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),
                     HandlerProperties = subscriber.HandlerProperties.ToKeyAndValueCollection(),
                     ReceiverProperties = subscriber.ReceiverProperties.ToKeyAndValueCollection(),
+                    ValidatorProperties = subscriber.ValidatorProperties.ToKeyAndValueCollection(),
                     Type = subscriber.Type,
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
                     ReceiveOn = subscriber.ReceiveOn,
                     ReceiveConsecutiveFailures = subscriber.ReceiveConsecutiveFailures,
                     ReceiveLastException = subscriber.ReceiveLastException,
+                    ValidatorId = subscriber.ValidatorId,
 
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {

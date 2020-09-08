@@ -33,7 +33,8 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                 model.HandlerProperties.ToDictionary(),
                 model.MapperProperties.ToDictionary(),
                 model.ReceiverProperties.ToDictionary(),
-                model.DocumentFilter.ToDictionary());
+                model.DocumentFilter.ToDictionary(),
+                model.ValidatorProperties.ToDictionary());
 
             await dbContext.SaveChangesAsync();
             return null;

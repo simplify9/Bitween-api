@@ -14,12 +14,12 @@ namespace SW.Infolink.Domain
 
         public XchangeDelivery(string xchangeId)
         {
-            Id = Guid.NewGuid().ToString("N");
-            XchangeId = xchangeId;
+            Id = xchangeId; // Guid.NewGuid().ToString("N");
+            //XchangeId = xchangeId;
             DeliveredOn = DateTime.UtcNow;
         }
 
-        public string XchangeId { get; private set; }
+        //public string XchangeId { get; private set; }
         public DateTime DeliveredOn { get; private set; }
 
     }

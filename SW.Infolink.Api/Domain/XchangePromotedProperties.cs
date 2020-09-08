@@ -13,12 +13,12 @@ namespace SW.Infolink.Domain
 
         public XchangePromotedProperties(string xchangeId, IDictionary<string, string> properties)
         {
-            Id = Guid.NewGuid().ToString("N");
-            XchangeId = xchangeId;
+            Id = xchangeId; // Guid.NewGuid().ToString("N");
+            //XchangeId = xchangeId;
             Properties = properties.ToDictionary(); 
         }
 
-        public string XchangeId { get; private set; }
+        //public string XchangeId { get; private set; }
         public IReadOnlyDictionary<string, string> Properties { get; private set; }
     }
 }

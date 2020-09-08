@@ -59,10 +59,11 @@ namespace SW.Infolink
             {
                 using var scope = sp.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+                var xchangeService = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
                 var xchangeQuery = from xchange in dbContext.Set<Xchange>()
-                                   join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.XchangeId
-                                   join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.XchangeId into xd
+                                   join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
+                                   join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.Id into xd
                                    from delivery in xd.DefaultIfEmpty()
                                    where result.Success == true && delivery == null && xchange.DeliverOn != null && xchange.DeliverOn < DateTime.UtcNow
                                    select xchange;
@@ -83,7 +84,7 @@ namespace SW.Infolink
                         {
                             //send!
                             if (subscription.Aggregate)
-                                await Send(scope, subscription.Id, jArray);
+                                await Send(xchangeService, subscription.Id, jArray);
                         }
 
                         //start with new subscriber
@@ -92,20 +93,20 @@ namespace SW.Infolink
                         subscription = await dbContext.FindAsync<Subscription>(subId);
                     }
 
-                    var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
-                    var xf = JToken.Parse(await xchangeDms.GetFile(xchange.Id, XchangeFileType.Input));
+                    //var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
+                    var xf = JToken.Parse(await xchangeService.GetFile(xchange.Id, XchangeFileType.Input));
 
                     if (subscription.Aggregate)
                         //jArray.Add(xf);
                         AddTokenToArray(jArray, xf);
                     else
-                        await Send(scope, subscription.Id, xf);
+                        await Send(xchangeService, subscription.Id, xf);
 
                     dbContext.Add(new XchangeDelivery(xchange.Id));
                 }
 
                 if (subscription.Aggregate)
-                    await Send(scope, subscription.Id, jArray);
+                    await Send(xchangeService, subscription.Id, jArray);
 
                 await dbContext.SaveChangesAsync();
             }
@@ -115,9 +116,8 @@ namespace SW.Infolink
             }
         }
 
-        private async Task Send(IServiceScope scope, int subscriberId, JToken token)
+        private async Task Send(XchangeService xchangeService , int subscriberId, JToken token)
         {
-            //var xchangeService = scope.ServiceProvider.GetService<XchangeService>();
             //await xchangeService.RunSubscriptionXchange(subscriberId, new XchangeFile(jArray.ToString()))
             //await xchangeService.Submit(subscriberId, new XchangeFile(jArray.ToString()), null, true);
         }

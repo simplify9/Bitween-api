@@ -23,6 +23,7 @@ namespace SW.Infolink.Domain
             HandlerProperties = new Dictionary<string, string>();
             MapperProperties = new Dictionary<string, string>();
             ReceiverProperties = new Dictionary<string, string>();
+            ValidatorProperties = new Dictionary<string, string>();
             DocumentFilter = new Dictionary<string, string>();
             Temporary = temporary;
         }
@@ -32,10 +33,13 @@ namespace SW.Infolink.Domain
         public SubscriptionType Type { get; private set; }
         public int? PartnerId { get; private set; }
         public bool Temporary { get; private set; }
+
+        public string ValidatorId { get; set; }
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
         public bool Aggregate { get; set; }
 
+        public IReadOnlyDictionary<string, string> ValidatorProperties { get; private set; }
         public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
         public IReadOnlyDictionary<string, string> MapperProperties { get; private set; }
         public IReadOnlyDictionary<string, string> ReceiverProperties { get; private set; }
@@ -45,12 +49,16 @@ namespace SW.Infolink.Domain
             IReadOnlyDictionary<string, string> handler,
             IReadOnlyDictionary<string, string> mapper,
             IReadOnlyDictionary<string, string> receiver,
-            IReadOnlyDictionary<string, string> document)
+            IReadOnlyDictionary<string, string> document,
+            IReadOnlyDictionary<string, string> validator
+            )
         {
             HandlerProperties = handler;
             MapperProperties = mapper;
             ReceiverProperties = receiver;
+            ValidatorProperties = validator;
             DocumentFilter = document;
+
         }
 
         public bool Inactive { get; set; }
@@ -63,9 +71,13 @@ namespace SW.Infolink.Domain
         public IReadOnlyCollection<Schedule> ReceiveSchedules => _ReceiveSchedules;
         public void SetReceiveSchedules(IEnumerable<Schedule> schedules = null)
         {
-            if (schedules != null) _ReceiveSchedules.Update(schedules);
-            ReceiveOn = _ReceiveSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
+            if (Type == SubscriptionType.Receiving)
+            {
+                if (schedules != null) _ReceiveSchedules.Update(schedules);
+                ReceiveOn = _ReceiveSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
+            }
         }
+
         public DateTime? ReceiveOn { get; private set; }
 
         public void SetReceiveResult(string exception = null)
@@ -83,7 +95,5 @@ namespace SW.Infolink.Domain
 
         public int ReceiveConsecutiveFailures { get; private set; }
         public string ReceiveLastException { get; private set; }
-
-
     }
 }

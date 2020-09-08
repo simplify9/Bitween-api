@@ -16,9 +16,9 @@ namespace SW.Infolink.Domain
             Id = Guid.NewGuid().ToString("N"); 
             DocumentId = documentId;
             References = references;
-            InputFileName = file.Filename;
-            InputFileSize = file.Data.Length;
-            InputFileHash = file.Hash;
+            InputName = file.Filename;
+            InputSize = file.Data.Length;
+            InputHash = file.Hash;
             StartedOn = DateTime.UtcNow;
             Events.Add(new XchangeCreatedEvent
             {
@@ -47,9 +47,9 @@ namespace SW.Infolink.Domain
         public IReadOnlyDictionary<string, string> MapperProperties { get; private set; }
         public string[] References { get; private set; }
         public DateTime StartedOn { get; private set; }
-        public string InputFileName { get; private set; }
-        public int InputFileSize { get; private set; }
-        public string InputFileHash { get; private set; }
+        public string InputName { get; private set; }
+        public int InputSize { get; private set; }
+        public string InputHash { get; private set; }
         public DateTime? DeliverOn { get; private set; }
         public int? ResponseSubscriptionId { get; private set; }
     }

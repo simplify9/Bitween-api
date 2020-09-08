@@ -4,22 +4,25 @@ using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
     internal class XchangeService : IConsume<XchangeCreatedEvent>
     {
-        readonly BlobService infolinkDms;
+        private readonly InfolinkSettings infolinkSettings;
         private readonly InfolinkDbContext dbContext;
         private readonly FilterService filterService;
+        private readonly ICloudFilesService cloudFiles;
         private readonly IServiceProvider serviceProvider;
 
-        public XchangeService(BlobService infolinkDms, InfolinkDbContext dbContext, FilterService filterService, IServiceProvider serviceProvider)
+        public XchangeService(InfolinkSettings infolinkSettings, InfolinkDbContext dbContext, FilterService filterService, ICloudFilesService cloudFiles, IServiceProvider serviceProvider)
         {
-            this.infolinkDms = infolinkDms;
+            this.infolinkSettings = infolinkSettings;
             this.dbContext = dbContext;
             this.filterService = filterService;
+            this.cloudFiles = cloudFiles;
             this.serviceProvider = serviceProvider;
         }
 
@@ -41,7 +44,7 @@ namespace SW.Infolink
         async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file, bool ignoreSchedule = false)
         {
             var xchange = new Xchange(subscription, file, null, ignoreSchedule);
-            await infolinkDms.AddFile(xchange.Id, XchangeFileType.Input, file);
+            await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
         }
@@ -49,7 +52,7 @@ namespace SW.Infolink
         async Task<Xchange> CreateXchange(int documentId, XchangeFile file)
         {
             var xchange = new Xchange(documentId, file);
-            await infolinkDms.AddFile(xchange.Id, XchangeFileType.Input, file);
+            await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
         }
@@ -64,34 +67,56 @@ namespace SW.Infolink
             if (xchangeFile is null)
                 throw new InfolinkException($"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
             else
-                await infolinkDms.AddFile(xchange.Id, XchangeFileType.Output, xchangeFile);
+                await AddFile(xchange.Id, XchangeFileType.Output, xchangeFile);
 
             return xchangeFile;
         }
 
         async Task<XchangeFile> RunHandler(Xchange xchange, XchangeFile xchangeFile)
         {
-            if (xchange.HandlerId == null) return xchangeFile;
+            if (xchange.HandlerId == null) return null;
 
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();
             await serverless.StartAsync(xchange.HandlerId, xchange.Id, xchange.HandlerProperties.ToDictionary());
             xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
             if (xchangeFile != null)
-                await infolinkDms.AddFile(xchange.Id, XchangeFileType.Response, xchangeFile);
+                await AddFile(xchange.Id, XchangeFileType.Response, xchangeFile);
             return xchangeFile;
+        }
+
+        async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
+        {
+            await cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings
+            {
+                //ContentType = "",
+                Public = true,
+                Key = $"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}"
+            });
+        }
+
+        //public string GeFile
+
+        public async Task<string> GetFile(string xchangeId, XchangeFileType type)
+        {
+            using var cloudStream = await cloudFiles.OpenReadAsync($"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}");
+            using var reader = new StreamReader(cloudStream);
+            return await reader.ReadToEndAsync();
         }
 
         async Task IConsume<XchangeCreatedEvent>.Process(XchangeCreatedEvent message)
         {
             var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+            var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
+
             Xchange responseXchange = null;
-            var file = new XchangeFile(await infolinkDms.GetFile(xchange.Id, XchangeFileType.Input), xchange.InputFileName);
+            XchangeFile outputFile = null;
+            XchangeFile responseFile = null;
 
             if (xchange.SubscriptionId != null && xchange.DeliverOn == null)
             {
-                file = await RunMapper(xchange, file);
+                outputFile = await RunMapper(xchange, inputFile);
 
-                var responseFile = await RunHandler(xchange, file);
+                responseFile = await RunHandler(xchange, outputFile);
 
                 if (xchange.ResponseSubscriptionId != null && responseFile != null)
                 {
@@ -102,18 +127,19 @@ namespace SW.Infolink
             }
             else if (xchange.SubscriptionId == null)
             {
-                var result = filterService.Filter(xchange.DocumentId, file);
+                var result = filterService.Filter(xchange.DocumentId, inputFile);
 
                 dbContext.Add(new XchangePromotedProperties(xchange.Id, result.Properties));
 
                 foreach (var subscriptionId in result.Hits)
                 {
                     var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
-                    await CreateXchange(subscription, file);
+                    await CreateXchange(subscription, inputFile);
                 }
             }
 
-            dbContext.Add(new XchangeResult(xchange.Id, responseXchange?.Id));
+            dbContext.Add(new XchangeResult(xchange.Id, outputFile, responseFile, responseXchange?.Id));
+            var tracker = dbContext.ChangeTracker.Entries();
             await dbContext.SaveChangesAsync();
 
         }

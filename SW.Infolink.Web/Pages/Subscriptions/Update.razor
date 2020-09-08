@@ -137,7 +137,7 @@
         </Tab>
         <Tab Title="Handler">
             <Field Name="@nameof(SubscriptionUpdate.HandlerId)" Lookup="@Lookup.From("adapters?prefix=handlers")" />
-            @if (context.ReceiverId != null)
+            @if (context.HandlerId != null)
             {
                 <Subform Name="@nameof(SubscriptionUpdate.HandlerProperties)">
                     <Columns>
