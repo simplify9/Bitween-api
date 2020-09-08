@@ -19,6 +19,9 @@ namespace SW.Infolink.Resources.Partners
 
         async public Task<object> Handle(int key)
         {
+            if (key == Partner.SystemId)
+                throw new SWException("System partner can not be deleted.");
+
             await dbContext.DeleteByKeyAsync<Partner>(key);
             return null;
         }

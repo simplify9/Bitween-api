@@ -29,6 +29,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.DocumentId).NotEmpty();
+                RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
 
                 When(i => i.Type == SubscriptionType.ApiCall, () =>
                 {

@@ -35,7 +35,8 @@ namespace SW.Infolink.Resources.Partners
                     {
                         Id = sub.Id,
                         Name = sub.Name,
-                        Type = sub.Type
+                        Type = sub.Type,
+                        DocumentId = sub.DocumentId,
 
                     }).ToList()
 

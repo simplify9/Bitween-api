@@ -46,6 +46,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.Schedules).NotEmpty().When(i => i.Aggregate);
+                RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
 
                 When(i => i.MapperId != null, () =>
                 {
