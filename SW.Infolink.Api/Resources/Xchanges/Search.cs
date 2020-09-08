@@ -47,7 +47,7 @@ namespace SW.Infolink.Resources.Xchanges
                             InputUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Input),
                             OutputUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Output),
                             ResponseUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Response),
-
+                            Duration = xchange.StartedOn.Elapsed(result.FinishedOn)
                             //Exception = xchange.Exception
                         };
 
@@ -59,5 +59,7 @@ namespace SW.Infolink.Resources.Xchanges
 
             return searchyResponse;
         }
+
+
     }
 }

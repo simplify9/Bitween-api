@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject NavigationManager navigationManager
+@using Humanizer
 
 <h3>Dashboard</h3>
 
@@ -10,15 +11,20 @@
 
     <Columns>
         <Field Name="@nameof(XchangeRow.Id)"></Field>
-        <Field Name="@nameof(XchangeRow.DocumentName)" />
-        <Field Name="@nameof(XchangeRow.SubscriptionName)" />
-        <Field Name="@nameof(XchangeRow.StartedOn)" />
-        <Field Name="@nameof(XchangeRow.FinishedOn)" />
+        <Field Name="@nameof(XchangeRow.DocumentName)" Text="Document" />
+        <Field Name="@nameof(XchangeRow.SubscriptionName)" Text="Subscription" />
+        <Field Text="Started">
+            <ColumnValue Context="fieldContext">
+                @(((XchangeRow)fieldContext.Model).StartedOn.Humanize())
+            </ColumnValue>
+        </Field>
+        <Field Text="Duration">
+            <ColumnValue Context="fieldContext">
+                @(((XchangeRow)fieldContext.Model).Duration)
+            </ColumnValue>
+        </Field>
         <Field Name="@nameof(XchangeRow.Status)" />
-        <Field Text="Action">
-            <ColumnHeader >
-                Files
-            </ColumnHeader>
+        <Field Text="Files">
             <ColumnValue Context="fieldContext">
                 <a target="_blank" href="@(((XchangeRow)fieldContext.Model).InputUrl)">
                     <span class="oi oi-account-login" aria-hidden="true"></span>
@@ -31,7 +37,6 @@
                 </a>
             </ColumnValue>
         </Field>
-
     </Columns>
 
 </Search>

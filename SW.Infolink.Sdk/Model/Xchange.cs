@@ -28,6 +28,7 @@ namespace SW.Infolink.Model
         public string InputUrl { get; set; }
         public string OutputUrl { get; set; }
         public string ResponseUrl { get; set; }
+        public string Duration { get; set; }
 
     }
 }
