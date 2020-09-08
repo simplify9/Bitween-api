@@ -56,7 +56,7 @@ spec:
               value: {{ .Values.global.environment }}
 
             - name: InfolinkClient__BaseUrl
-              value: http://{{ template "project.fullname" . }}/cqapi/
+              value: http://{{ template "project.fullname" . }}/api/
 
             {{- if .Values.global.logger.esUrl }}
             - name: SwLogger__ElasticsearchUrl
