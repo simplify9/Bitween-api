@@ -9,7 +9,7 @@ using SW.Infolink;
 namespace SW.Infolink.MySql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    [Migration("20200909195347_Initial")]
+    [Migration("20200909201127_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -183,7 +183,7 @@ namespace SW.Infolink.MySql.Migrations
                     b.HasIndex("ResponseSubscriptionId")
                         .IsUnique();
 
-                    b.ToTable("Subscribers");
+                    b.ToTable("Subscriptions");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Xchange", b =>

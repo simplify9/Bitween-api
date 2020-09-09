@@ -181,7 +181,7 @@ namespace SW.Infolink.MySql.Migrations
                     b.HasIndex("ResponseSubscriptionId")
                         .IsUnique();
 
-                    b.ToTable("Subscribers");
+                    b.ToTable("Subscriptions");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Xchange", b =>

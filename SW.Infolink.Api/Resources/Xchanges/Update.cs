@@ -37,18 +37,6 @@ namespace SW.Infolink.Resources.Xchanges
 
             var par = await dbContext.AuthorizePartner(requestContext);
 
-            //var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
-            //if (partnerKey == null)
-            //    throw new SWUnauthorizedException();
-
-            //var partnerQuery = from partner in dbContext.Set<Partner>()
-            //                        where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
-            //                        select partner;
-
-            //var par = await partnerQuery.AsNoTracking().SingleOrDefaultAsync();
-            //if (par == null)
-            //    throw new SWUnauthorizedException();
-
             if (par.Id == Partner.SystemId)
             {
                 await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));

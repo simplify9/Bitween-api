@@ -88,7 +88,7 @@ namespace SW.Infolink.MySql.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Subscribers",
+                name: "Subscriptions",
                 columns: table => new
                 {
                     Id = table.Column<int>(nullable: false)
@@ -118,29 +118,29 @@ namespace SW.Infolink.MySql.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Subscribers", x => x.Id);
+                    table.PrimaryKey("PK_Subscriptions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Subscribers_Subscribers_AggregationForId",
+                        name: "FK_Subscriptions_Subscriptions_AggregationForId",
                         column: x => x.AggregationForId,
-                        principalTable: "Subscribers",
+                        principalTable: "Subscriptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Subscribers_Documents_DocumentId",
+                        name: "FK_Subscriptions_Documents_DocumentId",
                         column: x => x.DocumentId,
                         principalTable: "Documents",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Subscribers_Partners_PartnerId",
+                        name: "FK_Subscriptions_Partners_PartnerId",
                         column: x => x.PartnerId,
                         principalTable: "Partners",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Subscribers_Subscribers_ResponseSubscriptionId",
+                        name: "FK_Subscriptions_Subscriptions_ResponseSubscriptionId",
                         column: x => x.ResponseSubscriptionId,
-                        principalTable: "Subscribers",
+                        principalTable: "Subscriptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -242,9 +242,9 @@ namespace SW.Infolink.MySql.Migrations
                 {
                     table.PrimaryKey("PK_SubscriptionAggregationSchedules", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_SubscriptionAggregationSchedules_Subscribers_SubscriptionId",
+                        name: "FK_SubscriptionAggregationSchedules_Subscriptions_SubscriptionId",
                         column: x => x.SubscriptionId,
-                        principalTable: "Subscribers",
+                        principalTable: "Subscriptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -264,9 +264,9 @@ namespace SW.Infolink.MySql.Migrations
                 {
                     table.PrimaryKey("PK_SubscriptionReceiveSchedules", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_SubscriptionReceiveSchedules_Subscribers_SubscriptionId",
+                        name: "FK_SubscriptionReceiveSchedules_Subscriptions_SubscriptionId",
                         column: x => x.SubscriptionId,
-                        principalTable: "Subscribers",
+                        principalTable: "Subscriptions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -305,28 +305,6 @@ namespace SW.Infolink.MySql.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Subscribers_AggregationForId",
-                table: "Subscribers",
-                column: "AggregationForId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Subscribers_DocumentId",
-                table: "Subscribers",
-                column: "DocumentId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Subscribers_PartnerId",
-                table: "Subscribers",
-                column: "PartnerId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Subscribers_ResponseSubscriptionId",
-                table: "Subscribers",
-                column: "ResponseSubscriptionId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_SubscriptionAggregationSchedules_SubscriptionId",
                 table: "SubscriptionAggregationSchedules",
                 column: "SubscriptionId");
@@ -335,6 +313,28 @@ namespace SW.Infolink.MySql.Migrations
                 name: "IX_SubscriptionReceiveSchedules_SubscriptionId",
                 table: "SubscriptionReceiveSchedules",
                 column: "SubscriptionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_AggregationForId",
+                table: "Subscriptions",
+                column: "AggregationForId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_DocumentId",
+                table: "Subscriptions",
+                column: "DocumentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_PartnerId",
+                table: "Subscriptions",
+                column: "PartnerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_ResponseSubscriptionId",
+                table: "Subscriptions",
+                column: "ResponseSubscriptionId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_XchangeAggregations_AggregationXchangeId",
@@ -391,7 +391,7 @@ namespace SW.Infolink.MySql.Migrations
                 name: "XchangeResults");
 
             migrationBuilder.DropTable(
-                name: "Subscribers");
+                name: "Subscriptions");
 
             migrationBuilder.DropTable(
                 name: "Xchanges");

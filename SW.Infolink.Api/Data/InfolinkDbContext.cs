@@ -78,7 +78,7 @@ namespace SW.Infolink
 
             modelBuilder.Entity<Subscription>(b =>
             {
-                b.ToTable("Subscribers");
+                b.ToTable("Subscriptions");
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
                 b.OwnsMany(p => p.AggregationSchedules, schedules => schedules.BuildSchedule("SubscriptionAggregationSchedules"));
                 b.OwnsMany(p => p.ReceiveSchedules, schedules => schedules.BuildSchedule("SubscriptionReceiveSchedules"));
@@ -97,7 +97,6 @@ namespace SW.Infolink
                 b.Property(p => p.Type).HasConversion<byte>();
                 b.Property(p => p.AggregationTarget).HasConversion<byte>();
 
-                //b.HasIndex(p => new { p.PartnerId, p.DocumentId }).IsUnique();
                 b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.ResponseSubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
                 b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.AggregationForId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 
