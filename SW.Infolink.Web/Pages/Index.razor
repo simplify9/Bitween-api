@@ -12,10 +12,10 @@
     <Columns>
         <Field Name="@nameof(XchangeRow.Id)"></Field>
 
-        <Field Name="@nameof(XchangeRow.DocumentName)" 
+        <Field Name="@nameof(XchangeRow.DocumentName)"
                Text="Document" />
 
-        <Field Name="@nameof(XchangeRow.SubscriptionName)" 
+        <Field Name="@nameof(XchangeRow.SubscriptionName)"
                Text="Subscription" />
 
         <Field Text="Started">
@@ -28,7 +28,20 @@
                 @(((XchangeRow)fieldContext.Model).Duration)
             </ColumnValue>
         </Field>
+        <Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Delivered">
+            <ColumnValue Context="fieldContext">
+                @(((XchangeRow)fieldContext.Model).DeliveredOn.Humanize())
+            </ColumnValue>
+        </Field>
+
+        <Field Name="@nameof(XchangeRow.AggregatedOn)" Text="Aggregated">
+            <ColumnValue Context="fieldContext">
+                @(((XchangeRow)fieldContext.Model).AggregatedOn.Humanize())
+            </ColumnValue>
+        </Field>
+
         <Field Name="@nameof(XchangeRow.Status)" />
+
         <Field Text="Files">
             <ColumnValue Context="fieldContext">
                 <a target="_blank" href="@(((XchangeRow)fieldContext.Model).InputUrl)">

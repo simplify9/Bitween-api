@@ -73,16 +73,11 @@ namespace SW.Infolink
                                            where result.Success == true && agg == null && xchange.SubscriptionId == aggSub.AggregationForId
                                            select xchange.Id;
 
-                        var targetXchangeList = await xchangeQuery.Take(100).ToListAsync();
+                        var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();
 
                         if (targetXchangeList.Count > 0)
                         {
-                            //var xchangeAggregationData = new XchangeAggregationData
-                            //{
-                            //Target = aggSub.AggregationTarget,
                             var urlList = targetXchangeList.Select(id => xchangeService.GetFileUrl(id, aggSub.AggregationTarget));
-                            //};
-
                             var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
 
                             var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
@@ -113,24 +108,24 @@ namespace SW.Infolink
         //    //await xchangeService.RunSubscriptionXchange(subscriberId, new XchangeFile(jArray.ToString()))
         //    //await xchangeService.Submit(subscriberId, new XchangeFile(jArray.ToString()), null, true);
         //}
-        private void AddTokenToArray(JArray jArray, JToken jtoken)
-        {
-            //if (jArray != null)
-            //{
-            if (jtoken is JArray)
-            {
-                foreach (JToken token in jtoken)
-                {
-                    jArray.Add(token);
-                }
-            }
-            else if (jtoken is JObject)
-            {
-                jArray.Add(jtoken);
-            }
-            //}
+        //private void AddTokenToArray(JArray jArray, JToken jtoken)
+        //{
+        //    //if (jArray != null)
+        //    //{
+        //    if (jtoken is JArray)
+        //    {
+        //        foreach (JToken token in jtoken)
+        //        {
+        //            jArray.Add(token);
+        //        }
+        //    }
+        //    else if (jtoken is JObject)
+        //    {
+        //        jArray.Add(jtoken);
+        //    }
+        //    //}
 
-        }
+        //}
     }
 }
 

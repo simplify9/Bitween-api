@@ -43,6 +43,7 @@ namespace SW.Infolink.Resources.Xchanges
                             DocumentName = document.Name,
                             StartedOn = xchange.StartedOn,
                             FinishedOn = result.FinishedOn,
+                            AggregatedOn = agg.AggregatedOn,
                             SubscriptionId = xchange.SubscriptionId,
                             SubscriptionName = subscriber.Name,
                             Status = result.Success,

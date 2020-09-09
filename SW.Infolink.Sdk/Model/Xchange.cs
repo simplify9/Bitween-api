@@ -27,6 +27,8 @@ namespace SW.Infolink.Model
         public string Exception { get; set; }
         public DateTime? DeliveredOn { get; set; }
         public DateTime? FinishedOn { get; set; }
+        public DateTime? AggregatedOn { get; set; }
+
         public DateTime StartedOn { get; set; }
         public string InputFileName { get; set; }
         public int InputFileSize { get; set; }
@@ -35,6 +37,7 @@ namespace SW.Infolink.Model
         public string OutputUrl { get; set; }
         public string ResponseUrl { get; set; }
         public string Duration { get; set; }
+
 
     }
 
