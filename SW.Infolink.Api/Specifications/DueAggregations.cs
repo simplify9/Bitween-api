@@ -6,13 +6,13 @@ using System.Linq.Expressions;
 
 namespace SW.Infolink
 {
-    class DueReceivers : ISpecification<Subscription>
+    class DueAggregations : ISpecification<Subscription>
     {
-        public DueReceivers(DateTime? asOf = null)
+        public DueAggregations(DateTime? asOf = null)
         {
             if (asOf == null) asOf = DateTime.UtcNow;
 
-            Criteria = e => e.ReceiveOn < asOf && e.ReceiveSchedules.Any() && !e.Inactive;
+            Criteria = e => e.AggregateOn < asOf && e.AggregationSchedules.Any() && !e.Inactive;
         }
 
         public Expression<Func<Subscription, bool>> Criteria { get; }

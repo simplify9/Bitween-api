@@ -11,13 +11,13 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    internal class ScheduledReceiverService : IHostedService, IDisposable
+    internal class ReceivingService : IHostedService, IDisposable
     {
         readonly ILogger logger;
         readonly IServiceProvider sp;
         Timer timer;
 
-        public ScheduledReceiverService(IServiceProvider sp, ILogger<ScheduledReceiverService> logger)
+        public ReceivingService(IServiceProvider sp, ILogger<ReceivingService> logger)
         {
             this.sp = sp;
             this.logger = logger;
@@ -51,7 +51,7 @@ namespace SW.Infolink
             {
                 using var scope = sp.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
-                var rcvList = await dbContext.ListAsync(new DueReceivers(DateTime.UtcNow));
+                var rcvList = await dbContext.ListAsync(new DueReceivers());
 
                 foreach (var rec in rcvList)
                 {
@@ -61,11 +61,11 @@ namespace SW.Infolink
                         var startupParameters = rec.ReceiverProperties.ToDictionary();
                         await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
                         rec.SetReceiveSchedules();
-                        rec.SetReceiveResult();
+                        rec.SetHealth();
                     }
                     catch (Exception ex)
                     {
-                        rec.SetReceiveResult(ex.ToString());
+                        rec.SetHealth(ex.ToString());
                         logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
                     }
                     await dbContext.SaveChangesAsync();

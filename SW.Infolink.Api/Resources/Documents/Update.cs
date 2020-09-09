@@ -21,7 +21,7 @@ namespace SW.Infolink.Api.Resources.Documents
         async public Task<object> Handle(int key, DocumentUpdate model)
         {
             var entity = await dbContext.FindAsync<Document>(key);
-            entity.PromotedProperties = model.PromotedProperties.ToDictionary();
+            entity.SetDictionaries(model.PromotedProperties.ToDictionary());
             dbContext.Entry(entity).SetProperties(model);
             await dbContext.SaveChangesAsync();
             return null;

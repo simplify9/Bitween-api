@@ -16,8 +16,8 @@ namespace SW.Infolink
 
         public static IServiceCollection AddInfolinkHostedServices(this IServiceCollection services, IConfiguration config = null)
         {
-            services.AddHostedService<ScheduledXchangeService>();
-            services.AddHostedService<ScheduledReceiverService>();
+            services.AddHostedService<AggregationService>();
+            services.AddHostedService<ReceivingService>();
 
             return services;
         }

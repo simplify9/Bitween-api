@@ -29,13 +29,14 @@ namespace SW.Infolink.Domain
                 throw new ArgumentException();
         }
 
-        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null, int? aggregationFor =null,  bool temporary = false)
+        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null, int? aggregationForId =null,  bool temporary = false)
         {
+            AggregationForId = aggregationForId;
             PartnerId = partnerId;
             Name = name ?? throw new ArgumentNullException(nameof(name));
             DocumentId = documentId;
             Type = type;
-            Schedules = new List<Schedule>();
+            _AggregationSchedules = new HashSet<Schedule>();
             _ReceiveSchedules = new HashSet<Schedule>();
             HandlerProperties = new Dictionary<string, string>();
             MapperProperties = new Dictionary<string, string>();
@@ -79,14 +80,29 @@ namespace SW.Infolink.Domain
         }
 
         public bool Inactive { get; set; }
-        public ICollection<Schedule> Schedules { get; private set; }
         public int? ResponseSubscriptionId { get; set; }
         public int? AggregationForId { get; private set; }
+        public XchangeFileType AggregationTarget { get;  set; }
+
+        readonly HashSet<Schedule> _AggregationSchedules;
+        public IReadOnlyCollection<Schedule> AggregationSchedules => _AggregationSchedules;
+        public DateTime? AggregateOn { get; private set; }
+        public void SetAggregationSchedules(IEnumerable<Schedule> schedules = null)
+        {
+            if (Type == SubscriptionType.Aggregation)
+            {
+                if (schedules != null) _AggregationSchedules.Update(schedules);
+                AggregateOn = _AggregationSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
+            }
+        }
+
 
         public string ReceiverId { get; set; }
 
+
         readonly HashSet<Schedule> _ReceiveSchedules;
         public IReadOnlyCollection<Schedule> ReceiveSchedules => _ReceiveSchedules;
+        public DateTime? ReceiveOn { get; private set; }
         public void SetReceiveSchedules(IEnumerable<Schedule> schedules = null)
         {
             if (Type == SubscriptionType.Receiving)
@@ -96,22 +112,24 @@ namespace SW.Infolink.Domain
             }
         }
 
-        public DateTime? ReceiveOn { get; private set; }
-
-        public void SetReceiveResult(string exception = null)
+        public void SetHealth(string exception = null)
         {
             if (exception == null)
             {
-                ReceiveConsecutiveFailures = 0;
-                ReceiveLastException = null;
+                ConsecutiveFailures = 0;
+                LastException = null;
                 return;
             }
 
-            ReceiveConsecutiveFailures += 1;
-            ReceiveLastException = exception;
+            ConsecutiveFailures += 1;
+            LastException = exception;
         }
 
-        public int ReceiveConsecutiveFailures { get; private set; }
-        public string ReceiveLastException { get; private set; }
+        public int ConsecutiveFailures { get; private set; }
+        public string LastException { get; private set; }
+
+        //public int AggregateConsecutiveFailures { get; private set; }
+        //public string AggregateLastException { get; private set; }
+
     }
 }

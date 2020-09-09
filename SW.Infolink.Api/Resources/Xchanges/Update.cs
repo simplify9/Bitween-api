@@ -49,11 +49,11 @@ namespace SW.Infolink.Resources.Xchanges
             //if (par == null)
             //    throw new SWUnauthorizedException();
 
-            //if (par.Id == Partner.SystemId)
-            //{
-            //    await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
-            //    return null;
-            //}
+            if (par.Id == Partner.SystemId)
+            {
+                await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
+                return null;
+            }
 
             var subscriptionQuery = from subscription in dbContext.Set<Subscription>() 
                                     where subscription.DocumentId == document.Id && subscription.PartnerId == par.Id

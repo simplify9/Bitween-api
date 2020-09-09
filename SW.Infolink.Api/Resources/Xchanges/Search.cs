@@ -29,6 +29,8 @@ namespace SW.Infolink.Resources.Xchanges
                         from result in xr.DefaultIfEmpty()
                         join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.Id into xd
                         from delivery in xd.DefaultIfEmpty()
+                        join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
+                        from agg in xa.DefaultIfEmpty()
                         join document in dbContext.Set<Document>() on xchange.DocumentId equals document.Id
                         join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id into xs
                         from subscriber in xs.DefaultIfEmpty()

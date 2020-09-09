@@ -26,7 +26,7 @@ namespace SW.Infolink.Domain
             });
         }
 
-        public Xchange(Subscription subscription, XchangeFile file, string[] references = null, bool ignoreSchedule = false) : this(subscription.DocumentId, file, references)
+        public Xchange(Subscription subscription, XchangeFile file, string[] references = null) : this(subscription.DocumentId, file, references)
         {
             SubscriptionId = subscription.Id;
             MapperId = subscription.MapperId;
@@ -35,8 +35,8 @@ namespace SW.Infolink.Domain
             HandlerProperties = subscription.HandlerProperties;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
 
-            if (!ignoreSchedule)
-                DeliverOn = subscription?.Schedules.Next() ;
+            //if (!ignoreSchedule)
+            //    DeliverOn = subscription?.AggregationSchedules.Next() ;
         }
 
         public int? SubscriptionId { get; private set; }
@@ -50,7 +50,7 @@ namespace SW.Infolink.Domain
         public string InputName { get; private set; }
         public int InputSize { get; private set; }
         public string InputHash { get; private set; }
-        public DateTime? DeliverOn { get; private set; }
+        //public DateTime? DeliverOn { get; private set; }
         public int? ResponseSubscriptionId { get; private set; }
     }
 }

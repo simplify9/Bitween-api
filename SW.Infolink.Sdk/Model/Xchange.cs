@@ -31,7 +31,6 @@ namespace SW.Infolink.Model
         public string InputFileName { get; set; }
         public int InputFileSize { get; set; }
         public string InputFileHash { get; set; }
-        public DateTime? DeliverOn { get; set; }
         public string InputUrl { get; set; }
         public string OutputUrl { get; set; }
         public string ResponseUrl { get; set; }

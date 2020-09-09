@@ -37,6 +37,7 @@ namespace SW.Infolink
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();
 
                 b.HasMany<Subscription>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
+                b.HasMany<Xchange>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
 
                 b.HasData(new Document(Document.AggregationDocumentId, "Aggregation Document"));
 
@@ -79,18 +80,22 @@ namespace SW.Infolink
             {
                 b.ToTable("Subscribers");
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.OwnsMany(p => p.Schedules, schedules => schedules.BuildSchedule("SubscriptionSchedules"));
+                b.OwnsMany(p => p.AggregationSchedules, schedules => schedules.BuildSchedule("SubscriptionAggregationSchedules"));
                 b.OwnsMany(p => p.ReceiveSchedules, schedules => schedules.BuildSchedule("SubscriptionReceiveSchedules"));
+                
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
                 b.Property(p => p.ReceiverProperties).StoreAsJson();
                 b.Property(p => p.ValidatorProperties).StoreAsJson();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
+
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.ValidatorProperties).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.ValidatorId).HasMaxLength(200).IsUnicode(false);
+
                 b.Property(p => p.Type).HasConversion<byte>();
+                b.Property(p => p.AggregationTarget).HasConversion<byte>();
 
                 //b.HasIndex(p => new { p.PartnerId, p.DocumentId }).IsUnique();
                 b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.ResponseSubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
@@ -111,10 +116,8 @@ namespace SW.Infolink
                 b.Property(p => p.MapperProperties).StoreAsJson();
 
                 b.HasIndex(i => i.InputHash);
-                b.HasIndex(i => i.DeliverOn);
                 b.HasIndex(i => i.SubscriptionId);
                 b.HasIndex(i => i.StartedOn);
-
             });
 
             modelBuilder.Entity<XchangeResult>(b =>

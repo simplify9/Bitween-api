@@ -56,5 +56,7 @@ namespace SW.Infolink.Sdk
         {
             return Builder.Path("partners/generatekey").AsApiResult<string>().GetAsync();
         }
+
+        
     }
 }

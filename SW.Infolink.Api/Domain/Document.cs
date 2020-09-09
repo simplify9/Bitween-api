@@ -20,6 +20,11 @@ namespace SW.Infolink.Domain
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
-        public IReadOnlyDictionary<string, string> PromotedProperties { get;  set; }
+        public IReadOnlyDictionary<string, string> PromotedProperties { get; private set; }
+
+        public void SetDictionaries(IReadOnlyDictionary<string, string> promotedProperties)
+        {
+            PromotedProperties = promotedProperties;
+        }
     }
 }

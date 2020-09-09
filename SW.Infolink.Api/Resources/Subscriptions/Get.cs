@@ -43,11 +43,13 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
                     ReceiveOn = subscriber.ReceiveOn,
-                    ReceiveConsecutiveFailures = subscriber.ReceiveConsecutiveFailures,
-                    ReceiveLastException = subscriber.ReceiveLastException,
+                    AggregateOn = subscriber.AggregateOn,
+                    ConsecutiveFailures = subscriber.ConsecutiveFailures,
+                    LastException = subscriber.LastException,
+                    AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,
 
-                    Schedules = subscriber.Schedules.Select(s => new ScheduleView
+                    AggregationSchedules = subscriber.AggregationSchedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,
                         Recurrence = s.Recurrence,

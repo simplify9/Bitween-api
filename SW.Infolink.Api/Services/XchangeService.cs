@@ -36,22 +36,23 @@ namespace SW.Infolink
 
         async public Task<string> SubmitFilterXchange(int documentId, XchangeFile file)
         {
-            var xchange = await CreateXchange(documentId, file);
+            var document = await dbContext.FindAsync<Document>(documentId);
+            var xchange = await CreateXchange(document, file);
             await dbContext.SaveChangesAsync();
             return xchange.Id;
         }
 
-        async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file, bool ignoreSchedule = false)
+        public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file)
         {
-            var xchange = new Xchange(subscription, file, null, ignoreSchedule);
+            var xchange = new Xchange(subscription, file, null);
             await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
         }
 
-        async Task<Xchange> CreateXchange(int documentId, XchangeFile file)
+        public async Task<Xchange> CreateXchange(Document document, XchangeFile file)
         {
-            var xchange = new Xchange(documentId, file);
+            var xchange = new Xchange(document.Id, file);
             await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
@@ -90,18 +91,23 @@ namespace SW.Infolink
             {
                 //ContentType = "",
                 Public = true,
-                Key = $"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}"
+                Key = GetFileKey(xchangeId, type) //$"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}"
             });
         }
 
         public string GetFileUrl(string xchangeId, XchangeFileType type)
         {
-            return cloudFiles.GetUrl($"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}");
+            return cloudFiles.GetUrl(GetFileKey(xchangeId, type));
+        }
+
+        public string GetFileKey(string xchangeId, XchangeFileType type)
+        {
+            return $"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
         }
 
         public async Task<string> GetFile(string xchangeId, XchangeFileType type)
         {
-            using var cloudStream = await cloudFiles.OpenReadAsync($"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}");
+            using var cloudStream = await cloudFiles.OpenReadAsync(GetFileKey(xchangeId, type));
             using var reader = new StreamReader(cloudStream);
             return await reader.ReadToEndAsync();
         }
@@ -121,7 +127,7 @@ namespace SW.Infolink
                 var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
 
 
-                if (xchange.SubscriptionId != null && xchange.DeliverOn == null)
+                if (xchange.SubscriptionId != null)
                 {
                     outputFile = await RunMapper(xchange, inputFile);
 

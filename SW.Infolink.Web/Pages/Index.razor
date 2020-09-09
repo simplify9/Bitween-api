@@ -11,8 +11,13 @@
 
     <Columns>
         <Field Name="@nameof(XchangeRow.Id)"></Field>
-        <Field Name="@nameof(XchangeRow.DocumentName)" Text="Document" />
-        <Field Name="@nameof(XchangeRow.SubscriptionName)" Text="Subscription" />
+
+        <Field Name="@nameof(XchangeRow.DocumentName)" 
+               Text="Document" />
+
+        <Field Name="@nameof(XchangeRow.SubscriptionName)" 
+               Text="Subscription" />
+
         <Field Text="Started">
             <ColumnValue Context="fieldContext">
                 @(((XchangeRow)fieldContext.Model).StartedOn.Humanize())

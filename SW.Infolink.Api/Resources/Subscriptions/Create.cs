@@ -45,7 +45,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
             public Validate()
             {
                 RuleFor(i => i.Name).NotEmpty();
-                RuleFor(i => i.DocumentId).NotEmpty();
+                RuleFor(i => i.DocumentId).NotEmpty().When(i => i.Type != SubscriptionType.Aggregation);
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
                 RuleFor(i => i.Type).NotEqual(SubscriptionType.Unknown);
 
