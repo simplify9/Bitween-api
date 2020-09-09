@@ -6,6 +6,10 @@ namespace SW.Infolink.Domain
 {
     public class Document : BaseEntity
     {
+        public const int AggregationDocumentId = 10001;
+        //public const int AggregationDocumentId = 10001;
+        //public const int AggregationDocumentId = 10001;
+
         public Document(int id, string name)
         {
             Id = id;

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Api.Resources.Documents
 {
-    class Update : ICommandHandler<int, DocumentConfig>
+    class Update : ICommandHandler<int, DocumentUpdate>
     {
         private readonly InfolinkDbContext dbContext;
 
@@ -18,7 +18,7 @@ namespace SW.Infolink.Api.Resources.Documents
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(int key, DocumentConfig model)
+        async public Task<object> Handle(int key, DocumentUpdate model)
         {
             var entity = await dbContext.FindAsync<Document>(key);
             entity.PromotedProperties = model.PromotedProperties.ToDictionary();

@@ -35,23 +35,25 @@ namespace SW.Infolink.Resources.Xchanges
             if (document == null)
                 throw new SWNotFoundException("Document");
 
-            var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
-            if (partnerKey == null)
-                throw new SWUnauthorizedException();
+            var par = await dbContext.AuthorizePartner(requestContext);
 
-            var partnerQuery = from partner in dbContext.Set<Partner>()
-                                    where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
-                                    select partner;
+            //var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
+            //if (partnerKey == null)
+            //    throw new SWUnauthorizedException();
 
-            var par = await partnerQuery.AsNoTracking().SingleOrDefaultAsync();
-            if (par == null)
-                throw new SWUnauthorizedException();
+            //var partnerQuery = from partner in dbContext.Set<Partner>()
+            //                        where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
+            //                        select partner;
 
-            if (par.Id == Partner.SystemId)
-            {
-                await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
-                return null;
-            }
+            //var par = await partnerQuery.AsNoTracking().SingleOrDefaultAsync();
+            //if (par == null)
+            //    throw new SWUnauthorizedException();
+
+            //if (par.Id == Partner.SystemId)
+            //{
+            //    await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
+            //    return null;
+            //}
 
             var subscriptionQuery = from subscription in dbContext.Set<Subscription>() 
                                     where subscription.DocumentId == document.Id && subscription.PartnerId == par.Id

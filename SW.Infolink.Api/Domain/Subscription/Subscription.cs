@@ -12,7 +12,24 @@ namespace SW.Infolink.Domain
         {
         }
 
-        public Subscription(string name, int documentId, SubscriptionType type, int? partnerId, bool temporary = false)
+        //receiving
+        public Subscription(string name, int documentId) : this(name, documentId, SubscriptionType.Receiving)
+        { 
+        }
+
+        //aggregation
+        public Subscription(string name, int aggregationFor, int partnerId) : this(name, Document.AggregationDocumentId, SubscriptionType.Aggregation, partnerId, aggregationFor)
+        {
+        }
+
+        //apiresult or filter
+        public Subscription(string name, int documentId, SubscriptionType type, int partnerId) : this(name, documentId, type, partnerId, null)
+        {
+            if (!(type == SubscriptionType.ApiCall || type == SubscriptionType.FilterResult))
+                throw new ArgumentException();
+        }
+
+        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null, int? aggregationFor =null,  bool temporary = false)
         {
             PartnerId = partnerId;
             Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -37,7 +54,7 @@ namespace SW.Infolink.Domain
         public string ValidatorId { get; set; }
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
-        public bool Aggregate { get; set; }
+        //public bool Aggregate { get; set; }
 
         public IReadOnlyDictionary<string, string> ValidatorProperties { get; private set; }
         public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
@@ -64,6 +81,7 @@ namespace SW.Infolink.Domain
         public bool Inactive { get; set; }
         public ICollection<Schedule> Schedules { get; private set; }
         public int? ResponseSubscriptionId { get; set; }
+        public int? AggregationForId { get; private set; }
 
         public string ReceiverId { get; set; }
 

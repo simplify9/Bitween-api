@@ -26,7 +26,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                 Search("Id", key).
                 Select(subscriber => new SubscriptionUpdate
                 {
-                    Aggregate = subscriber.Aggregate,
+                    AggregationForId = subscriber.AggregationForId,
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
                     DocumentId = subscriber.DocumentId,
                     HandlerId = subscriber.HandlerId,

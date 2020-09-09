@@ -17,7 +17,24 @@ namespace SW.Infolink.Api.Resources.Subscriptions
 
         async public Task<object> Handle(SubscriptionCreate model)
         {
-            var entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId);
+            Subscription entity;
+
+            switch (model.Type)
+            {
+                case SubscriptionType.Receiving:
+                    entity = new Subscription(model.Name, model.DocumentId);
+                    break;
+                case SubscriptionType.Aggregation:
+                    entity = new Subscription(model.Name, model.AggregationForId.Value, model.PartnerId.Value);
+                    break;
+                case SubscriptionType.ApiCall:
+                case SubscriptionType.FilterResult:
+                    entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId.Value);
+                    break;
+                default:
+                    throw new InfolinkException();
+            }
+
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             return entity.Id;
@@ -30,10 +47,16 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.DocumentId).NotEmpty();
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
+                RuleFor(i => i.Type).NotEqual(SubscriptionType.Unknown);
 
-                When(i => i.Type == SubscriptionType.ApiCall, () =>
+                When(i => i.Type != SubscriptionType.Receiving, () =>
                 {
                     RuleFor(i => i.PartnerId).NotEmpty();
+                });
+
+                When(i => i.Type == SubscriptionType.Aggregation, () =>
+                {
+                    RuleFor(i => i.AggregationForId).NotEmpty();
                 });
             }
         }

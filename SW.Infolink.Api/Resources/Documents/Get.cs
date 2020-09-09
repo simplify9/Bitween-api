@@ -24,14 +24,14 @@ namespace SW.Infolink.Api.Resources.Documents
         {
             return await dbContext.Set<Document>().
                 Search("Id", key).
-                Select(document => new DocumentConfig
+                Select(document => new DocumentUpdate
                 {
                     Id = document.Id,
                     Name = document.Name,
                     BusEnabled = document.BusEnabled,
                     BusMessageTypeName = document.BusMessageTypeName,
                     DuplicateInterval = document.DuplicateInterval,
-                    PromotedProperties = document.PromotedProperties.ToDictionary()
+                    PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection()
 
                 }).SingleOrDefaultAsync();
         }

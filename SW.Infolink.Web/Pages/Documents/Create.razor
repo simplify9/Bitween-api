@@ -1,9 +1,10 @@
 ﻿@page "/documents/create"
 
 
-<CreateForm Title="Document" TModel="DocumentConfig" ApiUrl="documents" ReturnUrl="documents">
-    <Field Name="@nameof(DocumentConfig.Id)" />
-    <Field Name="@nameof(DocumentConfig.Name)" />
+<CreateForm Title="Document" TModel="DocumentCreate" ApiUrl="documents" ReturnUrl="documents">
+    <Field Name="@nameof(DocumentCreate.Id)" />
+    <Field Name="@nameof(DocumentCreate.Name)" />
+
 </CreateForm>
 
 @code {

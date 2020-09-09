@@ -83,7 +83,7 @@ namespace SW.Infolink
                         if (subId != 0)
                         {
                             //send!
-                            if (subscription.Aggregate)
+                            //if (subscription.Aggregate)
                                 await Send(xchangeService, subscription.Id, jArray);
                         }
 
@@ -96,16 +96,16 @@ namespace SW.Infolink
                     //var xchangeDms = scope.ServiceProvider.GetRequiredService<BlobService>();
                     var xf = JToken.Parse(await xchangeService.GetFile(xchange.Id, XchangeFileType.Input));
 
-                    if (subscription.Aggregate)
+                    //if (subscription.Aggregate)
                         //jArray.Add(xf);
                         AddTokenToArray(jArray, xf);
-                    else
-                        await Send(xchangeService, subscription.Id, xf);
+                    //else
+                    //    await Send(xchangeService, subscription.Id, xf);
 
                     dbContext.Add(new XchangeDelivery(xchange.Id));
                 }
 
-                if (subscription.Aggregate)
+                //if (subscription.Aggregate)
                     await Send(xchangeService, subscription.Id, jArray);
 
                 await dbContext.SaveChangesAsync();

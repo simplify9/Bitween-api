@@ -31,7 +31,7 @@ namespace SW.Infolink.Api.Resources.Documents
                             BusMessageTypeName = document.BusMessageTypeName,
                             BusEnabled = document.BusEnabled,
                             DuplicateInterval = document.DuplicateInterval,
-                            PromotedProperties = document.PromotedProperties.ToDictionary()
+                            PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection()
                         };
 
             query = query.AsNoTracking();

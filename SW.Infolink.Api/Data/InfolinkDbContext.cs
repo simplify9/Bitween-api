@@ -2,6 +2,7 @@
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.PrimitiveTypes;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,12 +10,14 @@ namespace SW.Infolink
 {
     public class InfolinkDbContext : DbContext
     {
+        private readonly RequestContext requestContext;
         private readonly IPublish publish;
 
         public const string ConnectionString = "InfolinkDb";
 
-        public InfolinkDbContext(DbContextOptions options, IPublish publish) : base(options)
+        public InfolinkDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) : base(options)
         {
+            this.requestContext = requestContext;
             this.publish = publish;
         }
 
@@ -34,6 +37,8 @@ namespace SW.Infolink
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();
 
                 b.HasMany<Subscription>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
+
+                b.HasData(new Document(Document.AggregationDocumentId, "Aggregation Document"));
 
             });
 
@@ -89,6 +94,7 @@ namespace SW.Infolink
 
                 //b.HasIndex(p => new { p.PartnerId, p.DocumentId }).IsUnique();
                 b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.ResponseSubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+                b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.AggregationForId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 
             });
 
@@ -129,7 +135,15 @@ namespace SW.Infolink
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.HasIndex(i => i.DeliveredOn);
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
+            });
 
+            modelBuilder.Entity<XchangeAggregation>(b =>
+            {
+                b.ToTable("XchangeAggregations");
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.AggregationXchangeId).IsRequired().IsUnicode(false).HasMaxLength(50);
+                b.HasIndex(i => i.AggregationXchangeId);
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeAggregation>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<XchangePromotedProperties>(b =>
@@ -138,7 +152,6 @@ namespace SW.Infolink
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.Properties).StoreAsJson();
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
-
             });
 
         }
@@ -162,5 +175,8 @@ namespace SW.Infolink
             //        throw new SWException($"Data Error: {dbUpdateException.InnerException.Message}");
             //}
         }
+    
+
+
     }
 }

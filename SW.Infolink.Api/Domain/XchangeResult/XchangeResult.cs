@@ -11,10 +11,9 @@ namespace SW.Infolink.Domain
 
         public XchangeResult(string xchangeId, XchangeFile outputFile, XchangeFile responseFile = null, string responseXchangeId = null, string exception = null)
         {
-            Id = xchangeId;//Guid.NewGuid().ToString("N");
+            Id = xchangeId;
             Success = exception == null;
             Exception = exception;
-            //XchangeId = xchangeId;
             FinishedOn = DateTime.UtcNow;
             ResponseXchangeId = responseXchangeId;
 
@@ -38,7 +37,6 @@ namespace SW.Infolink.Domain
             });
         }
 
-        //public string XchangeId { get; private set; }
         public bool Success { get; private set; }
         public string Exception { get; private set; }
         public DateTime FinishedOn { get; private set; }

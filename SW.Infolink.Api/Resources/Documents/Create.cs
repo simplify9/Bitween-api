@@ -1,4 +1,5 @@
-﻿using SW.EfCoreExtensions;
+﻿using FluentValidation;
+using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Api.Resources.Documents
 {
-    class Create : ICommandHandler<DocumentConfig>
+    class Create : ICommandHandler<DocumentCreate>
     {
         private readonly InfolinkDbContext dbContext;
 
@@ -19,12 +20,21 @@ namespace SW.Infolink.Api.Resources.Documents
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(DocumentConfig model)
+        async public Task<object> Handle(DocumentCreate model)
         {
             var entity = new Document(model.Id, model.Name);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             return entity.Id;
+        }
+
+        private class Validate : AbstractValidator<DocumentCreate>
+        {
+            public Validate()
+            {
+                RuleFor(i => i.Id).NotEmpty();
+                RuleFor(i => i.Name).NotEmpty();
+            }
         }
     }
 }

@@ -9,9 +9,11 @@ namespace SW.Infolink.Model
 
     public enum SubscriptionType
     {
+        Unknown = 0,
         FilterResult = 1,
         ApiCall = 2,
         Receiving = 4,
+        Aggregation = 8
     }
 
     public class SubscriptionCreate
@@ -20,6 +22,7 @@ namespace SW.Infolink.Model
         public int DocumentId { get; set; }
         public SubscriptionType Type { get; set; }
         public int? PartnerId { get; set; }
+        public int? AggregationForId { get; set; }
 
     }
 
@@ -38,7 +41,8 @@ namespace SW.Infolink.Model
         public string ValidatorId { get; set; }
 
         public bool Temporary { get; set; }
-        public bool Aggregate { get; set; }
+        //public bool Aggregate { get; set; }
+
         public ICollection<KeyAndValue> HandlerProperties { get; set; }
         public ICollection<KeyAndValue> ValidatorProperties { get; set; }
 

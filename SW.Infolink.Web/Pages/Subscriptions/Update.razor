@@ -4,8 +4,17 @@
     <Tabs>
         <Tab Title="General">
             <Field Name="@nameof(SubscriptionUpdate.Name)" />
-            <Field Name="@nameof(SubscriptionUpdate.DocumentId)" Lookup="@Lookup.FromSearchy("documents")" ReadOnly="true" />
-            <Field Name="@nameof(SubscriptionUpdate.PartnerId)" Lookup="@Lookup.FromSearchy("partners")" ReadOnly="true" />
+
+            <Field Name="@nameof(SubscriptionUpdate.DocumentId)"
+                   Lookup="@Lookup.FromSearchy("documents")"
+                   Text="Document"
+                   ReadOnly="true" />
+
+            <Field Name="@nameof(SubscriptionUpdate.PartnerId)"
+                   Lookup="@Lookup.FromSearchy("partners")"
+                   Text="Partner"
+                   ReadOnly="true" />
+
             <Field Name="@nameof(SubscriptionUpdate.Inactive)" />
         </Tab>
 
@@ -62,10 +71,10 @@
             </Tab>
         }
 
-        @if (context.Type == SubscriptionType.FilterResult)
+        @if (context.Type == SubscriptionType.Aggregation)
         {
-            <Tab Title="Schedules">
-                <Field Name="@nameof(SubscriptionUpdate.Aggregate)" />
+            <Tab Title="Aggregation">
+                <Field Name="@nameof(SubscriptionUpdate.AggregationForId)" Lookup="@Lookup.FromSearchy("seubscriptions")" />
 
                 <Subform Name="@nameof(SubscriptionUpdate.Schedules)">
                     <Columns>
@@ -86,7 +95,10 @@
                     </Form>
                 </Subform>
             </Tab>
+        }
 
+        @if (context.Type == SubscriptionType.FilterResult)
+        {
             <Tab Title="Filter">
                 <Subform Name="@nameof(SubscriptionUpdate.DocumentFilter)">
                     <Columns>
@@ -107,11 +119,15 @@
                         <Field Name="@nameof(KeyAndValue.Value)" />
                     </Form>
                 </Subform>
-
             </Tab>
         }
+
         <Tab Title="Mapper">
-            <Field Name="@nameof(SubscriptionUpdate.MapperId)" Lookup="@Lookup.From("adapters?prefix=mappers")" />
+
+            <Field Name="@nameof(SubscriptionUpdate.MapperId)"
+                   Lookup="@Lookup.From("adapters?prefix=mappers")"
+                   Text="Mapper" />
+
             @if (context.MapperId != null)
             {
                 <Subform Name="@nameof(SubscriptionUpdate.MapperProperties)">
@@ -135,8 +151,13 @@
                 </Subform>
             }
         </Tab>
+
         <Tab Title="Handler">
-            <Field Name="@nameof(SubscriptionUpdate.HandlerId)" Lookup="@Lookup.From("adapters?prefix=handlers")" />
+
+            <Field Name="@nameof(SubscriptionUpdate.HandlerId)" 
+                   Lookup="@Lookup.From("adapters?prefix=handlers")" 
+                   Text="Handler" />
+
             @if (context.HandlerId != null)
             {
                 <Subform Name="@nameof(SubscriptionUpdate.HandlerProperties)">
@@ -161,7 +182,6 @@
                 <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)" Lookup="@Lookup.FromSearchy("subscriptions")" />
             }
         </Tab>
-
 
     </Tabs>
 </UpdateForm>

@@ -7,20 +7,16 @@ namespace SW.Infolink.Domain
 {
     class XchangeDelivery : BaseEntity<string>
     {
-
         private XchangeDelivery()
         {
         }
 
         public XchangeDelivery(string xchangeId)
         {
-            Id = xchangeId; // Guid.NewGuid().ToString("N");
-            //XchangeId = xchangeId;
+            Id = xchangeId; 
             DeliveredOn = DateTime.UtcNow;
         }
 
-        //public string XchangeId { get; private set; }
         public DateTime DeliveredOn { get; private set; }
-
     }
 }

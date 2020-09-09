@@ -45,7 +45,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
             public Validate(IServiceProvider serviceProvider)
             {
                 RuleFor(i => i.Name).NotEmpty();
-                RuleFor(i => i.Schedules).NotEmpty().When(i => i.Aggregate);
+                
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
 
                 When(i => i.MapperId != null, () =>
@@ -74,7 +74,6 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     });
                 });
 
-
                 When(i => i.Type == SubscriptionType.Receiving, () =>
                 {
                     RuleFor(i => i.ReceiverId).NotEmpty();
@@ -92,6 +91,13 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                                 context.AddFailure($"Missing properties: {string.Join(",", missing) }");
                         });
                     });
+
+                });
+
+                When(i => i.Type == SubscriptionType.Aggregation, () =>
+                {
+                    RuleFor(i => i.Schedules).NotEmpty();
+                    RuleFor(i => i.AggregationForId).NotEmpty();
 
                 });
             }
