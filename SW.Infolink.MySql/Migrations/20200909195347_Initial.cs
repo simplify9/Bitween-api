@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace SW.Infolink.MySql.Migrations
 {
-    public partial class initial : Migration
+    public partial class Initial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -53,12 +53,17 @@ namespace SW.Infolink.MySql.Migrations
                     InputName = table.Column<string>(maxLength: 200, nullable: true),
                     InputSize = table.Column<int>(nullable: false),
                     InputHash = table.Column<string>(unicode: false, maxLength: 50, nullable: false),
-                    DeliverOn = table.Column<DateTime>(nullable: true),
                     ResponseSubscriptionId = table.Column<int>(nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Xchanges", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Xchanges_Documents_DocumentId",
+                        column: x => x.DocumentId,
+                        principalTable: "Documents",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -93,25 +98,33 @@ namespace SW.Infolink.MySql.Migrations
                     Type = table.Column<byte>(nullable: false),
                     PartnerId = table.Column<int>(nullable: true),
                     Temporary = table.Column<bool>(nullable: false),
-                    ValidatorId = table.Column<string>(nullable: true),
+                    ValidatorId = table.Column<string>(unicode: false, maxLength: 200, nullable: true),
                     HandlerId = table.Column<string>(unicode: false, maxLength: 200, nullable: true),
                     MapperId = table.Column<string>(unicode: false, maxLength: 200, nullable: true),
-                    Aggregate = table.Column<bool>(nullable: false),
-                    ValidatorProperties = table.Column<string>(unicode: false, maxLength: 200, nullable: true),
+                    ValidatorProperties = table.Column<string>(nullable: true),
                     HandlerProperties = table.Column<string>(nullable: true),
                     MapperProperties = table.Column<string>(nullable: true),
                     ReceiverProperties = table.Column<string>(nullable: true),
                     DocumentFilter = table.Column<string>(nullable: true),
                     Inactive = table.Column<bool>(nullable: false),
                     ResponseSubscriptionId = table.Column<int>(nullable: true),
+                    AggregationForId = table.Column<int>(nullable: true),
+                    AggregationTarget = table.Column<byte>(nullable: false),
+                    AggregateOn = table.Column<DateTime>(nullable: true),
                     ReceiverId = table.Column<string>(unicode: false, maxLength: 200, nullable: true),
                     ReceiveOn = table.Column<DateTime>(nullable: true),
-                    ReceiveConsecutiveFailures = table.Column<int>(nullable: false),
-                    ReceiveLastException = table.Column<string>(nullable: true)
+                    ConsecutiveFailures = table.Column<int>(nullable: false),
+                    LastException = table.Column<string>(nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Subscribers", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Subscribers_Subscribers_AggregationForId",
+                        column: x => x.AggregationForId,
+                        principalTable: "Subscribers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Subscribers_Documents_DocumentId",
                         column: x => x.DocumentId,
@@ -130,6 +143,25 @@ namespace SW.Infolink.MySql.Migrations
                         principalTable: "Subscribers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "XchangeAggregations",
+                columns: table => new
+                {
+                    Id = table.Column<string>(unicode: false, maxLength: 50, nullable: false),
+                    AggregatedOn = table.Column<DateTime>(nullable: false),
+                    AggregationXchangeId = table.Column<string>(unicode: false, maxLength: 50, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_XchangeAggregations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_XchangeAggregations_Xchanges_Id",
+                        column: x => x.Id,
+                        principalTable: "Xchanges",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -196,6 +228,28 @@ namespace SW.Infolink.MySql.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SubscriptionAggregationSchedules",
+                columns: table => new
+                {
+                    Id = table.Column<int>(nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    Recurrence = table.Column<byte>(nullable: false),
+                    On = table.Column<double>(nullable: false),
+                    Backwards = table.Column<bool>(nullable: false),
+                    SubscriptionId = table.Column<int>(nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SubscriptionAggregationSchedules", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SubscriptionAggregationSchedules_Subscribers_SubscriptionId",
+                        column: x => x.SubscriptionId,
+                        principalTable: "Subscribers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SubscriptionReceiveSchedules",
                 columns: table => new
                 {
@@ -217,27 +271,10 @@ namespace SW.Infolink.MySql.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.CreateTable(
-                name: "SubscriptionSchedules",
-                columns: table => new
-                {
-                    Id = table.Column<int>(nullable: false)
-                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
-                    Recurrence = table.Column<byte>(nullable: false),
-                    On = table.Column<double>(nullable: false),
-                    Backwards = table.Column<bool>(nullable: false),
-                    SubscriptionId = table.Column<int>(nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SubscriptionSchedules", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_SubscriptionSchedules_Subscribers_SubscriptionId",
-                        column: x => x.SubscriptionId,
-                        principalTable: "Subscribers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+            migrationBuilder.InsertData(
+                table: "Documents",
+                columns: new[] { "Id", "BusEnabled", "BusMessageTypeName", "DuplicateInterval", "Name", "PromotedProperties" },
+                values: new object[] { 10001, false, null, 0, "Aggregation Document", "{}" });
 
             migrationBuilder.InsertData(
                 table: "Partners",
@@ -268,6 +305,12 @@ namespace SW.Infolink.MySql.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Subscribers_AggregationForId",
+                table: "Subscribers",
+                column: "AggregationForId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Subscribers_DocumentId",
                 table: "Subscribers",
                 column: "DocumentId");
@@ -284,14 +327,19 @@ namespace SW.Infolink.MySql.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_SubscriptionAggregationSchedules_SubscriptionId",
+                table: "SubscriptionAggregationSchedules",
+                column: "SubscriptionId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SubscriptionReceiveSchedules_SubscriptionId",
                 table: "SubscriptionReceiveSchedules",
                 column: "SubscriptionId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_SubscriptionSchedules_SubscriptionId",
-                table: "SubscriptionSchedules",
-                column: "SubscriptionId");
+                name: "IX_XchangeAggregations_AggregationXchangeId",
+                table: "XchangeAggregations",
+                column: "AggregationXchangeId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_XchangeDeliveries_DeliveredOn",
@@ -299,14 +347,19 @@ namespace SW.Infolink.MySql.Migrations
                 column: "DeliveredOn");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Xchanges_DeliverOn",
+                name: "IX_Xchanges_DocumentId",
                 table: "Xchanges",
-                column: "DeliverOn");
+                column: "DocumentId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Xchanges_InputHash",
                 table: "Xchanges",
                 column: "InputHash");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Xchanges_StartedOn",
+                table: "Xchanges",
+                column: "StartedOn");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Xchanges_SubscriptionId",
@@ -320,10 +373,13 @@ namespace SW.Infolink.MySql.Migrations
                 name: "PartnerApiCredentials");
 
             migrationBuilder.DropTable(
+                name: "SubscriptionAggregationSchedules");
+
+            migrationBuilder.DropTable(
                 name: "SubscriptionReceiveSchedules");
 
             migrationBuilder.DropTable(
-                name: "SubscriptionSchedules");
+                name: "XchangeAggregations");
 
             migrationBuilder.DropTable(
                 name: "XchangeDeliveries");
@@ -341,10 +397,10 @@ namespace SW.Infolink.MySql.Migrations
                 name: "Xchanges");
 
             migrationBuilder.DropTable(
-                name: "Documents");
+                name: "Partners");
 
             migrationBuilder.DropTable(
-                name: "Partners");
+                name: "Documents");
         }
     }
 }

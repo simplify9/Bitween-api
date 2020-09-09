@@ -9,8 +9,8 @@ using SW.Infolink;
 namespace SW.Infolink.MySql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    [Migration("20200909131610_update1")]
-    partial class update1
+    [Migration("20200909195347_Initial")]
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -95,7 +95,16 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("AggregateOn")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int?>("AggregationForId")
+                        .HasColumnType("int");
+
+                    b.Property<byte>("AggregationTarget")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<int>("ConsecutiveFailures")
                         .HasColumnType("int");
 
                     b.Property<string>("DocumentFilter")
@@ -115,6 +124,9 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<bool>("Inactive")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("LastException")
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+
                     b.Property<string>("MapperId")
                         .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
@@ -130,12 +142,6 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
-
-                    b.Property<int>("ReceiveConsecutiveFailures")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ReceiveLastException")
-                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<DateTime?>("ReceiveOn")
                         .HasColumnType("datetime(6)");
@@ -158,12 +164,12 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("tinyint unsigned");
 
                     b.Property<string>("ValidatorId")
-                        .HasColumnType("longtext CHARACTER SET utf8mb4");
-
-                    b.Property<string>("ValidatorProperties")
                         .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
+
+                    b.Property<string>("ValidatorProperties")
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.HasKey("Id");
 
@@ -186,9 +192,6 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
-
-                    b.Property<DateTime?>("DeliverOn")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
@@ -237,7 +240,7 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DeliverOn");
+                    b.HasIndex("DocumentId");
 
                     b.HasIndex("InputHash");
 
@@ -417,6 +420,34 @@ namespace SW.Infolink.MySql.Migrations
                         .HasForeignKey("SW.Infolink.Domain.Subscription", "ResponseSubscriptionId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.OwnsMany("SW.Infolink.Domain.Schedule", "AggregationSchedules", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            b1.Property<bool>("Backwards")
+                                .HasColumnType("tinyint(1)");
+
+                            b1.Property<double>("On")
+                                .HasColumnType("double");
+
+                            b1.Property<byte>("Recurrence")
+                                .HasColumnType("tinyint unsigned");
+
+                            b1.Property<int>("SubscriptionId")
+                                .HasColumnType("int");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("SubscriptionId");
+
+                            b1.ToTable("SubscriptionAggregationSchedules");
+
+                            b1.WithOwner()
+                                .HasForeignKey("SubscriptionId");
+                        });
+
                     b.OwnsMany("SW.Infolink.Domain.Schedule", "ReceiveSchedules", b1 =>
                         {
                             b1.Property<int>("Id")
@@ -444,34 +475,15 @@ namespace SW.Infolink.MySql.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("SubscriptionId");
                         });
+                });
 
-                    b.OwnsMany("SW.Infolink.Domain.Schedule", "Schedules", b1 =>
-                        {
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("int");
-
-                            b1.Property<bool>("Backwards")
-                                .HasColumnType("tinyint(1)");
-
-                            b1.Property<double>("On")
-                                .HasColumnType("double");
-
-                            b1.Property<byte>("Recurrence")
-                                .HasColumnType("tinyint unsigned");
-
-                            b1.Property<int>("SubscriptionId")
-                                .HasColumnType("int");
-
-                            b1.HasKey("Id");
-
-                            b1.HasIndex("SubscriptionId");
-
-                            b1.ToTable("SubscriptionSchedules");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SubscriptionId");
-                        });
+            modelBuilder.Entity("SW.Infolink.Domain.Xchange", b =>
+                {
+                    b.HasOne("SW.Infolink.Domain.Document", null)
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.XchangeAggregation", b =>
