@@ -3,21 +3,25 @@
 <UpdateForm Title="Subscription" TModel="SubscriptionUpdate" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id" StayAfterSave="true">
     <Tabs>
         <Tab Title="General">
+
             <FormRow>
                 <Field Name="@nameof(SubscriptionUpdate.Name)" />
             </FormRow>
+
             <FormRow>
                 <Field Name="@nameof(SubscriptionUpdate.DocumentId)"
                        Lookup="@Lookup.FromSearchy("documents")"
                        Text="Document"
                        ReadOnly="true" />
             </FormRow>
+
             <FormRow>
                 <Field Name="@nameof(SubscriptionUpdate.PartnerId)"
                        Lookup="@Lookup.FromSearchy("partners")"
                        Text="Partner"
                        ReadOnly="true" />
             </FormRow>
+
             <FormRow>
                 <Field Name="@nameof(SubscriptionUpdate.Inactive)" />
             </FormRow>
@@ -216,7 +220,7 @@
             @if (context.MapperId != null)
             {
                 <FormRow>
-                    <Subform Name="@nameof(SubscriptionUpdate.MapperProperties)">
+                    <Subform Name="@nameof(SubscriptionUpdate.MapperProperties)" Text="Properties">
                         <Columns>
                             <Field Text="Action">
                                 <ColumnHeader Context="fieldContext">
@@ -253,7 +257,7 @@
             @if (context.HandlerId != null)
             {
                 <FormRow>
-                    <Subform Name="@nameof(SubscriptionUpdate.HandlerProperties)">
+                    <Subform Name="@nameof(SubscriptionUpdate.HandlerProperties)" Text="Properties">
                         <Columns>
                             <Field Text="Action">
                                 <ColumnHeader Context="fieldContext">
@@ -285,13 +289,10 @@
                 </FormRow>
             }
         </Tab>
-
     </Tabs>
 </UpdateForm>
 
 @code {
-
-    KeyValuePair<string, string> kvp = new KeyValuePair<string, string>();
 
     [Parameter]
     public int Id { get; set; }
