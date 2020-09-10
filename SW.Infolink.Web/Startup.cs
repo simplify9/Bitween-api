@@ -47,11 +47,11 @@ namespace SW.Infolink.Web
 
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
-            //services.AddDomainEvents(typeof(InfolinkDbContext).Assembly);
             services.AddCqApi(configure => 
                 {
                     configure.RolePrefix = "Infolink";
-                    configure.UrlPrefix = "api"; 
+                    configure.UrlPrefix = "api";
+                    configure.ProtectAll = true;
                 },
                 typeof(InfolinkDbContext).Assembly);
 
@@ -92,11 +92,9 @@ namespace SW.Infolink.Web
             services.AddServerSideBlazor();
             services.AddSimplyRazor(config =>
             {
-                //config.ApiBaseUri = new Uri(Configuration["ApiUrl"]);
                 //config.BlobsUri = new Uri(Configuration["BlobsUrl"]);
                 config.DefaultApiClientFactory = sp => sp.GetService<InfolinkClient>();
             });
-
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>

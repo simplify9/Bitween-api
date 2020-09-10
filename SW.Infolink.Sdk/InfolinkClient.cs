@@ -36,27 +36,24 @@ namespace SW.Infolink.Sdk
             return Builder.Jwt().Path(url).AsApiResult().DeleteAsync();
         }
 
-
         async public Task<ApiResult<string>> LookupValue(string searchUrl)
         {
-            return await Builder.Path(searchUrl).AsApiResult<string>().GetAsync();
+            return await Builder.Jwt().Path(searchUrl).AsApiResult<string>().GetAsync();
         }
 
         public Task<ApiResult<SearchyResponse<TModel>>> Search<TModel>(string searchUrl)
         {
-            return Builder.Path(searchUrl).AsApiResult<SearchyResponse<TModel>>().GetAsync();
+            return Builder.Jwt().Path(searchUrl).AsApiResult<SearchyResponse<TModel>>().GetAsync();
         }
 
         public Task<ApiResult<IDictionary<string, string>>> Search(string searchUrl)
         {
-            return Builder.Path(searchUrl).AsApiResult<IDictionary<string, string>>().GetAsync();
+            return Builder.Jwt().Path(searchUrl).AsApiResult<IDictionary<string, string>>().GetAsync();
         }
 
         public Task<ApiResult<string>> GeneratePartnerApiKey()
         {
-            return Builder.Path("partners/generatekey").AsApiResult<string>().GetAsync();
+            return Builder.Jwt().Path("partners/generatekey").AsApiResult<string>().GetAsync();
         }
-
-        
     }
 }

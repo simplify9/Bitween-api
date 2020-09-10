@@ -4,12 +4,14 @@ using Newtonsoft.Json;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
+using SW.PrimitiveTypes.Contracts.CqApi;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace SW.Infolink.Resources.Xchanges
 {
+    [Unprotect]
     class Update : ICommandHandler<string, object>
     {
         private readonly RequestContext requestContext;
