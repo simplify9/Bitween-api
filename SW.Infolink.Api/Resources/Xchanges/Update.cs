@@ -2,7 +2,6 @@
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
-using SW.PrimitiveTypes.Contracts.CqApi;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -52,10 +51,14 @@ namespace SW.Infolink.Resources.Xchanges
             if (sub == null)
                 throw new SWNotFoundException("Subscription");
 
-            var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, new XchangeFile(request.ToString()));
+            var xchangeFile = new XchangeFile(request.ToString());
+
+            await xchangeService.RunValidator(sub.ValidatorId, sub.ValidatorProperties.ToDictionary(), xchangeFile);
+
+            var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile);
 
             var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
-            if (int.TryParse(waitResponseHeader, out var waitResponse) && waitResponse > 0 && waitResponse < 60)
+            if (int.TryParse(waitResponseHeader, out var waitResponse) && waitResponse > 0 && waitResponse <= 60)
             {
                 await Task.Delay(TimeSpan.FromSeconds(waitResponse));
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);

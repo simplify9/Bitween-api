@@ -32,7 +32,7 @@
         {
             <Tab Title="Receiver">
                 <FormRow>
-                    <Field Name="@nameof(SubscriptionUpdate.ReceiverId)" 
+                    <Field Name="@nameof(SubscriptionUpdate.ReceiverId)"
                            Lookup="@Lookup.From("adapters?prefix=receivers")"
                            Text="Receiver Adapter" />
                 </FormRow>
@@ -50,7 +50,7 @@
                                         <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
                                     </ColumnValue>
                                 </Field>
-                                <Field Name="@nameof(KeyAndValue.Key)" Text="Name"  />
+                                <Field Name="@nameof(KeyAndValue.Key)" Text="Name" />
                                 <Field Name="@nameof(KeyAndValue.Value)" />
                             </Columns>
 
@@ -81,7 +81,7 @@
                             </Field>
                             <Field Name="@nameof(ScheduleView.Recurrence)" />
                             <Field Name="@nameof(ScheduleView.Backwards)" />
-                            <Field Text="Schedule" >
+                            <Field Text="Schedule">
                                 <ColumnValue Context="fieldContext">
                                     @($"{((ScheduleView)fieldContext.Model).Days}.{((ScheduleView)fieldContext.Model).Hours:00}:{((ScheduleView)fieldContext.Model).Minutes:00}")
                                 </ColumnValue>
@@ -127,8 +127,8 @@
                 </FormRow>
                 <FormRow>
                     <Subform Name="@nameof(SubscriptionUpdate.AggregationSchedules)">
-                        <Columns  >
-                            <Field  Text="Action">
+                        <Columns>
+                            <Field Text="Action">
                                 <ColumnHeader Context="fieldContext">
                                     Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
                                 </ColumnHeader>
@@ -146,8 +146,8 @@
                             </Field>
 
                         </Columns>
-                        <Form >
-                            <ScheduleForm  />
+                        <Form>
+                            <ScheduleForm />
                         </Form>
                     </Subform>
                 </FormRow>
@@ -208,6 +208,45 @@
                         </Form>
                     </Subform>
                 </FormRow>
+            </Tab>
+        }
+
+        @if (context.Type == SubscriptionType.ApiCall)
+        {
+            <Tab Title="Validator">
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.ValidatorId)"
+                           Lookup="@Lookup.From("adapters?prefix=validators")"
+                           Text="Validator" />
+                </FormRow>
+                @if (context.ValidatorId != null)
+                {
+                    <FormRow>
+                        <Subform Name="@nameof(SubscriptionUpdate.ValidatorProperties)" Text="Properties">
+                            <Columns>
+                                <Field Text="Action">
+                                    <ColumnHeader Context="fieldContext">
+                                        Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                                    </ColumnHeader>
+                                    <ColumnValue Context="fieldContext">
+                                        <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                                        <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                                    </ColumnValue>
+                                </Field>
+                                <Field Name="@nameof(KeyAndValue.Key)" Text="Name" />
+                                <Field Name="@nameof(KeyAndValue.Value)" />
+                            </Columns>
+                            <Form>
+                                <FormRow>
+                                    <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.ValidatorId}/properties")" />
+                                </FormRow>
+                                <FormRow>
+                                    <Field Name="@nameof(KeyAndValue.Value)" />
+                                </FormRow>
+                            </Form>
+                        </Subform>
+                    </FormRow>
+                }
             </Tab>
         }
 
@@ -282,7 +321,7 @@
                     </Subform>
                 </FormRow>
                 <FormRow>
-                    <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)" 
+                    <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)"
                            Lookup="@Lookup.FromSearchy("subscriptions")"
                            Text="Response Subscription"
                            Placeholder="None" />

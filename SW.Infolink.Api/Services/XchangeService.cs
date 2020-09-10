@@ -4,6 +4,7 @@ using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -71,6 +72,17 @@ namespace SW.Infolink
                 await AddFile(xchange.Id, XchangeFileType.Output, xchangeFile);
 
             return xchangeFile;
+        }
+
+        async public Task RunValidator(string validatorId, IDictionary<string, string> properties, XchangeFile xchangeFile)
+        {
+            if (validatorId == null) return;
+
+            var serverless = serviceProvider.GetRequiredService<IServerlessService>();
+            await serverless.StartAsync(validatorId, null, properties);
+            var result = await serverless.InvokeAsync<InfolinkValidatorResult>(nameof(IInfolinkValidator.Validate), xchangeFile);
+            if (!result.Success)
+                throw new SWValidationException(result.Validations);
         }
 
         async Task<XchangeFile> RunHandler(Xchange xchange, XchangeFile xchangeFile)
