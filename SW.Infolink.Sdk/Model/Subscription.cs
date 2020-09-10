@@ -16,14 +16,13 @@ namespace SW.Infolink.Model
         Aggregation = 8
     }
 
-    public class SubscriptionCreate
+    public class SubscriptionCreate : IName
     {
         public string Name { get; set; }
         public int DocumentId { get; set; }
         public SubscriptionType Type { get; set; }
         public int? PartnerId { get; set; }
         public int? AggregationForId { get; set; }
-
     }
 
     public class SubscriptionSearch : SubscriptionUpdate

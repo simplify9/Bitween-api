@@ -1,29 +1,41 @@
 ﻿@page "/subscriptions/create"
 
 <CreateForm Title="Subscription" TModel="SubscriptionCreate" ApiUrl="subscriptions" ReturnUrl="subscriptions">
-    
-    <Field Name="@nameof(SubscriptionCreate.Type)" />
-    <Field Name="@nameof(SubscriptionCreate.Name)" />
+    <FormRow >
+        <Field Name="@nameof(SubscriptionCreate.Type)" />
+    </FormRow>
+    @if (context.Type != SubscriptionType.Unknown)
+    {
+        <FormRow >
+            <Field Name="@nameof(SubscriptionCreate.Name)" />
+        </FormRow>
+    }
 
     @if (context.Type != SubscriptionType.Aggregation && context.Type != SubscriptionType.Unknown)
     {
-        <Field Name="@nameof(SubscriptionCreate.DocumentId)" 
-               Lookup="@Lookup.FromSearchy("documents")"
-               Text="Document" />
+        <FormRow >
+            <Field Name="@nameof(SubscriptionCreate.DocumentId)"
+                   Lookup="@Lookup.FromSearchy("documents")"
+                   Text="Document" />
+        </FormRow>
     }
 
-    @if (context.Type != SubscriptionType.Receiving)
+    @if (context.Type != SubscriptionType.Receiving && context.Type != SubscriptionType.Unknown)
     {
-        <Field Name="@nameof(SubscriptionCreate.PartnerId)" 
-               Lookup="@Lookup.FromSearchy("partners")" 
-               Text="Partner" />
+        <FormRow >
+            <Field Name="@nameof(SubscriptionCreate.PartnerId)"
+                   Lookup="@Lookup.FromSearchy("partners")"
+                   Text="Partner" />
+        </FormRow>
     }
 
     @if (context.Type == SubscriptionType.Aggregation)
     {
-        <Field Name="@nameof(SubscriptionUpdate.AggregationForId)" 
-               Lookup="@Lookup.From("subscriptions?lookup=true&filter=Type:1:1")"
-               Text="Aggregate Subscription" />
+        <FormRow >
+            <Field Name="@nameof(SubscriptionUpdate.AggregationForId)"
+                   Lookup="@Lookup.From("subscriptions?lookup=true&filter=Type:1:1")"
+                   Text="Aggregate Subscription" />
+        </FormRow>
     }
 </CreateForm>
 

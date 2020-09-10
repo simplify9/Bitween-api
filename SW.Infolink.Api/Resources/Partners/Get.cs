@@ -21,7 +21,7 @@ namespace SW.Infolink.Resources.Partners
         {
             return await dbContext.Set<Partner>().AsNoTracking().
                 Search("Id", key).
-                Select(partner => new PartnerConfig
+                Select(partner => new PartnerUpdate
                 {
                     Name = partner.Name,
 

@@ -2,32 +2,46 @@
 
 
 <UpdateForm Title="Document" TModel="DocumentUpdate" ApiUrl="documents" ReturnUrl="documents" Id="Id">
-
-    <Field Name="@nameof(DocumentUpdate.Id)" ReadOnly="true" />
-    <Field Name="@nameof(DocumentUpdate.Name)" ReadOnly="true" />
-    <Field Name="@nameof(DocumentUpdate.DuplicateInterval)" />
-    <Field Name="@nameof(DocumentUpdate.BusEnabled)" />
-    <Field Name="@nameof(DocumentUpdate.BusMessageTypeName)" ReadOnly="!context.BusEnabled" />
-    @*<Field Name="@nameof(DocumentUpdate.PromotedProperties)" />*@
-    <Subform Name="@nameof(DocumentUpdate.PromotedProperties)">
-        <Columns>
-            <Field Text="Action">
-                <ColumnHeader Context="fieldContext">
-                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
-                </ColumnHeader>
-                <ColumnValue Context="fieldContext">
-                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
-                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
-                </ColumnValue>
-            </Field>
-            <Field Name="@nameof(KeyAndValue.Key)" Text="Friendly Name" />
-            <Field Name="@nameof(KeyAndValue.Value)" Text="Json Path" />
-        </Columns>
-        <Form>
-            <Field Name="@nameof(KeyAndValue.Key)" Text="Friendly Name" />
-            <Field Name="@nameof(KeyAndValue.Value)" Text="Json Path" />
-        </Form>
-    </Subform>
+    <FormRow >
+        <Field Name="@nameof(DocumentUpdate.Id)" ReadOnly="true" />
+    </FormRow>
+    <FormRow >
+        <Field Name="@nameof(DocumentUpdate.Name)" ReadOnly="true" />
+    </FormRow>
+    <FormRow >
+        <Field Name="@nameof(DocumentUpdate.DuplicateInterval)" />
+    </FormRow>
+    <FormRow >
+        <Field Name="@nameof(DocumentUpdate.BusEnabled)" />
+    </FormRow>
+    <FormRow >
+        <Field Name="@nameof(DocumentUpdate.BusMessageTypeName)" ReadOnly="!context.BusEnabled" />
+    </FormRow>
+    <FormRow >
+        <Subform Name="@nameof(DocumentUpdate.PromotedProperties)">
+            <Columns>
+                <Field Text="Action">
+                    <ColumnHeader Context="fieldContext">
+                        Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                    </ColumnHeader>
+                    <ColumnValue Context="fieldContext">
+                        <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                        <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                    </ColumnValue>
+                </Field>
+                <Field Name="@nameof(KeyAndValue.Key)" Text="Friendly Name" />
+                <Field Name="@nameof(KeyAndValue.Value)" Text="Json Path" />
+            </Columns>
+            <Form>
+                <div >
+                    <Field Name="@nameof(KeyAndValue.Key)" Text="Friendly Name" />
+                </div>
+                <div >
+                    <Field Name="@nameof(KeyAndValue.Value)" Text="Json Path" />
+                </div>
+            </Form>
+        </Subform>
+    </FormRow>
 </UpdateForm>
 
 @code {

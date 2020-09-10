@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Resources.Partners
 {
-    class Create : ICommandHandler<PartnerConfig>
+    class Create : ICommandHandler<PartnerCreate>
     {
         private readonly InfolinkDbContext dbContext;
 
@@ -14,7 +14,7 @@ namespace SW.Infolink.Resources.Partners
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(PartnerConfig model)
+        async public Task<object> Handle(PartnerCreate model)
         {
             var entity = new Partner(model.Name);
             dbContext.Add(entity);

@@ -132,6 +132,12 @@ namespace SW.Infolink.Web
             app.UseAuthorization();
             app.UseHttpAsRequestContext();
             app.UseRequestContextLogEnricher();
+
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/api/swagger.json", "Infolink Api V1");
+            });
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

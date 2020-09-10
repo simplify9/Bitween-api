@@ -3,28 +3,68 @@
 <UpdateForm Title="Subscription" TModel="SubscriptionUpdate" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id" StayAfterSave="true">
     <Tabs>
         <Tab Title="General">
-            <Field Name="@nameof(SubscriptionUpdate.Name)" />
+            <FormRow>
+                <Field Name="@nameof(SubscriptionUpdate.Name)" />
+            </FormRow>
+            <FormRow>
+                <Field Name="@nameof(SubscriptionUpdate.DocumentId)"
+                       Lookup="@Lookup.FromSearchy("documents")"
+                       Text="Document"
+                       ReadOnly="true" />
+            </FormRow>
+            <FormRow>
+                <Field Name="@nameof(SubscriptionUpdate.PartnerId)"
+                       Lookup="@Lookup.FromSearchy("partners")"
+                       Text="Partner"
+                       ReadOnly="true" />
+            </FormRow>
+            <FormRow>
+                <Field Name="@nameof(SubscriptionUpdate.Inactive)" />
+            </FormRow>
 
-            <Field Name="@nameof(SubscriptionUpdate.DocumentId)"
-                   Lookup="@Lookup.FromSearchy("documents")"
-                   Text="Document"
-                   ReadOnly="true" />
-
-            <Field Name="@nameof(SubscriptionUpdate.PartnerId)"
-                   Lookup="@Lookup.FromSearchy("partners")"
-                   Text="Partner"
-                   ReadOnly="true" />
-
-            <Field Name="@nameof(SubscriptionUpdate.Inactive)" />
         </Tab>
 
         @if (context.Type == SubscriptionType.Receiving)
         {
             <Tab Title="Receiver">
-                <Field Name="@nameof(SubscriptionUpdate.ReceiverId)" Lookup="@Lookup.From("adapters?prefix=receivers")" />
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.ReceiverId)" 
+                           Lookup="@Lookup.From("adapters?prefix=receivers")"
+                           Text="Receiver Adapter" />
+                </FormRow>
                 @if (context.ReceiverId != null)
                 {
-                    <Subform Name="@nameof(SubscriptionUpdate.ReceiverProperties)">
+                    <FormRow>
+                        <Subform Name="@nameof(SubscriptionUpdate.ReceiverProperties)" Text="Properties">
+                            <Columns>
+                                <Field Text="Action">
+                                    <ColumnHeader Context="fieldContext">
+                                        Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                                    </ColumnHeader>
+                                    <ColumnValue Context="fieldContext">
+                                        <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                                        <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                                    </ColumnValue>
+                                </Field>
+                                <Field Name="@nameof(KeyAndValue.Key)" Text="Name"  />
+                                <Field Name="@nameof(KeyAndValue.Value)" />
+                            </Columns>
+
+                            <Form>
+                                <FormRow>
+                                    <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.ReceiverId}/properties")" />
+                                </FormRow>
+                                <FormRow>
+                                    <Field Name="@nameof(KeyAndValue.Value)" />
+                                </FormRow>
+                            </Form>
+
+                        </Subform>
+                    </FormRow>
+                }
+                <FormRow>
+
+                    <Subform Name="@nameof(SubscriptionUpdate.ReceiveSchedules)" Text="Schedules">
                         <Columns>
                             <Field Text="Action">
                                 <ColumnHeader Context="fieldContext">
@@ -35,96 +75,94 @@
                                     <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
                                 </ColumnValue>
                             </Field>
-                            <Field Name="@nameof(KeyAndValue.Key)" />
-                            <Field Name="@nameof(KeyAndValue.Value)" />
+                            <Field Name="@nameof(ScheduleView.Recurrence)" />
+                            <Field Name="@nameof(ScheduleView.Backwards)" />
+                            <Field Text="Schedule" >
+                                <ColumnValue Context="fieldContext">
+                                    @($"{((ScheduleView)fieldContext.Model).Days}.{((ScheduleView)fieldContext.Model).Hours:00}:{((ScheduleView)fieldContext.Model).Minutes:00}")
+                                </ColumnValue>
+                            </Field>
+
                         </Columns>
-
-
                         <Form>
-                            <Field Name="@nameof(KeyAndValue.Key)" Lookup="@Lookup.FromSearchy($"adapters/{context.ReceiverId}/properties")" />
-                            <Field Name="@nameof(KeyAndValue.Value)" />
+                            <ScheduleForm />
                         </Form>
                     </Subform>
-                }
-
-                <Subform Name="@nameof(SubscriptionUpdate.ReceiveSchedules)">
-                    <Columns>
-                        <Field Text="Action">
-                            <ColumnHeader Context="fieldContext">
-                                Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
-                            </ColumnHeader>
-                            <ColumnValue Context="fieldContext">
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
-                            </ColumnValue>
-                        </Field>
-                        <Field Name="@nameof(ScheduleView.Recurrence)" />
-                        <Field Name="@nameof(ScheduleView.Backwards)" />
-                    </Columns>
-                    <Form>
-                        <ScheduleForm />
-                    </Form>
-                </Subform>
-
-                <Field Name="@nameof(SubscriptionUpdate.ReceiveOn)"
-                       ReadOnly="true"
-                       Text="Next Receive On" />
-
-                <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
-                       ReadOnly="true"
-                       Text="Consecutive Failures" />
-
-                <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
-                       ReadOnly="true"
-                       InputType="InputType.Multiline"
-                       Text="Last Exception" />
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.ReceiveOn)"
+                           ReadOnly="true"
+                           Text="Next Receive On" />
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
+                           ReadOnly="true"
+                           Text="Consecutive Failures" />
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
+                           ReadOnly="true"
+                           InputType="InputType.Multiline"
+                           Text="Last Exception" />
+                </FormRow>
             </Tab>
         }
 
         @if (context.Type == SubscriptionType.Aggregation)
         {
             <Tab Title="Aggregation">
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.AggregationForId)"
+                           Lookup="@Lookup.FromSearchy("subscriptions")"
+                           Text="Aggregate Subscription"
+                           ReadOnly="true" />
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.AggregationTarget)"
+                           Text="Aggregation Target" />
+                </FormRow>
+                <FormRow>
+                    <Subform Name="@nameof(SubscriptionUpdate.AggregationSchedules)">
+                        <Columns>
+                            <Field Text="Action">
+                                <ColumnHeader Context="fieldContext">
+                                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                                </ColumnHeader>
+                                <ColumnValue Context="fieldContext">
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                                </ColumnValue>
+                            </Field>
+                            <Field Name="@nameof(ScheduleView.Recurrence)" />
+                            <Field Name="@nameof(ScheduleView.Backwards)" />
+                            <Field Text="Schedule">
+                                <ColumnValue Context="fieldContext">
+                                    @($"{((ScheduleView)fieldContext.Model).Days}.{((ScheduleView)fieldContext.Model).Hours:00}:{((ScheduleView)fieldContext.Model).Minutes:00}")
+                                </ColumnValue>
+                            </Field>
 
-                <Field Name="@nameof(SubscriptionUpdate.AggregationForId)" 
-                       Lookup="@Lookup.FromSearchy("subscriptions")" 
-                       Text="Aggregate Subscription"
-                       ReadOnly="true"/>
-
-                <Field Name="@nameof(SubscriptionUpdate.AggregationTarget)" 
-                       Text="Aggregation Target" />
-
-                <Subform Name="@nameof(SubscriptionUpdate.AggregationSchedules)">
-                    <Columns>
-                        <Field Text="Action">
-                            <ColumnHeader Context="fieldContext">
-                                Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
-                            </ColumnHeader>
-                            <ColumnValue Context="fieldContext">
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
-                            </ColumnValue>
-                        </Field>
-                        <Field Name="@nameof(ScheduleView.Recurrence)" />
-                        <Field Name="@nameof(ScheduleView.Backwards)" />
-                    </Columns>
-                    <Form>
-                        <ScheduleForm />
-                    </Form>
-                </Subform>
-
-                <Field Name="@nameof(SubscriptionUpdate.AggregateOn)"
-                       ReadOnly="true"
-                       Text="Next Aggregation On" />
-
-                <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
-                       ReadOnly="true"
-                       Text="Consecutive Failures" />
-
-                <Field Name="@nameof(SubscriptionUpdate.LastException)"
-                       ReadOnly="true"
-                       InputType="InputType.Multiline"
-                       Text="Last Exception" />
-
+                        </Columns>
+                        <Form>
+                            <ScheduleForm />
+                        </Form>
+                    </Subform>
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.AggregateOn)"
+                           ReadOnly="true"
+                           Text="Next Aggregation On" />
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
+                           ReadOnly="true"
+                           Text="Consecutive Failures" />
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.LastException)"
+                           ReadOnly="true"
+                           InputType="InputType.Multiline"
+                           Text="Last Exception" />
+                </FormRow>
 
             </Tab>
         }
@@ -132,96 +170,119 @@
         @if (context.Type == SubscriptionType.FilterResult)
         {
             <Tab Title="Filter">
-                <Subform Name="@nameof(SubscriptionUpdate.DocumentFilter)">
-                    <Columns>
+                <FormRow>
+                    <Subform Name="@nameof(SubscriptionUpdate.DocumentFilter)">
+                        <Columns>
 
-                        <Field Text="Action">
-                            <ColumnHeader Context="fieldContext">
-                                Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
-                            </ColumnHeader>
-                            <ColumnValue Context="fieldContext">
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
-                            </ColumnValue>
-                        </Field>
+                            <Field Text="Action">
+                                <ColumnHeader Context="fieldContext">
+                                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                                </ColumnHeader>
+                                <ColumnValue Context="fieldContext">
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                                </ColumnValue>
+                            </Field>
 
-                        <Field Name="@nameof(KeyAndValue.Key)" 
-                               Text="Document Property Name"/>
+                            <Field Name="@nameof(KeyAndValue.Key)"
+                                   Text="Document Property Name" />
 
-                        <Field Name="@nameof(KeyAndValue.Value)"
-                               Text="Filter for Value"/>
+                            <Field Name="@nameof(KeyAndValue.Value)"
+                                   Text="Filter for Value" />
 
-                    </Columns>
-                    <Form>
-                        <Field Name="@nameof(KeyAndValue.Key)" 
-                               Lookup="@Lookup.FromSearchy($"documents/{context.DocumentId}/properties")"
-                               Text="Document Property Name"/>
-
-                        <Field Name="@nameof(KeyAndValue.Value)"
-                               Text="Filter for Value" />
-                    </Form>
-                </Subform>
+                        </Columns>
+                        <Form>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Key)"
+                                       Lookup="@Lookup.FromSearchy($"documents/{context.DocumentId}/properties")"
+                                       Text="Document Property Name" />
+                            </FormRow>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Value)"
+                                       Text="Filter for Value" />
+                            </FormRow>
+                        </Form>
+                    </Subform>
+                </FormRow>
             </Tab>
         }
 
         <Tab Title="Mapper">
-
-            <Field Name="@nameof(SubscriptionUpdate.MapperId)"
-                   Lookup="@Lookup.From("adapters?prefix=mappers")"
-                   Text="Mapper" />
-
+            <FormRow>
+                <Field Name="@nameof(SubscriptionUpdate.MapperId)"
+                       Lookup="@Lookup.From("adapters?prefix=mappers")"
+                       Text="Mapper" />
+            </FormRow>
             @if (context.MapperId != null)
             {
-                <Subform Name="@nameof(SubscriptionUpdate.MapperProperties)">
-                    <Columns>
-                        <Field Text="Action">
-                            <ColumnHeader Context="fieldContext">
-                                Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
-                            </ColumnHeader>
-                            <ColumnValue Context="fieldContext">
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
-                            </ColumnValue>
-                        </Field>
-                        <Field Name="@nameof(KeyAndValue.Key)" />
-                        <Field Name="@nameof(KeyAndValue.Value)" />
-                    </Columns>
-                    <Form>
-                        <Field Name="@nameof(KeyAndValue.Key)" Lookup="@Lookup.FromSearchy($"adapters/{context.MapperId}/properties")" />
-                        <Field Name="@nameof(KeyAndValue.Value)" />
-                    </Form>
-                </Subform>
+                <FormRow>
+                    <Subform Name="@nameof(SubscriptionUpdate.MapperProperties)">
+                        <Columns>
+                            <Field Text="Action">
+                                <ColumnHeader Context="fieldContext">
+                                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                                </ColumnHeader>
+                                <ColumnValue Context="fieldContext">
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                                </ColumnValue>
+                            </Field>
+                            <Field Name="@nameof(KeyAndValue.Key)" Text="Name" />
+                            <Field Name="@nameof(KeyAndValue.Value)" />
+                        </Columns>
+                        <Form>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.MapperId}/properties")" />
+                            </FormRow>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Value)" />
+                            </FormRow>
+                        </Form>
+                    </Subform>
+                </FormRow>
             }
         </Tab>
 
         <Tab Title="Handler">
-
-            <Field Name="@nameof(SubscriptionUpdate.HandlerId)"
-                   Lookup="@Lookup.From("adapters?prefix=handlers")"
-                   Text="Handler" />
+            <FormRow>
+                <Field Name="@nameof(SubscriptionUpdate.HandlerId)"
+                       Lookup="@Lookup.From("adapters?prefix=handlers")"
+                       Text="Handler" />
+            </FormRow>
 
             @if (context.HandlerId != null)
             {
-                <Subform Name="@nameof(SubscriptionUpdate.HandlerProperties)">
-                    <Columns>
-                        <Field Text="Action">
-                            <ColumnHeader Context="fieldContext">
-                                Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
-                            </ColumnHeader>
-                            <ColumnValue Context="fieldContext">
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
-                                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
-                            </ColumnValue>
-                        </Field>
-                        <Field Name="@nameof(KeyAndValue.Key)" />
-                        <Field Name="@nameof(KeyAndValue.Value)" />
-                    </Columns>
-                    <Form>
-                        <Field Name="@nameof(KeyAndValue.Key)" Lookup="@Lookup.FromSearchy($"adapters/{context.HandlerId}/properties")" />
-                        <Field Name="@nameof(KeyAndValue.Value)" />
-                    </Form>
-                </Subform>
-                <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)" Lookup="@Lookup.FromSearchy("subscriptions")" />
+                <FormRow>
+                    <Subform Name="@nameof(SubscriptionUpdate.HandlerProperties)">
+                        <Columns>
+                            <Field Text="Action">
+                                <ColumnHeader Context="fieldContext">
+                                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                                </ColumnHeader>
+                                <ColumnValue Context="fieldContext">
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                                </ColumnValue>
+                            </Field>
+                            <Field Name="@nameof(KeyAndValue.Key)" Text="Name" />
+                            <Field Name="@nameof(KeyAndValue.Value)" />
+                        </Columns>
+                        <Form>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.HandlerId}/properties")" />
+                            </FormRow>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Value)" />
+                            </FormRow>
+                        </Form>
+                    </Subform>
+                </FormRow>
+                <FormRow>
+                    <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)" 
+                           Lookup="@Lookup.FromSearchy("subscriptions")"
+                           Text="Response Subscription"
+                           Placeholder="None" />
+                </FormRow>
             }
         </Tab>
 

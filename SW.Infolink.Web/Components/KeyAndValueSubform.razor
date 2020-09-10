@@ -1,0 +1,29 @@
+﻿<Subform Name="@nameof(SubscriptionUpdate.MapperProperties)">
+    <Columns>
+        <Field Text="Action">
+            <ColumnHeader Context="fieldContext">
+                Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+            </ColumnHeader>
+            <ColumnValue Context="fieldContext">
+                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+            </ColumnValue>
+        </Field>
+        <Field Name="@nameof(KeyAndValue.Key)" />
+        <Field Name="@nameof(KeyAndValue.Value)" />
+    </Columns>
+    <Form>
+        <Field Name="@nameof(KeyAndValue.Key)" Lookup="@Lookup.FromSearchy($"adapters/sss/properties")" />
+        <Field Name="@nameof(KeyAndValue.Value)" />
+    </Form>
+</Subform>
+
+
+@code {
+
+    [Parameter]
+    public string Name { get; set; }
+
+
+
+}

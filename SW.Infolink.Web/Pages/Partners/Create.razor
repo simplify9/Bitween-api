@@ -1,8 +1,10 @@
 ﻿@page "/partners/create"
 
 
-<CreateForm Title="Partner" TModel="DocumentUpdate" ApiUrl="partners" ReturnUrl="partners">
-    <Field Name="@nameof(PartnerConfig.Name)" />
+<CreateForm Title="Partner" TModel="PartnerCreate" ApiUrl="partners" ReturnUrl="partners">
+    <FormRow>
+        <Field Name="@nameof(PartnerCreate.Name)" />
+    </FormRow>
 </CreateForm>
 
 @code {

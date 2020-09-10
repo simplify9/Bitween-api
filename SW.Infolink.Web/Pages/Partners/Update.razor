@@ -3,34 +3,40 @@
 @inject NotifyService notify
 
 
-<UpdateForm Title="Partner" TModel="PartnerConfig" ApiUrl="partners" ReturnUrl="partners" Id="Id">
-
-    <Field Name="@nameof(PartnerConfig.Name)" />
-    <Subform Name="@nameof(PartnerConfig.ApiCredentials)" OnItem="OnApiCredItem">
-        <Columns>
-            <Field Text="Action">
-                <ColumnHeader Context="fieldContext">
-                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
-                </ColumnHeader>
-                <ColumnValue Context="fieldContext">
-                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
-                </ColumnValue>
-            </Field>
-            <Field Name="@nameof(KeyAndValue.Key)" />
-            <Field Name="@nameof(KeyAndValue.Value)" />
-        </Columns>
-        <Form>
-            <Field Name="@nameof(KeyAndValue.Key)" />
-        </Form>
-    </Subform>
-
-    <Subform Name="@nameof(PartnerConfig.Subscriptions)">
-        <Columns>
-            <Field Name="@nameof(SubscriptionSearch.Id)" />
-            <Field Name="@nameof(SubscriptionSearch.Name)" />
-            <Field Name="@nameof(SubscriptionSearch.Type)" />
-        </Columns>
-    </Subform>
+<UpdateForm Title="Partner" TModel="PartnerUpdate" ApiUrl="partners" ReturnUrl="partners" Id="Id">
+    <FormRow>
+        <Field Name="@nameof(PartnerUpdate.Name)" />
+    </FormRow>
+    <FormRow>
+        <Subform Name="@nameof(PartnerUpdate.ApiCredentials)" OnItem="OnApiCredItem">
+            <Columns>
+                <Field Text="Action">
+                    <ColumnHeader Context="fieldContext">
+                        Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                    </ColumnHeader>
+                    <ColumnValue Context="fieldContext">
+                        <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                    </ColumnValue>
+                </Field>
+                <Field Name="@nameof(KeyAndValue.Key)" Text="Name" />
+                <Field Name="@nameof(KeyAndValue.Value)" Text="Api Key" />
+            </Columns>
+            <Form>
+                <FormRow>
+                    <Field Name="@nameof(KeyAndValue.Key)" Text="Name" />
+                </FormRow>
+            </Form>
+        </Subform>
+    </FormRow>
+    <FormRow>
+        <Subform Name="@nameof(PartnerUpdate.Subscriptions)">
+            <Columns>
+                <Field Name="@nameof(SubscriptionSearch.Id)" />
+                <Field Name="@nameof(SubscriptionSearch.Name)" />
+                <Field Name="@nameof(SubscriptionSearch.Type)" />
+            </Columns>
+        </Subform>
+    </FormRow>
 
 </UpdateForm>
 

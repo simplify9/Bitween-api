@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Resources.Partners
 {
-    class Update : ICommandHandler<int, PartnerConfig>
+    class Update : ICommandHandler<int, PartnerUpdate>
     {
         private readonly InfolinkDbContext dbContext;
 
@@ -19,7 +19,7 @@ namespace SW.Infolink.Resources.Partners
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(int key, PartnerConfig model)
+        async public Task<object> Handle(int key, PartnerUpdate model)
         {
             var entity = await dbContext.FindAsync<Partner>(key);
             entity.SetApiCredentials(model.ApiCredentials.Select(kv => new ApiCredential(kv.Key, kv.Value)));

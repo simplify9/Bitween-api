@@ -2,9 +2,12 @@
 
 
 <CreateForm Title="Document" TModel="DocumentCreate" ApiUrl="documents" ReturnUrl="documents">
-    <Field Name="@nameof(DocumentCreate.Id)" />
-    <Field Name="@nameof(DocumentCreate.Name)" />
-
+    <FormRow >
+        <Field Name="@nameof(DocumentCreate.Id)" Text="Document Id"  />
+    </FormRow>
+    <FormRow >
+        <Field Name="@nameof(DocumentCreate.Name)" />
+    </FormRow>
 </CreateForm>
 
 @code {

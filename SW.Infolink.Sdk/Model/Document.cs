@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace SW.Infolink.Model
 {
 
-    public class DocumentCreate 
+    public class DocumentCreate : IName
     {
         public int Id { get; set; }
         public string Name { get; set; }

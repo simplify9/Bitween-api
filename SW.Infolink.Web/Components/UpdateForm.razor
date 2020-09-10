@@ -3,10 +3,19 @@
 @inject InfolinkClient infolinkClient
 @inject NotifyService notifyService
 
-<h3>Edit @Title</h3>
 
 <Ready Value="model">
     <IsReady>
+
+        @if (model is IName modelName)
+        {
+            <h3>@modelName.Name</h3>
+        }
+        else
+        {
+            <h3>Edit @Title</h3>
+        }
+
         <div class="row">
             <div class="col-xl-7 mt-4 mb-2">
                 <BusyButton class="btn btn-primary" OnClick="OnSave">

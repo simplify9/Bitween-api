@@ -6,14 +6,19 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Model
 {
-    public class PartnerRow : PartnerConfig
+
+    public class PartnerCreate  : IName
+    {
+        public string Name { get; set; }
+
+    }
+    public class PartnerRow : PartnerUpdate
     {
         public int Id { get; set; }
     }
 
-    public class PartnerConfig
+    public class PartnerUpdate : PartnerCreate
     {
-        public string Name { get; set; }
         public ICollection<KeyAndValue> ApiCredentials { get; set; }
         public ICollection<SubscriptionSearch> Subscriptions { get; set; }
     }
