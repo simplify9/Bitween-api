@@ -127,8 +127,8 @@
                 </FormRow>
                 <FormRow>
                     <Subform Name="@nameof(SubscriptionUpdate.AggregationSchedules)">
-                        <Columns>
-                            <Field Text="Action">
+                        <Columns  >
+                            <Field  Text="Action">
                                 <ColumnHeader Context="fieldContext">
                                     Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
                                 </ColumnHeader>
@@ -146,8 +146,8 @@
                             </Field>
 
                         </Columns>
-                        <Form>
-                            <ScheduleForm />
+                        <Form >
+                            <ScheduleForm  />
                         </Form>
                     </Subform>
                 </FormRow>
