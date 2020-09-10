@@ -126,13 +126,12 @@ namespace SW.Infolink
 
         async Task IConsume<XchangeCreatedEvent>.Process(XchangeCreatedEvent message)
         {
-
             Xchange responseXchange = null;
             XchangeFile outputFile = null;
             XchangeFile responseFile = null;
 
             var xchange = await dbContext.FindAsync<Xchange>(message.Id);
-            if (xchange == null) throw new InfolinkException($"Could not find xchnage id: {message.Id}");
+            if (xchange == null) throw new InfolinkException($"Xchange '{message.Id}' not found.");
 
             try
             {
@@ -156,7 +155,7 @@ namespace SW.Infolink
                 {
                     var result = filterService.Filter(xchange.DocumentId, inputFile);
 
-                    dbContext.Add(new XchangePromotedProperties(xchange.Id, result.Properties));
+                    dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 
                     foreach (var subscriptionId in result.Hits)
                     {

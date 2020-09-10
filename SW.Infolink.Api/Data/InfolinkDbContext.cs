@@ -106,6 +106,7 @@ namespace SW.Infolink
             {
                 b.ToTable("Xchanges");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.RetryFor).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.References).IsSeparatorDelimited().HasMaxLength(1024);
                 b.Property(p => p.InputHash).IsRequired().IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.InputName).HasMaxLength(200);
@@ -153,6 +154,8 @@ namespace SW.Infolink
                 b.ToTable("XchangePromotedProperties");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.Properties).StoreAsJson();
+                b.Property(p => p.Hits).IsSeparatorDelimited().IsUnicode(false).HasMaxLength(2000);
+
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 

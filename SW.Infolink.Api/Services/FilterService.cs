@@ -24,13 +24,12 @@ namespace SW.Infolink
         readonly IDictionary<int, DocumentFilter> documentFilterDictionary = new Dictionary<int, DocumentFilter>();
 
 
-        DateTime documentFilterPreparedOn;
+        DateTime? documentFilterPreparedOn;
 
         public FilterService(IServiceScopeFactory ssf, ILogger<FilterService> logger)
         {
             this.ssf = ssf;
             this.logger = logger;
-            documentFilterPreparedOn = DateTime.MinValue;
         }
 
         void Prepare()
@@ -105,7 +104,7 @@ namespace SW.Infolink
             documentFilterLock.EnterWriteLock();
             try
             {
-                if (DateTime.UtcNow.Subtract(documentFilterPreparedOn).TotalMinutes > 10)
+                if (documentFilterPreparedOn == null || DateTime.UtcNow.Subtract(documentFilterPreparedOn.Value).TotalMinutes > 10)
                 {
                     logger.LogDebug("Prepare()");
                     Prepare();
@@ -121,12 +120,10 @@ namespace SW.Infolink
             try
             {
                 if (!documentFilterDictionary.TryGetValue(documentId, out var documentFilter))
-                    throw new InfolinkException($"Document number {documentId} not found");
+                    throw new InfolinkException($"Document {documentId} not found.");
 
                 if (documentFilter.Properties.Count == 0)
-                {
                     return documentFilter.SubscriptionsWithNoPropertyFilter;
-                }
 
                 JToken doc = JObject.Parse(xchangeFile.Data);
                 var filterResult = new FilterResult();

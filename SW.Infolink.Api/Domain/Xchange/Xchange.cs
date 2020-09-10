@@ -11,6 +11,8 @@ namespace SW.Infolink.Domain
         {
         }
 
+
+
         public Xchange(int documentId, XchangeFile file, string[] references = null)
         {
             Id = Guid.NewGuid().ToString("N"); 
@@ -36,6 +38,17 @@ namespace SW.Infolink.Domain
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
         }
 
+        public Xchange(Xchange xchange, XchangeFile file) : this(xchange.DocumentId, file, xchange.References)
+        {
+            SubscriptionId = xchange.SubscriptionId;
+            MapperId = xchange.MapperId;
+            HandlerId = xchange.HandlerId;
+            MapperProperties = xchange.MapperProperties;
+            HandlerProperties = xchange.HandlerProperties;
+            ResponseSubscriptionId = xchange.ResponseSubscriptionId;
+            RetryFor = xchange.Id;
+        }
+
         public int? SubscriptionId { get; private set; }
         public int DocumentId { get; private set; }
         public string HandlerId { get; private set; }
@@ -48,5 +61,7 @@ namespace SW.Infolink.Domain
         public int InputSize { get; private set; }
         public string InputHash { get; private set; }
         public int? ResponseSubscriptionId { get; private set; }
+        public string RetryFor { get; private set; }
+
     }
 }
