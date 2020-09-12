@@ -2,6 +2,7 @@
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -20,8 +21,7 @@ namespace SW.Infolink.Resources.Documents
         async public Task<object> Handle(int key, bool lookup = false)
         {
             var document = await dbContext.FindAsync<Document>(key);
-
-            return document.PromotedProperties;
+            return document.PromotedProperties.ToDictionary(k => k.Key, v => v.Key);
         }
     }
 

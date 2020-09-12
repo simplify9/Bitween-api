@@ -95,7 +95,7 @@
                         </Form>
                     </Subform>
                 </FormRow>
-                <label>Next Receive On</label>
+                <label>Next Receive On (UTC)</label>
                 <div class="input-group mb-3">
                     <Field Name="@nameof(SubscriptionUpdate.ReceiveOn)"
                            ReadOnly="true"
@@ -164,7 +164,7 @@
                     </Subform>
                 </FormRow>
 
-                <label>Next Aggregation On</label>
+                <label>Next Aggregation On (UTC)</label>
                 <div class="input-group mb-3">
                     <Field Name="@nameof(SubscriptionUpdate.AggregateOn)"
                            ReadOnly="true"
@@ -221,11 +221,13 @@
                             <FormRow>
                                 <Field Name="@nameof(KeyAndValue.Key)"
                                        Lookup="@Lookup.FromSearchy($"documents/{context.DocumentId}/properties")"
-                                       Text="Document Property Name" />
+                                       Text="Document Property Name"  />
                             </FormRow>
+
                             <FormRow>
                                 <Field Name="@nameof(KeyAndValue.Value)"
-                                       Text="Filter for Value" />
+                                       Text="Filter (comma separated values)" 
+                                       InputType="InputType.Multiline" />
                             </FormRow>
                         </Form>
                     </Subform>
@@ -368,7 +370,7 @@
 
     async Task OnStartAggregate(IBusyButton busyButton)
     {
-        var apiResult = await infolinkClient.Update($"subscriptions/{Id}/aggregate", new SubscriptionAggregateNow());
+        var apiResult = await infolinkClient.Update($"subscriptions/{Id}/aggregatenow", new SubscriptionAggregateNow());
         await notifyService.NotifyOnApiResult(apiResult);
 
         await busyButton.SetBusy(false);

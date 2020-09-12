@@ -57,7 +57,6 @@ namespace SW.Infolink
                 {
                     try
                     {
-                        //logger.LogInformation($"Starting to receive for subscriber: '{rec.Id}', adapter: '{rec.ReceiverId}'.");
                         var startupParameters = rec.ReceiverProperties.ToDictionary();
                         await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
                         rec.SetReceiveSchedules();
