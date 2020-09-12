@@ -24,4 +24,8 @@
     <ProjectReference Include="..\SW.Infolink.Sdk\SW.Infolink.Sdk.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Resources\Inbox\" />
+  </ItemGroup>
+
 </Project>

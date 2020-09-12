@@ -18,9 +18,7 @@ namespace SW.Infolink.Model
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
-        //public IDictionary<string, string> PromotedProperties { get; set; }
         public ICollection<KeyAndValue> PromotedProperties { get; set; }
-
     }
 
     public class DocumentRow : DocumentUpdate

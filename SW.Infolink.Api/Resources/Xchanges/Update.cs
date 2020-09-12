@@ -42,7 +42,7 @@ namespace SW.Infolink.Resources.Xchanges
                 return null;
             }
 
-            var subscriptionQuery = from subscription in dbContext.Set<Subscription>() 
+            var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
                                     where subscription.DocumentId == document.Id && subscription.PartnerId == par.Id
                                     select subscription;
 
@@ -63,11 +63,18 @@ namespace SW.Infolink.Resources.Xchanges
                 await Task.Delay(TimeSpan.FromSeconds(waitResponse));
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
                 if (xchangeResult != null && xchangeResult.ResponseSize != 0)
-                    return await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                {
+                    var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                    var responseWithHeaders = new ResultWithHeaders<string>(response);
+                    responseWithHeaders.AddHeader("location", xchangeId);
+                    return responseWithHeaders;
+                }
             }
 
-
-            return null;
+            return new XchangeUnderProcessing
+            {
+                Uri = xchangeId
+            };
         }
     }
 }

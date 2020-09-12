@@ -1,7 +1,6 @@
-﻿using SW.Infolink;
+﻿using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace SW.Infolink.Model
 {
@@ -10,6 +9,19 @@ namespace SW.Infolink.Model
         Input,
         Output,
         Response
+    }
+
+    public class XchangeGetResultResponse
+    {
+        public bool Success { get; set; }
+        public string InputUri { get; set; }
+        public string OutputUri { get; set; }
+        public string ResponseUri { get; set; }
+    }
+
+    public class XchangeUnderProcessing : IUnderProcessing
+    {
+        public string Uri { get; set; }
     }
 
     public class XchangeRow
@@ -28,7 +40,6 @@ namespace SW.Infolink.Model
         public DateTime? DeliveredOn { get; set; }
         public DateTime? FinishedOn { get; set; }
         public DateTime? AggregatedOn { get; set; }
-
         public DateTime StartedOn { get; set; }
         public string InputFileName { get; set; }
         public int InputFileSize { get; set; }
@@ -37,8 +48,5 @@ namespace SW.Infolink.Model
         public string OutputUrl { get; set; }
         public string ResponseUrl { get; set; }
         public string Duration { get; set; }
-
-
     }
-
 }

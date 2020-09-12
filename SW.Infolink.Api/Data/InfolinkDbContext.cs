@@ -165,10 +165,9 @@ namespace SW.Infolink
         {
             //try
             //{
-            using var transaction = Database.BeginTransaction();
+            using var transaction = await Database.BeginTransactionAsync();
             var affectedRecords = await base.SaveChangesAsync(cancellationToken);
             await ChangeTracker.PublishDomainEvents(publish);
-
             await transaction.CommitAsync();
             return affectedRecords;
             //}

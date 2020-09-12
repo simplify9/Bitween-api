@@ -1,5 +1,4 @@
-﻿using SW.Infolink.Api;
-using SW.PrimitiveTypes;
+﻿using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
 
@@ -10,8 +9,6 @@ namespace SW.Infolink.Domain
         private Xchange()
         {
         }
-
-
 
         public Xchange(int documentId, XchangeFile file, string[] references = null)
         {
@@ -38,6 +35,7 @@ namespace SW.Infolink.Domain
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
         }
 
+        //retry xchange
         public Xchange(Xchange xchange, XchangeFile file) : this(xchange.DocumentId, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;

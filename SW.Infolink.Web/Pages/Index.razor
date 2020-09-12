@@ -7,14 +7,18 @@
 <Search PageSize="20" 
         SearchUrl="xchanges" 
         TModel="XchangeRow" 
-        Height="500px" Width="max-content">
+        Width="max-content">
 
     <Commands>
         <a href="submit">New exchange</a>
     </Commands>
 
     <Columns>
-        <Field Name="@nameof(XchangeRow.Id)"></Field>
+        <Field Text="Id">
+            <ColumnValue Context="fieldContext">
+                @(((XchangeRow)fieldContext.Model).Id.Remove(4))
+            </ColumnValue>
+        </Field>
 
         <Field Name="@nameof(XchangeRow.DocumentName)"
                Text="Document" />
@@ -22,23 +26,18 @@
         <Field Name="@nameof(XchangeRow.SubscriptionName)"
                Text="Subscription" />
 
-        <Field Text="Started">
+        <Field Text="On">
             <ColumnValue Context="fieldContext">
-                @(((XchangeRow)fieldContext.Model).StartedOn.Humanize())
+                @($"{((XchangeRow)fieldContext.Model).StartedOn.Humanize()} ({((XchangeRow)fieldContext.Model).Duration})")
             </ColumnValue>
         </Field>
-        <Field Text="Duration">
-            <ColumnValue Context="fieldContext">
-                @(((XchangeRow)fieldContext.Model).Duration)
-            </ColumnValue>
-        </Field>
-        <Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Delivered">
+        <Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Dlv">
             <ColumnValue Context="fieldContext">
                 @(((XchangeRow)fieldContext.Model).DeliveredOn.Humanize())
             </ColumnValue>
         </Field>
 
-        <Field Name="@nameof(XchangeRow.AggregatedOn)" Text="Aggregated">
+        <Field Name="@nameof(XchangeRow.AggregatedOn)" Text="Agg">
             <ColumnValue Context="fieldContext">
                 @(((XchangeRow)fieldContext.Model).AggregatedOn.Humanize())
             </ColumnValue>
