@@ -4,6 +4,14 @@ using System.Collections.Generic;
 
 namespace SW.Infolink.Model
 {
+
+    //public enum XchangeStatus
+    //{
+    //    Running,
+    //    Failed,
+    //    Succeded
+    //}
+
     public enum XchangeFileType
     {
         Input,
@@ -34,7 +42,7 @@ namespace SW.Infolink.Model
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
         public IEnumerable<string> References { get; set; }
-        public bool Status { get; set; }
+        public bool? Status { get; set; }
         public string StatusString { get; set; }
         public string Exception { get; set; }
         public DateTime? DeliveredOn { get; set; }

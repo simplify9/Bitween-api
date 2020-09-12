@@ -31,9 +31,12 @@ namespace SW.Infolink.Resources.Xchanges
                         from delivery in xd.DefaultIfEmpty()
                         join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
                         from agg in xa.DefaultIfEmpty()
+                        join promoted in dbContext.Set<XchangePromotedProperties>() on xchange.Id equals promoted.Id into xp
+                        from promoted in xp.DefaultIfEmpty()
                         join document in dbContext.Set<Document>() on xchange.DocumentId equals document.Id
                         join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id into xs
                         from subscriber in xs.DefaultIfEmpty()
+
                         select new XchangeRow
                         {
                             Id = xchange.Id,
@@ -47,9 +50,9 @@ namespace SW.Infolink.Resources.Xchanges
                             SubscriptionId = xchange.SubscriptionId,
                             SubscriptionName = subscriber.Name,
                             Status = result.Success,
-                            InputUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Input),
-                            OutputUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Output),
-                            ResponseUrl = xchangeService.GetFileUrl(xchange.Id, XchangeFileType.Response),
+                            InputUrl = xchangeService.GetFileUrl(xchange.Id, xchange.InputSize, XchangeFileType.Input),
+                            OutputUrl = xchangeService.GetFileUrl(xchange.Id, result.OutputSize, XchangeFileType.Output),
+                            ResponseUrl = xchangeService.GetFileUrl(xchange.Id, result.ResponseSize, XchangeFileType.Response),
                             Duration = xchange.StartedOn.Elapsed(result.FinishedOn)
                             //Exception = xchange.Exception
                         };

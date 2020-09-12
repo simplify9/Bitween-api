@@ -112,6 +112,13 @@ namespace SW.Infolink
             return cloudFiles.GetUrl(GetFileKey(xchangeId, type));
         }
 
+        public string GetFileUrl(string xchangeId, int fileSize, XchangeFileType type)
+        {
+            if (fileSize == 0)
+                return null;
+            return cloudFiles.GetUrl(GetFileKey(xchangeId, type));
+        }
+
         public string GetFileKey(string xchangeId, XchangeFileType type)
         {
             return $"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";

@@ -4,9 +4,9 @@
 
 <h3>Dashboard</h3>
 
-<Search PageSize="20" 
-        SearchUrl="xchanges" 
-        TModel="XchangeRow" 
+<Search PageSize="20"
+        SearchUrl="xchanges"
+        TModel="XchangeRow"
         Width="max-content">
 
     <Commands>
@@ -14,48 +14,78 @@
     </Commands>
 
     <Columns>
-        <Field Text="Id">
-            <ColumnValue Context="fieldContext">
-                @(((XchangeRow)fieldContext.Model).Id.Remove(4))
+        <Field Text="Xchange">
+            <ColumnValue>
+                <span class="badge badge-light">@(((XchangeRow)context.Model).DocumentName)</span>
+                @if (((XchangeRow)context.Model).SubscriptionName != null)
+                {
+                    <span class="badge badge-light">@(((XchangeRow)context.Model).SubscriptionName)</span>
+                }
+
+
             </ColumnValue>
         </Field>
 
-        <Field Name="@nameof(XchangeRow.DocumentName)"
-               Text="Document" />
-
-        <Field Name="@nameof(XchangeRow.SubscriptionName)"
-               Text="Subscription" />
-
-        <Field Text="On">
-            <ColumnValue Context="fieldContext">
-                @($"{((XchangeRow)fieldContext.Model).StartedOn.Humanize()} ({((XchangeRow)fieldContext.Model).Duration})")
-            </ColumnValue>
-        </Field>
-        <Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Dlv">
+        @*<Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Dlv">
             <ColumnValue Context="fieldContext">
                 @(((XchangeRow)fieldContext.Model).DeliveredOn.Humanize())
             </ColumnValue>
-        </Field>
+        </Field>*@
 
-        <Field Name="@nameof(XchangeRow.AggregatedOn)" Text="Agg">
-            <ColumnValue Context="fieldContext">
-                @(((XchangeRow)fieldContext.Model).AggregatedOn.Humanize())
+        <Field Text="Status">
+            <ColumnValue>
+                @if (((XchangeRow)context.Model).Status == null)
+                {
+                    <span class="badge badge-warning">Running</span>
+                    <span class="badge badge-secondary">
+                        @(((XchangeRow)context.Model).StartedOn.Humanize())
+                    </span>
+                }
+                else if (((XchangeRow)context.Model).Status.Value)
+                {
+                    <span class="badge badge-success">Ok</span>
+                    @if (((XchangeRow)context.Model).AggregatedOn != null)
+                    {
+                        <span class="badge badge-success">Aggregated</span>
+                    }
+                    <span class="badge badge-secondary">
+                        @(((XchangeRow)context.Model).StartedOn.Humanize())
+                    </span> <span class="badge badge-secondary">@(((XchangeRow)context.Model).Duration)</span>
+                }
+                else
+                {
+                    <span class="badge badge-danger">Fail</span>
+                    <span class="badge badge-secondary">
+                        @(((XchangeRow)context.Model).StartedOn.Humanize())
+                    </span>
+                    <span class="badge badge-secondary">@(((XchangeRow)context.Model).Duration)</span>
+                }
+
             </ColumnValue>
         </Field>
 
-        <Field Name="@nameof(XchangeRow.Status)" />
+
 
         <Field Text="Files">
-            <ColumnValue Context="fieldContext">
-                <a target="_blank" href="@(((XchangeRow)fieldContext.Model).InputUrl)">
-                    <span class="oi oi-account-login" aria-hidden="true"></span>
-                </a>
-                <a target="_blank" href="@(((XchangeRow)fieldContext.Model).OutputUrl)">
-                    <span class="oi oi-account-logout" aria-hidden="true"></span>
-                </a>
-                <a target="_blank" href="@(((XchangeRow)fieldContext.Model).ResponseUrl)">
-                    <span class="oi oi-envelope-closed" aria-hidden="true"></span>
-                </a>
+            <ColumnValue>
+                @if (((XchangeRow)context.Model).InputUrl != null)
+                {
+                    <a href="@(((XchangeRow)context.Model).InputUrl)" target="_blank" class="badge badge-info">Input</a>
+                }
+                @if (((XchangeRow)context.Model).OutputUrl != null)
+                {
+                    <a href="@(((XchangeRow)context.Model).OutputUrl)" target="_blank" class="badge badge-info">Output</a>
+                }
+                @if (((XchangeRow)context.Model).ResponseUrl != null)
+                {
+                    <a href="@(((XchangeRow)context.Model).ResponseUrl)" target="_blank" class="badge badge-info">Response</a>
+                }
+
+            </ColumnValue>
+        </Field>
+        <Field Text="References">
+            <ColumnValue>
+                <span class="badge badge-light">id: @(((XchangeRow)context.Model).Id)</span>
             </ColumnValue>
         </Field>
     </Columns>
