@@ -14,22 +14,24 @@ namespace SW.Infolink.Domain
 
         //receiving
         public Subscription(string name, int documentId) : this(name, documentId, SubscriptionType.Receiving)
-        { 
+        {
+            Inactive = true;
         }
 
         //aggregation
         public Subscription(string name, int aggregationFor, int partnerId) : this(name, Document.AggregationDocumentId, SubscriptionType.Aggregation, partnerId, aggregationFor)
         {
+            Inactive = true;
         }
 
         //apiresult or filter
         public Subscription(string name, int documentId, SubscriptionType type, int partnerId) : this(name, documentId, type, partnerId, null)
         {
-            if (!(type == SubscriptionType.ApiCall || type == SubscriptionType.FilterResult))
+            if (!(type == SubscriptionType.ApiCall || type == SubscriptionType.Internal))
                 throw new ArgumentException();
         }
 
-        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null, int? aggregationForId =null,  bool temporary = false)
+        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null, int? aggregationForId = null, bool temporary = false)
         {
             AggregationForId = aggregationForId;
             PartnerId = partnerId;
@@ -82,7 +84,7 @@ namespace SW.Infolink.Domain
         public bool Inactive { get; set; }
         public int? ResponseSubscriptionId { get; set; }
         public int? AggregationForId { get; private set; }
-        public XchangeFileType AggregationTarget { get;  set; }
+        public XchangeFileType AggregationTarget { get; set; }
 
         readonly HashSet<Schedule> _AggregationSchedules;
         public IReadOnlyCollection<Schedule> AggregationSchedules => _AggregationSchedules;
@@ -95,10 +97,13 @@ namespace SW.Infolink.Domain
                 AggregateOn = _AggregationSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
             }
         }
+        public void SetAggregateNow()
+        {
+            AggregateOn = DateTime.UtcNow.AddMinutes(-1);
+        }
 
 
         public string ReceiverId { get; set; }
-
 
         readonly HashSet<Schedule> _ReceiveSchedules;
         public IReadOnlyCollection<Schedule> ReceiveSchedules => _ReceiveSchedules;
@@ -110,6 +115,10 @@ namespace SW.Infolink.Domain
                 if (schedules != null) _ReceiveSchedules.Update(schedules);
                 ReceiveOn = _ReceiveSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
             }
+        }
+        public void SetReceiveNow()
+        {
+            ReceiveOn = DateTime.UtcNow.AddMinutes(-1);
         }
 
         public void SetHealth(string exception = null)

@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using SW.Infolink.Model;
 
-namespace SW.Infolink.Api.Resources.Subscriptions
+namespace SW.Infolink.Resources.Subscriptions
 {
     class Get : IGetHandler<int>
     {

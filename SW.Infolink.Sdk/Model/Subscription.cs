@@ -7,10 +7,20 @@ namespace SW.Infolink.Model
     public enum SubscriptionType
     {
         Unknown = 0,
-        FilterResult = 1,
+        Internal = 1,
         ApiCall = 2,
         Receiving = 4,
         Aggregation = 8
+    }
+
+    public class SubscriptionReceiveNow
+    { 
+    
+    }
+
+    public class SubscriptionAggregateNow
+    {
+
     }
 
     public class SubscriptionCreate : IName

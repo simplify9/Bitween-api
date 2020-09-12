@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Resources.Subscriptions
+namespace SW.Infolink.Resources.Subscriptions
 {
     class Update : ICommandHandler<int, SubscriptionUpdate>
     {
@@ -98,7 +98,6 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                 {
                     RuleFor(i => i.AggregationSchedules).NotEmpty();
                     RuleFor(i => i.AggregationForId).NotEmpty();
-
                 });
             }
         }

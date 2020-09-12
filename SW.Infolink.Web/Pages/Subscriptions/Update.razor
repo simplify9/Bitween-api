@@ -1,4 +1,6 @@
 ﻿@page "/subscriptions/{Id:int}"
+@inject InfolinkClient infolinkClient
+@inject NotifyService notifyService
 
 <UpdateForm Title="Subscription" TModel="SubscriptionUpdate" ApiUrl="subscriptions" ReturnUrl="subscriptions" Id="Id" StayAfterSave="true">
     <Tabs>
@@ -93,16 +95,26 @@
                         </Form>
                     </Subform>
                 </FormRow>
-                <FormRow>
+                <label>Next Receive On</label>
+                <div class="input-group mb-3">
                     <Field Name="@nameof(SubscriptionUpdate.ReceiveOn)"
                            ReadOnly="true"
-                           Text="Next Receive On" />
-                </FormRow>
+                           Text="" />
+                    <div class="input-group-append">
+                        <BusyButton class="btn btn-outline-secondary" OnClick="OnStartReceive">
+                            <Title>
+                                Start soonest
+                            </Title>
+                        </BusyButton>
+                    </div>
+                </div>
+
                 <FormRow>
                     <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
                            ReadOnly="true"
                            Text="Consecutive Failures" />
                 </FormRow>
+
                 <FormRow>
                     <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
                            ReadOnly="true"
@@ -151,11 +163,21 @@
                         </Form>
                     </Subform>
                 </FormRow>
-                <FormRow>
+
+                <label>Next Aggregation On</label>
+                <div class="input-group mb-3">
                     <Field Name="@nameof(SubscriptionUpdate.AggregateOn)"
                            ReadOnly="true"
-                           Text="Next Aggregation On" />
-                </FormRow>
+                           Text="" />
+                    <div class="input-group-append">
+                        <BusyButton class="btn btn-outline-secondary" OnClick="OnStartAggregate">
+                            <Title>
+                                Start soonest
+                            </Title>
+                        </BusyButton>
+                    </div>
+                </div>
+
                 <FormRow>
                     <Field Name="@nameof(SubscriptionUpdate.ConsecutiveFailures)"
                            ReadOnly="true"
@@ -171,7 +193,7 @@
             </Tab>
         }
 
-        @if (context.Type == SubscriptionType.FilterResult)
+        @if (context.Type == SubscriptionType.Internal)
         {
             <Tab Title="Filter">
                 <FormRow>
@@ -322,7 +344,7 @@
                 </FormRow>
                 <FormRow>
                     <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)"
-                           Lookup="@Lookup.FromSearchy("subscriptions")"
+                           Lookup="@Lookup.From("subscriptions?lookup=true&filter=Type:1:1")"
                            Text="Response Subscription"
                            Placeholder="None" />
                 </FormRow>
@@ -335,5 +357,21 @@
 
     [Parameter]
     public int Id { get; set; }
+
+    async Task OnStartReceive(IBusyButton busyButton)
+    {
+        var apiResult = await infolinkClient.Update($"subscriptions/{Id}/receivenow", new SubscriptionReceiveNow());
+        await notifyService.NotifyOnApiResult(apiResult);
+
+        await busyButton.SetBusy(false);
+    }
+
+    async Task OnStartAggregate(IBusyButton busyButton)
+    {
+        var apiResult = await infolinkClient.Update($"subscriptions/{Id}/aggregate", new SubscriptionAggregateNow());
+        await notifyService.NotifyOnApiResult(apiResult);
+
+        await busyButton.SetBusy(false);
+    }
 
 }

@@ -4,7 +4,7 @@ using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
 
-namespace SW.Infolink.Api.Resources.Subscriptions
+namespace SW.Infolink.Resources.Subscriptions
 {
     class Create : ICommandHandler<SubscriptionCreate>
     {
@@ -28,7 +28,7 @@ namespace SW.Infolink.Api.Resources.Subscriptions
                     entity = new Subscription(model.Name, model.AggregationForId.Value, model.PartnerId.Value);
                     break;
                 case SubscriptionType.ApiCall:
-                case SubscriptionType.FilterResult:
+                case SubscriptionType.Internal:
                     entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId.Value);
                     break;
                 default:
