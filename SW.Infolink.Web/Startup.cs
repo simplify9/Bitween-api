@@ -57,7 +57,10 @@ namespace SW.Infolink.Web
 
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
             services.AddCloudFiles();
-            services.AddServerless();
+            services.AddServerless(configure => 
+            {
+                configure.CommandTimeout = 300;
+            });
             services.AddScoped<RequestContext>();
 
             services.AddDbContext<InfolinkDbContext>(c =>
