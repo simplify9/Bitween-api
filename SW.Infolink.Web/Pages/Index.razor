@@ -27,10 +27,10 @@
         </Field>
 
         @*<Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Dlv">
-            <ColumnValue Context="fieldContext">
-                @(((XchangeRow)fieldContext.Model).DeliveredOn.Humanize())
-            </ColumnValue>
-        </Field>*@
+                <ColumnValue Context="fieldContext">
+                    @(((XchangeRow)fieldContext.Model).DeliveredOn.Humanize())
+                </ColumnValue>
+            </Field>*@
 
         <Field Text="Status">
             <ColumnValue>
@@ -85,7 +85,14 @@
         </Field>
         <Field Text="References">
             <ColumnValue>
-                <span class="badge badge-light">id: @(((XchangeRow)context.Model).Id)</span>
+                <span class="badge badge-light">id:@(((XchangeRow)context.Model).Id)</span>
+                @if (((XchangeRow)context.Model).PromotedProperties != null)
+                {
+                    foreach (var kvp in ((XchangeRow)context.Model).PromotedProperties)
+                    {
+                        <span class="badge badge-light">p:@kvp.Key:@kvp.Value</span>
+                    }
+                }
             </ColumnValue>
         </Field>
     </Columns>

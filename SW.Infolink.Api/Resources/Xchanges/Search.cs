@@ -53,8 +53,10 @@ namespace SW.Infolink.Resources.Xchanges
                             InputUrl = xchangeService.GetFileUrl(xchange.Id, xchange.InputSize, XchangeFileType.Input),
                             OutputUrl = xchangeService.GetFileUrl(xchange.Id, result.OutputSize, XchangeFileType.Output),
                             ResponseUrl = xchangeService.GetFileUrl(xchange.Id, result.ResponseSize, XchangeFileType.Response),
-                            Duration = xchange.StartedOn.Elapsed(result.FinishedOn)
-                            //Exception = xchange.Exception
+                            Duration = xchange.StartedOn.Elapsed(result.FinishedOn),
+                            PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary()
+
+
                         };
 
             var searchyResponse = new SearchyResponse<XchangeRow>

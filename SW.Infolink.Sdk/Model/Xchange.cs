@@ -19,6 +19,11 @@ namespace SW.Infolink.Model
         Response
     }
 
+    public class XchangeRetry
+    {
+        public string Reason { get; set; }
+    }
+
     public class XchangeGetResultResponse
     {
         public bool Success { get; set; }
@@ -56,5 +61,6 @@ namespace SW.Infolink.Model
         public string OutputUrl { get; set; }
         public string ResponseUrl { get; set; }
         public string Duration { get; set; }
+        public IDictionary<string, string> PromotedProperties { get; set; }
     }
 }

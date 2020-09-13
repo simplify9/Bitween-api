@@ -13,7 +13,8 @@ using SW.Infolink.Model;
 namespace SW.Infolink.Resources.Xchanges
 {
     [HandlerName("retry")]
-    class Retry : ICommandHandler<object>
+    [Unprotect]
+    class Retry : ICommandHandler<string, XchangeRetry>
     {
         private readonly InfolinkDbContext dbContext;
         private readonly XchangeService xchangeService;
@@ -24,12 +25,14 @@ namespace SW.Infolink.Resources.Xchanges
             this.xchangeService = xchangeService;
         }
 
-
-
-        public async Task<object> Handle(object obj)
+        public async Task<object> Handle(string key, XchangeRetry xchangeRetry)
         {
+            var xchange = await dbContext.FindAsync<Xchange>(key);
+            var inputFileData = await xchangeService.GetFile(xchange.Id, XchangeFileType.Input);
+            var xchangeFile = new XchangeFile(inputFileData, xchange.InputName);
+            await xchangeService.CreateXchange(xchange, xchangeFile);
+            await dbContext.SaveChangesAsync();
             
-            //await XchangeService.Retry(key);
             return null;
         }
     }
