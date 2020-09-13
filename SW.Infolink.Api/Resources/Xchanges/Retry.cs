@@ -1,14 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using SW.Infolink.Domain;
+﻿using System.Threading.Tasks;
 using SW.PrimitiveTypes;
-using SW.EfCoreExtensions;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
-using System.Text;
-using System.Threading.Tasks;
 using SW.Infolink.Model;
+using SW.Infolink.Domain;
 
 namespace SW.Infolink.Resources.Xchanges
 {

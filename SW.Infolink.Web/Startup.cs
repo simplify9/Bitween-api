@@ -95,6 +95,7 @@ namespace SW.Infolink.Web
                 //config.BlobsUri = new Uri(Configuration["BlobsUrl"]);
                 config.DefaultApiClientFactory = sp => sp.GetService<InfolinkClient>();
             });
+            services.AddJwtTokenParameters();
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>
