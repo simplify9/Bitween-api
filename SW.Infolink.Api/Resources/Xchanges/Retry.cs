@@ -13,7 +13,6 @@ using SW.Infolink.Model;
 namespace SW.Infolink.Resources.Xchanges
 {
     [HandlerName("retry")]
-    [Unprotect]
     class Retry : ICommandHandler<string, XchangeRetry>
     {
         private readonly InfolinkDbContext dbContext;
