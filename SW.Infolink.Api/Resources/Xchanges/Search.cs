@@ -56,7 +56,8 @@ namespace SW.Infolink.Resources.Xchanges
                             Duration = xchange.StartedOn.Elapsed(result.FinishedOn),
                             PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary(),
                             RetryFor = xchange.RetryFor,
-                            AggregationXchangeId = agg.AggregationXchangeId
+                            AggregationXchangeId = agg.AggregationXchangeId,
+                            Exception = result.Exception 
                             
 
                         };

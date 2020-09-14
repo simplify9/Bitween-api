@@ -1,6 +1,8 @@
 ﻿@page "/"
 @inject NavigationManager navigationManager
+@inject InfolinkClient infolinkClient
 @inject ScopedState state
+@inject NotifyService notifyService
 
 @using Humanizer
 
@@ -17,7 +19,7 @@
 
     <Filters>
         <Field Name="Id" />
-        <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")"  />
+        <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")" />
         <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")" />
         <Field Name="SubscriptionId" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")" />
     </Filters>
@@ -63,11 +65,32 @@
                 }
                 else
                 {
-                    <span class="badge badge-danger">Fail</span>
+                    <a href="JavaScript:void(0);" @onclick="() => FailMessageClick(((XchangeRow)context.Model).Id)" class="badge badge-danger">Fail</a>
                     <span class="badge badge-secondary">
                         @(((XchangeRow)context.Model).StartedOn.Humanize())
                     </span>
                     <span class="badge badge-secondary">@(((XchangeRow)context.Model).Duration)</span>
+                }
+
+                @if (showFailMessageForId == ((XchangeRow)context.Model).Id)
+                {
+                    <Modal Title="Exception" OnClose="() => FailMessageClick(null)">
+                        <Body>
+                            <textarea class="form-control" rows="20" disabled="disabled">
+                                @(((XchangeRow)context.Model).Exception)
+                            </textarea>
+                        </Body>
+                        <Footer>
+                            <BusyButton class="btn btn-primary" OnClick="bb => OnRetry( ((XchangeRow)context.Model).Id, bb)">
+                                <Title>
+                                    Retry
+                                </Title>
+                            </BusyButton>
+                            <button class="btn btn-secondary" @onclick="() => FailMessageClick(null)">
+                                Close
+                            </button>
+                        </Footer>
+                    </Modal>
                 }
 
             </ColumnValue>
@@ -114,6 +137,27 @@
 
 </Search>
 
+
+
 @code {
+
+    string showFailMessageForId;
+
+    void FailMessageClick(string id)
+    {
+        showFailMessageForId = id;
+    }
+
+    async Task OnRetry(string id, IBusyButton busyButton)
+    {
+        var apiResult = await infolinkClient.Update($"xchanges/{id}/retry", new XchangeRetry());
+        await notifyService.NotifyOnApiResult(apiResult);
+        //if (apiResult.Success)
+        //    navigationManager.NavigateTo(ReturnUrl);
+        await busyButton.SetBusy(false);
+        showFailMessageForId = null;
+    }
+
+
 
 }
