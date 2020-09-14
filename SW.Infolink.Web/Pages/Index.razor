@@ -1,5 +1,7 @@
 ﻿@page "/"
 @inject NavigationManager navigationManager
+@inject ScopedState state
+
 @using Humanizer
 
 <h3>Dashboard</h3>
@@ -7,11 +9,18 @@
 <Search PageSize="20"
         SearchUrl="xchanges"
         TModel="XchangeRow"
-        Width="max-content">
+        @bind-Value="state[navigationManager.Uri]">
 
     <Commands>
         <a href="submit">New exchange</a>
     </Commands>
+
+    <Filters>
+        <Field Name="Id" />
+        <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")"  />
+        <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")" />
+        <Field Name="SubscriptionId" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")" />
+    </Filters>
 
     <Columns>
         <Field Text="Xchange">
@@ -64,8 +73,6 @@
             </ColumnValue>
         </Field>
 
-
-
         <Field Text="Files">
             <ColumnValue>
                 @if (((XchangeRow)context.Model).InputUrl != null)
@@ -85,12 +92,20 @@
         </Field>
         <Field Text="References">
             <ColumnValue>
-                <span class="badge badge-light">id:@(((XchangeRow)context.Model).Id)</span>
+                <span class="badge badge-primary">id: @(((XchangeRow)context.Model).Id)</span>
+                @if (((XchangeRow)context.Model).RetryFor != null)
+                {
+                    <span class="badge badge-warning">retryfor: @(((XchangeRow)context.Model).RetryFor)</span>
+                }
+                @if (((XchangeRow)context.Model).AggregationXchangeId != null)
+                {
+                    <span class="badge badge-info">agg: @(((XchangeRow)context.Model).AggregationXchangeId)</span>
+                }
                 @if (((XchangeRow)context.Model).PromotedProperties != null)
                 {
                     foreach (var kvp in ((XchangeRow)context.Model).PromotedProperties)
                     {
-                        <span class="badge badge-light">p:@kvp.Key:@kvp.Value</span>
+                        <span class="badge badge-light">p: @kvp.Key:@kvp.Value</span>
                     }
                 }
             </ColumnValue>

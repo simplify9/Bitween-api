@@ -1,21 +1,22 @@
 ﻿@page "/documents"
 @inject NavigationManager navigationManager
+@inject ScopedState state
 
 <h3>Document Search</h3>
 
 <Search PageSize="10" SearchUrl="documents" TModel="DocumentRow" OnItem="@(item => navigationManager.NavigateTo($"documents/{item.Item.Id}"))"
-        Height="500px" Width="max-content">
+        @bind-Value="state[navigationManager.Uri]">
     <Commands>
         <a href="documents/create">New document</a>
     </Commands>
     <Columns>
-        <Field Name="Id" 
+        <Field Name="Id"
                Text="Document Id"></Field>
 
         <Field Name="@nameof(DocumentRow.Name)" />
 
         <Field Name="@nameof(DocumentRow.BusMessageTypeName)"
-               Text="Message Name"/>
+               Text="Message Name" />
 
     </Columns>
 </Search>

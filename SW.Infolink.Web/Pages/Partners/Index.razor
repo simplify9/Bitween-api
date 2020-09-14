@@ -1,10 +1,11 @@
 ﻿@page "/partners"
 @inject NavigationManager navigationManager
+@inject ScopedState state
 
 <h3>Partner Search</h3>
 
 <Search PageSize="10" SearchUrl="partners" TModel="PartnerRow" OnItem="@(item => navigationManager.NavigateTo($"partners/{item.Item.Id}"))"
-        Height="500px" Width="max-content">
+        @bind-Value="state[navigationManager.Uri]">
     <Commands>
         <a href="partners/create">New partner</a>
     </Commands>

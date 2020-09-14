@@ -54,10 +54,37 @@ namespace SW.Infolink.Resources.Xchanges
                             OutputUrl = xchangeService.GetFileUrl(xchange.Id, result.OutputSize, XchangeFileType.Output),
                             ResponseUrl = xchangeService.GetFileUrl(xchange.Id, result.ResponseSize, XchangeFileType.Response),
                             Duration = xchange.StartedOn.Elapsed(result.FinishedOn),
-                            PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary()
-
+                            PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary(),
+                            RetryFor = xchange.RetryFor,
+                            AggregationXchangeId = agg.AggregationXchangeId
+                            
 
                         };
+
+            var condition = searchyRequest.Conditions.FirstOrDefault();
+            if (condition != null)
+            {
+                var statusFilters = condition.Filters.Where(f => f.Field == "StatusFilter").ToList();
+                foreach (var statusFilter in statusFilters)
+                {
+                    switch (statusFilter.Value)
+                    {
+                        case "0":
+                            query = query.Where(i => i.Status == null);
+                            break;
+                        case "1":
+                            query = query.Where(i => i.Status == true);
+                            break;
+
+                        case "2":
+                            query = query.Where(i => i.Status == false);
+                            break;
+                    }
+
+                    condition.Filters.Remove(statusFilter);
+                }
+            }
+
 
             var searchyResponse = new SearchyResponse<XchangeRow>
             {

@@ -16,6 +16,7 @@ namespace SW.Infolink.SampleHandler
 
         public Task<XchangeFile> Handle(XchangeFile xchangeFile)
         {
+            //Runner.CorrelationId
             //Runner.st 
             return Task.FromResult(xchangeFile);
         }

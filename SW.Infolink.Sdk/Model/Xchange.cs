@@ -48,6 +48,7 @@ namespace SW.Infolink.Model
         public string MapperId { get; set; }
         public IEnumerable<string> References { get; set; }
         public bool? Status { get; set; }
+        public int StatusFilter { get; set; }
         public string StatusString { get; set; }
         public string Exception { get; set; }
         public DateTime? DeliveredOn { get; set; }
@@ -62,5 +63,8 @@ namespace SW.Infolink.Model
         public string ResponseUrl { get; set; }
         public string Duration { get; set; }
         public IDictionary<string, string> PromotedProperties { get; set; }
+        public string RetryFor { get;  set; }
+        public string AggregationXchangeId { get;  set; }
+
     }
 }
