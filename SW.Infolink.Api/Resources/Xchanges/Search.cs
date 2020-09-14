@@ -64,6 +64,23 @@ namespace SW.Infolink.Resources.Xchanges
             var condition = searchyRequest.Conditions.FirstOrDefault();
             if (condition != null)
             {
+                var idFilters = condition.Filters.Where(f => f.Field == "Id").ToList();
+                foreach (var idFilter in idFilters)
+                {
+                    var value = idFilter.Value.ToString();
+                    switch (idFilter.Rule)
+                    {
+                        case SearchyRule.EqualsTo:
+                            query = query.Where(i => i.Id == value || i.RetryFor == value || i.AggregationXchangeId == value);
+                            break;
+
+                        default:
+                            throw new SWException();
+                    }
+
+                    condition.Filters.Remove(idFilter);
+                }
+
                 var statusFilters = condition.Filters.Where(f => f.Field == "StatusFilter").ToList();
                 foreach (var statusFilter in statusFilters)
                 {
