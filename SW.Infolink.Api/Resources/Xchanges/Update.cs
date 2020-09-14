@@ -62,12 +62,28 @@ namespace SW.Infolink.Resources.Xchanges
             {
                 await Task.Delay(TimeSpan.FromSeconds(waitResponse));
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-                if (xchangeResult != null && xchangeResult.ResponseSize != 0)
+                if (xchangeResult != null )
                 {
-                    var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                    var responseWithHeaders = new ResultWithHeaders<string>(response);
-                    responseWithHeaders.AddHeader("location", xchangeId);
-                    return responseWithHeaders;
+                    if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
+                    {
+                        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                        
+                        if (xchangeResult.ResponseBad)
+                        {
+                            throw new SWException(response);
+                        }
+                        else
+                        {
+                            var responseWithHeaders = new ResultWithHeaders<string>(response);
+                            responseWithHeaders.AddHeader("location", xchangeId);
+                            return responseWithHeaders;
+                        }
+
+                    }
+                    else if (!xchangeResult.Success)
+                    {
+                        throw new SWValidationException("failure", "Internal processing error.");
+                    }
                 }
             }
 

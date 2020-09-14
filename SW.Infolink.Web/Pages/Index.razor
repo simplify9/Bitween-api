@@ -104,11 +104,13 @@
                 }
                 @if (((XchangeRow)context.Model).OutputUrl != null)
                 {
-                    <a href="@(((XchangeRow)context.Model).OutputUrl)" target="_blank" class="badge badge-info">Output</a>
+                    var badgeClass = ((XchangeRow)context.Model).OutputBad ? "badge-warning" : "badge-info";
+                    <a href="@(((XchangeRow)context.Model).OutputUrl)" target="_blank" class="badge @badgeClass">Output</a>
                 }
                 @if (((XchangeRow)context.Model).ResponseUrl != null)
                 {
-                    <a href="@(((XchangeRow)context.Model).ResponseUrl)" target="_blank" class="badge badge-info">Response</a>
+                    var badgeClass = ((XchangeRow)context.Model).ResponseBad ? "badge-warning" : "badge-info";
+                    <a href="@(((XchangeRow)context.Model).ResponseUrl)" target="_blank" class="badge @badgeClass">Response</a>
                 }
 
             </ColumnValue>

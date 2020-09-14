@@ -118,6 +118,8 @@ namespace SW.Infolink
                 b.HasIndex(i => i.InputHash);
                 b.HasIndex(i => i.SubscriptionId);
                 b.HasIndex(i => i.StartedOn);
+                b.HasIndex(i => i.RetryFor);
+
             });
 
             modelBuilder.Entity<XchangeResult>(b =>
@@ -145,7 +147,9 @@ namespace SW.Infolink
                 b.ToTable("XchangeAggregations");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AggregationXchangeId).IsRequired().IsUnicode(false).HasMaxLength(50);
+                
                 b.HasIndex(i => i.AggregationXchangeId);
+
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeAggregation>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 

@@ -22,6 +22,7 @@ namespace SW.Infolink.Domain
                 OutputName = outputFile.Filename;
                 OutputSize = outputFile.Data.Length;
                 OutputHash = outputFile.Hash;
+                OutputBad = outputFile.BadData;
             }
 
             if (responseFile != null)
@@ -29,6 +30,8 @@ namespace SW.Infolink.Domain
                 ResponseName = responseFile.Filename;
                 ResponseSize = responseFile.Data.Length;
                 ResponseHash = responseFile.Hash;
+                ResponseBad = responseFile.BadData;
+
             }
 
             Events.Add(new XchangeResultCreatedEvent
@@ -41,12 +44,17 @@ namespace SW.Infolink.Domain
         public string Exception { get; private set; }
         public DateTime FinishedOn { get; private set; }
         public string ResponseXchangeId { get; private set; }
+
         public string OutputName { get; private set; }
         public int OutputSize { get; private set; }
         public string OutputHash { get; private set; }
+        public bool OutputBad { get; private set; }
+
         public string ResponseName { get; private set; }
         public int ResponseSize { get; private set; }
         public string ResponseHash { get; private set; }
+        public bool ResponseBad { get; private set; }
+
 
     }
 }

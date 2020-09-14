@@ -57,7 +57,9 @@ namespace SW.Infolink.Resources.Xchanges
                             PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary(),
                             RetryFor = xchange.RetryFor,
                             AggregationXchangeId = agg.AggregationXchangeId,
-                            Exception = result.Exception 
+                            Exception = result.Exception,
+                            OutputBad = result.OutputBad,
+                            ResponseBad = result.ResponseBad
                             
 
                         };
