@@ -61,7 +61,7 @@
                                     <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.ReceiverId}/properties")" />
                                 </FormRow>
                                 <FormRow>
-                                    <Field Name="@nameof(KeyAndValue.Value)" />
+                                    <Field Name="@nameof(KeyAndValue.Value)" InputType="InputType.Multiline" />
                                 </FormRow>
                             </Form>
 
@@ -265,7 +265,7 @@
                                     <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.ValidatorId}/properties")" />
                                 </FormRow>
                                 <FormRow>
-                                    <Field Name="@nameof(KeyAndValue.Value)" />
+                                    <Field Name="@nameof(KeyAndValue.Value)" InputType="InputType.Multiline" />
                                 </FormRow>
                             </Form>
                         </Subform>
@@ -302,7 +302,7 @@
                                 <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.MapperId}/properties")" />
                             </FormRow>
                             <FormRow>
-                                <Field Name="@nameof(KeyAndValue.Value)" />
+                                <Field Name="@nameof(KeyAndValue.Value)" InputType="InputType.Multiline" />
                             </FormRow>
                         </Form>
                     </Subform>
@@ -339,7 +339,7 @@
                                 <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.HandlerId}/properties")" />
                             </FormRow>
                             <FormRow>
-                                <Field Name="@nameof(KeyAndValue.Value)" />
+                                <Field Name="@nameof(KeyAndValue.Value)" InputType="InputType.Multiline" />
                             </FormRow>
                         </Form>
                     </Subform>

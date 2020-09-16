@@ -43,6 +43,7 @@ namespace SW.Infolink.Web
             services.AddBus(config =>
             {
                 config.ApplicationName = "infolink";
+                config.DefaultQueuePrefetch = 12; 
             });
 
             services.AddBusPublish();

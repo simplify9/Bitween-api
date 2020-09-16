@@ -97,6 +97,10 @@ namespace SW.Infolink.Resources.Xchanges
                             break;
 
                         case "2":
+                            query = query.Where(i => i.Status == true && i.ResponseBad == true);
+                            break;
+
+                        case "3":
                             query = query.Where(i => i.Status == false);
                             break;
                     }

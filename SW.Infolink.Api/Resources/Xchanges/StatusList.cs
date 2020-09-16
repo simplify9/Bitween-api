@@ -16,7 +16,9 @@ namespace SW.Infolink.Resources.Xchanges
             {
                 {"0", "Running" },
                 {"1", "Success" },
-                {"2", "Failed" },
+                {"2", "Success with bad response" },
+                {"3", "Failed" },
+                
             };
         }
     }

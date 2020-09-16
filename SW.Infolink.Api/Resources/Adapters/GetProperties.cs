@@ -11,22 +11,18 @@ namespace SW.Infolink.Resources.Adapters
     [HandlerName("properties")]
     class GetProperties : IGetHandler<string>
     {
-        private readonly InfolinkDbContext dbContext;
         private readonly IServerlessService serverless;
 
-        public GetProperties(InfolinkDbContext dbContext, IServerlessService serverless)
+        public GetProperties(IServerlessService serverless)
         {
-            this.dbContext = dbContext;
             this.serverless = serverless;
         }
 
         async public Task<object> Handle(string key, bool lookup = false)
         {
             await serverless.StartAsync(key, null);
-
             var expected = await serverless.GetExpectedStartupValues();
-
-            return expected.ToList().ToDictionary(k => k.Key, v => $"{v.Key} {(v.Value.Optional ? string.Empty : " *")}");
+            return expected.ToList().ToDictionary(k => k.Key, v => $"{v.Key} {(v.Value.Optional ? $" ({v.Value.Default ?? "null"})" : " *")}");
         }
     }
 

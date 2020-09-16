@@ -11,6 +11,7 @@ using SW.Infolink.Model;
 
 namespace SW.Infolink.Resources.Xchanges
 {
+    [HandlerName("internal")]
     class GetInternal : IGetHandler<int>
     {
         private readonly InfolinkDbContext dbContext;
