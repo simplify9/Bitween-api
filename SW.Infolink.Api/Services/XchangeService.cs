@@ -155,9 +155,13 @@ namespace SW.Infolink
 
                 if (xchange.SubscriptionId != null)
                 {
-                    outputFile = await RunMapper(xchange, inputFile);
-
-                    responseFile = await RunHandler(xchange, outputFile);
+                    if (xchange.MapperId == null)
+                        responseFile = await RunHandler(xchange, inputFile);
+                    else
+                    {
+                        outputFile = await RunMapper(xchange, inputFile);
+                        responseFile = await RunHandler(xchange, outputFile);
+                    }
 
                     if (xchange.ResponseSubscriptionId != null && responseFile != null)
                     {
