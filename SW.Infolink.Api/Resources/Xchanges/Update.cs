@@ -65,12 +65,12 @@ namespace SW.Infolink.Resources.Xchanges
             {
                 await Task.Delay(TimeSpan.FromSeconds(waitResponse));
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-                if (xchangeResult != null )
+                if (xchangeResult != null)
                 {
                     if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
                     {
                         var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                        var jsonContent = new StringContent(response, Encoding.UTF8, MediaTypeNames.Application.Json);
+                        //var jsonContent = new StringContent(response, Encoding.UTF8, MediaTypeNames.Application.Json);
 
                         if (xchangeResult.ResponseBad)
                         {
@@ -78,8 +78,10 @@ namespace SW.Infolink.Resources.Xchanges
                         }
                         else
                         {
-                            var responseWithHeaders = new ResultWithHeaders<StringContent>(jsonContent);
+                            var responseWithHeaders = new ResultWithHeaders<string>(response);
                             responseWithHeaders.AddHeader("location", xchangeId);
+                            responseWithHeaders.AddHeader("content-type", MediaTypeNames.Application.Json);
+
                             return responseWithHeaders;
                         }
 
