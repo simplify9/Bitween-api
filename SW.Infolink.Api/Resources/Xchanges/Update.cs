@@ -70,26 +70,14 @@ namespace SW.Infolink.Resources.Xchanges
                     if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
                     {
                         var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-
-                        if (xchangeResult.ResponseBad)
-                        {
-                            throw new SWException(response);
-                        }
-                        else
-                        {
-                            var result = new CqApiResult<string>(response);
-                            result.AddHeader("location", xchangeId);
-                            
-                            result.ContentType = MediaTypeNames.Application.Json;
-
-                            return result;
-                        }
-
+                        var result = new CqApiResult<string>(response);
+                        result.AddHeader("location", xchangeId);
+                        result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
+                        result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
+                        return result;
                     }
                     else if (!xchangeResult.Success)
-                    {
                         throw new SWValidationException("failure", "Internal processing error.");
-                    }
                 }
             }
 

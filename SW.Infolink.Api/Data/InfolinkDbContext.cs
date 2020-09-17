@@ -114,6 +114,8 @@ namespace SW.Infolink
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
+                b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
+
 
                 b.HasIndex(i => i.InputHash);
                 b.HasIndex(i => i.SubscriptionId);
@@ -130,6 +132,10 @@ namespace SW.Infolink
                 b.Property(p => p.OutputName).HasMaxLength(200);
                 b.Property(p => p.ResponseHash).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.ResponseName).HasMaxLength(200);
+                b.Property(p => p.ResponseContentType).IsUnicode(false).HasMaxLength(200);
+                b.Property(p => p.OutputContentType).IsUnicode(false).HasMaxLength(200);
+
+
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });

@@ -18,6 +18,7 @@ namespace SW.Infolink.Domain
             InputName = file.Filename;
             InputSize = file.Data.Length;
             InputHash = file.Hash;
+            InputContentType = file.ContentType;
             StartedOn = DateTime.UtcNow;
             Events.Add(new XchangeCreatedEvent
             {
@@ -58,6 +59,7 @@ namespace SW.Infolink.Domain
         public string InputName { get; private set; }
         public int InputSize { get; private set; }
         public string InputHash { get; private set; }
+        public string InputContentType { get; private set; }
         public int? ResponseSubscriptionId { get; private set; }
         public string RetryFor { get; private set; }
 

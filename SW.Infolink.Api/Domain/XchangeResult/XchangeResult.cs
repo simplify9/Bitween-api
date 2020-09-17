@@ -23,6 +23,7 @@ namespace SW.Infolink.Domain
                 OutputSize = outputFile.Data.Length;
                 OutputHash = outputFile.Hash;
                 OutputBad = outputFile.BadData;
+                OutputContentType = outputFile.ContentType;
             }
 
             if (responseFile != null)
@@ -31,6 +32,7 @@ namespace SW.Infolink.Domain
                 ResponseSize = responseFile.Data.Length;
                 ResponseHash = responseFile.Hash;
                 ResponseBad = responseFile.BadData;
+                ResponseContentType = responseFile.ContentType;
 
             }
 
@@ -49,11 +51,14 @@ namespace SW.Infolink.Domain
         public int OutputSize { get; private set; }
         public string OutputHash { get; private set; }
         public bool OutputBad { get; private set; }
+        public string OutputContentType { get; private set; }
 
         public string ResponseName { get; private set; }
         public int ResponseSize { get; private set; }
         public string ResponseHash { get; private set; }
         public bool ResponseBad { get; private set; }
+        public string ResponseContentType { get; private set; }
+
 
 
     }
