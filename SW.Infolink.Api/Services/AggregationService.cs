@@ -70,7 +70,7 @@ namespace SW.Infolink
                                            join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
                                            join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
                                            from agg in xa.DefaultIfEmpty()
-                                           where result.Success == true && agg == null && xchange.SubscriptionId == aggSub.AggregationForId
+                                           where result.Success == true && agg == null && xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
                                            select xchange.Id;
 
                         var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();

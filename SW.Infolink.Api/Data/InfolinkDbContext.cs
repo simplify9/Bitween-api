@@ -167,24 +167,11 @@ namespace SW.Infolink
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            //try
-            //{
-            using var transaction = await Database.BeginTransactionAsync();
+            //using var transaction = await Database.BeginTransactionAsync();
             var affectedRecords = await base.SaveChangesAsync(cancellationToken);
             await ChangeTracker.PublishDomainEvents(publish);
-            await transaction.CommitAsync();
+            //await transaction.CommitAsync();
             return affectedRecords;
-            //}
-            //catch (DbUpdateException dbUpdateException)
-            //{
-            //    if (dbUpdateException.InnerException == null)
-            //        throw new SWException($"Data Error: {dbUpdateException.Message}");
-            //    else
-            //        throw new SWException($"Data Error: {dbUpdateException.InnerException.Message}");
-            //}
         }
-    
-
-
     }
 }

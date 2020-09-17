@@ -4,6 +4,9 @@ using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Mime;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace SW.Infolink.Resources.Xchanges
@@ -67,14 +70,15 @@ namespace SW.Infolink.Resources.Xchanges
                     if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
                     {
                         var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                        
+                        var jsonContent = new StringContent(response, Encoding.UTF8, MediaTypeNames.Application.Json);
+
                         if (xchangeResult.ResponseBad)
                         {
                             throw new SWException(response);
                         }
                         else
                         {
-                            var responseWithHeaders = new ResultWithHeaders<string>(response);
+                            var responseWithHeaders = new ResultWithHeaders<StringContent>(jsonContent);
                             responseWithHeaders.AddHeader("location", xchangeId);
                             return responseWithHeaders;
                         }
