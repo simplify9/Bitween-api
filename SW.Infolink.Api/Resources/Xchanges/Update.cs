@@ -70,7 +70,6 @@ namespace SW.Infolink.Resources.Xchanges
                     if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
                     {
                         var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                        //var jsonContent = new StringContent(response, Encoding.UTF8, MediaTypeNames.Application.Json);
 
                         if (xchangeResult.ResponseBad)
                         {
@@ -78,11 +77,12 @@ namespace SW.Infolink.Resources.Xchanges
                         }
                         else
                         {
-                            var responseWithHeaders = new ResultWithHeaders<string>(response);
-                            responseWithHeaders.AddHeader("location", xchangeId);
-                            responseWithHeaders.AddHeader("content-type", MediaTypeNames.Application.Json);
+                            var result = new CqApiResult<string>(response);
+                            result.AddHeader("location", xchangeId);
+                            
+                            result.ContentType = MediaTypeNames.Application.Json;
 
-                            return responseWithHeaders;
+                            return result;
                         }
 
                     }
@@ -93,9 +93,9 @@ namespace SW.Infolink.Resources.Xchanges
                 }
             }
 
-            return new XchangeUnderProcessing
+            return new CqApiResult<string>(xchangeId)
             {
-                Uri = xchangeId
+                Status = CqApiResultStatus.UnderProcessing
             };
         }
     }

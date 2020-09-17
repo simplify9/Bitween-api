@@ -32,10 +32,10 @@ namespace SW.Infolink.Model
         public string ResponseUri { get; set; }
     }
 
-    public class XchangeUnderProcessing : IUnderProcessing
-    {
-        public string Uri { get; set; }
-    }
+    //public class XchangeUnderProcessing : IUnderProcessing
+    //{
+    //    public string Uri { get; set; }
+    //}
 
     public class XchangeRow
     {

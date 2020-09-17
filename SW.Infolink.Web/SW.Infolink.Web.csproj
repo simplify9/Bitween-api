@@ -14,11 +14,11 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.8" />
     <PackageReference Include="SimplyWorks.Bus" Version="2.0.4" />
     <PackageReference Include="SimplyWorks.CloudFiles.Extensions" Version="2.0.5" />
-    <PackageReference Include="SimplyWorks.CqApi" Version="2.0.23" />
+    <PackageReference Include="SimplyWorks.CqApi" Version="2.0.24" />
     <PackageReference Include="SimplyWorks.Logger" Version="2.0.2" />
     <PackageReference Include="SimplyWorks.Serverless" Version="2.0.14" />
     <PackageReference Include="SimplyWorks.SimplyRazor" Version="3.0.23" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="5.6.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="5.6.1" />
 
   </ItemGroup>
 
