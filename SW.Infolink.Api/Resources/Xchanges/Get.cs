@@ -25,7 +25,7 @@ namespace SW.Infolink.Resources.Xchanges
         {
             var par = await dbContext.AuthorizePartner(requestContext);
 
-            if (par.Id == Partner.SystemId)
+            if (par.Partner.Id == Partner.SystemId)
             {
                 return null;
             }
@@ -34,7 +34,7 @@ namespace SW.Infolink.Resources.Xchanges
                         join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                         from result in xr.DefaultIfEmpty()
                         join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id
-                        where xchange.Id == key && subscriber.PartnerId == par.Id
+                        where xchange.Id == key && subscriber.PartnerId == par.Partner.Id
                         select new { xchange, result };
 
             var queryResult = await query.AsNoTracking().SingleOrDefaultAsync();

@@ -115,7 +115,7 @@
 
             </ColumnValue>
         </Field>
-        <Field Text="References">
+        <Field Text="Tags">
             <ColumnValue>
                 <span class="badge badge-primary">id: @(((XchangeRow)context.Model).Id)</span>
                 @if (((XchangeRow)context.Model).RetryFor != null)
@@ -125,6 +125,13 @@
                 @if (((XchangeRow)context.Model).AggregationXchangeId != null)
                 {
                     <span class="badge badge-info">agg: @(((XchangeRow)context.Model).AggregationXchangeId)</span>
+                }
+                @if (((XchangeRow)context.Model).References != null)
+                {
+                    foreach (var reference in ((XchangeRow)context.Model).References)
+                    {
+                        <span class="badge badge-info">@reference</span>
+                    }
                 }
                 @if (((XchangeRow)context.Model).PromotedProperties != null)
                 {

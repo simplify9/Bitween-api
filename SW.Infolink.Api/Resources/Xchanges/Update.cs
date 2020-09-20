@@ -3,6 +3,7 @@ using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Mime;
@@ -39,14 +40,16 @@ namespace SW.Infolink.Resources.Xchanges
 
             var par = await dbContext.AuthorizePartner(requestContext);
 
-            if (par.Id == Partner.SystemId)
+            if (par.Partner.Id == Partner.SystemId)
             {
                 await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
                 return null;
             }
 
+
+
             var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
-                                    where subscription.DocumentId == document.Id && subscription.PartnerId == par.Id
+                                    where subscription.DocumentId == document.Id && subscription.PartnerId == par.Partner.Id
                                     select subscription;
 
             var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
@@ -54,14 +57,22 @@ namespace SW.Infolink.Resources.Xchanges
             if (sub == null)
                 throw new SWNotFoundException("Subscription");
 
+
+            var xchangeReferences = new List<string>();
+            xchangeReferences.Add($"partnerkey: {par.KeyName}");
+
+            var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
+            int.TryParse(waitResponseHeader, out var waitResponse);
+            if (waitResponse > 0)
+                xchangeReferences.Add($"waitresponse: {waitResponse}");
+
             var xchangeFile = new XchangeFile(request.ToString());
 
             await xchangeService.RunValidator(sub.ValidatorId, sub.ValidatorProperties.ToDictionary(), xchangeFile);
 
-            var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile);
+            var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
 
-            var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
-            if (int.TryParse(waitResponseHeader, out var waitResponse) && waitResponse > 0 && waitResponse <= 60)
+            if (waitResponse > 0 && waitResponse <= 60)
             {
                 await Task.Delay(TimeSpan.FromSeconds(waitResponse));
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);

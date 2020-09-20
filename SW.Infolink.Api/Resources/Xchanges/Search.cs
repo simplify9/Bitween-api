@@ -59,7 +59,8 @@ namespace SW.Infolink.Resources.Xchanges
                             AggregationXchangeId = agg.AggregationXchangeId,
                             Exception = result.Exception,
                             OutputBad = result.OutputBad,
-                            ResponseBad = result.ResponseBad
+                            ResponseBad = result.ResponseBad,
+                            References = xchange.References 
                             
 
                         };

@@ -27,10 +27,10 @@ namespace SW.Infolink
             this.serviceProvider = serviceProvider;
         }
 
-        async public Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file)
+        async public Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file, string[] references = null)
         {
             var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
-            var xchange = await CreateXchange(subscription, file);
+            var xchange = await CreateXchange(subscription, file, references);
             await dbContext.SaveChangesAsync();
             return xchange.Id;
         }
@@ -51,9 +51,9 @@ namespace SW.Infolink
             return xchange;
         }
 
-        public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file)
+        public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file, string[] references = null)
         {
-            var xchange = new Xchange(subscription, file, null);
+            var xchange = new Xchange(subscription, file, references);
             await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;

@@ -9,7 +9,7 @@ namespace SW.Infolink
 {
     static class InfolinkDbContextExtensions
     {
-        async static public Task<Partner> AuthorizePartner(this InfolinkDbContext dbContext, RequestContext requestContext )
+        async static public Task<(Partner Partner, string KeyName)> AuthorizePartner(this InfolinkDbContext dbContext, RequestContext requestContext)
         {
             var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
             if (partnerKey == null)
@@ -23,7 +23,7 @@ namespace SW.Infolink
             if (par == null)
                 throw new SWUnauthorizedException();
 
-            return par;
+            return (par, par.ApiCredentials.First(c => c.Key == partnerKey).Name);
         }
     }
 }

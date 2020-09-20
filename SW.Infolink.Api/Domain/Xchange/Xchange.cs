@@ -14,7 +14,7 @@ namespace SW.Infolink.Domain
         {
             Id = Guid.NewGuid().ToString("N"); 
             DocumentId = documentId;
-            References = references;
+            References = references ?? new string[] { };
             InputName = file.Filename;
             InputSize = file.Data.Length;
             InputHash = file.Hash;
