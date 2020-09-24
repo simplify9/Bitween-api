@@ -1,0 +1,16 @@
+﻿@page
+@model Info
+@{
+    Layout = null;
+}
+
+<p>
+    Jwt : @Model.JwtValue
+</p>
+@foreach (var v in Model.RequestContext.Values.OrderBy(v => v.Type))
+{
+    <p>
+        @v.Type:@v.Name : @v.Value
+    </p>
+}
+

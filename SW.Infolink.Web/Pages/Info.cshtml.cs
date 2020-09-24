@@ -6,23 +6,23 @@ using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Web.Pages
 {
-    public class Jwt : PageModel
+    public class Info : PageModel
     {
-        private readonly RequestContext requestContext;
         private readonly JwtTokenParameters jwtTokenParameters;
 
-        public Jwt(RequestContext requestContext, JwtTokenParameters jwtTokenParameters)
+        public Info(RequestContext requestContext, JwtTokenParameters jwtTokenParameters)
         {
-            this.requestContext = requestContext;
+            RequestContext = requestContext;
             this.jwtTokenParameters = jwtTokenParameters;
         }
 
-        [BindProperty]
         public string JwtValue { get; set; }
+
+        public RequestContext RequestContext { get; }
 
         public void OnGet()
         {
-            JwtValue = jwtTokenParameters.WriteJwt((ClaimsIdentity)requestContext.User.Identity);
+            JwtValue = jwtTokenParameters.WriteJwt((ClaimsIdentity)RequestContext.User.Identity);
         }
     }
 }

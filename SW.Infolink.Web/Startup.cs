@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -6,21 +7,19 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 using Pomelo.EntityFrameworkCore.MySql.Storage;
 using SW.Bus;
 using SW.CqApi;
 using SW.CloudFiles.Extensions;
 using SW.Serverless;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 using SW.EfCoreExtensions;
 using SW.HttpExtensions;
 using SW.Logger;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 using SW.SimplyRazor;
-using SW.Infolink.Domain;
 
 namespace SW.Infolink.Web
 {
@@ -45,7 +44,6 @@ namespace SW.Infolink.Web
                 config.ApplicationName = "infolink";
                 config.DefaultQueuePrefetch = 12; 
             });
-
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
             services.AddCqApi(configure => 
@@ -123,6 +121,8 @@ namespace SW.Infolink.Web
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            app.UseForwardedHeaders();
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
