@@ -15,9 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="9.2.0" />
+    <PackageReference Include="FluentValidation" Version="9.2.2" />
     <PackageReference Include="Humanizer.Core" Version="2.8.26" />
-    <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="2.0.27" />
+    <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="2.0.34" />
   </ItemGroup>
 
   <ItemGroup>

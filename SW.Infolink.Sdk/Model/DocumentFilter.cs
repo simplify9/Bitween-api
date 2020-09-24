@@ -9,12 +9,12 @@ namespace SW.Infolink.Model
         public DocumentFilter()
         {
             Properties = new Dictionary<string, PropertyFilter>();
-            SubscriptionsWithNoPropertyFilter = new FilterResult();
+            DocumentsWithNoPromotedProperties = new FilterResult();
         }
 
         public IDictionary<string, PropertyFilter> Properties  { get;  }
 
-        public FilterResult SubscriptionsWithNoPropertyFilter { get; set; }
+        public FilterResult DocumentsWithNoPromotedProperties { get; set; }
 
     }
 

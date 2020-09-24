@@ -8,6 +8,7 @@ namespace SW.Infolink.Model
     {
         public FilterResult()
         {
+            Hits = new HashSet<int>();
             Properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
 

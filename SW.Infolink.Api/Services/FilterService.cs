@@ -1,14 +1,11 @@
-﻿
+﻿using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
 using System.Threading;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using SW.Infolink.Domain;
-using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
 using SW.PrimitiveTypes;
 using SW.Infolink.Model;
@@ -17,12 +14,10 @@ namespace SW.Infolink
 {
     internal class FilterService
     {
-
         readonly IServiceScopeFactory ssf;
         readonly ILogger<FilterService> logger;
         readonly ReaderWriterLockSlim documentFilterLock = new ReaderWriterLockSlim();
         readonly IDictionary<int, DocumentFilter> documentFilterDictionary = new Dictionary<int, DocumentFilter>();
-
 
         DateTime? documentFilterPreparedOn;
 
@@ -35,16 +30,13 @@ namespace SW.Infolink
         void Prepare()
         {
             using var scope = ssf.CreateScope();
-
             var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+            var docs = repo.List<Document>();
 
             documentFilterDictionary.Clear();
 
-            var docs = repo.List<Document>();
-
             foreach (var doc in docs)
             {
-
                 var df = new DocumentFilter();
                 documentFilterDictionary.Add(doc.Id, df);
 
@@ -52,28 +44,25 @@ namespace SW.Infolink
 
                 if (doc.PromotedProperties.Count == 0)
                 {
-                    df.SubscriptionsWithNoPropertyFilter.Hits = subs.Select(e => e.Id).ToHashSet();
+                    df.DocumentsWithNoPromotedProperties.Hits = subs.Select(e => e.Id).ToHashSet();
                 }
                 else
                 {
                     foreach (var iprop in doc.PromotedProperties)
                     {
-
                         var pf = new PropertyFilter(iprop.Value);
                         df.Properties.Add(iprop.Key, pf);
 
                         foreach (var sub in subs)
-                        {
                             if (sub.DocumentFilter.TryGetValue(iprop.Key, out var val))
                             {
-                                var valarr = val.Split(",".ToArray(), StringSplitOptions.RemoveEmptyEntries);
+                                var valarr = val.Split(',', StringSplitOptions.RemoveEmptyEntries);
                                 foreach (var valitem in valarr)
                                 {
                                     var valclean = valitem.Replace("\"", "").Trim().ToLower();
                                     if (string.IsNullOrEmpty(valclean))
-                                    {
-                                        throw new InfolinkException();
-                                    }
+                                        throw new InfolinkException($"Empty filter value for subscriber {sub.Id}.");
+
                                     else
                                     {
                                         if (!pf.SubscribersByValues.ContainsKey(valclean))
@@ -81,13 +70,10 @@ namespace SW.Infolink
                                         pf.SubscribersByValues[valclean].Add(sub.Id);
                                     }
                                 }
-
                             }
                             else
-                            {
                                 pf.Ignored.Add(sub.Id);
-                            }
-                        }
+
                     }
                 }
             }
@@ -123,21 +109,18 @@ namespace SW.Infolink
                     throw new InfolinkException($"Document {documentId} not found.");
 
                 if (documentFilter.Properties.Count == 0)
-                    return documentFilter.SubscriptionsWithNoPropertyFilter;
+                    return documentFilter.DocumentsWithNoPromotedProperties;
 
                 JToken doc = JObject.Parse(xchangeFile.Data);
                 var filterResult = new FilterResult();
+                var firstHit = true;
 
                 foreach (var prop in documentFilter.Properties.Keys)
                 {
                     var pf = documentFilter.Properties[prop];
-
-                    HashSet<int> matchallprop = new HashSet<int>(pf.Ignored);
-
+                    var matchallprop = new HashSet<int>(pf.Ignored);
                     var node = doc.SelectToken(pf.Path);
-
                     if (node == null) throw new PromotedPropertyNotPresent(prop);
-
 
                     var val = node.Value<string>() == null ? string.Empty : node.Value<string>().ToLower().Trim();
 
@@ -146,11 +129,13 @@ namespace SW.Infolink
                     if (pf.SubscribersByValues.TryGetValue(val, out var lstall))
                         matchallprop.UnionWith(lstall);
 
-                    if (filterResult.Hits == null)
+                    if (firstHit)
+                    {
                         filterResult.Hits = matchallprop;
+                        firstHit = false;
+                    }
                     else
                         filterResult.Hits.IntersectWith(matchallprop);
-
                 }
 
                 return filterResult;
