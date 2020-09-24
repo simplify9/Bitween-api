@@ -14,9 +14,9 @@ namespace SW.Infolink.Web.Pages
 {
     public class LoginModel : PageModel
     {
-        private readonly InfolinkSettings infolinkSettings;
+        private readonly InfolinkOptions infolinkSettings;
 
-        public LoginModel(InfolinkSettings infolinkSettings)
+        public LoginModel(InfolinkOptions infolinkSettings)
         {
             this.infolinkSettings = infolinkSettings;
         }

@@ -89,7 +89,6 @@ namespace SW.Infolink.Web
             {
                 options.Conventions.AuthorizeFolder("/");
                 options.Conventions.AllowAnonymousToPage("/Login");
-
             });
             services.AddServerSideBlazor();
             services.AddSimplyRazor(config =>
@@ -138,7 +137,7 @@ namespace SW.Infolink.Web
 
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint("/api/swagger.json", "Infolink Api V1");
+                c.SwaggerEndpoint("/api/swagger.json", "Infolink Api");
             });
 
             app.UseEndpoints(endpoints =>

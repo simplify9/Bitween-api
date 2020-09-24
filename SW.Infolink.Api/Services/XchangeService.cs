@@ -12,13 +12,13 @@ namespace SW.Infolink
 {
     internal class XchangeService : IConsume<XchangeCreatedEvent>
     {
-        private readonly InfolinkSettings infolinkSettings;
+        private readonly InfolinkOptions infolinkSettings;
         private readonly InfolinkDbContext dbContext;
         private readonly FilterService filterService;
         private readonly ICloudFilesService cloudFiles;
         private readonly IServiceProvider serviceProvider;
 
-        public XchangeService(InfolinkSettings infolinkSettings, InfolinkDbContext dbContext, FilterService filterService, ICloudFilesService cloudFiles, IServiceProvider serviceProvider)
+        public XchangeService(InfolinkOptions infolinkSettings, InfolinkDbContext dbContext, FilterService filterService, ICloudFilesService cloudFiles, IServiceProvider serviceProvider)
         {
             this.infolinkSettings = infolinkSettings;
             this.dbContext = dbContext;
