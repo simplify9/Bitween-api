@@ -26,7 +26,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
             dbContext.Entry(entity).SetProperties(model);
 
-            entity.SetAggregationSchedules( model.AggregationSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
+            entity.SetAggregationSchedules(model.AggregationSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
             entity.SetReceiveSchedules(model.ReceiveSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
 
             entity.SetDictionaries(
@@ -45,7 +45,7 @@ namespace SW.Infolink.Resources.Subscriptions
             public Validate(IServiceProvider serviceProvider)
             {
                 RuleFor(i => i.Name).NotEmpty();
-                
+
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
 
                 When(i => i.MapperId != null, () =>
