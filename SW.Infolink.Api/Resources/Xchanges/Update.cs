@@ -62,8 +62,7 @@ namespace SW.Infolink.Resources.Xchanges
             xchangeReferences.Add($"partnerkey: {par.KeyName}");
 
             var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
-            int.TryParse(waitResponseHeader, out var waitResponse);
-            if (waitResponse > 0)
+            if (int.TryParse(waitResponseHeader, out var waitResponse) && waitResponse > 0)
                 xchangeReferences.Add($"waitresponse: {waitResponse}");
 
             var xchangeFile = new XchangeFile(request.ToString());
