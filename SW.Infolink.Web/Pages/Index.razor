@@ -112,6 +112,10 @@
                     var badgeClass = ((XchangeRow)context.Model).ResponseBad ? "badge-warning" : "badge-info";
                     <a href="@(((XchangeRow)context.Model).ResponseUrl)" target="_blank" class="badge @badgeClass">Response</a>
                 }
+                else if (((XchangeRow)context.Model).ResponseBad)
+                {
+                    <span class="badge badge-warning">Response</span>
+                }
 
             </ColumnValue>
         </Field>
