@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    internal class ReceivingService : IHostedService, IDisposable
+    public class ReceivingService : IHostedService, IDisposable
     {
         readonly ILogger logger;
         readonly IServiceProvider sp;

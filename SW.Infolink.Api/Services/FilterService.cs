@@ -12,7 +12,7 @@ using SW.Infolink.Model;
 
 namespace SW.Infolink
 {
-    internal class FilterService
+    public class FilterService
     {
         readonly IServiceScopeFactory ssf;
         readonly ILogger<FilterService> logger;

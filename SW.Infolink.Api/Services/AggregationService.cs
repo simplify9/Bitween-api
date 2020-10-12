@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    internal class AggregationService : IHostedService, IDisposable
+    public class AggregationService : IHostedService, IDisposable
     {
         readonly ILogger logger;
         readonly IServiceProvider sp;

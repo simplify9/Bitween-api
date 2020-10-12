@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    internal class XchangeService : IConsume<XchangeCreatedEvent>
+    public class XchangeService : IConsume<XchangeCreatedEvent>
     {
         private readonly InfolinkOptions infolinkSettings;
         private readonly InfolinkDbContext dbContext;

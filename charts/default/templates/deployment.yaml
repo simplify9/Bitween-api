@@ -46,7 +46,7 @@ spec:
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.global.environment }}
 
-            - name: DatabaseType
+            - name: Infolink__DatabaseType
               value: {{ .Values.dbType }}
 
             - name: SwLogger__ApplicationName

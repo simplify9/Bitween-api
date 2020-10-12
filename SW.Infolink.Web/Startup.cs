@@ -36,17 +36,27 @@ namespace SW.Infolink.Web
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddInfolink();
-            services.AddInfolinkHostedServices();
+            var infolinkOptions = new InfolinkOptions();
+            Configuration.GetSection(InfolinkOptions.ConfigurationSection).Bind(infolinkOptions);
+            services.AddSingleton(infolinkOptions);
+
+            services.AddSingleton<FilterService>();
+            services.AddScoped<XchangeService>();
+
+            services.AddHostedService<AggregationService>();
+            services.AddHostedService<ReceivingService>();
+
+
+
 
             services.AddBus(config =>
             {
                 config.ApplicationName = "infolink";
-                config.DefaultQueuePrefetch = 12; 
+                config.DefaultQueuePrefetch = 12;
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
-            services.AddCqApi(configure => 
+            services.AddCqApi(configure =>
                 {
                     configure.RolePrefix = "Infolink";
                     configure.UrlPrefix = "api";
@@ -56,7 +66,7 @@ namespace SW.Infolink.Web
 
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
             services.AddCloudFiles();
-            services.AddServerless(configure => 
+            services.AddServerless(configure =>
             {
                 configure.CommandTimeout = 300;
             });
@@ -66,7 +76,7 @@ namespace SW.Infolink.Web
             {
                 c.EnableSensitiveDataLogging(true);
 
-                if (Configuration["DatabaseType"]?.ToLower() == RelationalDbType.MySql.ToString().ToLower())
+                if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MySql.ToString().ToLower())
                 {
                     c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
                     {
@@ -74,7 +84,7 @@ namespace SW.Infolink.Web
                         b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName);
                     });
                 }
-                else if (Configuration["DatabaseType"]?.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
+                else if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
                 {
                     c.UseSqlServer(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
                     {
@@ -84,7 +94,6 @@ namespace SW.Infolink.Web
             });
 
             services.AddHealthChecks();
-
             services.AddRazorPages(options =>
             {
                 options.Conventions.AuthorizeFolder("/");

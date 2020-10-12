@@ -11,8 +11,11 @@ namespace SW.Infolink
             AdminCredentials = "admin:1234512345";
             DocumentPrefix = "temp30/infolinkdocs";
             ClientIpHeaderName = "X-Real-IP";
+            DatabaseType = "MySql";
+
         }
 
+        public string DatabaseType { get; set; }
         public string AdapterPath { get; set; }
         public string AdminCredentials { get; set; }
         public string DocumentPrefix { get; set; }

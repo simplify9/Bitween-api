@@ -19,10 +19,11 @@ namespace SW.Infolink.UnitTests
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddInfolink();
-            //services.AddSingleton<ScheduledXchangeService>();
-            services.AddSingleton<IDomainEventDispatcher, MockDispatcher>();
-            //services.AddBusPublishMock();
+            var infolinkOptions = new InfolinkOptions();
+            services.AddSingleton(infolinkOptions);
+            services.AddSingleton<FilterService>();
+            services.AddScoped<XchangeService>();
+
             services.AddCqApi(typeof(InfolinkDbContext).Assembly);
 
             services.AddControllers().
