@@ -60,8 +60,13 @@ namespace SW.Infolink.Resources.Xchanges
             xchangeReferences.Add($"partnerkey: {par.KeyName}");
 
             var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
-            if (int.TryParse(waitResponseHeader, out var waitResponse) && waitResponse > 0)
+            
+            int waitResponse = 0;
+            if (int.TryParse(waitResponseHeader, out var waitResponseValue))
+            {
+                waitResponse = waitResponseValue <= 0 ? 120 : waitResponseValue;
                 xchangeReferences.Add($"waitresponse: {waitResponse}");
+            }
 
             var xchangeFile = new XchangeFile(request.ToString());
 
@@ -69,30 +74,55 @@ namespace SW.Infolink.Resources.Xchanges
 
             var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
 
-            if (waitResponse > 0 && waitResponse <= 60)
+            if (waitResponse > 0)
             {
-                await Task.Delay(TimeSpan.FromSeconds(waitResponse));
-                var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-                if (xchangeResult != null)
+                for (double count = 2; count <= waitResponse; count *= 1.5)
                 {
-                    if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
+                    await Task.Delay(TimeSpan.FromSeconds(count));
+                    if (await IsResultAvailable(xchangeId))
                     {
-                        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                        var result = new CqApiResult<string>(response);
-                        result.AddHeader("location", xchangeId);
-                        result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
-                        result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
-                        return result;
+                        var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
+                        if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
+                        {
+                            var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                            var result = new CqApiResult<string>(response);
+                            result.AddHeader("location", xchangeId);
+                            result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
+                            result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
+                            return result;
+                        }
+                        else if (!xchangeResult.Success)
+                            throw new SWValidationException("failure", "Internal processing error.");
+
                     }
-                    else if (!xchangeResult.Success)
-                        throw new SWValidationException("failure", "Internal processing error.");
                 }
+
+                //var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
+                //if (xchangeResult != null)
+                //{
+                //    if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
+                //    {
+                //        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                //        var result = new CqApiResult<string>(response);
+                //        result.AddHeader("location", xchangeId);
+                //        result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
+                //        result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
+                //        return result;
+                //    }
+                //    else if (!xchangeResult.Success)
+                //        throw new SWValidationException("failure", "Internal processing error.");
+                //}
             }
 
             return new CqApiResult<string>(xchangeId)
             {
                 Status = CqApiResultStatus.UnderProcessing
             };
+        }
+
+        async Task<bool> IsResultAvailable(string xchangeId)
+        {
+            return await dbContext.Set<XchangeResult>().AnyAsync(i => i.Id == xchangeId);
         }
     }
 }
