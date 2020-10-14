@@ -76,7 +76,7 @@ namespace SW.Infolink.Resources.Xchanges
 
             if (waitResponse > 0)
             {
-                for (double count = 2; count <= waitResponse; count *= 1.5)
+                for (double count = 2; count <= waitResponse; count += 2)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(count));
                     if (await IsResultAvailable(xchangeId))
