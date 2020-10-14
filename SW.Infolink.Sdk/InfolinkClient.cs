@@ -55,5 +55,19 @@ namespace SW.Infolink.Sdk
         {
             return Builder.Jwt().Path("partners/generatekey").AsApiResult<string>().GetAsync();
         }
+
+        public Task<ApiResult<string>> CreateXchangeForApiSubscription(string documentIdOrName, object request, string partnerKey, int waitResponse)
+        {
+            return Builder.
+                Header("partnerkey", partnerKey).
+                Header("waitresponse", waitResponse.ToString()).
+                Path($"xchanges/{documentIdOrName}").
+                AsApiResult<string>().
+                PostAsync(request);
+        }
+
+        //public Task<ApiResult> CreateXchangeForApiSubscription(string documentIdOrName, object request, string partnerKey)
+        //{
+        //}
     }
 }

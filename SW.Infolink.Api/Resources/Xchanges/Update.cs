@@ -39,24 +39,22 @@ namespace SW.Infolink.Resources.Xchanges
                 throw new SWNotFoundException("Document");
 
             var par = await dbContext.AuthorizePartner(requestContext);
-
-            if (par.Partner.Id == Partner.SystemId)
-            {
-                await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
-                return null;
-            }
-
-
-
             var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
                                     where subscription.DocumentId == document.Id && subscription.PartnerId == par.Partner.Id
                                     select subscription;
 
             var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
 
-            if (sub == null)
+            if (par.Partner.Id == Partner.SystemId && sub == null)
+            {
+                await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
+                return null;
+            }
+            else if (sub == null)
                 throw new SWNotFoundException("Subscription");
 
+            else if (sub.Type != SubscriptionType.ApiCall)
+                throw new SWValidationException("Subscription", $"Subscription is of wrong type {sub.Type}");
 
             var xchangeReferences = new List<string>();
             xchangeReferences.Add($"partnerkey: {par.KeyName}");
