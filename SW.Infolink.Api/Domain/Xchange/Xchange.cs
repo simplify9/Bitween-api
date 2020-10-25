@@ -1,6 +1,7 @@
 ﻿using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using SW.Infolink.Model;
 
 namespace SW.Infolink.Domain
 {
@@ -10,7 +11,7 @@ namespace SW.Infolink.Domain
         {
         }
 
-        public Xchange(int documentId, XchangeFile file, string[] references = null)
+        public Xchange(int documentId, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal)
         {
             Id = Guid.NewGuid().ToString("N"); 
             DocumentId = documentId;
@@ -20,10 +21,19 @@ namespace SW.Infolink.Domain
             InputHash = file.Hash;
             InputContentType = file.ContentType;
             StartedOn = DateTime.UtcNow;
-            Events.Add(new XchangeCreatedEvent
+
+            XchangeCreatedEvent xchangeEvent = subscriptionType switch
             {
-                Id = Id
-            });
+                //break;
+                SubscriptionType.Internal => new InternalXchangeCreatedEvent(),
+                SubscriptionType.ApiCall => new ApiXchangeCreatedEvent(),
+                SubscriptionType.Receiving => new ReceivingXchangeCreatedEvent(),
+                SubscriptionType.Aggregation => new AggregateXchangeCreatedEvent(),
+                _ => throw new ArgumentOutOfRangeException(nameof(subscriptionType), subscriptionType, null)
+            };
+
+            xchangeEvent.Id = Id;
+            Events.Add(xchangeEvent);
         }
 
         public Xchange(Subscription subscription, XchangeFile file, string[] references = null) : this(subscription.DocumentId, file, references)

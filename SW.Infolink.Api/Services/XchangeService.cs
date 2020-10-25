@@ -10,7 +10,12 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    public class XchangeService : IConsume<XchangeCreatedEvent>
+    public class XchangeService : 
+        IConsume<ApiXchangeCreatedEvent>,
+        IConsume<InternalXchangeCreatedEvent>,
+        IConsume<AggregateXchangeCreatedEvent>,
+        IConsume<ReceivingXchangeCreatedEvent>
+
     {
         private readonly InfolinkOptions infolinkSettings;
         private readonly InfolinkDbContext dbContext;
@@ -139,7 +144,7 @@ namespace SW.Infolink
             return await reader.ReadToEndAsync();
         }
 
-        async Task IConsume<XchangeCreatedEvent>.Process(XchangeCreatedEvent message)
+        async Task Process(XchangeCreatedEvent message)
         {
             Xchange responseXchange = null;
             XchangeFile outputFile = null;
@@ -194,6 +199,14 @@ namespace SW.Infolink
                 await dbContext.SaveChangesAsync();
             }
         }
+
+        Task IConsume<ApiXchangeCreatedEvent>.Process(ApiXchangeCreatedEvent message) => Process(message);
+
+        Task IConsume<AggregateXchangeCreatedEvent>.Process(AggregateXchangeCreatedEvent message) => Process(message);
+
+        Task IConsume<InternalXchangeCreatedEvent>.Process(InternalXchangeCreatedEvent message) => Process(message);
+
+        Task IConsume<ReceivingXchangeCreatedEvent>.Process(ReceivingXchangeCreatedEvent message) => Process(message);
     }
 
 }

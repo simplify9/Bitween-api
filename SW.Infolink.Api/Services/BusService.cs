@@ -27,12 +27,12 @@ namespace SW.Infolink
             this.dbContext = dbContext;
         }
 
-        async public Task<IEnumerable<string>> GetMessageTypeNames()
+        public async Task<IEnumerable<string>> GetMessageTypeNames()
         {
             var map = await GetMessageTypeNameToDocumentIdMap();
             return map.Keys;
         }
-        async public Task Process(string messageTypeName, string message)
+        public async Task Process(string messageTypeName, string message)
         {
             var map = await GetMessageTypeNameToDocumentIdMap();
 
@@ -40,7 +40,7 @@ namespace SW.Infolink
             await xchangeService.SubmitFilterXchange(map[messageTypeName], xf);
         }
 
-        async private Task<IReadOnlyDictionary<string, int>> GetMessageTypeNameToDocumentIdMap()
+        private async Task<IReadOnlyDictionary<string, int>> GetMessageTypeNameToDocumentIdMap()
         {
             if (memoryCache.TryGetValue(MessageTypeNameToDocumentId, out IReadOnlyDictionary<string, int> map))
                 return map;

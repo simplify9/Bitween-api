@@ -74,45 +74,31 @@ namespace SW.Infolink.Resources.Xchanges
 
             var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
 
-            if (waitResponse > 0)
-            {
-                for (double count = 2; count <= waitResponse; count += 2)
+            if (waitResponse <= 0)
+                return new CqApiResult<string>(xchangeId)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(count));
-                    if (await IsResultAvailable(xchangeId))
-                    {
-                        var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-                        if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
-                        {
-                            var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                            var result = new CqApiResult<string>(response);
-                            result.AddHeader("location", xchangeId);
-                            result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
-                            result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
-                            return result;
-                        }
-                        else if (!xchangeResult.Success)
-                            throw new SWValidationException("failure", "Internal processing error.");
+                    Status = CqApiResultStatus.UnderProcessing
+                };
 
-                    }
+            for (double count = 2; count <= waitResponse; count += 2)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(count));
+                if (!await IsResultAvailable(xchangeId)) continue;
+
+                var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
+                if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
+                {
+                    var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                    var result = new CqApiResult<string>(response);
+                    result.AddHeader("location", xchangeId);
+                    result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
+                    result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
+                    return result;
                 }
-
-                //var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-                //if (xchangeResult != null)
-                //{
-                //    if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
-                //    {
-                //        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                //        var result = new CqApiResult<string>(response);
-                //        result.AddHeader("location", xchangeId);
-                //        result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
-                //        result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
-                //        return result;
-                //    }
-                //    else if (!xchangeResult.Success)
-                //        throw new SWValidationException("failure", "Internal processing error.");
-                //}
+                if (!xchangeResult.Success)
+                    throw new SWValidationException("failure", "Internal processing error.");
             }
+
 
             return new CqApiResult<string>(xchangeId)
             {

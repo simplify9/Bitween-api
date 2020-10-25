@@ -46,9 +46,6 @@ namespace SW.Infolink.Web
             services.AddHostedService<AggregationService>();
             services.AddHostedService<ReceivingService>();
 
-
-
-
             services.AddBus(config =>
             {
                 config.ApplicationName = "infolink";
@@ -56,13 +53,14 @@ namespace SW.Infolink.Web
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
+
             services.AddCqApi(configure =>
-                {
-                    configure.RolePrefix = "Infolink";
-                    configure.UrlPrefix = "api";
-                    configure.ProtectAll = true;
-                },
-                typeof(InfolinkDbContext).Assembly);
+            {
+                configure.RolePrefix = "Infolink";
+                configure.UrlPrefix = "api";
+                configure.ProtectAll = true;
+            },
+            typeof(InfolinkDbContext).Assembly);
 
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
             services.AddCloudFiles();
