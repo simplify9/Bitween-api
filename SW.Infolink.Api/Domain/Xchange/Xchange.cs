@@ -36,7 +36,8 @@ namespace SW.Infolink.Domain
             Events.Add(xchangeEvent);
         }
 
-        public Xchange(Subscription subscription, XchangeFile file, string[] references = null) : this(subscription.DocumentId, file, references)
+        public Xchange(Subscription subscription, XchangeFile file, string[] references = null) : 
+            this(subscription.DocumentId, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
             MapperId = subscription.MapperId;
@@ -47,7 +48,8 @@ namespace SW.Infolink.Domain
         }
 
         //retry xchange
-        public Xchange(Xchange xchange, XchangeFile file) : this(xchange.DocumentId, file, xchange.References)
+        public Xchange(Xchange xchange, XchangeFile file) : 
+            this(xchange.DocumentId, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
             MapperId = xchange.MapperId;

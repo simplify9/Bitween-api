@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    public class XchangeService : 
+    public class XchangeService :
         IConsume<ApiXchangeCreatedEvent>,
         IConsume<InternalXchangeCreatedEvent>,
         IConsume<AggregateXchangeCreatedEvent>,
@@ -56,6 +56,14 @@ namespace SW.Infolink
             return xchange;
         }
 
+        public async Task<Xchange> CreateXchange(Document document, XchangeFile file)
+        {
+            var xchange = new Xchange(document.Id, file);
+            await AddFile(xchange.Id, XchangeFileType.Input, file);
+            dbContext.Add(xchange);
+            return xchange;
+        }
+
         public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file, string[] references = null)
         {
             var xchange = new Xchange(subscription, file, references);
@@ -64,13 +72,7 @@ namespace SW.Infolink
             return xchange;
         }
 
-        public async Task<Xchange> CreateXchange(Document document, XchangeFile file)
-        {
-            var xchange = new Xchange(document.Id, file);
-            await AddFile(xchange.Id, XchangeFileType.Input, file);
-            dbContext.Add(xchange);
-            return xchange;
-        }
+
 
         async Task<XchangeFile> RunMapper(Xchange xchange, XchangeFile xchangeFile)
         {
