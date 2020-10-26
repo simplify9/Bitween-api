@@ -83,6 +83,7 @@ namespace SW.Infolink.Domain
 
         public bool Inactive { get; set; }
         public int? ResponseSubscriptionId { get; set; }
+        public string ResponseMessageTypeName { get; set; }
         public int? AggregationForId { get; private set; }
         public XchangeFileType AggregationTarget { get; set; }
 

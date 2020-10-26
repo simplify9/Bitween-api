@@ -89,6 +89,8 @@ namespace SW.Infolink
                 b.Property(p => p.ValidatorProperties).StoreAsJson();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
 
+                b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
+
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
@@ -115,6 +117,8 @@ namespace SW.Infolink
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
                 b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
+                b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
+
 
 
                 b.HasIndex(i => i.InputHash);

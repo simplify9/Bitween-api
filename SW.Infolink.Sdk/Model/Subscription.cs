@@ -54,6 +54,8 @@ namespace SW.Infolink.Model
         public ICollection<ScheduleView> AggregationSchedules { get; set; }
         public ICollection<ScheduleView> ReceiveSchedules { get; set; }
         public int? ResponseSubscriptionId { get; set; }
+        public string ResponseMessageTypeName { get;  set; }
+
         public DateTime? ReceiveOn { get; set; }
         public DateTime? AggregateOn { get; set; }
         public int ConsecutiveFailures { get;  set; }

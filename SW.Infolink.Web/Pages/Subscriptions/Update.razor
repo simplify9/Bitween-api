@@ -221,12 +221,12 @@
                             <FormRow>
                                 <Field Name="@nameof(KeyAndValue.Key)"
                                        Lookup="@Lookup.FromSearchy($"documents/{context.DocumentId}/properties")"
-                                       Text="Document Property Name"  />
+                                       Text="Document Property Name" />
                             </FormRow>
 
                             <FormRow>
                                 <Field Name="@nameof(KeyAndValue.Value)"
-                                       Text="Filter (comma separated values)" 
+                                       Text="Filter (comma separated values)"
                                        InputType="InputType.Multiline" />
                             </FormRow>
                         </Form>
@@ -348,6 +348,12 @@
                     <Field Name="@nameof(SubscriptionUpdate.ResponseSubscriptionId)"
                            Lookup="@Lookup.From("subscriptions?lookup=true&filter=Type:1:1")"
                            Text="Response Subscription"
+                           Placeholder="None" />
+                </FormRow>
+                <FormRow>
+
+                    <Field Name="@nameof(SubscriptionUpdate.ResponseMessageTypeName)"
+                           Text="Publish Message Type Name"
                            Placeholder="None" />
                 </FormRow>
             }

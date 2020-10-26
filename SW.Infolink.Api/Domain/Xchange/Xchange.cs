@@ -45,6 +45,7 @@ namespace SW.Infolink.Domain
             MapperProperties = subscription.MapperProperties;
             HandlerProperties = subscription.HandlerProperties;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
+            ResponseMessageTypeName = subscription.ResponseMessageTypeName;
         }
 
         //retry xchange
@@ -73,6 +74,8 @@ namespace SW.Infolink.Domain
         public string InputHash { get; private set; }
         public string InputContentType { get; private set; }
         public int? ResponseSubscriptionId { get; private set; }
+        public string ResponseMessageTypeName { get; private set; }
+
         public string RetryFor { get; private set; }
 
     }

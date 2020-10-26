@@ -15,7 +15,7 @@ namespace SW.Infolink.MsSql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "3.1.8")
+                .HasAnnotation("ProductVersion", "3.1.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128)
                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
@@ -157,6 +157,11 @@ namespace SW.Infolink.MsSql.Migrations
                     b.Property<string>("ReceiverProperties")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ResponseMessageTypeName")
+                        .HasColumnType("varchar(500)")
+                        .HasMaxLength(500)
+                        .IsUnicode(false);
+
                     b.Property<int?>("ResponseSubscriptionId")
                         .HasColumnType("int");
 
@@ -238,6 +243,11 @@ namespace SW.Infolink.MsSql.Migrations
                     b.Property<string>("References")
                         .HasColumnType("nvarchar(1024)")
                         .HasMaxLength(1024);
+
+                    b.Property<string>("ResponseMessageTypeName")
+                        .HasColumnType("varchar(500)")
+                        .HasMaxLength(500)
+                        .IsUnicode(false);
 
                     b.Property<int?>("ResponseSubscriptionId")
                         .HasColumnType("int");

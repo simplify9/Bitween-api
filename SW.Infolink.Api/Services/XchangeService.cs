@@ -22,14 +22,16 @@ namespace SW.Infolink
         private readonly FilterService filterService;
         private readonly ICloudFilesService cloudFiles;
         private readonly IServiceProvider serviceProvider;
+        private readonly IPublish publish;
 
-        public XchangeService(InfolinkOptions infolinkSettings, InfolinkDbContext dbContext, FilterService filterService, ICloudFilesService cloudFiles, IServiceProvider serviceProvider)
+        public XchangeService(InfolinkOptions infolinkSettings, InfolinkDbContext dbContext, FilterService filterService, ICloudFilesService cloudFiles, IServiceProvider serviceProvider, IPublish publish)
         {
             this.infolinkSettings = infolinkSettings;
             this.dbContext = dbContext;
             this.filterService = filterService;
             this.cloudFiles = cloudFiles;
             this.serviceProvider = serviceProvider;
+            this.publish = publish;
         }
 
         async public Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file, string[] references = null)
@@ -174,6 +176,11 @@ namespace SW.Infolink
                     {
                         var subscription = await dbContext.FindAsync<Subscription>(xchange.ResponseSubscriptionId.Value);
                         responseXchange = await CreateXchange(subscription, responseFile);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(xchange.ResponseMessageTypeName) && responseFile != null && !responseFile.BadData)
+                    {
+                        await publish.Publish(xchange.ResponseMessageTypeName, responseFile.Data);
                     }
 
                 }
