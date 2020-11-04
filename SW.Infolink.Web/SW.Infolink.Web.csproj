@@ -12,7 +12,7 @@
     </PackageReference>
     <PackageReference Include="Humanizer.Core" Version="2.8.26" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.9" />
-    <PackageReference Include="SimplyWorks.Bus" Version="2.0.6" />
+    <PackageReference Include="SimplyWorks.Bus" Version="3.0.8" />
     <PackageReference Include="SimplyWorks.CloudFiles.Extensions" Version="2.0.5" />
     <PackageReference Include="SimplyWorks.CqApi" Version="2.0.28" />
     <PackageReference Include="SimplyWorks.Logger" Version="2.0.2" />
