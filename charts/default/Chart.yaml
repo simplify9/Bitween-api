@@ -5,3 +5,8 @@ description: A Helm chart for Infolink
 name: infolink
 
 
+dependencies:
+  - name: rabbitmq
+    version: ~7.7.1
+    condition: rabbitmq.enabled
+    repository: "https://charts.bitnami.com/bitnami"
