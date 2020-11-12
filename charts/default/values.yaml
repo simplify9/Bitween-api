@@ -82,5 +82,17 @@ global:
     secretAccessKey: ""
     serviceUrl: ""
     bucketName: ""
+    
+rabbitmq:
+  enabled: false
+  auth:
+    username: ''
+    password: ''
+  ingress:
+    enabled: 'true'
+    extraHosts:
+      - name: ''
+        path: ''
+    
 
 
