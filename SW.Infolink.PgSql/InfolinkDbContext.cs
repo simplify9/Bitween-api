@@ -88,30 +88,10 @@ namespace SW.Infolink.PgSql
                 {
                     sched.Property(p => p.On).HasConversion<long>();
                     sched.Property(p => p.Recurrence).HasConversion<byte>();
-                    sched.ToTable("subscriber_schedule"); 
+                    sched.ToTable("subscription_schedule"); 
 
                 });
 
-
-
-
-
-                //, schedules =>
-                //{
-                //    //schedules.WithOwner().HasForeignKey("SubscriptionId");
-                //    schedules.Property(p => p.On).HasConversion<long>();
-                //    schedules.Property(p => p.Recurrence).HasConversion<byte>();
-                //    schedules.Property<int>("Id");
-                //    schedules.HasKey("Id");
-                //});
-
-                //b.OwnsMany(p => p.ReceiveSchedules, schedules =>
-                //{
-                //schedules.WithOwner().HasForeignKey("SubscriptionId");
-                //schedules.Property<int>("Id");
-                //schedules.HasKey("Id");
-                //schedules.ToTable("subscriber_rec_schedule"); 
-                //});
 
                 b.Property(p => p.HandlerProperties).HasColumnType("jsonb");
                 b.Property(p => p.MapperProperties).HasColumnType("jsonb");
