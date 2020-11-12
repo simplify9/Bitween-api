@@ -51,8 +51,8 @@ namespace SW.Infolink.Model
         public ICollection<KeyAndValue> ReceiverProperties { get; set; }
         public ICollection<KeyAndValue> DocumentFilter { get; set; }
         public bool Inactive { get; set; }
-        public ICollection<ScheduleView> AggregationSchedules { get; set; }
-        public ICollection<ScheduleView> ReceiveSchedules { get; set; }
+        //public ICollection<ScheduleView> AggregationSchedules { get; set; }
+        public ICollection<ScheduleView> Schedules { get; set; }
         public int? ResponseSubscriptionId { get; set; }
         public string ResponseMessageTypeName { get;  set; }
 

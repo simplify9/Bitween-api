@@ -10,9 +10,11 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+        <PackageReference Include="EFCore.NamingConventions" Version="1.1.0" />
+
     <PackageReference Include="Humanizer.Core" Version="2.8.26" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="3.1.9" />
-    <PackageReference Include="SimplyWorks.Bus" Version="3.0.8" />
+    <PackageReference Include="SimplyWorks.Bus" Version="3.0.11" />
     <PackageReference Include="SimplyWorks.CloudFiles.Extensions" Version="2.0.5" />
     <PackageReference Include="SimplyWorks.CqApi" Version="2.0.28" />
     <PackageReference Include="SimplyWorks.Logger" Version="2.0.2" />
@@ -26,6 +28,7 @@
     <ProjectReference Include="..\SW.Infolink.Api\SW.Infolink.Api.csproj" />
     <ProjectReference Include="..\SW.Infolink.MsSql\SW.Infolink.MsSql.csproj" />
     <ProjectReference Include="..\SW.Infolink.MySql\SW.Infolink.MySql.csproj" />
+    <ProjectReference Include="..\SW.Infolink.PgSql\SW.Infolink.PgSql.csproj" />
   </ItemGroup>
 
   <ItemGroup>

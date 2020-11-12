@@ -80,9 +80,14 @@ namespace SW.Infolink
             {
                 b.ToTable("Subscriptions");
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.OwnsMany(p => p.AggregationSchedules, schedules => schedules.BuildSchedule("SubscriptionAggregationSchedules"));
-                b.OwnsMany(p => p.ReceiveSchedules, schedules => schedules.BuildSchedule("SubscriptionReceiveSchedules"));
-                
+                //b.OwnsMany(p => p.AggregationSchedules, schedules => schedules.BuildSchedule("SubscriptionAggregationSchedules"));
+                b.OwnsMany(p => p.Schedules, schedules =>
+                {
+                    schedules.ToTable("SubscriptionSchedules");
+                    schedules.Property(p => p.On).HasConversion<long>();
+                    schedules.Property(p => p.Recurrence).HasConversion<byte>();
+                });
+
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
                 b.Property(p => p.ReceiverProperties).StoreAsJson();
@@ -99,8 +104,8 @@ namespace SW.Infolink
                 b.Property(p => p.Type).HasConversion<byte>();
                 b.Property(p => p.AggregationTarget).HasConversion<byte>();
 
-                b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.ResponseSubscriptionId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-                b.HasOne<Subscription>().WithOne().HasForeignKey<Subscription>(p => p.AggregationForId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false).HasConstraintName("FK_Subscriptions_RespSub"). OnDelete(DeleteBehavior.Restrict);
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false).HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
 
             });
 
@@ -157,7 +162,7 @@ namespace SW.Infolink
                 b.ToTable("XchangeAggregations");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AggregationXchangeId).IsRequired().IsUnicode(false).HasMaxLength(50);
-                
+
                 b.HasIndex(i => i.AggregationXchangeId);
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeAggregation>(p => p.Id).OnDelete(DeleteBehavior.Cascade);

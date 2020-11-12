@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace SW.Infolink.Domain
 {
-    class XchangePromotedProperties : BaseEntity<string>
+    public class XchangePromotedProperties : BaseEntity<string>
     {
         private XchangePromotedProperties()
         {

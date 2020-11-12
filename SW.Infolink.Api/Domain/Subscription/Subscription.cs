@@ -38,8 +38,8 @@ namespace SW.Infolink.Domain
             Name = name ?? throw new ArgumentNullException(nameof(name));
             DocumentId = documentId;
             Type = type;
-            _AggregationSchedules = new HashSet<Schedule>();
-            _ReceiveSchedules = new HashSet<Schedule>();
+            //_AggregationSchedules = new HashSet<Schedule>();
+            _Schedules = new HashSet<Schedule>();
             HandlerProperties = new Dictionary<string, string>();
             MapperProperties = new Dictionary<string, string>();
             ReceiverProperties = new Dictionary<string, string>();
@@ -87,17 +87,17 @@ namespace SW.Infolink.Domain
         public int? AggregationForId { get; private set; }
         public XchangeFileType AggregationTarget { get; set; }
 
-        readonly HashSet<Schedule> _AggregationSchedules;
-        public IReadOnlyCollection<Schedule> AggregationSchedules => _AggregationSchedules;
+        //readonly HashSet<Schedule> _AggregationSchedules;
+        //public IReadOnlyCollection<Schedule> AggregationSchedules => _AggregationSchedules;
         public DateTime? AggregateOn { get; private set; }
-        public void SetAggregationSchedules(IEnumerable<Schedule> schedules = null)
-        {
-            if (Type == SubscriptionType.Aggregation)
-            {
-                if (schedules != null) _AggregationSchedules.Update(schedules);
-                AggregateOn = _AggregationSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
-            }
-        }
+        //public void SetAggregationSchedules(IEnumerable<Schedule> schedules = null)
+        //{
+        //    if (Type == SubscriptionType.Aggregation)
+        //    {
+        //        if (schedules != null) _AggregationSchedules.Update(schedules);
+        //        AggregateOn = _AggregationSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
+        //    }
+        //}
         public void SetAggregateNow()
         {
             AggregateOn = DateTime.UtcNow.AddMinutes(-1);
@@ -106,15 +106,20 @@ namespace SW.Infolink.Domain
 
         public string ReceiverId { get; set; }
 
-        readonly HashSet<Schedule> _ReceiveSchedules;
-        public IReadOnlyCollection<Schedule> ReceiveSchedules => _ReceiveSchedules;
+        readonly HashSet<Schedule> _Schedules;
+        public IReadOnlyCollection<Schedule> Schedules => _Schedules;
         public DateTime? ReceiveOn { get; private set; }
-        public void SetReceiveSchedules(IEnumerable<Schedule> schedules = null)
+        public void SetSchedules(IEnumerable<Schedule> schedules = null)
         {
             if (Type == SubscriptionType.Receiving)
             {
-                if (schedules != null) _ReceiveSchedules.Update(schedules);
-                ReceiveOn = _ReceiveSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
+                if (schedules != null) _Schedules.Update(schedules);
+                ReceiveOn = _Schedules.Next() ?? throw new InfolinkException("Invalid schedule.");
+            }
+            else if (Type == SubscriptionType.Aggregation)
+            {
+                if (schedules != null) _Schedules.Update(schedules);
+                AggregateOn = _Schedules.Next() ?? throw new InfolinkException("Invalid schedule.");
             }
         }
         public void SetReceiveNow()

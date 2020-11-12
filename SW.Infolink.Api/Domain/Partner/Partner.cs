@@ -7,7 +7,7 @@ using System.Text;
 
 namespace SW.Infolink.Domain
 {
-    class Partner : BaseEntity
+    public class Partner : BaseEntity
     {
         public const int SystemId = 1;
 

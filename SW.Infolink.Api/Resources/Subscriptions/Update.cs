@@ -26,8 +26,8 @@ namespace SW.Infolink.Resources.Subscriptions
 
             dbContext.Entry(entity).SetProperties(model);
 
-            entity.SetAggregationSchedules(model.AggregationSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
-            entity.SetReceiveSchedules(model.ReceiveSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
+            //entity.SetAggregationSchedules(model.AggregationSchedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
+            entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence, TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
 
             entity.SetDictionaries(
                 model.HandlerProperties.ToDictionary(),
@@ -77,7 +77,7 @@ namespace SW.Infolink.Resources.Subscriptions
                 When(i => i.Type == SubscriptionType.Receiving, () =>
                 {
                     RuleFor(i => i.ReceiverId).NotEmpty();
-                    RuleFor(i => i.ReceiveSchedules).NotEmpty();
+                    RuleFor(i => i.Schedules).NotEmpty();
 
                     When(i => i.ReceiverId != null, () =>
                     {
@@ -96,7 +96,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
                 When(i => i.Type == SubscriptionType.Aggregation, () =>
                 {
-                    RuleFor(i => i.AggregationSchedules).NotEmpty();
+                    RuleFor(i => i.Schedules).NotEmpty();
                     RuleFor(i => i.AggregationForId).NotEmpty();
                 });
             }

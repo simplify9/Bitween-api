@@ -59,7 +59,7 @@ namespace SW.Infolink
                     {
                         var startupParameters = rec.ReceiverProperties.ToDictionary();
                         await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
-                        rec.SetReceiveSchedules();
+                        rec.SetSchedules();
                         rec.SetHealth();
                     }
                     catch (Exception ex)

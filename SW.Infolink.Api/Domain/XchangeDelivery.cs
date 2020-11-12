@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SW.Infolink.Domain
 {
-    class XchangeDelivery : BaseEntity<string>
+    public class XchangeDelivery : BaseEntity<string>
     {
         private XchangeDelivery()
         {

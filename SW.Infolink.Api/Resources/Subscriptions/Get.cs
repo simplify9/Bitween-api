@@ -49,17 +49,17 @@ namespace SW.Infolink.Resources.Subscriptions
                     AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,
 
-                    AggregationSchedules = subscriber.AggregationSchedules.Select(s => new ScheduleView
-                    {
-                        Backwards = s.Backwards,
-                        Recurrence = s.Recurrence,
-                        Days = s.On.Days,
-                        Hours = s.On.Hours,
-                        Minutes = s.On.Minutes
+                    //AggregationSchedules = subscriber.AggregationSchedules.Select(s => new ScheduleView
+                    //{
+                    //    Backwards = s.Backwards,
+                    //    Recurrence = s.Recurrence,
+                    //    Days = s.On.Days,
+                    //    Hours = s.On.Hours,
+                    //    Minutes = s.On.Minutes
 
-                    }).ToList(),
+                    //}).ToList(),
 
-                    ReceiveSchedules = subscriber.ReceiveSchedules.Select(s => new ScheduleView
+                    Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,
                         Recurrence = s.Recurrence,

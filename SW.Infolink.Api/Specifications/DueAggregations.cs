@@ -12,7 +12,7 @@ namespace SW.Infolink
         {
             if (asOf == null) asOf = DateTime.UtcNow;
 
-            Criteria = e => e.AggregateOn < asOf && e.AggregationSchedules.Any() && !e.Inactive;
+            Criteria = e => e.AggregateOn < asOf && e.Schedules.Any() && !e.Inactive;
         }
 
         public Expression<Func<Subscription, bool>> Criteria { get; }

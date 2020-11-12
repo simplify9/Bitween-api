@@ -181,17 +181,13 @@ namespace SW.Infolink.MsSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AggregationForId")
-                        .IsUnique()
-                        .HasFilter("[AggregationForId] IS NOT NULL");
+                    b.HasIndex("AggregationForId");
 
                     b.HasIndex("DocumentId");
 
                     b.HasIndex("PartnerId");
 
-                    b.HasIndex("ResponseSubscriptionId")
-                        .IsUnique()
-                        .HasFilter("[ResponseSubscriptionId] IS NOT NULL");
+                    b.HasIndex("ResponseSubscriptionId");
 
                     b.ToTable("Subscriptions");
                 });
@@ -449,8 +445,9 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.Subscription", b =>
                 {
                     b.HasOne("SW.Infolink.Domain.Subscription", null)
-                        .WithOne()
-                        .HasForeignKey("SW.Infolink.Domain.Subscription", "AggregationForId")
+                        .WithMany()
+                        .HasForeignKey("AggregationForId")
+                        .HasConstraintName("FK_Subscriptions_AggFor")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("SW.Infolink.Domain.Document", null)
@@ -465,12 +462,16 @@ namespace SW.Infolink.MsSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("SW.Infolink.Domain.Subscription", null)
-                        .WithOne()
-                        .HasForeignKey("SW.Infolink.Domain.Subscription", "ResponseSubscriptionId")
+                        .WithMany()
+                        .HasForeignKey("ResponseSubscriptionId")
+                        .HasConstraintName("FK_Subscriptions_RespSub")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.OwnsMany("SW.Infolink.Domain.Schedule", "AggregationSchedules", b1 =>
+                    b.OwnsMany("SW.Infolink.Domain.Schedule", "Schedules", b1 =>
                         {
+                            b1.Property<int>("SubscriptionId")
+                                .HasColumnType("int");
+
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int")
@@ -479,49 +480,15 @@ namespace SW.Infolink.MsSql.Migrations
                             b1.Property<bool>("Backwards")
                                 .HasColumnType("bit");
 
-                            b1.Property<double>("On")
-                                .HasColumnType("float");
+                            b1.Property<long>("On")
+                                .HasColumnType("bigint");
 
                             b1.Property<byte>("Recurrence")
                                 .HasColumnType("tinyint");
 
-                            b1.Property<int>("SubscriptionId")
-                                .HasColumnType("int");
+                            b1.HasKey("SubscriptionId", "Id");
 
-                            b1.HasKey("Id");
-
-                            b1.HasIndex("SubscriptionId");
-
-                            b1.ToTable("SubscriptionAggregationSchedules");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SubscriptionId");
-                        });
-
-                    b.OwnsMany("SW.Infolink.Domain.Schedule", "ReceiveSchedules", b1 =>
-                        {
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("int")
-                                .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
-
-                            b1.Property<bool>("Backwards")
-                                .HasColumnType("bit");
-
-                            b1.Property<double>("On")
-                                .HasColumnType("float");
-
-                            b1.Property<byte>("Recurrence")
-                                .HasColumnType("tinyint");
-
-                            b1.Property<int>("SubscriptionId")
-                                .HasColumnType("int");
-
-                            b1.HasKey("Id");
-
-                            b1.HasIndex("SubscriptionId");
-
-                            b1.ToTable("SubscriptionReceiveSchedules");
+                            b1.ToTable("SubscriptionSchedules");
 
                             b1.WithOwner()
                                 .HasForeignKey("SubscriptionId");

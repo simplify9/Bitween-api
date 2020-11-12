@@ -5,7 +5,7 @@ using System.Text;
 
 namespace SW.Infolink.Domain
 {
-    class XchangeAggregation : BaseEntity<string>
+    public class XchangeAggregation : BaseEntity<string>
     {
         private XchangeAggregation()
         {

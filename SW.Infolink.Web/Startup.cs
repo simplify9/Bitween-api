@@ -20,6 +20,7 @@ using SW.Logger;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 using SW.SimplyRazor;
+//using SW.Infolink.PgSql;
 
 namespace SW.Infolink.Web
 {
@@ -70,26 +71,48 @@ namespace SW.Infolink.Web
             });
             services.AddScoped<RequestContext>();
 
-            services.AddDbContext<InfolinkDbContext>(c =>
+            if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.PgSql.ToString().ToLower())
             {
-                c.EnableSensitiveDataLogging(true);
+                services.AddDbContext<InfolinkDbContext, PgSql.InfolinkDbContext>(c =>
+                {
+                    c.EnableSensitiveDataLogging(true);
+                    c.UseSnakeCaseNamingConvention();
+                    c.UseNpgsql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
+                    {
+                        b.MigrationsHistoryTable("__ef_migrations_history", PgSql.InfolinkDbContext.Schema);
+                        b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
+                        b.UseAdminDatabase("defaultdb");
+                    });
 
-                if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MySql.ToString().ToLower())
+                });
+            }
+            else
+            {
+                services.AddDbContext<InfolinkDbContext>(c =>
                 {
-                    c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
+                    c.EnableSensitiveDataLogging(true);
+
+
+                    if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MySql.ToString().ToLower())
                     {
-                        b.ServerVersion(new ServerVersion(new Version(8, 0, 18), ServerType.MySql));
-                        b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName);
-                    });
-                }
-                else if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
-                {
-                    c.UseSqlServer(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
+                        c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
+                        {
+                            b.ServerVersion(new ServerVersion(new Version(8, 0, 18), ServerType.MySql));
+                            b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName);
+                        });
+                    }
+                    else if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
                     {
-                        b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName);
-                    });
-                }
-            });
+                        c.UseSqlServer(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
+                        {
+                            b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName);
+                        });
+                    }
+
+                });
+
+            }
+
 
             services.AddHealthChecks();
             services.AddRazorPages(options =>

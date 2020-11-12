@@ -12,7 +12,7 @@ namespace SW.Infolink
         {
             if (asOf == null) asOf = DateTime.UtcNow;
 
-            Criteria = e => e.ReceiveOn < asOf && e.ReceiveSchedules.Any() && !e.Inactive;
+            Criteria = e => e.ReceiveOn < asOf && e.Schedules.Any() && !e.Inactive;
         }
 
         public Expression<Func<Subscription, bool>> Criteria { get; }

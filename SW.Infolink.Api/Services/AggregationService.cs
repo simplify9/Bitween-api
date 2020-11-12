@@ -85,7 +85,7 @@ namespace SW.Infolink
 
                             targetXchangeList.ForEach(id => dbContext.Add(new XchangeAggregation(id, aggXchange.Id)));
                         }
-                        aggSub.SetAggregationSchedules();
+                        aggSub.SetSchedules();
                         aggSub.SetHealth();
                     }
                     catch (Exception ex)

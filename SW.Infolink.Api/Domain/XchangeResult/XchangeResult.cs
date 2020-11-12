@@ -3,7 +3,7 @@ using System;
 
 namespace SW.Infolink.Domain
 {
-    class XchangeResult : BaseEntity<string>
+    public class XchangeResult : BaseEntity<string>
     {
         private XchangeResult()
         {

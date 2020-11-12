@@ -16,6 +16,9 @@ namespace SW.Infolink
         }
 
         public string DatabaseType { get; set; }
+        //public string DatabaseSchema { get; set; }
+        //public bool SnakeCaseTables { get; set; }
+
         public string AdapterPath { get; set; }
         public string AdminCredentials { get; set; }
         public string DocumentPrefix { get; set; }
