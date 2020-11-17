@@ -194,13 +194,13 @@ namespace SW.Infolink.PgSql
 
 
 
-        public static OwnedNavigationBuilder<TOwner, Schedule> BuildSchedule<TOwner>(OwnedNavigationBuilder<TOwner, Schedule> builder)
-        where TOwner : class
-        {
-            builder.Property(p => p.On).HasConversion<long>();
-            builder.Property(p => p.Recurrence).HasConversion<byte>();
-            return builder;
-        }
+        //public static OwnedNavigationBuilder<TOwner, Schedule> BuildSchedule<TOwner>(OwnedNavigationBuilder<TOwner, Schedule> builder)
+        //where TOwner : class
+        //{
+        //    builder.Property(p => p.On).HasConversion<long>();
+        //    builder.Property(p => p.Recurrence).HasConversion<byte>();
+        //    return builder;
+        //}
 
 
     }

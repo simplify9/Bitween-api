@@ -7,9 +7,9 @@ namespace SW.Infolink.MySql.Migrations
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_SubscriptionReceiveSchedules_Subscriptions_SubscriptionId",
-                table: "SubscriptionReceiveSchedules");
+            //migrationBuilder.DropForeignKey(
+            //    name: "FK_SubscriptionReceiveSchedules_Subscriptions_SubscriptionId",
+            //    table: "SubscriptionReceiveSchedules");
 
             migrationBuilder.DropForeignKey(
                 name: "FK_Subscriptions_Subscriptions_AggregationForId",
@@ -19,9 +19,6 @@ namespace SW.Infolink.MySql.Migrations
                 name: "FK_Subscriptions_Subscriptions_ResponseSubscriptionId",
                 table: "Subscriptions");
 
-            migrationBuilder.DropTable(
-                name: "SubscriptionAggregationSchedules");
-
             migrationBuilder.DropIndex(
                 name: "IX_Subscriptions_AggregationForId",
                 table: "Subscriptions");
@@ -30,29 +27,35 @@ namespace SW.Infolink.MySql.Migrations
                 name: "IX_Subscriptions_ResponseSubscriptionId",
                 table: "Subscriptions");
 
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_SubscriptionReceiveSchedules",
-                table: "SubscriptionReceiveSchedules");
+            migrationBuilder.DropTable(
+                name: "SubscriptionAggregationSchedules");
 
-            migrationBuilder.DropIndex(
-                name: "IX_SubscriptionReceiveSchedules_SubscriptionId",
-                table: "SubscriptionReceiveSchedules");
+            migrationBuilder.DropTable(
+                name: "SubscriptionReceiveSchedules");
 
-            migrationBuilder.RenameTable(
-                name: "SubscriptionReceiveSchedules",
-                newName: "SubscriptionSchedules");
+            //migrationBuilder.DropPrimaryKey(
+            //    name: "PK_SubscriptionReceiveSchedules",
+            //    table: "SubscriptionReceiveSchedules");
 
-            migrationBuilder.AlterColumn<long>(
-                name: "On",
-                table: "SubscriptionSchedules",
-                nullable: false,
-                oldClrType: typeof(double),
-                oldType: "double");
+            //migrationBuilder.DropIndex(
+            //    name: "IX_SubscriptionReceiveSchedules_SubscriptionId",
+            //    table: "SubscriptionReceiveSchedules");
 
-            migrationBuilder.AddPrimaryKey(
-                name: "PK_SubscriptionSchedules",
-                table: "SubscriptionSchedules",
-                columns: new[] { "SubscriptionId", "Id" });
+            //migrationBuilder.RenameTable(
+            //    name: "SubscriptionReceiveSchedules",
+            //    newName: "SubscriptionSchedules");
+
+            //migrationBuilder.AlterColumn<long>(
+            //    name: "On",
+            //    table: "SubscriptionSchedules",
+            //    nullable: false,
+            //    oldClrType: typeof(double),
+            //    oldType: "double");
+
+            //migrationBuilder.AddPrimaryKey(
+            //    name: "PK_SubscriptionSchedules",
+            //    table: "SubscriptionSchedules",
+            //    columns: new[] { "SubscriptionId", "Id" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Subscriptions_AggregationForId",
@@ -80,13 +83,26 @@ namespace SW.Infolink.MySql.Migrations
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);
 
-            migrationBuilder.AddForeignKey(
-                name: "FK_SubscriptionSchedules_Subscriptions_SubscriptionId",
-                table: "SubscriptionSchedules",
-                column: "SubscriptionId",
-                principalTable: "Subscriptions",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+            migrationBuilder.Sql(@"
+                CREATE TABLE ""SubscriptionSchedules"" (
+                ""Id"" int NOT NULL AUTO_INCREMENT,
+                ""Recurrence"" tinyint unsigned NOT NULL,
+                ""On"" bigint NOT NULL,
+                ""Backwards"" tinyint(1) NOT NULL,
+                ""SubscriptionId"" int NOT NULL,
+                PRIMARY KEY (""Id"",""SubscriptionId""),
+                CONSTRAINT ""FK_SubscriptionSchedules_Subscriptions_SubscriptionId"" FOREIGN KEY (""SubscriptionId"") REFERENCES ""Subscriptions"" (""Id"") ON DELETE CASCADE);
+                ");
+
+
+
+            //migrationBuilder.AddForeignKey(
+            //    name: "FK_SubscriptionSchedules_Subscriptions_SubscriptionId",
+            //    table: "SubscriptionSchedules",
+            //    column: "SubscriptionId",
+            //    principalTable: "Subscriptions",
+            //    principalColumn: "Id",
+            //    onDelete: ReferentialAction.Cascade);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
