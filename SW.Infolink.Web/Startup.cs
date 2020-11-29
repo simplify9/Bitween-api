@@ -157,7 +157,7 @@ namespace SW.Infolink.Web
                 app.UseDeveloperExceptionPage();
             }
 
-            app.UsePathBase("/_infolink");
+            app.UsePathBase("/infolink");
             app.UseStaticFiles();
             app.UseRouting();
             app.UseAuthentication();
