@@ -79,7 +79,7 @@ namespace SW.Infolink.Web
                     c.UseSnakeCaseNamingConvention();
                     c.UseNpgsql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
                     {
-                        b.MigrationsHistoryTable("__ef_migrations_history", PgSql.InfolinkDbContext.Schema);
+                        b.MigrationsHistoryTable("_ef_migrations_history", PgSql.InfolinkDbContext.Schema);
                         b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
                         b.UseAdminDatabase("defaultdb");
                     });
