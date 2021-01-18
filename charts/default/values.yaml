@@ -7,8 +7,8 @@ replicaCount: 1
 image:
   pullPolicy: IfNotPresent
 
-imagePullSecrets:
-  - name: sw-secret
+# imagePullSecrets:
+#   - name: sw-secret
   # Optionally specify an array of imagePullSecrets.
   # Secrets must be manually created in the namespace.
   # ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod

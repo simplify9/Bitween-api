@@ -81,9 +81,9 @@ jobs:
     displayName: Build and push an image to container registry
     inputs:
       command: buildAndPush
-      repository: $(imageName)
+      repository: simplify9/$(imageName)
       dockerfile: $(Build.SourcesDirectory)/Dockerfile
-      containerRegistry: simplyworksacr
+      containerRegistry: simplify9cr
       tags: |
         $(version)
         latest

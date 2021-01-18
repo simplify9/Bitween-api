@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
         - name: {{ .Chart.Name }}
-          image: "simplyworks.azurecr.io/{{ .Chart.Name }}:{{ .Chart.Version }}"
+          image: "simplify9/{{ .Chart.Name }}:{{ .Chart.Version }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
@@ -150,10 +150,10 @@ spec:
             {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
-    {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-{{ toYaml . | indent 8 }}
-    {{- end }}
+#     {{- with .Values.imagePullSecrets }}
+#       imagePullSecrets:
+# {{ toYaml . | indent 8 }}
+#     {{- end }}
     {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
