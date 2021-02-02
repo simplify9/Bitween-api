@@ -50,7 +50,7 @@ spec:
               value: {{ .Values.dbType }}
               
             - name: Infolink__AdminDatabaseName
-              value: { { .Values.adminDb } }
+              value: {{ .Values.adminDb } }
 
             - name: SwLogger__ApplicationName
               value: {{ template "project.fullname" . }}
