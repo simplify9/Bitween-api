@@ -59,6 +59,7 @@ db: ""
 dbConnectionStringName: ConnectionStrings__InfolinkDb
 
 dbType: "mysql"
+adminDb: "defaultdb"
 
 global:
 

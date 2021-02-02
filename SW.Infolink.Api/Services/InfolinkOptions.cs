@@ -12,10 +12,13 @@ namespace SW.Infolink
             DocumentPrefix = "temp30/infolinkdocs";
             ClientIpHeaderName = "X-Real-IP";
             DatabaseType = "MySql";
+            AdminDatabaseName = "defaultdb";
 
         }
 
         public string DatabaseType { get; set; }
+
+        public string AdminDatabaseName { get; set; }
         //public string DatabaseSchema { get; set; }
         //public bool SnakeCaseTables { get; set; }
 
