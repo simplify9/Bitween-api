@@ -81,7 +81,11 @@ namespace SW.Infolink
             if (xchange.MapperId == null) return xchangeFile;
 
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-            await serverless.StartAsync(xchange.MapperId, xchange.Id, xchange.MapperProperties.ToDictionary());
+
+            var mapperProperties = xchange.MapperProperties.ToDictionary();
+            mapperProperties["xchangeid"] = xchange.Id; 
+            
+            await serverless.StartAsync(xchange.MapperId, xchange.Id, mapperProperties);
             xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
             if (xchangeFile is null)
                 throw new InfolinkException($"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
@@ -107,7 +111,11 @@ namespace SW.Infolink
             if (xchange.HandlerId == null) return null;
 
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-            await serverless.StartAsync(xchange.HandlerId, xchange.Id, xchange.HandlerProperties.ToDictionary());
+
+            var handlerProperties = xchange.HandlerProperties.ToDictionary();
+            handlerProperties["xchangeid"] = xchange.Id;
+
+            await serverless.StartAsync(xchange.HandlerId, xchange.Id, handlerProperties);
             xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
             if (xchangeFile != null)
                 await AddFile(xchange.Id, XchangeFileType.Response, xchangeFile);

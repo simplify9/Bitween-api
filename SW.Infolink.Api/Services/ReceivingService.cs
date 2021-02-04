@@ -11,11 +11,10 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    public class ReceivingService : IHostedService, IDisposable
+    public class ReceivingService : BackgroundService
     {
         readonly ILogger logger;
         readonly IServiceProvider sp;
-        Timer timer;
 
         public ReceivingService(IServiceProvider sp, ILogger<ReceivingService> logger)
         {
@@ -23,56 +22,41 @@ namespace SW.Infolink
             this.logger = logger;
         }
 
-        public void Dispose()
+        async protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            timer?.Dispose();
-        }
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
-        public Task StartAsync(CancellationToken cancellationToken)
-        {
-            logger.LogInformation("Service is starting.");
-
-            timer = new Timer(async state => await Run(state), null, TimeSpan.FromSeconds(5),
-                TimeSpan.FromSeconds(63));
-
-            return Task.CompletedTask;
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            logger.LogInformation("Service is stopping.");
-            timer?.Change(Timeout.Infinite, 0);
-            return Task.CompletedTask;
-        }
-
-        public async Task Run(object state)
-        {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                using var scope = sp.CreateScope();
-                var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
-                var rcvList = await dbContext.ListAsync(new DueReceivers());
-
-                foreach (var rec in rcvList)
+                try
                 {
-                    try
+                    using var scope = sp.CreateScope();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+                    var rcvList = await dbContext.ListAsync(new DueReceivers());
+
+                    foreach (var rec in rcvList)
                     {
-                        var startupParameters = rec.ReceiverProperties.ToDictionary();
-                        await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
-                        rec.SetSchedules();
-                        rec.SetHealth();
+                        try
+                        {
+                            var startupParameters = rec.ReceiverProperties.ToDictionary();
+                            await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
+                            rec.SetSchedules();
+                            rec.SetHealth();
+                        }
+                        catch (Exception ex)
+                        {
+                            rec.SetHealth(ex.ToString());
+                            logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
+                        }
+                        await dbContext.SaveChangesAsync();
                     }
-                    catch (Exception ex)
-                    {
-                        rec.SetHealth(ex.ToString());
-                        logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
-                    }
-                    await dbContext.SaveChangesAsync();
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Service timer callback.");
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Service timer callback.");
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(63), stoppingToken);
             }
         }
 
@@ -97,6 +81,63 @@ namespace SW.Infolink
             }
             await serverless.InvokeAsync(nameof(IInfolinkReceiver.Finalize), null);
         }
+
+
+        //public void Dispose()
+        //{
+        //    timer?.Dispose();
+        //}
+
+        //public Task StartAsync(CancellationToken cancellationToken)
+        //{
+        //    logger.LogInformation("Service is starting.");
+
+        //    timer = new Timer(async state => await Run(state), null, TimeSpan.FromSeconds(5),
+        //        TimeSpan.FromSeconds(63));
+
+        //    return Task.CompletedTask;
+        //}
+
+        //public Task StopAsync(CancellationToken cancellationToken)
+        //{
+        //    logger.LogInformation("Service is stopping.");
+        //    timer?.Change(Timeout.Infinite, 0);
+        //    return Task.CompletedTask;
+        //}
+
+        //public async Task Run(object state)
+        //{
+        //    try
+        //    {
+        //        using var scope = sp.CreateScope();
+        //        var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+        //        var rcvList = await dbContext.ListAsync(new DueReceivers());
+
+        //        foreach (var rec in rcvList)
+        //        {
+        //            try
+        //            {
+        //                var startupParameters = rec.ReceiverProperties.ToDictionary();
+        //                await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
+        //                rec.SetSchedules();
+        //                rec.SetHealth();
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                rec.SetHealth(ex.ToString());
+        //                logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
+        //            }
+        //            await dbContext.SaveChangesAsync();
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        logger.LogError(ex, "Service timer callback.");
+        //    }
+        //}
+
+
+
     }
 
 }
