@@ -22,7 +22,22 @@ namespace SW.Infolink.Resources.Xchanges
             var xchange = await dbContext.FindAsync<Xchange>(key);
             var inputFileData = await xchangeService.GetFile(xchange.Id, XchangeFileType.Input);
             var xchangeFile = new XchangeFile(inputFileData, xchange.InputName);
-            await xchangeService.CreateXchange(xchange, xchangeFile);
+            
+
+            if (xchangeRetry.Reset)
+            {
+                var subscription = await dbContext.FindAsync<Subscription>(xchange.SubscriptionId);
+                if (subscription == null)
+                    throw new SWValidationException("SUBSCRIPTION_NOT_FOUND",
+                        "Cant reset properties, subscription doesnt exist anymore");
+                await xchangeService.CreateXchange(subscription, xchange, xchangeFile);
+            }
+            else
+            {
+                await xchangeService.CreateXchange(xchange, xchangeFile);
+            }
+            
+            
             await dbContext.SaveChangesAsync();
             
             return null;

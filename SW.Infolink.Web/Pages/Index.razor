@@ -54,7 +54,7 @@
                 }
                 else if (((XchangeRow)context.Model).Status.Value)
                 {
-                    <span class="badge badge-success">Ok</span>
+                    <span href="JavaScript:void(0);" @onclick="() => MessageClick(((XchangeRow)context.Model).Id)" class="badge badge-success">Ok</span>
                     @if (((XchangeRow)context.Model).AggregatedOn != null)
                     {
                         <span class="badge badge-success">Aggregated</span>
@@ -65,28 +65,34 @@
                 }
                 else
                 {
-                    <a href="JavaScript:void(0);" @onclick="() => FailMessageClick(((XchangeRow)context.Model).Id)" class="badge badge-danger">Fail</a>
+                    <a href="JavaScript:void(0);" @onclick="() => MessageClick(((XchangeRow)context.Model).Id)" class="badge badge-danger">Fail</a>
                     <span class="badge badge-secondary">
                         @(((XchangeRow)context.Model).StartedOn.Humanize())
                     </span>
                     <span class="badge badge-secondary">@(((XchangeRow)context.Model).Duration)</span>
                 }
 
-                @if (showFailMessageForId == ((XchangeRow)context.Model).Id)
+                @if (showMessageForId == ((XchangeRow)context.Model).Id)
                 {
-                    <Modal Title="Exception" OnClose="() => FailMessageClick(null)">
+                    <Modal Title="@(((XchangeRow)context.Model).Status.Value ? "Retry" : "Exception")" OnClose="() => MessageClick(null)" >
                         <Body>
+                        @if (!((XchangeRow) context.Model).Status.Value)
+                        {
                             <textarea class="form-control" rows="20" disabled="disabled">
                                 @(((XchangeRow)context.Model).Exception)
                             </textarea>
+                        }
                         </Body>
                         <Footer>
-                            <BusyButton class="btn btn-primary" OnClick="bb => OnRetry( ((XchangeRow)context.Model).Id, bb)">
+                            <label>Reset Configuration</label>
+                            <input  type="checkbox" checked="@(resetFlag)" @onchange="() => SwitchResetFlag()"/>
+                            <BusyButton class="btn btn-primary" OnClick="bb => OnRetry(((XchangeRow) context.Model).Id, bb)">
                                 <Title>
                                     Retry
                                 </Title>
                             </BusyButton>
-                            <button class="btn btn-secondary" @onclick="() => FailMessageClick(null)">
+
+                            <button class="btn btn-secondary" @onclick="() => MessageClick(null)">
                                 Close
                             </button>
                         </Footer>
@@ -154,21 +160,29 @@
 
 @code {
 
-    string showFailMessageForId;
+    string showMessageForId;
+    bool resetFlag;
 
-    void FailMessageClick(string id)
+    void MessageClick(string id)
     {
-        showFailMessageForId = id;
+        showMessageForId = id;
     }
+
+    void SwitchResetFlag()
+    {
+        resetFlag = !resetFlag;
+    }
+    
+    
 
     async Task OnRetry(string id, IBusyButton busyButton)
     {
-        var apiResult = await infolinkClient.Update($"xchanges/{id}/retry", new XchangeRetry());
+        var apiResult = await infolinkClient.Update($"xchanges/{id}/retry", new XchangeRetry{Reset = resetFlag});
         await notifyService.NotifyOnApiResult(apiResult);
         //if (apiResult.Success)
         //    navigationManager.NavigateTo(ReturnUrl);
         await busyButton.SetBusy(false);
-        showFailMessageForId = null;
+        showMessageForId = null;
     }
 
 

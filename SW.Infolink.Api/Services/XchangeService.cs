@@ -57,6 +57,16 @@ namespace SW.Infolink
             dbContext.Add(newXchange);
             return xchange;
         }
+        
+        public async Task<Xchange> CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file, string[] references = null)
+        {
+            var newXchange = new Xchange(subscription, xchange, file);
+            await AddFile(newXchange.Id, XchangeFileType.Input, file);
+            dbContext.Add(newXchange);
+            return xchange;
+            
+            
+        }
 
         public async Task<Xchange> CreateXchange(Document document, XchangeFile file)
         {
@@ -73,6 +83,7 @@ namespace SW.Infolink
             dbContext.Add(xchange);
             return xchange;
         }
+       
 
 
 

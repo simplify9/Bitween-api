@@ -60,6 +60,18 @@ namespace SW.Infolink.Domain
             ResponseSubscriptionId = xchange.ResponseSubscriptionId;
             RetryFor = xchange.Id;
         }
+        //retry with reset subscription properties
+        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file) : 
+            this(xchange.DocumentId, file, xchange.References)
+        {
+            SubscriptionId = xchange.SubscriptionId;
+            MapperId = xchange.MapperId;
+            HandlerId = xchange.HandlerId;
+            MapperProperties = subscription.MapperProperties;
+            HandlerProperties = subscription.HandlerProperties;
+            ResponseSubscriptionId = subscription.ResponseSubscriptionId;
+            RetryFor = xchange.Id;
+        }
 
         public int? SubscriptionId { get; private set; }
         public int DocumentId { get; private set; }

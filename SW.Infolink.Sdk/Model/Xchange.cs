@@ -22,6 +22,7 @@ namespace SW.Infolink.Model
     public class XchangeRetry
     {
         public string Reason { get; set; }
+        public bool Reset { get; set; }
     }
 
     public class XchangeGetResultResponse
