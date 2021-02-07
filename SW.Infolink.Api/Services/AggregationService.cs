@@ -3,25 +3,20 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
-using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace SW.Infolink
 {
-    public class AggregationService : IHostedService, IDisposable
+    public class AggregationService : BackgroundService
     {
         readonly ILogger logger;
         readonly IServiceProvider sp;
-        Timer timer;
-
 
         public AggregationService(IServiceProvider sp, ILogger<AggregationService> logger)
         {
@@ -29,79 +24,141 @@ namespace SW.Infolink
             this.logger = logger;
         }
 
-        public Task StartAsync(CancellationToken cancellationToken)
+        async protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            logger.LogInformation("Service is starting.");
+            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
-            timer = new Timer(async state => await Run(state), null, TimeSpan.FromSeconds(5),
-                TimeSpan.FromMinutes(1));
-
-            return Task.CompletedTask;
-        }
-
-        public Task StopAsync(CancellationToken cancellationToken)
-        {
-            logger.LogInformation("Service is stopping.");
-
-            timer?.Change(Timeout.Infinite, 0);
-
-            return Task.CompletedTask;
-        }
-
-        public void Dispose()
-        {
-            timer?.Dispose();
-        }
-
-        public async Task Run(object state)
-        {
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                using var scope = sp.CreateScope();
-                var xchangeService = scope.ServiceProvider.GetRequiredService<XchangeService>();
-                var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
-                var aggSubs = await dbContext.ListAsync(new DueAggregations());
 
-                foreach (var aggSub in aggSubs)
+                try
                 {
-                    try
+                    using var scope = sp.CreateScope();
+                    var xchangeService = scope.ServiceProvider.GetRequiredService<XchangeService>();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+                    var aggSubs = await dbContext.ListAsync(new DueAggregations());
+
+                    foreach (var aggSub in aggSubs)
                     {
-                        var xchangeQuery = from xchange in dbContext.Set<Xchange>()
-                                           join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
-                                           join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
-                                           from agg in xa.DefaultIfEmpty()
-                                           where result.Success == true && agg == null && xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
-                                           select xchange.Id;
-
-                        var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();
-
-                        if (targetXchangeList.Count > 0)
+                        try
                         {
-                            var urlList = targetXchangeList.Select(id => xchangeService.GetFileUrl(id, aggSub.AggregationTarget));
-                            var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
+                            var xchangeQuery = from xchange in dbContext.Set<Xchange>()
+                                               join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
+                                               join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
+                                               from agg in xa.DefaultIfEmpty()
+                                               where result.Success == true && agg == null && xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
+                                               select xchange.Id;
 
-                            var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
-                            dbContext.Add(aggXchange);
+                            var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();
 
-                            targetXchangeList.ForEach(id => dbContext.Add(new XchangeAggregation(id, aggXchange.Id)));
+                            if (targetXchangeList.Count > 0)
+                            {
+                                var urlList = targetXchangeList.Select(id => xchangeService.GetFileUrl(id, aggSub.AggregationTarget));
+                                var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
+
+                                var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
+                                dbContext.Add(aggXchange);
+
+                                targetXchangeList.ForEach(id => dbContext.Add(new XchangeAggregation(id, aggXchange.Id)));
+                            }
+                            aggSub.SetSchedules();
+                            aggSub.SetHealth();
                         }
-                        aggSub.SetSchedules();
-                        aggSub.SetHealth();
+                        catch (Exception ex)
+                        {
+                            aggSub.SetHealth(ex.ToString());
+                            logger.LogError(ex, string.Concat("An error occurred while processing aggregator:", aggSub.Id));
+                        }
+
+                        await dbContext.SaveChangesAsync();
                     }
-                    catch (Exception ex)
-                    {
-                        aggSub.SetHealth(ex.ToString());
-                        logger.LogError(ex, string.Concat("An error occurred while processing aggregator:", aggSub.Id));
-                    }
-                    await dbContext.SaveChangesAsync();
+
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Service timer callback.");
                 }
 
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Service timer callback.");
+
+                await Task.Delay(TimeSpan.FromSeconds(61), stoppingToken);
             }
         }
+
+        //public Task StartAsync(CancellationToken cancellationToken)
+        //{
+        //    logger.LogInformation("Service is starting.");
+
+        //    timer = new Timer(async state => await Run(state), null, TimeSpan.FromSeconds(5),
+        //        TimeSpan.FromMinutes(1));
+
+        //    return Task.CompletedTask;
+        //}
+
+        //public Task StopAsync(CancellationToken cancellationToken)
+        //{
+        //    logger.LogInformation("Service is stopping.");
+
+        //    timer?.Change(Timeout.Infinite, 0);
+
+        //    return Task.CompletedTask;
+        //}
+
+        //public void Dispose()
+        //{
+        //    timer?.Dispose();
+        //}
+
+        //public async Task Run(object state)
+        //{
+        //    try
+        //    {
+        //        using var scope = sp.CreateScope();
+        //        var xchangeService = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        //        var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
+        //        var aggSubs = await dbContext.ListAsync(new DueAggregations());
+
+        //        foreach (var aggSub in aggSubs)
+        //        {
+        //            try
+        //            {
+        //                var xchangeQuery = from xchange in dbContext.Set<Xchange>()
+        //                                   join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
+        //                                   join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
+        //                                   from agg in xa.DefaultIfEmpty()
+        //                                   where result.Success == true && agg == null && xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
+        //                                   select xchange.Id;
+
+        //                var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();
+
+        //                if (targetXchangeList.Count > 0)
+        //                {
+        //                    var urlList = targetXchangeList.Select(id => xchangeService.GetFileUrl(id, aggSub.AggregationTarget));
+        //                    var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
+
+        //                    var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
+        //                    dbContext.Add(aggXchange);
+
+        //                    targetXchangeList.ForEach(id => dbContext.Add(new XchangeAggregation(id, aggXchange.Id)));
+        //                }
+        //                aggSub.SetSchedules();
+        //                aggSub.SetHealth();
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                aggSub.SetHealth(ex.ToString());
+        //                logger.LogError(ex, string.Concat("An error occurred while processing aggregator:", aggSub.Id));
+        //            }
+        //            await dbContext.SaveChangesAsync();
+        //        }
+
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        logger.LogError(ex, "Service timer callback.");
+        //    }
+        //}
+
+
 
         //private async Task Send(XchangeService xchangeService, int subscriberId, JToken token)
         //{
