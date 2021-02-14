@@ -26,7 +26,7 @@ namespace SW.Infolink
         public string AdminCredentials { get; set; }
         public string DocumentPrefix { get; set; }
         public string ClientIpHeaderName { get; set; }
-        public bool AreXChangeFilesPrivate { get; set; }
+        public bool AreXChangeFilesPrivate { get; set; } = false;
 
     }
 }
