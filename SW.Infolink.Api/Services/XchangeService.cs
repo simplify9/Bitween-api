@@ -138,7 +138,7 @@ namespace SW.Infolink
             await cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings
             {
                 //ContentType = "",
-                Public = true,
+                Public = infolinkSettings.AreXChangeFilesPrivate,
                 Key = GetFileKey(xchangeId, type) //$"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}"
             });
         }

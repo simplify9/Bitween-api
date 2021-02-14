@@ -1,10 +1,14 @@
 ﻿@page "/"
 @inject NavigationManager navigationManager
 @inject InfolinkClient infolinkClient
+@inject IJSRuntime jsRuntime
+@inject InfolinkOptions infolinkSettings
+@inject XchangeService xchangeService
 @inject ScopedState state
 @inject NotifyService notifyService
 
 @using Humanizer
+@using System.Text
 
 <h3>Dashboard</h3>
 
@@ -107,17 +111,39 @@
             <ColumnValue>
                 @if (((XchangeRow)context.Model).InputUrl != null)
                 {
-                    <a href="@(((XchangeRow)context.Model).InputUrl)" target="_blank" class="badge badge-info">Input</a>
+                    if (infolinkSettings.AreXChangeFilesPrivate)
+                    {
+                        <button @onclick="() => (Download(((XchangeRow)context.Model).Id, XchangeFileType.Input))" class="badge badge-info">🔒 Input</button>
+                    }
+                        
+                    else
+                    {
+                        <a href="@(((XchangeRow)context.Model).InputUrl)" target="_blank" class="badge badge-info">Input</a>
+                    }
                 }
                 @if (((XchangeRow)context.Model).OutputUrl != null)
                 {
                     var badgeClass = ((XchangeRow)context.Model).OutputBad ? "badge-warning" : "badge-info";
-                    <a href="@(((XchangeRow)context.Model).OutputUrl)" target="_blank" class="badge @badgeClass">Output</a>
+                    if (infolinkSettings.AreXChangeFilesPrivate)
+                    {
+                        <button @onclick="() => Download(((XchangeRow) context.Model).Id, XchangeFileType.Output)" class="badge @badgeClass">🔒 Output</button>
+                    }
+                    else
+                    {
+                        <a href="@(((XchangeRow) context.Model).OutputUrl)" target="_blank" class="badge @badgeClass">Output</a>
+                    }
                 }
                 @if (((XchangeRow)context.Model).ResponseUrl != null)
                 {
                     var badgeClass = ((XchangeRow)context.Model).ResponseBad ? "badge-warning" : "badge-info";
-                    <a href="@(((XchangeRow)context.Model).ResponseUrl)" target="_blank" class="badge @badgeClass">Response</a>
+                    if (infolinkSettings.AreXChangeFilesPrivate)
+                    {
+                        <button @onclick="() => Download(((XchangeRow)context.Model).Id, XchangeFileType.Response)" class="badge @badgeClass">🔒 Response</button>
+                    }
+                    else
+                    {
+                        <a href="@(((XchangeRow)context.Model).ResponseUrl)" target="_blank" class="badge @badgeClass">Response</a>
+                    }
                 }
                 else if (((XchangeRow)context.Model).ResponseBad)
                 {
@@ -173,8 +199,15 @@
     {
         resetFlag = !resetFlag;
     }
-    
-    
+
+    async Task Download(string key, XchangeFileType fileType)
+    {
+        string file = await xchangeService.GetFile(key, fileType);
+        await jsRuntime.InvokeAsync<object>(
+            "saveFile",
+            $"{key}-{fileType.ToString()}",
+            Convert.ToBase64String(Encoding.Default.GetBytes(file)));
+    }
 
     async Task OnRetry(string id, IBusyButton busyButton)
     {
