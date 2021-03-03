@@ -54,7 +54,7 @@ spec:
 
             {{- if .Values.serverlessCommandTimeout }}
             - name: Infolink__ServerlessCommandTimeout
-              value: {{ .Values.serverlessCommandTimeout }}
+              value: "{{ .Values.serverlessCommandTimeout }}"
             {{- end }}
 
             - name: SwLogger__ApplicationName
