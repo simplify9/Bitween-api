@@ -52,6 +52,11 @@ spec:
             - name: Infolink__AdminDatabaseName
               value: {{ .Values.adminDb }}
 
+            {{- if .Values.serverlessCommandTimeout }}
+            - name: Infolink__ServerlessCommandTimeout
+              value: {{ .Values.serverlessCommandTimeout }}
+            {{- end }}
+
             - name: SwLogger__ApplicationName
               value: {{ template "project.fullname" . }}
 
