@@ -13,7 +13,7 @@ namespace SW.Infolink
             ClientIpHeaderName = "X-Real-IP";
             DatabaseType = "MySql";
             AdminDatabaseName = "defaultdb";
-
+            ServerlessCommandTimeout = 300;
         }
 
         public string DatabaseType { get; set; }
@@ -26,7 +26,7 @@ namespace SW.Infolink
         public string AdminCredentials { get; set; }
         public string DocumentPrefix { get; set; }
         public string ClientIpHeaderName { get; set; }
+        public int ServerlessCommandTimeout { get; set; }
         public bool AreXChangeFilesPrivate { get; set; } = false;
-
     }
 }

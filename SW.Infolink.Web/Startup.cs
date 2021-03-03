@@ -67,7 +67,7 @@ namespace SW.Infolink.Web
             services.AddCloudFiles();
             services.AddServerless(configure =>
             {
-                configure.CommandTimeout = 300;
+                configure.CommandTimeout = infolinkOptions.ServerlessCommandTimeout;
             });
             services.AddScoped<RequestContext>();
 
