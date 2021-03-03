@@ -60,6 +60,7 @@ dbConnectionStringName: ConnectionStrings__InfolinkDb
 
 dbType: "mysql"
 adminDb: "defaultdb"
+serverlessCommandTimeout: ''
 
 global:
 
