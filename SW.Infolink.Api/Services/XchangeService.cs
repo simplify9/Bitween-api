@@ -179,10 +179,14 @@ namespace SW.Infolink
             try
             {
                 var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
+                var result = filterService.Filter(xchange.DocumentId, inputFile);
 
+                dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 
                 if (xchange.SubscriptionId != null)
                 {
+                    
+
                     if (xchange.MapperId == null)
                         responseFile = await RunHandler(xchange, inputFile);
                     else
@@ -205,9 +209,7 @@ namespace SW.Infolink
                 }
                 else if (xchange.SubscriptionId == null)
                 {
-                    var result = filterService.Filter(xchange.DocumentId, inputFile);
-
-                    dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
+              
 
                     foreach (var subscriptionId in result.Hits)
                     {
