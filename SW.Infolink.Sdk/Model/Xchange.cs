@@ -19,6 +19,12 @@ namespace SW.Infolink.Model
         Response
     }
 
+    public class CreateXchange
+    {
+        public string Data { get; set; }
+    }
+   
+
     public class XchangeRetry
     {
         public string Reason { get; set; }

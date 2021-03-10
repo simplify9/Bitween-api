@@ -9,11 +9,11 @@ namespace SW.Infolink.Web.ViewModels
 {
     public class SubmitXchange 
     {
-        public XchangeRequestOption Option { get; set; }
+        //public XchangeRequestOption Option { get; set; }
         public int DocumentId { get; set; }
-        public int SubscriberId { get; set; }
-        public XchangeFile File { get; set; }
-        public string[] References { get; set; }
+        //public int SubscriberId { get; set; }
+        //public XchangeFile File { get; set; }
+        //public string[] References { get; set; }
         public string Data { get; set; }
     }
 
