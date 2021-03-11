@@ -19,6 +19,21 @@ namespace SW.Infolink.Model
         Response
     }
 
+    public class CreateXchange
+    {
+        public CreateXchangeOption Option { get; set; }
+        public int? DocumentId { get; set; }
+        public int? SubscriberId { get; set; }
+        public string Data { get; set; }
+    }
+    
+    public enum CreateXchangeOption
+    {
+        DocumentId,
+        SubscriberId
+    }
+   
+
     public class XchangeRetry
     {
         public string Reason { get; set; }

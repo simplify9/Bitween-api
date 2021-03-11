@@ -10,18 +10,18 @@
     <div class="col-xl-7 mt-2">
 
         <SimplyForm @bind-Value="model">
-            <Field Name="@nameof(SubmitXchange.Option)" />
-
-            @if (model.Option == XchangeRequestOption.SubscriberId)
+            <Field Name="@nameof(CreateXchange.Option)" />
+           
+            @if (model.Option == CreateXchangeOption.SubscriberId)
             {
-                <Field Name="@nameof(SubmitXchange.SubscriberId)" Lookup="@Lookup.FromSearchy("subscribers")" />
+                <Field Name="@nameof(CreateXchange.SubscriberId)" Lookup="@Lookup.FromSearchy("subscriptions")" />
             }
             else
             {
-                <Field Name="@nameof(SubmitXchange.DocumentId)" Lookup="@Lookup.FromSearchy("documents")" />
+                <Field Name="@nameof(CreateXchange.DocumentId)" Lookup="@Lookup.FromSearchy("documents")" />
             }
 
-            <Field Name="@nameof(SubmitXchange.Data)" InputType="InputType.Multiline" rows="" />
+            <Field Name="@nameof(CreateXchange.Data)" InputType="InputType.Multiline" rows="" />
         </SimplyForm>
     </div>
 </div>
@@ -38,11 +38,11 @@
 
 @code {
 
-    SubmitXchange model = new SubmitXchange();
+    CreateXchange model = new CreateXchange();
 
     async Task OnSubmit(IBusyButton busyButton)
     {
-        var apiResult = await infolinkClient.Update($"xchanges/{model.DocumentId}", model.Data);
+        var apiResult = await infolinkClient.Update($"xchanges", model);
         await notifyService.NotifyOnApiResult(apiResult);
         if (apiResult.Success)
             navigationManager.NavigateTo("/");
