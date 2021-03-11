@@ -21,7 +21,16 @@ namespace SW.Infolink.Model
 
     public class CreateXchange
     {
+        public CreateXchangeOption Option { get; set; }
+        public int? DocumentId { get; set; }
+        public int? SubscriberId { get; set; }
         public string Data { get; set; }
+    }
+    
+    public enum CreateXchangeOption
+    {
+        DocumentId,
+        SubscriberId
     }
    
 
