@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using SW.Infolink.Api;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
@@ -6,6 +7,7 @@ using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SW.Infolink
@@ -36,7 +38,12 @@ namespace SW.Infolink
 
         async public Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file, string[] references = null)
         {
-            var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
+            //var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
+            var subscription = await dbContext.Set<Subscription>()
+                            .Where(e => e.Id == subscriptionId)
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync();
+
             var xchange = await CreateXchange(subscription, file, references);
             await dbContext.SaveChangesAsync();
             return xchange.Id;
@@ -197,7 +204,12 @@ namespace SW.Infolink
 
                     if (xchange.ResponseSubscriptionId != null && responseFile != null)
                     {
-                        var subscription = await dbContext.FindAsync<Subscription>(xchange.ResponseSubscriptionId.Value);
+                        //var subscription = await dbContext.FindAsync<Subscription>(xchange.ResponseSubscriptionId.Value);
+                        var subscription = await dbContext.Set<Subscription>()
+                            .Where(e => e.Id == xchange.ResponseSubscriptionId)
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync();
+
                         responseXchange = await CreateXchange(subscription, responseFile);
                     }
 
@@ -213,7 +225,12 @@ namespace SW.Infolink
 
                     foreach (var subscriptionId in result.Hits)
                     {
-                        var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);
+                        //var subscription = await dbContext.FindAsync<Subscription>(subscriptionId);//TODO:this needs to be AsNoTrackable
+                        var subscription = await dbContext.Set<Subscription>()
+                            .Where(e => e.Id == subscriptionId)
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync();
+
                         await CreateXchange(subscription, inputFile);
                     }
                 }
