@@ -61,6 +61,7 @@ dbConnectionStringName: ConnectionStrings__InfolinkDb
 dbType: "mysql"
 adminDb: "defaultdb"
 serverlessCommandTimeout: ''
+documentPrefix: 'temp30/infolinkdocs'
 
 global:
 

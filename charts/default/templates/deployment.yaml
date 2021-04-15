@@ -51,6 +51,9 @@ spec:
               
             - name: Infolink__AdminDatabaseName
               value: {{ .Values.adminDb }}
+              
+            - name: Infolink__DocumentPrefix
+              value: { { .Values.documentPrefix } }
 
             {{- if .Values.serverlessCommandTimeout }}
             - name: Infolink__ServerlessCommandTimeout
