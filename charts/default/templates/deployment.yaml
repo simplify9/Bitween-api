@@ -53,7 +53,7 @@ spec:
               value: {{ .Values.adminDb }}
               
             - name: Infolink__DocumentPrefix
-              value: { { .Values.documentPrefix } }
+              value: {{ .Values.documentPrefix }}
 
             {{- if .Values.serverlessCommandTimeout }}
             - name: Infolink__ServerlessCommandTimeout
