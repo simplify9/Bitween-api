@@ -8,6 +8,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Resources.Login
 {
+    [Unprotect]
     class Login : ICommandHandler<UserLogin>
     {
         private readonly InfolinkDbContext dbContext;
