@@ -34,8 +34,6 @@ namespace SW.Infolink.Resources.Login
                     var claims = new List<Claim>
                     {
                         new Claim(ClaimTypes.Name, cred[0]),
-                        //new Claim("FullName", "blabla"),
-                        //new Claim(ClaimTypes.Role, "Supervisor"),
                     };
 
                     return new
