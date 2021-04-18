@@ -329,7 +329,12 @@ namespace SW.Infolink.MsSql.Migrations
                     b.Property<string>("Properties")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("PropertiesRaw")
+                        .HasColumnType("nvarchar(450)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("PropertiesRaw");
 
                     b.ToTable("XchangePromotedProperties");
                 });

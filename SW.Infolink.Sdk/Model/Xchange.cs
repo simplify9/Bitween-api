@@ -79,6 +79,7 @@ namespace SW.Infolink.Model
         public string ResponseUrl { get; set; }
         public string Duration { get; set; }
         public IDictionary<string, string> PromotedProperties { get; set; }
+        public string PromotedPropertiesRaw { get; set; }
         public string RetryFor { get;  set; }
         public string AggregationXchangeId { get;  set; }
         public bool  OutputBad { get; set; }

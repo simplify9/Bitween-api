@@ -55,6 +55,7 @@ namespace SW.Infolink.Resources.Xchanges
                             ResponseUrl = xchangeService.GetFileUrl(xchange.Id, result.ResponseSize, XchangeFileType.Response),
                             Duration = xchange.StartedOn.Elapsed(result.FinishedOn),
                             PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary(),
+                            PromotedPropertiesRaw = promoted == null ? null : promoted.PropertiesRaw,
                             RetryFor = xchange.RetryFor,
                             AggregationXchangeId = agg.AggregationXchangeId,
                             Exception = result.Exception,
@@ -107,6 +108,15 @@ namespace SW.Infolink.Resources.Xchanges
                     }
 
                     condition.Filters.Remove(statusFilter);
+                }
+                
+                var propertiesFilters = condition.Filters.Where(f => f.Field == "PromotedPropertiesRaw").ToList();
+                foreach (var propertyFilter in propertiesFilters)
+                {
+                    var value = propertyFilter.Value.ToString();
+                  
+                    query = query.Where(i => i.PromotedPropertiesRaw.Contains(value));
+                    condition.Filters.Remove(propertyFilter);
                 }
             }
 

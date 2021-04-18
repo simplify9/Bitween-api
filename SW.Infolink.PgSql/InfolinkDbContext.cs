@@ -186,7 +186,7 @@ namespace SW.Infolink.PgSql
                 b.Property(p => p.Id).HasMaxLength(50);
                 b.Property(p => p.Properties).HasColumnType("jsonb");
                 b.Property(p => p.Hits); //.IsSeparatorDelimited().HasMaxLength(2000);
-
+                b.HasIndex(p => p.PropertiesRaw);
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 

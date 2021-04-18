@@ -173,8 +173,12 @@ namespace SW.Infolink
                 b.ToTable("XchangePromotedProperties");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.Properties).StoreAsJson();
+                //b.Property(p => p.PropertiesRaw);
+                
                 b.Property(p => p.Hits).IsSeparatorDelimited().IsUnicode(false).HasMaxLength(2000);
 
+                b.HasIndex(p => p.PropertiesRaw);
+                
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 
