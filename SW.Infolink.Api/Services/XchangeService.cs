@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using SW.Infolink.Api;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
@@ -25,8 +26,10 @@ namespace SW.Infolink
         private readonly ICloudFilesService cloudFiles;
         private readonly IServiceProvider serviceProvider;
         private readonly IPublish publish;
-
-        public XchangeService(InfolinkOptions infolinkSettings, InfolinkDbContext dbContext, FilterService filterService, ICloudFilesService cloudFiles, IServiceProvider serviceProvider, IPublish publish)
+        private readonly ILogger logger;
+        public XchangeService(InfolinkOptions infolinkSettings, InfolinkDbContext dbContext, FilterService filterService,
+            ICloudFilesService cloudFiles, IServiceProvider serviceProvider, 
+            IPublish publish, ILogger<XchangeService> logger)
         {
             this.infolinkSettings = infolinkSettings;
             this.dbContext = dbContext;
@@ -34,6 +37,7 @@ namespace SW.Infolink
             this.cloudFiles = cloudFiles;
             this.serviceProvider = serviceProvider;
             this.publish = publish;
+            this.logger = logger;
         }
 
         async public Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file, string[] references = null)
@@ -164,7 +168,9 @@ namespace SW.Infolink
 
         public string GetFileKey(string xchangeId, XchangeFileType type)
         {
-            return $"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
+            var key = $"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
+            logger.LogInformation($"the file key is:'{key}'");
+            return key;
         }
 
         public async Task<string> GetFile(string xchangeId, XchangeFileType type)
