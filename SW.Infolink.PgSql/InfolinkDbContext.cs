@@ -189,6 +189,14 @@ namespace SW.Infolink.PgSql
                 b.HasIndex(p => p.PropertiesRaw);
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
+            
+            modelBuilder.Entity<Notifier>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+            });
 
         }
 
