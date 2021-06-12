@@ -15,7 +15,8 @@
 <Search PageSize="20"
         SearchUrl="xchanges"
         TModel="XchangeRow"
-        @bind-Value="state[navigationManager.Uri]">
+        @bind-Value="state[navigationManager.Uri]"
+>
 
     <Commands >
         <button class="btn btn-secondary ml-4 mr-2 px-2">
@@ -28,11 +29,11 @@
      
 
     <Filters>
+        <Field Name="StartedOn" Text="Date"></Field>
         <Field Name="Id"/>
         <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")"/>
         <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")"/>
         <Field Name="SubscriptionId" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")"/>
-        <Field Name="StartedOn" Text="Date"></Field>
         <Field Name="PromotedPropertiesRaw"/>
     </Filters>
 
