@@ -3,21 +3,16 @@ using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Model
 {
-    public class NotifierCreate
+    public class NotifierCreate: IName
     {
         public string Name { get; set; }
-        public bool? RunOnSuccessfulResult { get;  set; }
-        public bool? RunOnBadResult { get;  set; }
-        public bool? RunOnFailedResult { get; set; }
-        public string HandlerId { get; set; }
     }
 
-    public class NotifierUpdate
+    public class NotifierUpdate:NotifierCreate
     {
-        public string Name { get; set; }
-        public bool? RunOnSuccessfulResult { get;  set; }
-        public bool? RunOnBadResult { get;  set; }
-        public bool? RunOnFailedResult { get; set; }
+        public bool RunOnSuccessfulResult { get;  set; }
+        public bool RunOnBadResult { get;  set; }
+        public bool RunOnFailedResult { get; set; }
         public string HandlerId { get; set; }
         public bool Inactive { get; set; }
         public ICollection<KeyAndValue> HandlerProperties { get; set; }

@@ -17,11 +17,7 @@ namespace SW.Infolink.Resources.Notifiers
         
         public async Task<object> Handle(NotifierCreate request)
         {
-            var notifier = new Notifier(request.Name,
-                request.RunOnSuccessfulResult ?? false,
-                request.RunOnBadResult ?? false,
-                request.RunOnFailedResult ?? false,
-                request.HandlerId);
+            var notifier = new Notifier(request.Name);
             
             dbContext.Add(notifier);
             await dbContext.SaveChangesAsync();
@@ -32,7 +28,7 @@ namespace SW.Infolink.Resources.Notifiers
         {
             public Validate()
             {
-                RuleFor(i => i.HandlerId).NotEmpty();
+                RuleFor(i => i.Name).NotEmpty();
             }
         }
     }

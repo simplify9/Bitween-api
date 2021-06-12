@@ -2,16 +2,24 @@
 @inject InfolinkClient infolinkClient
 @inject NotifyService notifyService
 
-<UpdateForm Title="Notifier" TModel="NotifierUpdate" ApiUrl="notifiers" ReturnUrl="notifiers" Id="Id" StayAfterSave="true">
-   
+<div class="row">
+<div class="col-7">
+    <UpdateForm Title="Notifier" TModel="NotifierUpdate" ApiUrl="notifiers" ReturnUrl="notifiers" Id="Id" StayAfterSave="true">
+       
 
         <FormRow>
-            <Field ReadOnly="true" Name="@nameof(NotifierUpdate.Name)" />
+            <Field  Name="@nameof(NotifierUpdate.Name)" />
+        </FormRow>
+        <FormRow>
+            <Field Name="@nameof(NotifierUpdate.RunOnSuccessfulResult)" />
+            <Field Name="@nameof(NotifierUpdate.RunOnBadResult)" />
+            <Field Name="@nameof(NotifierUpdate.RunOnFailedResult)" />
         </FormRow>
 
         <FormRow>
             <Field Name="@nameof(NotifierUpdate.Inactive)" />
         </FormRow>
+        
 
 
         <FormRow>
@@ -49,10 +57,23 @@
                 </Subform>
             </FormRow>
         }
-               
+                   
 
 
-</UpdateForm>
+    </UpdateForm>
+</div>
+    <div class="col-5 pt-4">
+        <p class="h4">Notification model</p> 
+        <p><strong>Id:string- </strong>XChange ID</p>
+        <p><strong>Success:boolean- </strong>Was the xchange execustion a succes</p>
+        <p><strong>Exception:string- </strong>Exception</p>
+        <p><strong>FinishedOn:DateTime- </strong>Finished on timestamp</p>
+        <p><strong>OutputBad:boolean- </strong>Was the mapper output bad</p>
+        <p><strong>ResponseBad:boolean- </strong>was the handler response bad</p>
+    </div>
+    
+</div>
+
 
 @code {
 

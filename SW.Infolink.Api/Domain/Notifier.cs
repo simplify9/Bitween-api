@@ -6,13 +6,9 @@ namespace SW.Infolink.Domain
     public class Notifier:BaseEntity
     {
 
-        public Notifier(string name,bool runOnSuccessfulResult, bool runOnBadResult, bool runOnFailedResult, string handlerId)
+        public Notifier(string name)
         {
             Name = name;
-            RunOnSuccessfulResult = runOnSuccessfulResult;
-            RunOnBadResult = runOnBadResult;
-            RunOnFailedResult = runOnFailedResult;
-            HandlerId = handlerId;
             Inactive = false;
         }
 
@@ -24,15 +20,13 @@ namespace SW.Infolink.Domain
         public bool Inactive { get; set; }
         public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
 
-        public void Update(bool runOnSuccessfulResult, bool runOnBadResult, bool runOnFailedResult, string handlerId,
-            IReadOnlyDictionary<string, string> handlerProperties)
+        public void Update(string name, bool runOnSuccessfulResult, bool runOnBadResult, bool runOnFailedResult, string handlerId)
         {
+            Name = name;
             RunOnSuccessfulResult = runOnSuccessfulResult;
             RunOnBadResult = runOnBadResult;
             RunOnFailedResult = runOnFailedResult;
             HandlerId = handlerId;
-
-            SetDictionaries(handlerProperties);
         }
         public void SetDictionaries(
             IReadOnlyDictionary<string, string> handler

@@ -4,7 +4,7 @@
 
 <h3>Notifiers Search</h3>
 
-<Search PageSize="10" SearchUrl="notifiers" TModel="NotifierSearch" OnItem="@(item => navigationManager.NavigateTo($"notifier/{item.Item.Id}"))"
+<Search PageSize="10" SearchUrl="notifiers" TModel="NotifierSearch" OnItem="@(item => navigationManager.NavigateTo($"notifiers/{item.Item.Id}"))"
         @bind-Value="state[navigationManager.Uri]">
     <Commands>
         <a href="notifiers/create">New Notifier</a>

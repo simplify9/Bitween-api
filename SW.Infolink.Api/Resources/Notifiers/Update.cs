@@ -21,11 +21,12 @@ namespace SW.Infolink.Resources.Notifiers
             var notifier = await dbContext.FindAsync<Notifier>(key);
             
             
-             notifier.Update(request.RunOnSuccessfulResult ?? notifier.RunOnSuccessfulResult,
-                request.RunOnBadResult ?? notifier.RunOnBadResult,
-                request.RunOnFailedResult ?? notifier.RunOnFailedResult,
-                request.HandlerId ?? notifier.HandlerId,
-                request.HandlerProperties.ToDictionary());
+             notifier.Update(request.Name, request.RunOnSuccessfulResult,
+                request.RunOnBadResult,
+                request.RunOnFailedResult,
+                request.HandlerId ?? notifier.HandlerId);
+             
+             notifier.SetDictionaries(request.HandlerProperties.ToDictionary());
             
             
             await dbContext.SaveChangesAsync();
@@ -36,6 +37,7 @@ namespace SW.Infolink.Resources.Notifiers
         {
             public Validate()
             {
+                RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.HandlerId).NotEmpty();
             }
         }
