@@ -15,22 +15,39 @@
 <Search PageSize="20"
         SearchUrl="xchanges"
         TModel="XchangeRow"
-        @bind-Value="state[navigationManager.Uri]">
+        @bind-Value="state[navigationManager.Uri]"
+>
 
-    <Commands>
-        <a href="xchanges/create">New exchange</a>
+    <Commands >
+        <button class="btn btn-secondary ml-4 mr-2 px-2">
+            <a style="color: white" href="xchanges/create">New exchange</a>
+        </button>
+        <button disabled="@(selectedIds.Count == 0)" class="btn btn-secondary px-2" @onclick="() => ShowBulkRetryClick()">
+            Bulk Retry
+        </button>
     </Commands>
+     
 
     <Filters>
-        <Field Name="Id" />
-        <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")" />
-        <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")" />
-        <Field Name="SubscriptionId" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")" />
-        <Field Name="StartedOn"   Text="Date"></Field>
-         <Field Name="PromotedPropertiesRaw" />
+        <Field Name="StartedOn" Text="Date"></Field>
+        <Field Name="Id"/>
+        <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")"/>
+        <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")"/>
+        <Field Name="SubscriptionId" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")"/>
+        <Field Name="PromotedPropertiesRaw"/>
     </Filters>
 
     <Columns>
+        <Field Text="">
+            <ColumnValue>
+                <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    value="@(selectedIds.Contains(((XchangeRow)context.Model).Id))"
+                    @onclick="(i) => OnSelect(((XchangeRow)context.Model).Id)"
+                />
+            </ColumnValue>
+        </Field>
         <Field Text="Xchange">
             <ColumnValue>
                 <span class="badge badge-light">@(((XchangeRow)context.Model).DocumentName)</span>
@@ -183,13 +200,49 @@
     </Columns>
 
 </Search>
+@if (showBulkRetry)
+{
+    <Modal Title="Bulk retry all results" OnClose="() => ShowBulkRetryClick()" >
+        <Body>
+        <p><strong>Selected XChanges to be retried count: </strong> @(selectedIds.Count)</p>
+        
+        </Body>
+        <Footer>
+            <label>Reset Configuration</label>
+            <input  type="checkbox" checked="@(resetFlag)" @onchange="() => SwitchResetFlag()"/>
+            <BusyButton class="btn btn-primary" OnClick="bb => OnBulkRetry(bb)">
+                <Title>
+                    Retry
+                </Title>
+            </BusyButton>
+
+            <button class="btn btn-secondary" @onclick="() => ShowBulkRetryClick()">
+                Close
+            </button>
+        </Footer>
+    </Modal>
+}
+
 
 
 
 @code {
-
+    List<string> selectedIds = new List<string>();
     string showMessageForId;
     bool resetFlag;
+
+    bool showBulkRetry;
+
+    void OnSelect(string id)
+    {
+        if (selectedIds.Contains(id)) selectedIds.Remove(id);
+        else selectedIds.Add((id));
+    }
+
+    void ShowBulkRetryClick()
+    {
+        showBulkRetry = !showBulkRetry;
+    }
 
     void MessageClick(string id)
     {
@@ -218,6 +271,14 @@
         //    navigationManager.NavigateTo(ReturnUrl);
         await busyButton.SetBusy(false);
         showMessageForId = null;
+    }
+    
+    async Task OnBulkRetry(IBusyButton busyButton)
+    {
+        var apiResult = await infolinkClient.Update($"xchanges/bulkretry", new XchangeBulkRetry{Ids=selectedIds, Reset = resetFlag});
+        await notifyService.NotifyOnApiResult(apiResult);
+        await busyButton.SetBusy(false);
+        showBulkRetry = false;
     }
 
 

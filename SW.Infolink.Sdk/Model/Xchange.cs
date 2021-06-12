@@ -40,6 +40,11 @@ namespace SW.Infolink.Model
         public bool Reset { get; set; }
     }
 
+    public class XchangeBulkRetry:XchangeRetry
+    {
+        public List<string> Ids { get; set; }
+    }
+
     public class XchangeGetResultResponse
     {
         public bool Success { get; set; }
