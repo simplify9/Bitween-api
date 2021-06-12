@@ -1,0 +1,12 @@
+@page "/notifiers/create"
+
+<CreateForm Title="Notifiers" TModel="NotifierCreate" ApiUrl="notifiers" ReturnUrl="notifiers">
+    <FormRow >
+        <Field Name="@nameof(NotifierCreate.Name)" />
+    </FormRow>
+   
+</CreateForm>
+
+@code {
+
+}

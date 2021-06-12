@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace SW.Infolink
 {
@@ -16,7 +17,8 @@ namespace SW.Infolink
         IConsume<ApiXchangeCreatedEvent>,
         IConsume<InternalXchangeCreatedEvent>,
         IConsume<AggregateXchangeCreatedEvent>,
-        IConsume<ReceivingXchangeCreatedEvent>
+        IConsume<ReceivingXchangeCreatedEvent>,
+        IConsume<XchangeResultCreatedEvent>
 
     {
         private readonly InfolinkOptions infolinkSettings;
@@ -254,6 +256,55 @@ namespace SW.Infolink
         Task IConsume<InternalXchangeCreatedEvent>.Process(InternalXchangeCreatedEvent message) => Process(message);
 
         Task IConsume<ReceivingXchangeCreatedEvent>.Process(ReceivingXchangeCreatedEvent message) => Process(message);
+        
+        
+        public async Task Process(XchangeResultCreatedEvent message)
+        {
+            var notifier = await dbContext.Set<Notifier>().FirstOrDefaultAsync();
+
+            if (notifier.Inactive) return;
+            
+            switch (message.Success)
+            {
+                case true when !message.ResponseBad && notifier.RunOnSuccessfulResult:
+                case true when message.ResponseBad && notifier.RunOnBadResult:
+                case false when notifier.RunOnFailedResult:
+                    await NotifyResult(notifier, message.Id);
+                    break;
+            }
+
+        }
+        
+        private async Task NotifyResult(Notifier notifier, string xchangeId)
+        {
+            var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
+            if (xchangeResult == null) throw new InfolinkException($"Xchange Result '{xchangeId}' not found.");
+
+            if (notifier.HandlerId == null) return;
+            
+            var notificationData = new XchangeResultNotification
+            {
+                Id = xchangeResult.Id,
+                Exception = xchangeResult.Exception,
+                Success = xchangeResult.Success,
+                FinishedOn = xchangeResult.FinishedOn,
+                OutputBad = xchangeResult.OutputBad,
+                ResponseBad = xchangeResult.ResponseBad
+            };
+
+
+            var serverless = serviceProvider.GetRequiredService<IServerlessService>();
+
+            var handlerProperties = notifier.HandlerProperties.ToDictionary();
+            handlerProperties["xchangeid"] = xchangeResult.Id;
+
+            await serverless.StartAsync(notifier.HandlerId, xchangeResult.Id, handlerProperties);
+            
+            var xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), 
+                new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
+            
+            
+        }
     }
 
 }

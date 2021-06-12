@@ -1,0 +1,26 @@
+@page "/notifiers"
+@inject NavigationManager navigationManager
+@inject ScopedState state
+
+<h3>Notifiers Search</h3>
+
+<Search PageSize="10" SearchUrl="notifiers" TModel="NotifierSearch" OnItem="@(item => navigationManager.NavigateTo($"notifier/{item.Item.Id}"))"
+        @bind-Value="state[navigationManager.Uri]">
+    <Commands>
+        <a href="notifiers/create">New Notifier</a>
+    </Commands>
+
+    <Columns>
+        <Field Name="Id"></Field>
+        <Field Name="@nameof(NotifierSearch.Name)" />
+        <Field Name="@nameof(NotifierSearch.HandlerId)" />
+        <Field Name="@nameof(NotifierSearch.RunOnSuccessfulResult)" />
+        <Field Name="@nameof(NotifierSearch.RunOnBadResult)" />
+        <Field Name="@nameof(NotifierSearch.RunOnFailedResult)" />
+    </Columns>
+
+</Search>
+
+@code {
+
+}
