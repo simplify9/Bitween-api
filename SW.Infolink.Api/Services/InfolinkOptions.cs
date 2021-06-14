@@ -14,6 +14,7 @@ namespace SW.Infolink
             DatabaseType = "MySql";
             AdminDatabaseName = "defaultdb";
             ServerlessCommandTimeout = 300;
+            ApiCallSubscriptionResponseAcceptedStatusCode = 202;
         }
 
         public string DatabaseType { get; set; }
@@ -28,5 +29,6 @@ namespace SW.Infolink
         public string ClientIpHeaderName { get; set; }
         public int ServerlessCommandTimeout { get; set; }
         public bool AreXChangeFilesPrivate { get; set; } = false;
+        public int? ApiCallSubscriptionResponseAcceptedStatusCode { get; set; }
     }
 }

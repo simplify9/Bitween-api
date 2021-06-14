@@ -18,12 +18,14 @@ namespace SW.Infolink.Resources.Xchanges
         private readonly RequestContext requestContext;
         private readonly XchangeService xchangeService;
         private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkOptions infolinkSettings;
 
-        public Update(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext, IServiceProvider serviceProvider)
+        public Update(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext, IServiceProvider serviceProvider, InfolinkOptions infolinkSettings)
         {
             this.requestContext = requestContext;
             this.xchangeService = xchangeService;
             this.dbContext = dbContext;
+            this.infolinkSettings = infolinkSettings;
         }
 
         async public Task<object> Handle(string documentIdOrName, object request)
@@ -77,7 +79,7 @@ namespace SW.Infolink.Resources.Xchanges
             if (waitResponse <= 0)
                 return new CqApiResult<string>(xchangeId)
                 {
-                    Status = CqApiResultStatus.UnderProcessing
+                    Status = infolinkSettings.ApiCallSubscriptionResponseAcceptedStatusCode == 200 ? CqApiResultStatus.Ok : CqApiResultStatus.UnderProcessing
                 };
 
             for (double count = 2; count <= waitResponse; count += 2)
