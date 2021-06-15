@@ -26,7 +26,7 @@ namespace SW.Infolink.Resources.Notifiers
                     Name = notifier.Name,
                     Inactive = notifier.Inactive,
                     HandlerId = notifier.HandlerId,
-                    HandlerProperties= notifier.HandlerProperties?.ToKeyAndValueCollection(),
+                    HandlerProperties= notifier.HandlerProperties != null ? notifier.HandlerProperties.ToKeyAndValueCollection() : null,
                     RunOnSuccessfulResult= notifier.RunOnSuccessfulResult,
                     RunOnBadResult = notifier.RunOnBadResult,
                     RunOnFailedResult = notifier.RunOnFailedResult
