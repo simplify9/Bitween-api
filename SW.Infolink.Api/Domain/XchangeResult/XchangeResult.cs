@@ -38,7 +38,9 @@ namespace SW.Infolink.Domain
 
             Events.Add(new XchangeResultCreatedEvent
             {
-                Id = Id
+                Id = Id,
+                Success = Success,
+                ResponseBad = ResponseBad
             });
         }
 
