@@ -266,19 +266,20 @@ namespace SW.Infolink
         
         public async Task Process(XchangeResultCreatedEvent message)
         {
-            var notifier = await dbContext.Set<Notifier>().FirstOrDefaultAsync();
+            var notifiers = await dbContext.Set<Notifier>().ToListAsync();
 
-            if (notifier.Inactive) return;
-            
-            switch (message.Success)
+            foreach (var notifier in notifiers)
             {
-                case true when !message.ResponseBad && notifier.RunOnSuccessfulResult:
-                case true when message.ResponseBad && notifier.RunOnBadResult:
-                case false when notifier.RunOnFailedResult:
-                    await NotifyResult(notifier, message.Id);
-                    break;
+                if (notifier.Inactive) return;
+                switch (message.Success)
+                {
+                    case true when !message.ResponseBad && notifier.RunOnSuccessfulResult:
+                    case true when message.ResponseBad && notifier.RunOnBadResult:
+                    case false when notifier.RunOnFailedResult:
+                        await NotifyResult(notifier, message.Id);
+                        break;
+                }
             }
-
         }
         
         private async Task NotifyResult(Notifier notifier, string xchangeId)
