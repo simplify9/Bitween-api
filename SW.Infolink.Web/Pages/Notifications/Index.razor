@@ -30,8 +30,9 @@
                 {
                     <Modal Title="Exception" OnClose="() => MessageClick(null)">
                         <Body>
+                        
                         <textarea class="form-control" rows="20" disabled="disabled">
-                                        @(((XchangeRow) context.Model).Exception)
+                                        @(((NotificationsSearch) context.Model).Exception)
                                     </textarea>
                         </Body>
                         <Footer>
