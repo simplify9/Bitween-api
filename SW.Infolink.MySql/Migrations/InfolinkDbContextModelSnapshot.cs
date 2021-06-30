@@ -96,7 +96,7 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("notifiers");
+                    b.ToTable("Notifiers");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Partner", b =>
@@ -343,6 +343,37 @@ namespace SW.Infolink.MySql.Migrations
                     b.HasIndex("DeliveredOn");
 
                     b.ToTable("XchangeDeliveries");
+                });
+
+            modelBuilder.Entity("SW.Infolink.Domain.XchangeNotification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Exception")
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+
+                    b.Property<DateTime>("FinishedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("NotifierId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NotifierName")
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
+
+                    b.Property<bool>("Success")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("XchangeId")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
+                        .HasMaxLength(50)
+                        .IsUnicode(false);
+
+                    b.HasKey("Id");
+
+                    b.ToTable("XchangeNotifications");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.XchangePromotedProperties", b =>

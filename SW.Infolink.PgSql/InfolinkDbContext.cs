@@ -197,6 +197,12 @@ namespace SW.Infolink.PgSql
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
             });
+            
+            modelBuilder.Entity<XchangeNotification>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+            });
 
         }
 

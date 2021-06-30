@@ -148,6 +148,13 @@ namespace SW.Infolink
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
+            
+            modelBuilder.Entity<XchangeNotification>(b =>
+            {
+                b.ToTable("XchangeNotifications");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+            });
 
             modelBuilder.Entity<XchangeDelivery>(b =>
             {
@@ -184,7 +191,7 @@ namespace SW.Infolink
 
             modelBuilder.Entity<Notifier>(b =>
             {
-                b.ToTable("notifiers");
+                b.ToTable("Notifiers");
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
                 b.Property(p => p.HandlerProperties).StoreAsJson();

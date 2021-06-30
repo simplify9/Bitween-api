@@ -1,0 +1,59 @@
+@page "/notifications"
+@using Humanizer
+@inject NavigationManager navigationManager
+@inject ScopedState state
+
+<h3>Notifiers Search</h3>
+
+<Search PageSize="10" SearchUrl="notifications" TModel="NotificationsSearch"
+        @bind-Value="state[navigationManager.Uri]">
+
+    <Columns>
+        <Field Name="Id"></Field>
+        <Field Name="@nameof(NotificationsSearch.XchangeId)"/>
+        <Field Text="Status">
+            <ColumnValue>
+                @if (((NotificationsSearch) context.Model).Success)
+                {
+                    <span class="badge badge-warning">Success</span>
+                    <span class="badge badge-secondary">
+                        @(((NotificationsSearch) context.Model).FinishedOn.Humanize())
+                    </span>
+                }
+                else
+                {
+                    <span href="JavaScript:void(0);" @onclick="() => MessageClick(((NotificationsSearch) context.Model).Id)" class="badge badge-secondary">Failed</span>
+                }
+                
+
+                @if (showMessageForId == ((NotificationsSearch) context.Model).Id)
+                {
+                    <Modal Title="Exception" OnClose="() => MessageClick(null)">
+                        <Body>
+                        <textarea class="form-control" rows="20" disabled="disabled">
+                                        @(((XchangeRow) context.Model).Exception)
+                                    </textarea>
+                        </Body>
+                        <Footer>
+                            <button class="btn btn-secondary" @onclick="() => MessageClick(null)">
+                                Close
+                            </button>
+                        </Footer>
+                    </Modal>
+                }
+
+            </ColumnValue>
+        </Field>
+        <Field Name="@nameof(NotificationsSearch.NotifierName)"/>
+    </Columns>
+
+
+</Search>
+
+@code {
+    int? showMessageForId;
+    void MessageClick(int? id)
+    {
+        showMessageForId = id;
+    }
+}
