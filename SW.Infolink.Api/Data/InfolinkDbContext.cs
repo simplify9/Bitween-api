@@ -133,6 +133,18 @@ namespace SW.Infolink
 
             });
 
+            modelBuilder.Entity<OnHoldXchange>(b =>
+            {
+                b.ToTable("OnHoldXchanges");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.References).IsSeparatorDelimited().HasMaxLength(1024);
+                b.HasIndex(i => i.SubscriptionId);
+                
+
+            });
+
+            
             modelBuilder.Entity<XchangeResult>(b =>
             {
                 b.ToTable("XchangeResults");

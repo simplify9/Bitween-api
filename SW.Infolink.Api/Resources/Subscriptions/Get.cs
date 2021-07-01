@@ -48,6 +48,7 @@ namespace SW.Infolink.Resources.Subscriptions
                     LastException = subscriber.LastException,
                     AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,
+                    PausedOn = subscriber.PausedOn,
 
                     //AggregationSchedules = subscriber.AggregationSchedules.Select(s => new ScheduleView
                     //{

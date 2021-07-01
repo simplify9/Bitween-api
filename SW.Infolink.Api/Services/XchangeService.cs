@@ -19,7 +19,8 @@ namespace SW.Infolink
         IConsume<InternalXchangeCreatedEvent>,
         IConsume<AggregateXchangeCreatedEvent>,
         IConsume<ReceivingXchangeCreatedEvent>,
-        IConsume<XchangeResultCreatedEvent>
+        IConsume<XchangeResultCreatedEvent>,
+        IConsume<SubscriptionUnpausedEvent>
 
     {
         private readonly InfolinkOptions infolinkSettings;
@@ -95,6 +96,12 @@ namespace SW.Infolink
             await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
+        }
+        
+        public async Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
+        {
+            var xchange = new OnHoldXchange(subscription, file.Data,file.Filename,file.BadData, references);
+            dbContext.Add(xchange);
         }
        
 
@@ -239,7 +246,14 @@ namespace SW.Infolink
                             .AsNoTracking()
                             .FirstOrDefaultAsync();
 
-                        await CreateXchange(subscription, inputFile);
+                        if (subscription.PausedOn != null)
+                        {
+                            await CreateOnHoldXchange(subscription, inputFile);
+                        }
+                        else
+                        {
+                            await CreateXchange(subscription, inputFile);
+                        }
                     }
                 }
 
@@ -319,6 +333,27 @@ namespace SW.Infolink
                 dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id,notifier.Name,ex.ToString()));
             }
             await dbContext.SaveChangesAsync();
+
+        }
+
+        public async Task Process(SubscriptionUnpausedEvent message)
+        {
+            var subscription = await dbContext.Set<Subscription>().FirstOrDefaultAsync(s => s.Id == message.Id);
+
+            if (subscription == null || subscription.Inactive || subscription.PausedOn != null) return;
+
+            var xchangesDetails = await dbContext.Set<OnHoldXchange>().Where(x => x.SubscriptionId == subscription.Id)
+                .ToListAsync();
+
+            foreach (var xchangeDetails in xchangesDetails)
+            {
+                var file = new XchangeFile(xchangeDetails.Data, xchangeDetails.FileName, xchangeDetails.BadData);
+                await CreateXchange(subscription, file, xchangeDetails.References);
+                dbContext.Remove(xchangeDetails);
+            }
+            
+            await dbContext.SaveChangesAsync();
+
 
         }
     }

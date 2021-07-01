@@ -103,6 +103,27 @@ namespace SW.Infolink.MsSql.Migrations
                     b.ToTable("Notifiers");
                 });
 
+            modelBuilder.Entity("SW.Infolink.Domain.OnHoldXchange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+
+                    b.Property<string>("References")
+                        .HasColumnType("nvarchar(1024)")
+                        .HasMaxLength(1024);
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.ToTable("OnHoldXchanges");
+                });
+
             modelBuilder.Entity("SW.Infolink.Domain.Partner", b =>
                 {
                     b.Property<int>("Id")
@@ -182,6 +203,9 @@ namespace SW.Infolink.MsSql.Migrations
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("PausedOn")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ReceiveOn")
                         .HasColumnType("datetime2");

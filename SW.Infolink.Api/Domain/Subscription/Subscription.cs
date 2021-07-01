@@ -46,6 +46,7 @@ namespace SW.Infolink.Domain
             ValidatorProperties = new Dictionary<string, string>();
             DocumentFilter = new Dictionary<string, string>();
             Temporary = temporary;
+            
         }
 
         public string Name { get; set; }
@@ -53,6 +54,8 @@ namespace SW.Infolink.Domain
         public SubscriptionType Type { get; private set; }
         public int? PartnerId { get; private set; }
         public bool Temporary { get; private set; }
+        public DateTime? PausedOn { get; private set; }
+        
 
         public string ValidatorId { get; set; }
         public string HandlerId { get; set; }
@@ -79,6 +82,20 @@ namespace SW.Infolink.Domain
             ValidatorProperties = validator;
             DocumentFilter = document;
 
+        }
+
+        public void Pause()
+        {
+            PausedOn = DateTime.Now;
+        }
+        
+        public void UnPause()
+        {
+            PausedOn = null;
+            Events.Add(new SubscriptionUnpausedEvent
+            {
+                Id = Id
+            });
         }
 
         public bool Inactive { get; set; }

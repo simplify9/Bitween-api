@@ -35,7 +35,7 @@ namespace SW.Infolink.Resources.Subscriptions
                             AggregationForId = subscriber.AggregationForId,
                             Temporary = subscriber.Temporary,
                             ReceiveOn = subscriber.ReceiveOn,
-
+                            PausedOn = subscriber.PausedOn,
 
                         };
 

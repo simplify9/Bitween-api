@@ -146,6 +146,13 @@ namespace SW.Infolink.PgSql
                 b.HasIndex(i => i.RetryFor);
 
             });
+            
+            modelBuilder.Entity<OnHoldXchange>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.References);//.IsSeparatorDelimited().HasMaxLength(1024);
+                b.HasIndex(i => i.SubscriptionId);
+            });
 
             modelBuilder.Entity<XchangeResult>(b =>
             {

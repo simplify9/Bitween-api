@@ -17,6 +17,11 @@ namespace SW.Infolink.Model
     { 
     
     }
+    
+    public class SubscriptionPause
+    {
+        
+    }
 
     public class SubscriptionAggregateNow
     {
@@ -61,5 +66,6 @@ namespace SW.Infolink.Model
         public int ConsecutiveFailures { get;  set; }
         public string LastException { get;  set; }
         public XchangeFileType AggregationTarget { get; set; }
+        public DateTime? PausedOn { get; set; }
     }
 }
