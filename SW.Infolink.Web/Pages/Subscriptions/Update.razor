@@ -27,7 +27,22 @@
     <FormRow>
         <Field Name="@nameof(SubscriptionUpdate.Inactive)"/>
     </FormRow>
-
+    @if (context.Type == SubscriptionType.Internal)
+    {
+        <label>Paused</label>
+        <div class="input-group mb-3">
+            <Field Name="@nameof(SubscriptionUpdate.PausedOn)"
+                   ReadOnly="true"
+                   Text=""/>
+            <div class="input-group-append">
+                <BusyButton class="btn btn-outline-secondary" OnClick="OnPause">
+                    <Title>
+                        Pause/UnPause
+                    </Title>
+                </BusyButton>
+            </div>
+        </div>
+    }
 </Tab>
 
 @if (context.Type == SubscriptionType.Receiving)
@@ -96,19 +111,7 @@
             </Subform>
         </FormRow>
         
-        <label>Paused</label>
-        <div class="input-group mb-3">
-            <Field Name="@nameof(SubscriptionUpdate.PausedOn)"
-                   ReadOnly="true"
-                   Text=""/>
-            <div class="input-group-append">
-                <BusyButton class="btn btn-outline-secondary" OnClick="OnPause">
-                    <Title>
-                        Pause/UnPause
-                    </Title>
-                </BusyButton>
-            </div>
-        </div>
+       
         
         
         <label>Next Receive On (UTC)</label>
