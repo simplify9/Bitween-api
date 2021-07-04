@@ -35,7 +35,7 @@ namespace SW.Infolink.Resources.Notifications
             return new SearchyResponse<NotificationsSearch>
             {
                 TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
-                Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()
+                Result = await query.OrderByDescending(p => p.FinishedOn).Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()
             };
         }
     }

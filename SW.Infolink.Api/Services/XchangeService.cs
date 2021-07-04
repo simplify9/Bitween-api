@@ -312,7 +312,8 @@ namespace SW.Infolink
                 Success = xchangeResult.Success,
                 FinishedOn = xchangeResult.FinishedOn,
                 OutputBad = xchangeResult.OutputBad,
-                ResponseBad = xchangeResult.ResponseBad
+                ResponseBad = xchangeResult.ResponseBad,
+                
             };
             
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();

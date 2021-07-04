@@ -110,6 +110,15 @@ namespace SW.Infolink.MsSql.Migrations
                         .HasColumnType("int")
                         .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
+                    b.Property<bool>("BadData")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Data")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileName")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("References")
                         .HasColumnType("nvarchar(1024)")
                         .HasMaxLength(1024);

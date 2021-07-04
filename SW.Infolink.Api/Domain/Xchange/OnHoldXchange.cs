@@ -15,11 +15,11 @@ namespace SW.Infolink.Domain
         }
         public int SubscriptionId { get; private set; }
         
-        public string FileName { get; }
+        public string FileName { get;private set; }
 
-        public string Data { get; }
+        public string Data { get; private set;}
 
-        public bool BadData { get; }
+        public bool BadData { get; private set;}
         public string[] References { get; private set; }
     }
 }
