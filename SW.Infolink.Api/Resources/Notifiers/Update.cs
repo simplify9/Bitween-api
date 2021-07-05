@@ -24,7 +24,8 @@ namespace SW.Infolink.Resources.Notifiers
              notifier.Update(request.Name, request.RunOnSuccessfulResult,
                 request.RunOnBadResult,
                 request.RunOnFailedResult,
-                request.HandlerId ?? notifier.HandlerId);
+                request.HandlerId ?? notifier.HandlerId,
+                request.Inactive);
              
              notifier.SetDictionaries(request.HandlerProperties.ToDictionary());
             

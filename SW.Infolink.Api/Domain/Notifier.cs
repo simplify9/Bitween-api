@@ -20,13 +20,14 @@ namespace SW.Infolink.Domain
         public bool Inactive { get; set; }
         public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
 
-        public void Update(string name, bool runOnSuccessfulResult, bool runOnBadResult, bool runOnFailedResult, string handlerId)
+        public void Update(string name, bool runOnSuccessfulResult, bool runOnBadResult, bool runOnFailedResult, string handlerId,bool inactive)
         {
             Name = name;
             RunOnSuccessfulResult = runOnSuccessfulResult;
             RunOnBadResult = runOnBadResult;
             RunOnFailedResult = runOnFailedResult;
             HandlerId = handlerId;
+            Inactive = inactive;
         }
         public void SetDictionaries(
             IReadOnlyDictionary<string, string> handler
