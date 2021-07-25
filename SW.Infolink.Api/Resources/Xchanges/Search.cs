@@ -113,7 +113,7 @@ namespace SW.Infolink.Resources.Xchanges
                 var propertiesFilters = condition.Filters.Where(f => f.Field == "PromotedPropertiesRaw").ToList();
                 foreach (var propertyFilter in propertiesFilters)
                 {
-                    var value = propertyFilter.Value.ToString();
+                    var value = propertyFilter.Value.ToString().ToLower();
                   
                     query = query.Where(i => i.PromotedPropertiesRaw.Contains(value));
                     condition.Filters.Remove(propertyFilter);
