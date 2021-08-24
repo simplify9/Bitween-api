@@ -61,7 +61,8 @@ namespace SW.Infolink.Resources.Xchanges
                             Exception = result.Exception,
                             OutputBad = result.OutputBad,
                             ResponseBad = result.ResponseBad,
-                            References = xchange.References 
+                            References = xchange.References ,
+                            InputFileName = xchange.InputName
                             
 
                         };

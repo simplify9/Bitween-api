@@ -15,6 +15,7 @@ namespace SW.Infolink
             AdminDatabaseName = "defaultdb";
             ServerlessCommandTimeout = 300;
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
+            ReceiversDelayInSeconds = 63;
         }
 
         public string DatabaseType { get; set; }
@@ -30,5 +31,7 @@ namespace SW.Infolink
         public int ServerlessCommandTimeout { get; set; }
         public bool AreXChangeFilesPrivate { get; set; } = false;
         public int? ApiCallSubscriptionResponseAcceptedStatusCode { get; set; }
+        public int? ReceiversDelayInSeconds { get; set; }
+
     }
 }

@@ -45,6 +45,8 @@ namespace SW.Infolink.Web
             services.AddScoped<XchangeService>();
 
             services.AddHostedService<AggregationService>();
+            
+            
             services.AddHostedService<ReceivingService>();
 
             services.AddBus(config =>

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace SW.Infolink
 {
@@ -18,13 +19,15 @@ namespace SW.Infolink
         private readonly XchangeService xchangeService;
         private readonly IMemoryCache memoryCache;
         private readonly InfolinkDbContext dbContext;
+        readonly IServiceScopeFactory ssf;
 
 
-        public BusService(XchangeService xchangeService, IMemoryCache memoryCache, InfolinkDbContext dbContext)
+        public BusService(XchangeService xchangeService, IMemoryCache memoryCache, InfolinkDbContext dbContext, IServiceScopeFactory ssf)
         {
             this.xchangeService = xchangeService;
             this.memoryCache = memoryCache;
             this.dbContext = dbContext;
+            this.ssf = ssf;
         }
 
         public async Task<IEnumerable<string>> GetMessageTypeNames()
@@ -37,6 +40,14 @@ namespace SW.Infolink
             var map = await GetMessageTypeNameToDocumentIdMap();
 
             var xf = new XchangeFile(message);
+            
+            // using var sc = ssf.
+            // var requestContext = serviceProvider.GetService<RequestContext>();
+            //
+            
+            //var xchangeReferences = new List<string> {$"correlationId: {requestContext.CorrelationId}"};
+
+            //await xchangeService.SubmitFilterXchange(map[messageTypeName], xf,xchangeReferences.ToArray());
             await xchangeService.SubmitFilterXchange(map[messageTypeName], xf);
         }
 

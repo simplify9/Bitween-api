@@ -16,6 +16,7 @@ namespace SW.Infolink
         readonly ILogger logger;
         readonly IServiceProvider sp;
 
+
         public ReceivingService(IServiceProvider sp, ILogger<ReceivingService> logger)
         {
             this.sp = sp;
@@ -56,7 +57,9 @@ namespace SW.Infolink
                     logger.LogError(ex, "Service timer callback.");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(63), stoppingToken);
+                var options = sp.GetService<InfolinkOptions>();
+                var delay = options.ReceiversDelayInSeconds ?? 60;
+                await Task.Delay(TimeSpan.FromSeconds(delay), stoppingToken);
             }
         }
 
