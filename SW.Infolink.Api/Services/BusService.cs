@@ -20,14 +20,16 @@ namespace SW.Infolink
         private readonly IMemoryCache memoryCache;
         private readonly InfolinkDbContext dbContext;
         readonly IServiceScopeFactory ssf;
+        private readonly RequestContext _requestContext;
 
 
-        public BusService(XchangeService xchangeService, IMemoryCache memoryCache, InfolinkDbContext dbContext, IServiceScopeFactory ssf)
+        public BusService(XchangeService xchangeService, IMemoryCache memoryCache, InfolinkDbContext dbContext, IServiceScopeFactory ssf, RequestContext requestContext)
         {
             this.xchangeService = xchangeService;
             this.memoryCache = memoryCache;
             this.dbContext = dbContext;
             this.ssf = ssf;
+            _requestContext = requestContext;
         }
 
         public async Task<IEnumerable<string>> GetMessageTypeNames()
@@ -40,14 +42,11 @@ namespace SW.Infolink
             var map = await GetMessageTypeNameToDocumentIdMap();
 
             var xf = new XchangeFile(message);
-            
-            // using var sc = ssf.
-            // var requestContext = serviceProvider.GetService<RequestContext>();
-            //
-            
-            //var xchangeReferences = new List<string> {$"correlationId: {requestContext.CorrelationId}"};
 
-            //await xchangeService.SubmitFilterXchange(map[messageTypeName], xf,xchangeReferences.ToArray());
+            
+            var xchangeReferences = new List<string> {$"correlationId: {_requestContext.CorrelationId}"};
+
+            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf,xchangeReferences.ToArray());
             await xchangeService.SubmitFilterXchange(map[messageTypeName], xf);
         }
 
