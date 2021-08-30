@@ -61,9 +61,9 @@ namespace SW.Infolink.Resources.Xchanges
                             Exception = result.Exception,
                             OutputBad = result.OutputBad,
                             ResponseBad = result.ResponseBad,
-                            References = xchange.References ,
-                            InputFileName = xchange.InputName
-                            
+                            References = xchange.References,
+                            InputFileName = xchange.InputName,
+                            CorrelationId = xchange.CorrelationId
 
                         };
 
@@ -119,6 +119,7 @@ namespace SW.Infolink.Resources.Xchanges
                     query = query.Where(i => i.PromotedPropertiesRaw.Contains(value));
                     condition.Filters.Remove(propertyFilter);
                 }
+                
             }
 
 

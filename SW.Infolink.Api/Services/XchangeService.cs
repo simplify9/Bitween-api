@@ -56,10 +56,10 @@ namespace SW.Infolink
             return xchange.Id;
         }
 
-        async public Task<string> SubmitFilterXchange(int documentId, XchangeFile file, string[] references = null)
+        async public Task<string> SubmitFilterXchange(int documentId, XchangeFile file, string[] references = null, string correlationId = null)
         {
             var document = await dbContext.FindAsync<Document>(documentId);
-            var xchange = await CreateXchange(document, file, references);
+            var xchange = await CreateXchange(document, file, references,correlationId);
             await dbContext.SaveChangesAsync();
             return xchange.Id;
         }
@@ -82,9 +82,9 @@ namespace SW.Infolink
             
         }
 
-        public async Task<Xchange> CreateXchange(Document document, XchangeFile file, string[] references = null)
+        public async Task<Xchange> CreateXchange(Document document, XchangeFile file, string[] references = null, string correlationId = null)
         {
-            var xchange = new Xchange(document.Id, file,references);
+            var xchange = new Xchange(document.Id, file,references,SubscriptionType.Internal,correlationId);
             await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;

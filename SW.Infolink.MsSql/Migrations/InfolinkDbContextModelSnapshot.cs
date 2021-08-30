@@ -269,6 +269,9 @@ namespace SW.Infolink.MsSql.Migrations
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
+                    b.Property<string>("CorrelationId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 

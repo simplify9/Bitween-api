@@ -11,7 +11,7 @@ namespace SW.Infolink.Domain
         {
         }
 
-        public Xchange(int documentId, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal)
+        public Xchange(int documentId, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
         {
             Id = Guid.NewGuid().ToString("N"); 
             DocumentId = documentId;
@@ -21,6 +21,7 @@ namespace SW.Infolink.Domain
             InputHash = file.Hash;
             InputContentType = file.ContentType;
             StartedOn = DateTime.UtcNow;
+            CorrelationId = correlationId;
 
             XchangeCreatedEvent xchangeEvent = subscriptionType switch
             {
@@ -89,6 +90,7 @@ namespace SW.Infolink.Domain
         public string ResponseMessageTypeName { get; private set; }
 
         public string RetryFor { get; private set; }
+        public string CorrelationId { get; set; }
 
     }
 }

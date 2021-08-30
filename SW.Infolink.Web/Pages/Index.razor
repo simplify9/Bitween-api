@@ -34,6 +34,7 @@
         <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")"/>
         <Field Name="SubscriptionId" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")"/>
         <Field Name="PromotedPropertiesRaw"/>
+        <Field Name="CorrelationId"/>
         <Field Name="InputFileName"/>
     </Filters>
 
@@ -192,6 +193,10 @@
                     {
                         <span class="badge badge-info">@reference</span>
                     }
+                }
+                @if (((XchangeRow) context.Model).CorrelationId != null)
+                {
+                    <span class="badge badge-info">CorrelationID: @(((XchangeRow) context.Model).CorrelationId)</span>
                 }
                 @if (((XchangeRow) context.Model).PromotedProperties != null)
                 {

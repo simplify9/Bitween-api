@@ -67,7 +67,7 @@ namespace SW.Infolink.Model
         public string DocumentName { get; set; }
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
-        public IEnumerable<string> References { get; set; }
+        public string[] References { get; set; }
         public bool? Status { get; set; }
         public int StatusFilter { get; set; }
         public string StatusString { get; set; }
@@ -89,5 +89,6 @@ namespace SW.Infolink.Model
         public string AggregationXchangeId { get;  set; }
         public bool  OutputBad { get; set; }
         public bool ResponseBad { get; set; }
+        public string CorrelationId { get; set; }
     }
 }

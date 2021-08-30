@@ -43,10 +43,7 @@ namespace SW.Infolink
 
             var xf = new XchangeFile(message);
 
-            
-            var xchangeReferences = new List<string> {$"correlationId: {_requestContext.CorrelationId}"};
-
-            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf,xchangeReferences.ToArray());
+            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf,null,_requestContext.CorrelationId);
         }
 
         private async Task<IReadOnlyDictionary<string, int>> GetMessageTypeNameToDocumentIdMap()
