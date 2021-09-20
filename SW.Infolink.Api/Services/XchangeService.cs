@@ -90,9 +90,9 @@ namespace SW.Infolink
             return xchange;
         }
 
-        public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file, string[] references = null)
+        public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file, string[] references = null, string correlationId = null)
         {
-            var xchange = new Xchange(subscription, file, references);
+            var xchange = new Xchange(subscription, file, references,correlationId);
             await AddFile(xchange.Id, XchangeFileType.Input, file);
             dbContext.Add(xchange);
             return xchange;
@@ -252,7 +252,7 @@ namespace SW.Infolink
                         }
                         else
                         {
-                            await CreateXchange(subscription, inputFile);
+                            await CreateXchange(subscription, inputFile, null, xchange.CorrelationId);
                         }
                     }
                 }

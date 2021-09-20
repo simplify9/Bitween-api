@@ -37,7 +37,7 @@ namespace SW.Infolink.Domain
             Events.Add(xchangeEvent);
         }
 
-        public Xchange(Subscription subscription, XchangeFile file, string[] references = null) : 
+        public Xchange(Subscription subscription, XchangeFile file, string[] references = null, string correlationId = null) : 
             this(subscription.DocumentId, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
@@ -47,6 +47,7 @@ namespace SW.Infolink.Domain
             HandlerProperties = subscription.HandlerProperties;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             ResponseMessageTypeName = subscription.ResponseMessageTypeName;
+            CorrelationId = correlationId;
         }
 
         //retry xchange
