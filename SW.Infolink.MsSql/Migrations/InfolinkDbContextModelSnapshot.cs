@@ -95,6 +95,9 @@ namespace SW.Infolink.MsSql.Migrations
                     b.Property<bool>("RunOnFailedResult")
                         .HasColumnType("bit");
 
+                    b.Property<string>("RunOnSubscriptions")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("RunOnSuccessfulResult")
                         .HasColumnType("bit");
 

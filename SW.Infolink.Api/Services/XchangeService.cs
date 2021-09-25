@@ -280,13 +280,18 @@ namespace SW.Infolink
         
         public async Task Process(XchangeResultCreatedEvent message)
         {
-            var notifiers = await dbContext.Set<Notifier>().ToListAsync();
+            var notifiers = await dbContext.Set<Notifier>()
+                .ToListAsync();
             
             var xchangeResult = await dbContext.FindAsync<XchangeResult>(message.Id);
             
+            var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+            
             foreach (var notifier in notifiers)
             {
+                if (notifier.RunOnSubscriptions != null && notifier.RunOnSubscriptions.All(s => s != xchange.SubscriptionId)) return;
                 if (notifier.Inactive) return;
+                
                 switch (message.Success)
                 {
                     case true when !message.ResponseBad && notifier.RunOnSuccessfulResult:

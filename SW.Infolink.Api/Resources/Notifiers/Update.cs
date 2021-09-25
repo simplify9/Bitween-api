@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation;
 using SW.Infolink.Domain;
@@ -25,7 +26,8 @@ namespace SW.Infolink.Resources.Notifiers
                 request.RunOnBadResult,
                 request.RunOnFailedResult,
                 request.HandlerId ?? notifier.HandlerId,
-                request.Inactive);
+                request.Inactive,
+                request.RunOnSubscriptions?.Select(r => r.Id)?.ToArray());
              
              notifier.SetDictionaries(request.HandlerProperties.ToDictionary());
             

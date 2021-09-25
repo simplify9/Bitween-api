@@ -208,6 +208,7 @@ namespace SW.Infolink
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.RunOnSubscriptions).IsSeparatorDelimited();
             });
 
         }

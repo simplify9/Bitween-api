@@ -3,34 +3,26 @@
 @inject NotifyService notifyService
 
 <div class="row">
-<div class="col-7">
-    <UpdateForm Title="Notifier" TModel="NotifierUpdate" ApiUrl="notifiers" ReturnUrl="notifiers" Id="Id" StayAfterSave="true">
-       
-
-        <FormRow>
-            <Field  Name="@nameof(NotifierUpdate.Name)" />
-        </FormRow>
-        <FormRow>
-            <Field Name="@nameof(NotifierUpdate.RunOnSuccessfulResult)" />
-            <Field Name="@nameof(NotifierUpdate.RunOnBadResult)" />
-            <Field Name="@nameof(NotifierUpdate.RunOnFailedResult)" />
-        </FormRow>
-
-        <FormRow>
-            <Field Name="@nameof(NotifierUpdate.Inactive)" />
-        </FormRow>
-        
+    <div class="col-7">
+        <UpdateForm Title="Notifier" TModel="NotifierUpdate" ApiUrl="notifiers" ReturnUrl="notifiers" Id="Id" StayAfterSave="true">
 
 
-        <FormRow>
-            <Field Name="@nameof(NotifierUpdate.HandlerId)"
-                   Lookup="@Lookup.From("adapters?prefix=handlers")"
-                   Text="Notifier Handler Adapter" />
-        </FormRow>
-        @if (context.HandlerId != null)
-        {
             <FormRow>
-                <Subform Name="@nameof(NotifierUpdate.HandlerProperties)" Text="Properties">
+                <Field Name="@nameof(NotifierUpdate.Name)"/>
+            </FormRow>
+            <FormRow>
+                <Field Name="@nameof(NotifierUpdate.RunOnSuccessfulResult)"/>
+                <Field Name="@nameof(NotifierUpdate.RunOnBadResult)"/>
+                <Field Name="@nameof(NotifierUpdate.RunOnFailedResult)"/>
+            </FormRow>
+
+            <FormRow>
+                <Field Name="@nameof(NotifierUpdate.Inactive)"/>
+            </FormRow>
+            
+
+            <FormRow >
+                <Subform Name="@nameof(NotifierUpdate.RunOnSubscriptions)" Text="Subscriptions">
                     <Columns>
                         <Field Text="Action">
                             <ColumnHeader Context="fieldContext">
@@ -41,29 +33,60 @@
                                 <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
                             </ColumnValue>
                         </Field>
-                        <Field Name="@nameof(KeyAndValue.Key)" Text="Name" />
-                        <Field Name="@nameof(KeyAndValue.Value)" />
+                        <Field Name="@nameof(NotifierSubscription.Id)" Text="Subscription" />
+                        <Field Name="@nameof(NotifierSubscription.Name)" Text="Subscription" />
                     </Columns>
 
                     <Form>
                         <FormRow>
-                            <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.HandlerId}/properties")" />
-                        </FormRow>
-                        <FormRow>
-                            <Field Name="@nameof(KeyAndValue.Value)" InputType="InputType.Multiline" />
+                            <Field Name="@nameof(NotifierSubscription.Id)" Text="Subscription" Lookup="@Lookup.FromSearchy($"subscriptions")"/>
                         </FormRow>
                     </Form>
 
                 </Subform>
             </FormRow>
-        }
-                   
+            <FormRow>
+                <Field  Name="@nameof(NotifierUpdate.HandlerId)"
+                       Lookup="@Lookup.From("adapters?prefix=handlers")"
+                       Text="Notifier Handler Adapter"/>
+            </FormRow>
+            @if (context.HandlerId != null)
+            {
+                <FormRow>
+                    <Subform Name="@nameof(NotifierUpdate.HandlerProperties)" Text="Properties">
+                        <Columns>
+                            <Field Text="Action">
+                                <ColumnHeader Context="fieldContext">
+                                    Action (<a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("add", null))">add</a>)
+                                </ColumnHeader>
+                                <ColumnValue Context="fieldContext">
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("remove", fieldContext.Model))">Remove</a>
+                                    <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
+                                </ColumnValue>
+                            </Field>
+                            <Field Name="@nameof(KeyAndValue.Key)" Text="Name"/>
+                            <Field Name="@nameof(KeyAndValue.Value)"/>
+                        </Columns>
+
+                        <Form>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Key)" Text="Name" Lookup="@Lookup.FromSearchy($"adapters/{context.HandlerId}/properties")"/>
+                            </FormRow>
+                            <FormRow>
+                                <Field Name="@nameof(KeyAndValue.Value)" InputType="InputType.Multiline"/>
+                            </FormRow>
+                        </Form>
+
+                    </Subform>
+                </FormRow>
+            }
 
 
-    </UpdateForm>
-</div>
+
+        </UpdateForm>
+    </div>
     <div class="col-5 pt-4">
-        <p class="h4">Notification model</p> 
+        <p class="h4">Notification model</p>
         <p><strong>Id:string- </strong>XChange ID</p>
         <p><strong>Success:boolean- </strong>Was the xchange execustion a succes</p>
         <p><strong>Exception:string- </strong>Exception</p>
@@ -71,7 +94,7 @@
         <p><strong>OutputBad:boolean- </strong>Was the mapper output bad</p>
         <p><strong>ResponseBad:boolean- </strong>was the handler response bad</p>
     </div>
-    
+
 </div>
 
 
@@ -79,6 +102,6 @@
 
     [Parameter]
     public int Id { get; set; }
-    
+
 
 }

@@ -16,6 +16,13 @@ namespace SW.Infolink.Model
         public string HandlerId { get; set; }
         public bool Inactive { get; set; }
         public ICollection<KeyAndValue> HandlerProperties { get; set; }
+        public ICollection<NotifierSubscription> RunOnSubscriptions { get; set; }
+    }
+
+    public class NotifierSubscription
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
     }
 
     public class NotifierSearch
