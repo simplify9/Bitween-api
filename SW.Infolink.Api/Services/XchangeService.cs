@@ -289,7 +289,7 @@ namespace SW.Infolink
             
             foreach (var notifier in notifiers)
             {
-                if (notifier.RunOnSubscriptions != null && notifier.RunOnSubscriptions.All(s => s != xchange.SubscriptionId)) return;
+                if (notifier.RunOnSubscriptions != null && notifier.RunOnSubscriptions.Any() && notifier.RunOnSubscriptions.All(s => s != xchange.SubscriptionId)) return;
                 if (notifier.Inactive) return;
                 
                 switch (message.Success)

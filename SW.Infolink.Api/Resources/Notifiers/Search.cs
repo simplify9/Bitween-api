@@ -27,7 +27,8 @@ namespace SW.Infolink.Resources.Notifiers
                     HandlerId = notifier.HandlerId,
                     RunOnBadResult = notifier.RunOnBadResult,
                     RunOnFailedResult = notifier.RunOnFailedResult,
-                    RunOnSuccessfulResult = notifier.RunOnSuccessfulResult
+                    RunOnSuccessfulResult = notifier.RunOnSuccessfulResult,
+                    Inactive = notifier.Inactive
                 };
 
             query = query.AsNoTracking();

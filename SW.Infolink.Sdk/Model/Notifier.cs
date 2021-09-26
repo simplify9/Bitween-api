@@ -33,6 +33,7 @@ namespace SW.Infolink.Model
         public bool? RunOnBadResult { get;  set; }
         public bool? RunOnFailedResult { get; set; }
         public string HandlerId { get; set; }
+        public bool? Inactive { get; set; }
     }
 
    
