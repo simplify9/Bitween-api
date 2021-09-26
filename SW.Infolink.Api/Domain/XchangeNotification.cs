@@ -14,7 +14,7 @@ namespace SW.Infolink.Domain
             Success = exception == null;
             Exception = exception;
             NotifierId = notifierId;
-            NotifierName = NotifierName;
+            NotifierName = notifierName;
         }
         
 

@@ -4,9 +4,7 @@
 
 <div class="row">
     <div class="col-7">
-        <UpdateForm Title="Notifier" TModel="NotifierUpdate" ApiUrl="notifiers" ReturnUrl="notifiers" Id="Id" StayAfterSave="true">
-
-
+        <UpdateForm  Title="Notifier" TModel="NotifierUpdate" ApiUrl="notifiers" ReturnUrl="notifiers" Id="Id" StayAfterSave="false" >
             <FormRow>
                 <Field Name="@nameof(NotifierUpdate.Name)"/>
             </FormRow>
@@ -33,8 +31,8 @@
                                 <a href="JavaScript:void(0);" @onclick="@(() => fieldContext.Action.Invoke("edit", fieldContext.Model))">Edit</a>
                             </ColumnValue>
                         </Field>
-                        <Field Name="@nameof(NotifierSubscription.Id)" Text="Subscription" />
-                        <Field Name="@nameof(NotifierSubscription.Name)" Text="Subscription" />
+                        <Field Name="@nameof(NotifierSubscription.Id)" Text="Subscription ID" />
+                        <Field  Name="@nameof(NotifierSubscription.Name)"  Text="Subscription Name"/>
                     </Columns>
 
                     <Form>
