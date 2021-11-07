@@ -1,6 +1,7 @@
 ﻿using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Text;
 using System.Threading.Tasks;
 using SW.EfCoreExtensions;
@@ -24,6 +25,9 @@ namespace SW.Infolink.Resources.Xchanges
 
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
+            
+            await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
+            
             var query = from xchange in dbContext.Set<Xchange>()
                         join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                         from result in xr.DefaultIfEmpty()
