@@ -122,7 +122,10 @@ namespace SW.Infolink.Web
                 options.Conventions.AuthorizeFolder("/");
                 options.Conventions.AllowAnonymousToPage("/Login");
             });
-            services.AddServerSideBlazor();
+            
+            services.AddServerSideBlazor().AddHubOptions(
+                options => { options.MaximumReceiveMessageSize = 131072; });
+            
             services.AddSimplyRazor(config =>
             {
                 //config.BlobsUri = new Uri(Configuration["BlobsUrl"]);
@@ -172,16 +175,13 @@ namespace SW.Infolink.Web
                 c.SwaggerEndpoint("/api/swagger.json", "Infolink Api");
             });
 
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
-                endpoints.MapBlazorHub(b =>
-                {
-                    b.ApplicationMaxBufferSize = 131072;
-                    b.TransportMaxBufferSize = 131072;
-                });
-                    endpoints.MapFallbackToPage("/_Host");
+                endpoints.MapBlazorHub();
+                endpoints.MapFallbackToPage("/_Host");
             });
         }
     }
