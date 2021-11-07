@@ -116,7 +116,7 @@ namespace SW.Infolink
             var mapperProperties = xchange.MapperProperties.ToDictionary();
             mapperProperties["xchangeid"] = xchange.Id; 
             
-            await serverless.StartAsync(xchange.MapperId, xchange.Id, mapperProperties);
+            await serverless.StartAsync(xchange.MapperId, xchange.CorrelationId ?? xchange.Id, mapperProperties);
             xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
             if (xchangeFile is null)
                 throw new InfolinkException($"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
@@ -146,7 +146,7 @@ namespace SW.Infolink
             var handlerProperties = xchange.HandlerProperties.ToDictionary();
             handlerProperties["xchangeid"] = xchange.Id;
 
-            await serverless.StartAsync(xchange.HandlerId, xchange.Id, handlerProperties);
+            await serverless.StartAsync(xchange.HandlerId, xchange.CorrelationId ?? xchange.Id, handlerProperties);
             xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
             if (xchangeFile != null)
                 await AddFile(xchange.Id, XchangeFileType.Response, xchangeFile);
@@ -297,13 +297,13 @@ namespace SW.Infolink
                     case true when !message.ResponseBad && notifier.RunOnSuccessfulResult:
                     case true when message.ResponseBad && notifier.RunOnBadResult:
                     case false when notifier.RunOnFailedResult:
-                        await NotifyResult(notifier, xchangeResult);
+                        await NotifyResult(notifier, xchangeResult, xchange.CorrelationId ?? xchange.Id);
                         break;
                 }
             }
         }
         
-        private async Task NotifyResult(Notifier notifier, XchangeResult xchangeResult)
+        private async Task NotifyResult(Notifier notifier, XchangeResult xchangeResult, string correlationId)
         {
            
             if (xchangeResult == null) throw new InfolinkException($"Xchange Result '{xchangeResult.Id}' not found.");
@@ -328,7 +328,7 @@ namespace SW.Infolink
             
             try
             {
-                await serverless.StartAsync(notifier.HandlerId, xchangeResult.Id, handlerProperties);
+                await serverless.StartAsync(notifier.HandlerId, correlationId, handlerProperties);
                 var xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), 
                     new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
 
