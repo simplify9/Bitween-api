@@ -176,8 +176,12 @@ namespace SW.Infolink.Web
             {
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
-                endpoints.MapBlazorHub();
-                endpoints.MapFallbackToPage("/_Host");
+                endpoints.MapBlazorHub(b =>
+                {
+                    b.ApplicationMaxBufferSize = 131072;
+                    b.TransportMaxBufferSize = 131072;
+                });
+                    endpoints.MapFallbackToPage("/_Host");
             });
         }
     }

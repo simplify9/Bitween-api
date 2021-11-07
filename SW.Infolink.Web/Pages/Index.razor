@@ -9,6 +9,7 @@
 
 @using Humanizer
 @using System.Text
+@using InputType = SW.SimplyRazor.InputType
 
 <h3>Dashboard</h3>
 
@@ -17,129 +18,133 @@
         TModel="XchangeRow"
         @bind-Value="state[navigationManager.Uri]">
 
-    <Commands >
-        <button class="btn btn-secondary ml-4 mr-2 px-2">
-            <a style="color: white" href="xchanges/create">New exchange</a>
-        </button>
-        <button disabled="@(selectedIds.Count == 0)" class="btn btn-secondary px-2" @onclick="() => ShowBulkRetryClick()">
-            Bulk Retry
-        </button>
-    </Commands>
+<Commands >
+    <button class="btn btn-secondary ml-4 mr-2 px-2">
+        <a style="color: white" href="xchanges/create">New exchange</a>
+    </button>
+    <button disabled="@(selectedIds.Count == 0)" class="btn btn-secondary px-2" @onclick="() => ShowBulkRetryClick()">
+        Bulk Retry
+    </button>
+</Commands>
+
+<Filters>
+    <Field Name="StartedOn" Text="Date"></Field>
+    <Field Name="Id"/>
+    <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")"/>
+    <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")"/>
+    <Field Name="SubscriptionId" TypeAhead="1" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")"/>
+    <Field Name="PromotedPropertiesRaw"/>
+    <Field Name="CorrelationId"/>
+    <Field Name="InputFileName"/>
+    <Field Name="OutputFileName"/>
+</Filters>
+
+<Columns>
+    <Field Text="">
+        <ColumnValue>
+            <input
+                class="form-check-input"
+                type="checkbox"
+                value="@(selectedIds.Contains(((XchangeRow) context.Model).Id))"
+                @onclick="(i) => OnSelect(((XchangeRow) context.Model).Id)"/>
+        </ColumnValue>
+    </Field>
+    <Field Text="Xchange">
+        <ColumnValue>
+            <span class="badge badge-light">@(((XchangeRow) context.Model).DocumentName)</span>
+            @if (((XchangeRow) context.Model).SubscriptionName != null)
+            {
+                <span class="badge badge-light">@(((XchangeRow) context.Model).SubscriptionName)</span>
+            }
 
 
-    <Filters>
-        <Field Name="StartedOn" Text="Date"></Field>
-        <Field Name="Id"/>
-        <Field Name="StatusFilter" Text="Status" Lookup="@Lookup.From("xchanges/statuslist")"/>
-        <Field Name="DocumentId" Text="Document" Lookup="@Lookup.FromSearchy("documents")"/>
-        <Field Name="SubscriptionId" Text="Subscription" Lookup="@Lookup.FromSearchy("subscriptions")"/>
-        <Field Name="PromotedPropertiesRaw"/>
-        <Field Name="CorrelationId"/>
-        <Field Name="InputFileName"/>
-    </Filters>
+        </ColumnValue>
+    </Field>
 
-    <Columns>
-        <Field Text="">
-            <ColumnValue>
-                <input
-                    class="form-check-input"
-                    type="checkbox"
-                    value="@(selectedIds.Contains(((XchangeRow) context.Model).Id))"
-                    @onclick="(i) => OnSelect(((XchangeRow) context.Model).Id)"/>
-            </ColumnValue>
-        </Field>
-        <Field Text="Xchange">
-            <ColumnValue>
-                <span class="badge badge-light">@(((XchangeRow) context.Model).DocumentName)</span>
-                @if (((XchangeRow) context.Model).SubscriptionName != null)
-                {
-                    <span class="badge badge-light">@(((XchangeRow) context.Model).SubscriptionName)</span>
-                }
-
-
-            </ColumnValue>
-        </Field>
-
-        @*<Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Dlv">
+    @*<Field Name="@nameof(XchangeRow.DeliveredOn)" Text="Dlv">
                 <ColumnValue Context="fieldContext">
                     @(((XchangeRow)fieldContext.Model).DeliveredOn.Humanize())
                 </ColumnValue>
             </Field>*@
 
-        <Field Text="Status">
-            <ColumnValue>
-                @if (((XchangeRow) context.Model).Status == null)
+    <Field Text="Status">
+        <ColumnValue>
+            @if (((XchangeRow) context.Model).Status == null)
+            {
+                <span class="badge badge-warning">Running</span>
+                <span class="badge badge-secondary">
+                    @(((XchangeRow) context.Model).StartedOn.Humanize())
+                </span>
+            }
+            else if (((XchangeRow) context.Model).Status.Value)
+            {
+                <span href="JavaScript:void(0);" @onclick="() => MessageClick(((XchangeRow) context.Model).Id)" class="badge badge-success">Ok</span>
+                @if (((XchangeRow) context.Model).AggregatedOn != null)
                 {
-                    <span class="badge badge-warning">Running</span>
-                    <span class="badge badge-secondary">
-                        @(((XchangeRow) context.Model).StartedOn.Humanize())
-                    </span>
+                    <span class="badge badge-success">Aggregated</span>
                 }
-                else if (((XchangeRow) context.Model).Status.Value)
-                {
-                    <span href="JavaScript:void(0);" @onclick="() => MessageClick(((XchangeRow) context.Model).Id)" class="badge badge-success">Ok</span>
-                    @if (((XchangeRow) context.Model).AggregatedOn != null)
-                    {
-                        <span class="badge badge-success">Aggregated</span>
-                    }
-                    <span class="badge badge-secondary">
-                        @(((XchangeRow) context.Model).StartedOn.Humanize())
-                    </span>
-                    <span class="badge badge-secondary">@(((XchangeRow) context.Model).Duration)</span>
-                }
-                else
-                {
-                    <a href="JavaScript:void(0);" @onclick="() => MessageClick(((XchangeRow) context.Model).Id)" class="badge badge-danger">Fail</a>
-                    <span class="badge badge-secondary">
-                        @(((XchangeRow) context.Model).StartedOn.Humanize())
-                    </span>
-                    <span class="badge badge-secondary">@(((XchangeRow) context.Model).Duration)</span>
-                }
+                <span class="badge badge-secondary">
+                    @(((XchangeRow) context.Model).StartedOn.Humanize())
+                </span>
+                <span class="badge badge-secondary">@(((XchangeRow) context.Model).Duration)</span>
+            }
+            else
+            {
+                <a href="JavaScript:void(0);" @onclick="() => MessageClick(((XchangeRow) context.Model).Id)" class="badge badge-danger">Fail</a>
+                <span class="badge badge-secondary">
+                    @(((XchangeRow) context.Model).StartedOn.Humanize())
+                </span>
+                <span class="badge badge-secondary">@(((XchangeRow) context.Model).Duration)</span>
+            }
 
-                @if (showMessageForId == ((XchangeRow) context.Model).Id)
-                {
-                    <Modal Title="@(((XchangeRow) context.Model).Status.Value ? "Retry" : "Exception")" OnClose="() => MessageClick(null)">
-                        <Body>
-                        @if (!((XchangeRow) context.Model).Status.Value)
-                        {
-                            <textarea class="form-control" rows="20" disabled="disabled">
+            @if (showMessageForId == ((XchangeRow) context.Model).Id)
+            {
+                <Modal Title="@(((XchangeRow) context.Model).Status.Value ? "Retry" : "Exception")" OnClose="() => MessageClick(null)">
+                    <Body>
+                    @if (!((XchangeRow) context.Model).Status.Value)
+                    {
+                        <textarea class="form-control" rows="20" disabled="disabled">
                                 @(((XchangeRow) context.Model).Exception)
                             </textarea>
-                        }
-                        </Body>
-                        <Footer>
-                            <label>Reset Configuration</label>
-                            <input type="checkbox" checked="@(resetFlag)" @onchange="() => SwitchResetFlag()"/>
-                            <BusyButton class="btn btn-primary" OnClick="bb => OnRetry(((XchangeRow) context.Model).Id, bb)">
-                                <Title>
-                                    Retry
-                                </Title>
-                            </BusyButton>
+                    }
+                    </Body>
+                    <Footer>
+                        <label>Reset Configuration</label>
+                        <input type="checkbox" checked="@(resetFlag)" @onchange="() => SwitchResetFlag()"/>
+                        <BusyButton class="btn btn-primary" OnClick="bb => OnRetry(((XchangeRow) context.Model).Id, bb)">
+                            <Title>
+                                Retry
+                            </Title>
+                        </BusyButton>
 
-                            <button class="btn btn-secondary" @onclick="() => MessageClick(null)">
-                                Close
-                            </button>
-                        </Footer>
-                    </Modal>
-                }
+                        <button class="btn btn-secondary" @onclick="() => MessageClick(null)">
+                            Close
+                        </button>
+                    </Footer>
+                </Modal>
+            }
 
-            </ColumnValue>
-        </Field>
-
-        <Field Text="Files">
+        </ColumnValue>
+    </Field>
+    
+<Field Text="Input">
+    <ColumnValue>
+        @if (((XchangeRow) context.Model).InputUrl != null)
+        {
+            if (infolinkSettings.AreXChangeFilesPrivate)
+            {
+                <button @onclick="() => (Download(((XchangeRow) context.Model).Id, XchangeFileType.Input))" class="badge badge-info">🔒 Input</button>
+            }
+    
+            else
+            {
+                <a href="@(((XchangeRow) context.Model).InputUrl)" target="_blank" class="badge badge-info">Input</a>
+            }
+        }
+    </ColumnValue>
+</Field>
+ <Field Text="Output">
             <ColumnValue>
-                @if (((XchangeRow) context.Model).InputUrl != null)
-                {
-                    if (infolinkSettings.AreXChangeFilesPrivate)
-                    {
-                        <button @onclick="() => (Download(((XchangeRow) context.Model).Id, XchangeFileType.Input))" class="badge badge-info">🔒 Input</button>
-                    }
-
-                    else
-                    {
-                        <a href="@(((XchangeRow) context.Model).InputUrl)" target="_blank" class="badge badge-info">Input</a>
-                    }
-                }
                 @if (((XchangeRow) context.Model).OutputUrl != null)
                 {
                     var badgeClass = ((XchangeRow) context.Model).OutputBad ? "badge-warning" : "badge-info";
@@ -152,6 +157,10 @@
                         <a href="@(((XchangeRow) context.Model).OutputUrl)" target="_blank" class="badge @badgeClass">Output</a>
                     }
                 }
+                </ColumnValue>
+                </Field>
+                 <Field Text="Response">
+                            <ColumnValue>
                 @if (((XchangeRow) context.Model).ResponseUrl != null)
                 {
                     var badgeClass = ((XchangeRow) context.Model).ResponseBad ? "badge-warning" : "badge-info";
@@ -168,46 +177,101 @@
                 {
                     <span class="badge badge-warning">Response</span>
                 }
-
+    
             </ColumnValue>
         </Field>
-        <Field Text="Tags">
-            <ColumnValue>
-                <span class="badge badge-primary">id: @(((XchangeRow) context.Model).Id)</span>
-                @if (((XchangeRow) context.Model).InputFileName != null)
-                {
-                    <span class="badge badge-primary">inputName: @(((XchangeRow) context.Model).InputFileName)</span>
-                }
 
-                @if (((XchangeRow) context.Model).RetryFor != null)
+    @* <Field Text="Files"> *@
+    @*     <ColumnValue> *@
+    @*         @if (((XchangeRow) context.Model).InputUrl != null) *@
+    @*         { *@
+    @*             if (infolinkSettings.AreXChangeFilesPrivate) *@
+    @*             { *@
+    @*                 <button @onclick="() => (Download(((XchangeRow) context.Model).Id, XchangeFileType.Input))" class="badge badge-info">🔒 Input</button> *@
+    @*             } *@
+    @* *@
+    @*             else *@
+    @*             { *@
+    @*                 <a href="@(((XchangeRow) context.Model).InputUrl)" target="_blank" class="badge badge-info">Input</a> *@
+    @*             } *@
+    @*         } *@
+    @*         @if (((XchangeRow) context.Model).OutputUrl != null) *@
+    @*         { *@
+    @*             var badgeClass = ((XchangeRow) context.Model).OutputBad ? "badge-warning" : "badge-info"; *@
+    @*             if (infolinkSettings.AreXChangeFilesPrivate) *@
+    @*             { *@
+    @*                 <button @onclick="() => Download(((XchangeRow) context.Model).Id, XchangeFileType.Output)" class="badge @badgeClass">🔒 Output</button> *@
+    @*             } *@
+    @*             else *@
+    @*             { *@
+    @*                 <a href="@(((XchangeRow) context.Model).OutputUrl)" target="_blank" class="badge @badgeClass">Output</a> *@
+    @*             } *@
+    @*         } *@
+    @*         @if (((XchangeRow) context.Model).ResponseUrl != null) *@
+    @*         { *@
+    @*             var badgeClass = ((XchangeRow) context.Model).ResponseBad ? "badge-warning" : "badge-info"; *@
+    @*             if (infolinkSettings.AreXChangeFilesPrivate) *@
+    @*             { *@
+    @*                 <button @onclick="() => Download(((XchangeRow) context.Model).Id, XchangeFileType.Response)" class="badge @badgeClass">🔒 Response</button> *@
+    @*             } *@
+    @*             else *@
+    @*             { *@
+    @*                 <a href="@(((XchangeRow) context.Model).ResponseUrl)" target="_blank" class="badge @badgeClass">Response</a> *@
+    @*             } *@
+    @*         } *@
+    @*         else if (((XchangeRow) context.Model).ResponseBad) *@
+    @*         { *@
+    @*             <span class="badge badge-warning">Response</span> *@
+    @*         } *@
+    @* *@
+    @*     </ColumnValue> *@
+    @* </Field> *@
+    <Field Text="Tags">
+        <ColumnValue>
+            <span class="badge badge-primary">id: @(((XchangeRow) context.Model).Id)</span>
+            @if (((XchangeRow) context.Model).InputFileName != null)
+            {
+                <span class="badge badge-primary">inputName: @(((XchangeRow) context.Model).InputFileName)</span>
+            }
+            @if (((XchangeRow) context.Model).OutputFileName != null)
+            {
+                <span class="badge badge-primary">outputName: @(((XchangeRow) context.Model).OutputFileName)</span>
+            }
+            @if (((XchangeRow) context.Model).ResponseFileName != null)
+            {
+                <span class="badge badge-primary">responseName: @(((XchangeRow) context.Model).ResponseFileName)</span>
+            }
+
+            @if (((XchangeRow) context.Model).RetryFor != null)
+            {
+                <span class="badge badge-warning">retryfor: @(((XchangeRow) context.Model).RetryFor)</span>
+            }
+            @if (((XchangeRow) context.Model).AggregationXchangeId != null)
+            {
+                <span class="badge badge-info">agg: @(((XchangeRow) context.Model).AggregationXchangeId)</span>
+            }
+            @if (((XchangeRow) context.Model).References != null)
+            {
+                foreach (var reference in ((XchangeRow) context.Model).References)
                 {
-                    <span class="badge badge-warning">retryfor: @(((XchangeRow) context.Model).RetryFor)</span>
+                    <span class="badge badge-info">@reference</span>
                 }
-                @if (((XchangeRow) context.Model).AggregationXchangeId != null)
+            }
+            @if (((XchangeRow) context.Model).CorrelationId != null)
+            {
+                <span class="badge badge-info">CorrelationID: @(((XchangeRow) context.Model).CorrelationId)</span>
+            }
+            @if (((XchangeRow) context.Model).PromotedProperties != null)
+            {
+                foreach (var kvp in ((XchangeRow) context.Model).PromotedProperties)
                 {
-                    <span class="badge badge-info">agg: @(((XchangeRow) context.Model).AggregationXchangeId)</span>
+                    <span class="badge badge-light">p: @kvp.Key:@kvp.Value</span>
                 }
-                @if (((XchangeRow) context.Model).References != null)
-                {
-                    foreach (var reference in ((XchangeRow) context.Model).References)
-                    {
-                        <span class="badge badge-info">@reference</span>
-                    }
-                }
-                @if (((XchangeRow) context.Model).CorrelationId != null)
-                {
-                    <span class="badge badge-info">CorrelationID: @(((XchangeRow) context.Model).CorrelationId)</span>
-                }
-                @if (((XchangeRow) context.Model).PromotedProperties != null)
-                {
-                    foreach (var kvp in ((XchangeRow) context.Model).PromotedProperties)
-                    {
-                        <span class="badge badge-light">p: @kvp.Key:@kvp.Value</span>
-                    }
-                }
-            </ColumnValue>
-        </Field>
-    </Columns>
+            }
+         
+        </ColumnValue>
+    </Field>
+</Columns>
 
 </Search>
 @if (showBulkRetry)
