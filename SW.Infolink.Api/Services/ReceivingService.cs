@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SW.Infolink.Domain;
 
 namespace SW.Infolink
 {
@@ -34,15 +35,23 @@ namespace SW.Infolink
                     using var scope = sp.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
                     var rcvList = await dbContext.ListAsync(new DueReceivers());
-
+                    
+                    var runFlagUpdater = scope.ServiceProvider.GetRequiredService<RunFlagUpdater>();
+                    
                     foreach (var rec in rcvList)
                     {
                         try
                         {
+
+                            var toRun = await runFlagUpdater.MarkAsRunning(rec.Id);
+                            if (!toRun) continue;
+                            
                             var startupParameters = rec.ReceiverProperties.ToDictionary();
                             await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
+                            
                             rec.SetSchedules();
                             rec.SetHealth();
+                            
                         }
                         catch (Exception ex)
                         {

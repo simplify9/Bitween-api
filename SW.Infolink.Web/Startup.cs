@@ -132,6 +132,8 @@ namespace SW.Infolink.Web
                 config.DefaultApiClientFactory = sp => sp.GetService<InfolinkClient>();
             });
             services.AddJwtTokenParameters();
+            
+            services.AddScoped<RunFlagUpdater>();
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>

@@ -2,22 +2,22 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Infolink;
 
-namespace SW.Infolink.MsSql.Migrations
+namespace SW.Infolink.MySql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    partial class InfolinkDbContextModelSnapshot : ModelSnapshot
+    [Migration("20211108153857_update13")]
+    partial class update13
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "3.1.9")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128)
-                .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("SW.Infolink.Domain.Document", b =>
                 {
@@ -25,10 +25,10 @@ namespace SW.Infolink.MsSql.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("BusEnabled")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("BusMessageTypeName")
-                        .HasColumnType("varchar(500)")
+                        .HasColumnType("varchar(500) CHARACTER SET utf8mb4")
                         .HasMaxLength(500)
                         .IsUnicode(false);
 
@@ -37,18 +37,17 @@ namespace SW.Infolink.MsSql.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("varchar(100)")
+                        .HasColumnType("varchar(100) CHARACTER SET utf8mb4")
                         .HasMaxLength(100)
                         .IsUnicode(false);
 
                     b.Property<string>("PromotedProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BusMessageTypeName")
-                        .IsUnique()
-                        .HasFilter("[BusMessageTypeName] IS NOT NULL");
+                        .IsUnique();
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -70,36 +69,35 @@ namespace SW.Infolink.MsSql.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                        .HasColumnType("int");
 
                     b.Property<string>("HandlerId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("varchar(100) CHARACTER SET utf8mb4")
                         .HasMaxLength(100);
 
                     b.Property<bool>("RunOnBadResult")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("RunOnFailedResult")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("RunOnSubscriptions")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<bool>("RunOnSuccessfulResult")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.HasKey("Id");
 
@@ -110,20 +108,19 @@ namespace SW.Infolink.MsSql.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                        .HasColumnType("int");
 
                     b.Property<bool>("BadData")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Data")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("FileName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("References")
-                        .HasColumnType("nvarchar(1024)")
+                        .HasColumnType("varchar(1024) CHARACTER SET utf8mb4")
                         .HasMaxLength(1024);
 
                     b.Property<int>("SubscriptionId")
@@ -140,12 +137,11 @@ namespace SW.Infolink.MsSql.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
@@ -165,76 +161,75 @@ namespace SW.Infolink.MsSql.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("AggregateOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int?>("AggregationForId")
                         .HasColumnType("int");
 
                     b.Property<byte>("AggregationTarget")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("tinyint unsigned");
 
                     b.Property<int>("ConsecutiveFailures")
                         .HasColumnType("int");
 
                     b.Property<string>("DocumentFilter")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
                     b.Property<string>("HandlerId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("IsRunning")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("LastException")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("MapperId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("MapperProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(100)")
+                        .HasColumnType("varchar(100) CHARACTER SET utf8mb4")
                         .HasMaxLength(100);
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("PausedOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("ReceiveOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("ReceiverId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("ReceiverProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("ResponseMessageTypeName")
-                        .HasColumnType("varchar(500)")
+                        .HasColumnType("varchar(500) CHARACTER SET utf8mb4")
                         .HasMaxLength(500)
                         .IsUnicode(false);
 
@@ -242,18 +237,18 @@ namespace SW.Infolink.MsSql.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("Temporary")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<byte>("Type")
-                        .HasColumnType("tinyint");
+                        .HasColumnType("tinyint unsigned");
 
                     b.Property<string>("ValidatorId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("ValidatorProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.HasKey("Id");
 
@@ -271,56 +266,56 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.Xchange", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<string>("CorrelationId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
                     b.Property<string>("HandlerId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("InputContentType")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("InputHash")
                         .IsRequired()
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<string>("InputName")
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200);
 
                     b.Property<int>("InputSize")
                         .HasColumnType("int");
 
                     b.Property<string>("MapperId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("MapperProperties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("References")
-                        .HasColumnType("nvarchar(1024)")
+                        .HasColumnType("varchar(1024) CHARACTER SET utf8mb4")
                         .HasMaxLength(1024);
 
                     b.Property<string>("ResponseMessageTypeName")
-                        .HasColumnType("varchar(500)")
+                        .HasColumnType("varchar(500) CHARACTER SET utf8mb4")
                         .HasMaxLength(500)
                         .IsUnicode(false);
 
@@ -328,12 +323,12 @@ namespace SW.Infolink.MsSql.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("RetryFor")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<DateTime>("StartedOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int?>("SubscriptionId")
                         .HasColumnType("int");
@@ -356,16 +351,16 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.XchangeAggregation", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<DateTime>("AggregatedOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("AggregationXchangeId")
                         .IsRequired()
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
@@ -379,12 +374,12 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.XchangeDelivery", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<DateTime>("DeliveredOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -397,26 +392,25 @@ namespace SW.Infolink.MsSql.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                        .HasColumnType("int");
 
                     b.Property<string>("Exception")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<DateTime>("FinishedOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("NotifierId")
                         .HasColumnType("int");
 
                     b.Property<string>("NotifierName")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<bool>("Success")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("XchangeId")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
@@ -428,20 +422,20 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.XchangePromotedProperties", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<string>("Hits")
-                        .HasColumnType("varchar(2000)")
+                        .HasColumnType("varchar(2000) CHARACTER SET utf8mb4")
                         .HasMaxLength(2000)
                         .IsUnicode(false);
 
                     b.Property<string>("Properties")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<string>("PropertiesRaw")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("varchar(255) CHARACTER SET utf8mb4");
 
                     b.HasKey("Id");
 
@@ -453,61 +447,61 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.XchangeResult", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<string>("Exception")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<DateTime>("FinishedOn")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<bool>("OutputBad")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("OutputContentType")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("OutputHash")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<string>("OutputName")
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200);
 
                     b.Property<int>("OutputSize")
                         .HasColumnType("int");
 
                     b.Property<bool>("ResponseBad")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("ResponseContentType")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200)
                         .IsUnicode(false);
 
                     b.Property<string>("ResponseHash")
-                        .HasColumnType("varchar(50)")
+                        .HasColumnType("varchar(50) CHARACTER SET utf8mb4")
                         .HasMaxLength(50)
                         .IsUnicode(false);
 
                     b.Property<string>("ResponseName")
-                        .HasColumnType("nvarchar(200)")
+                        .HasColumnType("varchar(200) CHARACTER SET utf8mb4")
                         .HasMaxLength(200);
 
                     b.Property<int>("ResponseSize")
                         .HasColumnType("int");
 
                     b.Property<string>("ResponseXchangeId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext CHARACTER SET utf8mb4");
 
                     b.Property<bool>("Success")
-                        .HasColumnType("bit");
+                        .HasColumnType("tinyint(1)");
 
                     b.HasKey("Id");
 
@@ -523,18 +517,17 @@ namespace SW.Infolink.MsSql.Migrations
 
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
-                                .HasColumnType("int")
-                                .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                                .HasColumnType("int");
 
                             b1.Property<string>("Key")
                                 .IsRequired()
-                                .HasColumnType("varchar(500)")
+                                .HasColumnType("varchar(500) CHARACTER SET utf8mb4")
                                 .HasMaxLength(500)
                                 .IsUnicode(false);
 
                             b1.Property<string>("Name")
                                 .IsRequired()
-                                .HasColumnType("nvarchar(500)")
+                                .HasColumnType("varchar(500) CHARACTER SET utf8mb4")
                                 .HasMaxLength(500);
 
                             b1.HasKey("PartnerId", "Id");
@@ -590,17 +583,16 @@ namespace SW.Infolink.MsSql.Migrations
 
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
-                                .HasColumnType("int")
-                                .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+                                .HasColumnType("int");
 
                             b1.Property<bool>("Backwards")
-                                .HasColumnType("bit");
+                                .HasColumnType("tinyint(1)");
 
                             b1.Property<long>("On")
                                 .HasColumnType("bigint");
 
                             b1.Property<byte>("Recurrence")
-                                .HasColumnType("tinyint");
+                                .HasColumnType("tinyint unsigned");
 
                             b1.HasKey("SubscriptionId", "Id");
 

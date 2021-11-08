@@ -126,6 +126,9 @@ namespace SW.Infolink.Domain
         readonly HashSet<Schedule> _Schedules;
         public IReadOnlyCollection<Schedule> Schedules => _Schedules;
         public DateTime? ReceiveOn { get; private set; }
+        
+        public bool IsRunning { get; set; }
+        
         public void SetSchedules(IEnumerable<Schedule> schedules = null)
         {
             if (Type == SubscriptionType.Receiving)
@@ -146,6 +149,7 @@ namespace SW.Infolink.Domain
 
         public void SetHealth(string exception = null)
         {
+            IsRunning = false;
             if (exception == null)
             {
                 ConsecutiveFailures = 0;

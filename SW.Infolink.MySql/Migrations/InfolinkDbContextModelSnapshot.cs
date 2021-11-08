@@ -190,6 +190,9 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<bool>("Inactive")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("IsRunning")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("LastException")
                         .HasColumnType("longtext CHARACTER SET utf8mb4");
 
