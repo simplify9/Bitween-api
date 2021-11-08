@@ -45,6 +45,12 @@ namespace SW.Infolink.PgSql
                 b.HasData(new Document(Document.AggregationDocumentId, "Aggregation Document"));
 
             });
+            
+            modelBuilder.Entity<RunFlagUpdater.RunningResult>(cr =>
+            {
+                cr.HasNoKey().ToView(null);
+                cr.Property(c => c.IsRunning);
+            });
 
             modelBuilder.Entity<Partner>(b =>
             {
