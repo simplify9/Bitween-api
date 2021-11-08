@@ -43,7 +43,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
             if (lookup)
             {
-                return await query.Search(searchyRequest.Conditions).ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
+                return await query.OrderBy(s => s.Name).Search(searchyRequest.Conditions).ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
             }
 
             return new SearchyResponse<SubscriptionSearch>
