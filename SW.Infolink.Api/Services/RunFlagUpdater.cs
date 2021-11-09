@@ -25,9 +25,9 @@ namespace SW.Infolink
                 "pgsql" => $@"UPDATE infolink.subscription SET is_running = true
                         WHERE id = '{id}' and is_running = false
                         RETURNING is_running",
-                "mssql" => $@"UPDATE Subscriptions SET IsRunning = true
+                "mssql" => $@"UPDATE Subscriptions SET IsRunning = 1
                         OUTPUT INSERTED.IsRunning 
-                        WHERE Id = '{id}' and IsRunning = false",
+                        WHERE Id = '{id}' and IsRunning = 0",
                 "mysql" => $@"SELECT IsRunning FROM Subscriptions
                          WHERE Id = '{id}' and IsRunning = false
                          FOR UPDATE;
