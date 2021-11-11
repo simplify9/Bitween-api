@@ -59,7 +59,10 @@ namespace SW.Infolink
                             rec.SetHealth(ex.ToString());
                             logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
                         }
-                        await dbContext.SaveChangesAsync();
+
+                        await runFlagUpdater.MarkAsIdle(rec.Id);
+                        
+                        await dbContext.SaveChangesAsync(stoppingToken);
                     }
                 }
                 catch (Exception ex)

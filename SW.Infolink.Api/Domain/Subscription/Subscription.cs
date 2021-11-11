@@ -149,7 +149,6 @@ namespace SW.Infolink.Domain
 
         public void SetHealth(string exception = null)
         {
-            IsRunning = false;
             if (exception == null)
             {
                 ConsecutiveFailures = 0;

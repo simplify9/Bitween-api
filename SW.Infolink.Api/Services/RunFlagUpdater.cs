@@ -44,6 +44,23 @@ namespace SW.Infolink
             return result != null;
         }
         
+        public async Task MarkAsIdle(int id)
+        {
+            var sqlUpdate = _dbType.ToLower() switch
+            {
+                "pgsql" => $@"UPDATE infolink.subscription SET is_running = false
+                        WHERE id = '{id}'",
+                "mssql" => $@"UPDATE Subscriptions SET IsRunning = 0
+                        WHERE Id = '{id}'",
+                "mysql" => $@"UPDATE Subscriptions SET IsRunning = false
+                         WHERE Id = '{id}'",
+                _ => ""
+            };
+            ; 
+            
+            await dbContext.Database.ExecuteSqlRawAsync(sqlUpdate);
+        }
+        
         public class RunningResult
         {
             public bool IsRunning { get; set; }
