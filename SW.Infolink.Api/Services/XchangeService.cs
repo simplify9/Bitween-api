@@ -51,7 +51,7 @@ namespace SW.Infolink
                             .AsNoTracking()
                             .FirstOrDefaultAsync();
 
-            var xchange = await CreateXchange(subscription, file, references);
+            var xchange = await CreateXchange(subscription, file, references, Guid.NewGuid().ToString("N"));
             await dbContext.SaveChangesAsync();
             return xchange.Id;
         }
