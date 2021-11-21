@@ -41,6 +41,7 @@ namespace SW.Infolink.Model
     {
         public int Id { get; set; }
         public string DocumentName { get; set; }
+        public bool? IsRunning { get; set; }
     }
 
     public class SubscriptionUpdate : SubscriptionCreate
