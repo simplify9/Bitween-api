@@ -61,6 +61,7 @@ namespace SW.Infolink.Domain
             HandlerProperties = xchange.HandlerProperties;
             ResponseSubscriptionId = xchange.ResponseSubscriptionId;
             RetryFor = xchange.Id;
+            CorrelationId = xchange.CorrelationId;
         }
         //retry with reset subscription properties
         public Xchange(Subscription subscription, Xchange xchange, XchangeFile file) : 
@@ -73,6 +74,7 @@ namespace SW.Infolink.Domain
             HandlerProperties = subscription.HandlerProperties;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             RetryFor = xchange.Id;
+            CorrelationId = xchange.CorrelationId;
         }
 
         public int? SubscriptionId { get; private set; }
