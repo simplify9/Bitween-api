@@ -225,7 +225,7 @@ namespace SW.Infolink
                             .AsNoTracking()
                             .FirstOrDefaultAsync();
 
-                        responseXchange = await CreateXchange(subscription, responseFile);
+                        responseXchange = await CreateXchange(subscription, responseFile,null,xchange.CorrelationId);
                     }
 
                     if (!string.IsNullOrWhiteSpace(xchange.ResponseMessageTypeName) && responseFile != null && !responseFile.BadData)
