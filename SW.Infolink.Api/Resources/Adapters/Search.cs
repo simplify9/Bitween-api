@@ -20,7 +20,7 @@ namespace SW.Infolink.Resources.Adapters
         {
             var index = serverlessOptions.AdapterRemotePath.Length + 1;
 
-            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}/infolink.{request.Prefix}")).Where(item => item.Size > 0).ToList();
+            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}/infolink5.{request.Prefix}")).Where(item => item.Size > 0).ToList();
 
             //if (lookup)
                 return cloudFilesList.ToDictionary(k => k.Key.Substring(index), v => v.Key.Substring(index));
