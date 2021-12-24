@@ -90,8 +90,8 @@ namespace SW.Infolink.Model
         public string PromotedPropertiesRaw { get; set; }
         public string RetryFor { get;  set; }
         public string AggregationXchangeId { get;  set; }
-        public bool  OutputBad { get; set; }
-        public bool ResponseBad { get; set; }
+        public bool?  OutputBad { get; set; }
+        public bool? ResponseBad { get; set; }
         public string CorrelationId { get; set; }
     }
 }

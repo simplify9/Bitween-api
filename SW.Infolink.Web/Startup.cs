@@ -97,9 +97,9 @@ namespace SW.Infolink.Web
 
                     if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MySql.ToString().ToLower())
                     {
-                        c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
+                        c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString),new MySqlServerVersion(new Version(8, 0, 18)),  b =>
                         {
-                            b.ServerVersion(new ServerVersion(new Version(8, 0, 18), ServerType.MySql));
+                            //b.ServerVersion(new ServerVersion(new Version(8, 0, 18), ServerType.MySql));
                             b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName);
                         });
                     }

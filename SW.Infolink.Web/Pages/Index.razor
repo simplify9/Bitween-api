@@ -147,7 +147,7 @@
             <ColumnValue>
                 @if (((XchangeRow) context.Model).OutputUrl != null)
                 {
-                    var badgeClass = ((XchangeRow) context.Model).OutputBad ? "badge-warning" : "badge-info";
+                    var badgeClass = ((XchangeRow) context.Model).OutputBad ?? false ? "badge-warning" : "badge-info";
                     if (infolinkSettings.AreXChangeFilesPrivate)
                     {
                         <button @onclick="() => Download(((XchangeRow) context.Model).Id, XchangeFileType.Output)" class="badge @badgeClass">🔒 Output</button>
@@ -163,7 +163,7 @@
                             <ColumnValue>
                 @if (((XchangeRow) context.Model).ResponseUrl != null)
                 {
-                    var badgeClass = ((XchangeRow) context.Model).ResponseBad ? "badge-warning" : "badge-info";
+                    var badgeClass = ((XchangeRow) context.Model).ResponseBad ?? false ? "badge-warning" : "badge-info";
                     if (infolinkSettings.AreXChangeFilesPrivate)
                     {
                         <button @onclick="() => Download(((XchangeRow) context.Model).Id, XchangeFileType.Response)" class="badge @badgeClass">🔒 Response</button>
@@ -173,7 +173,7 @@
                         <a href="@(((XchangeRow) context.Model).ResponseUrl)" target="_blank" class="badge @badgeClass">Response</a>
                     }
                 }
-                else if (((XchangeRow) context.Model).ResponseBad)
+                else if (((XchangeRow) context.Model).ResponseBad ?? false)
                 {
                     <span class="badge badge-warning">Response</span>
                 }

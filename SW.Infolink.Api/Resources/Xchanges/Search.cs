@@ -31,8 +31,8 @@ namespace SW.Infolink.Resources.Xchanges
             var query = from xchange in dbContext.Set<Xchange>()
                         join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                         from result in xr.DefaultIfEmpty()
-                        join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.Id into xd
-                        from delivery in xd.DefaultIfEmpty()
+                        // join delivery in dbContext.Set<XchangeDelivery>() on xchange.Id equals delivery.Id into xd
+                        // from delivery in xd.DefaultIfEmpty()
                         join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
                         from agg in xa.DefaultIfEmpty()
                         join promoted in dbContext.Set<XchangePromotedProperties>() on xchange.Id equals promoted.Id into xp
@@ -41,7 +41,7 @@ namespace SW.Infolink.Resources.Xchanges
                         join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id into xs
                         from subscriber in xs.DefaultIfEmpty()
 
-                        select new XchangeRow
+                        select new  XchangeRow
                         {
                             Id = xchange.Id,
                             HandlerId = xchange.HandlerId,
@@ -85,14 +85,14 @@ namespace SW.Infolink.Resources.Xchanges
                         case SearchyRule.EqualsTo:
                             query = query.Where(i => i.Id == value || i.RetryFor == value || i.AggregationXchangeId == value);
                             break;
-
+            
                         default:
                             throw new SWException();
                     }
-
+            
                     condition.Filters.Remove(idFilter);
                 }
-
+            
                 var statusFilters = condition.Filters.Where(f => f.Field == "StatusFilter").ToList();
                 foreach (var statusFilter in statusFilters)
                 {
@@ -104,19 +104,18 @@ namespace SW.Infolink.Resources.Xchanges
                         case "1":
                             query = query.Where(i => i.Status == true);
                             break;
-
+            
                         case "2":
                             query = query.Where(i => i.Status == true && i.ResponseBad == true);
                             break;
-
+            
                         case "3":
                             query = query.Where(i => i.Status == false);
                             break;
                     }
-
+            
                     condition.Filters.Remove(statusFilter);
-                    
-                    
+            
                 }
                 
                 var propertiesFilters = condition.Filters.Where(f => f.Field == "PromotedPropertiesRaw").ToList();
@@ -129,10 +128,14 @@ namespace SW.Infolink.Resources.Xchanges
                 }
             }
 
+            var s = query.OrderByDescending(p => p.StartedOn).AsNoTracking().Search(searchyRequest.Conditions,
+                searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
 
+            var r = await s.ToListAsync();
+            
             var searchyResponse = new SearchyResponse<XchangeRow>
             {
-                Result = await query.OrderByDescending(p => p.StartedOn).AsNoTracking().Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync(),
+                Result =r,
                 TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync()
             };
 
