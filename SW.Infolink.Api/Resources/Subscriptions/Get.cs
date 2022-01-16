@@ -20,11 +20,13 @@ namespace SW.Infolink.Resources.Subscriptions
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(int key, bool lookup = false)
+        public async Task<object> Handle(int key, bool lookup = false)
         {
-            return await dbContext.Set<Subscription>().AsNoTracking().
-                Search("Id", key).
-                Select(subscriber => new SubscriptionUpdate
+            var subscriber =
+                await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync();
+
+            return
+                new SubscriptionUpdate
                 {
                     AggregationForId = subscriber.AggregationForId,
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
@@ -49,17 +51,6 @@ namespace SW.Infolink.Resources.Subscriptions
                     AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,
                     PausedOn = subscriber.PausedOn,
-
-                    //AggregationSchedules = subscriber.AggregationSchedules.Select(s => new ScheduleView
-                    //{
-                    //    Backwards = s.Backwards,
-                    //    Recurrence = s.Recurrence,
-                    //    Days = s.On.Days,
-                    //    Hours = s.On.Hours,
-                    //    Minutes = s.On.Minutes
-
-                    //}).ToList(),
-
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,
@@ -67,10 +58,8 @@ namespace SW.Infolink.Resources.Subscriptions
                         Days = s.On.Days,
                         Hours = s.On.Hours,
                         Minutes = s.On.Minutes
-
                     }).ToList()
-
-                }).SingleOrDefaultAsync();
+                };
         }
     }
 }
