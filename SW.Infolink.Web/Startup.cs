@@ -8,9 +8,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
-using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
-using Pomelo.EntityFrameworkCore.MySql.Storage;
 using SW.Bus;
+using SW.CloudFiles.AS.Extensions;
 using SW.CqApi;
 using SW.CloudFiles.Extensions;
 using SW.Serverless;
@@ -20,7 +19,7 @@ using SW.Logger;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 using SW.SimplyRazor;
-//using SW.Infolink.PgSql;
+
 
 namespace SW.Infolink.Web
 {
@@ -31,22 +30,22 @@ namespace SW.Infolink.Web
             Configuration = configuration;
         }
 
-        public IConfiguration Configuration { get; }
+        private IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
-        // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
             var infolinkOptions = new InfolinkOptions();
+
             Configuration.GetSection(InfolinkOptions.ConfigurationSection).Bind(infolinkOptions);
+
             services.AddSingleton(infolinkOptions);
 
             services.AddSingleton<FilterService>();
             services.AddScoped<XchangeService>();
 
             services.AddHostedService<AggregationService>();
-            
-            
+
+
             services.AddHostedService<ReceivingService>();
 
             services.AddBus(config =>
@@ -58,26 +57,35 @@ namespace SW.Infolink.Web
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
 
             services.AddCqApi(configure =>
-            {
-                configure.RolePrefix = "Infolink";
-                configure.UrlPrefix = "api";
-                configure.ProtectAll = true;
-            },
-            typeof(InfolinkDbContext).Assembly);
+                {
+                    configure.RolePrefix = "Infolink";
+                    configure.UrlPrefix = "api";
+                    configure.ProtectAll = true;
+                },
+                typeof(InfolinkDbContext).Assembly);
 
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
-            services.AddCloudFiles();
+            if (infolinkOptions.StorageProvider.ToUpper().Equals("AS"))
+            {
+                services.AddAsCloudFiles();
+            }
+            else
+            {
+                services.AddS3CloudFiles();
+            }
+
             services.AddServerless(configure =>
             {
                 configure.CommandTimeout = infolinkOptions.ServerlessCommandTimeout;
             });
             services.AddScoped<RequestContext>();
 
-            if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.PgSql.ToString().ToLower())
+            if (string.Equals(infolinkOptions.DatabaseType, RelationalDbType.PgSql.ToString(),
+                StringComparison.CurrentCultureIgnoreCase))
             {
                 services.AddDbContext<InfolinkDbContext, PgSql.InfolinkDbContext>(c =>
                 {
-                    c.EnableSensitiveDataLogging(true);
+                    c.EnableSensitiveDataLogging();
                     c.UseSnakeCaseNamingConvention();
                     c.UseNpgsql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
                     {
@@ -85,34 +93,26 @@ namespace SW.Infolink.Web
                         b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
                         b.UseAdminDatabase(infolinkOptions.AdminDatabaseName);
                     });
-
                 });
             }
             else
             {
                 services.AddDbContext<InfolinkDbContext>(c =>
                 {
-                    c.EnableSensitiveDataLogging(true);
-
-
-                    if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MySql.ToString().ToLower())
+                    c.EnableSensitiveDataLogging();
+                    if (string.Equals(infolinkOptions.DatabaseType, RelationalDbType.MySql.ToString(),
+                        StringComparison.CurrentCultureIgnoreCase))
                     {
-                        c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString),new MySqlServerVersion(new Version(8, 0, 18)),  b =>
-                        {
-                            //b.ServerVersion(new ServerVersion(new Version(8, 0, 18), ServerType.MySql));
-                            b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName);
-                        });
+                        c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString),
+                            new MySqlServerVersion(new Version(8, 0, 18)),
+                            b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
                     }
                     else if (infolinkOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
                     {
-                        c.UseSqlServer(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString), b =>
-                        {
-                            b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName);
-                        });
+                        c.UseSqlServer(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString),
+                            b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
                     }
-
                 });
-
             }
 
 
@@ -122,17 +122,16 @@ namespace SW.Infolink.Web
                 options.Conventions.AuthorizeFolder("/");
                 options.Conventions.AllowAnonymousToPage("/Login");
             });
-            
+
             services.AddServerSideBlazor().AddHubOptions(
                 options => { options.MaximumReceiveMessageSize = 131072; });
-            
+
             services.AddSimplyRazor(config =>
             {
-                //config.BlobsUri = new Uri(Configuration["BlobsUrl"]);
                 config.DefaultApiClientFactory = sp => sp.GetService<InfolinkClient>();
             });
             services.AddJwtTokenParameters();
-            
+
             services.AddScoped<RunFlagUpdater>();
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -154,7 +153,6 @@ namespace SW.Infolink.Web
                 });
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseForwardedHeaders();
@@ -172,10 +170,7 @@ namespace SW.Infolink.Web
             app.UseHttpAsRequestContext();
             app.UseRequestContextLogEnricher();
 
-            app.UseSwaggerUI(c =>
-            {
-                c.SwaggerEndpoint("/api/swagger.json", "Infolink Api");
-            });
+            app.UseSwaggerUI(c => { c.SwaggerEndpoint("/api/swagger.json", "Infolink Api"); });
 
 
             app.UseEndpoints(endpoints =>

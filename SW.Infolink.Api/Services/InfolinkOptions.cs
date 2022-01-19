@@ -1,7 +1,6 @@
-﻿
-namespace SW.Infolink
+﻿namespace SW.Infolink
 {
-    public class InfolinkOptions 
+    public class InfolinkOptions
     {
         public const string ConfigurationSection = "Infolink";
 
@@ -16,14 +15,11 @@ namespace SW.Infolink
             ServerlessCommandTimeout = 300;
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
             ReceiversDelayInSeconds = 63;
+            StorageProvider = "S3";
         }
 
         public string DatabaseType { get; set; }
-
         public string AdminDatabaseName { get; set; }
-        //public string DatabaseSchema { get; set; }
-        //public bool SnakeCaseTables { get; set; }
-
         public string AdapterPath { get; set; }
         public string AdminCredentials { get; set; }
         public string DocumentPrefix { get; set; }
@@ -32,6 +28,6 @@ namespace SW.Infolink
         public bool AreXChangeFilesPrivate { get; set; } = false;
         public int? ApiCallSubscriptionResponseAcceptedStatusCode { get; set; }
         public int? ReceiversDelayInSeconds { get; set; }
-
+        public string StorageProvider { get; set; }
     }
 }
