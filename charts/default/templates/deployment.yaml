@@ -55,6 +55,9 @@ spec:
             - name: Infolink__DocumentPrefix
               value: {{ .Values.documentPrefix }}
 
+            - name: Infolink__StorageProvider
+              value: { { .Values.storageProvider } }
+
             {{- if .Values.serverlessCommandTimeout }}
             - name: Infolink__ServerlessCommandTimeout
               value: "{{ .Values.serverlessCommandTimeout }}"
