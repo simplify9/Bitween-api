@@ -57,6 +57,9 @@ spec:
 
             - name: Infolink__StorageProvider
               value: {{ .Values.storageProvider }}
+              
+            - name: Infolink__AreXChangeFilesPrivate
+              value: {{ .Values.areXChangeFilesPrivate }}
 
             {{- if .Values.serverlessCommandTimeout }}
             - name: Infolink__ServerlessCommandTimeout
