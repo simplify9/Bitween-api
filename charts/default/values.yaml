@@ -63,7 +63,7 @@ adminDb: "defaultdb"
 serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
 storageProvider: ''
-areXChangeFilesPrivate: false
+areXChangeFilesPrivate: 'false'
 
 global:
 
