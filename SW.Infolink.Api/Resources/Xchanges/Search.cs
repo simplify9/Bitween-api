@@ -69,8 +69,8 @@ namespace SW.Infolink.Resources.Xchanges
                             InputFileName = xchange.InputName,
                             OutputFileName = result.OutputName,
                             ResponseFileName = result.ResponseName,
-                            CorrelationId = xchange.CorrelationId
-
+                            CorrelationId = xchange.CorrelationId,
+                            PartnerId = subscriber.PartnerId
                         };
 
             var condition = searchyRequest.Conditions.FirstOrDefault();

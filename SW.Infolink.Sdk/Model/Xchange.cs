@@ -93,5 +93,6 @@ namespace SW.Infolink.Model
         public bool?  OutputBad { get; set; }
         public bool? ResponseBad { get; set; }
         public string CorrelationId { get; set; }
+        public int? PartnerId { get; set; }
     }
 }
