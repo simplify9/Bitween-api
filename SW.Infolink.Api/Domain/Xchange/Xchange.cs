@@ -68,8 +68,8 @@ namespace SW.Infolink.Domain
             this(xchange.DocumentId, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
-            MapperId = xchange.MapperId;
-            HandlerId = xchange.HandlerId;
+            MapperId = subscription.MapperId;
+            HandlerId = subscription.HandlerId;
             MapperProperties = subscription.MapperProperties;
             HandlerProperties = subscription.HandlerProperties;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
