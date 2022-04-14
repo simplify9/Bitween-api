@@ -1,10 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System;
+using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.PrimitiveTypes;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink
 {
@@ -12,7 +14,9 @@ namespace SW.Infolink
     {
         private readonly RequestContext requestContext;
         private readonly IPublish publish;
-
+        protected readonly DateTime defaultCreatedOn = DateTime.Parse("1/1/2022");
+        // Mtm@dmin!2
+        protected readonly string defaultPasswordHash = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ";
         public const string ConnectionString = "InfolinkDb";
 
         public InfolinkDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) : base(options)
@@ -216,6 +220,52 @@ namespace SW.Infolink
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.RunOnSubscriptions).IsSeparatorDelimited();
             });
+            
+            modelBuilder.Entity<Account>(b =>
+            {
+                b.ToTable("Accounts");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => p.Email).IsUnique();
+
+                b.Property(p => p.Email).IsUnicode(false).HasMaxLength(200);
+                b.Property(p => p.Phone).IsUnicode(false).HasMaxLength(20);
+                b.Property(p => p.Password).IsUnicode(false).HasMaxLength(500);
+                b.Property(p => p.DisplayName).IsRequired().HasMaxLength(200);
+               
+                b.Property(p => p.EmailProvider).HasConversion<byte>();
+                b.Property(p => p.LoginMethods).HasConversion<byte>();
+
+                b.HasData(
+                    new 
+                    {
+                        Id = 9999,
+                        EmailProvider = EmailProvider.None,
+                        LoginMethods = LoginMethod.EmailAndPassword,
+                        Email = "admin@infolink.systems",
+                        DisplayName = "Admin",
+                        CreatedOn = defaultCreatedOn,
+                        Disabled = false,
+                        Password = defaultPasswordHash
+                    });
+
+
+            });
+            
+            modelBuilder.Entity<RefreshToken>(b =>
+            {
+                b.ToTable("RefreshTokens");
+                b.HasKey(p => p.Id);
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.AccountId);
+                b.Property(p => p.LoginMethod).HasConversion<byte>();
+
+            });
+            
+            
+            
 
         }
 

@@ -16,6 +16,7 @@
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
             ReceiversDelayInSeconds = 63;
             StorageProvider = "S3";
+            JwtExpiryMinutes = 60;
         }
 
         public string DatabaseType { get; set; }
@@ -29,5 +30,6 @@
         public int? ApiCallSubscriptionResponseAcceptedStatusCode { get; set; }
         public int? ReceiversDelayInSeconds { get; set; }
         public string StorageProvider { get; set; }
+        public int JwtExpiryMinutes { get; set; }
     }
 }
