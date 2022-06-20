@@ -54,7 +54,7 @@ namespace SW.Infolink.Resources.Accounts
                 .SingleOrDefaultAsync();
 
             if (account is null)
-                throw new SWNotFoundException(request.Username);
+                throw new SWValidationException(request.Username,request.Username);
 
 
             if (string.IsNullOrEmpty(request.RefreshToken))

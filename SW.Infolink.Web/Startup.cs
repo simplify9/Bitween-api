@@ -151,6 +151,20 @@ namespace SW.Infolink.Web
                     options.Cookie.Name = "InfolinkUser";
                     options.LoginPath = "/login";
                 });
+            
+            services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(
+                    builder =>
+                    {
+                        
+                        builder.AllowAnyOrigin();
+                        builder.AllowAnyHeader();
+                        builder.AllowAnyMethod();
+                       
+                    
+                    });
+            });
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -162,6 +176,7 @@ namespace SW.Infolink.Web
                 app.UseDeveloperExceptionPage();
             }
 
+            app.UseCors();
             app.UsePathBase("/infolink");
             app.UseStaticFiles();
             app.UseRouting();

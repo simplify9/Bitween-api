@@ -11,6 +11,9 @@ namespace SW.Infolink.Model
     public class PartnerRow : PartnerUpdate
     {
         public int Id { get; set; }
+        public int? SubscriptionsCount { get; set; }
+        public int? Keys { get; set; }
+        
     }
 
     public class PartnerUpdate : PartnerCreate

@@ -24,6 +24,8 @@ namespace SW.Infolink.Resources.Partners
                         {
                             Id = subscriber.Id,
                             Name = subscriber.Name,
+                            SubscriptionsCount = subscriber.Subscriptions.Count,
+                            Keys = subscriber.ApiCredentials.Count,
                         };
 
             query = query.AsNoTracking();
