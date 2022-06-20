@@ -58,7 +58,7 @@ db: ""
 
 dbConnectionStringName: ConnectionStrings__InfolinkDb
 
-dbType: "mysql"
+dbType: "pgsql"
 adminDb: "defaultdb"
 serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
