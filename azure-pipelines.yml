@@ -124,5 +124,5 @@ jobs:
       chartName: '$(imageName)'
       chartVersion: $(version)
       releaseName: '$(imageName)'
-      overrideValues: 'db=$(dbConnection),ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(rabbitUrl),global.cloudFiles.secretAccessKey=$(SecretAccessKey),global.cloudFiles.accessKeyId=$(AccessKeyId),global.cloudFiles.serviceUrl=$(ServiceUrl),global.cloudFiles.bucketName=$(BucketName)'
+      overrideValues: 'db="$(dbConnection)",ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(rabbitUrl),global.cloudFiles.secretAccessKey=$(SecretAccessKey),global.cloudFiles.accessKeyId=$(AccessKeyId),global.cloudFiles.serviceUrl=$(ServiceUrl),global.cloudFiles.bucketName=$(BucketName)'
       arguments: --repo https://charts.sf9.io
