@@ -59,7 +59,7 @@ db: ""
 dbConnectionStringName: ConnectionStrings__InfolinkDb
 
 dbType: "pgsql"
-adminDb: "defaultdb"
+adminDb: "postgres"
 serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
 storageProvider: ''
