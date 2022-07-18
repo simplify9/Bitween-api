@@ -57,7 +57,7 @@ jobs:
 
 
   - task: HelmDeploy@0
-    displayName: 'Deploy to playground'
+    displayName: 'Deploy to stg'
     inputs:
       connectionType: 'Kubernetes Service Connection'
       kubernetesServiceConnection: 'k8s-stg'
