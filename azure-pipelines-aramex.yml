@@ -19,15 +19,15 @@ jobs:
   condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/releases/')
   steps:
 
-  - task: VersionDotNetCoreAssemblies@2
-    inputs:
-      Path: '$(Build.SourcesDirectory)'
-      VersionNumber: '$(Build.BuildNumber)'
-      Injectversion: False
-      VersionRegex: '\d+\.\d+\.\d+'
-      FilenamePattern: '.csproj'
-      SDKNames: 'Microsoft.NET.Sdk'
-      OutputVersion: 'OutputedVersion'
+#  - task: VersionDotNetCoreAssemblies@2
+#    inputs:
+#      Path: '$(Build.SourcesDirectory)'
+#      VersionNumber: '$(Build.BuildNumber)'
+#      Injectversion: False
+#      VersionRegex: '\d+\.\d+\.\d+'
+#      FilenamePattern: '.csproj'
+#      SDKNames: 'Microsoft.NET.Sdk'
+#      OutputVersion: 'OutputedVersion'
 
   - task: Docker@2
     displayName: Build and push an image to container registry
@@ -90,3 +90,5 @@ jobs:
         --set global.cloudFiles.secretAccessKey="6l+4mknpA44jBNjWsUoA9P6jhXd7MkDqnffbtPkuPJ4g07bN6n3LybLSpAKh/02thV5M9/bLUr1x+AStSEB8Uw=="
         --set storageProvider="AS" 
         --set areXChangeFilesPrivate=true
+
+  
