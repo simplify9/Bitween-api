@@ -1,66 +1,18 @@
 name: $(version)
 
 trigger:
-- master
 - releases/*
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-- group: Chartmuseum
-- group: S3Bucket
 - name: imageName
   value: 'infolink'
 - name: version
   value: $[format('6.0.{0}', counter('6.0', 0))]
 
 jobs:
-
-- job: dotnet
-  displayName: build, test and pack nuget
-  steps:
-
-  - task: UseDotNet@2
-    displayName: 'Use .NET Core sdk 6.0.x'
-    inputs:
-      packageType: sdk
-      version: 6.0.x
-      installationPath: $(Agent.ToolsDirectory)/dotnet
-
-  - task: DotNetCoreCLI@2
-    displayName: Restore
-    inputs:
-      command: 'restore'
-      projects: '**/*.csproj'
-
-  - task: DotNetCoreCLI@2
-    displayName: Build
-    inputs:
-      projects: '**/*.csproj'
-      arguments: '--configuration Release'
-
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet test'
-    inputs:
-      command: test
-      projects: '**/*Tests/*.csproj'
-
-  - task: DotNetCoreCLI@2
-    displayName: 'dotnet pack'
-    inputs:
-      command: pack
-      packagesToPack: 'SW.Infolink.Sdk/SW.Infolink.Sdk.csproj;'
-      nobuild: true
-      versioningScheme: byBuildNumber
-
-  - task: NuGetCommand@2
-    condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/releases/')
-    inputs:
-      command: 'push'
-      packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
-      nuGetFeedType: 'external'
-      publishFeedCredentials: 'swnuget' 
 
 - job: build
   displayName: Build, push image and chart and deploy to playground
@@ -81,9 +33,9 @@ jobs:
     displayName: Build and push an image to container registry
     inputs:
       command: buildAndPush
-      repository: simplify9/$(imageName)
+      repository: $(imageName)
       dockerfile: $(Build.SourcesDirectory)/Dockerfile
-      containerRegistry: simplify9cr
+      containerRegistry: infoaxsstgcr
       tags: |
         $(version)
         latest
@@ -118,11 +70,23 @@ jobs:
     displayName: 'Deploy to playground'
     inputs:
       connectionType: 'Kubernetes Service Connection'
-      kubernetesServiceConnection: 'k8s-s9'
+      kubernetesServiceConnection: 'k8s-stg'
       namespace: 'playground'
       command: 'upgrade'
       chartName: '$(imageName)'
       chartVersion: $(version)
       releaseName: '$(imageName)'
-      overrideValues: 'db="$(dbConnection)",ingress.enabled=true,ingress.hosts={infolink.sf9.io},global.bus.rabbitUrl=$(rabbitUrl),global.cloudFiles.secretAccessKey=$(SecretAccessKey),global.cloudFiles.accessKeyId=$(AccessKeyId),global.cloudFiles.serviceUrl=$(ServiceUrl),global.cloudFiles.bucketName=$(BucketName)'
-      arguments: --repo https://charts.sf9.io
+      arguments: >
+        --repo https://charts.sf9.io
+        --set ingress.hosts={infolink-stg.aramex.com}
+        --set db="$(stgDbConnection)"
+        --set global.environment="staging"
+        --set ingress.annotations."kubernetes\.io/ingress\.class"="nginx"
+        --set ingress.path="/"
+        --set global.bus.rabbitUrl="$(stgRabbitUrl)"
+        --set global.cloudFiles.bucketName="infolink"
+        --set global.cloudFiles.accessKeyId="azrinfolinkdevfile"
+        --set global.cloudFiles.serviceUrl="https://azrinfolinkdevfile.blob.core.windows.net/"
+        --set global.cloudFiles.secretAccessKey="6l+4mknpA44jBNjWsUoA9P6jhXd7MkDqnffbtPkuPJ4g07bN6n3LybLSpAKh/02thV5M9/bLUr1x+AStSEB8Uw=="
+        --set storageProvider="AS" 
+        --set areXChangeFilesPrivate=true
