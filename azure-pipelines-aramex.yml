@@ -61,7 +61,7 @@ jobs:
     inputs:
       connectionType: 'Kubernetes Service Connection'
       kubernetesServiceConnection: 'k8s-stg'
-      namespace: 'playground'
+      namespace: 'infolink'
       command: 'upgrade'
       chartName: $(Build.ArtifactStagingDirectory)/$(imageName)-$(version).tgz
       chartVersion: $(version)
