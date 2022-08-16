@@ -201,7 +201,7 @@ namespace SW.Infolink
             try
             {
                 var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
-                var result = filterService.Filter(xchange.DocumentId, inputFile);
+                var result = filterService.Filter(xchange.DocumentId, inputFile, message.DocumentFormat);
 
                 dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 

@@ -17,6 +17,13 @@ namespace SW.Infolink.Domain
             Name = name ?? throw new ArgumentNullException(nameof(name));
             PromotedProperties = new Dictionary<string, string>();
         }
+        public Document(int id, string name, DocumentFormat format)
+        {
+            Id = id;
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+            PromotedProperties = new Dictionary<string, string>();
+            DocumentFormat = format;
+        }
         public string Name { get; private set; }
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }

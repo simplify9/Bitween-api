@@ -1,10 +1,12 @@
-﻿using SW.PrimitiveTypes;
+﻿using SW.Infolink.Model;
+using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Domain
 {
     internal abstract class XchangeCreatedEvent : BaseDomainEvent
     {
         public string Id { get; set; }
+        public DocumentFormat DocumentFormat { get; set; }
 
     }
 

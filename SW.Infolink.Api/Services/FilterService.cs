@@ -2,6 +2,10 @@
 using System.Linq;
 using System.Collections.Generic;
 using System.Threading;
+using System.Xml;
+using System.Xml.Linq;
+using System.Xml.Serialization;
+using System.Xml.XPath;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
@@ -80,7 +84,7 @@ namespace SW.Infolink
 
         }
 
-        public FilterResult Filter(int documentId, XchangeFile xchangeFile)
+        public FilterResult Filter(int documentId, XchangeFile xchangeFile, DocumentFormat format)
         {
             if (xchangeFile is null)
             {
@@ -110,35 +114,67 @@ namespace SW.Infolink
 
                 if (documentFilter.Properties.Count == 0)
                     return documentFilter.DocumentsWithNoPromotedProperties;
-
-                JToken doc = JObject.Parse(xchangeFile.Data);
                 var filterResult = new FilterResult();
                 var firstHit = true;
-
-                foreach (var prop in documentFilter.Properties.Keys)
+                
+                if (format == DocumentFormat.Json)
                 {
-                    var pf = documentFilter.Properties[prop];
-                    var matchallprop = new HashSet<int>(pf.Ignored);
-                    var node = doc.SelectToken(pf.Path);
-                    if (node == null) throw new PromotedPropertyNotPresent(prop);
-
-                    var val = node.Value<string>() == null ? string.Empty : node.Value<string>().ToLower().Trim();
-
-                    filterResult.Properties.Add(prop, val);
-
-                    if (pf.SubscribersByValues.TryGetValue(val, out var lstall))
-                        matchallprop.UnionWith(lstall);
-
-                    if (firstHit)
+                    JToken doc = JObject.Parse(xchangeFile.Data);
+                    foreach (var prop in documentFilter.Properties.Keys)
                     {
-                        filterResult.Hits = matchallprop;
-                        firstHit = false;
-                    }
-                    else
-                        filterResult.Hits.IntersectWith(matchallprop);
-                }
+                        var pf = documentFilter.Properties[prop];
+                        var matchallprop = new HashSet<int>(pf.Ignored);
+                        var node = doc.SelectToken(pf.Path);
+                        if (node == null) throw new PromotedPropertyNotPresent(prop);
 
+                        var val = node.Value<string>() == null ? string.Empty : node.Value<string>().ToLower().Trim();
+
+                        filterResult.Properties.Add(prop, val);
+
+                        if (pf.SubscribersByValues.TryGetValue(val, out var lstall))
+                            matchallprop.UnionWith(lstall);
+
+                        if (firstHit)
+                        {
+                            filterResult.Hits = matchallprop;
+                            firstHit = false;
+                        }
+                        else
+                            filterResult.Hits.IntersectWith(matchallprop);
+                    }
+
+                   
+                }
+                else
+                {
+
+                    var doc = XDocument.Parse(xchangeFile.Data);
+                    
+                    foreach (var prop in documentFilter.Properties.Keys)
+                    {
+                        var pf = documentFilter.Properties[prop];
+                        var matchallprop = new HashSet<int>(pf.Ignored);
+                        var node = doc.XPathSelectElement(pf.Path);
+                        //if (node == null) throw new PromotedPropertyNotPresent(prop);
+
+                        var val = node?.Value == null ? string.Empty : node.Value.ToLower().Trim();
+
+                        filterResult.Properties.Add(prop, val);
+
+                        if (pf.SubscribersByValues.TryGetValue(val, out var lstall))
+                            matchallprop.UnionWith(lstall);
+
+                        if (firstHit)
+                        {
+                            filterResult.Hits = matchallprop;
+                            firstHit = false;
+                        }
+                        else
+                            filterResult.Hits.IntersectWith(matchallprop);
+                    }
+                }
                 return filterResult;
+                
             }
             finally
             {

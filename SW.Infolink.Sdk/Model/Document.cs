@@ -15,6 +15,7 @@ namespace SW.Infolink.Model
     public class DocumentCreate : IName
     {
         public int Id { get; set; }
+        public DocumentFormat DocumentFormat { get; set; }
         public string Name { get; set; }
     }
 
@@ -23,7 +24,7 @@ namespace SW.Infolink.Model
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
-        public DocumentFormat DocumentFormat { get; set; }
+        
         public ICollection<KeyAndValue> PromotedProperties { get; set; }
     }
 
