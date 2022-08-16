@@ -196,12 +196,14 @@ namespace SW.Infolink
             XchangeFile responseFile = null;
 
             var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+           
             if (xchange == null) throw new InfolinkException($"Xchange '{message.Id}' not found.");
-
+            var document = await dbContext.FindAsync<Document>(xchange.DocumentId);
+            
             try
             {
                 var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
-                var result = filterService.Filter(xchange.DocumentId, inputFile, message.DocumentFormat);
+                var result = filterService.Filter(xchange.DocumentId, inputFile, document?.DocumentFormat?? DocumentFormat.Json);
 
                 dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 

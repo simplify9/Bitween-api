@@ -6,7 +6,6 @@ namespace SW.Infolink.Domain
     internal abstract class XchangeCreatedEvent : BaseDomainEvent
     {
         public string Id { get; set; }
-        public DocumentFormat DocumentFormat { get; set; }
 
     }
 
