@@ -196,12 +196,14 @@ namespace SW.Infolink
             XchangeFile responseFile = null;
 
             var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+           
             if (xchange == null) throw new InfolinkException($"Xchange '{message.Id}' not found.");
-
+            var document = await dbContext.FindAsync<Document>(xchange.DocumentId);
+            
             try
             {
                 var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
-                var result = filterService.Filter(xchange.DocumentId, inputFile);
+                var result = filterService.Filter(xchange.DocumentId, inputFile, document?.DocumentFormat?? DocumentFormat.Json);
 
                 dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 
@@ -297,7 +299,7 @@ namespace SW.Infolink
                     case true when !message.ResponseBad && notifier.RunOnSuccessfulResult:
                     case true when message.ResponseBad && notifier.RunOnBadResult:
                     case false when notifier.RunOnFailedResult:
-                        await NotifyResult(notifier, xchangeResult, xchange.CorrelationId ?? xchange.Id);
+                        await NotifyResult(notifier, xchangeResult, xchange?.CorrelationId ?? xchange?.Id);
                         break;
                 }
             }
@@ -308,7 +310,7 @@ namespace SW.Infolink
            
             if (xchangeResult == null) throw new InfolinkException($"Xchange Result '{xchangeResult.Id}' not found.");
 
-            if (notifier.HandlerId == null) return;
+            if (notifier?.HandlerId == null) return;
             
             var notificationData = new XchangeResultNotification
             {

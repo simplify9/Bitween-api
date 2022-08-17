@@ -22,7 +22,7 @@ namespace SW.Infolink.Api.Resources.Documents
 
         async public Task<object> Handle(DocumentCreate model)
         {
-            var entity = new Document(model.Id, model.Name);
+            var entity = new Document(model.Id, model.Name, model.DocumentFormat);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             return entity.Id;

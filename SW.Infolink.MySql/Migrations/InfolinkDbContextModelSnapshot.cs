@@ -123,6 +123,9 @@ namespace SW.Infolink.MySql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<int>("DocumentFormat")
+                        .HasColumnType("int");
+
                     b.Property<int>("DuplicateInterval")
                         .HasColumnType("int");
 
@@ -150,6 +153,7 @@ namespace SW.Infolink.MySql.Migrations
                         {
                             Id = 10001,
                             BusEnabled = false,
+                            DocumentFormat = 0,
                             DuplicateInterval = 0,
                             Name = "Aggregation Document",
                             PromotedProperties = "{}"
