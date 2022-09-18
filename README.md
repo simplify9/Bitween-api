@@ -205,8 +205,6 @@ The receiver will run twice an hour at min 0 and 30 (every half an hour).
 
 Setting the hour and minute values will trigger the receiver to run once you reach the time of the day specified.
 
-Setting the hour and minute values will trigger the receiver to run once you reach the time of the day specified.
-
 For example, if you set 2 schedules as below:
 1. Daily (h 4 min 0)
 2. Daily (h 16 min 0)
