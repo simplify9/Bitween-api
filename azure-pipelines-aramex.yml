@@ -2,6 +2,7 @@ name: $(version)
 
 trigger:
 - releases/*
+- master
 
 pool:
   vmImage: 'ubuntu-latest'
@@ -14,8 +15,8 @@ variables:
 
 jobs:
 
-- job: build
-  displayName: Build, push image and chart and deploy to playground
+- job: buildStg
+  displayName: Build, push image and chart and deploy to stg
   condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/releases/')
   steps:
 
@@ -77,6 +78,62 @@ jobs:
         --set global.cloudFiles.accessKeyId="azrinfolinkdevfile"
         --set global.cloudFiles.serviceUrl="https://azrinfolinkdevfile.blob.core.windows.net/"
         --set global.cloudFiles.secretAccessKey="6l+4mknpA44jBNjWsUoA9P6jhXd7MkDqnffbtPkuPJ4g07bN6n3LybLSpAKh/02thV5M9/bLUr1x+AStSEB8Uw=="
+        --set storageProvider="AS" 
+        --set areXChangeFilesPrivate=true
+
+- job: buildProd
+  displayName: Build, push image and chart and deploy to prod
+  condition: startsWith(variables['Build.SourceBranch'], 'refs/heads/master')
+  steps:
+
+  - task: Docker@2
+    displayName: Build and push an image to container registry
+    inputs:
+      command: buildAndPush
+      repository: $(imageName)
+      dockerfile: $(Build.SourcesDirectory)/Dockerfile
+      containerRegistry: infoaxsprodcr
+      tags: |
+        $(version)
+        latest
+
+  - task: HelmInstaller@0
+    displayName: 'Install Helm 3.2.4'
+    inputs:
+      helmVersion: '3.2.4'
+      checkLatestHelmVersion: false
+      installKubectl: false
+
+  - task: HelmDeploy@0
+    displayName: Helm package
+    inputs:
+      command: package
+      chartPath: charts/default
+      arguments: --version $(version) --app-version $(version)
+      updatedependency: true
+
+
+  - task: HelmDeploy@0
+    displayName: 'Deploy to prod'
+    inputs:
+      connectionType: 'Kubernetes Service Connection'
+      kubernetesServiceConnection: 'k8s-prod'
+      namespace: 'infolink'
+      command: 'upgrade'
+      chartName: $(Build.ArtifactStagingDirectory)/$(imageName)-$(version).tgz
+      chartVersion: $(version)
+      releaseName: '$(imageName)'
+      arguments: >
+        --set ingress.hosts={infolink.aramex.com}
+        --set db="$(prodDbConnection)"
+        --set global.environment="production"
+        --set ingress.annotations."kubernetes\.io/ingress\.class"="nginx"
+        --set ingress.path="/"
+        --set global.bus.rabbitUrl="$(prodRabbitUrl)"
+        --set global.cloudFiles.bucketName="infolink"
+        --set global.cloudFiles.accessKeyId="azrinfolinkprodfile"
+        --set global.cloudFiles.serviceUrl="https://azrinfolinkprodfile.blob.core.windows.net/"
+        --set global.cloudFiles.secretAccessKey="$(prodStorageSecret)"
         --set storageProvider="AS" 
         --set areXChangeFilesPrivate=true
 
