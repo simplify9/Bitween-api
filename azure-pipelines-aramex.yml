@@ -80,6 +80,7 @@ jobs:
         --set global.cloudFiles.secretAccessKey="6l+4mknpA44jBNjWsUoA9P6jhXd7MkDqnffbtPkuPJ4g07bN6n3LybLSpAKh/02thV5M9/bLUr1x+AStSEB8Uw=="
         --set storageProvider="AS" 
         --set areXChangeFilesPrivate=true
+        --set image.repo="azrinfoaxsstg.azurecr.io"
 
 - job: buildProd
   displayName: Build, push image and chart and deploy to prod
@@ -136,5 +137,5 @@ jobs:
         --set global.cloudFiles.secretAccessKey="$(prodStorageSecret)"
         --set storageProvider="AS" 
         --set areXChangeFilesPrivate=true
-
+        --set image.repo="azrinfoaxscrprod.azurecr.io"
   
