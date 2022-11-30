@@ -121,7 +121,7 @@ jobs:
       kubernetesServiceConnection: 'k8s-prod'
       namespace: 'infolink'
       command: 'upgrade'
-      chartName: $(Build.ArtifactStagingDirectory)/$(imageName)-$(version).tgz
+      chartName: $(Build.ArtifactsDirectory)/$(imageName)-$(version).tgz
       chartVersion: $(version)
       releaseName: '$(imageName)'
       arguments: >
