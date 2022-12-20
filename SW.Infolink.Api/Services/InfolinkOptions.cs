@@ -11,7 +11,7 @@
             DocumentPrefix = "temp30/infolinkdocs";
             ClientIpHeaderName = "X-Real-IP";
             DatabaseType = "MySql";
-            AdminDatabaseName = "";
+            AdminDatabaseName = "defaultdb";
             ServerlessCommandTimeout = 300;
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
             ReceiversDelayInSeconds = 63;
