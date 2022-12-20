@@ -11,14 +11,16 @@
             DocumentPrefix = "temp30/infolinkdocs";
             ClientIpHeaderName = "X-Real-IP";
             DatabaseType = "MySql";
-            AdminDatabaseName = "defaultdb";
+            AdminDatabaseName = "";
             ServerlessCommandTimeout = 300;
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
             ReceiversDelayInSeconds = 63;
             StorageProvider = "S3";
             JwtExpiryMinutes = 60;
+            BusDefaultQueuePrefetch = 12;
         }
 
+        public ushort? BusDefaultQueuePrefetch { get; set; }
         public string DatabaseType { get; set; }
         public string AdminDatabaseName { get; set; }
         public string AdapterPath { get; set; }
