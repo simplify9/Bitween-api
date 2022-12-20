@@ -24,7 +24,7 @@ probes:
 
 ingress:
   enabled: false
-  annotations:
+  annotations: {}
     # nginx.ingress.kubernetes.io/rewrite-target: /$2
     # kubernetes.io/tls-acme: "true"
   path: /
