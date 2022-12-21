@@ -24,7 +24,8 @@ namespace SW.Infolink.Model
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
-        public bool DisregardUnfilteredMessage { get; set; }
+        
+        public bool DisregardsUnfilteredMessages { get; set; }
         
         public ICollection<KeyAndValue> PromotedProperties { get; set; }
     }
