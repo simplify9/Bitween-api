@@ -65,7 +65,7 @@ namespace SW.Infolink
             var document = await dbContext.FindAsync<Document>(documentId);
             Xchange xchange;
             
-            if (infolinkSettings.DisregardsUnfilteredMessages ?? false)
+            if (document?.DisregardsUnfilteredMessages ?? false)
             {
                 xchange = new Xchange(documentId, file, references, SubscriptionType.Internal, correlationId);
                 var result = filterService.Filter(xchange.DocumentId, file,

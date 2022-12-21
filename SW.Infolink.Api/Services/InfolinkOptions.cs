@@ -18,11 +18,10 @@
             StorageProvider = "S3";
             JwtExpiryMinutes = 60;
             BusDefaultQueuePrefetch = 12;
-            DisregardsUnfilteredMessages = false;
         }
 
         public ushort? BusDefaultQueuePrefetch { get; set; }
-        public bool? DisregardsUnfilteredMessages { get; set; }
+
         public string DatabaseType { get; set; }
         public string AdminDatabaseName { get; set; }
         public string AdapterPath { get; set; }

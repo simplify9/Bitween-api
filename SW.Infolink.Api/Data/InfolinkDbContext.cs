@@ -36,7 +36,7 @@ namespace SW.Infolink
                 b.Property(p => p.Name).HasMaxLength(100).IsUnicode(false).IsRequired();
                 b.Property(p => p.BusMessageTypeName).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.PromotedProperties).StoreAsJson();
-
+                b.Property(p => p.DisregardsUnfilteredMessages).IsRequired(false);
                 b.HasIndex(p => p.Name).IsUnique();
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();
 

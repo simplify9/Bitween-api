@@ -21,6 +21,9 @@
         <Field Name="@nameof(DocumentUpdate.BusMessageTypeName)" ReadOnly="!context.BusEnabled" />
     </FormRow>
     <FormRow >
+        <Field Name="@nameof(DocumentUpdate.DisregardUnfilteredMessage)"/>
+    </FormRow>
+    <FormRow >
         <Subform Name="@nameof(DocumentUpdate.PromotedProperties)">
             <Columns>
                 <Field Text="Action">
