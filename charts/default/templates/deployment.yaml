@@ -57,6 +57,9 @@ spec:
               
             - name: Infolink__BusDefaultQueuePrefetch
               value: "{{ .Values.busDefaultQueuePrefetch }}"
+
+            - name: Infolink__DisregardsUnfilteredMessages
+              value: "{{ .Values.disregardUnfilteredMessages }}"
             
             - name: Infolink__StorageProvider
               value: {{ .Values.storageProvider }}
