@@ -36,6 +36,7 @@ namespace SW.Infolink.PgSql
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
                 b.Property(p => p.BusMessageTypeName).HasMaxLength(500);
                 b.Property(p => p.PromotedProperties).StoreAsJson().HasColumnType("jsonb");
+                b.Property(p => p.DisregardsUnfilteredMessages).IsRequired(false);
 
                 b.HasIndex(p => p.Name).IsUnique();
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();

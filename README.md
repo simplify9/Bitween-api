@@ -186,6 +186,63 @@ The Aggregation subscriber would combine multiple Xchanges into one,
 allowing to send data in bulk to third parties that do not accept
 one-by-one requests.
 
+## Scheduler service
+
+You can set the recurrence for the receiver to run on hourly, daily, weekly or monthly basis.
+
+### Hourly
+
+Setting the minutes value will trigger the receiver to run once you reach the number of minutes specified every hour.
+
+For example, if you set 2 schedules as below:
+1.	hourly (min 0)
+2.	hourly (min 30)
+
+The receiver will run twice an hour at min 0 and 30 (every half an hour).
+
+
+### Daily
+
+Setting the hour and minute values will trigger the receiver to run once you reach the time of the day specified.
+
+For example, if you set 2 schedules as below:
+1. Daily (h 4 min 0)
+2. Daily (h 16 min 0)
+
+The receiver will run twice a day at 4:00 AM and 4:00 PM
+
+
+### Weekly
+
+Setting the day, hour and minute values will trigger the receiver to run once you reach the day and time specified every week.
+
+For example, if you set 2 schedules as below:
+1.	Weekly (d 1 h 4 min 0)
+2.	Weekly (d 7 h 16 min 0)
+
+The receiver will run twice a week on the first day of the week at 4:00 AM and on the 7th day at 4:00 PM.
+
+### Monthly
+
+Setting the day, hour and minute values will trigger the receiver to run once you reach the day and time specified every month.
+
+For example, if you set 2 schedules as below:
+
+1.	Monthly (d 1 h 4 min 0)
+2.	Monthly (d 28 h 16 min 0)
+
+The receiver will run twice a month on the first day of the month at 4:00 AM and on the 28th day at 4:00 PM.
+
+### Setting Backward
+
+When setting the backward schedule, the receiver will run once the day and time reaches the value backwardly from the end of the recurrence.
+
+For example, if you set the below schedule:
+
+1. Monthly (d 1, h 23, min 59) Backward
+
+The receiver will run monthly on the last day of the month at 11:59 pm
+
 ## Workflow
 
 ### Filtration

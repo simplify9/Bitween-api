@@ -129,6 +129,9 @@ namespace SW.Infolink.MsSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<bool?>("DisregardsUnfilteredMessages")
+                        .HasColumnType("bit");
+
                     b.Property<int>("DocumentFormat")
                         .HasColumnType("int");
 

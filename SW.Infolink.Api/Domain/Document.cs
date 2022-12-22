@@ -28,6 +28,7 @@ namespace SW.Infolink.Domain
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
+        public bool? DisregardsUnfilteredMessages { get; set; }
         
         public DocumentFormat DocumentFormat { get; set; }
         public IReadOnlyDictionary<string, string> PromotedProperties { get; private set; }
