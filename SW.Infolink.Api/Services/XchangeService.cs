@@ -75,8 +75,8 @@ namespace SW.Infolink
             else
             {
                 xchange = await CreateXchange(document, file, references, correlationId);
-                await dbContext.SaveChangesAsync();
             }
+            await dbContext.SaveChangesAsync();
 
             return xchange.Id;
         }
