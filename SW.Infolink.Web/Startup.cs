@@ -51,7 +51,7 @@ namespace SW.Infolink.Web
             services.AddBus(config =>
             {
                 config.ApplicationName = "infolink";
-                config.DefaultQueuePrefetch = 12;
+                config.DefaultQueuePrefetch = infolinkOptions.BusDefaultQueuePrefetch!.Value;
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
@@ -81,7 +81,7 @@ namespace SW.Infolink.Web
             services.AddScoped<RequestContext>();
 
             if (string.Equals(infolinkOptions.DatabaseType, RelationalDbType.PgSql.ToString(),
-                StringComparison.CurrentCultureIgnoreCase))
+                    StringComparison.CurrentCultureIgnoreCase))
             {
                 services.AddDbContext<InfolinkDbContext, PgSql.InfolinkDbContext>(c =>
                 {
@@ -101,7 +101,7 @@ namespace SW.Infolink.Web
                 {
                     c.EnableSensitiveDataLogging();
                     if (string.Equals(infolinkOptions.DatabaseType, RelationalDbType.MySql.ToString(),
-                        StringComparison.CurrentCultureIgnoreCase))
+                            StringComparison.CurrentCultureIgnoreCase))
                     {
                         c.UseMySql(Configuration.GetConnectionString(InfolinkDbContext.ConnectionString),
                             new MySqlServerVersion(new Version(8, 0, 18)),
@@ -151,18 +151,15 @@ namespace SW.Infolink.Web
                     options.Cookie.Name = "InfolinkUser";
                     options.LoginPath = "/login";
                 });
-            
+
             services.AddCors(options =>
             {
                 options.AddDefaultPolicy(
                     builder =>
                     {
-                        
                         builder.AllowAnyOrigin();
                         builder.AllowAnyHeader();
                         builder.AllowAnyMethod();
-                       
-                    
                     });
             });
         }

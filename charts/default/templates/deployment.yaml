@@ -54,7 +54,11 @@ spec:
               
             - name: Infolink__DocumentPrefix
               value: {{ .Values.documentPrefix }}
+              
+            - name: Infolink__BusDefaultQueuePrefetch
+              value: "{{ .Values.busDefaultQueuePrefetch }}"
 
+            
             - name: Infolink__StorageProvider
               value: {{ .Values.storageProvider }}
               
