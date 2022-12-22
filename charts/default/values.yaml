@@ -23,8 +23,8 @@ probes:
   enabled: false
 
 ingress:
-  enabled: false
-  annotations: {}
+  enabled: true
+  annotations:
     # nginx.ingress.kubernetes.io/rewrite-target: /$2
     # kubernetes.io/tls-acme: "true"
   path: /
@@ -59,12 +59,11 @@ db: ""
 dbConnectionStringName: ConnectionStrings__InfolinkDb
 
 dbType: "pgsql"
-adminDb: "defaultdb"
+adminDb: "postgres"
 serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
 storageProvider: ''
 areXChangeFilesPrivate: 'false'
-busDefaultQueuePrefetch: '12'
 
 global:
 
