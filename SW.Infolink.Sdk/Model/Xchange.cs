@@ -4,7 +4,6 @@ using System.Collections.Generic;
 
 namespace SW.Infolink.Model
 {
-
     //public enum XchangeStatus
     //{
     //    Running,
@@ -26,13 +25,13 @@ namespace SW.Infolink.Model
         public int? SubscriberId { get; set; }
         public string Data { get; set; }
     }
-    
+
     public enum CreateXchangeOption
     {
         DocumentId,
         SubscriberId
     }
-   
+
 
     public class XchangeRetry
     {
@@ -40,7 +39,7 @@ namespace SW.Infolink.Model
         public bool Reset { get; set; }
     }
 
-    public class XchangeBulkRetry:XchangeRetry
+    public class XchangeBulkRetry : XchangeRetry
     {
         public List<string> Ids { get; set; }
     }
@@ -81,16 +80,19 @@ namespace SW.Infolink.Model
         public string InputFileHash { get; set; }
         public string OutputFileName { get; set; }
         public string ResponseFileName { get; set; }
-        
+
         public string InputUrl { get; set; }
         public string OutputUrl { get; set; }
         public string ResponseUrl { get; set; }
+        public string InputKey { get; set; }
+        public string OutputKey { get; set; }
+        public string ResponseKey { get; set; }
         public string Duration { get; set; }
         public IDictionary<string, string> PromotedProperties { get; set; }
         public string PromotedPropertiesRaw { get; set; }
-        public string RetryFor { get;  set; }
-        public string AggregationXchangeId { get;  set; }
-        public bool?  OutputBad { get; set; }
+        public string RetryFor { get; set; }
+        public string AggregationXchangeId { get; set; }
+        public bool? OutputBad { get; set; }
         public bool? ResponseBad { get; set; }
         public string CorrelationId { get; set; }
         public int? PartnerId { get; set; }
