@@ -8,7 +8,7 @@ public static class SearchyExtensions
 {
     public static void DatesToUtc(this SearchyRequest searchyRequest)
     {
-        foreach (var filter in searchyRequest.Conditions.SelectMany(i => i.Filters))
+        foreach (var filter in searchyRequest.Conditions.SelectMany(i => i.Filters).Where(i => i.Value != null))
         {
             if (DateTime.TryParse(filter.Value.ToString(), out var dateTime))
             {
