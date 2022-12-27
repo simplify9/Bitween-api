@@ -271,6 +271,7 @@ namespace SW.Infolink
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            ChangeTracker.ApplyAuditValues(requestContext.GetNameIdentifier());
             //using var transaction = await Database.BeginTransactionAsync();
             var affectedRecords = await base.SaveChangesAsync(cancellationToken);
             await ChangeTracker.PublishDomainEvents(publish);
