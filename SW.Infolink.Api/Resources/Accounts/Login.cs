@@ -29,11 +29,11 @@ namespace SW.Infolink.Resources.Accounts
         {
             var jwtExpiryTimeSpan = TimeSpan.FromMinutes(_infolinkSettings.JwtExpiryMinutes);
 
-            
+
             var accountQ = _dbContext
                 .Set<Account>()
                 .AsQueryable();
-            
+
             if (!string.IsNullOrEmpty(request.RefreshToken))
             {
                 var refreshToken = await _dbContext.Set<RefreshToken>()
@@ -53,13 +53,9 @@ namespace SW.Infolink.Resources.Accounts
 
             var account = await accountQ
                 .SingleOrDefaultAsync();
-            
-            account.SetPassword("Mtm@dmin!2");
-            
-           await _dbContext.SaveChangesAsync();
 
             if (account is null)
-                throw new SWValidationException(request.Username,request.Username);
+                throw new SWValidationException(request.Username, request.Username);
 
 
             if (string.IsNullOrEmpty(request.RefreshToken))
