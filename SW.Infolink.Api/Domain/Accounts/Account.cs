@@ -3,8 +3,12 @@ using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Domain.Accounts
 {
-    public class Account : BaseEntity, IAudited
+    public class Account : BaseEntity, IAudited, ISoftDelete
     {
+        private Account()
+        {
+        }
+
         public Account(string displayName, string email, string password)
         {
             Password = password;
@@ -54,5 +58,6 @@ namespace SW.Infolink.Domain.Accounts
         public string CreatedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
         public string ModifiedBy { get; set; }
+        public bool Deleted { get; set; } = false;
     }
 }

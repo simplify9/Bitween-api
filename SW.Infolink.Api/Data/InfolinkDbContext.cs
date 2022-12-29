@@ -14,12 +14,17 @@ namespace SW.Infolink
     {
         private readonly RequestContext requestContext;
         private readonly IPublish publish;
+
         protected readonly DateTime defaultCreatedOn = DateTime.Parse("1/1/2022");
+
         // Mtm@dmin!2
-        protected readonly string defaultPasswordHash = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ";
+        protected readonly string defaultPasswordHash =
+            "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ";
+
         public const string ConnectionString = "InfolinkDb";
 
-        public InfolinkDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) : base(options)
+        public InfolinkDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) :
+            base(options)
         {
             this.requestContext = requestContext;
             this.publish = publish;
@@ -44,9 +49,8 @@ namespace SW.Infolink
                 b.HasMany<Xchange>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
 
                 b.HasData(new Document(Document.AggregationDocumentId, "Aggregation Document"));
-
             });
-            
+
             modelBuilder.Entity<RunFlagUpdater.RunningResult>(cr =>
             {
                 cr.HasNoKey().ToView(null);
@@ -58,7 +62,8 @@ namespace SW.Infolink
                 b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Restrict);
+                b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
+                    .OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>
                 {
                     apicred.ToTable("PartnerApiCredentials");
@@ -83,7 +88,6 @@ namespace SW.Infolink
                         Id = Partner.SystemId,
                         Name = "SYSTEM"
                     });
-
             });
 
             modelBuilder.Entity<Subscription>(b =>
@@ -114,9 +118,10 @@ namespace SW.Infolink
                 b.Property(p => p.Type).HasConversion<byte>();
                 b.Property(p => p.AggregationTarget).HasConversion<byte>();
 
-                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false).HasConstraintName("FK_Subscriptions_RespSub"). OnDelete(DeleteBehavior.Restrict);
-                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false).HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
-
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false)
+                    .HasConstraintName("FK_Subscriptions_RespSub").OnDelete(DeleteBehavior.Restrict);
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
+                    .HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Xchange>(b =>
@@ -135,12 +140,10 @@ namespace SW.Infolink
                 b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
 
 
-
                 b.HasIndex(i => i.InputHash);
                 b.HasIndex(i => i.SubscriptionId);
                 b.HasIndex(i => i.StartedOn);
                 b.HasIndex(i => i.RetryFor);
-
             });
 
             modelBuilder.Entity<OnHoldXchange>(b =>
@@ -150,11 +153,9 @@ namespace SW.Infolink
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.References).IsSeparatorDelimited().HasMaxLength(1024);
                 b.HasIndex(i => i.SubscriptionId);
-                
-
             });
 
-            
+
             modelBuilder.Entity<XchangeResult>(b =>
             {
                 b.ToTable("XchangeResults");
@@ -167,10 +168,9 @@ namespace SW.Infolink
                 b.Property(p => p.OutputContentType).IsUnicode(false).HasMaxLength(200);
 
 
-
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
-            
+
             modelBuilder.Entity<XchangeNotification>(b =>
             {
                 b.ToTable("XchangeNotifications");
@@ -183,7 +183,8 @@ namespace SW.Infolink
                 b.ToTable("XchangeDeliveries");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.HasIndex(i => i.DeliveredOn);
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<XchangeAggregation>(b =>
@@ -194,7 +195,8 @@ namespace SW.Infolink
 
                 b.HasIndex(i => i.AggregationXchangeId);
 
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeAggregation>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeAggregation>(p => p.Id)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<XchangePromotedProperties>(b =>
@@ -203,12 +205,13 @@ namespace SW.Infolink
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.Properties).StoreAsJson();
                 //b.Property(p => p.PropertiesRaw);
-                
+
                 b.Property(p => p.Hits).IsSeparatorDelimited().IsUnicode(false).HasMaxLength(2000);
 
                 b.HasIndex(p => p.PropertiesRaw);
-                
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Notifier>(b =>
@@ -220,7 +223,7 @@ namespace SW.Infolink
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.RunOnSubscriptions).IsSeparatorDelimited();
             });
-            
+
             modelBuilder.Entity<Account>(b =>
             {
                 b.ToTable("Accounts");
@@ -232,26 +235,25 @@ namespace SW.Infolink
                 b.Property(p => p.Phone).IsUnicode(false).HasMaxLength(20);
                 b.Property(p => p.Password).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.DisplayName).IsRequired().HasMaxLength(200);
-               
+
                 b.Property(p => p.EmailProvider).HasConversion<byte>();
                 b.Property(p => p.LoginMethods).HasConversion<byte>();
 
                 b.HasData(
-                    new 
+                    new
                     {
                         Id = 9999,
                         EmailProvider = EmailProvider.None,
                         LoginMethods = LoginMethod.EmailAndPassword,
                         Email = "admin@infolink.systems",
                         DisplayName = "Admin",
-                        CreatedOn = defaultCreatedOn,
+                        CreatedOn = defaultCreatedOn.ToUniversalTime(),
                         Disabled = false,
-                        Password = defaultPasswordHash
+                        Password = defaultPasswordHash,
+                        Deleted = false,
                     });
-
-
             });
-            
+
             modelBuilder.Entity<RefreshToken>(b =>
             {
                 b.ToTable("RefreshTokens");
@@ -261,12 +263,7 @@ namespace SW.Infolink
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
-
             });
-            
-            
-            
-
         }
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
