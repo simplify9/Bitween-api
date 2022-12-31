@@ -9,6 +9,10 @@ public class CreateAccountModel
     public string Password { get; set; }
 }
 
+public class RemoveAccountModel
+{
+}
+
 public class SearchMembersModel
 {
     public int? Limit { get; set; }
@@ -18,6 +22,7 @@ public class SearchMembersModel
 public class AccountModel
 {
     public string Name { get; set; }
+    public int Id { get; set; }
     public string Email { get; set; }
     public DateTime CreatedOn { get; set; }
 }
@@ -25,6 +30,6 @@ public class AccountModel
 public class ChangePasswordModel
 {
     public string NewPassword { get; set; }
-    
+
     public string OldPassword { get; set; }
 }

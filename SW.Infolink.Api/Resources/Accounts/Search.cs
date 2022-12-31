@@ -35,7 +35,8 @@ namespace SW.Infolink.Resources.Accounts
                 {
                     CreatedOn = a.CreatedOn,
                     Email = a.Email,
-                    Name = a.DisplayName
+                    Name = a.DisplayName,
+                    Id= a.Id,
                 }),
                 TotalCount = count
             };
