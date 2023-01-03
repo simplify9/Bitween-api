@@ -138,6 +138,6 @@ jobs:
         --set storageProvider="AS" 
         --set areXChangeFilesPrivate=true
         --set image.repo="azrinfoaxscrprod.azurecr.io"
-        --set replicaCount='10'
+        --set replicaCount=10
         --set busDefaultQueuePrefetch='20'
   
