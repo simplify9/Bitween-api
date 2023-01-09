@@ -27,7 +27,7 @@ ingress:
   annotations:
     # nginx.ingress.kubernetes.io/rewrite-target: /$2
     # kubernetes.io/tls-acme: "true"
-  path: /
+  path: /api
   hosts:
   tls: []
     # - secretName: chart-example-tls
