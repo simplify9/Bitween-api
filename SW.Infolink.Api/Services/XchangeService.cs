@@ -64,7 +64,7 @@ namespace SW.Infolink
         {
             var document = await dbContext.FindAsync<Document>(documentId);
             Xchange xchange;
-            
+
             if (document?.DisregardsUnfilteredMessages ?? false)
             {
                 xchange = new Xchange(documentId, file, references, SubscriptionType.Internal, correlationId);
@@ -76,6 +76,7 @@ namespace SW.Infolink
             {
                 xchange = await CreateXchange(document, file, references, correlationId);
             }
+
             await dbContext.SaveChangesAsync();
 
             return xchange.Id;
@@ -193,6 +194,15 @@ namespace SW.Infolink
             if (fileSize == null || fileSize == 0)
                 return null;
             return cloudFiles.GetUrl(GetFileKey(xchangeId, type));
+        }
+
+        public string GetFileKey(string xchangeId, int? fileSize, XchangeFileType type)
+        {
+            if (fileSize == null || fileSize == 0)
+                return null;
+            var key = $"{infolinkSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
+            logger.LogInformation($"the file key is:'{key}'");
+            return key;
         }
 
         public string GetFileKey(string xchangeId, XchangeFileType type)

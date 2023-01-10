@@ -195,47 +195,51 @@ You can set the recurrence for the receiver to run on hourly, daily, weekly or m
 Setting the minutes value will trigger the receiver to run once you reach the number of minutes specified every hour.
 
 For example, if you set 2 schedules as below:
-1.	hourly (min 0)
-2.	hourly (min 30)
+
+1. hourly (min 0)
+2. hourly (min 30)
 
 The receiver will run twice an hour at min 0 and 30 (every half an hour).
-
 
 ### Daily
 
 Setting the hour and minute values will trigger the receiver to run once you reach the time of the day specified.
 
 For example, if you set 2 schedules as below:
+
 1. Daily (h 4 min 0)
 2. Daily (h 16 min 0)
 
 The receiver will run twice a day at 4:00 AM and 4:00 PM
 
-
 ### Weekly
 
-Setting the day, hour and minute values will trigger the receiver to run once you reach the day and time specified every week.
+Setting the day, hour and minute values will trigger the receiver to run once you reach the day and time specified every
+week.
 
 For example, if you set 2 schedules as below:
-1.	Weekly (d 1 h 4 min 0)
-2.	Weekly (d 7 h 16 min 0)
+
+1. Weekly (d 1 h 4 min 0)
+2. Weekly (d 7 h 16 min 0)
 
 The receiver will run twice a week on the first day of the week at 4:00 AM and on the 7th day at 4:00 PM.
 
 ### Monthly
 
-Setting the day, hour and minute values will trigger the receiver to run once you reach the day and time specified every month.
+Setting the day, hour and minute values will trigger the receiver to run once you reach the day and time specified every
+month.
 
 For example, if you set 2 schedules as below:
 
-1.	Monthly (d 1 h 4 min 0)
-2.	Monthly (d 28 h 16 min 0)
+1. Monthly (d 1 h 4 min 0)
+2. Monthly (d 28 h 16 min 0)
 
 The receiver will run twice a month on the first day of the month at 4:00 AM and on the 28th day at 4:00 PM.
 
 ### Setting Backward
 
-When setting the backward schedule, the receiver will run once the day and time reaches the value backwardly from the end of the recurrence.
+When setting the backward schedule, the receiver will run once the day and time reaches the value backwardly from the
+end of the recurrence.
 
 For example, if you set the below schedule:
 
@@ -321,6 +325,63 @@ testing them and ensuring they perform as intended would be very
 straightforward. To make this process easier, our Serverless SDK
 provides a _MockRun_ to simulate how the serverless adapter would be
 run.
+
+## How to install serverless adapters
+
+#### Requirements
+
+- S3 Compliant Storage or Azure Storage
+- [Serverless Installer cli](https://github.com/simplify9/Serverless)
+
+
+
+#### Steps 
+1. Create net6 console application 
+2. Use one of the [default adapters](https://github.com/simplify9/InfolinkAdapters/tree/net6) or Create a handler class that implements **IInfolinkHandler**, **IInfolinkValidator** or **IInfolinkReceiver**
+```csharp
+using SW.PrimitiveTypes;
+using SW.Serverless.Sdk;
+
+ public class Handler: IInfolinkHandler
+    {
+        public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
+        {
+            var data = xchangeFile.Data;
+            var model = JsonConvert.DeserializeObject<Data>(data);
+           // some operations on the data
+            return  await  Task.FromResult(new XchangeFile(JsonConvert.SerializeObject(model)));
+
+        }
+    }
+```
+3. Setup The main function
+```csharp
+ using SW.Serverless.Sdk;
+ 
+ public static class Program
+    {
+        private static async Task Main() => await Runner.Run(new Handler());
+    }
+```
+4. Build and upload the adapter to the storage service
+   1. clone the [Serverless repository] 
+   2. run the Serverless installer with the following arguments
+   ```
+   <Path*>
+   -a
+   <Access id Key>
+   -s
+   <Secret Access Key>
+   -b
+   <Bucket name> 
+   -u
+   <Storage url>
+   ```
+   **the path name must start with infolink6.< mappers | handlers | receivers >.< any name >** 
+   ex: infolink6.mappers.simplyProject.outMapper 
+
+
+5. Now the adapter will be available for selection from the subscription editor
 
 # Conclusion
 

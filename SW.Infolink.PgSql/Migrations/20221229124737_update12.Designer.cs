@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SW.Infolink.PgSql;
@@ -12,9 +13,10 @@ using SW.Infolink.PgSql;
 namespace SW.Infolink.PgSql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    partial class InfolinkDbContextModelSnapshot : ModelSnapshot
+    [Migration("20221229124737_update12")]
+    partial class update12
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -97,20 +99,6 @@ namespace SW.Infolink.PgSql.Migrations
                         .HasDatabaseName("ix_accounts_email");
 
                     b.ToTable("Accounts", "infolink");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 9999,
-                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
-                            Deleted = false,
-                            Disabled = false,
-                            DisplayName = "Admin",
-                            Email = "admin@infolink.systems",
-                            EmailProvider = (byte)0,
-                            LoginMethods = (byte)2,
-                            Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ"
-                        });
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Accounts.RefreshToken", b =>
