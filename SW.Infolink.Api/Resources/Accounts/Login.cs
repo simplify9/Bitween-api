@@ -29,6 +29,7 @@ namespace SW.Infolink.Resources.Accounts
         {
             var jwtExpiryTimeSpan = TimeSpan.FromMinutes(_infolinkSettings.JwtExpiryMinutes);
 
+
             var accountQ = _dbContext
                 .Set<Account>()
                 .AsQueryable();
@@ -54,7 +55,7 @@ namespace SW.Infolink.Resources.Accounts
                 .SingleOrDefaultAsync();
 
             if (account is null)
-                throw new SWValidationException(request.Username,request.Username);
+                throw new SWValidationException(request.Username, request.Username);
 
 
             if (string.IsNullOrEmpty(request.RefreshToken))

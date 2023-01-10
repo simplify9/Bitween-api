@@ -1,3 +1,5 @@
+using System;
+
 namespace SW.Infolink.Model
 {
     public class UserLogin
@@ -14,10 +16,5 @@ namespace SW.Infolink.Model
         public string RefreshToken { get; set; }
     }
 
-    public class CreateAccountModel
-    {
-        public string Name { get; set; }
-        public string Email { get; set; }
-        public string Password { get; set; }
-    }
+ 
 }
