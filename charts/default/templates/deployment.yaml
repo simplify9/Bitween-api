@@ -42,11 +42,11 @@ spec:
               port: http
           {{- end }}
           
-          {{- if .Values.hostAlias.enabled }}
+          {{- if .Values.hostAliases.enabled }}
           hostAliases: 
-          - ip: {{ .Values.hostAlias.ip }}
+          - ip: {{ .Values.hostAliases.ip }}
             hostnames:
-              - {{ .Values.hostAlias.host }}
+              - {{ .Values.hostAliases.host }}
           {{ - end }}
           
           
