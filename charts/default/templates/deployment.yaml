@@ -47,7 +47,7 @@ spec:
           - ip: {{ .Values.hostAliases.ip }}
             hostnames:
               - {{ .Values.hostAliases.host }}
-          {{ - end }}
+          {{- end }}
           
           
           env:
