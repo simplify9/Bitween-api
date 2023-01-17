@@ -46,6 +46,11 @@ resources: {}
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
+  
+hostAliases:
+  enabled: false
+  ip: ''
+  host: ''
 
 nodeSelector: {}
 
@@ -69,7 +74,7 @@ busDefaultQueuePrefetch: '12'
 global:
 
   environment: Development
-
+  
   token:
     key: '6547647654764764767657658658758765876532542'
     issuer: local
