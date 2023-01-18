@@ -23,7 +23,7 @@ namespace SW.Infolink
         readonly ReaderWriterLockSlim documentFilterLock = new ReaderWriterLockSlim();
         readonly IDictionary<int, DocumentFilter> documentFilterDictionary = new Dictionary<int, DocumentFilter>();
 
-        DateTime? documentFilterPreparedOn;
+        public DateTime? documentFilterPreparedOn;
 
         public FilterService(IServiceScopeFactory ssf, ILogger<FilterService> logger)
         {
