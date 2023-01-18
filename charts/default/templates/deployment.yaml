@@ -41,6 +41,15 @@ spec:
               path: /
               port: http
           {{- end }}
+          
+          {{- if .Values.hostAliases.enabled }}
+          hostAliases: 
+          - ip: {{ .Values.hostAliases.ip }}
+            hostnames:
+              - {{ .Values.hostAliases.host }}
+          {{- end }}
+          
+          
           env:
 
             - name: ASPNETCORE_ENVIRONMENT
