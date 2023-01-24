@@ -324,8 +324,8 @@ namespace SW.Infolink
             foreach (var notifier in notifiers)
             {
                 if (notifier.RunOnSubscriptions != null && notifier.RunOnSubscriptions.Any() &&
-                    notifier.RunOnSubscriptions.All(s => s != xchange.SubscriptionId)) return;
-                if (notifier.Inactive) return;
+                    notifier.RunOnSubscriptions.All(s => s != xchange.SubscriptionId)) continue;
+                if (notifier.Inactive) continue;
 
                 switch (message.Success)
                 {
