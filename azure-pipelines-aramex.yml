@@ -129,7 +129,7 @@ jobs:
         --set db="$(prodDbConnection)"
         --set global.environment="production"
         --set ingress.annotations."kubernetes\.io/ingress\.class"="nginx"
-        --set ingress.path="/"
+        --set ingress.path="/api"
         --set global.bus.rabbitUrl="$(prodRabbitUrl)"
         --set global.cloudFiles.bucketName="infolink"
         --set global.cloudFiles.accessKeyId="azrinfolinkprodfile"
