@@ -133,6 +133,7 @@ namespace SW.Infolink.Web
             services.AddJwtTokenParameters();
 
             services.AddScoped<RunFlagUpdater>();
+            services.AddSingleton<IInfolinkCache, InMemoryInfolinkCache>();
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>

@@ -68,8 +68,9 @@ namespace SW.Infolink
             if (document?.DisregardsUnfilteredMessages ?? false)
             {
                 xchange = new Xchange(documentId, file, references, SubscriptionType.Internal, correlationId);
-                var result = filterService.Filter(xchange.DocumentId, file,
-                    document?.DocumentFormat ?? DocumentFormat.Json);
+                // var result = filterService.Filter(xchange.DocumentId, file,
+                //     document?.DocumentFormat ?? DocumentFormat.Json);
+                var result = await filterService.Filter(xchange.DocumentId, file);
                 await CreateXchangesForHits(xchange, result, file);
             }
             else
@@ -233,8 +234,7 @@ namespace SW.Infolink
             try
             {
                 var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
-                var result = filterService.Filter(xchange.DocumentId, inputFile,
-                    document?.DocumentFormat ?? DocumentFormat.Json);
+                var result = await filterService.Filter(xchange.DocumentId, inputFile);
 
                 dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 
