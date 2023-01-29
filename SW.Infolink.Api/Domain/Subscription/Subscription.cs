@@ -3,6 +3,7 @@ using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 
 namespace SW.Infolink.Domain
 {
@@ -10,6 +11,7 @@ namespace SW.Infolink.Domain
     {
         private Subscription()
         {
+            
         }
 
         //receiving
@@ -68,6 +70,8 @@ namespace SW.Infolink.Domain
         public IReadOnlyDictionary<string, string> ReceiverProperties { get; private set; }
         public IReadOnlyDictionary<string, string> DocumentFilter { get; private set; }
 
+        public IPropertyMatchSpecification MatchExpression { get; private set; }
+        
         public void SetDictionaries(
             IReadOnlyDictionary<string, string> handler,
             IReadOnlyDictionary<string, string> mapper,

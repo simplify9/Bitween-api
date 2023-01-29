@@ -121,6 +121,10 @@ namespace SW.Infolink.PgSql
 
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_subscription_aggregation_for");
+                
+                b.Property(p => p.MatchExpression).HasConversion(
+                    domainObject => domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
+                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
             });
 
             modelBuilder.Entity<Xchange>(b =>
