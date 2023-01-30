@@ -47,10 +47,16 @@ resources: {}
   #  cpu: 100m
   #  memory: 128Mi
   
-hostAliases:
-  enabled: false
-  ip: ''
-  host: ''
+# hostAliases allow additional DNS entries to be injected directly into pods /etc/hosts file.
+# Override hostAliases in infolink deployment values file
+hostAliases: []
+  # - ip: 192.168.1.100
+  #   hostNames:
+  #     - my.host.com
+  #     - another.host.net
+  # - ip: 192.168.1.101
+  #   hostNames:
+  #     - your.host.com
 
 nodeSelector: {}
 
