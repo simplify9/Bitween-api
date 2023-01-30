@@ -11,10 +11,10 @@ namespace SW.Infolink;
 
 public class InMemoryInfolinkCache : IInfolinkCache
 {
-    readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+    readonly ReaderWriterLockSlim _lock = new();
     DateTime? cachePreparedOn;
-    Subscription[] cachedSubscriptions = null;
-    Document[] cachedDocuments = null;
+    Subscription[] cachedSubscriptions;
+    Document[] cachedDocuments;
 
     readonly IServiceScopeFactory ssf;
     readonly ILogger<InMemoryInfolinkCache> logger;
@@ -53,15 +53,30 @@ public class InMemoryInfolinkCache : IInfolinkCache
     public async Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId)
     {
         await Ensure();
-
-        return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
+        _lock.EnterReadLock();
+        try
+        {
+            return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
     public async Task<Document> DocumentByIdAsync(int documentId)
     {
         await Ensure();
-
-        return cachedDocuments.FirstOrDefault(d => d.Id == documentId);
+            
+        _lock.EnterReadLock();
+        try
+        {
+            return cachedDocuments.FirstOrDefault(d => d.Id == documentId);
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
     public void Revoke()
