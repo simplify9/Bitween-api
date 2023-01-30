@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SW.EfCoreExtensions;
@@ -11,16 +11,13 @@ namespace SW.Infolink;
 
 public class InMemoryInfolinkCache : IInfolinkCache
 {
-    readonly ReaderWriterLockSlim _lock = new();
-    DateTime? cachePreparedOn;
-    Subscription[] cachedSubscriptions;
-    Document[] cachedDocuments;
-
+    readonly IMemoryCache _cache;
     readonly IServiceScopeFactory ssf;
     readonly ILogger<InMemoryInfolinkCache> logger;
 
-    public InMemoryInfolinkCache(IServiceScopeFactory ssf, ILogger<InMemoryInfolinkCache> logger)
+    public InMemoryInfolinkCache(IMemoryCache memoryCache, IServiceScopeFactory ssf, ILogger<InMemoryInfolinkCache> logger)
     {
+        _cache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         this.ssf = ssf ?? throw new ArgumentNullException(nameof(ssf));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -29,66 +26,39 @@ public class InMemoryInfolinkCache : IInfolinkCache
     {
         using var scope = ssf.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
-        cachedSubscriptions = (await repo.ListAsync<Subscription>()).ToArray();
-        cachedDocuments = (await repo.ListAsync<Document>()).ToArray();
-    }
-    
-    async Task Ensure()
-    {
-        _lock.EnterWriteLock();
-        try
-        {
-            if (cachePreparedOn == null || DateTime.UtcNow.Subtract(cachePreparedOn.Value).TotalMinutes > 10)
-            {
-                await Load();
-                cachePreparedOn = DateTime.UtcNow;
-            }
-        }
-        finally
-        {
-            _lock.ExitWriteLock();
-        }
+        logger.LogInformation("Loading documents and subscriptions to cache");
+        var cachedSubscriptions = (await repo.ListAsync<Subscription>()).ToArray();
+        var cachedDocuments = (await repo.ListAsync<Document>()).ToArray();
+
+        _cache.Set("subscriptions", cachedSubscriptions, TimeSpan.FromMinutes(10));
+        _cache.Set("documents", cachedDocuments, TimeSpan.FromMinutes(10));
     }
     
     public async Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId)
     {
-        await Ensure();
-        _lock.EnterReadLock();
-        try
+        if (!_cache.TryGetValue("subscriptions", out Subscription[] cachedSubscriptions))
         {
-            return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
+            await Load();
         }
-        finally
-        {
-            _lock.ExitReadLock();
-        }
+
+        cachedSubscriptions = _cache.Get<Subscription[]>("subscriptions");
+        return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
     }
 
     public async Task<Document> DocumentByIdAsync(int documentId)
     {
-        await Ensure();
-            
-        _lock.EnterReadLock();
-        try
+        if (!_cache.TryGetValue("documents", out Document[] cachedDocuments))
         {
-            return cachedDocuments.FirstOrDefault(d => d.Id == documentId);
+            await Load();
         }
-        finally
-        {
-            _lock.ExitReadLock();
-        }
+
+        cachedDocuments = _cache.Get<Document[]>("documents");
+        return cachedDocuments.FirstOrDefault(d => d.Id == documentId);
     }
 
     public void Revoke()
     {
-        _lock.EnterWriteLock();
-        try
-        {
-            cachePreparedOn = null;
-        }
-        finally
-        {
-            _lock.ExitWriteLock();
-        }
+        _cache.Remove("subscriptions");
+        _cache.Remove("documents");
     }
 }

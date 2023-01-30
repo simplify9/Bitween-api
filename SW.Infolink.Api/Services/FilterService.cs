@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using SW.PrimitiveTypes;
 using SW.Infolink.Model;
 
@@ -8,18 +9,21 @@ namespace SW.Infolink
 {
     public class FilterService
     {
-        private readonly IInfolinkCache _infolinkCache;
+        readonly IServiceScopeFactory ssf;
 
-        public FilterService(IInfolinkCache infolinkCache)
+        public FilterService(IServiceScopeFactory ssf)
         {
-            _infolinkCache = infolinkCache;
+            this.ssf = ssf;
         }
-        
+
+
         public async Task<FilterResult> Filter(int documentId, XchangeFile xchangeFile)
         {
             if (xchangeFile is null)
                 throw new InfolinkException("Invalid file.");
-            var doc = await _infolinkCache.DocumentByIdAsync(documentId);
+            using var scope = ssf.CreateScope();
+            var infolinkCache = scope.ServiceProvider.GetRequiredService<IInfolinkCache>();
+            var doc = await infolinkCache.DocumentByIdAsync(documentId);
 
             IPropertyReader propReader = doc.DocumentFormat == DocumentFormat.Xml
                 ? new XmlPropertyReader(xchangeFile.Data)
@@ -33,7 +37,7 @@ namespace SW.Infolink
                 filterResult.Properties.Add(pp.Key, ppValue.ToLower());
             }
 
-            var subs = await _infolinkCache.ListSubscriptionsByDocumentAsync(documentId);
+            var subs = await infolinkCache.ListSubscriptionsByDocumentAsync(documentId);
             
 
             var matches = subs?.Where(sub =>
