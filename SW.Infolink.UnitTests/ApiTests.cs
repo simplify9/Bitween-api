@@ -33,8 +33,9 @@ namespace SW.Infolink.UnitTests
         }
 
         [TestMethod]
-        public async Task TestSubmitXchangeFail()
+        public Task TestSubmitXchangeFail()
         {
+            return Task.CompletedTask;
             //var xs = new XchangeRequest
             //{
             //    SubscriberId = 100000,
@@ -51,8 +52,9 @@ namespace SW.Infolink.UnitTests
         }
 
         [TestMethod]
-        public async Task TestSubmitXchangeSuccess()
+        public Task TestSubmitXchangeSuccess()
         {
+            return Task.CompletedTask;
             //var xs = new XchangeRequest
             //{
             //    SubscriberId = 1,
@@ -73,7 +75,7 @@ namespace SW.Infolink.UnitTests
         }
 
         [TestMethod]
-        public async Task TestDocFilterFail()
+        public Task TestDocFilterFail()
         {
             //var xs = new XchangeRequest
             //{
@@ -88,7 +90,7 @@ namespace SW.Infolink.UnitTests
             //var responseBody = await response.Content.ReadAsStringAsync();
 
             //Assert.AreEqual(response.StatusCode, HttpStatusCode.BadRequest);
-
+            return Task.CompletedTask;
         }
 
         //[TestMethod]

@@ -118,10 +118,11 @@ namespace SW.Infolink
             return xchange;
         }
 
-        public async Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
+        public Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
         {
             var xchange = new OnHoldXchange(subscription, file.Data, file.Filename, file.BadData, references);
             dbContext.Add(xchange);
+            return Task.CompletedTask;
         }
 
 

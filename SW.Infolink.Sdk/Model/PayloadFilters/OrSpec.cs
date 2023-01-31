@@ -1,4 +1,4 @@
-namespace SW.Infolink;
+namespace SW.Infolink.Model;
 
 public class OrSpec : IPropertyMatchSpecification
 {
@@ -14,7 +14,7 @@ public class OrSpec : IPropertyMatchSpecification
     }
 
 
-    public bool IsMatch(IPropertyReader reader) => Left.IsMatch(reader) || Right.IsMatch(reader);
+    public bool IsMatch(IExchangePayloadReader reader) => Left.IsMatch(reader) || Right.IsMatch(reader);
 
     public override string ToString()
     {

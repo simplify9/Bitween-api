@@ -1,5 +1,6 @@
 using System.Linq;
 using SW.Infolink.Domain;
+using SW.Infolink.Model;
 
 namespace SW.Infolink;
 

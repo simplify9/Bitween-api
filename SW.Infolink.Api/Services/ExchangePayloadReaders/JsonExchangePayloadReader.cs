@@ -3,11 +3,11 @@ using Newtonsoft.Json.Linq;
 
 namespace SW.Infolink;
 
-public class JsonPropertyReader : IPropertyReader
+public class JsonExchangePayloadReader : IExchangePayloadReader
 {
     private readonly JObject _doc;
     
-    public JsonPropertyReader(string data)
+    public JsonExchangePayloadReader(string data)
     {
         _doc = JObject.Parse(data);
     }

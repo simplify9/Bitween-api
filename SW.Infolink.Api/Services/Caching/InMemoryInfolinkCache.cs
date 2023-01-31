@@ -13,20 +13,20 @@ public class InMemoryInfolinkCache : IInfolinkCache
 {
     readonly IMemoryCache _cache;
     readonly IServiceScopeFactory ssf;
-    readonly ILogger<InMemoryInfolinkCache> logger;
+    readonly ILogger<InMemoryInfolinkCache> _logger;
 
     public InMemoryInfolinkCache(IMemoryCache memoryCache, IServiceScopeFactory ssf, ILogger<InMemoryInfolinkCache> logger)
     {
         _cache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         this.ssf = ssf ?? throw new ArgumentNullException(nameof(ssf));
-        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     async Task Load()
     {
         using var scope = ssf.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
-        logger.LogInformation("Loading documents and subscriptions to cache");
+        _logger.LogInformation("Loading documents and subscriptions to cache");
         var cachedSubscriptions = (await repo.ListAsync<Subscription>()).ToArray();
         var cachedDocuments = (await repo.ListAsync<Document>()).ToArray();
 

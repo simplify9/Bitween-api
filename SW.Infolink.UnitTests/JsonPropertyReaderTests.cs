@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace SW.Infolink.UnitTests;
 
 [TestClass]
-public class TestJsonPropertyReader
+public class JsonPropertyReaderTests
 {
     
     
@@ -12,7 +12,7 @@ public class TestJsonPropertyReader
     {
         var samplePayload = "{\"name\":\"samer\",\"address\":{\"country\":\"Jordan\"}}";
 
-        var propertyReader = new JsonPropertyReader(samplePayload);
+        var propertyReader = new JsonExchangePayloadReader(samplePayload);
 
         propertyReader.TryGetValue("name", out var name);
         propertyReader.TryGetValue("address.country", out var country);

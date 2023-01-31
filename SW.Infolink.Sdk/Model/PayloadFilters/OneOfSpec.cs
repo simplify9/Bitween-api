@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SW.Infolink;
+namespace SW.Infolink.Model;
 
 public class OneOfSpec : IPropertyMatchSpecification
 {
@@ -21,7 +21,7 @@ public class OneOfSpec : IPropertyMatchSpecification
         return $"{Path} is one of [{string.Join(",", Values)}]";
     }
 
-    public bool IsMatch(IPropertyReader reader)
+    public bool IsMatch(IExchangePayloadReader reader)
     {
         reader.TryGetValue(Path, out var value);
         
