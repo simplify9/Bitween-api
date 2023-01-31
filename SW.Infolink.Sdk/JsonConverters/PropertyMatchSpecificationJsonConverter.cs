@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using Microsoft.EntityFrameworkCore.Query.Internal;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SW.Infolink.Model;
 
 namespace SW.Infolink.JsonConverters;
 

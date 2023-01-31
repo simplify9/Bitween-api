@@ -3,7 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace SW.Infolink.UnitTests;
 
 [TestClass]
-public class TestXmlPropertyReader
+public class XmlPropertyReaderTests
 {
 
 
@@ -16,7 +16,7 @@ public class TestXmlPropertyReader
             <country>Jordan</country>
             </shipment>";
 
-        var propertyReader = new XmlPropertyReader(samplePayload);
+        var propertyReader = new XmlExchangePayloadReader(samplePayload);
 
         propertyReader.TryGetValue("/shipment/name", out var name);
         propertyReader.TryGetValue("/shipment/country", out var country);

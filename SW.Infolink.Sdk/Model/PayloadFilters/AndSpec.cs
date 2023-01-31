@@ -2,7 +2,7 @@ using System;
 using System.Linq.Expressions;
 using SW.PrimitiveTypes;
 
-namespace SW.Infolink;
+namespace SW.Infolink.Model;
 
 public class AndSpec : IPropertyMatchSpecification
 {
@@ -10,7 +10,6 @@ public class AndSpec : IPropertyMatchSpecification
     
     public IPropertyMatchSpecification Right { get; private set; }
 
-    
     public AndSpec(IPropertyMatchSpecification left, IPropertyMatchSpecification right)
     {
         Left = left;
@@ -18,7 +17,7 @@ public class AndSpec : IPropertyMatchSpecification
     }
 
 
-    public bool IsMatch(IPropertyReader reader) => Left.IsMatch(reader) && Right.IsMatch(reader);
+    public bool IsMatch(IExchangePayloadReader reader) => Left.IsMatch(reader) && Right.IsMatch(reader);
     public string Name => "and";
 
     public override string ToString()

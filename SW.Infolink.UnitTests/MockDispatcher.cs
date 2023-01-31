@@ -8,9 +8,10 @@ namespace SW.Infolink.UnitTests
 { 
     public class MockDispatcher : IDomainEventDispatcher
     {
-        async public Task Dispatch(IDomainEvent domainEvent)
+        public Task Dispatch(IDomainEvent domainEvent)
         {
             //throw new NotImplementedException();
+            return Task.CompletedTask;
         }
     }
 }

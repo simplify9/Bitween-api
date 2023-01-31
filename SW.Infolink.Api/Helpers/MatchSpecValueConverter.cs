@@ -1,6 +1,7 @@
 using System.IO;
 using Newtonsoft.Json;
 using SW.Infolink.JsonConverters;
+using SW.Infolink.Model;
 
 namespace SW.Infolink;
 

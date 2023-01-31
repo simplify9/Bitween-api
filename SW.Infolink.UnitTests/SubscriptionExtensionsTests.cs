@@ -7,7 +7,7 @@ using SW.Infolink.Model;
 namespace SW.Infolink.UnitTests;
 
 [TestClass]
-public class TestSubscriptionExtensions
+public class SubscriptionExtensionsTests
 {
     
     

@@ -9,25 +9,23 @@ namespace SW.Infolink
 {
     public class FilterService
     {
-        readonly IServiceScopeFactory ssf;
+        readonly IInfolinkCache _cache;
 
-        public FilterService(IServiceScopeFactory ssf)
+        public FilterService(IInfolinkCache cache)
         {
-            this.ssf = ssf;
+            this._cache = cache;
         }
-
 
         public async Task<FilterResult> Filter(int documentId, XchangeFile xchangeFile)
         {
             if (xchangeFile is null)
-                throw new InfolinkException("Invalid file.");
-            using var scope = ssf.CreateScope();
-            var infolinkCache = scope.ServiceProvider.GetRequiredService<IInfolinkCache>();
-            var doc = await infolinkCache.DocumentByIdAsync(documentId);
+                throw new ArgumentNullException(nameof(xchangeFile));
+            
+            var doc = await _cache.DocumentByIdAsync(documentId);
 
-            IPropertyReader propReader = doc.DocumentFormat == DocumentFormat.Xml
-                ? new XmlPropertyReader(xchangeFile.Data)
-                : new JsonPropertyReader(xchangeFile.Data);
+            IExchangePayloadReader propReader = doc.DocumentFormat == DocumentFormat.Xml
+                ? new XmlExchangePayloadReader(xchangeFile.Data)
+                : new JsonExchangePayloadReader(xchangeFile.Data);
 
             var filterResult = new FilterResult();
 
@@ -37,16 +35,13 @@ namespace SW.Infolink
                 filterResult.Properties.Add(pp.Key, ppValue.ToLower());
             }
 
-            var subs = await infolinkCache.ListSubscriptionsByDocumentAsync(documentId);
+            var subs = await _cache.ListSubscriptionsByDocumentAsync(documentId);
             
-
-            var matches = subs?.Where(sub =>
+            var matches = subs.Where(sub =>
                 {
                     var exp = sub.BackwardCompatibleMatchExpression(doc);
                     return exp == null || exp.IsMatch(propReader);
-                }).ToList();
-            
-            if (matches == null || !matches.Any()) return filterResult;
+                }).ToArray();
             
             foreach (var subscription in matches)
             {

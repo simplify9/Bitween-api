@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SW.Infolink;
+namespace SW.Infolink.Model;
 
 public class NotOneOfSpec : IPropertyMatchSpecification
 {
@@ -16,7 +16,7 @@ public class NotOneOfSpec : IPropertyMatchSpecification
 
     public string[] Values { get; private set; }
     
-    public bool IsMatch(IPropertyReader reader)
+    public bool IsMatch(IExchangePayloadReader reader)
     {
         reader.TryGetValue(Path, out var value);
         

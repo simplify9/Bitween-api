@@ -3,11 +3,11 @@ using System.Xml.XPath;
 
 namespace SW.Infolink;
 
-public class XmlPropertyReader : IPropertyReader
+public class XmlExchangePayloadReader : IExchangePayloadReader
 {
     private readonly XDocument _doc;
     
-    public XmlPropertyReader(string data)
+    public XmlExchangePayloadReader(string data)
     {
         _doc = XDocument.Parse(data);
     }

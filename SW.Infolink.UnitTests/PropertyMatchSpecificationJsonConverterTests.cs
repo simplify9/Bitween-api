@@ -3,11 +3,12 @@ using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
 using SW.Infolink.JsonConverters;
+using SW.Infolink.Model;
 
 namespace SW.Infolink.UnitTests;
 
 [TestClass]
-public class TestPropertyMatchSpecificationJsonConverter
+public class PropertyMatchSpecificationJsonConverterTests
 {
     private IPropertyMatchSpecification[] testSamples = new IPropertyMatchSpecification[]
     {
