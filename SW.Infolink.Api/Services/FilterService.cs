@@ -32,7 +32,7 @@ namespace SW.Infolink
             foreach (var pp in doc.PromotedProperties)
             {
                 propReader.TryGetValue(pp.Value, out var ppValue);
-                filterResult.Properties.Add(pp.Key, ppValue.ToLower());
+                filterResult.Properties.Add(pp.Key, ppValue?.ToLower());
             }
 
             var subs = await _cache.ListSubscriptionsByDocumentAsync(documentId);
