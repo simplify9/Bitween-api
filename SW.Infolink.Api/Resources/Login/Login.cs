@@ -22,7 +22,7 @@ namespace SW.Infolink.Resources.Login
             this.jwtTokenParameters = jwtTokenParameters;
         }
 
-        public async Task<object> Handle(UserLogin request)
+        public Task<object> Handle(UserLogin request)
         {
 
             var cred = infolinkSettings.AdminCredentials.Split(":");
@@ -36,10 +36,10 @@ namespace SW.Infolink.Resources.Login
                         new Claim(ClaimTypes.Name, cred[0]),
                     };
 
-                    return new
+                    return Task.FromResult<object>(new
                     {
                         Jwt = jwtTokenParameters.WriteJwt(new ClaimsIdentity(claims))
-                    };
+                    });
                 }
             }
             throw new SWUnauthorizedException();

@@ -68,8 +68,9 @@ namespace SW.Infolink
             if (document?.DisregardsUnfilteredMessages ?? false)
             {
                 xchange = new Xchange(documentId, file, references, SubscriptionType.Internal, correlationId);
-                var result = filterService.Filter(xchange.DocumentId, file,
-                    document?.DocumentFormat ?? DocumentFormat.Json);
+                // var result = filterService.Filter(xchange.DocumentId, file,
+                //     document?.DocumentFormat ?? DocumentFormat.Json);
+                var result = await filterService.Filter(xchange.DocumentId, file);
                 await CreateXchangesForHits(xchange, result, file);
             }
             else
@@ -117,10 +118,11 @@ namespace SW.Infolink
             return xchange;
         }
 
-        public async Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
+        public Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
         {
             var xchange = new OnHoldXchange(subscription, file.Data, file.Filename, file.BadData, references);
             dbContext.Add(xchange);
+            return Task.CompletedTask;
         }
 
 
@@ -233,8 +235,7 @@ namespace SW.Infolink
             try
             {
                 var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
-                var result = filterService.Filter(xchange.DocumentId, inputFile,
-                    document?.DocumentFormat ?? DocumentFormat.Json);
+                var result = await filterService.Filter(xchange.DocumentId, inputFile);
 
                 dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 
@@ -324,8 +325,8 @@ namespace SW.Infolink
             foreach (var notifier in notifiers)
             {
                 if (notifier.RunOnSubscriptions != null && notifier.RunOnSubscriptions.Any() &&
-                    notifier.RunOnSubscriptions.All(s => s != xchange.SubscriptionId)) return;
-                if (notifier.Inactive) return;
+                    notifier.RunOnSubscriptions.All(s => s != xchange.SubscriptionId)) continue;
+                if (notifier.Inactive) continue;
 
                 switch (message.Success)
                 {

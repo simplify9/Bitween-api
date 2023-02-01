@@ -23,6 +23,16 @@ spec:
       annotations:
         buildID: {{ .Values.buildID | default "" | quote }}
     spec:
+      {{- if .Values.hostAliases }}
+      hostAliases:
+        {{- range .Values.hostAliases }}
+        - ip: {{ .ip }}
+          hostnames:
+          {{- range .hostNames }}
+          - {{ . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
@@ -41,15 +51,7 @@ spec:
               path: /
               port: http
           {{- end }}
-          
-          {{- if .Values.hostAliases.enabled }}
-          hostAliases: 
-          - ip: {{ .Values.hostAliases.ip }}
-            hostnames:
-              - {{ .Values.hostAliases.host }}
-          {{- end }}
-          
-          
+
           env:
 
             - name: ASPNETCORE_ENVIRONMENT

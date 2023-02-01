@@ -80,7 +80,7 @@ namespace SW.Infolink.MySql.Migrations
                         new
                         {
                             Id = 9999,
-                            CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedOn = new DateTime(2021, 12, 31, 21, 0, 0, 0, DateTimeKind.Utc),
                             Deleted = false,
                             Disabled = false,
                             DisplayName = "Admin",
@@ -306,6 +306,9 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("MapperProperties")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("MatchExpression")
                         .HasColumnType("longtext");
 
                     b.Property<string>("Name")

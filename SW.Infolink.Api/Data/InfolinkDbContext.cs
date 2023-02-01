@@ -1,12 +1,16 @@
 ﻿using System;
+using System.IO;
 using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.PrimitiveTypes;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using SW.Infolink.Domain.Accounts;
+using SW.Infolink.JsonConverters;
 
 namespace SW.Infolink
 {
@@ -22,6 +26,8 @@ namespace SW.Infolink
             "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ";
 
         public const string ConnectionString = "InfolinkDb";
+
+        
 
         public InfolinkDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) :
             base(options)
@@ -122,6 +128,10 @@ namespace SW.Infolink
                     .HasConstraintName("FK_Subscriptions_RespSub").OnDelete(DeleteBehavior.Restrict);
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
                     .HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
+
+                b.Property(p => p.MatchExpression).HasConversion(
+                    domainObject => domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
+                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
             });
 
             modelBuilder.Entity<Xchange>(b =>
