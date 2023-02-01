@@ -12,12 +12,12 @@ namespace SW.Infolink.Api.Resources.Documents
     class Update : ICommandHandler<int, DocumentUpdate>
     {
         private readonly InfolinkDbContext dbContext;
-        private readonly FilterService _filterService;
+        private readonly IInfolinkCache _infolinkCache;
 
-        public Update(InfolinkDbContext dbContext, FilterService filterService)
+        public Update(InfolinkDbContext dbContext, IInfolinkCache infolinkCache)
         {
             this.dbContext = dbContext;
-            _filterService = filterService;
+            _infolinkCache = infolinkCache;
         }
 
         async public Task<object> Handle(int key, DocumentUpdate model)
@@ -26,7 +26,7 @@ namespace SW.Infolink.Api.Resources.Documents
             entity.SetDictionaries(model.PromotedProperties.ToDictionary());
             dbContext.Entry(entity).SetProperties(model);
             await dbContext.SaveChangesAsync();
-            _filterService.documentFilterPreparedOn = null;
+            _infolinkCache.Revoke();
             return null;
         }
     }

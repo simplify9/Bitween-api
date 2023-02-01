@@ -14,10 +14,12 @@ namespace SW.Infolink.Resources.Subscriptions
     class Update : ICommandHandler<int, SubscriptionUpdate>
     {
         private readonly InfolinkDbContext dbContext;
+        private readonly IInfolinkCache _infolinkCache;
 
-        public Update(InfolinkDbContext dbContext)
+        public Update(InfolinkDbContext dbContext, IInfolinkCache infolinkCache)
         {
             this.dbContext = dbContext;
+            _infolinkCache = infolinkCache;
         }
 
         async public Task<object> Handle(int key, SubscriptionUpdate model)
@@ -37,6 +39,7 @@ namespace SW.Infolink.Resources.Subscriptions
                 model.ValidatorProperties.ToDictionary());
 
             await dbContext.SaveChangesAsync();
+            _infolinkCache.Revoke();
             return null;
         }
 

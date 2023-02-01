@@ -1,6 +1,7 @@
 using System;
 using System.Security.Cryptography;
 
+
 namespace SW.Infolink
 {
     public static class SecurePasswordHasher
@@ -21,11 +22,12 @@ namespace SW.Infolink
         /// <param name="password">The password.</param>
         /// <param name="iterations">Number of iterations.</param>
         /// <returns>The hash.</returns>
-        public static string Hash(string password, int iterations)
+        private static string Hash(string password, int iterations)
         {
             // Create salt
             byte[] salt;
-            new RNGCryptoServiceProvider().GetBytes(salt = new byte[SaltSize]);
+            RandomNumberGenerator.Create().GetBytes(salt = new byte[SaltSize]);
+            //new RNGCryptoServiceProvider().GetBytes(salt = new byte[SaltSize]);
 
             // Create hash
             var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations);
@@ -40,7 +42,7 @@ namespace SW.Infolink
             var base64Hash = Convert.ToBase64String(hashBytes);
 
             // Format hash with extra information
-            return string.Format("$SWHASH$V1${0}${1}", iterations, base64Hash);
+            return $"$SWHASH$V1${iterations}${base64Hash}";
         }
 
         /// <summary>

@@ -32,13 +32,14 @@ namespace SW.Infolink.UnitTests
         }
 
         [TestMethod]
-        async public Task TestGetMessageTypeNameToDocumentIdMap()
+        public Task TestGetMessageTypeNameToDocumentIdMap()
         {
 
             //var constr = server.Host.Services.GetRequiredService<IConfiguration>().GetConnectionString("RabbitMQ");
             //var memCache = server.Host.Services.GetRequiredService<BusService>();
             //var result = await memCache.GetMessageTypeNameToDocumentIdMap();
             //result = await memCache.GetMessageTypeNameToDocumentIdMap();
+            return Task.CompletedTask;
         }
     }
 }
