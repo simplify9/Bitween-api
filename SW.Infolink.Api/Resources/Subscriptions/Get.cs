@@ -14,11 +14,7 @@ namespace SW.Infolink.Resources.Subscriptions
     class Get : IGetHandler<int>
     {
         private readonly InfolinkDbContext dbContext;
-        private readonly IServerlessService serverless1;
-        private readonly IServerlessService serverless2;
-        private readonly IServerlessService serverless3;
-        private readonly IServerlessService serverless4;
-
+        private readonly IServerlessService serverless1, serverless2, serverless3, serverless4;
 
         public Get(InfolinkDbContext dbContext, IServerlessService serverless1, IServerlessService serverless2,
             IServerlessService serverless3, IServerlessService serverless4)
