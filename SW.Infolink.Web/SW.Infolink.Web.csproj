@@ -7,21 +7,21 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="6.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.12">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.13">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
     <PackageReference Include="Humanizer.Core" Version="2.14.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.3" />
-    <PackageReference Include="SimplyWorks.Bus" Version="5.0.2" />
-    <PackageReference Include="SimplyWorks.CloudFiles.AS" Version="5.0.12" />
-    <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="5.0.12" />
-    <PackageReference Include="SimplyWorks.CloudFiles.S3" Version="5.0.12" />
-    <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="5.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.13" />
+    <PackageReference Include="SimplyWorks.Bus" Version="6.0.6" />
+    <PackageReference Include="SimplyWorks.CloudFiles.AS" Version="5.0.17" />
+    <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="5.0.17" />
+    <PackageReference Include="SimplyWorks.CloudFiles.S3" Version="5.0.17" />
+    <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CqApi" Version="5.0.3" />
     <PackageReference Include="SimplyWorks.Logger" Version="5.0.3" />
-    <PackageReference Include="SimplyWorks.Serverless" Version="5.0.7" />
+    <PackageReference Include="SimplyWorks.Serverless" Version="6.0.28" />
     <PackageReference Include="SimplyWorks.SimplyRazor" Version="5.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.3.0" />
 
@@ -35,7 +35,30 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="adapters\" />
+    <_ContentIncludedByDefault Remove="adapters\0x8DAFC57F64012B9\SW.InfolinkAdapters.Handlers.FTP.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\0x8DAFC57F64012B9\SW.InfolinkAdapters.Handlers.FTP.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\3ba8145b6c22ada1dc2716f9b7bc7da0\Infolink.ShipsyMapper.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\3ba8145b6c22ada1dc2716f9b7bc7da0\Infolink.ShipsyMapper.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\3fb6a555cc30058186f7f6dce75f3c42\Kwickbox.Adapters.Mappers.BulkShipmentsIn.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\3fb6a555cc30058186f7f6dce75f3c42\Kwickbox.Adapters.Mappers.BulkShipmentsIn.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\553ae5e0f1034d5ffb73fcac404c46e7\Kwickbox.Adapters.Mappers.ToroodUpdatesOut.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\553ae5e0f1034d5ffb73fcac404c46e7\Kwickbox.Adapters.Mappers.ToroodUpdatesOut.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\64b3c6cc810c56b40ab5c4a927321007\Kwickbox.Adapters.Mappers.Mumzworld.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\64b3c6cc810c56b40ab5c4a927321007\Kwickbox.Adapters.Mappers.Mumzworld.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\a18c70fc937b2c7b13794238be67fa6b\Kwickbox.Adapters.Mapper.SallaNewShipment.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\a18c70fc937b2c7b13794238be67fa6b\Kwickbox.Adapters.Mapper.SallaNewShipment.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\be7300720f6128111664598c601222c3\SW.InfolinkAdapters.Handlers.Http.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\be7300720f6128111664598c601222c3\SW.InfolinkAdapters.Handlers.Http.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\bea2810aee01b59a6174b253ff81531b\Kwickbox.Adapters.Mapper.SallaCreateReturningShipment.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\bea2810aee01b59a6174b253ff81531b\Kwickbox.Adapters.Mapper.SallaCreateReturningShipment.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\cf34077639934b5314412ed51a6db4b6\Kwickbox.Adapters.Mappers.ToroodShipmentsOut.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\cf34077639934b5314412ed51a6db4b6\Kwickbox.Adapters.Mappers.ToroodShipmentsOut.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\d76ce7c1c0c64a0a26a026f280a53e33\Kwickbox.Adapters.Mapper.SallaNewMerchant.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\d76ce7c1c0c64a0a26a026f280a53e33\Kwickbox.Adapters.Mapper.SallaNewMerchant.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\e46f9d9c570f12229126c5e435fbee16\Kwickbox.Adapters.Mapper.SallaCancelShipment.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\e46f9d9c570f12229126c5e435fbee16\Kwickbox.Adapters.Mapper.SallaCancelShipment.runtimeconfig.json" />
+    <_ContentIncludedByDefault Remove="adapters\fec3387bacbac7f1de717c2af855f6ac\Kwickbox.Adapters.Handlers.SallaShipmentConfirmation.deps.json" />
+    <_ContentIncludedByDefault Remove="adapters\fec3387bacbac7f1de717c2af855f6ac\Kwickbox.Adapters.Handlers.SallaShipmentConfirmation.runtimeconfig.json" />
   </ItemGroup>
 
   <ProjectExtensions><VisualStudio><UserProperties properties_4launchsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>

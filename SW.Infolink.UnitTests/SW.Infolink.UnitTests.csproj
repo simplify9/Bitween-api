@@ -14,11 +14,11 @@
     <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="6.0.3" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="6.0.3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.1.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.13" />
     <PackageReference Include="MSTest.TestAdapter" Version="2.2.8" />
     <PackageReference Include="MSTest.TestFramework" Version="2.2.8" />
     <PackageReference Include="SimplyWorks.CqApi" Version="5.0.3" />
-    <PackageReference Include="SimplyWorks.Bus" Version="5.0.2" />
+    <PackageReference Include="SimplyWorks.Bus" Version="6.0.6" />
   </ItemGroup>
 
   <ItemGroup>
