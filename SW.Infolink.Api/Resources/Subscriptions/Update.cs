@@ -5,9 +5,7 @@ using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SW.Infolink.Resources.Subscriptions
@@ -27,39 +25,60 @@ namespace SW.Infolink.Resources.Subscriptions
         {
             var entity = await dbContext.FindAsync<Subscription>(key);
 
+            var trail = new SubscriptionTrail(SubscriptionTrialCode.Update, entity);
             dbContext.Entry(entity).SetProperties(model);
 
             entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
                 TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
 
-
             entity.SetDictionaries(
-                //  model.HandlerProperties.ToDictionary(),
-                ReplaceHiddenData(entity.HandlerProperties, model.HandlerProperties.ToDictionary()),
-                //  model.MapperProperties.ToDictionary(),
-                ReplaceHiddenData(entity.MapperProperties, model.MapperProperties.ToDictionary()),
-                // model.ReceiverProperties.ToDictionary(),
-                ReplaceHiddenData(entity.ReceiverProperties, model.ReceiverProperties.ToDictionary()),
+                model.HandlerProperties.ToDictionary(),
+                model.MapperProperties.ToDictionary(),
+                model.ReceiverProperties.ToDictionary(),
                 model.DocumentFilter.ToDictionary(),
-                //  model.ValidatorProperties.ToDictionary()
-                ReplaceHiddenData(entity.ValidatorProperties, model.ValidatorProperties.ToDictionary())
+                model.ValidatorProperties.ToDictionary()
             );
 
+            // entity.SetDictionaries(
+            //     ReplaceHiddenData(entity.HandlerProperties, model.HandlerProperties.ToDictionary()),
+            //     ReplaceHiddenData(entity.MapperProperties, model.MapperProperties.ToDictionary()),
+            //     ReplaceHiddenData(entity.ReceiverProperties, model.ReceiverProperties.ToDictionary()),
+            //     model.DocumentFilter.ToDictionary(),
+            //     ReplaceHiddenData(entity.ValidatorProperties, model.ValidatorProperties.ToDictionary())
+            // );
+
+
+            trail.SetAfter(entity);
+            dbContext.Add(trail);
             await dbContext.SaveChangesAsync();
             _infolinkCache.Revoke();
             return null;
         }
 
-        private static Dictionary<string, string> ReplaceHiddenData(IReadOnlyDictionary<string, string> original,
-            Dictionary<string, string> updated)
-        {
-            foreach (var item in updated.Where(item => item.Value.Contains("...(hidden)")))
-            {
-                updated[item.Key] = original[item.Key];
-            }
-
-            return updated;
-        }
+        // private static Dictionary<string, string> ReplaceHiddenData(IReadOnlyDictionary<string, string> original,
+        //     Dictionary<string, string> updated)
+        // {
+        //     foreach (var item in updated.Where(item => item.Value.StartsWith("encrypted__")))
+        //     {
+        //         updated[item.Key] = original[item.Key];
+        //     }
+        //
+        //     return updated;
+        // }
+        //
+        // private static Dictionary<string, string> EncryptValues(IReadOnlyDictionary<string, string> original,
+        //     Dictionary<string, string> updated)
+        // {
+        //     foreach (var item in original)
+        //     {
+        //         if (item.Key.StartsWith("encrypted__"))
+        //         {
+        //             updated[item.Key] = original[item.Key];
+        //         }
+        //     }
+        //
+        //     return updated;
+        // }
 
         private class Validate : AbstractValidator<SubscriptionUpdate>
         {

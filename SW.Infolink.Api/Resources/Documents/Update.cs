@@ -2,9 +2,6 @@
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SW.Infolink.Api.Resources.Documents
@@ -23,8 +20,14 @@ namespace SW.Infolink.Api.Resources.Documents
         async public Task<object> Handle(int key, DocumentUpdate model)
         {
             var entity = await dbContext.FindAsync<Document>(key);
+            var trail = new DocumentTrail(DocumentTrailCode.Update, entity);
+
+
             entity.SetDictionaries(model.PromotedProperties.ToDictionary());
             dbContext.Entry(entity).SetProperties(model);
+
+            trail.SetAfter(entity);
+            dbContext.Add(trail);
             await dbContext.SaveChangesAsync();
             _infolinkCache.Revoke();
             return null;
