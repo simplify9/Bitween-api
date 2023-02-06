@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Domain;
 
-public class DocumentTrail : BaseEntity, IAudited
+public class DocumentTrail : BaseEntity, ICreationAudited
 {
     private DocumentTrail()
     {
@@ -32,6 +32,4 @@ public class DocumentTrail : BaseEntity, IAudited
 
     public DateTime CreatedOn { get; set; }
     public string CreatedBy { get; set; }
-    public DateTime? ModifiedOn { get; set; }
-    public string ModifiedBy { get; set; }
 }
