@@ -2,6 +2,7 @@ namespace SW.Infolink.Domain;
 
 public enum SubscriptionTrialCode
 {
-    Update = 1,
-    Pause = 1
+    Created = 11,
+    Updated = 21,
+    Paused = 31,
 }

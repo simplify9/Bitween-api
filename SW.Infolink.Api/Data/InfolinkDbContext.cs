@@ -27,7 +27,6 @@ namespace SW.Infolink
 
         public const string ConnectionString = "InfolinkDb";
 
-        
 
         public InfolinkDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) :
             base(options)
@@ -56,7 +55,19 @@ namespace SW.Infolink
 
                 b.HasData(new Document(Document.AggregationDocumentId, "Aggregation Document"));
             });
+            modelBuilder.Entity<DocumentTrail>(b =>
+            {
+                b.HasKey(i => i.Id);
+                b.Property(i => i.Id).ValueGeneratedOnAdd();
+                b.HasOne(i => i.Document).WithMany().HasForeignKey(i => i.DocumentId);
+            });
 
+            modelBuilder.Entity<SubscriptionTrail>(b =>
+            {
+                b.HasKey(i => i.Id);
+                b.Property(i => i.Id).ValueGeneratedOnAdd();
+                b.HasOne(i => i.Subscription).WithMany().HasForeignKey(i => i.SubscriptionId);
+            });
             modelBuilder.Entity<RunFlagUpdater.RunningResult>(cr =>
             {
                 cr.HasNoKey().ToView(null);
@@ -130,7 +141,8 @@ namespace SW.Infolink
                     .HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
 
                 b.Property(p => p.MatchExpression).HasConversion(
-                    domainObject => domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
+                    domainObject =>
+                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
                     dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
             });
 

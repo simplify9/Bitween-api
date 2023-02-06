@@ -15,6 +15,7 @@ public class DocumentTrail : BaseEntity, ICreationAudited
     {
         Code = code;
         StateBefore = JsonConvert.SerializeObject(stateBefore);
+        StateAfter = "{}";
         DocumentId = stateBefore.Id;
     }
 
@@ -24,6 +25,8 @@ public class DocumentTrail : BaseEntity, ICreationAudited
     }
 
     public int DocumentId { get; set; }
+    public Document Document { get; set; }
+
     public DocumentTrailCode Code { get; set; }
 
     public string StateBefore { get; set; }

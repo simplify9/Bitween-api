@@ -2,5 +2,6 @@ namespace SW.Infolink.Domain;
 
 public enum DocumentTrailCode
 {
-    Update = 1
+    Created = 11,
+    Updated = 21
 }

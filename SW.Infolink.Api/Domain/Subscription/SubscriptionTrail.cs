@@ -24,6 +24,8 @@ public class SubscriptionTrail : BaseEntity, ICreationAudited
     }
 
     public int SubscriptionId { get; set; }
+    public Subscription Subscription { get; set; }
+
     public SubscriptionTrialCode Code { get; set; }
 
     public string StateBefore { get; set; }

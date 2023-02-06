@@ -19,8 +19,7 @@ namespace SW.Infolink.Resources.Subscriptions
         public async Task<object> Handle(int key, SubscriptionPause request)
         {
             var entity = await dbContext.FindAsync<Subscription>(key);
-            var trail = new SubscriptionTrail(SubscriptionTrialCode.Update,
-                entity);
+            var trail = new SubscriptionTrail(SubscriptionTrialCode.Paused, entity);
             if (entity!.PausedOn == null) entity.Pause();
             else entity.UnPause();
 

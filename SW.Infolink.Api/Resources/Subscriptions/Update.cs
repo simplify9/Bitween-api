@@ -25,7 +25,7 @@ namespace SW.Infolink.Resources.Subscriptions
         {
             var entity = await dbContext.FindAsync<Subscription>(key);
 
-            var trail = new SubscriptionTrail(SubscriptionTrialCode.Update, entity);
+            var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
             dbContext.Entry(entity).SetProperties(model);
 
             entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
