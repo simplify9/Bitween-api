@@ -207,7 +207,6 @@ namespace SW.Infolink.PgSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.DocumentTrail", b =>
                 {
                     b.Property<string>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasColumnName("id");
 
@@ -505,8 +504,8 @@ namespace SW.Infolink.PgSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
                 {
                     b.Property<string>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("id");
 
                     b.Property<int>("Code")

@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace SW.Infolink.PgSql.Migrations
 {
-    public partial class _15 : Migration
+    public partial class update15 : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -39,7 +39,7 @@ namespace SW.Infolink.PgSql.Migrations
                 schema: "infolink",
                 columns: table => new
                 {
-                    id = table.Column<string>(type: "text", nullable: false),
+                    id = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     subscription_id = table.Column<int>(type: "integer", nullable: false),
                     code = table.Column<int>(type: "integer", nullable: false),
                     state_before = table.Column<string>(type: "text", nullable: true),

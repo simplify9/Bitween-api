@@ -177,7 +177,8 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.DocumentTrail", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("Code")
                         .HasColumnType("int");
@@ -198,6 +199,8 @@ namespace SW.Infolink.MsSql.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedOn");
 
                     b.HasIndex("DocumentId");
 
@@ -416,7 +419,8 @@ namespace SW.Infolink.MsSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("Code")
                         .HasColumnType("int");
@@ -437,6 +441,8 @@ namespace SW.Infolink.MsSql.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedOn");
 
                     b.HasIndex("SubscriptionId");
 

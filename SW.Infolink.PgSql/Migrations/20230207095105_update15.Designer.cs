@@ -13,8 +13,8 @@ using SW.Infolink.PgSql;
 namespace SW.Infolink.PgSql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    [Migration("20230207081615_15")]
-    partial class _15
+    [Migration("20230207095105_update15")]
+    partial class update15
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -209,7 +209,6 @@ namespace SW.Infolink.PgSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.DocumentTrail", b =>
                 {
                     b.Property<string>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasColumnName("id");
 
@@ -507,8 +506,8 @@ namespace SW.Infolink.PgSql.Migrations
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
                 {
                     b.Property<string>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("text")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("id");
 
                     b.Property<int>("Code")

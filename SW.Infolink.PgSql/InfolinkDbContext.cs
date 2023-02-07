@@ -49,7 +49,6 @@ namespace SW.Infolink.PgSql
             modelBuilder.Entity<DocumentTrail>(b =>
             {
                 b.HasKey(i => i.Id);
-                b.Property(i => i.Id).ValueGeneratedOnAdd();
                 b.HasIndex(i => i.CreatedOn);
                 b.HasOne(i => i.Document).WithMany().HasForeignKey(i => i.DocumentId);
             });
@@ -57,7 +56,7 @@ namespace SW.Infolink.PgSql
             modelBuilder.Entity<SubscriptionTrail>(b =>
             {
                 b.HasKey(i => i.Id);
-                b.Property(i => i.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Id).HasMaxLength(50);
                 b.HasIndex(i => i.CreatedOn);
                 b.HasOne(i => i.Subscription).WithMany().HasForeignKey(i => i.SubscriptionId);
             });
