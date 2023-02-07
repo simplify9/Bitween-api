@@ -35,9 +35,12 @@ namespace SW.Infolink.Resources.Subscriptions
                     throw new InfolinkException();
             }
 
-           // var trail = new SubscriptionTrail(SubscriptionTrialCode.Created, entity);
-          //  dbContext.Add(trail);
-            dbContext.Add(entity);
+            //await dbContext.AddAsync(entity);
+            var trail = new SubscriptionTrail(SubscriptionTrialCode.Created, entity)
+            {
+                Subscription = entity
+            };
+            dbContext.Add(trail);
             await dbContext.SaveChangesAsync();
             return entity.Id;
         }
