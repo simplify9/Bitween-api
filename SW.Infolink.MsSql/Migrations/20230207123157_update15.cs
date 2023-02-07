@@ -13,8 +13,7 @@ namespace SW.Infolink.MsSql.Migrations
                 name: "DocumentTrail",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Id = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     DocumentId = table.Column<int>(type: "int", nullable: false),
                     Code = table.Column<int>(type: "int", nullable: false),
                     StateBefore = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -37,8 +36,7 @@ namespace SW.Infolink.MsSql.Migrations
                 name: "SubscriptionTrail",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Id = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     SubscriptionId = table.Column<int>(type: "int", nullable: false),
                     Code = table.Column<int>(type: "int", nullable: false),
                     StateBefore = table.Column<string>(type: "nvarchar(max)", nullable: true),
@@ -65,9 +63,19 @@ namespace SW.Infolink.MsSql.Migrations
                 value: new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc));
 
             migrationBuilder.CreateIndex(
+                name: "IX_DocumentTrail_CreatedOn",
+                table: "DocumentTrail",
+                column: "CreatedOn");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DocumentTrail_DocumentId",
                 table: "DocumentTrail",
                 column: "DocumentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SubscriptionTrail_CreatedOn",
+                table: "SubscriptionTrail",
+                column: "CreatedOn");
 
             migrationBuilder.CreateIndex(
                 name: "IX_SubscriptionTrail_SubscriptionId",
