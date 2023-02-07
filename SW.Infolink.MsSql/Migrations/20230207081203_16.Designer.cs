@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Infolink;
 
@@ -11,9 +12,10 @@ using SW.Infolink;
 namespace SW.Infolink.MsSql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    partial class InfolinkDbContextModelSnapshot : ModelSnapshot
+    [Migration("20230207081203_16")]
+    partial class _16
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

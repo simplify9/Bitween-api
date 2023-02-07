@@ -1,12 +1,11 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace SW.Infolink.PgSql.Migrations
 {
-    public partial class update15 : Migration
+    public partial class _15 : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -15,8 +14,7 @@ namespace SW.Infolink.PgSql.Migrations
                 schema: "infolink",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id = table.Column<string>(type: "text", nullable: false),
                     document_id = table.Column<int>(type: "integer", nullable: false),
                     code = table.Column<int>(type: "integer", nullable: false),
                     state_before = table.Column<string>(type: "text", nullable: true),
@@ -41,8 +39,7 @@ namespace SW.Infolink.PgSql.Migrations
                 schema: "infolink",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    id = table.Column<string>(type: "text", nullable: false),
                     subscription_id = table.Column<int>(type: "integer", nullable: false),
                     code = table.Column<int>(type: "integer", nullable: false),
                     state_before = table.Column<string>(type: "text", nullable: true),
@@ -71,10 +68,22 @@ namespace SW.Infolink.PgSql.Migrations
                 value: new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc));
 
             migrationBuilder.CreateIndex(
+                name: "ix_document_trail_created_on",
+                schema: "infolink",
+                table: "document_trail",
+                column: "created_on");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_document_trail_document_id",
                 schema: "infolink",
                 table: "document_trail",
                 column: "document_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_subscription_trail_created_on",
+                schema: "infolink",
+                table: "subscription_trail",
+                column: "created_on");
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_trail_subscription_id",

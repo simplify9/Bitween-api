@@ -50,6 +50,7 @@ namespace SW.Infolink.PgSql
             {
                 b.HasKey(i => i.Id);
                 b.Property(i => i.Id).ValueGeneratedOnAdd();
+                b.HasIndex(i => i.CreatedOn);
                 b.HasOne(i => i.Document).WithMany().HasForeignKey(i => i.DocumentId);
             });
 
@@ -57,6 +58,7 @@ namespace SW.Infolink.PgSql
             {
                 b.HasKey(i => i.Id);
                 b.Property(i => i.Id).ValueGeneratedOnAdd();
+                b.HasIndex(i => i.CreatedOn);
                 b.HasOne(i => i.Subscription).WithMany().HasForeignKey(i => i.SubscriptionId);
             });
 

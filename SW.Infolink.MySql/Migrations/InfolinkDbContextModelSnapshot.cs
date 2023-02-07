@@ -169,9 +169,8 @@ namespace SW.Infolink.MySql.Migrations
 
             modelBuilder.Entity("SW.Infolink.Domain.DocumentTrail", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.Property<string>("Id")
+                        .HasColumnType("varchar(255)");
 
                     b.Property<int>("Code")
                         .HasColumnType("int");
@@ -401,9 +400,8 @@ namespace SW.Infolink.MySql.Migrations
 
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                    b.Property<string>("Id")
+                        .HasColumnType("varchar(255)");
 
                     b.Property<int>("Code")
                         .HasColumnType("int");

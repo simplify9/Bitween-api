@@ -206,12 +206,10 @@ namespace SW.Infolink.PgSql.Migrations
 
             modelBuilder.Entity("SW.Infolink.Domain.DocumentTrail", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("text")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int>("Code")
                         .HasColumnType("integer")
@@ -239,6 +237,9 @@ namespace SW.Infolink.PgSql.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_document_trail");
+
+                    b.HasIndex("CreatedOn")
+                        .HasDatabaseName("ix_document_trail_created_on");
 
                     b.HasIndex("DocumentId")
                         .HasDatabaseName("ix_document_trail_document_id");
@@ -503,12 +504,10 @@ namespace SW.Infolink.PgSql.Migrations
 
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<string>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("text")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int>("Code")
                         .HasColumnType("integer")
@@ -536,6 +535,9 @@ namespace SW.Infolink.PgSql.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_subscription_trail");
+
+                    b.HasIndex("CreatedOn")
+                        .HasDatabaseName("ix_subscription_trail_created_on");
 
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_subscription_trail_subscription_id");
