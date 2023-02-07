@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 
 namespace SW.Infolink.Model
 {
-
     public enum DocumentFormat
     {
         Json = 0,
         Xml = 1
     }
+
     public class DocumentCreate : IName
     {
         public int Id { get; set; }
@@ -19,19 +19,30 @@ namespace SW.Infolink.Model
         public string Name { get; set; }
     }
 
+    public class SearchDocumentTrailModel
+    {
+        public int? Limit { get; set; }
+        public int? Offset { get; set; }
+        public int DocumentId { get; set; }
+    }
+
+    public class DocumentTrailModel : TrailBaseModel
+    {
+        public int DocumentId { get; set; }
+    }
+
     public class DocumentUpdate : DocumentCreate
     {
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
-        
+
         public bool DisregardsUnfilteredMessages { get; set; }
-        
+
         public ICollection<KeyAndValue> PromotedProperties { get; set; }
     }
 
     public class DocumentRow : DocumentUpdate
     {
-
     }
 }

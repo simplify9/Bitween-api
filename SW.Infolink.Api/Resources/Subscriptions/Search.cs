@@ -17,39 +17,40 @@ namespace SW.Infolink.Resources.Subscriptions
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
+        public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
-
             var query = from subscriber in dbContext.Set<Subscription>()
-                        join document in dbContext.Set<Document>() on subscriber.DocumentId equals document.Id
-                        select new SubscriptionSearch
-                        {
-                            Id = subscriber.Id,
-                            Name = subscriber.Name,
-                            Type = subscriber.Type,
-                            DocumentId = subscriber.DocumentId,
-                            DocumentName = document.Name,
-                            HandlerId = subscriber.HandlerId,
-                            Inactive = subscriber.Inactive,
-                            MapperId = subscriber.MapperId,
-                            AggregationForId = subscriber.AggregationForId,
-                            Temporary = subscriber.Temporary,
-                            ReceiveOn = subscriber.ReceiveOn,
-                            PausedOn = subscriber.PausedOn,
-                            IsRunning = subscriber.IsRunning
-                        };
+                join document in dbContext.Set<Document>() on subscriber.DocumentId equals document.Id
+                select new SubscriptionSearch
+                {
+                    Id = subscriber.Id,
+                    Name = subscriber.Name,
+                    Type = subscriber.Type,
+                    DocumentId = subscriber.DocumentId,
+                    DocumentName = document.Name,
+                    HandlerId = subscriber.HandlerId,
+                    Inactive = subscriber.Inactive,
+                    MapperId = subscriber.MapperId,
+                    AggregationForId = subscriber.AggregationForId,
+                    Temporary = subscriber.Temporary,
+                    ReceiveOn = subscriber.ReceiveOn,
+                    PausedOn = subscriber.PausedOn,
+                    IsRunning = subscriber.IsRunning
+                };
 
             query = query.AsNoTracking();
 
             if (lookup)
             {
-                return await query.OrderBy(s => s.Name).Search(searchyRequest.Conditions).ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
+                return await query.OrderBy(s => s.Name).Search(searchyRequest.Conditions)
+                    .ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
             }
 
             return new SearchyResponse<SubscriptionSearch>
             {
                 TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
-                Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()
+                Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize,
+                    searchyRequest.PageIndex).ToListAsync()
             };
         }
     }

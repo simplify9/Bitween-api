@@ -22,22 +22,31 @@ namespace SW.Infolink.Resources.Accounts
             request.Offset ??= 0;
             var query = dbContext.Set<Account>().AsNoTracking().AsQueryable();
 
+
+            if (request.Lookup)
+            {
+                return await query.OrderBy(i => i.DisplayName)
+                    .ToDictionaryAsync(i => i.Id, i => i.DisplayName);
+            }
+
             var count = await query.CountAsync();
+
             var accounts = await query.OrderBy(i => i.CreatedOn)
                 .Skip(request.Offset.Value)
                 .Take(request.Limit.Value)
-                .ToArrayAsync();
-
-
-            return new
-            {
-                Result = accounts.Select(a => new AccountModel
+                .Select(a => new AccountModel
                 {
                     CreatedOn = a.CreatedOn,
                     Email = a.Email,
                     Name = a.DisplayName,
-                    Id= a.Id,
-                }),
+                    Id = a.Id,
+                })
+                .ToListAsync();
+
+
+            return new
+            {
+                Result = accounts,
                 TotalCount = count
             };
         }
