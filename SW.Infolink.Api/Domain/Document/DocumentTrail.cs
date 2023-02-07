@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Domain;
 
-public class DocumentTrail : BaseEntity, ICreationAudited
+public class DocumentTrail : BaseEntity<string>, ICreationAudited
 {
     private DocumentTrail()
     {
@@ -13,6 +13,8 @@ public class DocumentTrail : BaseEntity, ICreationAudited
 
     public DocumentTrail(DocumentTrailCode code, Document stateBefore)
     {
+        Id = Guid.NewGuid().ToString("N");
+
         Code = code;
         StateBefore = JsonConvert.SerializeObject(stateBefore);
         StateAfter = "{}";

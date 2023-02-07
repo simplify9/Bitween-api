@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Domain;
 
-public class SubscriptionTrail : BaseEntity, ICreationAudited
+public class SubscriptionTrail : BaseEntity<string>, ICreationAudited
 {
     private SubscriptionTrail()
     {
@@ -13,6 +13,7 @@ public class SubscriptionTrail : BaseEntity, ICreationAudited
 
     public SubscriptionTrail(SubscriptionTrialCode code, Subscription stateBefore)
     {
+        Id = Guid.NewGuid().ToString("N");
         Code = code;
         StateBefore = JsonConvert.SerializeObject(stateBefore);
         SubscriptionId = stateBefore.Id;

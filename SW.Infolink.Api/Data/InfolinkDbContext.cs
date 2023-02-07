@@ -58,14 +58,14 @@ namespace SW.Infolink
             modelBuilder.Entity<DocumentTrail>(b =>
             {
                 b.HasKey(i => i.Id);
-                b.Property(i => i.Id).ValueGeneratedOnAdd();
+                b.Property(i => i.Id);
                 b.HasOne(i => i.Document).WithMany().HasForeignKey(i => i.DocumentId);
             });
 
             modelBuilder.Entity<SubscriptionTrail>(b =>
             {
                 b.HasKey(i => i.Id);
-                b.Property(i => i.Id).ValueGeneratedOnAdd();
+                b.Property(i => i.Id);
                 b.HasOne(i => i.Subscription).WithMany().HasForeignKey(i => i.SubscriptionId);
             });
             modelBuilder.Entity<RunFlagUpdater.RunningResult>(cr =>
