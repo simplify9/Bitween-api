@@ -55,7 +55,7 @@ jobs:
       versioningScheme: byBuildNumber
 
   - task: NuGetCommand@2
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/6.1')
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r6.1')
     inputs:
       command: 'push'
       packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
@@ -64,7 +64,7 @@ jobs:
 
 - job: build
   displayName: Build, push image and chart and deploy to playground
-  condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/6.1')
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r6.1')
   steps:
 
   - task: VersionDotNetCoreAssemblies@2
