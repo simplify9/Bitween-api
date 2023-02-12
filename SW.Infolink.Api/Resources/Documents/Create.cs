@@ -23,7 +23,7 @@ namespace SW.Infolink.Api.Resources.Documents
         public async Task<object> Handle(DocumentCreate model)
         {
             var entity = new Document(model.Id, model.Name, model.DocumentFormat);
-            var trail = new DocumentTrail(DocumentTrailCode.Created, entity);
+            var trail = new DocumentTrail(DocumentTrailCode.Created, entity,true);
             dbContext.Add(trail);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();

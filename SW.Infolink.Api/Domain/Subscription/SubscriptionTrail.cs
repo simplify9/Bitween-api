@@ -11,12 +11,21 @@ public class SubscriptionTrail : BaseEntity<string>, ICreationAudited
     }
 
 
-    public SubscriptionTrail(SubscriptionTrialCode code, Subscription stateBefore)
+    public SubscriptionTrail(SubscriptionTrialCode code, Subscription subscription, bool isNew = false)
     {
         Id = Guid.NewGuid().ToString("N");
         Code = code;
-        StateBefore = JsonConvert.SerializeObject(stateBefore);
-        SubscriptionId = stateBefore.Id;
+        if (isNew)
+        {
+            StateBefore = "{}";
+            StateAfter = JsonConvert.SerializeObject(subscription);
+        }
+        else
+        {
+            StateBefore = JsonConvert.SerializeObject(subscription);
+            StateAfter = "{}";
+        }
+        Subscription = subscription;
     }
 
     public void SetAfter(Subscription stateAfter)
@@ -24,14 +33,14 @@ public class SubscriptionTrail : BaseEntity<string>, ICreationAudited
         StateAfter = JsonConvert.SerializeObject(stateAfter);
     }
 
-    public int SubscriptionId { get; set; }
-    public Subscription Subscription { get; set; }
+    public int SubscriptionId { get; private set; }
+    public Subscription Subscription { get; private set; }
 
-    public SubscriptionTrialCode Code { get; set; }
+    public SubscriptionTrialCode Code { get; private set; }
 
-    public string StateBefore { get; set; }
+    public string StateBefore { get; private set; }
 
-    public string StateAfter { get; set; }
+    public string StateAfter { get; private set; }
 
     public DateTime CreatedOn { get; set; }
     public string CreatedBy { get; set; }
