@@ -14,18 +14,26 @@ namespace SW.Infolink.Model
     }
 
     public class SubscriptionReceiveNow
-    { 
-    
+    {
     }
-    
+
     public class SubscriptionPause
     {
-        
     }
 
     public class SubscriptionAggregateNow
     {
+    }
 
+    public class SubscriptionTrailModel : TrailBaseModel
+    {
+        public int SubscriptionId { get; set; }
+    }
+    public class SearchSubscriptionTrailModel
+    {
+        public int? Limit { get; set; }
+        public int? Offset { get; set; }
+        public int SubscriptionId { get; set; }
     }
 
     public class SubscriptionCreate : IName
@@ -56,16 +64,18 @@ namespace SW.Infolink.Model
         public ICollection<KeyAndValue> MapperProperties { get; set; }
         public ICollection<KeyAndValue> ReceiverProperties { get; set; }
         public ICollection<KeyAndValue> DocumentFilter { get; set; }
+
         public bool Inactive { get; set; }
+
         //public ICollection<ScheduleView> AggregationSchedules { get; set; }
         public ICollection<ScheduleView> Schedules { get; set; }
         public int? ResponseSubscriptionId { get; set; }
-        public string ResponseMessageTypeName { get;  set; }
+        public string ResponseMessageTypeName { get; set; }
 
         public DateTime? ReceiveOn { get; set; }
         public DateTime? AggregateOn { get; set; }
-        public int ConsecutiveFailures { get;  set; }
-        public string LastException { get;  set; }
+        public int ConsecutiveFailures { get; set; }
+        public string LastException { get; set; }
         public XchangeFileType AggregationTarget { get; set; }
         public DateTime? PausedOn { get; set; }
     }

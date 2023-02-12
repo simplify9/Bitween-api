@@ -38,7 +38,6 @@ namespace SW.Infolink.PgSql
                 b.Property(p => p.BusMessageTypeName).HasMaxLength(500);
                 b.Property(p => p.PromotedProperties).StoreAsJson().HasColumnType("jsonb");
                 b.Property(p => p.DisregardsUnfilteredMessages).IsRequired(false);
-
                 b.HasIndex(p => p.Name).IsUnique();
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();
 
@@ -46,6 +45,20 @@ namespace SW.Infolink.PgSql
                 b.HasMany<Xchange>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
 
                 b.HasData(new Document(Document.AggregationDocumentId, "Aggregation Document"));
+            });
+            modelBuilder.Entity<DocumentTrail>(b =>
+            {
+                b.HasKey(i => i.Id);
+                b.HasIndex(i => i.CreatedOn);
+                b.HasOne(i => i.Document).WithMany().HasForeignKey(i => i.DocumentId);
+            });
+
+            modelBuilder.Entity<SubscriptionTrail>(b =>
+            {
+                b.HasKey(i => i.Id);
+                b.Property(p => p.Id).HasMaxLength(50);
+                b.HasIndex(i => i.CreatedOn);
+                b.HasOne(i => i.Subscription).WithMany().HasForeignKey(i => i.SubscriptionId);
             });
 
             modelBuilder.Entity<RunFlagUpdater.RunningResult>(cr =>
@@ -121,9 +134,10 @@ namespace SW.Infolink.PgSql
 
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_subscription_aggregation_for");
-                
+
                 b.Property(p => p.MatchExpression).HasConversion(
-                    domainObject => domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
+                    domainObject =>
+                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
                     dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
             });
 

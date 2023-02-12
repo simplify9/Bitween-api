@@ -20,7 +20,7 @@ namespace SW.Infolink
         {
             if (xchangeFile is null)
                 throw new ArgumentNullException(nameof(xchangeFile));
-            
+
             var doc = await _cache.DocumentByIdAsync(documentId);
 
             IExchangePayloadReader propReader = doc.DocumentFormat == DocumentFormat.Xml
@@ -36,13 +36,13 @@ namespace SW.Infolink
             }
 
             var subs = await _cache.ListSubscriptionsByDocumentAsync(documentId);
-            
+
             var matches = subs.Where(sub =>
-                {
-                    var exp = sub.BackwardCompatibleMatchExpression(doc);
-                    return exp == null || exp.IsMatch(propReader);
-                }).ToArray();
-            
+            {
+                var exp = sub.BackwardCompatibleMatchExpression(doc);
+                return exp == null || exp.IsMatch(propReader);
+            }).ToArray();
+
             foreach (var subscription in matches)
             {
                 filterResult.Hits.Add(subscription.Id);
@@ -52,5 +52,3 @@ namespace SW.Infolink
         }
     }
 }
-
-

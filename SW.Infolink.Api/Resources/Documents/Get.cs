@@ -20,22 +20,19 @@ namespace SW.Infolink.Api.Resources.Documents
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(int key, bool lookup = false)
+        public async Task<object> Handle(int key, bool lookup = false)
         {
-            return await dbContext.Set<Document>().
-                Search("Id", key).
-                Select(document => new DocumentUpdate
-                {
-                    Id = document.Id,
-                    Name = document.Name,
-                    BusEnabled = document.BusEnabled,
-                    BusMessageTypeName = document.BusMessageTypeName,
-                    DuplicateInterval = document.DuplicateInterval,
-                    PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection(),
-                    DocumentFormat = document.DocumentFormat,
-                    DisregardsUnfilteredMessages = document.DisregardsUnfilteredMessages ?? false
-
-                }).SingleOrDefaultAsync();
+            return await dbContext.Set<Document>().Search("Id", key).Select(document => new DocumentUpdate
+            {
+                Id = document.Id,
+                Name = document.Name,
+                BusEnabled = document.BusEnabled,
+                BusMessageTypeName = document.BusMessageTypeName,
+                DuplicateInterval = document.DuplicateInterval,
+                PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection(),
+                DocumentFormat = document.DocumentFormat,
+                DisregardsUnfilteredMessages = document.DisregardsUnfilteredMessages ?? false
+            }).SingleOrDefaultAsync();
         }
     }
 }
