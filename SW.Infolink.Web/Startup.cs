@@ -39,6 +39,9 @@ namespace SW.Infolink.Web
             Configuration.GetSection(InfolinkOptions.ConfigurationSection).Bind(infolinkOptions);
 
             services.AddSingleton(infolinkOptions);
+            //todo find out why it needed to be like this
+            services.AddSingleton<IInfolinkCache, InMemoryInfolinkCache>();
+            services.AddMemoryCache();
 
             services.AddSingleton<FilterService>();
             services.AddScoped<XchangeService>();
@@ -133,8 +136,7 @@ namespace SW.Infolink.Web
             services.AddJwtTokenParameters();
 
             services.AddScoped<RunFlagUpdater>();
-            services.AddScoped<IInfolinkCache, InMemoryInfolinkCache>();
-            services.AddMemoryCache();
+
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>
                 {

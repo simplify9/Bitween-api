@@ -15,7 +15,7 @@ namespace SW.Infolink.Resources.Subscriptions
             this.dbContext = dbContext;
         }
 
-        async public Task<object> Handle(SubscriptionCreate model)
+        public async Task<object> Handle(SubscriptionCreate model)
         {
             Subscription entity;
 
@@ -35,7 +35,9 @@ namespace SW.Infolink.Resources.Subscriptions
                     throw new InfolinkException();
             }
 
-            dbContext.Add(entity);
+            var trail = new SubscriptionTrail(SubscriptionTrialCode.Created, entity);
+            
+            dbContext.Add(trail);
             await dbContext.SaveChangesAsync();
             return entity.Id;
         }
@@ -49,15 +51,10 @@ namespace SW.Infolink.Resources.Subscriptions
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
                 RuleFor(i => i.Type).NotEqual(SubscriptionType.Unknown);
 
-                When(i => i.Type != SubscriptionType.Receiving, () =>
-                {
-                    RuleFor(i => i.PartnerId).NotEmpty();
-                });
+                When(i => i.Type != SubscriptionType.Receiving, () => { RuleFor(i => i.PartnerId).NotEmpty(); });
 
-                When(i => i.Type == SubscriptionType.Aggregation, () =>
-                {
-                    RuleFor(i => i.AggregationForId).NotEmpty();
-                });
+                When(i => i.Type == SubscriptionType.Aggregation,
+                    () => { RuleFor(i => i.AggregationForId).NotEmpty(); });
             }
         }
     }

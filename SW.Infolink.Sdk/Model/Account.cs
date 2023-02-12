@@ -17,6 +17,7 @@ public class SearchMembersModel
 {
     public int? Limit { get; set; }
     public int? Offset { get; set; }
+    public bool Lookup { get; set; }
 }
 
 public class AccountModel

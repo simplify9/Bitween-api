@@ -13,13 +13,19 @@ namespace SW.Infolink
             return dict.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         }
 
-        public static ICollection<KeyAndValue> ToKeyAndValueCollection<TKey, TValue>(this IReadOnlyDictionary<TKey, TValue> dict)
+        public static ICollection<KeyAndValue> ToKeyAndValueCollection<TKey, TValue>(
+            this IReadOnlyDictionary<TKey, TValue> dict)
         {
             return dict.Select(kvp => new KeyAndValue
             {
                 Key = kvp.Key.ToString(),
                 Value = kvp.Value?.ToString()
             }).ToList();
+        }
+
+        public static string SafeGetValue(this IReadOnlyDictionary<string, string> dict, string key)
+        {
+            return dict.TryGetValue(key, out var value) ? value : "";
         }
 
         public static Dictionary<string, string> ToDictionary(this ICollection<KeyAndValue> dict)

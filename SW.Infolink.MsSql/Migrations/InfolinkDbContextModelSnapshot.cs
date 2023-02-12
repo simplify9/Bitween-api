@@ -17,7 +17,7 @@ namespace SW.Infolink.MsSql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.12")
+                .HasAnnotation("ProductVersion", "6.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
@@ -86,7 +86,7 @@ namespace SW.Infolink.MsSql.Migrations
                         new
                         {
                             Id = 9999,
-                            CreatedOn = new DateTime(2021, 12, 31, 21, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
                             Deleted = false,
                             Disabled = false,
                             DisplayName = "Admin",
@@ -172,6 +172,39 @@ namespace SW.Infolink.MsSql.Migrations
                             Name = "Aggregation Document",
                             PromotedProperties = "{}"
                         });
+                });
+
+            modelBuilder.Entity("SW.Infolink.Domain.DocumentTrail", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Code")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StateAfter")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StateBefore")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedOn");
+
+                    b.HasIndex("DocumentId");
+
+                    b.ToTable("DocumentTrail");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Notifier", b =>
@@ -381,6 +414,39 @@ namespace SW.Infolink.MsSql.Migrations
                     b.HasIndex("ResponseSubscriptionId");
 
                     b.ToTable("Subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Code")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StateAfter")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StateBefore")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedOn");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.ToTable("SubscriptionTrail");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Xchange", b =>
@@ -647,6 +713,17 @@ namespace SW.Infolink.MsSql.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SW.Infolink.Domain.DocumentTrail", b =>
+                {
+                    b.HasOne("SW.Infolink.Domain.Document", "Document")
+                        .WithMany()
+                        .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Document");
+                });
+
             modelBuilder.Entity("SW.Infolink.Domain.Partner", b =>
                 {
                     b.OwnsMany("SW.Infolink.Domain.ApiCredential", "ApiCredentials", b1 =>
@@ -748,6 +825,17 @@ namespace SW.Infolink.MsSql.Migrations
                         });
 
                     b.Navigation("Schedules");
+                });
+
+            modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
+                {
+                    b.HasOne("SW.Infolink.Domain.Subscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.Xchange", b =>
