@@ -36,7 +36,8 @@ namespace SW.Infolink.Resources.Xchanges
             if (int.TryParse(documentIdOrName, out var documentId))
                 document = await dbContext.FindAsync<Document>(documentId);
             else
-                document = await dbContext.Set<Document>().Where(doc => doc.Name == documentIdOrName)
+                document = await dbContext.Set<Document>()
+                    .Where(doc => doc.Name.ToLower() == documentIdOrName.ToLower())
                     .SingleOrDefaultAsync();
 
             if (document == null)

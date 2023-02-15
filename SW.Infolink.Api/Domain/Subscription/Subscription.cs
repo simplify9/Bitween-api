@@ -3,15 +3,14 @@ using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
+
 
 namespace SW.Infolink.Domain
 {
     public class Subscription : BaseEntity
     {
-        private Subscription()
+        public Subscription()
         {
-            
         }
 
         //receiving
@@ -21,19 +20,22 @@ namespace SW.Infolink.Domain
         }
 
         //aggregation
-        public Subscription(string name, int aggregationFor, int partnerId) : this(name, Document.AggregationDocumentId, SubscriptionType.Aggregation, partnerId, aggregationFor)
+        public Subscription(string name, int aggregationFor, int partnerId) : this(name, Document.AggregationDocumentId,
+            SubscriptionType.Aggregation, partnerId, aggregationFor)
         {
             Inactive = true;
         }
 
         //apiresult or filter
-        public Subscription(string name, int documentId, SubscriptionType type, int partnerId) : this(name, documentId, type, partnerId, null)
+        public Subscription(string name, int documentId, SubscriptionType type, int partnerId) : this(name, documentId,
+            type, partnerId, null)
         {
             if (!(type == SubscriptionType.ApiCall || type == SubscriptionType.Internal))
                 throw new ArgumentException();
         }
 
-        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null, int? aggregationForId = null, bool temporary = false)
+        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null,
+            int? aggregationForId = null, bool temporary = false)
         {
             AggregationForId = aggregationForId;
             PartnerId = partnerId;
@@ -48,7 +50,6 @@ namespace SW.Infolink.Domain
             ValidatorProperties = new Dictionary<string, string>();
             DocumentFilter = new Dictionary<string, string>();
             Temporary = temporary;
-            
         }
 
         public string Name { get; set; }
@@ -57,10 +58,11 @@ namespace SW.Infolink.Domain
         public int? PartnerId { get; private set; }
         public bool Temporary { get; private set; }
         public DateTime? PausedOn { get; private set; }
-        
+
 
         public string ValidatorId { get; set; }
         public string HandlerId { get; set; }
+
         public string MapperId { get; set; }
         //public bool Aggregate { get; set; }
 
@@ -71,28 +73,32 @@ namespace SW.Infolink.Domain
         public IReadOnlyDictionary<string, string> DocumentFilter { get; private set; }
 
         public IPropertyMatchSpecification MatchExpression { get; private set; }
-        
+
         public void SetDictionaries(
             IReadOnlyDictionary<string, string> handler,
             IReadOnlyDictionary<string, string> mapper,
             IReadOnlyDictionary<string, string> receiver,
             IReadOnlyDictionary<string, string> document,
             IReadOnlyDictionary<string, string> validator
-            )
+        )
         {
             HandlerProperties = handler;
             MapperProperties = mapper;
             ReceiverProperties = receiver;
             ValidatorProperties = validator;
             DocumentFilter = document;
+        }
 
+        public void SetMatchExpression(IPropertyMatchSpecification matchExpression)
+        {
+            MatchExpression = matchExpression;
         }
 
         public void Pause()
         {
             PausedOn = DateTime.Now;
         }
-        
+
         public void UnPause()
         {
             PausedOn = null;
@@ -111,6 +117,7 @@ namespace SW.Infolink.Domain
         //readonly HashSet<Schedule> _AggregationSchedules;
         //public IReadOnlyCollection<Schedule> AggregationSchedules => _AggregationSchedules;
         public DateTime? AggregateOn { get; private set; }
+
         //public void SetAggregationSchedules(IEnumerable<Schedule> schedules = null)
         //{
         //    if (Type == SubscriptionType.Aggregation)
@@ -130,9 +137,9 @@ namespace SW.Infolink.Domain
         readonly HashSet<Schedule> _Schedules;
         public IReadOnlyCollection<Schedule> Schedules => _Schedules;
         public DateTime? ReceiveOn { get; private set; }
-        
+
         public bool IsRunning { get; set; }
-        
+
         public void SetSchedules(IEnumerable<Schedule> schedules = null)
         {
             if (Type == SubscriptionType.Receiving)
@@ -146,6 +153,7 @@ namespace SW.Infolink.Domain
                 AggregateOn = _Schedules.Next() ?? throw new InfolinkException("Invalid schedule.");
             }
         }
+
         public void SetReceiveNow()
         {
             ReceiveOn = DateTime.UtcNow.AddMinutes(-1);
@@ -169,6 +177,5 @@ namespace SW.Infolink.Domain
 
         //public int AggregateConsecutiveFailures { get; private set; }
         //public string AggregateLastException { get; private set; }
-
     }
 }
