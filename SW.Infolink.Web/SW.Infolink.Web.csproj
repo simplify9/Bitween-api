@@ -19,11 +19,11 @@
     <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.S3" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="5.0.17" />
-    <PackageReference Include="SimplyWorks.CqApi" Version="5.0.3" />
-    <PackageReference Include="SimplyWorks.Logger" Version="5.0.3" />
+    <PackageReference Include="SimplyWorks.CqApi" Version="6.0.5" />
+    <PackageReference Include="SimplyWorks.Logger" Version="5.0.7" />
     <PackageReference Include="SimplyWorks.Serverless" Version="6.0.28" />
     <PackageReference Include="SimplyWorks.SimplyRazor" Version="5.0.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.3.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.5.0" />
 
   </ItemGroup>
 
