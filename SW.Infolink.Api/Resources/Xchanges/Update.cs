@@ -20,7 +20,8 @@ namespace SW.Infolink.Resources.Xchanges
         private readonly InfolinkDbContext dbContext;
         private readonly InfolinkOptions infolinkSettings;
 
-        public Update(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext, IServiceProvider serviceProvider, InfolinkOptions infolinkSettings)
+        public Update(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext,
+            InfolinkOptions infolinkSettings)
         {
             this.requestContext = requestContext;
             this.xchangeService = xchangeService;
@@ -28,22 +29,24 @@ namespace SW.Infolink.Resources.Xchanges
             this.infolinkSettings = infolinkSettings;
         }
 
-        async public Task<object> Handle(string documentIdOrName, object request)
+        public async Task<object> Handle(string documentIdOrName, object request)
         {
-            Document document = null;
+            Document document;
 
             if (int.TryParse(documentIdOrName, out var documentId))
                 document = await dbContext.FindAsync<Document>(documentId);
             else
-                document = await dbContext.Set<Document>().Where(doc => doc.Name == documentIdOrName).SingleOrDefaultAsync();
+                document = await dbContext.Set<Document>()
+                    .Where(doc => doc.Name.ToLower() == documentIdOrName.ToLower())
+                    .SingleOrDefaultAsync();
 
             if (document == null)
                 throw new SWNotFoundException("Document");
 
             var par = await dbContext.AuthorizePartner(requestContext);
             var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
-                                    where subscription.DocumentId == document.Id && subscription.PartnerId == par.Partner.Id
-                                    select subscription;
+                where subscription.DocumentId == document.Id && subscription.PartnerId == par.Partner.Id
+                select subscription;
 
             var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
 
@@ -52,18 +55,20 @@ namespace SW.Infolink.Resources.Xchanges
                 await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
                 return null;
             }
-            else if (sub == null)
+
+            if (sub == null)
                 throw new SWNotFoundException("Subscription");
 
-            else if (sub.Type != SubscriptionType.ApiCall)
+            if (sub.Type != SubscriptionType.ApiCall)
                 throw new SWValidationException("Subscription", $"Subscription is of wrong type {sub.Type}");
 
-            var xchangeReferences = new List<string>();
-            xchangeReferences.Add($"partnerkey: {par.KeyName}");
+            var xchangeReferences = new List<string> { $"partnerkey: {par.KeyName}" };
 
-            var waitResponseHeader = requestContext.Values.Where(item => item.Name.ToLower() == "waitresponse").Select(item => item.Value).FirstOrDefault();
-            
-            int waitResponse = 0;
+            var waitResponseHeader = requestContext.Values
+                .Where(item => item.Name.ToLower() == "waitresponse")
+                .Select(item => item.Value).FirstOrDefault();
+
+            var waitResponse = 0;
             if (int.TryParse(waitResponseHeader, out var waitResponseValue))
             {
                 waitResponse = waitResponseValue <= 0 ? 120 : waitResponseValue;
@@ -74,12 +79,13 @@ namespace SW.Infolink.Resources.Xchanges
 
             await xchangeService.RunValidator(sub.ValidatorId, sub.ValidatorProperties.ToDictionary(), xchangeFile);
 
-            var xchangeId = await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
+            var xchangeId =
+                await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
 
             if (waitResponse <= 0)
                 return new CqApiResult<string>(xchangeId)
                 {
-                    Status = infolinkSettings.ApiCallSubscriptionResponseAcceptedStatusCode == 200 ? CqApiResultStatus.Ok : CqApiResultStatus.UnderProcessing
+                    Status = CqApiResultStatus.Ok
                 };
 
             for (double count = 2; count <= waitResponse; count += 2)
@@ -88,17 +94,31 @@ namespace SW.Infolink.Resources.Xchanges
                 if (!await IsResultAvailable(xchangeId)) continue;
 
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-                if (xchangeResult.Success && xchangeResult.ResponseSize != 0)
+
+
+                switch (xchangeResult!.Success)
                 {
-                    var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                    var result = new CqApiResult<string>(response);
-                    result.AddHeader("location", xchangeId);
-                    result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
-                    result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
-                    return result;
+                    case true when xchangeResult.ResponseSize == 0:
+                    {
+                        return new CqApiResult<string>(xchangeId)
+                        {
+                            Status = infolinkSettings.ApiCallSubscriptionResponseAcceptedStatusCode == 200
+                                ? CqApiResultStatus.Ok
+                                : CqApiResultStatus.UnderProcessing
+                        };
+                    }
+                    case true when xchangeResult.ResponseSize != 0:
+                    {
+                        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                        var result = new CqApiResult<string>(response);
+                        result.AddHeader("location", xchangeId);
+                        result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
+                        result.ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json;
+                        return result;
+                    }
+                    case false:
+                        throw new SWValidationException("failure", "Internal processing error.");
                 }
-                if (!xchangeResult.Success)
-                    throw new SWValidationException("failure", "Internal processing error.");
             }
 
 
@@ -110,7 +130,9 @@ namespace SW.Infolink.Resources.Xchanges
 
         async Task<bool> IsResultAvailable(string xchangeId)
         {
-            return await dbContext.Set<XchangeResult>().AnyAsync(i => i.Id == xchangeId);
+            return await dbContext.Set<XchangeResult>()
+                .AsNoTracking()
+                .AnyAsync(i => i.Id == xchangeId);
         }
     }
 }

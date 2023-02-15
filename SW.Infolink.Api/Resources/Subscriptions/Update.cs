@@ -28,6 +28,7 @@ namespace SW.Infolink.Resources.Subscriptions
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
             dbContext.Entry(entity).SetProperties(model);
 
+
             entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
                 TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
 
@@ -38,16 +39,9 @@ namespace SW.Infolink.Resources.Subscriptions
                 model.DocumentFilter.ToDictionary(),
                 model.ValidatorProperties.ToDictionary()
             );
+            entity.SetMatchExpression(model.MatchExpression);
 
-            // entity.SetDictionaries(
-            //     ReplaceHiddenData(entity.HandlerProperties, model.HandlerProperties.ToDictionary()),
-            //     ReplaceHiddenData(entity.MapperProperties, model.MapperProperties.ToDictionary()),
-            //     ReplaceHiddenData(entity.ReceiverProperties, model.ReceiverProperties.ToDictionary()),
-            //     model.DocumentFilter.ToDictionary(),
-            //     ReplaceHiddenData(entity.ValidatorProperties, model.ValidatorProperties.ToDictionary())
-            // );
 
-            //
             trail.SetAfter(entity);
             dbContext.Add(trail);
             await dbContext.SaveChangesAsync();
@@ -80,12 +74,24 @@ namespace SW.Infolink.Resources.Subscriptions
         //     return updated;
         // }
 
+        private static bool ValidateMatch(IPropertyMatchSpecification model)
+        {
+            return model switch
+            {
+                NotOneOfSpec notOneOfSpec => !string.IsNullOrEmpty(notOneOfSpec.Name) && notOneOfSpec.Values.Any(),
+                OneOfSpec oneOfSpec => !string.IsNullOrEmpty(oneOfSpec.Name) && oneOfSpec.Values.Any(),
+                AndSpec andSpec => ValidateMatch(andSpec.Left) && ValidateMatch(andSpec.Right),
+                OrSpec orSpec => ValidateMatch(orSpec.Left) && ValidateMatch(orSpec.Right),
+                _ => false
+            };
+        }
+
         private class Validate : AbstractValidator<SubscriptionUpdate>
         {
             public Validate(IServiceProvider serviceProvider)
             {
                 RuleFor(i => i.Name).NotEmpty();
-
+                RuleFor(i => i.MatchExpression).Must(ValidateMatch);
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
 
                 When(i => i.MapperId != null, () =>

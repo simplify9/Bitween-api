@@ -35,7 +35,7 @@ namespace SW.Infolink.Resources.Subscriptions
                     Temporary = subscriber.Temporary,
                     ReceiveOn = subscriber.ReceiveOn,
                     PausedOn = subscriber.PausedOn,
-                    IsRunning = subscriber.IsRunning
+                    IsRunning = subscriber.IsRunning,
                 };
 
             query = query.AsNoTracking();
