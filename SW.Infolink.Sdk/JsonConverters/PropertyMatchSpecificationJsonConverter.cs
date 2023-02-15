@@ -18,7 +18,7 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
             writer.WritePropertyName("left");
             serializer.Serialize(writer, andSpec.Left);
             //writer.WriteValue(andSpec.Left);
-            
+
             writer.WritePropertyName("right");
             serializer.Serialize(writer, andSpec.Right);
             //writer.WriteValue(andSpec.Right);
@@ -28,7 +28,7 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
             writer.WritePropertyName("left");
             serializer.Serialize(writer, orSpec.Left);
             //writer.WriteValue(orSpec.Left);
-            
+
             writer.WritePropertyName("right");
             serializer.Serialize(writer, orSpec.Right);
             //writer.WriteValue(orSpec.Right);
@@ -37,7 +37,7 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
         {
             writer.WritePropertyName("path");
             writer.WriteValue(spec.Path);
-            
+
             writer.WritePropertyName("values");
             serializer.Serialize(writer, spec.Values);
         }
@@ -45,11 +45,11 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
         {
             writer.WritePropertyName("path");
             writer.WriteValue(notOneOfSpec.Path);
-            
+
             writer.WritePropertyName("values");
             serializer.Serialize(writer, notOneOfSpec.Values);
         }
-        
+
         writer.WriteEndObject();
     }
 
@@ -61,10 +61,10 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
         {
             return new AndSpec(Evaluate(jLeftObj), Evaluate(jRightObj));
         }
-        
+
         throw new JsonSerializationException("Invalid Match Specification Format");
     }
-    
+
     IPropertyMatchSpecification EvaluateOr(JObject jObj)
     {
         var jLeft = jObj.Property("left")?.Value;
@@ -73,7 +73,7 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
         {
             return new OrSpec(Evaluate(jLeftObj), Evaluate(jRightObj));
         }
-        
+
         throw new JsonSerializationException("Invalid Match Specification Format");
     }
 
@@ -87,10 +87,10 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
             var values = jArr.Children().Select(c => c.ToObject<string>()).Where(s => s is not null);
             return new OneOfSpec(path, values);
         }
-        
+
         throw new JsonSerializationException("Invalid Match Specification Format");
     }
-    
+
     IPropertyMatchSpecification EvaluateNotOneOf(JObject jObj)
     {
         var jPath = jObj.Property("path")?.Value;
@@ -101,10 +101,10 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
             var values = jArr.Children().Select(c => c.ToObject<string>()).Where(s => s is not null);
             return new NotOneOfSpec(path, values);
         }
-        
+
         throw new JsonSerializationException("Invalid Match Specification Format");
     }
-    
+
     IPropertyMatchSpecification Evaluate(JObject jObj)
     {
         var type = jObj.Property("type");
@@ -117,19 +117,20 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
 
                 case "or":
                     return EvaluateOr(jObj);
-                
+
                 case "one_of":
                     return EvaluateOneOf(jObj);
-                
+
                 case "not_one_of":
                     return EvaluateNotOneOf(jObj);
             }
         }
-        
+
         throw new JsonSerializationException("Invalid Match Specification Format");
     }
-    
-    public override IPropertyMatchSpecification ReadJson(JsonReader reader, Type objectType, IPropertyMatchSpecification existingValue,
+
+    public override IPropertyMatchSpecification ReadJson(JsonReader reader, Type objectType,
+        IPropertyMatchSpecification existingValue,
         bool hasExistingValue, JsonSerializer serializer)
     {
         var json = serializer.Deserialize<JToken>(reader);

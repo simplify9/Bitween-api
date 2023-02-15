@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using SW.Bus;
 using SW.CloudFiles.AS.Extensions;
 using SW.CqApi;
@@ -15,11 +16,12 @@ using SW.CloudFiles.Extensions;
 using SW.Serverless;
 using SW.EfCoreExtensions;
 using SW.HttpExtensions;
+using SW.Infolink.JsonConverters;
 using SW.Logger;
 using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 using SW.SimplyRazor;
-
+using Newtonsoft.Json.Serialization;
 
 namespace SW.Infolink.Web
 {
@@ -59,11 +61,22 @@ namespace SW.Infolink.Web
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
 
+            var serializer = new JsonSerializer();
+            serializer.Converters.Add(new PropertyMatchSpecificationJsonConverter());
+            serializer.ContractResolver = new CamelCasePropertyNamesContractResolver
+            {
+                NamingStrategy = new CamelCaseNamingStrategy
+                {
+                    ProcessDictionaryKeys = false
+                }
+            };
+
             services.AddCqApi(configure =>
                 {
                     configure.RolePrefix = "Infolink";
                     configure.UrlPrefix = "api";
                     configure.ProtectAll = true;
+                    configure.Serializer = serializer;
                 },
                 typeof(InfolinkDbContext).Assembly);
 

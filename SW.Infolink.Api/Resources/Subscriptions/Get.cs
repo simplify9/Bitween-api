@@ -48,6 +48,7 @@ namespace SW.Infolink.Resources.Subscriptions
                     AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,
                     PausedOn = subscriber.PausedOn,
+                    MatchExpression = subscriber.MatchExpression,
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,

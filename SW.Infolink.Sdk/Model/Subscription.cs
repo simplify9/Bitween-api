@@ -29,6 +29,7 @@ namespace SW.Infolink.Model
     {
         public int SubscriptionId { get; set; }
     }
+
     public class SearchSubscriptionTrailModel
     {
         public int? Limit { get; set; }
@@ -58,7 +59,9 @@ namespace SW.Infolink.Model
         public string MapperId { get; set; }
         public string ReceiverId { get; set; }
         public string ValidatorId { get; set; }
+
         public bool Temporary { get; set; }
+        public IPropertyMatchSpecification MatchExpression { get; set; }
         public ICollection<KeyAndValue> HandlerProperties { get; set; }
         public ICollection<KeyAndValue> ValidatorProperties { get; set; }
         public ICollection<KeyAndValue> MapperProperties { get; set; }
