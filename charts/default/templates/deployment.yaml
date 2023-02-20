@@ -35,7 +35,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
+          image: "simplify9/{{ .Chart.Name }}:{{ .Chart.Version }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
@@ -59,20 +59,20 @@ spec:
 
             - name: Infolink__DatabaseType
               value: {{ .Values.dbType }}
-              
+
             - name: Infolink__AdminDatabaseName
               value: {{ .Values.adminDb }}
-              
+
             - name: Infolink__DocumentPrefix
               value: {{ .Values.documentPrefix }}
-              
+
             - name: Infolink__BusDefaultQueuePrefetch
               value: "{{ .Values.busDefaultQueuePrefetch }}"
 
-            
+
             - name: Infolink__StorageProvider
               value: {{ .Values.storageProvider }}
-              
+
             - name: Infolink__AreXChangeFilesPrivate
               value: "{{ .Values.areXChangeFilesPrivate }}"
 
@@ -114,7 +114,7 @@ spec:
                   key: esPassword
             {{- end }}
 
-            - name: {{ .Values.dbConnectionStringName }} 
+            - name: {{ .Values.dbConnectionStringName }}
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
@@ -126,25 +126,25 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesAccessKeyId
 
-            - name: CloudFiles__SecretAccessKey 
+            - name: CloudFiles__SecretAccessKey
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesSecretAccessKey
 
-            - name: CloudFiles__ServiceUrl 
+            - name: CloudFiles__ServiceUrl
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesServiceUrl
 
-            - name: CloudFiles__BucketName 
+            - name: CloudFiles__BucketName
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesBucketName
 
-            - name: ConnectionStrings__RabbitMQ 
+            - name: ConnectionStrings__RabbitMQ
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
@@ -181,20 +181,20 @@ spec:
 
             {{- end }}
           resources:
-{{ toYaml .Values.resources | indent 12 }}
+  {{ toYaml .Values.resources | indent 12 }}
 #     {{- with .Values.imagePullSecrets }}
 #       imagePullSecrets:
 # {{ toYaml . | indent 8 }}
 #     {{- end }}
-    {{- with .Values.nodeSelector }}
-      nodeSelector:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-    {{- with .Values.affinity }}
-      affinity:
-{{ toYaml . | indent 8 }}
-    {{- end }}
-    {{- with .Values.tolerations }}
-      tolerations:
-{{ toYaml . | indent 8 }}
-    {{- end }}
+  {{- with .Values.nodeSelector }}
+nodeSelector:
+  {{ toYaml . | indent 8 }}
+  {{- end }}
+  {{- with .Values.affinity }}
+affinity:
+  {{ toYaml . | indent 8 }}
+  {{- end }}
+  {{- with .Values.tolerations }}
+tolerations:
+  {{ toYaml . | indent 8 }}
+  {{- end }}
