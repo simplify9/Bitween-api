@@ -76,6 +76,8 @@ namespace SW.Infolink.Resources.Subscriptions
 
         private static bool ValidateMatch(IPropertyMatchSpecification model)
         {
+            if (model is null)
+                return true;
             return model switch
             {
                 NotOneOfSpec notOneOfSpec => !string.IsNullOrEmpty(notOneOfSpec.Name) && notOneOfSpec.Values.Any(),
