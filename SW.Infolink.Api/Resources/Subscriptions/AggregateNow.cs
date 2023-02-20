@@ -2,26 +2,31 @@
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Resources.Subscriptions
 {
     [HandlerName("aggregatenow")]
     class AggregateNow : ICommandHandler<int, SubscriptionAggregateNow>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public AggregateNow(InfolinkDbContext dbContext)
+
+        public AggregateNow(InfolinkDbContext dbContext, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            _dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
-        async public Task<object> Handle(int key, SubscriptionAggregateNow request)
+        public async Task<object> Handle(int key, SubscriptionAggregateNow request)
         {
-            var entity = await dbContext.FindAsync<Subscription>(key);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+
+            var entity = await _dbContext.FindAsync<Subscription>(key);
             entity.SetAggregateNow();
-            await dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
             return null;
         }
-
     }
 }

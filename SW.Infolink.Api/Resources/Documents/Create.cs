@@ -8,25 +8,30 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Api.Resources.Documents
 {
     class Create : ICommandHandler<DocumentCreate>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Create(InfolinkDbContext dbContext)
+        public Create(InfolinkDbContext dbContext, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            _dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
         public async Task<object> Handle(DocumentCreate model)
         {
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+
             var entity = new Document(model.Id, model.Name, model.DocumentFormat);
-            var trail = new DocumentTrail(DocumentTrailCode.Created, entity,true);
-            dbContext.Add(trail);
-            dbContext.Add(entity);
-            await dbContext.SaveChangesAsync();
+            var trail = new DocumentTrail(DocumentTrailCode.Created, entity, true);
+            _dbContext.Add(trail);
+            _dbContext.Add(entity);
+            await _dbContext.SaveChangesAsync();
             return entity.Id;
         }
 

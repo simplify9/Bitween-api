@@ -6,9 +6,9 @@ replicaCount: 1
 
 image:
   pullPolicy: IfNotPresent
-
-# imagePullSecrets:
-#   - name: sw-secret
+  
+  # imagePullSecrets:
+  #   - name: sw-secret
   # Optionally specify an array of imagePullSecrets.
   # Secrets must be manually created in the namespace.
   # ref: https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod
@@ -26,14 +26,14 @@ ingress:
   enabled: false
   annotations: {}
     # nginx.ingress.kubernetes.io/rewrite-target: /$2
-    # kubernetes.io/tls-acme: "true"
+  # kubernetes.io/tls-acme: "true"
   path: /
   hosts:
   tls: []
     # - secretName: chart-example-tls
     #   hosts:
-    #     - chart-example.local
-secrets: 
+  #     - chart-example.local
+secrets:
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -46,7 +46,7 @@ resources: {}
   # requests:
   #  cpu: 100m
   #  memory: 128Mi
-  
+
 # hostAliases allow additional DNS entries to be injected directly into pods /etc/hosts file.
 # Override hostAliases in infolink deployment values file
 hostAliases: []
@@ -56,7 +56,7 @@ hostAliases: []
   #     - another.host.net
   # - ip: 192.168.1.101
   #   hostNames:
-  #     - your.host.com
+#     - your.host.com
 
 nodeSelector: {}
 
@@ -99,7 +99,7 @@ global:
     secretAccessKey: ""
     serviceUrl: ""
     bucketName: ""
-    
+
 rabbitmq:
   enabled: false
   auth:

@@ -12,6 +12,7 @@ namespace SW.Infolink.Resources.Xchanges
     {
         private readonly XchangeService _xchangeService;
         private readonly InfolinkDbContext _dbc;
+        
         public Create(XchangeService xchangeService, InfolinkDbContext dbc)
         {
             _xchangeService = xchangeService;

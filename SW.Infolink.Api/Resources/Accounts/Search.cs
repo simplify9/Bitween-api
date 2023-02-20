@@ -40,6 +40,7 @@ namespace SW.Infolink.Resources.Accounts
                     Email = a.Email,
                     Name = a.DisplayName,
                     Id = a.Id,
+                    Role = a.Role.ToString()
                 })
                 .ToListAsync();
 

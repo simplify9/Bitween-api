@@ -7,26 +7,30 @@ using SW.PrimitiveTypes;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Resources.Subscriptions
 {
     class Update : ICommandHandler<int, SubscriptionUpdate>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
         private readonly IInfolinkCache _infolinkCache;
+        private readonly RequestContext _requestContext;
 
-        public Update(InfolinkDbContext dbContext, IInfolinkCache infolinkCache)
+        public Update(InfolinkDbContext dbContext, IInfolinkCache infolinkCache, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            this._dbContext = dbContext;
             _infolinkCache = infolinkCache;
+            _requestContext = requestContext;
         }
 
         public async Task<object> Handle(int key, SubscriptionUpdate model)
         {
-            var entity = await dbContext.FindAsync<Subscription>(key);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            var entity = await _dbContext.FindAsync<Subscription>(key);
 
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
-            dbContext.Entry(entity).SetProperties(model);
+            _dbContext.Entry(entity).SetProperties(model);
 
 
             entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
@@ -43,8 +47,8 @@ namespace SW.Infolink.Resources.Subscriptions
 
 
             trail.SetAfter(entity);
-            dbContext.Add(trail);
-            await dbContext.SaveChangesAsync();
+            _dbContext.Add(trail);
+            await _dbContext.SaveChangesAsync();
             _infolinkCache.Revoke();
             return null;
         }

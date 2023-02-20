@@ -7,22 +7,26 @@ namespace SW.Infolink.Resources.Accounts;
 [HandlerName("remove")]
 public class RemoveAccountModel : ICommandHandler<int, RemoveAccountModel>
 {
-    private readonly InfolinkDbContext dbContext;
+    private readonly InfolinkDbContext _dbContext;
+    private readonly RequestContext _requestContext;
 
-    public RemoveAccountModel(InfolinkDbContext dbContext)
+    public RemoveAccountModel(InfolinkDbContext dbContext, RequestContext requestContext)
     {
-        this.dbContext = dbContext;
+        this._dbContext = dbContext;
+        _requestContext = requestContext;
     }
 
     public async Task<object> Handle(int key, RemoveAccountModel request)
     {
-        var account = await dbContext.Set<Account>().FindAsync(key);
+        _requestContext.EnsureAccess(AccountRole.Admin);
+
+        var account = await _dbContext.Set<Account>().FindAsync(key);
 
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"Account with {key} was not found");
 
-        dbContext.Remove(account);
-        await dbContext.SaveChangesAsync();
+        _dbContext.Remove(account);
+        await _dbContext.SaveChangesAsync();
 
         return null;
     }

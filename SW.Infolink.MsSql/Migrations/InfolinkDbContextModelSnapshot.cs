@@ -74,6 +74,9 @@ namespace SW.Infolink.MsSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -93,7 +96,8 @@ namespace SW.Infolink.MsSql.Migrations
                             Email = "admin@infolink.systems",
                             EmailProvider = (byte)0,
                             LoginMethods = (byte)2,
-                            Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ"
+                            Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
+                            Role = 0
                         });
                 });
 

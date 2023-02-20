@@ -5,21 +5,26 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Api.Resources.Documents
 {
     class Delete : IDeleteHandler<int>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Delete(InfolinkDbContext dbContext)
+        public Delete(InfolinkDbContext dbContext, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            _dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
         async public Task<object> Handle(int key)
         {
-            await dbContext.DeleteByKeyAsync<Document>(key);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+
+            await _dbContext.DeleteByKeyAsync<Document>(key);
             return null;
         }
     }

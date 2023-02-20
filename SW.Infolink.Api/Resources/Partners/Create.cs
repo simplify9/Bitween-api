@@ -2,23 +2,28 @@
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Resources.Partners
 {
     class Create : ICommandHandler<PartnerCreate>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Create(InfolinkDbContext dbContext)
+        public Create(InfolinkDbContext dbContext, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            this._dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
-        async public Task<object> Handle(PartnerCreate model)
+        public async Task<object> Handle(PartnerCreate model)
         {
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+
             var entity = new Partner(model.Name);
-            dbContext.Add(entity);
-            await dbContext.SaveChangesAsync();
+            _dbContext.Add(entity);
+            await _dbContext.SaveChangesAsync();
             return entity.Id;
         }
     }
