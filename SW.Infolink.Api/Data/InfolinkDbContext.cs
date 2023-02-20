@@ -275,6 +275,7 @@ namespace SW.Infolink
                         Disabled = false,
                         Password = defaultPasswordHash,
                         Deleted = false,
+                        Role = AccountRole.Admin
                     });
             });
 

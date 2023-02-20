@@ -12,19 +12,22 @@ namespace SW.Infolink.Resources.Partners
 {
     class Update : ICommandHandler<int, PartnerUpdate>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Update(InfolinkDbContext dbContext)
+
+        public Update(InfolinkDbContext dbContext, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            _dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
-        async public Task<object> Handle(int key, PartnerUpdate model)
+        public async Task<object> Handle(int key, PartnerUpdate model)
         {
-            var entity = await dbContext.FindAsync<Partner>(key);
+            var entity = await _dbContext.FindAsync<Partner>(key);
             entity.SetApiCredentials(model.ApiCredentials.Select(kv => new ApiCredential(kv.Key, kv.Value)));
-            dbContext.Entry(entity).SetProperties(model);
-            await dbContext.SaveChangesAsync();
+            _dbContext.Entry(entity).SetProperties(model);
+            await _dbContext.SaveChangesAsync();
             return null;
         }
     }

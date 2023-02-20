@@ -9,16 +9,19 @@ namespace SW.Infolink.Domain.Accounts
         {
         }
 
-        public Account(string displayName, string email, string password)
+        public Account(string displayName, string email, string password, AccountRole role)
         {
             Password = password;
             DisplayName = displayName;
             Email = email;
+            Role = role;
         }
 
         public string Email { get; private set; }
         public string Phone { get; private set; }
         public string DisplayName { get; set; }
+
+        public AccountRole Role { get; private set; }
         public EmailProvider EmailProvider { get; private set; }
         public LoginMethod LoginMethods { get; private set; }
 

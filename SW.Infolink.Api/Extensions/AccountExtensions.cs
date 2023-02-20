@@ -8,13 +8,14 @@ namespace SW.Infolink
 {
     public static class AccountExtensions
     {
-        public static ClaimsIdentity CreateClaimsIdentity(this Account account, LoginMethod loginMethod)
+        private static ClaimsIdentity CreateClaimsIdentity(this Account account, LoginMethod loginMethod)
         {
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, account.Id.ToString()),
-                new Claim(ClaimTypes.GivenName, account.DisplayName),
-                new Claim("login_methods", ((int) account.LoginMethods).ToString(), ClaimValueTypes.Integer),
+                new(ClaimTypes.NameIdentifier, account.Id.ToString()),
+                new(ClaimTypes.GivenName, account.DisplayName),
+                new("login_methods", ((int)account.LoginMethods).ToString(), ClaimValueTypes.Integer),
+                new("Role", account.Role.ToString())
             };
 
 
@@ -29,6 +30,10 @@ namespace SW.Infolink
                 case LoginMethod.ApiKey:
                     claims.Add(new Claim(ClaimTypes.Name, account.Id.ToString()));
                     break;
+                case LoginMethod.None:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(loginMethod), loginMethod, null);
             }
 
             if (account.Email != null) claims.Add(new Claim(ClaimTypes.Email, account.Email));
@@ -41,7 +46,9 @@ namespace SW.Infolink
         public static string CreateJwt(this Account account, LoginMethod loginMethod,
             JwtTokenParameters jwtTokenParameters, TimeSpan jwtExpiry = default)
         {
-            return jwtExpiry == default ? jwtTokenParameters.WriteJwt(CreateClaimsIdentity(account, loginMethod)) : jwtTokenParameters.WriteJwt(CreateClaimsIdentity(account, loginMethod), jwtExpiry);
+            return jwtExpiry == default
+                ? jwtTokenParameters.WriteJwt(CreateClaimsIdentity(account, loginMethod))
+                : jwtTokenParameters.WriteJwt(CreateClaimsIdentity(account, loginMethod), jwtExpiry);
         }
     }
 }

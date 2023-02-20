@@ -3,20 +3,25 @@ using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Resources.Subscriptions
 {
     class Create : ICommandHandler<SubscriptionCreate>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Create(InfolinkDbContext dbContext)
+        public Create(InfolinkDbContext dbContext, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            this._dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
         public async Task<object> Handle(SubscriptionCreate model)
         {
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+
             Subscription entity;
 
             switch (model.Type)
@@ -25,20 +30,21 @@ namespace SW.Infolink.Resources.Subscriptions
                     entity = new Subscription(model.Name, model.DocumentId);
                     break;
                 case SubscriptionType.Aggregation:
-                    entity = new Subscription(model.Name, model.AggregationForId.Value, model.PartnerId.Value);
+                    entity = new Subscription(model.Name, model.AggregationForId!.Value, model.PartnerId!.Value);
                     break;
                 case SubscriptionType.ApiCall:
                 case SubscriptionType.Internal:
-                    entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId.Value);
+                    entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId!.Value);
                     break;
+                case SubscriptionType.Unknown:
                 default:
                     throw new InfolinkException();
             }
 
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Created, entity);
-            
-            dbContext.Add(trail);
-            await dbContext.SaveChangesAsync();
+
+            _dbContext.Add(trail);
+            await _dbContext.SaveChangesAsync();
             return entity.Id;
         }
 

@@ -255,7 +255,8 @@ namespace SW.Infolink.PgSql
                         DisplayName = "Admin",
                         CreatedOn = defaultCreatedOn.ToUniversalTime(),
                         Disabled = false,
-                        Password = defaultPasswordHash
+                        Password = defaultPasswordHash,
+                        Role = AccountRole.Admin
                     });
             });
 

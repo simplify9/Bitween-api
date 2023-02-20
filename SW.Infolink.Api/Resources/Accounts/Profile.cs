@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain.Accounts;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
@@ -21,12 +23,15 @@ public class Profile : IQueryHandler
     public async Task<object> Handle()
     {
         var accountId = Convert.ToInt32(requestContext.GetNameIdentifier());
-        var account = await dbContext.Set<Account>().FindAsync(accountId);
-        return new AccountModel
-        {
-            CreatedOn = account!.CreatedOn,
-            Email = account.Email,
-            Name = account.DisplayName
-        };
+        return await dbContext.Set<Account>().Select(a => new AccountModel
+            {
+                CreatedOn = a.CreatedOn,
+                Email = a.Email,
+                Name = a.DisplayName,
+                Id = a.Id,
+                Role = a.Role.ToString()
+            })
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == accountId);
     }
 }

@@ -10,19 +10,21 @@ namespace SW.Infolink.Resources.Accounts;
 [HandlerName("changePassword")]
 public class ChangePassword : ICommandHandler<ChangePasswordModel>
 {
-    private readonly InfolinkDbContext dbContext;
-    private readonly RequestContext requestContext;
+    private readonly InfolinkDbContext _dbContext;
+    private readonly RequestContext _requestContext;
 
     public ChangePassword(InfolinkDbContext dbContext, RequestContext requestContext)
     {
-        this.dbContext = dbContext;
-        this.requestContext = requestContext;
+        _dbContext = dbContext;
+        _requestContext = requestContext;
     }
 
     public async Task<object> Handle(ChangePasswordModel request)
     {
-        var accountId = Convert.ToInt32(requestContext.GetNameIdentifier());
-        var account = await dbContext.Set<Account>().FindAsync(accountId);
+        _requestContext.EnsureAccess(AccountRole.Admin);
+
+        var accountId = Convert.ToInt32(_requestContext.GetNameIdentifier());
+        var account = await _dbContext.Set<Account>().FindAsync(accountId);
 
         if (!SecurePasswordHasher.Verify(request.OldPassword, account!.Password))
         {
@@ -31,7 +33,7 @@ public class ChangePassword : ICommandHandler<ChangePasswordModel>
         }
 
         account.SetPassword(request.NewPassword);
-        await dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync();
 
         return null;
     }

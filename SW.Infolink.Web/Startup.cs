@@ -59,7 +59,7 @@ namespace SW.Infolink.Web
                 config.DefaultQueuePrefetch = infolinkOptions.BusDefaultQueuePrefetch!.Value;
             });
             services.AddBusPublish();
-            services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
+           // services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
 
             var serializer = new JsonSerializer();
             serializer.Converters.Add(new PropertyMatchSpecificationJsonConverter());

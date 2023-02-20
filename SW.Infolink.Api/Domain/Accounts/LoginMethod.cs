@@ -1,5 +1,8 @@
+using System;
+
 namespace SW.Infolink.Domain.Accounts
 {
+    [Flags]
     public enum LoginMethod
     {
         None = 0,

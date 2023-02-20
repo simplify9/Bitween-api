@@ -7,6 +7,7 @@ public class CreateAccountModel
     public string Name { get; set; }
     public string Email { get; set; }
     public string Password { get; set; }
+    public int Role { get; set; }
 }
 
 public class RemoveAccountModel
@@ -25,6 +26,8 @@ public class AccountModel
     public string Name { get; set; }
     public int Id { get; set; }
     public string Email { get; set; }
+
+    public string Role { get; set; }
     public DateTime CreatedOn { get; set; }
 }
 

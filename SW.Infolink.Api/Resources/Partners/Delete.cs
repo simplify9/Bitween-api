@@ -5,24 +5,30 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Resources.Partners
 {
     class Delete : IDeleteHandler<int>
     {
-        private readonly InfolinkDbContext dbContext;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Delete(InfolinkDbContext dbContext)
+
+        public Delete(InfolinkDbContext dbContext, RequestContext requestContext)
         {
-            this.dbContext = dbContext;
+            this._dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
-        async public Task<object> Handle(int key)
+        public async Task<object> Handle(int key)
         {
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+
             if (key == Partner.SystemId)
                 throw new SWException("System partner can not be deleted.");
 
-            await dbContext.DeleteByKeyAsync<Partner>(key);
+            await _dbContext.DeleteByKeyAsync<Partner>(key);
             return null;
         }
     }
