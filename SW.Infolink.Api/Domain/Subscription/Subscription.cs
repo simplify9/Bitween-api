@@ -30,6 +30,7 @@ namespace SW.Infolink.Domain
         public Subscription(string name, int documentId, SubscriptionType type, int partnerId) : this(name, documentId,
             type, partnerId, null)
         {
+            Inactive = true;
             if (!(type == SubscriptionType.ApiCall || type == SubscriptionType.Internal))
                 throw new ArgumentException();
         }
@@ -37,12 +38,12 @@ namespace SW.Infolink.Domain
         private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null,
             int? aggregationForId = null, bool temporary = false)
         {
+            Inactive = true;
             AggregationForId = aggregationForId;
             PartnerId = partnerId;
             Name = name ?? throw new ArgumentNullException(nameof(name));
             DocumentId = documentId;
             Type = type;
-            //_AggregationSchedules = new HashSet<Schedule>();
             _Schedules = new HashSet<Schedule>();
             HandlerProperties = new Dictionary<string, string>();
             MapperProperties = new Dictionary<string, string>();

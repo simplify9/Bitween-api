@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,8 @@ public class InMemoryInfolinkCache : IInfolinkCache
     readonly IServiceScopeFactory ssf;
     readonly ILogger<InMemoryInfolinkCache> _logger;
 
-    public InMemoryInfolinkCache(IMemoryCache memoryCache, IServiceScopeFactory ssf, ILogger<InMemoryInfolinkCache> logger)
+    public InMemoryInfolinkCache(IMemoryCache memoryCache, IServiceScopeFactory ssf,
+        ILogger<InMemoryInfolinkCache> logger)
     {
         _cache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         this.ssf = ssf ?? throw new ArgumentNullException(nameof(ssf));
@@ -27,13 +29,13 @@ public class InMemoryInfolinkCache : IInfolinkCache
         using var scope = ssf.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
         _logger.LogInformation("Loading documents and subscriptions to cache");
-        var cachedSubscriptions = (await repo.ListAsync<Subscription>()).ToArray();
+        var cachedSubscriptions = await repo.Set<Subscription>().Where(i => !i.Inactive).ToArrayAsync();
         var cachedDocuments = (await repo.ListAsync<Document>()).ToArray();
 
         _cache.Set("subscriptions", cachedSubscriptions, TimeSpan.FromMinutes(10));
         _cache.Set("documents", cachedDocuments, TimeSpan.FromMinutes(10));
     }
-    
+
     public async Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId)
     {
         if (!_cache.TryGetValue("subscriptions", out Subscription[] cachedSubscriptions))
