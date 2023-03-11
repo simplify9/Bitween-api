@@ -5,9 +5,11 @@ namespace SW.Infolink;
 
 public interface IInfolinkCache
 {
-    Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId);
+    public Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId);
+    public Task<Notifier[]> ListNotifiersAsync();
 
-    Task<Document> DocumentByIdAsync(int documentId);
+    public Task<Subscription> SubscriptionByIdAsync(int subscriptionId);
+    public Task<Document> DocumentByIdAsync(int documentId);
 
     void Revoke();
 }
