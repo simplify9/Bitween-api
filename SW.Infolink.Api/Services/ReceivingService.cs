@@ -24,11 +24,10 @@ namespace SW.Infolink
             this.logger = logger;
         }
 
-        async protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
-            
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -36,23 +35,21 @@ namespace SW.Infolink
                     using var scope = sp.CreateScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<InfolinkDbContext>();
                     var rcvList = await dbContext.ListAsync(new DueReceivers());
-                    
+
                     var runFlagUpdater = scope.ServiceProvider.GetRequiredService<RunFlagUpdater>();
-                    
+
                     foreach (var rec in rcvList)
                     {
                         try
                         {
-
                             var toRun = await runFlagUpdater.MarkAsRunning(rec.Id);
                             if (!toRun) continue;
-                            
+
                             var startupParameters = rec.ReceiverProperties.ToDictionary();
                             await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
-                            
+
                             rec.SetSchedules();
                             rec.SetHealth();
-                            
                         }
                         catch (Exception ex)
                         {
@@ -61,7 +58,7 @@ namespace SW.Infolink
                         }
 
                         await runFlagUpdater.MarkAsIdle(rec.Id);
-                        
+
                         await dbContext.SaveChangesAsync(stoppingToken);
                     }
                 }
@@ -76,7 +73,8 @@ namespace SW.Infolink
             }
         }
 
-        async Task RunReceiver(IServiceProvider serviceProvider, string serverlessId, IDictionary<string, string> startupParameters, int subId)
+        async Task RunReceiver(IServiceProvider serviceProvider, string serverlessId,
+            IDictionary<string, string> startupParameters, int subId)
         {
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();
             await serverless.StartAsync(serverlessId, null, startupParameters);
@@ -95,6 +93,7 @@ namespace SW.Infolink
                 await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile);
                 await serverless.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);
             }
+
             await serverless.InvokeAsync(nameof(IInfolinkReceiver.Finalize), null);
         }
 
@@ -151,9 +150,5 @@ namespace SW.Infolink
         //        logger.LogError(ex, "Service timer callback.");
         //    }
         //}
-
-
-
     }
-
 }
