@@ -49,7 +49,7 @@ namespace SW.Infolink.Resources.Accounts
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.Email).NotEmpty();
                 RuleFor(i => i.Password).NotEmpty();
-                RuleFor(i => i.Role).NotEmpty();
+                RuleFor(i => i.Role).NotNull();
             }
         }
     }
