@@ -15,18 +15,20 @@ namespace SW.Infolink.Resources.Xchanges
     [Unprotect]
     class Update : ICommandHandler<string, object>
     {
-        private readonly RequestContext requestContext;
-        private readonly XchangeService xchangeService;
-        private readonly InfolinkDbContext dbContext;
-        private readonly InfolinkOptions infolinkSettings;
+        private readonly RequestContext _requestContext;
+        private readonly XchangeService _xchangeService;
+        private readonly InfolinkDbContext _dbContext;
+        private readonly InfolinkOptions _infolinkSettings;
+        private readonly IInfolinkCache _cache;
 
         public Update(RequestContext requestContext, XchangeService xchangeService, InfolinkDbContext dbContext,
-            InfolinkOptions infolinkSettings)
+            InfolinkOptions infolinkSettings, IInfolinkCache cache)
         {
-            this.requestContext = requestContext;
-            this.xchangeService = xchangeService;
-            this.dbContext = dbContext;
-            this.infolinkSettings = infolinkSettings;
+            _requestContext = requestContext;
+            _xchangeService = xchangeService;
+            _dbContext = dbContext;
+            _infolinkSettings = infolinkSettings;
+            _cache = cache;
         }
 
         public async Task<object> Handle(string documentIdOrName, object request)
@@ -34,25 +36,25 @@ namespace SW.Infolink.Resources.Xchanges
             Document document;
 
             if (int.TryParse(documentIdOrName, out var documentId))
-                document = await dbContext.FindAsync<Document>(documentId);
+                document = await _cache.DocumentByIdAsync(documentId);
             else
-                document = await dbContext.Set<Document>()
-                    .Where(doc => doc.Name.ToLower() == documentIdOrName.ToLower())
-                    .SingleOrDefaultAsync();
+                document = await _cache.DocumentByNameAsync(documentIdOrName);
 
-            if (document == null)
+            if (document is null)
                 throw new SWNotFoundException("Document");
 
-            var par = await dbContext.AuthorizePartner(requestContext);
-            var subscriptionQuery = from subscription in dbContext.Set<Subscription>()
-                where subscription.DocumentId == document.Id && subscription.PartnerId == par.Partner.Id
-                select subscription;
+            var par = await _dbContext.AuthorizePartner(_requestContext);
+            // var subscriptionQuery = from subscription in _dbContext.Set<Subscription>()
+            //     where subscription.DocumentId == document.Id && subscription.PartnerId == par.Partner.Id
+            //     select subscription;
 
-            var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
+            var sub = (await _cache.ListSubscriptionsByDocumentAsync(document.Id)).SingleOrDefault(i =>
+                i.PartnerId == par.Partner.Id);
+            // var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
 
             if (par.Partner.Id == Partner.SystemId && sub == null)
             {
-                await xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
+                await _xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
                 return null;
             }
 
@@ -64,7 +66,7 @@ namespace SW.Infolink.Resources.Xchanges
 
             var xchangeReferences = new List<string> { $"partnerkey: {par.KeyName}" };
 
-            var waitResponseHeader = requestContext.Values
+            var waitResponseHeader = _requestContext.Values
                 .Where(item => item.Name.ToLower() == "waitresponse")
                 .Select(item => item.Value).FirstOrDefault();
 
@@ -77,10 +79,10 @@ namespace SW.Infolink.Resources.Xchanges
 
             var xchangeFile = new XchangeFile(request.ToString());
 
-            await xchangeService.RunValidator(sub.ValidatorId, sub.ValidatorProperties.ToDictionary(), xchangeFile);
+            await _xchangeService.RunValidator(sub.ValidatorId, sub.ValidatorProperties.ToDictionary(), xchangeFile);
 
             var xchangeId =
-                await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
+                await _xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
 
             if (waitResponse <= 0)
                 return new CqApiResult<string>(xchangeId)
@@ -93,7 +95,7 @@ namespace SW.Infolink.Resources.Xchanges
                 await Task.Delay(TimeSpan.FromSeconds(count));
                 if (!await IsResultAvailable(xchangeId)) continue;
 
-                var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
+                var xchangeResult = await _dbContext.FindAsync<XchangeResult>(xchangeId);
 
 
                 switch (xchangeResult!.Success)
@@ -102,14 +104,14 @@ namespace SW.Infolink.Resources.Xchanges
                     {
                         return new CqApiResult<string>(xchangeId)
                         {
-                            Status = infolinkSettings.ApiCallSubscriptionResponseAcceptedStatusCode == 200
+                            Status = _infolinkSettings.ApiCallSubscriptionResponseAcceptedStatusCode == 200
                                 ? CqApiResultStatus.Ok
                                 : CqApiResultStatus.UnderProcessing
                         };
                     }
                     case true when xchangeResult.ResponseSize != 0:
                     {
-                        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                        var response = await _xchangeService.GetFile(xchangeId, XchangeFileType.Response);
                         var result = new CqApiResult<string>(response);
                         result.AddHeader("location", xchangeId);
                         result.Status = xchangeResult.ResponseBad ? CqApiResultStatus.Error : CqApiResultStatus.Ok;
@@ -130,7 +132,7 @@ namespace SW.Infolink.Resources.Xchanges
 
         async Task<bool> IsResultAvailable(string xchangeId)
         {
-            return await dbContext.Set<XchangeResult>()
+            return await _dbContext.Set<XchangeResult>()
                 .AsNoTracking()
                 .AnyAsync(i => i.Id == xchangeId);
         }

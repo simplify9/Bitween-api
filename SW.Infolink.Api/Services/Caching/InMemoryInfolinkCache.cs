@@ -84,6 +84,19 @@ public class InMemoryInfolinkCache : IInfolinkCache
         return cachedDocuments.FirstOrDefault(d => d.Id == documentId);
     }
 
+    public async Task<Document> DocumentByNameAsync(string documentName)
+    {
+        if (!_cache.TryGetValue("documents", out Document[] cachedDocuments))
+        {
+            await Load();
+            return _cache.Get<Document[]>("documents").FirstOrDefault(d =>
+                string.Equals(d.Name, documentName, StringComparison.CurrentCultureIgnoreCase));
+        }
+
+        return cachedDocuments.FirstOrDefault(d =>
+            string.Equals(d.Name, documentName, StringComparison.CurrentCultureIgnoreCase));
+    }
+
     public void Revoke()
     {
         _cache.Remove("subscriptions");

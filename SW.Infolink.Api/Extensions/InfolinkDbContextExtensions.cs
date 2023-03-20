@@ -9,15 +9,17 @@ namespace SW.Infolink
 {
     static class InfolinkDbContextExtensions
     {
-        async static public Task<(Partner Partner, string KeyName)> AuthorizePartner(this InfolinkDbContext dbContext, RequestContext requestContext)
+        public static async Task<(Partner Partner, string KeyName)> AuthorizePartner(this InfolinkDbContext dbContext,
+            RequestContext requestContext)
         {
-            var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey").Select(item => item.Value).FirstOrDefault();
+            var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey")
+                .Select(item => item.Value).FirstOrDefault();
             if (partnerKey == null)
                 throw new SWUnauthorizedException();
 
             var partnerQuery = from partner in dbContext.Set<Partner>()
-                               where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
-                               select partner;
+                where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
+                select partner;
 
             var par = await partnerQuery.AsNoTracking().SingleOrDefaultAsync();
             if (par == null)
