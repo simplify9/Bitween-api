@@ -41,10 +41,8 @@ namespace SW.Infolink.Web
             Configuration.GetSection(InfolinkOptions.ConfigurationSection).Bind(infolinkOptions);
 
             services.AddSingleton(infolinkOptions);
-            //todo find out why it needed to be like this
-            services.AddSingleton<IInfolinkCache, InMemoryInfolinkCache>();
             services.AddMemoryCache();
-
+            services.AddSingleton<IInfolinkCache, InMemoryInfolinkCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<XchangeService>();
 

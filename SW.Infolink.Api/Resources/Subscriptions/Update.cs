@@ -49,7 +49,7 @@ namespace SW.Infolink.Resources.Subscriptions
             trail.SetAfter(entity);
             _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
-            _infolinkCache.Revoke();
+            _infolinkCache.BroadcastRevoke();
             return null;
         }
 

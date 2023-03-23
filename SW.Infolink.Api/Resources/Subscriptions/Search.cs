@@ -19,7 +19,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
         public Search(InfolinkDbContext dbContext)
         {
-            this._dbContext = dbContext;
+            _dbContext = dbContext;
 
             _edgeCaseProperties = new List<string>
             {
@@ -99,7 +99,6 @@ namespace SW.Infolink.Resources.Subscriptions
                                 i.MapperProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
                                 i.ValidatorProperties.Any(p => p.Value.ToLower().Contains(searchTerm))
                             )
-                            .Skip(searchyRequest.PageSize * searchyRequest.PageIndex).Take(searchyRequest.PageSize)
                             .ToList();
 
                         break;
@@ -109,8 +108,8 @@ namespace SW.Infolink.Resources.Subscriptions
 
             return new SearchyResponse<SubscriptionSearch>
             {
-                TotalCount = count,
-                Result = data
+                TotalCount = data.Count,
+                Result = data.Skip(searchyRequest.PageSize * searchyRequest.PageIndex).Take(searchyRequest.PageSize)
             };
         }
 

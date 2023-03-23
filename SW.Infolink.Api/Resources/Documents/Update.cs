@@ -12,12 +12,16 @@ namespace SW.Infolink.Api.Resources.Documents
         private readonly InfolinkDbContext _dbContext;
         private readonly IInfolinkCache _infolinkCache;
         private readonly RequestContext _requestContext;
+        private readonly IBroadcast _broadcast;
 
-        public Update(InfolinkDbContext dbContext, IInfolinkCache infolinkCache, RequestContext requestContext)
+
+        public Update(InfolinkDbContext dbContext, IInfolinkCache infolinkCache, RequestContext requestContext,
+            IBroadcast broadcast)
         {
             this._dbContext = dbContext;
             _infolinkCache = infolinkCache;
             _requestContext = requestContext;
+            _broadcast = broadcast;
         }
 
         public async Task<object> Handle(int key, DocumentUpdate model)
@@ -34,7 +38,8 @@ namespace SW.Infolink.Api.Resources.Documents
             trail.SetAfter(entity);
             _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
-            _infolinkCache.Revoke();
+            _infolinkCache.BroadcastRevoke();
+            await _broadcast.RefreshConsumers();
             return null;
         }
     }
