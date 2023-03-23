@@ -5,16 +5,21 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
+using SW.PrimitiveTypes;
 
 namespace SW.Infolink;
+
+public class RevokeCacheMessage
+{
+}
 
 public class InMemoryInfolinkCache : IInfolinkCache
 {
     private readonly IMemoryCache _cache;
     private readonly IServiceScopeFactory _ssf;
     private readonly ILogger<InMemoryInfolinkCache> _logger;
+
 
     public InMemoryInfolinkCache(IMemoryCache memoryCache, IServiceScopeFactory ssf,
         ILogger<InMemoryInfolinkCache> logger)
@@ -95,6 +100,13 @@ public class InMemoryInfolinkCache : IInfolinkCache
 
         return cachedDocuments.FirstOrDefault(d =>
             string.Equals(d.Name, documentName, StringComparison.CurrentCultureIgnoreCase));
+    }
+
+    public void BroadcastRevoke()
+    {
+        using var scope = _ssf.CreateScope();
+        var broadcast = scope.ServiceProvider.GetRequiredService<IBroadcast>();
+        broadcast.Broadcast(new RevokeCacheMessage());
     }
 
     public void Revoke()

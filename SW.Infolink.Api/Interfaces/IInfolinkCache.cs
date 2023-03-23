@@ -14,4 +14,6 @@ public interface IInfolinkCache
 
 
     void Revoke();
+    void BroadcastRevoke();
+
 }
