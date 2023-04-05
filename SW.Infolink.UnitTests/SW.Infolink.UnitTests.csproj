@@ -18,7 +18,7 @@
     <PackageReference Include="MSTest.TestAdapter" Version="3.0.2" />
     <PackageReference Include="MSTest.TestFramework" Version="3.0.2" />
     <PackageReference Include="SimplyWorks.CqApi" Version="6.0.5" />
-    <PackageReference Include="SimplyWorks.Bus" Version="6.0.8" />
+    <PackageReference Include="SimplyWorks.Bus" Version="6.0.10" />
   </ItemGroup>
 
   <ItemGroup>

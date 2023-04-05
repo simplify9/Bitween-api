@@ -23,7 +23,8 @@ namespace SW.Infolink.Resources.Subscriptions
 
             _edgeCaseProperties = new List<string>
             {
-                "rawsubscriptionproperties"
+                "rawsubscriptionproperties",
+                "rawfiltersproperties"
             };
         }
 
@@ -51,6 +52,8 @@ namespace SW.Infolink.Resources.Subscriptions
                     HandlerProperties = subscriber.HandlerProperties.ToKeyAndValueCollection(),
                     ReceiverProperties = subscriber.ReceiverProperties.ToKeyAndValueCollection(),
                     ValidatorProperties = subscriber.ValidatorProperties.ToKeyAndValueCollection(),
+                    DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
+                    MatchExpression = subscriber.MatchExpression
                 };
 
             query = query.AsNoTracking().AsQueryable();
@@ -67,7 +70,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
             if (edgeCaseFilters.Any())
             {
-                return await SearchWithEdgeCases(query, edgeCaseFilters, searchyRequest, count);
+                return await SearchWithEdgeCases(query, edgeCaseFilters, searchyRequest);
             }
 
             return new SearchyResponse<SubscriptionSearch>
@@ -80,30 +83,28 @@ namespace SW.Infolink.Resources.Subscriptions
 
         private async Task<SearchyResponse<SubscriptionSearch>> SearchWithEdgeCases(
             IQueryable<SubscriptionSearch> query, IEnumerable<SearchyFilter> edgeCaseFilters,
-            SearchyRequest searchyRequest,
-            int count)
+            SearchyRequest searchyRequest)
         {
             var data = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts).ToListAsync();
 
             foreach (var edgeCaseFilter in edgeCaseFilters)
             {
-                switch (edgeCaseFilter.Field.ToLower())
+                var searchTerm = edgeCaseFilter.ValueString.ToLower();
+
+                data = edgeCaseFilter.Field.ToLower() switch
                 {
-                    case "rawsubscriptionproperties":
-                    {
-                        var searchTerm = edgeCaseFilter.ValueString.ToLower();
-
-                        data = data.Where(i =>
-                                i.HandlerProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                                i.ReceiverProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                                i.MapperProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                                i.ValidatorProperties.Any(p => p.Value.ToLower().Contains(searchTerm))
-                            )
-                            .ToList();
-
-                        break;
-                    }
-                }
+                    "rawsubscriptionproperties" => data.Where(i =>
+                            i.HandlerProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
+                            i.ReceiverProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
+                            i.MapperProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
+                            i.ValidatorProperties.Any(p => p.Value.ToLower().Contains(searchTerm)))
+                        .ToList(),
+                    "rawfiltersproperties" => data.Where(i =>
+                            i.DocumentFilter.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
+                            (i.MatchExpression?.ToString()?.Contains(searchTerm) ?? false))
+                        .ToList(),
+                    _ => data
+                };
             }
 
             return new SearchyResponse<SubscriptionSearch>

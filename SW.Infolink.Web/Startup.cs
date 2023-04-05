@@ -22,11 +22,14 @@ using SW.Infolink.Sdk;
 using SW.PrimitiveTypes;
 using SW.SimplyRazor;
 using Newtonsoft.Json.Serialization;
+using SW.Infolink.Domain;
 
 namespace SW.Infolink.Web
 {
     public class Startup
     {
+        private static readonly string ApiXchangeCreatedEventQueueName = "XchangeService.ApiXchangeCreatedEvent";
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -55,6 +58,7 @@ namespace SW.Infolink.Web
             {
                 config.ApplicationName = "infolink";
                 config.DefaultQueuePrefetch = infolinkOptions.BusDefaultQueuePrefetch!.Value;
+                config.AddQueueOption("XchangeService.ApiXchangeCreatedEvent", prefetch: 41);
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
@@ -76,7 +80,8 @@ namespace SW.Infolink.Web
                     configure.ProtectAll = true;
                     configure.Serializer = serializer;
                 },
-                typeof(InfolinkDbContext).Assembly);
+                typeof(InfolinkDbContext).Assembly
+            );
 
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
             if (infolinkOptions.StorageProvider.ToUpper().Equals("AS"))
@@ -177,6 +182,7 @@ namespace SW.Infolink.Web
                     });
             });
         }
+
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
