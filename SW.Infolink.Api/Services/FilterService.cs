@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 using SW.PrimitiveTypes;
 using SW.Infolink.Model;
 
@@ -13,13 +12,14 @@ namespace SW.Infolink
 
         public FilterService(IInfolinkCache cache)
         {
-            this._cache = cache;
+            _cache = cache;
         }
 
         public async Task<FilterResult> Filter(int documentId, XchangeFile xchangeFile)
         {
             if (xchangeFile is null)
                 throw new ArgumentNullException(nameof(xchangeFile));
+
 
             var doc = await _cache.DocumentByIdAsync(documentId);
 
@@ -32,6 +32,9 @@ namespace SW.Infolink
             foreach (var pp in doc.PromotedProperties)
             {
                 propReader.TryGetValue(pp.Value, out var ppValue);
+                //TODO check if we need to validate here
+                //if (ppValue is null)
+                //  throw new SWValidationException("PROMOTED_PROPERTY_NOT_FOUND", $"The path {pp.Value} is null on the docuemnt");
                 filterResult.Properties.Add(pp.Key, ppValue?.ToLower());
             }
 
