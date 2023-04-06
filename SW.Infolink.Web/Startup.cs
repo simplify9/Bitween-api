@@ -58,7 +58,7 @@ namespace SW.Infolink.Web
             {
                 config.ApplicationName = "infolink";
                 config.DefaultQueuePrefetch = infolinkOptions.BusDefaultQueuePrefetch!.Value;
-                config.AddQueueOption("XchangeService.ApiXchangeCreatedEvent", prefetch: 41);
+                config.AddQueueOption("XchangeService.ApiXchangeCreatedEvent", priority: 10);
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(InfolinkDbContext).Assembly);
