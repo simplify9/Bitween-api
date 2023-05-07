@@ -90,9 +90,14 @@ namespace SW.Infolink.Resources.Xchanges
                     Status = CqApiResultStatus.Ok
                 };
 
-            for (double count = 2; count <= waitResponse; count += 2)
+
+            var currentFibTerm = 1;
+            var previousTerm = 1;
+            var totalWaited = 0;
+
+            while (currentFibTerm <= waitResponse)
             {
-                await Task.Delay(TimeSpan.FromSeconds(count));
+                await Task.Delay(TimeSpan.FromSeconds(Math.Min(8, currentFibTerm)));
                 if (!await IsResultAvailable(xchangeId)) continue;
 
                 var xchangeResult = await _dbContext.FindAsync<XchangeResult>(xchangeId);
@@ -121,6 +126,10 @@ namespace SW.Infolink.Resources.Xchanges
                     case false:
                         throw new SWValidationException("failure", "Internal processing error.");
                 }
+
+                var nextTerm = currentFibTerm + previousTerm;
+                previousTerm = currentFibTerm;
+                currentFibTerm = nextTerm;
             }
 
 
@@ -130,7 +139,7 @@ namespace SW.Infolink.Resources.Xchanges
             };
         }
 
-        async Task<bool> IsResultAvailable(string xchangeId)
+        private async Task<bool> IsResultAvailable(string xchangeId)
         {
             return await _dbContext.Set<XchangeResult>()
                 .AsNoTracking()
