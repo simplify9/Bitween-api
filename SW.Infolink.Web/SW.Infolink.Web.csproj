@@ -7,14 +7,14 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="6.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.15">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.16">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
     <PackageReference Include="Humanizer.Core" Version="2.14.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.15" />
-    <PackageReference Include="SimplyWorks.Bus" Version="6.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.16" />
+    <PackageReference Include="SimplyWorks.Bus" Version="6.0.12" />
     <PackageReference Include="SimplyWorks.CloudFiles.AS" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.S3" Version="5.0.17" />
@@ -59,6 +59,12 @@
     <_ContentIncludedByDefault Remove="adapters\e46f9d9c570f12229126c5e435fbee16\Kwickbox.Adapters.Mapper.SallaCancelShipment.runtimeconfig.json" />
     <_ContentIncludedByDefault Remove="adapters\fec3387bacbac7f1de717c2af855f6ac\Kwickbox.Adapters.Handlers.SallaShipmentConfirmation.deps.json" />
     <_ContentIncludedByDefault Remove="adapters\fec3387bacbac7f1de717c2af855f6ac\Kwickbox.Adapters.Handlers.SallaShipmentConfirmation.runtimeconfig.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="appsettings.demo.json">
+      <DependentUpon>appsettings.json</DependentUpon>
+    </Content>
   </ItemGroup>
 
   <ProjectExtensions><VisualStudio><UserProperties properties_4launchsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>

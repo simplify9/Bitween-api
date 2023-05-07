@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SW.Infolink.Api;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
@@ -57,7 +56,7 @@ namespace SW.Infolink
             return xchange.Id;
         }
 
-        public async Task<string> SubmitFilterXchange(int documentId, XchangeFile file, string[] references = null,
+        public async Task SubmitFilterXchange(int documentId, XchangeFile file, string[] references = null,
             string correlationId = null)
         {
             var document = await _infolinkCache.DocumentByIdAsync(documentId);
@@ -75,25 +74,21 @@ namespace SW.Infolink
             }
 
             await _dbContext.SaveChangesAsync();
-
-            return xchange.Id;
         }
 
-        public async Task<Xchange> CreateXchange(Xchange xchange, XchangeFile file)
+        public async Task CreateXchange(Xchange xchange, XchangeFile file)
         {
             var newXchange = new Xchange(xchange, file);
             await AddFile(newXchange.Id, XchangeFileType.Input, file);
             _dbContext.Add(newXchange);
-            return xchange;
         }
 
-        public async Task<Xchange> CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
+        public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
             string[] references = null)
         {
             var newXchange = new Xchange(subscription, xchange, file);
             await AddFile(newXchange.Id, XchangeFileType.Input, file);
             _dbContext.Add(newXchange);
-            return xchange;
         }
 
         public async Task<Xchange> CreateXchange(Document document, XchangeFile file, string[] references = null,
@@ -122,7 +117,7 @@ namespace SW.Infolink
         }
 
 
-        async Task<XchangeFile> RunMapper(Xchange xchange, XchangeFile xchangeFile)
+        private async Task<XchangeFile> RunMapper(Xchange xchange, XchangeFile xchangeFile)
         {
             if (xchange.MapperId == null) return xchangeFile;
 
@@ -138,7 +133,6 @@ namespace SW.Infolink
                     $"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
             else
                 await AddFile(xchange.Id, XchangeFileType.Output, xchangeFile);
-
             return xchangeFile;
         }
 
@@ -171,7 +165,7 @@ namespace SW.Infolink
             return xchangeFile;
         }
 
-        async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
+        private async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
         {
             await _cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings
             {
@@ -213,7 +207,7 @@ namespace SW.Infolink
             return await reader.ReadToEndAsync();
         }
 
-        async Task Process(XchangeCreatedEvent message)
+        private async Task Process(XchangeCreatedEvent message)
         {
             Xchange responseXchange = null;
             XchangeFile outputFile = null;
@@ -270,6 +264,10 @@ namespace SW.Infolink
             }
         }
 
+        
+        
+        
+        
         async Task CreateXchangesForHits(Xchange xchange, FilterResult result, XchangeFile inputFile)
         {
             foreach (var subscriptionId in result.Hits)
