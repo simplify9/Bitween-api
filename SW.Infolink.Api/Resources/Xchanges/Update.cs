@@ -93,11 +93,12 @@ namespace SW.Infolink.Resources.Xchanges
 
             var currentFibTerm = 1;
             var previousTerm = 1;
-            var totalWaited = 0;
-
             while (currentFibTerm <= waitResponse)
             {
-                await Task.Delay(TimeSpan.FromSeconds(Math.Min(8, currentFibTerm)));
+                await Task.Delay(TimeSpan.FromSeconds(currentFibTerm));
+                var nextTerm = Math.Min(currentFibTerm + previousTerm, 8);
+                previousTerm = currentFibTerm;
+                currentFibTerm = nextTerm;
                 if (!await IsResultAvailable(xchangeId)) continue;
 
                 var xchangeResult = await _dbContext.FindAsync<XchangeResult>(xchangeId);
@@ -126,10 +127,6 @@ namespace SW.Infolink.Resources.Xchanges
                     case false:
                         throw new SWValidationException("failure", "Internal processing error.");
                 }
-
-                var nextTerm = currentFibTerm + previousTerm;
-                previousTerm = currentFibTerm;
-                currentFibTerm = nextTerm;
             }
 
 
