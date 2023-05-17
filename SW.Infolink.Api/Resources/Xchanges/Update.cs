@@ -46,9 +46,15 @@ namespace SW.Infolink.Resources.Xchanges
             var par = await _dbContext.AuthorizePartner(_requestContext);
 
 
-            var sub = (await _cache.ListSubscriptionsByDocumentAsync(document.Id))
+            var subs = (await _cache.ListSubscriptionsByDocumentAsync(document.Id))
                 .Where(i => i.Type == SubscriptionType.ApiCall)
-                .SingleOrDefault(i => i.PartnerId == par.Partner.Id);
+                .ToList();
+
+            if (subs?.Count > 1)
+                throw new SWValidationException("Subscriptions",
+                    "You can only have one subscription of type ApiCall for each document ");
+
+            var sub = subs.SingleOrDefault(i => i.PartnerId == par.Partner.Id);
 
             if (par.Partner.Id == Partner.SystemId && sub is null)
             {
