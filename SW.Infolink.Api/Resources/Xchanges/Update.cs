@@ -44,25 +44,21 @@ namespace SW.Infolink.Resources.Xchanges
                 throw new SWNotFoundException("Document");
 
             var par = await _dbContext.AuthorizePartner(_requestContext);
-            // var subscriptionQuery = from subscription in _dbContext.Set<Subscription>()
-            //     where subscription.DocumentId == document.Id && subscription.PartnerId == par.Partner.Id
-            //     select subscription;
 
-            var sub = (await _cache.ListSubscriptionsByDocumentAsync(document.Id)).SingleOrDefault(i =>
-                i.PartnerId == par.Partner.Id);
-            // var sub = await subscriptionQuery.AsNoTracking().SingleOrDefaultAsync();
 
-            if (par.Partner.Id == Partner.SystemId && sub == null)
+            var sub = (await _cache.ListSubscriptionsByDocumentAsync(document.Id))
+                .Where(i => i.Type == SubscriptionType.ApiCall)
+                .SingleOrDefault(i => i.PartnerId == par.Partner.Id);
+
+            if (par.Partner.Id == Partner.SystemId && sub is null)
             {
                 await _xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
                 return null;
             }
 
-            if (sub == null)
-                throw new SWNotFoundException("Subscription");
+            if (sub is null)
+                throw new SWNotFoundException("No subscription of type ApiCall was found for this document");
 
-            if (sub.Type != SubscriptionType.ApiCall)
-                throw new SWValidationException("Subscription", $"Subscription is of wrong type {sub.Type}");
 
             var xchangeReferences = new List<string> { $"partnerkey: {par.KeyName}" };
 
