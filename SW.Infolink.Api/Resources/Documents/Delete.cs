@@ -22,7 +22,7 @@ namespace SW.Infolink.Api.Resources.Documents
 
         async public Task<object> Handle(int key)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             await _dbContext.DeleteByKeyAsync<Document>(key);
             return null;

@@ -21,7 +21,7 @@ namespace SW.Infolink.Resources.Notifiers
 
         public async Task<object> Handle(int key, NotifierUpdate request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var notifier = await _dbContext.FindAsync<Notifier>(key);
 

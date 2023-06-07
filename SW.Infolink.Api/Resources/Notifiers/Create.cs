@@ -20,7 +20,7 @@ namespace SW.Infolink.Resources.Notifiers
 
         public async Task<object> Handle(NotifierCreate request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var notifier = new Notifier(request.Name);
 

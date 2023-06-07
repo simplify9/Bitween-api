@@ -22,7 +22,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
         public async Task<object> Handle(int key, SubscriptionPause request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var entity = await _dbContext.FindAsync<Subscription>(key);
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Paused, entity);

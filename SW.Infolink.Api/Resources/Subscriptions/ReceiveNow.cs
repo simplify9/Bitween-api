@@ -20,7 +20,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
         async public Task<object> Handle(int key, SubscriptionReceiveNow request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var entity = await _dbContext.FindAsync<Subscription>(key);
             entity.SetReceiveNow();

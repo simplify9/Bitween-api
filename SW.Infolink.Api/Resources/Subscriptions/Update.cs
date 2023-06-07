@@ -26,7 +26,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
         public async Task<object> Handle(int key, SubscriptionUpdate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
             var entity = await _dbContext.FindAsync<Subscription>(key);
 
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
