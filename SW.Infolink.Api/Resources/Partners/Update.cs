@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Resources.Partners
 {
@@ -24,6 +25,8 @@ namespace SW.Infolink.Resources.Partners
 
         public async Task<object> Handle(int key, PartnerUpdate model)
         {
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+
             var entity = await _dbContext.FindAsync<Partner>(key);
             entity.SetApiCredentials(model.ApiCredentials.Select(kv => new ApiCredential(kv.Key, kv.Value)));
             _dbContext.Entry(entity).SetProperties(model);

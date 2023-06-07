@@ -25,7 +25,7 @@ namespace SW.Infolink.Api.Resources.Documents
 
         public async Task<object> Handle(DocumentCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var entity = new Document(model.Id, model.Name, model.DocumentFormat);
             var trail = new DocumentTrail(DocumentTrailCode.Created, entity, true);

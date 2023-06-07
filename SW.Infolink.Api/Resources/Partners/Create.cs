@@ -19,7 +19,7 @@ namespace SW.Infolink.Resources.Partners
 
         public async Task<object> Handle(PartnerCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var entity = new Partner(model.Name);
             _dbContext.Add(entity);

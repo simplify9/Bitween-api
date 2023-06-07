@@ -23,7 +23,7 @@ namespace SW.Infolink.Resources.Partners
 
         public async Task<object> Handle(int key)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             if (key == Partner.SystemId)
                 throw new SWException("System partner can not be deleted.");

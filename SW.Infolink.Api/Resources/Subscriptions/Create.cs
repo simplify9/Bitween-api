@@ -20,7 +20,7 @@ namespace SW.Infolink.Resources.Subscriptions
 
         public async Task<object> Handle(SubscriptionCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             Subscription entity;
 
