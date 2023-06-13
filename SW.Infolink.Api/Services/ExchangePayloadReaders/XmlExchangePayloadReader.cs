@@ -9,16 +9,18 @@ public class XmlExchangePayloadReader : IExchangePayloadReader
 {
     private readonly XDocument _doc;
 
+
     public XmlExchangePayloadReader(string data)
     {
-        var decodedData = HttpUtility.HtmlDecode(data);
+        var decodedData = HttpUtility.HtmlDecode((data));
         _doc = XDocument.Parse(RemoveInvalidXmlChars(decodedData));
     }
 
     private static string RemoveInvalidXmlChars(string input)
     {
-        const string invalidXmlCharsPattern = @"[\u0000-\u0008\u000B-\u000C\u000E-\u001F]";
-        return Regex.Replace(input, invalidXmlCharsPattern, "");
+        input = Regex.Replace(input, @"&(?!(amp;|lt;|gt;|apos;|quot;))", "&amp;");
+
+        return Regex.Replace(input, @"[^\x09\x0A\x0D\x20-\xD7FF\xE000-\xFFFD\x10000-x10FFFF]", "");
     }
 
     public bool TryGetValue(string path, out string value)
