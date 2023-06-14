@@ -53,7 +53,8 @@ namespace SW.Infolink.Resources.Subscriptions
                     ReceiverProperties = subscriber.ReceiverProperties.ToKeyAndValueCollection(),
                     ValidatorProperties = subscriber.ValidatorProperties.ToKeyAndValueCollection(),
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
-                    MatchExpression = subscriber.MatchExpression
+                    MatchExpression = subscriber.MatchExpression,
+                    PartnerId = subscriber.PartnerId
                 };
 
             query = query.AsNoTracking().AsQueryable();
