@@ -25,10 +25,10 @@ public class Update : ICommandHandler<int, UpdateAccountModel>
             _requestContext.EnsureAccess(AccountRole.Admin);
 
 
-        var accountId = Convert.ToInt32(_requestContext.GetNameIdentifier());
-        var account = await _dbContext.Set<Account>().FindAsync(accountId);
+        
+        var account = await _dbContext.Set<Account>().FindAsync(key);
         if (account is null)
-            throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {accountId}");
+            throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {key}");
 
 
         account.Update(request.Name, (AccountRole)request.Role);
