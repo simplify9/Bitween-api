@@ -57,6 +57,12 @@ namespace SW.Infolink.Domain.Accounts
         }
 
 
+        public void Update(string name, AccountRole role)
+        {
+            DisplayName = name;
+            Role = role;
+        }
+
         public DateTime CreatedOn { get; set; }
         public string CreatedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }

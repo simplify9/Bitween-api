@@ -10,6 +10,12 @@ public class CreateAccountModel
     public int Role { get; set; }
 }
 
+public class UpdateAccountModel
+{
+    public string Name { get; set; }
+    public int Role { get; set; }
+}
+
 public class RemoveAccountModel
 {
 }
