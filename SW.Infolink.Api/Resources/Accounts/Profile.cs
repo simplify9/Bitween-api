@@ -23,7 +23,9 @@ public class Profile : IQueryHandler
     public async Task<object> Handle()
     {
         var accountId = Convert.ToInt32(requestContext.GetNameIdentifier());
-        return await dbContext.Set<Account>().Select(a => new AccountModel
+        return await dbContext.Set<Account>()
+            .AsNoTracking()
+            .Select(a => new AccountModel
             {
                 CreatedOn = a.CreatedOn,
                 Email = a.Email,
@@ -31,7 +33,6 @@ public class Profile : IQueryHandler
                 Id = a.Id,
                 Role = a.Role.ToString()
             })
-            .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == accountId);
     }
 }
