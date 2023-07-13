@@ -1,13 +1,13 @@
 name: $(version)
 
 trigger:
-  - master
   - releases/*
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
+  - group: PlaygroundSecrets  
   - group: Chartmuseum
   - group: S3Bucket
   - name: imageName
@@ -118,13 +118,13 @@ jobs:
         displayName: 'Deploy to playground'
         inputs:
           connectionType: 'Kubernetes Service Connection'
-          kubernetesServiceConnection: 'k8s-s9'
+          kubernetesServiceConnection: 'k8s-s9-dev'
           namespace: 'playground'
           command: 'upgrade'
           chartName: '$(imageName)'
           chartVersion: $(version)
           releaseName: '$(imageName)'
-          overrideValues: 'db="$(dbConnection)",ingress.enabled=true,ingress.hosts={infolink.sf9.io},ingress.path="/api",global.bus.rabbitUrl=$(rabbitUrl),global.cloudFiles.secretAccessKey=$(SecretAccessKey),global.cloudFiles.accessKeyId=$(AccessKeyId),global.cloudFiles.serviceUrl=$(ServiceUrl),global.cloudFiles.bucketName=$(BucketName),ingress.annotations."kubernetes\.io/ingress\.class"="nginx"'
+          overrideValues: 'db="$(dbcs)",ingress.enabled=true,ingress.hosts={infolink.sf9.io},ingress.path="/api",global.bus.rabbitUrl=$(rabbitUrl),global.cloudFiles.secretAccessKey=$(SecretAccessKey),global.cloudFiles.accessKeyId=$(AccessKeyId),global.cloudFiles.serviceUrl=$(ServiceUrl),global.cloudFiles.bucketName=$(BucketName),ingress.annotations."kubernetes\.io/ingress\.class"="nginx"'
           arguments: >
             --repo https://charts.sf9.io
             --set global.environment="Staging"
