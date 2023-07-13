@@ -128,4 +128,5 @@ jobs:
           arguments: >
             --repo https://charts.sf9.io
             --set global.environment="Staging"
+            --set ingress.path="/api"
 
