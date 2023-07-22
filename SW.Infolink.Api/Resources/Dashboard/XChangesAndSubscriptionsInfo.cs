@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using SW.Infolink.Domain;
+using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 
 namespace SW.Infolink.Resources.Dashboard;
@@ -15,12 +16,15 @@ public class XChangesAndSubscriptionsInfo : IQueryHandler
     private readonly InfolinkDbContext _dbContext;
 
     private readonly DateTime _dataDateLimit;
+    private readonly XchangeService _xchangeService;
+
     // private readonly IMemoryCache _memoryCache;
     // private const string CACHE_KEY = "XChangesAndSubscriptionsInfoCache";
 
-    public XChangesAndSubscriptionsInfo(InfolinkDbContext dbContext)
+    public XChangesAndSubscriptionsInfo(InfolinkDbContext dbContext, XchangeService xchangeService)
     {
         _dbContext = dbContext;
+        _xchangeService = xchangeService;
         //_memoryCache = memoryCache;
         _dataDateLimit = DateTime.UtcNow.AddMonths(-3);
     }
@@ -53,7 +57,8 @@ public class XChangesAndSubscriptionsInfo : IQueryHandler
                 SubscriptionName = subscriber.Name,
                 result.FinishedOn,
                 result.ResponseBad,
-                result.Exception
+                result.Exception,
+                ResponseUrl = _xchangeService.GetFileUrl(xchange.Id, result.ResponseSize, XchangeFileType.Response),
             };
 
         var latestFailedxCahanges = await latestFailedQ
