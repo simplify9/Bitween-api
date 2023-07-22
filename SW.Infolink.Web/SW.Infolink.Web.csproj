@@ -7,20 +7,20 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="6.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.18">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.20">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
     <PackageReference Include="Humanizer.Core" Version="2.14.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.18" />
-    <PackageReference Include="SimplyWorks.Bus" Version="6.0.12" />
+    <PackageReference Include="SimplyWorks.Bus" Version="6.0.15" />
     <PackageReference Include="SimplyWorks.CloudFiles.AS" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.S3" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CqApi" Version="6.0.5" />
-    <PackageReference Include="SimplyWorks.Logger" Version="5.0.7" />
+    <PackageReference Include="SimplyWorks.Logger" Version="5.0.11" />
     <PackageReference Include="SimplyWorks.Serverless" Version="6.0.28" />
     <PackageReference Include="SimplyWorks.SimplyRazor" Version="5.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="6.5.0" />

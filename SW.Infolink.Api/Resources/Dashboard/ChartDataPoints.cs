@@ -42,7 +42,9 @@ public class ChartsDataPoints : IQueryHandler
             {
                 SubscriptionId = i.Key,
                 Count = i.Count()
-            }).ToListAsync();
+            })
+            .OrderByDescending(i => i.Count)
+            .ToListAsync();
 
         return new
         {
