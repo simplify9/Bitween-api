@@ -58,7 +58,7 @@ public class XChangesAndSubscriptionsInfo : IQueryHandler
                 result.FinishedOn,
                 result.ResponseBad,
                 result.Exception,
-                ResponseUrl = _xchangeService.GetFileUrl(xchange.Id, result.ResponseSize, XchangeFileType.Response),
+                ResponseFileKey = _xchangeService.GetFileKey(xchange.Id, result.ResponseSize, XchangeFileType.Response),
             };
 
         var latestFailedxCahanges = await latestFailedQ
