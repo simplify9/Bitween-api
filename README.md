@@ -377,9 +377,9 @@ using SW.Serverless.Sdk;
    -u
    <Storage url>
    ```
-   **the path name must start with infolink6.< mappers | handlers | receivers >.< any name >** 
+   **The path name must start with infolink6.< mappers | handlers | receivers >.< any name >** 
    ex: infolink6.mappers.simplyProject.outMapper 
-
+   **If you are using azure storage please add "-p as" to the cli arguments 
 
 5. Now the adapter will be available for selection from the subscription editor
 
