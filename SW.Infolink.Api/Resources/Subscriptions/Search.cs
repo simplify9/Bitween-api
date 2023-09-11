@@ -54,7 +54,9 @@ namespace SW.Infolink.Resources.Subscriptions
                     ValidatorProperties = subscriber.ValidatorProperties.ToKeyAndValueCollection(),
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
                     MatchExpression = subscriber.MatchExpression,
-                    PartnerId = subscriber.PartnerId
+                    PartnerId = subscriber.PartnerId,
+                    CategoryDescription = subscriber.Category.Description,
+                    CategoryCode = subscriber.Category.Code
                 };
 
             query = query.AsNoTracking().AsQueryable();

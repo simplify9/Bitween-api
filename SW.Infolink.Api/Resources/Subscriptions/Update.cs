@@ -32,10 +32,8 @@ namespace SW.Infolink.Resources.Subscriptions
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
             _dbContext.Entry(entity).SetProperties(model);
 
-
             entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
                 TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
-
             entity.SetDictionaries(
                 model.HandlerProperties.ToDictionary(),
                 model.MapperProperties.ToDictionary(),

@@ -76,6 +76,13 @@ namespace SW.Infolink
                 cr.Property(c => c.IsRunning);
             });
 
+            modelBuilder.Entity<SubscriptionCategory>(sc =>
+            {
+                sc.HasKey(i => i.Id);
+                sc.Property(i => i.Id).ValueGeneratedOnAdd();
+                sc.HasIndex(i => i.Code).IsUnique();
+            });
+
             modelBuilder.Entity<Partner>(b =>
             {
                 b.ToTable("Partners");
@@ -113,7 +120,6 @@ namespace SW.Infolink
             {
                 b.ToTable("Subscriptions");
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                //b.OwnsMany(p => p.AggregationSchedules, schedules => schedules.BuildSchedule("SubscriptionAggregationSchedules"));
                 b.OwnsMany(p => p.Schedules, schedules =>
                 {
                     schedules.ToTable("SubscriptionSchedules");
@@ -141,7 +147,7 @@ namespace SW.Infolink
                     .HasConstraintName("FK_Subscriptions_RespSub").OnDelete(DeleteBehavior.Restrict);
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
                     .HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
-
+                b.HasOne(i => i.Category).WithMany().HasForeignKey(i => i.CategoryId);
                 b.Property(p => p.MatchExpression).HasConversion(
                     domainObject =>
                         domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),

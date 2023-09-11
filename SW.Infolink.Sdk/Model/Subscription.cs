@@ -51,6 +51,8 @@ namespace SW.Infolink.Model
         public int Id { get; set; }
         public string DocumentName { get; set; }
         public bool? IsRunning { get; set; }
+        public string CategoryCode { get; set; }
+        public string CategoryDescription { get; set; }
     }
 
     public class SubscriptionUpdate : SubscriptionCreate
@@ -59,6 +61,7 @@ namespace SW.Infolink.Model
         public string MapperId { get; set; }
         public string ReceiverId { get; set; }
         public string ValidatorId { get; set; }
+        public int? CategoryId { get; set; }
 
         public bool Temporary { get; set; }
         public IPropertyMatchSpecification MatchExpression { get; set; }
@@ -81,5 +84,7 @@ namespace SW.Infolink.Model
         public string LastException { get; set; }
         public XchangeFileType AggregationTarget { get; set; }
         public DateTime? PausedOn { get; set; }
+        public string CategoryCode { get; set; }
+        public string CategoryDescription { get; set; }
     }
 }
