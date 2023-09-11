@@ -57,6 +57,9 @@ namespace SW.Infolink.Domain
         public int DocumentId { get; private set; }
         public SubscriptionType Type { get; private set; }
         public int? PartnerId { get; private set; }
+        public int? CategoryId { get; set; }
+        public SubscriptionCategory Category { get; set; }
+
         public bool Temporary { get; private set; }
         public DateTime? PausedOn { get; private set; }
 

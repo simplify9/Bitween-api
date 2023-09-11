@@ -49,6 +49,9 @@ namespace SW.Infolink.Resources.Subscriptions
                     ValidatorId = subscriber.ValidatorId,
                     PausedOn = subscriber.PausedOn,
                     MatchExpression = subscriber.MatchExpression,
+                    CategoryDescription = subscriber.Category?.Description,
+                    CategoryCode = subscriber.Category?.Code,
+                    CategoryId = subscriber.CategoryId,
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,

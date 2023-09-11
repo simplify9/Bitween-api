@@ -16,7 +16,7 @@ namespace SW.Infolink.MySql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.13")
+                .HasAnnotation("ProductVersion", "6.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("SW.Infolink.Domain.Accounts.Account", b =>
@@ -311,6 +311,9 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<byte>("AggregationTarget")
                         .HasColumnType("tinyint unsigned");
 
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ConsecutiveFailures")
                         .HasColumnType("int");
 
@@ -396,6 +399,8 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.HasIndex("AggregationForId");
 
+                    b.HasIndex("CategoryId");
+
                     b.HasIndex("DocumentId");
 
                     b.HasIndex("PartnerId");
@@ -403,6 +408,38 @@ namespace SW.Infolink.MySql.Migrations
                     b.HasIndex("ResponseSubscriptionId");
 
                     b.ToTable("Subscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Infolink.Domain.SubscriptionCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Code")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionCategory");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
@@ -764,6 +801,10 @@ namespace SW.Infolink.MySql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_Subscriptions_AggFor");
 
+                    b.HasOne("SW.Infolink.Domain.SubscriptionCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId");
+
                     b.HasOne("SW.Infolink.Domain.Document", null)
                         .WithMany()
                         .HasForeignKey("DocumentId")
@@ -806,6 +847,8 @@ namespace SW.Infolink.MySql.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("SubscriptionId");
                         });
+
+                    b.Navigation("Category");
 
                     b.Navigation("Schedules");
                 });

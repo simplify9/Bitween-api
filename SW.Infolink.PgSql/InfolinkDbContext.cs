@@ -66,6 +66,12 @@ namespace SW.Infolink.PgSql
                 cr.HasNoKey().ToView(null);
                 cr.Property(c => c.IsRunning);
             });
+            modelBuilder.Entity<SubscriptionCategory>(sc =>
+            {
+                sc.HasKey(i => i.Id);
+                sc.Property(i => i.Id).ValueGeneratedOnAdd();
+                sc.HasIndex(i => i.Code).IsUnique();
+            });
 
             modelBuilder.Entity<Partner>(b =>
             {
@@ -134,6 +140,7 @@ namespace SW.Infolink.PgSql
 
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_subscription_aggregation_for");
+                b.HasOne(i => i.Category).WithMany().HasForeignKey(i => i.CategoryId);
 
                 b.Property(p => p.MatchExpression).HasConversion(
                     domainObject =>
