@@ -12,7 +12,7 @@ using Document = SW.Infolink.Domain.Document;
 
 namespace SW.Infolink.Resources.Subscriptions
 {
-    class Search : ISearchyHandler
+    public class Search : ISearchyHandler
     {
         private readonly InfolinkDbContext _dbContext;
         private readonly List<string> _edgeCaseProperties;
@@ -25,9 +25,7 @@ namespace SW.Infolink.Resources.Subscriptions
             {
                 "rawsubscriptionproperties",
                 "rawfiltersproperties",
-                "name",
-                // "isRunning",
-                // "inactive"
+                "name"
             };
         }
 
@@ -112,11 +110,6 @@ namespace SW.Infolink.Resources.Subscriptions
                         .ToList(),
                     "name" => data.Where(i => i.Name.ToLower().Contains(searchTerm))
                         .ToList(),
-                    "inactive" => data.Where(i => searchTerm == "Active" ? i.Inactive is false : i.Inactive)
-                        .ToList(),
-                    "isRunning" => data.Where(i =>
-                            searchTerm == "Idle" ? i.IsRunning is true : i.IsRunning is false or null)
-                        .ToList(),
                     _ => data
                 };
             }
@@ -132,6 +125,9 @@ namespace SW.Infolink.Resources.Subscriptions
         private ICollection<SearchyFilter> HandleSearchyEdgeCases(ICollection<SearchyCondition> filters)
         {
             var list = new List<SearchyFilter>();
+            if (filters is null || filters.Count == 0)
+                return list;
+
             var edgeCaseFilters = filters?.SelectMany(i => i.Filters)
                 .Where(i => _edgeCaseProperties.Contains(i.Field.ToLower())).ToList();
 
