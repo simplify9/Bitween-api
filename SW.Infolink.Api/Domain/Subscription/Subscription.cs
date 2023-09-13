@@ -59,17 +59,13 @@ namespace SW.Infolink.Domain
         public int? PartnerId { get; private set; }
         public int? CategoryId { get; set; }
         public SubscriptionCategory Category { get; set; }
-
         public bool Temporary { get; private set; }
         public DateTime? PausedOn { get; private set; }
-
-
         public string ValidatorId { get; set; }
         public string HandlerId { get; set; }
+        public string ReceiverId { get; set; }
 
         public string MapperId { get; set; }
-        //public bool Aggregate { get; set; }
-
         public IReadOnlyDictionary<string, string> ValidatorProperties { get; private set; }
         public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
         public IReadOnlyDictionary<string, string> MapperProperties { get; private set; }
@@ -77,6 +73,26 @@ namespace SW.Infolink.Domain
         public IReadOnlyDictionary<string, string> DocumentFilter { get; private set; }
 
         public IPropertyMatchSpecification MatchExpression { get; private set; }
+        public bool IsRunning { get; set; }
+        public bool Inactive { get; set; }
+        public int? ResponseSubscriptionId { get; set; }
+        public string ResponseMessageTypeName { get; set; }
+        public int? AggregationForId { get; private set; }
+        public XchangeFileType AggregationTarget { get; set; }
+        public DateTime? AggregateOn { get; private set; }
+        public int ConsecutiveFailures { get; private set; }
+        public string LastException { get; private set; }
+
+        readonly HashSet<Schedule> _Schedules;
+        public IReadOnlyCollection<Schedule> Schedules => _Schedules;
+        public DateTime? ReceiveOn { get; private set; }
+
+
+        public void SetAggregateNow()
+        {
+            AggregateOn = DateTime.UtcNow.AddMinutes(-1);
+        }
+
 
         public void SetDictionaries(
             IReadOnlyDictionary<string, string> handler,
@@ -92,58 +108,6 @@ namespace SW.Infolink.Domain
             ValidatorProperties = validator;
             DocumentFilter = document;
         }
-
-        public void SetMatchExpression(IPropertyMatchSpecification matchExpression)
-        {
-            MatchExpression = matchExpression;
-        }
-
-        public void Pause()
-        {
-            PausedOn = DateTime.Now;
-        }
-
-        public void UnPause()
-        {
-            PausedOn = null;
-            Events.Add(new SubscriptionUnpausedEvent
-            {
-                Id = Id
-            });
-        }
-
-        public bool Inactive { get; set; }
-        public int? ResponseSubscriptionId { get; set; }
-        public string ResponseMessageTypeName { get; set; }
-        public int? AggregationForId { get; private set; }
-        public XchangeFileType AggregationTarget { get; set; }
-
-        //readonly HashSet<Schedule> _AggregationSchedules;
-        //public IReadOnlyCollection<Schedule> AggregationSchedules => _AggregationSchedules;
-        public DateTime? AggregateOn { get; private set; }
-
-        //public void SetAggregationSchedules(IEnumerable<Schedule> schedules = null)
-        //{
-        //    if (Type == SubscriptionType.Aggregation)
-        //    {
-        //        if (schedules != null) _AggregationSchedules.Update(schedules);
-        //        AggregateOn = _AggregationSchedules.Next() ?? throw new InfolinkException("Invalid schedule.");
-        //    }
-        //}
-        public void SetAggregateNow()
-        {
-            AggregateOn = DateTime.UtcNow.AddMinutes(-1);
-        }
-
-
-        public string ReceiverId { get; set; }
-
-        readonly HashSet<Schedule> _Schedules;
-        public IReadOnlyCollection<Schedule> Schedules => _Schedules;
-        public DateTime? ReceiveOn { get; private set; }
-
-        public bool IsRunning { get; set; }
-
         public void SetSchedules(IEnumerable<Schedule> schedules = null)
         {
             if (Type == SubscriptionType.Receiving)
@@ -176,10 +140,23 @@ namespace SW.Infolink.Domain
             LastException = exception;
         }
 
-        public int ConsecutiveFailures { get; private set; }
-        public string LastException { get; private set; }
+        public void SetMatchExpression(IPropertyMatchSpecification matchExpression)
+        {
+            MatchExpression = matchExpression;
+        }
 
-        //public int AggregateConsecutiveFailures { get; private set; }
-        //public string AggregateLastException { get; private set; }
+        public void Pause()
+        {
+            PausedOn = DateTime.Now;
+        }
+
+        public void UnPause()
+        {
+            PausedOn = null;
+            Events.Add(new SubscriptionUnpausedEvent
+            {
+                Id = Id
+            });
+        }
     }
 }

@@ -5,35 +5,27 @@ using SW.Infolink.Model;
 
 namespace SW.Infolink.Resources.Adapters
 {
-    class Search : IQueryHandler<AdapterSearchRequest>
+    public class Search : IQueryHandler<AdapterSearchRequest>
     {
-        private readonly ServerlessOptions serverlessOptions;
-        private readonly ICloudFilesService cloudFilesService;
+        private readonly ServerlessOptions _serverlessOptions;
+        private readonly ICloudFilesService _cloudFilesService;
 
         public Search(ServerlessOptions serverlessOptions, ICloudFilesService cloudFilesService)
         {
-            this.serverlessOptions = serverlessOptions;
-            this.cloudFilesService = cloudFilesService;
+            _serverlessOptions = serverlessOptions;
+            _cloudFilesService = cloudFilesService;
         }
 
-        async public Task<object> Handle(AdapterSearchRequest request)
+        public async Task<object> Handle(AdapterSearchRequest request)
         {
-            var index = serverlessOptions.AdapterRemotePath.Length + 1;
+            var index = _serverlessOptions.AdapterRemotePath.Length + 1;
 
-            var cloudFilesList = (await cloudFilesService.ListAsync($"{serverlessOptions.AdapterRemotePath}/infolink6.{request.Prefix}")).Where(item => item.Size > 0).ToList();
+            var cloudFilesList =
+                (await _cloudFilesService.ListAsync(
+                    $"{_serverlessOptions.AdapterRemotePath}/infolink6.{request.Prefix}"))
+                .Where(item => item.Size > 0).ToList();
 
-            //if (lookup)
-                return cloudFilesList.ToDictionary(k => k.Key.Substring(index), v => v.Key.Substring(index));
-
-            //var sr = new SearchyResponse<AdapterRow>();
-            //sr.TotalCount = cloudFilesList.Count();
-            //sr.Result = cloudFilesList.Select(item => new AdapterRow
-            //{
-            //    Id = item.Key.Substring(index)
-            //});
-
-            //return sr;
-
+            return cloudFilesList.ToDictionary(k => k.Key[index..], v => v.Key[index..]);
         }
     }
 }

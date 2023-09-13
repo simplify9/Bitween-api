@@ -12,7 +12,7 @@ using Document = SW.Infolink.Domain.Document;
 
 namespace SW.Infolink.Resources.Subscriptions
 {
-    class Search : ISearchyHandler
+    public class Search : ISearchyHandler
     {
         private readonly InfolinkDbContext _dbContext;
         private readonly List<string> _edgeCaseProperties;
@@ -24,7 +24,8 @@ namespace SW.Infolink.Resources.Subscriptions
             _edgeCaseProperties = new List<string>
             {
                 "rawsubscriptionproperties",
-                "rawfiltersproperties"
+                "rawfiltersproperties",
+                "name"
             };
         }
 
@@ -55,6 +56,7 @@ namespace SW.Infolink.Resources.Subscriptions
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
                     MatchExpression = subscriber.MatchExpression,
                     PartnerId = subscriber.PartnerId,
+                    CategoryId = subscriber.CategoryId,
                     CategoryDescription = subscriber.Category.Description,
                     CategoryCode = subscriber.Category.Code
                 };
@@ -106,6 +108,8 @@ namespace SW.Infolink.Resources.Subscriptions
                             i.DocumentFilter.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
                             (i.MatchExpression?.ToString()?.Contains(searchTerm) ?? false))
                         .ToList(),
+                    "name" => data.Where(i => i.Name.ToLower().Contains(searchTerm))
+                        .ToList(),
                     _ => data
                 };
             }
@@ -121,6 +125,9 @@ namespace SW.Infolink.Resources.Subscriptions
         private ICollection<SearchyFilter> HandleSearchyEdgeCases(ICollection<SearchyCondition> filters)
         {
             var list = new List<SearchyFilter>();
+            if (filters is null || filters.Count == 0)
+                return list;
+
             var edgeCaseFilters = filters?.SelectMany(i => i.Filters)
                 .Where(i => _edgeCaseProperties.Contains(i.Field.ToLower())).ToList();
 
