@@ -24,7 +24,10 @@ namespace SW.Infolink.Resources.Subscriptions
             _edgeCaseProperties = new List<string>
             {
                 "rawsubscriptionproperties",
-                "rawfiltersproperties"
+                "rawfiltersproperties",
+                "name",
+                // "isRunning",
+                // "inactive"
             };
         }
 
@@ -55,6 +58,7 @@ namespace SW.Infolink.Resources.Subscriptions
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),
                     MatchExpression = subscriber.MatchExpression,
                     PartnerId = subscriber.PartnerId,
+                    CategoryId = subscriber.CategoryId,
                     CategoryDescription = subscriber.Category.Description,
                     CategoryCode = subscriber.Category.Code
                 };
@@ -105,6 +109,13 @@ namespace SW.Infolink.Resources.Subscriptions
                     "rawfiltersproperties" => data.Where(i =>
                             i.DocumentFilter.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
                             (i.MatchExpression?.ToString()?.Contains(searchTerm) ?? false))
+                        .ToList(),
+                    "name" => data.Where(i => i.Name.ToLower().Contains(searchTerm))
+                        .ToList(),
+                    "inactive" => data.Where(i => searchTerm == "Active" ? i.Inactive is false : i.Inactive)
+                        .ToList(),
+                    "isRunning" => data.Where(i =>
+                            searchTerm == "Idle" ? i.IsRunning is true : i.IsRunning is false or null)
                         .ToList(),
                     _ => data
                 };
