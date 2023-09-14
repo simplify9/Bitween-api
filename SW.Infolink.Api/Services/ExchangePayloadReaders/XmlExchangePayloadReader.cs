@@ -32,4 +32,9 @@ public class XmlExchangePayloadReader : IExchangePayloadReader
         value = trimmed == string.Empty ? default : trimmed;
         return true;
     }
+
+    bool IExchangePayloadReader.CanGetValues()
+    {
+        return true;
+    }
 }
