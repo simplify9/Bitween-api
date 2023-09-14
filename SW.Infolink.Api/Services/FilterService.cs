@@ -29,6 +29,9 @@ namespace SW.Infolink
 
             var filterResult = new FilterResult();
 
+            if (!propReader.CanGetValues())
+                return filterResult;
+
             foreach (var pp in doc.PromotedProperties)
             {
                 propReader.TryGetValue(pp.Value, out var ppValue);
