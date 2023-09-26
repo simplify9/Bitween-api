@@ -44,6 +44,8 @@ namespace SW.Infolink.Resources.Subscriptions
                     HandlerId = subscriber.HandlerId,
                     Inactive = subscriber.Inactive,
                     MapperId = subscriber.MapperId,
+                    ValidatorId = subscriber.ValidatorId,
+                    ReceiverId = subscriber.ReceiverId,
                     AggregationForId = subscriber.AggregationForId,
                     Temporary = subscriber.Temporary,
                     ReceiveOn = subscriber.ReceiveOn,
@@ -62,11 +64,13 @@ namespace SW.Infolink.Resources.Subscriptions
                 };
 
             query = query.AsNoTracking().AsQueryable();
+
             var edgeCaseFilters = HandleSearchyEdgeCases(searchyRequest.Conditions);
 
             if (lookup)
             {
-                return await query.OrderBy(s => s.Name).Search(searchyRequest.Conditions)
+                return await query.OrderBy(s => s.Name)
+                    .Search(searchyRequest.Conditions)
                     .ToDictionaryAsync(k => k.Id.ToString(), v => v.Name);
             }
 
