@@ -10,7 +10,7 @@ namespace SW.Infolink
     {
         public DueReceivers(DateTime? asOf = null)
         {
-            if (asOf == null) asOf = DateTime.UtcNow.AddDays(100);
+            if (asOf == null) asOf = DateTime.UtcNow;
 
             Criteria = e =>
                 e.ReceiveOn < asOf && e.Schedules.Any() && !e.Inactive && !e.IsRunning &&
