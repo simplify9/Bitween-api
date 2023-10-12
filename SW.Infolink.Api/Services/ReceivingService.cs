@@ -42,8 +42,8 @@ namespace SW.Infolink
                     {
                         try
                         {
-                            var toRun = await runFlagUpdater.MarkAsRunning(rec.Id);
-                            if (!toRun) continue;
+                            var isIdle = await runFlagUpdater.MarkAsRunning(rec.Id);
+                            if (!isIdle) continue;
 
                             var startupParameters = rec.ReceiverProperties.ToDictionary();
                             await RunReceiver(scope.ServiceProvider, rec.ReceiverId, startupParameters, rec.Id);
@@ -56,8 +56,10 @@ namespace SW.Infolink
                             rec.SetHealth(ex.ToString());
                             logger.LogError(ex, string.Concat("An error occurred while processing receiver:", rec.Id));
                         }
-
-                        await runFlagUpdater.MarkAsIdle(rec.Id);
+                        finally
+                        {
+                            await runFlagUpdater.MarkAsIdle(rec.Id);
+                        }
 
                         await dbContext.SaveChangesAsync(stoppingToken);
                     }

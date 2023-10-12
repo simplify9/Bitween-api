@@ -1,4 +1,3 @@
-
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +9,7 @@ namespace SW.Infolink
     {
         private readonly InfolinkDbContext dbContext;
         private readonly string _dbType;
-        
+
 
         public RunFlagUpdater(InfolinkDbContext dbContext, InfolinkOptions options)
         {
@@ -35,15 +34,14 @@ namespace SW.Infolink
                          WHERE Id = '{id}' and IsRunning = false",
                 _ => ""
             };
-            ; 
-            
+          
             var results = await dbContext.Set<RunningResult>().FromSqlRaw(sqlUpdate).ToListAsync();
 
             var result = results.SingleOrDefault();
-            
+            // result is null when is running is true
             return result != null;
         }
-        
+
         public async Task MarkAsIdle(int id)
         {
             var sqlUpdate = _dbType.ToLower() switch
@@ -56,16 +54,14 @@ namespace SW.Infolink
                          WHERE Id = '{id}'",
                 _ => ""
             };
-            ; 
-            
+            ;
+
             await dbContext.Database.ExecuteSqlRawAsync(sqlUpdate);
         }
-        
+
         public class RunningResult
         {
             public bool IsRunning { get; set; }
         }
-        
-        
     }
 }

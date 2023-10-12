@@ -10,9 +10,11 @@ namespace SW.Infolink
     {
         public DueReceivers(DateTime? asOf = null)
         {
-            if (asOf == null) asOf = DateTime.UtcNow;
+            if (asOf == null) asOf = DateTime.UtcNow.AddDays(100);
 
-            Criteria = e => e.ReceiveOn < asOf && e.Schedules.Any() && !e.Inactive && !e.IsRunning;
+            Criteria = e =>
+                e.ReceiveOn < asOf && e.Schedules.Any() && !e.Inactive && !e.IsRunning &&
+                !string.IsNullOrEmpty(e.ReceiverId);
         }
 
         public Expression<Func<Subscription, bool>> Criteria { get; }
