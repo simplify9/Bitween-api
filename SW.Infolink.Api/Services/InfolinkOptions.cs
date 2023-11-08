@@ -6,7 +6,7 @@
 
         public InfolinkOptions()
         {
-         //   AESEncryptionKey = "infolinkS9SecretKey";
+            //   AESEncryptionKey = "infolinkS9SecretKey";
             AdapterPath = "./adapters";
             AdminCredentials = "admin:1234512345";
             DocumentPrefix = "temp30/infolinkdocs";
@@ -33,9 +33,11 @@
         public bool AreXChangeFilesPrivate { get; set; } = false;
         public int? ApiCallSubscriptionResponseAcceptedStatusCode { get; set; }
         public int? ReceiversDelayInSeconds { get; set; }
-        public string StorageProvider { get; set; }
-       // public string AESEncryptionKey { get; set; }
 
+        public string StorageProvider { get; set; }
+
+        // public string AESEncryptionKey { get; set; }
+        public string MsalClientId { get; set; }
         public int JwtExpiryMinutes { get; set; }
     }
 }
