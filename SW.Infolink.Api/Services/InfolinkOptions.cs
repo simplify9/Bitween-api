@@ -38,6 +38,7 @@
 
         // public string AESEncryptionKey { get; set; }
         public string MsalClientId { get; set; }
+        public string MsalRedirectUri { get; set; }
         public int JwtExpiryMinutes { get; set; }
     }
 }
