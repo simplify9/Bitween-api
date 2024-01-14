@@ -1,8 +1,10 @@
-﻿using SW.EfCoreExtensions;
+﻿using System.Linq;
+using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
 using SW.Infolink.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain.Accounts;
 
 namespace SW.Infolink.Api.Resources.Documents
@@ -29,9 +31,19 @@ namespace SW.Infolink.Api.Resources.Documents
             _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var entity = await _dbContext.FindAsync<Document>(key);
+
+            var busTypeNameDuplicated = await _dbContext.Set<Document>()
+                .AsNoTracking()
+                .Where(i => i.Id != key)
+                .Where(i => i.BusMessageTypeName == entity.BusMessageTypeName)
+                .AnyAsync();
+
+            if (busTypeNameDuplicated)
+                throw new SWValidationException("DUPLICATED_BUS_TYPE_NAME",
+                    "Cant use duplicated bus Message type name");
+
+
             var trail = new DocumentTrail(DocumentTrailCode.Updated, entity);
-
-
             entity.SetDictionaries(model.PromotedProperties.ToDictionary());
             _dbContext.Entry(entity).SetProperties(model);
 
