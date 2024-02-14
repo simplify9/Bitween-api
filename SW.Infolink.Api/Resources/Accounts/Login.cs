@@ -20,19 +20,19 @@ namespace SW.Infolink.Resources.Accounts
         public Login(JwtTokenParameters jwtTokenParameters, InfolinkDbContext dbContext,
             InfolinkOptions infolinkSettings)
         {
-            this._jwtTokenParameters = jwtTokenParameters;
-            this._dbContext = dbContext;
-            this._infolinkSettings = infolinkSettings;
+            _jwtTokenParameters = jwtTokenParameters;
+            _dbContext = dbContext;
+            _infolinkSettings = infolinkSettings;
         }
 
         public async Task<object> Handle(UserLogin request)
         {
             var jwtExpiryTimeSpan = TimeSpan.FromMinutes(_infolinkSettings.JwtExpiryMinutes);
 
-
             var accountQ = _dbContext
                 .Set<Account>()
                 .AsQueryable();
+
 
             if (!string.IsNullOrEmpty(request.RefreshToken))
             {
@@ -46,6 +46,12 @@ namespace SW.Infolink.Resources.Accounts
                 _dbContext.Remove(refreshToken);
                 accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId && !u.Disabled);
             }
+
+            if (!string.IsNullOrEmpty(request.MsToken))
+            {
+                var email = await request.GetEmailFromAzureJwtDefault();
+                accountQ = accountQ.Where(u => u.Email.ToLower() == email && !u.Disabled);
+            }
             else
             {
                 accountQ = accountQ.Where(u => u.Email.ToLower() == request.Username.ToLower() && !u.Disabled);
@@ -58,7 +64,8 @@ namespace SW.Infolink.Resources.Accounts
                 throw new SWValidationException(request.Username, request.Username);
 
 
-            if (string.IsNullOrEmpty(request.RefreshToken))
+            if (string.IsNullOrEmpty(request.RefreshToken) && !string.IsNullOrEmpty(request.Username) &&
+                !string.IsNullOrEmpty(request.Password) && string.IsNullOrEmpty(request.MsToken))
             {
                 if (request.Password == null ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
