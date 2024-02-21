@@ -120,6 +120,15 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: db
 
+            - name: Infolink__MsalClientId
+              value: {{ .Values.msalClientId }}
+
+            - name: Infolink__MsalRedirectUri
+              value: {{ .Values.msalRedirectUri }}
+              
+            - name: Infolink__MsalTenantId
+              value: { { .Values.msalTenantId } }
+              
             - name: CloudFiles__AccessKeyId
               valueFrom:
                 secretKeyRef:
