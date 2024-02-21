@@ -19,7 +19,8 @@ public class Config : IQueryHandler
         return new
         {
             _infolinkOptions.MsalClientId,
-            _infolinkOptions.MsalRedirectUri
+            _infolinkOptions.MsalRedirectUri,
+            _infolinkOptions.MsalTenantId
         };
     }
 }
