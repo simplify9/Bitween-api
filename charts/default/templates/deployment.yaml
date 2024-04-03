@@ -127,7 +127,7 @@ spec:
               value: {{ .Values.msalRedirectUri }}
               
             - name: Infolink__MsalTenantId
-              value: { { .Values.msalTenantId } }
+              value: {{ .Values.msalTenantId }}
               
             - name: CloudFiles__AccessKeyId
               valueFrom:
