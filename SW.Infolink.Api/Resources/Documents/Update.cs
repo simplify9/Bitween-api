@@ -35,7 +35,7 @@ namespace SW.Infolink.Api.Resources.Documents
             var busTypeNameDuplicated = await _dbContext.Set<Document>()
                 .AsNoTracking()
                 .Where(i => i.Id != key)
-                .Where(i => i.BusMessageTypeName == entity.BusMessageTypeName)
+                .Where(i => i.BusMessageTypeName == model.BusMessageTypeName)
                 .AnyAsync();
 
             if (busTypeNameDuplicated)
