@@ -108,6 +108,7 @@ namespace SW.Infolink.Domain
             ValidatorProperties = validator;
             DocumentFilter = document;
         }
+
         public void SetSchedules(IEnumerable<Schedule> schedules = null)
         {
             if (Type == SubscriptionType.Receiving)
@@ -147,7 +148,7 @@ namespace SW.Infolink.Domain
 
         public void Pause()
         {
-            PausedOn = DateTime.Now;
+            PausedOn = DateTime.UtcNow;
         }
 
         public void UnPause()

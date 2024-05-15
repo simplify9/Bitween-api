@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using SW.Infolink.Domain;
@@ -25,13 +26,25 @@ namespace SW.Infolink.Resources.Subscriptions
             _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var entity = await _dbContext.FindAsync<Subscription>(key);
-            var trail = new SubscriptionTrail(SubscriptionTrialCode.Paused, entity);
-            if (entity!.PausedOn == null) entity.Pause();
-            else entity.UnPause();
+            SubscriptionTrail trail;
+            if (entity!.PausedOn == null)
+            {
+                trail = new SubscriptionTrail(SubscriptionTrialCode.Paused, entity);
+                entity.Pause();
+            }
+            else
+            {
+                trail = new SubscriptionTrail(SubscriptionTrialCode.Resumed, entity);
+                entity.UnPause();
+            }
 
             trail.SetAfter(entity);
+            _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
-            return null;
+            return new
+            {
+                entity.Id
+            };
         }
     }
 }
