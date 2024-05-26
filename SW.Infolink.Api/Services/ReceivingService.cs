@@ -81,7 +81,8 @@ namespace SW.Infolink
             var serverless = serviceProvider.GetRequiredService<IServerlessService>();
             await serverless.StartAsync(serverlessId, null, startupParameters);
             await serverless.InvokeAsync(nameof(IInfolinkReceiver.Initialize), null);
-            var fileList = await serverless.InvokeAsync<IEnumerable<string>>(nameof(IInfolinkReceiver.ListFiles), null);
+            var fileList =
+                (await serverless.InvokeAsync<IEnumerable<string>>(nameof(IInfolinkReceiver.ListFiles), null)).ToList();
 
             logger.LogInformation($"Subscription:'{subId}' found {fileList.Count()} items for retrieval.");
 

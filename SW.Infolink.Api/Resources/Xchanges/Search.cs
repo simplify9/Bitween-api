@@ -27,7 +27,7 @@ namespace SW.Infolink.Resources.Xchanges
         {
             searchyRequest.DatesToUtc();
             await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
-            
+
             var query = from xchange in dbContext.Set<Xchange>()
                 join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                 from result in xr.DefaultIfEmpty()
@@ -86,9 +86,20 @@ namespace SW.Infolink.Resources.Xchanges
                             query = query.Where(i =>
                                 i.Id == value || i.RetryFor == value || i.AggregationXchangeId == value);
                             break;
+                        case SearchyRule.Contains:
+                        {
+                            var valueAsArray = idFilter.ValueStringArray;
+                            query = query.Where(i =>
+                                valueAsArray.Any(v => i.RetryFor == v) ||
+                                valueAsArray.Any(v => i.AggregationXchangeId == v) ||
+                                valueAsArray.Any(v => i.Id == v)
+                            );
+                            break;
+                        }
+
 
                         default:
-                            throw new SWException();
+                            throw new SWValidationException("NOT_SUPPORTED", "Search query not supported");
                     }
 
                     condition.Filters.Remove(idFilter);
@@ -118,7 +129,8 @@ namespace SW.Infolink.Resources.Xchanges
                     condition.Filters.Remove(statusFilter);
                 }
 
-                var propertiesFilters = condition.Filters.Where(f => f.Field == "PromotedPropertiesRaw").ToList();
+                var propertiesFilters = condition.Filters
+                    .Where(f => f.Field == "PromotedPropertiesRaw").ToList();
                 foreach (var propertyFilter in propertiesFilters)
                 {
                     var value = propertyFilter.Value.ToString()!.ToLower();
