@@ -264,10 +264,7 @@ namespace SW.Infolink
             }
         }
 
-        
-        
-        
-        
+
         async Task CreateXchangesForHits(Xchange xchange, FilterResult result, XchangeFile inputFile)
         {
             foreach (var subscriptionId in result.Hits)
@@ -329,6 +326,10 @@ namespace SW.Infolink
 
             if (notifier?.HandlerId == null) return;
 
+            var xchange = await _dbContext.FindAsync<Xchange>(xchangeResult.Id);
+            var subscription = await _infolinkCache.SubscriptionByIdAsync(xchange!.SubscriptionId!.Value);
+            var document = await _infolinkCache.DocumentByIdAsync(xchange.DocumentId);
+
             var notificationData = new XchangeResultNotification
             {
                 Id = xchangeResult.Id,
@@ -337,6 +338,12 @@ namespace SW.Infolink
                 FinishedOn = xchangeResult.FinishedOn,
                 OutputBad = xchangeResult.OutputBad,
                 ResponseBad = xchangeResult.ResponseBad,
+                StartedOn = xchange.StartedOn,
+                SubscriptionName = subscription.Name,
+                SubscriptionId = subscription.Id,
+                DocumentName = document.Name,
+                DocumentId = document.Id,
+                CorrelationId = xchange.CorrelationId
             };
 
             var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
