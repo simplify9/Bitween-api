@@ -23,6 +23,7 @@ using SW.PrimitiveTypes;
 using SW.SimplyRazor;
 using Newtonsoft.Json.Serialization;
 using SW.Infolink.Domain;
+using SW.Infolink.Services;
 
 namespace SW.Infolink.Web
 {
@@ -40,18 +41,17 @@ namespace SW.Infolink.Web
         public void ConfigureServices(IServiceCollection services)
         {
             var infolinkOptions = new InfolinkOptions();
-
+            var themeOptions = new ThemeOptions();
             Configuration.GetSection(InfolinkOptions.ConfigurationSection).Bind(infolinkOptions);
-
+            Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
+            services.AddSingleton(themeOptions);
             services.AddSingleton(infolinkOptions);
             services.AddMemoryCache();
             services.AddSingleton<IInfolinkCache, InMemoryInfolinkCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<XchangeService>();
-
+            
             services.AddHostedService<AggregationService>();
-
-
             services.AddHostedService<ReceivingService>();
 
             services.AddBus(config =>
