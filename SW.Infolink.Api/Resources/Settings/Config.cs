@@ -10,7 +10,6 @@ public class Config : IQueryHandler
 {
     private readonly InfolinkOptions _infolinkOptions;
     private readonly ThemeOptions _themeOptions;
-
     public Config(InfolinkOptions infolinkOptions, ThemeOptions themeOptions)
     {
         _infolinkOptions = infolinkOptions;
