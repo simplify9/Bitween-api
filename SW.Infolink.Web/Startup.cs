@@ -91,7 +91,7 @@ namespace SW.Infolink.Web
                     services.AddOracleCloudFiles();
                     break;
                 case "S3":
-                    services.AddOracleCloudFiles();
+                    services.AddS3CloudFiles();
                     break;
                 default:
                     services.AddS3CloudFiles();
