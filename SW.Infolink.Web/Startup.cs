@@ -50,8 +50,6 @@ namespace SW.Infolink.Web
             services.AddScoped<XchangeService>();
 
             services.AddHostedService<AggregationService>();
-
-
             services.AddHostedService<ReceivingService>();
 
             services.AddBus(config =>
@@ -84,13 +82,20 @@ namespace SW.Infolink.Web
             );
 
             services.AddApiClient<InfolinkClient, InfolinkClientOptions>();
-            if (infolinkOptions.StorageProvider.ToUpper().Equals("AS"))
+            switch (infolinkOptions.StorageProvider.ToUpper())
             {
-                services.AddAsCloudFiles();
-            }
-            else
-            {
-                services.AddS3CloudFiles();
+                case "AS":
+                    services.AddAsCloudFiles();
+                    break;
+                case "OC":
+                    services.AddOracleCloudFiles();
+                    break;
+                case "S3":
+                    services.AddS3CloudFiles();
+                    break;
+                default:
+                    services.AddS3CloudFiles();
+                    break;
             }
 
             services.AddServerless(configure =>
