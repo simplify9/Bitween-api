@@ -46,8 +46,7 @@ namespace SW.Infolink.Resources.Accounts
                 _dbContext.Remove(refreshToken);
                 accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId && !u.Disabled);
             }
-
-            if (!string.IsNullOrEmpty(request.MsToken))
+            else if (!string.IsNullOrEmpty(request.MsToken))
             {
                 var email = await request.GetEmailFromAzureJwtDefault();
                 accountQ = accountQ.Where(u => u.Email.ToLower() == email && !u.Disabled);
@@ -56,6 +55,7 @@ namespace SW.Infolink.Resources.Accounts
             {
                 accountQ = accountQ.Where(u => u.Email.ToLower() == request.Username.ToLower() && !u.Disabled);
             }
+
 
             var account = await accountQ
                 .SingleOrDefaultAsync();
