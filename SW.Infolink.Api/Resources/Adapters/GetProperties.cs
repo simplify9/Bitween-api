@@ -20,7 +20,7 @@ namespace SW.Infolink.Resources.Adapters
 
         async public Task<object> Handle(string key, bool lookup = false)
         {
-            await serverless.StartAsync(key, null);
+            await serverless.StartAsync( Uri.UnescapeDataString(key), null);
             var expected = await serverless.GetExpectedStartupValues();
             return expected.ToList().ToDictionary(k => k.Key, v => $"{v.Key} {(v.Value.Optional ? $" ({v.Value.Default ?? "null"})" : " *")}");
         }
