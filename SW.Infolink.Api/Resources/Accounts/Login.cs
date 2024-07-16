@@ -71,8 +71,7 @@ namespace SW.Infolink.Resources.Accounts
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
                     throw new SWException("Invalid password.");
             }
-
-
+            
             var result = new AccountLoginResult
             {
                 Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, _jwtTokenParameters, jwtExpiryTimeSpan),
