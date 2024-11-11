@@ -6,4 +6,5 @@ public enum SubscriptionTrialCode
     Updated = 21,
     Paused = 31,
     Resumed = 32,
+    DraftPublished = 41,
 }

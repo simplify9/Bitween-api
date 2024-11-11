@@ -17,7 +17,7 @@ namespace SW.Infolink.MsSql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.20")
+                .HasAnnotation("ProductVersion", "6.0.22")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
@@ -460,6 +460,95 @@ namespace SW.Infolink.MsSql.Migrations
                     b.ToTable("SubscriptionCategory");
                 });
 
+            modelBuilder.Entity("SW.Infolink.Domain.SubscriptionDraft", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DocumentFilter")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("HandlerId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("HandlerProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MapperId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MatchExpression")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PublishedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReceiverId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("ReceiverProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResponseMessageTypeName")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int?>("ResponseSubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ValidatorId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("ValidatorProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("ResponseSubscriptionId");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.ToTable("SubscriptionDrafts", (string)null);
+                });
+
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
                 {
                     b.Property<string>("Id")
@@ -875,6 +964,59 @@ namespace SW.Infolink.MsSql.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Schedules");
+                });
+
+            modelBuilder.Entity("SW.Infolink.Domain.SubscriptionDraft", b =>
+                {
+                    b.HasOne("SW.Infolink.Domain.SubscriptionCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId");
+
+                    b.HasOne("SW.Infolink.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("ResponseSubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_Subscriptions_RespSub");
+
+                    b.HasOne("SW.Infolink.Domain.Subscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsMany("SW.Infolink.Domain.Schedule", "Schedules", b1 =>
+                        {
+                            b1.Property<int>("SubscriptionDraftId")
+                                .HasColumnType("int");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("int");
+
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"), 1L, 1);
+
+                            b1.Property<bool>("Backwards")
+                                .HasColumnType("bit");
+
+                            b1.Property<long>("On")
+                                .HasColumnType("bigint");
+
+                            b1.Property<byte>("Recurrence")
+                                .HasColumnType("tinyint");
+
+                            b1.HasKey("SubscriptionDraftId", "Id");
+
+                            b1.ToTable("DraftSubscriptionSchedules", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("SubscriptionDraftId");
+                        });
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Schedules");
+
+                    b.Navigation("Subscription");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>

@@ -10,7 +10,7 @@ cleanup() {
 trap cleanup ERR
 
 echo "Bitween Auto Ef Core Migrator"
-echo "This products in in beta please report any bugs you find"
+echo "This product in in beta please report any bugs you find"
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: ./migratedb.sh <name>"

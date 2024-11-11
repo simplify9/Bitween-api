@@ -147,7 +147,39 @@ namespace SW.Infolink.PgSql
                         domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
                     dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
             });
+            modelBuilder.Entity<SubscriptionDraft>(b =>
+            {
+                // b.ToTable("SubscriptionDrafts");
+                b.HasOne(p => p.Subscription).WithMany().HasForeignKey(i => i.SubscriptionId);
+                b.OwnsMany(p => p.Schedules, schedules =>
+                {
+                    schedules.ToTable("draft_subscription_schedule");
+                    schedules.Property(p => p.On).HasConversion<long>();
+                    schedules.Property(p => p.Recurrence).HasConversion<byte>();
+                });
 
+                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.MapperProperties).StoreAsJson();
+                b.Property(p => p.ReceiverProperties).StoreAsJson();
+                b.Property(p => p.ValidatorProperties).StoreAsJson();
+                b.Property(p => p.DocumentFilter).StoreAsJson();
+
+                b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
+
+                b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.ValidatorId).HasMaxLength(200).IsUnicode(false);
+
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false)
+                    .HasConstraintName("FK_Subscriptions_RespSub").OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(i => i.Category).WithMany().HasForeignKey(i => i.CategoryId);
+                b.Property(p => p.MatchExpression).HasConversion(
+                    domainObject =>
+                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
+                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
+            });
             modelBuilder.Entity<Xchange>(b =>
             {
                 //b.ToTable("Xchanges");

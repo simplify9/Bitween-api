@@ -25,6 +25,7 @@ public class SubscriptionTrail : BaseEntity<string>, ICreationAudited
             StateBefore = JsonConvert.SerializeObject(subscription);
             StateAfter = "{}";
         }
+
         Subscription = subscription;
     }
 
@@ -35,6 +36,7 @@ public class SubscriptionTrail : BaseEntity<string>, ICreationAudited
 
     public int SubscriptionId { get; private set; }
     public Subscription Subscription { get; private set; }
+
 
     public SubscriptionTrialCode Code { get; private set; }
 

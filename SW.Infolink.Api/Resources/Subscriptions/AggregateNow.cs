@@ -24,6 +24,9 @@ namespace SW.Infolink.Resources.Subscriptions
             _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
             var entity = await _dbContext.FindAsync<Subscription>(key);
+            if (entity is null)
+                throw new SWValidationException("SUBSCRIPTION_WAS_NOT_FOUND",
+                    $"A subscription with id {key} was not found");
             entity.SetAggregateNow();
             await _dbContext.SaveChangesAsync();
             return null;

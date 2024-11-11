@@ -55,6 +55,20 @@ namespace SW.Infolink.Model
         public string CategoryDescription { get; set; }
     }
 
+    public class PublishSubscriptionDraftRequest
+    {
+    }
+
+    public class DeleteSubscriptionDraftRequest
+    {
+    }
+
+    public class CreateSubscriptionDraftRequest
+    {
+        public int SubscriptionId { get; set; }
+    }
+
+
     public class SubscriptionUpdate : SubscriptionCreate
     {
         public string HandlerId { get; set; }
@@ -86,5 +100,28 @@ namespace SW.Infolink.Model
         public DateTime? PausedOn { get; set; }
         public string CategoryCode { get; set; }
         public string CategoryDescription { get; set; }
+        public int Id { get; set; }
+    }
+
+    public class DraftSubscription
+    {
+        public SubscriptionType Type { get; set; }
+        public string HandlerId { get; set; }
+        public string MapperId { get; set; }
+        public string ReceiverId { get; set; }
+        public string ValidatorId { get; set; }
+        public int? CategoryId { get; set; }
+        public IPropertyMatchSpecification MatchExpression { get; set; }
+        public ICollection<KeyAndValue> HandlerProperties { get; set; }
+        public ICollection<KeyAndValue> ValidatorProperties { get; set; }
+        public ICollection<KeyAndValue> MapperProperties { get; set; }
+        public ICollection<KeyAndValue> ReceiverProperties { get; set; }
+        public ICollection<KeyAndValue> DocumentFilter { get; set; }
+        public ICollection<ScheduleView> Schedules { get; set; }
+        public int? ResponseSubscriptionId { get; set; }
+        public string ResponseMessageTypeName { get; set; }
+        public string CategoryCode { get; set; }
+        public string CategoryDescription { get; set; }
+        public int Id { get; set; }
     }
 }

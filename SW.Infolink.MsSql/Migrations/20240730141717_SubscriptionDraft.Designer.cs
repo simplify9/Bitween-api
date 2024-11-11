@@ -2,22 +2,27 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Infolink;
 
 #nullable disable
 
-namespace SW.Infolink.MySql.Migrations
+namespace SW.Infolink.MsSql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    partial class InfolinkDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240730141717_SubscriptionDraft")]
+    partial class SubscriptionDraft
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "6.0.22")
-                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
 
             modelBuilder.Entity("SW.Infolink.Domain.Accounts.Account", b =>
                 {
@@ -25,22 +30,24 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("Deleted")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("Disabled")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(200)
@@ -48,16 +55,16 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<byte>("EmailProvider")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<byte>("LoginMethods")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Password")
                         .HasMaxLength(500)
@@ -75,7 +82,8 @@ namespace SW.Infolink.MySql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Email] IS NOT NULL");
 
                     b.ToTable("Accounts", (string)null);
 
@@ -106,10 +114,10 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<byte>("LoginMethod")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.HasKey("Id");
 
@@ -124,7 +132,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("BusEnabled")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("BusMessageTypeName")
                         .HasMaxLength(500)
@@ -132,7 +140,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(500)");
 
                     b.Property<bool?>("DisregardsUnfilteredMessages")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<int>("DocumentFormat")
                         .HasColumnType("int");
@@ -147,12 +155,13 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<string>("PromotedProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BusMessageTypeName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[BusMessageTypeName] IS NOT NULL");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -175,25 +184,25 @@ namespace SW.Infolink.MySql.Migrations
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("Code")
                         .HasColumnType("int");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
                     b.Property<string>("StateAfter")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("StateBefore")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -210,33 +219,35 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("RunOnBadResult")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("RunOnFailedResult")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("RunOnSubscriptions")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("RunOnSuccessfulResult")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -249,18 +260,20 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
                     b.Property<bool>("BadData")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Data")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FileName")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("References")
                         .HasMaxLength(1024)
-                        .HasColumnType("varchar(1024)");
+                        .HasColumnType("nvarchar(1024)");
 
                     b.Property<int>("SubscriptionId")
                         .HasColumnType("int");
@@ -277,6 +290,8 @@ namespace SW.Infolink.MySql.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -302,14 +317,16 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
                     b.Property<DateTime?>("AggregateOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("AggregationForId")
                         .HasColumnType("int");
 
                     b.Property<byte>("AggregationTarget")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
@@ -318,7 +335,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("DocumentFilter")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
@@ -329,16 +346,16 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsRunning")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("LastException")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -346,24 +363,24 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("MapperProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MatchExpression")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("PausedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ReceiveOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ReceiverId")
                         .HasMaxLength(200)
@@ -371,7 +388,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("ReceiverProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -382,10 +399,10 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("Temporary")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<byte>("Type")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<string>("ValidatorId")
                         .HasMaxLength(200)
@@ -393,7 +410,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("ValidatorProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -416,28 +433,31 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
                     b.Property<string>("Code")
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.ToTable("SubscriptionCategory");
                 });
@@ -448,17 +468,19 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("DocumentFilter")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
@@ -466,7 +488,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -474,19 +496,19 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("MapperProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MatchExpression")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("PublishedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ReceiverId")
                         .HasMaxLength(200)
@@ -494,7 +516,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("ReceiverProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -516,7 +538,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("ValidatorProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -533,22 +555,22 @@ namespace SW.Infolink.MySql.Migrations
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(50)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("Code")
                         .HasColumnType("int");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("StateAfter")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("StateBefore")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SubscriptionId")
                         .HasColumnType("int");
@@ -570,7 +592,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("CorrelationId")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
@@ -581,7 +603,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("InputContentType")
                         .HasMaxLength(200)
@@ -596,7 +618,7 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.Property<string>("InputName")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("InputSize")
                         .HasColumnType("int");
@@ -607,11 +629,11 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("MapperProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("References")
                         .HasMaxLength(1024)
-                        .HasColumnType("varchar(1024)");
+                        .HasColumnType("nvarchar(1024)");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -627,7 +649,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("StartedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("SubscriptionId")
                         .HasColumnType("int");
@@ -655,7 +677,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("AggregatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("AggregationXchangeId")
                         .IsRequired()
@@ -678,7 +700,7 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("DeliveredOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -693,20 +715,22 @@ namespace SW.Infolink.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
                     b.Property<string>("Exception")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FinishedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("NotifierId")
                         .HasColumnType("int");
 
                     b.Property<string>("NotifierName")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("Success")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("XchangeId")
                         .HasMaxLength(50)
@@ -731,10 +755,10 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(2000)");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PropertiesRaw")
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
@@ -751,13 +775,13 @@ namespace SW.Infolink.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("Exception")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FinishedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("OutputBad")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("OutputContentType")
                         .HasMaxLength(200)
@@ -771,13 +795,13 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.Property<string>("OutputName")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("OutputSize")
                         .HasColumnType("int");
 
                     b.Property<bool>("ResponseBad")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ResponseContentType")
                         .HasMaxLength(200)
@@ -791,16 +815,16 @@ namespace SW.Infolink.MySql.Migrations
 
                     b.Property<string>("ResponseName")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("ResponseSize")
                         .HasColumnType("int");
 
                     b.Property<string>("ResponseXchangeId")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("Success")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -810,7 +834,7 @@ namespace SW.Infolink.MySql.Migrations
             modelBuilder.Entity("SW.Infolink.RunFlagUpdater+RunningResult", b =>
                 {
                     b.Property<bool>("IsRunning")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.ToView(null);
                 });
@@ -846,6 +870,8 @@ namespace SW.Infolink.MySql.Migrations
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
 
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"), 1L, 1);
+
                             b1.Property<string>("Key")
                                 .IsRequired()
                                 .HasMaxLength(500)
@@ -855,7 +881,7 @@ namespace SW.Infolink.MySql.Migrations
                             b1.Property<string>("Name")
                                 .IsRequired()
                                 .HasMaxLength(500)
-                                .HasColumnType("varchar(500)");
+                                .HasColumnType("nvarchar(500)");
 
                             b1.HasKey("PartnerId", "Id");
 
@@ -918,14 +944,16 @@ namespace SW.Infolink.MySql.Migrations
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
 
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"), 1L, 1);
+
                             b1.Property<bool>("Backwards")
-                                .HasColumnType("tinyint(1)");
+                                .HasColumnType("bit");
 
                             b1.Property<long>("On")
                                 .HasColumnType("bigint");
 
                             b1.Property<byte>("Recurrence")
-                                .HasColumnType("tinyint unsigned");
+                                .HasColumnType("tinyint");
 
                             b1.HasKey("SubscriptionId", "Id");
 
@@ -967,14 +995,16 @@ namespace SW.Infolink.MySql.Migrations
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
 
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"), 1L, 1);
+
                             b1.Property<bool>("Backwards")
-                                .HasColumnType("tinyint(1)");
+                                .HasColumnType("bit");
 
                             b1.Property<long>("On")
                                 .HasColumnType("bigint");
 
                             b1.Property<byte>("Recurrence")
-                                .HasColumnType("tinyint unsigned");
+                                .HasColumnType("tinyint");
 
                             b1.HasKey("SubscriptionDraftId", "Id");
 

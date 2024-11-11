@@ -21,7 +21,9 @@ namespace SW.Infolink.Resources.Subscriptions
         {
             var subscriber =
                 await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync();
-
+            if (subscriber is null)
+                throw new SWValidationException("SUBSCRIPTION_WAS_NOT_FOUND",
+                    $"A subscription with id {key} was not found");
             return
                 new SubscriptionUpdate
                 {

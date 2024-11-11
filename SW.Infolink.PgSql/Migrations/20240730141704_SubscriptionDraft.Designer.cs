@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SW.Infolink.PgSql;
@@ -12,9 +13,10 @@ using SW.Infolink.PgSql;
 namespace SW.Infolink.PgSql.Migrations
 {
     [DbContext(typeof(InfolinkDbContext))]
-    partial class InfolinkDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240730141704_SubscriptionDraft")]
+    partial class SubscriptionDraft
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -556,120 +558,6 @@ namespace SW.Infolink.PgSql.Migrations
                     b.ToTable("subscription_category", "infolink");
                 });
 
-            modelBuilder.Entity("SW.Infolink.Domain.SubscriptionDraft", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("CategoryId")
-                        .HasColumnType("integer")
-                        .HasColumnName("category_id");
-
-                    b.Property<string>("CreatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_on");
-
-                    b.Property<string>("DocumentFilter")
-                        .HasColumnType("text")
-                        .HasColumnName("document_filter");
-
-                    b.Property<string>("HandlerId")
-                        .HasMaxLength(200)
-                        .IsUnicode(false)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("handler_id");
-
-                    b.Property<string>("HandlerProperties")
-                        .HasColumnType("text")
-                        .HasColumnName("handler_properties");
-
-                    b.Property<string>("MapperId")
-                        .HasMaxLength(200)
-                        .IsUnicode(false)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("mapper_id");
-
-                    b.Property<string>("MapperProperties")
-                        .HasColumnType("text")
-                        .HasColumnName("mapper_properties");
-
-                    b.Property<string>("MatchExpression")
-                        .HasColumnType("text")
-                        .HasColumnName("match_expression");
-
-                    b.Property<string>("ModifiedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("modified_by");
-
-                    b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("modified_on");
-
-                    b.Property<DateTime?>("PublishedOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("published_on");
-
-                    b.Property<string>("ReceiverId")
-                        .HasMaxLength(200)
-                        .IsUnicode(false)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("receiver_id");
-
-                    b.Property<string>("ReceiverProperties")
-                        .HasColumnType("text")
-                        .HasColumnName("receiver_properties");
-
-                    b.Property<string>("ResponseMessageTypeName")
-                        .HasMaxLength(500)
-                        .IsUnicode(false)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("response_message_type_name");
-
-                    b.Property<int?>("ResponseSubscriptionId")
-                        .HasColumnType("integer")
-                        .HasColumnName("response_subscription_id");
-
-                    b.Property<int>("SubscriptionId")
-                        .HasColumnType("integer")
-                        .HasColumnName("subscription_id");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
-
-                    b.Property<string>("ValidatorId")
-                        .HasMaxLength(200)
-                        .IsUnicode(false)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("validator_id");
-
-                    b.Property<string>("ValidatorProperties")
-                        .HasColumnType("text")
-                        .HasColumnName("validator_properties");
-
-                    b.HasKey("Id")
-                        .HasName("pk_subscription_draft");
-
-                    b.HasIndex("CategoryId")
-                        .HasDatabaseName("ix_subscription_draft_category_id");
-
-                    b.HasIndex("ResponseSubscriptionId")
-                        .HasDatabaseName("ix_subscription_draft_response_subscription_id");
-
-                    b.HasIndex("SubscriptionId")
-                        .HasDatabaseName("ix_subscription_draft_subscription_id");
-
-                    b.ToTable("subscription_draft", "infolink");
-                });
-
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>
                 {
                     b.Property<string>("Id")
@@ -1159,68 +1047,6 @@ namespace SW.Infolink.PgSql.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Schedules");
-                });
-
-            modelBuilder.Entity("SW.Infolink.Domain.SubscriptionDraft", b =>
-                {
-                    b.HasOne("SW.Infolink.Domain.SubscriptionCategory", "Category")
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .HasConstraintName("fk_subscription_draft_subscription_category_category_id");
-
-                    b.HasOne("SW.Infolink.Domain.Subscription", null)
-                        .WithMany()
-                        .HasForeignKey("ResponseSubscriptionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("FK_Subscriptions_RespSub");
-
-                    b.HasOne("SW.Infolink.Domain.Subscription", "Subscription")
-                        .WithMany()
-                        .HasForeignKey("SubscriptionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_subscription_draft_subscription_subscription_id");
-
-                    b.OwnsMany("SW.Infolink.Domain.Schedule", "Schedules", b1 =>
-                        {
-                            b1.Property<int>("SubscriptionDraftId")
-                                .HasColumnType("integer")
-                                .HasColumnName("subscription_draft_id");
-
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("integer")
-                                .HasColumnName("id");
-
-                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
-
-                            b1.Property<bool>("Backwards")
-                                .HasColumnType("boolean")
-                                .HasColumnName("backwards");
-
-                            b1.Property<long>("On")
-                                .HasColumnType("bigint")
-                                .HasColumnName("on");
-
-                            b1.Property<byte>("Recurrence")
-                                .HasColumnType("smallint")
-                                .HasColumnName("recurrence");
-
-                            b1.HasKey("SubscriptionDraftId", "Id")
-                                .HasName("pk_draft_subscription_schedule");
-
-                            b1.ToTable("draft_subscription_schedule", "infolink");
-
-                            b1.WithOwner()
-                                .HasForeignKey("SubscriptionDraftId")
-                                .HasConstraintName("fk_draft_subscription_schedule_subscription_draft_subscription");
-                        });
-
-                    b.Navigation("Category");
-
-                    b.Navigation("Schedules");
-
-                    b.Navigation("Subscription");
                 });
 
             modelBuilder.Entity("SW.Infolink.Domain.SubscriptionTrail", b =>

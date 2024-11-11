@@ -1,4 +1,4 @@
-﻿using FluentValidation;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using SW.EfCoreExtensions;
 using SW.Infolink.Domain;
@@ -7,11 +7,12 @@ using SW.PrimitiveTypes;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SW.Infolink.Domain.Accounts;
 
-namespace SW.Infolink.Resources.Subscriptions
+namespace SW.Infolink.Resources.SubscriptionDraft
 {
-    class Update : ICommandHandler<int, SubscriptionUpdate>
+    public class Update : ICommandHandler<int, DraftSubscription>
     {
         private readonly InfolinkDbContext _dbContext;
         private readonly IInfolinkCache _infolinkCache;
@@ -24,18 +25,24 @@ namespace SW.Infolink.Resources.Subscriptions
             _requestContext = requestContext;
         }
 
-        public async Task<object> Handle(int key, SubscriptionUpdate model)
+        public async Task<object> Handle(int key, DraftSubscription model)
         {
             _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
-            var entity = await _dbContext.FindAsync<Subscription>(key);
+            var entity = await _dbContext.Set<Domain.SubscriptionDraft>().FirstOrDefaultAsync(i => i.Id == key);
+
             if (entity is null)
-                throw new SWValidationException("SUBSCRIPTION_WAS_NOT_FOUND",
-                    $"A subscription with id {key} was not found");
-            var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
-            _dbContext.Entry(entity).SetProperties(model);
+                throw new SWValidationException("DRAFT_SUBSCRIPTION_WAS_NOT_FOUND",
+                    $"A draft subscription with id {key} was not found");
 
             entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
                 TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
+            entity.CategoryId = model.CategoryId;
+            entity.ResponseSubscriptionId = model.ResponseSubscriptionId;
+            entity.ResponseMessageTypeName = model.ResponseMessageTypeName;
+            entity.MapperId = model.MapperId;
+            entity.ReceiverId = model.ReceiverId;
+            entity.ValidatorId = model.ValidatorId;
+            entity.HandlerId = model.HandlerId;
             entity.SetDictionaries(
                 model.HandlerProperties.ToDictionary(),
                 model.MapperProperties.ToDictionary(),
@@ -44,39 +51,11 @@ namespace SW.Infolink.Resources.Subscriptions
                 model.ValidatorProperties.ToDictionary()
             );
             entity.SetMatchExpression(model.MatchExpression);
-
-
-            trail.SetAfter(entity);
-            _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
             _infolinkCache.BroadcastRevoke();
             return null;
         }
 
-        // private static Dictionary<string, string> ReplaceHiddenData(IReadOnlyDictionary<string, string> original,
-        //     Dictionary<string, string> updated)
-        // {
-        //     foreach (var item in updated.Where(item => item.Value.StartsWith("encrypted__")))
-        //     {
-        //         updated[item.Key] = original[item.Key];
-        //     }
-        //
-        //     return updated;
-        // }
-        //
-        // private static Dictionary<string, string> EncryptValues(IReadOnlyDictionary<string, string> original,
-        //     Dictionary<string, string> updated)
-        // {
-        //     foreach (var item in original)
-        //     {
-        //         if (item.Key.StartsWith("encrypted__"))
-        //         {
-        //             updated[item.Key] = original[item.Key];
-        //         }
-        //     }
-        //
-        //     return updated;
-        // }
 
         private static bool ValidateMatch(IPropertyMatchSpecification model)
         {
@@ -92,20 +71,18 @@ namespace SW.Infolink.Resources.Subscriptions
             };
         }
 
-        private class Validate : AbstractValidator<SubscriptionUpdate>
+        private class Validate : AbstractValidator<DraftSubscription>
         {
             public Validate(IServiceProvider serviceProvider)
             {
-                RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
-                RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
 
                 When(i => i.MapperId != null, () =>
                 {
                     RuleFor(i => i.MapperProperties).CustomAsync(async (i, context, ct) =>
                     {
                         var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).MapperId, null);
+                        await serverless.StartAsync(((DraftSubscription)context.InstanceToValidate).MapperId, null);
                         var mustProps = (await serverless.GetExpectedStartupValues())
                             .Where(p => p.Value.Optional == false).Select(p => p.Key);
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
@@ -120,7 +97,7 @@ namespace SW.Infolink.Resources.Subscriptions
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
                     {
                         var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).HandlerId, null);
+                        await serverless.StartAsync(((DraftSubscription)context.InstanceToValidate).HandlerId, null);
                         var mustProps = (await serverless.GetExpectedStartupValues())
                             .Where(p => p.Value.Optional == false).Select(p => p.Key);
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
@@ -140,7 +117,7 @@ namespace SW.Infolink.Resources.Subscriptions
                         RuleFor(i => i.ReceiverProperties).CustomAsync(async (i, context, ct) =>
                         {
                             var serverless = serviceProvider.GetService<IServerlessService>();
-                            await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).ReceiverId,
+                            await serverless.StartAsync(((DraftSubscription)context.InstanceToValidate).ReceiverId,
                                 null);
                             var mustProps = (await serverless.GetExpectedStartupValues())
                                 .Where(p => p.Value.Optional == false).Select(p => p.Key);
@@ -152,11 +129,7 @@ namespace SW.Infolink.Resources.Subscriptions
                     });
                 });
 
-                When(i => i.Type == SubscriptionType.Aggregation, () =>
-                {
-                    RuleFor(i => i.Schedules).NotEmpty();
-                    RuleFor(i => i.AggregationForId).NotEmpty();
-                });
+                When(i => i.Type == SubscriptionType.Aggregation, () => { RuleFor(i => i.Schedules).NotEmpty(); });
             }
         }
     }

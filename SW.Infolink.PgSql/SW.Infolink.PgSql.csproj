@@ -15,4 +15,9 @@
     <ProjectReference Include="..\SW.Infolink.Api\SW.Infolink.Api.csproj" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <Compile Remove="Migrations\20240730140222_SubscriptionDraft.Designer.cs" />
+  </ItemGroup>
+
 </Project>
