@@ -9,6 +9,7 @@ using System.Net.Http;
 using System.Net.Mime;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace SW.Infolink.Resources.Xchanges
 {
@@ -36,7 +37,7 @@ namespace SW.Infolink.Resources.Xchanges
             Document document;
 
             //Inject external request context values into the object
-            request._ExternalRequestContext = _requestContext.Values;
+            request._ExternalRequestContext = JsonConvert.SerializeObject(_requestContext.Values);
 
             if (int.TryParse(documentIdOrName, out var documentId))
                 document = await _cache.DocumentByIdAsync(documentId);
