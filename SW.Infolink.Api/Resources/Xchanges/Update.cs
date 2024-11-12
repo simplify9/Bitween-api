@@ -31,9 +31,12 @@ namespace SW.Infolink.Resources.Xchanges
             _cache = cache;
         }
 
-        public async Task<object> Handle(string documentIdOrName, object request)
+        public async Task<object> Handle(string documentIdOrName, dynamic request)
         {
             Document document;
+
+            //Inject external request context values into the object
+            request._ExternalRequestContext = _requestContext.Values;
 
             if (int.TryParse(documentIdOrName, out var documentId))
                 document = await _cache.DocumentByIdAsync(documentId);
