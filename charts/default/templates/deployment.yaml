@@ -129,69 +129,90 @@ spec:
             - name: Infolink__MsalTenantId
               value: {{ .Values.msalTenantId }}
               
+              
+              
+              
+            {{- if .Values.global.cloudFiles.accessKeyId }}  
             - name: CloudFiles__AccessKeyId
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesAccessKeyId
+            {{- end }}
 
+            {{- if .Values.global.cloudFiles.secretAccessKey }}
             - name: CloudFiles__SecretAccessKey
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesSecretAccessKey
-
+            {{- end }}
+                
+            {{- if .Values.global.cloudFiles.serviceUrl }}
             - name: CloudFiles__ServiceUrl
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesServiceUrl
-
+            {{- end }}
+                    
+            {{- if .Values.global.cloudFiles.bucketName }}
             - name: CloudFiles__BucketName
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesBucketName
 
-
-
+            {{- end }}
+            
+            {{- if .Values.global.cloudFiles.tenantId }}
             - name: CloudFiles__TenantId
               valueFrom:
                 secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesTenantId
-                  
+            {{- end }}
+                
+            {{- if .Values.global.cloudFiles.fingerPrint }}
             - name: CloudFiles__Fingerprint
               valueFrom:
                   secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesFingerprint
-                  
+            {{- end }}
+                    
+            {{- if .Values.global.cloudFiles.userId }}
             - name: CloudFiles__UserId
               valueFrom:
                   secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesUserId
                   
-                  
+            {{- end }}
+              
+            {{- if .Values.global.cloudFiles.rSAKey }}
             - name: CloudFiles__RSAKey
               valueFrom:
                   secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesRSAKey
-                  
+            {{- end }}
+              
+            {{- if .Values.global.cloudFiles.region }}
             - name: CloudFiles__Region
               valueFrom:
                   secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesRegion
-                  
+            {{- end }}
+              
+            {{- if .Values.global.cloudFiles.namespaceName }}
             - name: CloudFiles__NamespaceName
               valueFrom:
                   secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesNamespaceName
-                  
+            {{- end }}
               
 
 
