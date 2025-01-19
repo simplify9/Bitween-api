@@ -153,6 +153,53 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesBucketName
 
+
+
+            - name: CloudFiles__TenantId
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesTenantId
+                  
+            - name: CloudFiles__Fingerprint
+              valueFrom:
+                  secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesFingerprint
+                  
+            - name: CloudFiles__UserId
+              valueFrom:
+                  secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesUserId
+                  
+                  
+            - name: CloudFiles__RSAKey
+              valueFrom:
+                  secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesRSAKey
+                  
+            - name: CloudFiles__Region
+              valueFrom:
+                  secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesRegion
+                  
+            - name: CloudFiles__NamespaceName
+              valueFrom:
+                  secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: cloudFilesNamespaceName
+                  
+              
+
+
+
+
+
+
+
             - name: ConnectionStrings__RabbitMQ
               valueFrom:
                 secretKeyRef:

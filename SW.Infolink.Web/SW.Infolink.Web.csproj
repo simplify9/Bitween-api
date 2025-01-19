@@ -17,8 +17,8 @@
     <PackageReference Include="SimplyWorks.Bus" Version="6.0.15" />
     <PackageReference Include="SimplyWorks.CloudFiles.AS" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="5.0.17" />
-    <PackageReference Include="SimplyWorks.CloudFiles.OC" Version="5.0.29" />
-    <PackageReference Include="SimplyWorks.CloudFiles.OC.Extensions" Version="5.0.29" />
+    <PackageReference Include="SimplyWorks.CloudFiles.OC" Version="5.0.38" />
+    <PackageReference Include="SimplyWorks.CloudFiles.OC.Extensions" Version="5.0.38" />
     <PackageReference Include="SimplyWorks.CloudFiles.S3" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="5.0.17" />
     <PackageReference Include="SimplyWorks.CqApi" Version="6.0.5" />
