@@ -176,7 +176,7 @@ spec:
             {{- if .Values.global.cloudFiles.fingerPrint }}
             - name: CloudFiles__Fingerprint
               valueFrom:
-                  secretKeyRef:
+                secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesFingerprint
             {{- end }}
@@ -184,7 +184,7 @@ spec:
             {{- if .Values.global.cloudFiles.userId }}
             - name: CloudFiles__UserId
               valueFrom:
-                  secretKeyRef:
+                secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesUserId
                   
@@ -193,7 +193,7 @@ spec:
             {{- if .Values.global.cloudFiles.rSAKey }}
             - name: CloudFiles__RSAKey
               valueFrom:
-                  secretKeyRef:
+                secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesRSAKey
             {{- end }}
@@ -201,7 +201,7 @@ spec:
             {{- if .Values.global.cloudFiles.region }}
             - name: CloudFiles__Region
               valueFrom:
-                  secretKeyRef:
+                secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesRegion
             {{- end }}
@@ -209,7 +209,7 @@ spec:
             {{- if .Values.global.cloudFiles.namespaceName }}
             - name: CloudFiles__NamespaceName
               valueFrom:
-                  secretKeyRef:
+                secretKeyRef:
                   name: {{ template "project.fullname" . }}
                   key: cloudFilesNamespaceName
             {{- end }}
