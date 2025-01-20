@@ -87,7 +87,7 @@ spec:
             - name: SwLogger__ElasticsearchEnvironments
               value: {{ .Values.global.environment }}
 
-            - name: InfolinkClient__BaseUrl
+            - name: BitweenClient__BaseUrl
               value: http://{{ template "project.fullname" . }}/api/
 
             {{- if .Values.global.logger.esUrl }}
