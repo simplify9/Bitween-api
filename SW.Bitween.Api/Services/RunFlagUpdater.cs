@@ -1,0 +1,67 @@
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
+
+namespace SW.Bitween
+{
+    public class RunFlagUpdater
+    {
+        private readonly BitweenDbContext dbContext;
+        private readonly string _dbType;
+
+
+        public RunFlagUpdater(BitweenDbContext dbContext, BitweenOptions options)
+        {
+            this.dbContext = dbContext;
+            _dbType = options.DatabaseType;
+        }
+
+        public async Task<bool> MarkAsRunning(int id)
+        {
+            var sqlUpdate = _dbType.ToLower() switch
+            {
+                "pgsql" => $@"UPDATE Bitween.subscription SET is_running = true
+                        WHERE id = '{id}' and is_running = false
+                        RETURNING is_running",
+                "mssql" => $@"UPDATE Subscriptions SET IsRunning = 1
+                        OUTPUT INSERTED.IsRunning 
+                        WHERE Id = '{id}' and IsRunning = 0",
+                "mysql" => $@"SELECT IsRunning FROM Subscriptions
+                         WHERE Id = '{id}' and IsRunning = false
+                         FOR UPDATE;
+                         UPDATE Subscriptions SET IsRunning = true
+                         WHERE Id = '{id}' and IsRunning = false",
+                _ => ""
+            };
+          
+            var results = await dbContext.Set<RunningResult>().FromSqlRaw(sqlUpdate).ToListAsync();
+
+            var result = results.SingleOrDefault();
+            // result is null when is running is true
+            return result != null;
+        }
+
+        public async Task MarkAsIdle(int id)
+        {
+            var sqlUpdate = _dbType.ToLower() switch
+            {
+                "pgsql" => $@"UPDATE Bitween.subscription SET is_running = false
+                        WHERE id = '{id}'",
+                "mssql" => $@"UPDATE Subscriptions SET IsRunning = 0
+                        WHERE Id = '{id}'",
+                "mysql" => $@"UPDATE Subscriptions SET IsRunning = false
+                         WHERE Id = '{id}'",
+                _ => ""
+            };
+            ;
+
+            await dbContext.Database.ExecuteSqlRawAsync(sqlUpdate);
+        }
+
+        public class RunningResult
+        {
+            public bool IsRunning { get; set; }
+        }
+    }
+}

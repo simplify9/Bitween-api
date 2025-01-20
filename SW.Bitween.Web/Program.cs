@@ -1,0 +1,33 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
+using SW.EfCoreExtensions;
+using SW.Logger;
+
+namespace SW.Bitween.Web
+{
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            //var id = (long)(DateTime.UtcNow.Subtract(new DateTime(2010, 1, 1)).TotalMilliseconds * 1000); 
+            CreateHostBuilder(args).UseSwLogger().Build().MigrateDatabase<BitweenDbContext>().Run();
+        }
+
+        public static IHostBuilder CreateHostBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
+                    webBuilder.UseStartup<Startup>();
+                    webBuilder.UseKestrel(options =>
+                    {
+                        options.Limits.MaxRequestBodySize = 52428800; //50MB
+                    });
+                });
+
+    }
+}

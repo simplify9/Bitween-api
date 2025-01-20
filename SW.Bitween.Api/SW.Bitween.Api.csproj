@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>SW.Bitween</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Services\AccessKeySetService.cs" />
+    <Compile Remove="Services\AdapterService.cs" />
+    <Compile Remove="Services\DocumemtService.cs" />
+    <Compile Remove="Services\BitweenRepo.cs" />
+    <Compile Remove="Services\ReceiverService.cs" />
+    <Compile Remove="Services\SubscriberService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="Humanizer.Core" Version="2.14.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.12" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols" Version="8.3.1" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.3.1" />
+    <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="8.0.0" />
+    <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SW.Bitween.Sdk\SW.Bitween.Sdk.csproj" />
+  </ItemGroup>
+
+</Project>

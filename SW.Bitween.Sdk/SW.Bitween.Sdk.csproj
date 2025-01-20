@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>SimplyWorks.Bitween.Sdk</PackageId>
+    <Product>SimplyWorks.Bitween.Sdk</Product>
+    <Authors>Simplify9</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/simplify9/Bitween</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/simplify9/Bitween</RepositoryUrl>
+    <PackageIcon>icon.png</PackageIcon>
+    <RootNamespace>SW.Bitween</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SimplyWorks.HttpExtensions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\icon.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,50 @@
+using System.Data.Common;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using SW.Bitween.Domain;
+using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Model;
+using SW.PrimitiveTypes;
+
+namespace SW.Bitween.Resources.Subscriptions
+{
+    [HandlerName("pause")]
+    public class Pause : ICommandHandler<int, SubscriptionPause,object>
+    {
+        private readonly BitweenDbContext _dbContext;
+        private readonly RequestContext _requestContext;
+
+
+        public Pause(BitweenDbContext dbContext, RequestContext requestContext)
+        {
+            _dbContext = dbContext;
+            _requestContext = requestContext;
+        }
+
+        public async Task<object> Handle(int key, SubscriptionPause request)
+        {
+            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+
+            var entity = await _dbContext.FindAsync<Subscription>(key);
+            SubscriptionTrail trail;
+            if (entity!.PausedOn == null)
+            {
+                trail = new SubscriptionTrail(SubscriptionTrialCode.Paused, entity);
+                entity.Pause();
+            }
+            else
+            {
+                trail = new SubscriptionTrail(SubscriptionTrialCode.Resumed, entity);
+                entity.UnPause();
+            }
+
+            trail.SetAfter(entity);
+            _dbContext.Add(trail);
+            await _dbContext.SaveChangesAsync();
+            return new
+            {
+                entity.Id
+            };
+        }
+    }
+}
