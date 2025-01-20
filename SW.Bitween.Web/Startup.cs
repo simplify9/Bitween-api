@@ -143,6 +143,7 @@ namespace SW.Bitween.Web
 
 
             services.AddHealthChecks();
+            
             // services.AddRazorPages(options =>
             // {
             //     options.Conventions.AuthorizeFolder("/");
@@ -157,8 +158,9 @@ namespace SW.Bitween.Web
             //     config.DefaultApiClientFactory = sp => sp.GetService<BitweenClient>();
             // });
             services.AddJwtTokenParameters();
-
+            services.AddAuthorization();
             services.AddScoped<RunFlagUpdater>();
+            services.AddControllers();
 
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>
@@ -216,7 +218,7 @@ namespace SW.Bitween.Web
             {
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
-                endpoints.MapFallbackToPage("/_Host");
+                
             });
         }
     }
