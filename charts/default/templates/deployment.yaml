@@ -57,27 +57,27 @@ spec:
             - name: ASPNETCORE_ENVIRONMENT
               value: {{ .Values.global.environment }}
 
-            - name: Infolink__DatabaseType
+            - name: Bitween__DatabaseType
               value: {{ .Values.dbType }}
 
-            - name: Infolink__AdminDatabaseName
+            - name: Bitween__AdminDatabaseName
               value: {{ .Values.adminDb }}
 
-            - name: Infolink__DocumentPrefix
+            - name: Bitween__DocumentPrefix
               value: {{ .Values.documentPrefix }}
 
-            - name: Infolink__BusDefaultQueuePrefetch
+            - name: Bitween__BusDefaultQueuePrefetch
               value: "{{ .Values.busDefaultQueuePrefetch }}"
 
 
-            - name: Infolink__StorageProvider
+            - name: Bitween__StorageProvider
               value: {{ .Values.storageProvider }}
 
-            - name: Infolink__AreXChangeFilesPrivate
+            - name: Bitween__AreXChangeFilesPrivate
               value: "{{ .Values.areXChangeFilesPrivate }}"
 
             {{- if .Values.serverlessCommandTimeout }}
-            - name: Infolink__ServerlessCommandTimeout
+            - name: Bitween__ServerlessCommandTimeout
               value: "{{ .Values.serverlessCommandTimeout }}"
             {{- end }}
 
@@ -120,13 +120,13 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: db
 
-            - name: Infolink__MsalClientId
+            - name: Bitween__MsalClientId
               value: {{ .Values.msalClientId }}
 
-            - name: Infolink__MsalRedirectUri
+            - name: Bitween__MsalRedirectUri
               value: {{ .Values.msalRedirectUri }}
               
-            - name: Infolink__MsalTenantId
+            - name: Bitween__MsalTenantId
               value: {{ .Values.msalTenantId }}
               
               
