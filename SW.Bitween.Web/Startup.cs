@@ -23,7 +23,9 @@ using SW.PrimitiveTypes;
 using SW.SimplyRazor;
 using Newtonsoft.Json.Serialization;
 using SW.Bitween.Domain;
+using SW.Bitween.Resources.Accounts;
 using SW.Bitween.Services;
+using SW.CqApi.AuthOptions;
 
 namespace SW.Bitween.Web
 {
@@ -40,12 +42,12 @@ namespace SW.Bitween.Web
 
         public void ConfigureServices(IServiceCollection services)
         {
-            var BitweenOptions = new BitweenOptions();
+            var bitweenOptions = new BitweenOptions();
             var themeOptions = new ThemeOptions();
-            Configuration.GetSection(BitweenOptions.ConfigurationSection).Bind(BitweenOptions);
+            Configuration.GetSection(BitweenOptions.ConfigurationSection).Bind(bitweenOptions);
             Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
             services.AddSingleton(themeOptions);
-            services.AddSingleton(BitweenOptions);
+            services.AddSingleton(bitweenOptions);
             services.AddMemoryCache();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
@@ -57,7 +59,7 @@ namespace SW.Bitween.Web
             services.AddBus(config =>
             {
                 config.ApplicationName = "bitween";
-                config.DefaultQueuePrefetch = BitweenOptions.BusDefaultQueuePrefetch!.Value;
+                config.DefaultQueuePrefetch = bitweenOptions.BusDefaultQueuePrefetch!.Value;
                 config.AddQueueOption("XchangeService.ApiXchangeCreatedEvent", priority: 10);
             });
             services.AddBusPublish();
@@ -84,7 +86,7 @@ namespace SW.Bitween.Web
             );
 
             services.AddApiClient<BitweenClient, BitweenClientOptions>();
-            switch (BitweenOptions.StorageProvider.ToUpper())
+            switch (bitweenOptions.StorageProvider.ToUpper())
             {
                 case "AS":
                     services.AddAsCloudFiles();
@@ -102,11 +104,11 @@ namespace SW.Bitween.Web
 
             services.AddServerless(configure =>
             {
-                configure.CommandTimeout = BitweenOptions.ServerlessCommandTimeout;
+                configure.CommandTimeout = bitweenOptions.ServerlessCommandTimeout;
             });
             services.AddScoped<RequestContext>();
 
-            if (string.Equals(BitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(),
+            if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(),
                     StringComparison.CurrentCultureIgnoreCase))
             {
                 services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
@@ -117,7 +119,7 @@ namespace SW.Bitween.Web
                     {
                         b.MigrationsHistoryTable("_ef_migrations_history", PgSql.BitweenDbContext.Schema);
                         b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
-                        b.UseAdminDatabase(BitweenOptions.AdminDatabaseName);
+                        b.UseAdminDatabase(bitweenOptions.AdminDatabaseName);
                     });
                 });
             }
@@ -126,14 +128,14 @@ namespace SW.Bitween.Web
                 services.AddDbContext<BitweenDbContext>(c =>
                 {
                     c.EnableSensitiveDataLogging();
-                    if (string.Equals(BitweenOptions.DatabaseType, RelationalDbType.MySql.ToString(),
+                    if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MySql.ToString(),
                             StringComparison.CurrentCultureIgnoreCase))
                     {
                         c.UseMySql(Configuration.GetConnectionString(BitweenDbContext.ConnectionString),
                             new MySqlServerVersion(new Version(8, 0, 18)),
                             b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
                     }
-                    else if (BitweenOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
+                    else if (bitweenOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
                     {
                         c.UseSqlServer(Configuration.GetConnectionString(BitweenDbContext.ConnectionString),
                             b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
@@ -162,6 +164,7 @@ namespace SW.Bitween.Web
             services.AddScoped<RunFlagUpdater>();
             services.AddControllers();
 
+
             services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>
                 {
@@ -173,11 +176,6 @@ namespace SW.Bitween.Web
                         ValidAudience = Configuration["Token:Audience"],
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Token:Key"]))
                     };
-                })
-                .AddCookie(options =>
-                {
-                    options.Cookie.Name = "BitweenUser";
-                    options.LoginPath = "/login";
                 });
 
             services.AddCors(options =>
