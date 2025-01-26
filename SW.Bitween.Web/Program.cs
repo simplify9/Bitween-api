@@ -23,7 +23,10 @@ namespace SW.Bitween.Web
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
-                    
+                    webBuilder.UseKestrel(options =>
+                    {
+                        options.Limits.MaxRequestBodySize = 52428800; //50MB
+                    });
                 });
 
     }
