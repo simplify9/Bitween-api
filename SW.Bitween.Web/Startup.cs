@@ -202,7 +202,7 @@ namespace SW.Bitween.Web
 
             app.UseCors();
             app.UsePathBase("/bitween");
-            app.UseStaticFiles();
+            
             app.UseRouting();
             app.UseAuthentication();
             app.UseAuthorization();
