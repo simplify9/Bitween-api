@@ -11,7 +11,7 @@ using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Partners
 {
-    class Update : ICommandHandler<int, PartnerUpdate,object>
+    public class Update : ICommandHandler<int, PartnerUpdate,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;

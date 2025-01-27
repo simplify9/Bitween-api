@@ -14,7 +14,7 @@ using Newtonsoft.Json;
 namespace SW.Bitween.Resources.Xchanges
 {
     [Unprotect]
-    class Update : ICommandHandler<string, object,object>
+    public class Update : ICommandHandler<string, object,object>
     {
         private readonly RequestContext _requestContext;
         private readonly XchangeService _xchangeService;

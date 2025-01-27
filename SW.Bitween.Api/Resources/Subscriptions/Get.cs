@@ -8,7 +8,7 @@ using SW.Bitween.Model;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
-    class Get : IGetHandler<int,object>
+    public class Get : IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext;
 

@@ -77,10 +77,14 @@ namespace SW.Bitween.Web
 
             services.AddCqApi(configure =>
                 {
-                    configure.RolePrefix = "Bitween";
+                    //configure.RolePrefix = "Bitween";
                     configure.UrlPrefix = "api";
                     configure.ProtectAll = true;
                     configure.Serializer = serializer;
+                    configure.AuthOptions = new CqApiAuthOptions
+                    {
+                        AuthType = AuthType.OAuth2
+                    };
                 },
                 typeof(BitweenDbContext).Assembly
             );
@@ -165,7 +169,7 @@ namespace SW.Bitween.Web
             services.AddControllers();
 
 
-            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            services.AddAuthentication()
                 .AddJwtBearer(configureOptions =>
                 {
                     configureOptions.RequireHttpsMetadata = false;

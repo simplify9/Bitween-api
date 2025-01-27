@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.Partners
 {
     [HandlerName("generatekey") ]
-    class GenerateKey : IQueryHandler<object>
+    public class GenerateKey : IQueryHandler<object>
     {
         public Task<object> Handle()
         {

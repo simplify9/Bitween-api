@@ -12,7 +12,7 @@ using SW.Bitween.Model;
 
 namespace SW.Bitween.Resources.Xchanges
 {
-    class Search : ISearchyHandler
+    public class Search : ISearchyHandler
     {
         private readonly BitweenDbContext dbContext;
         private readonly XchangeService xchangeService;

@@ -9,9 +9,9 @@ using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 
-namespace SW.Bitween.Api.Resources.Documents
+namespace SW.Bitween.Resources.Documents
 {
-    class Search : ISearchyHandler
+    public class Search : ISearchyHandler
     {
         private readonly BitweenDbContext dbContext;
 

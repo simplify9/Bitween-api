@@ -9,7 +9,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Login
 {
     [Unprotect]
-    class Login : ICommandHandler<UserLogin,object>
+    public class Login : ICommandHandler<UserLogin,object>
     {
         private readonly BitweenDbContext dbContext;
         private readonly BitweenOptions BitweenSettings;

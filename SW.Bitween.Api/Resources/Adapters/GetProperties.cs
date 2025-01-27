@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.Adapters
 {
     [HandlerName("properties")]
-    class GetProperties : IGetHandler<string,object>
+    public class GetProperties : IGetHandler<string,object>
     {
         private readonly IServerlessService serverless;
 

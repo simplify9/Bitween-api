@@ -6,7 +6,7 @@ using SW.Bitween.Domain;
 namespace SW.Bitween.Resources.Xchanges
 {
     [HandlerName("retry")]
-    class Retry : ICommandHandler<string, XchangeRetry,object>
+    public class Retry : ICommandHandler<string, XchangeRetry,object>
     {
         private readonly BitweenDbContext dbContext;
         private readonly XchangeService xchangeService;

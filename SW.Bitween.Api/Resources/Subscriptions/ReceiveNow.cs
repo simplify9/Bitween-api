@@ -7,7 +7,7 @@ using SW.Bitween.Domain.Accounts;
 namespace SW.Bitween.Resources.Subscriptions
 {
     [HandlerName("receivenow")]
-    class ReceiveNow : ICommandHandler<int, SubscriptionReceiveNow,object>
+    public class ReceiveNow : ICommandHandler<int, SubscriptionReceiveNow,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;

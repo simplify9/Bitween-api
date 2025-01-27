@@ -11,7 +11,7 @@ using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
-    class Update : ICommandHandler<int, SubscriptionUpdate,object>
+    public class Update : ICommandHandler<int, SubscriptionUpdate,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly IInfolinkCache _BitweenCache;

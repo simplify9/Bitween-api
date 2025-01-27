@@ -7,7 +7,7 @@ using SW.Bitween.Domain.Accounts;
 namespace SW.Bitween.Resources.Subscriptions
 {
     [HandlerName("aggregatenow")]
-    class AggregateNow : ICommandHandler<int, SubscriptionAggregateNow,object>
+    public class AggregateNow : ICommandHandler<int, SubscriptionAggregateNow,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;

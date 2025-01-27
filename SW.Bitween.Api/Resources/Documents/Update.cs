@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain.Accounts;
 
-namespace SW.Bitween.Api.Resources.Documents
+namespace SW.Bitween.Resources.Documents
 {
-    class Update : ICommandHandler<int, DocumentUpdate,object>
+    public class Update : ICommandHandler<int, DocumentUpdate,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly IInfolinkCache _BitweenCache;

@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.Documents
 {
     [HandlerName("properties")]
-    class GetProperties : IGetHandler<int,object>
+    public class GetProperties : IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext;
 

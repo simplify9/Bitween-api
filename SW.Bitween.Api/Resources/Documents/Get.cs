@@ -9,9 +9,9 @@ using System.Text;
 using System.Threading.Tasks;
 using SW.Bitween.Model;
 
-namespace SW.Bitween.Api.Resources.Documents
+namespace SW.Bitween.Resources.Documents
 {
-    class Get : IGetHandler<int,object>
+    public class Get : IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext;
 

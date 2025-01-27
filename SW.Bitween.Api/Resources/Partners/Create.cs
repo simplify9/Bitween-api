@@ -6,7 +6,7 @@ using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Partners
 {
-    class Create : ICommandHandler<PartnerCreate,object>
+    public class Create : ICommandHandler<PartnerCreate,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;

@@ -7,9 +7,9 @@ using System.Text;
 using System.Threading.Tasks;
 using SW.Bitween.Domain.Accounts;
 
-namespace SW.Bitween.Api.Resources.Documents
+namespace SW.Bitween.Resources.Documents
 {
-    class Delete : IDeleteHandler<int,object>
+    public class Delete : IDeleteHandler<int,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;

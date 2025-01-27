@@ -10,9 +10,9 @@ using System.Text;
 using System.Threading.Tasks;
 using SW.Bitween.Domain.Accounts;
 
-namespace SW.Bitween.Api.Resources.Documents
+namespace SW.Bitween.Resources.Documents
 {
-    class Create : ICommandHandler<DocumentCreate,object>
+    public class Create : ICommandHandler<DocumentCreate,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;

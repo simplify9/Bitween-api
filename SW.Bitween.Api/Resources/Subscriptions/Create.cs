@@ -7,7 +7,7 @@ using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
-    class Create : ICommandHandler<SubscriptionCreate,object>
+    public class Create : ICommandHandler<SubscriptionCreate,object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;

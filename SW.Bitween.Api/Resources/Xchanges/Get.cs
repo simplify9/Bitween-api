@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.Xchanges
 {
     [Unprotect]
-    class Get : IGetHandler<string,object>
+    public class Get : IGetHandler<string,object>
     {
         private readonly BitweenDbContext dbContext;
         private readonly RequestContext requestContext;

@@ -8,7 +8,7 @@ using SW.Bitween.Model;
 
 namespace SW.Bitween.Resources.Partners
 {
-    class Search : ISearchyHandler
+    public class Search : ISearchyHandler
     {
         private readonly BitweenDbContext dbContext;
 

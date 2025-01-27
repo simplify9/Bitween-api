@@ -12,7 +12,7 @@ using SW.Bitween.Model;
 namespace SW.Bitween.Resources.Xchanges
 {
     [HandlerName("internal")]
-    class GetInternal : IGetHandler<int,object>
+    public class GetInternal : IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext;
 

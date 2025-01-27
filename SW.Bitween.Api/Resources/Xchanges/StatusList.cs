@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.Xchanges
 {
     [HandlerName("statuslist")]
-    class StatusList : ISearchyHandler
+    public class StatusList : ISearchyHandler
     {
         public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
