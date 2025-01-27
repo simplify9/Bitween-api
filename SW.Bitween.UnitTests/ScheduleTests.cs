@@ -4,7 +4,6 @@ using SW.Bitween.Model;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using SW.Bitween.Api;
 
 namespace SW.Bitween.UnitTests
 {
