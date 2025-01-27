@@ -22,6 +22,7 @@ using SW.Bitween.Sdk;
 using SW.PrimitiveTypes;
 using SW.SimplyRazor;
 using Newtonsoft.Json.Serialization;
+using Npgsql;
 using SW.Bitween.Domain;
 using SW.Bitween.Resources.Accounts;
 using SW.Bitween.Services;
@@ -115,11 +116,17 @@ namespace SW.Bitween.Web
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(),
                     StringComparison.CurrentCultureIgnoreCase))
             {
+                
+                var dataSourceBuilder = new NpgsqlDataSourceBuilder(
+                    Configuration.GetConnectionString(BitweenDbContext.ConnectionString));
+                dataSourceBuilder.EnableDynamicJson();
+                var dataSource = dataSourceBuilder.Build();
+                
                 services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                 {
                     c.EnableSensitiveDataLogging();
                     c.UseSnakeCaseNamingConvention();
-                    c.UseNpgsql(Configuration.GetConnectionString(BitweenDbContext.ConnectionString), b =>
+                    c.UseNpgsql(dataSource, b =>
                     {
                         b.MigrationsHistoryTable("_ef_migrations_history", PgSql.BitweenDbContext.Schema);
                         b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
