@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
 using SW.EfCoreExtensions;
 using SW.Logger;
-
 namespace SW.Infolink.Web
 {
     public class Program
