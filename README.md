@@ -171,17 +171,7 @@ docker build -t bitween-sftp-handler .
 docker run -p 7000:80 bitween-sftp-handler
 ```
 
-#### Using Pre-built Adapters
-Configure adapters in your Bitween subscriptions:
 
-```json
-{
-  "name": "SFTP File Processing",
-  "receiverEndpoint": "http://sftp-receiver:7000",
-  "mapperEndpoint": "http://liquid-mapper:7001", 
-  "handlerEndpoint": "http://sftp-handler:7002"
-}
-```
 
 ### 🆚 Ecosystem Comparison
 
