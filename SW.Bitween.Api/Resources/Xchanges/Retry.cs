@@ -1,4 +1,5 @@
 ﻿using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SW.PrimitiveTypes;
 using SW.Bitween.Model;
 using SW.Bitween.Domain;
@@ -22,11 +23,10 @@ namespace SW.Bitween.Resources.Xchanges
             var xchange = await dbContext.FindAsync<Xchange>(key);
             var inputFileData = await xchangeService.GetFile(xchange.Id, XchangeFileType.Input);
             var xchangeFile = new XchangeFile(inputFileData, xchange.InputName);
-            
-
+            var subscription = await dbContext.Subscriptions().FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
             if (xchangeRetry.Reset)
             {
-                var subscription = await dbContext.FindAsync<Subscription>(xchange.SubscriptionId);
+                
                 if (subscription == null)
                     throw new SWValidationException("SUBSCRIPTION_NOT_FOUND",
                         "Cant reset properties, subscription doesnt exist anymore");
@@ -34,7 +34,7 @@ namespace SW.Bitween.Resources.Xchanges
             }
             else
             {
-                await xchangeService.CreateXchange(xchange, xchangeFile);
+                await xchangeService.CreateXchange(xchange,xchangeFile,subscription?.WorkGroup );
             }
             
             

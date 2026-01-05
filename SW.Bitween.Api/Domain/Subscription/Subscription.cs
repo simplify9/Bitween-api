@@ -59,6 +59,8 @@ namespace SW.Bitween.Domain
         public int? PartnerId { get; private set; }
         public int? CategoryId { get; set; }
         public SubscriptionCategory Category { get; set; }
+        public int? WorkGroupId { get; set; }
+        public WorkGroup WorkGroup { get; set; }
         public bool Temporary { get; private set; }
         public DateTime? PausedOn { get; private set; }
         public string ValidatorId { get; set; }

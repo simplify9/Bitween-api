@@ -19,7 +19,8 @@ namespace SW.Bitween
         IConsume<AggregateXchangeCreatedEvent>,
         IConsume<ReceivingXchangeCreatedEvent>,
         IConsume<XchangeResultCreatedEvent>,
-        IConsume<SubscriptionUnpausedEvent>
+        IConsume<SubscriptionUnpausedEvent>,
+        IConsume
 
     {
         private readonly BitweenOptions _BitweenSettings;
@@ -64,21 +65,20 @@ namespace SW.Bitween
 
             if (document?.DisregardsUnfilteredMessages ?? false)
             {
-                xchange = new Xchange(documentId, file, references, SubscriptionType.Internal, correlationId);
-                var result = await _filterService.Filter(xchange.DocumentId, file);
-                await CreateXchangesForHits(xchange, result, file);
+                var result = await _filterService.Filter(documentId, file);
+                await CreateXchangesForHits(correlationId, result, file);
             }
             else
             {
-                xchange = await CreateXchange(document, file, references, correlationId);
+                await CreateXchange(document, file, references, correlationId);
             }
 
             await _dbContext.SaveChangesAsync();
         }
 
-        public async Task CreateXchange(Xchange xchange, XchangeFile file)
+        public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup)
         {
-            var newXchange = new Xchange(xchange, file);
+            var newXchange = new Xchange(xchange, file,workGroup);
             await AddFile(newXchange.Id, XchangeFileType.Input, file);
             _dbContext.Add(newXchange);
         }
@@ -91,10 +91,10 @@ namespace SW.Bitween
             _dbContext.Add(newXchange);
         }
 
-        public async Task<Xchange> CreateXchange(Document document, XchangeFile file, string[] references = null,
+        public async Task<Xchange> CreateXchange(Document document, WorkGroup workGroup, XchangeFile file, string[] references = null,
             string correlationId = null)
         {
-            var xchange = new Xchange(document.Id, file, references, SubscriptionType.Internal, correlationId);
+            var xchange = new Xchange(document.Id,workGroup, file, references, SubscriptionType.Internal, correlationId);
             await AddFile(xchange.Id, XchangeFileType.Input, file);
             _dbContext.Add(xchange);
             return xchange;
@@ -265,7 +265,7 @@ namespace SW.Bitween
         }
 
 
-        async Task CreateXchangesForHits(Xchange xchange, FilterResult result, XchangeFile inputFile)
+        async Task CreateXchangesForHits(string correlationId, FilterResult result, XchangeFile inputFile)
         {
             foreach (var subscriptionId in result.Hits)
             {
@@ -276,7 +276,7 @@ namespace SW.Bitween
                 }
                 else
                 {
-                    await CreateXchange(subscription, inputFile, null, xchange.CorrelationId);
+                    await CreateXchange(subscription, inputFile, null, correlationId);
                 }
             }
         }
@@ -384,6 +384,21 @@ namespace SW.Bitween
             }
 
             await _dbContext.SaveChangesAsync();
+        }
+
+        public async Task<IEnumerable<string>> GetMessageTypeNames()
+        {
+            var workgroups = (await _BitweenCache.ListWorkGroupsAsync()).ToList();
+            workgroups.Add(WorkGroup.None);
+            var list = workgroups.Select(w => $"{w.Id}{w.BusMessageName}").ToList();
+            return list;
+        }
+
+        
+        public Task Process(string messageTypeName, string message)
+        {
+            var eventMessage = JsonConvert.DeserializeObject<XchangeCreatedMessage>(message);
+            return Process(eventMessage);
         }
     }
 }

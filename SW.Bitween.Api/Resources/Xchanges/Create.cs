@@ -27,7 +27,7 @@ namespace SW.Bitween.Resources.Xchanges
             {
                 var document = await _dbc.Set<Document>().FirstOrDefaultAsync(d => d.Id == request.DocumentId);
                 if (document == null) throw new SWValidationException("DOCUMENT_NOT_FOUND", "Document was not found");
-                await _xchangeService.CreateXchange(document, xchangeFile);
+                await _xchangeService.CreateXchange(document,WorkGroup.None,  xchangeFile);
             }
             else if (request.Option == CreateXchangeOption.SubscriberId)
             {

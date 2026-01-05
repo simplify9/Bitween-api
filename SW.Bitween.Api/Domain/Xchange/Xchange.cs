@@ -11,7 +11,7 @@ namespace SW.Bitween.Domain
         {
         }
 
-        public Xchange(int documentId, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
+        public Xchange(int documentId, WorkGroup workGroup, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
         {
             Id = Guid.NewGuid().ToString("N"); 
             DocumentId = documentId;
@@ -34,11 +34,12 @@ namespace SW.Bitween.Domain
             };
 
             xchangeEvent.Id = Id;
+            xchangeEvent.WorkGroup = workGroup ?? WorkGroup.None;
             Events.Add(xchangeEvent);
         }
 
         public Xchange(Subscription subscription, XchangeFile file, string[] references = null, string correlationId = null) : 
-            this(subscription.DocumentId, file, references, subscription.Type)
+            this(subscription.DocumentId, subscription.WorkGroup, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
             MapperId = subscription.MapperId;
@@ -51,8 +52,8 @@ namespace SW.Bitween.Domain
         }
 
         //retry xchange
-        public Xchange(Xchange xchange, XchangeFile file) : 
-            this(xchange.DocumentId, file, xchange.References)
+        public Xchange(Xchange xchange, XchangeFile file,WorkGroup workGroup) : 
+            this(xchange.DocumentId,workGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
             MapperId = xchange.MapperId;
@@ -65,7 +66,7 @@ namespace SW.Bitween.Domain
         }
         //retry with reset subscription properties
         public Xchange(Subscription subscription, Xchange xchange, XchangeFile file) : 
-            this(xchange.DocumentId, file, xchange.References)
+            this(xchange.DocumentId,subscription.WorkGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
             MapperId = subscription.MapperId;

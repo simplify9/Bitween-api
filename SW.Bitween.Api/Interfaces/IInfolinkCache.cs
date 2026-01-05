@@ -16,4 +16,6 @@ public interface IInfolinkCache
     void Revoke();
     void BroadcastRevoke();
 
+    Task<WorkGroup[]> ListWorkGroupsAsync();
+    Task<WorkGroup> WorkGroupByIdAsync(int workGroupId);
 }

@@ -62,7 +62,7 @@ namespace SW.Bitween.Resources.Xchanges
 
             if (par.Partner.Id == Partner.SystemId && sub is null)
             {
-                await _xchangeService.SubmitFilterXchange(document.Id, new XchangeFile(request.ToString()));
+                await _xchangeService.SubmitFilterXchange(document.Id,WorkGroup.None, new XchangeFile(request.ToString()));
                 return null;
             }
 
