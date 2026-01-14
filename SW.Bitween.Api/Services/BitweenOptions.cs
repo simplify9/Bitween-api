@@ -42,5 +42,6 @@
 
         public string MsalTenantId { get; set; }
         public int JwtExpiryMinutes { get; set; }
+        public bool ConsumeLegacyEventMessages { get; set; }
     }
 }
