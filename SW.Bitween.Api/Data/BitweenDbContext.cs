@@ -313,19 +313,14 @@ namespace SW.Bitween
                 var events = entity.Events.ToArray();
                 entity.Events.Clear();
                 foreach (var domainEvent in events)
-                {
-                    if(domainEvent  is XchangeCreatedEvent xchangeCreatedEvent)
-                    {
-                        
-                        await publish.Publish(domainEvent.GetType().Name, JsonConvert.SerializeObject(new XchangeCreatedMessage{Id = xchangeCreatedEvent.Id}));
-                    }
+                    if (domainEvent is IHasWorkGroup hasWorkGroup)
+                        await publish.Publish(hasWorkGroup.GetBusMessageName(),
+                            JsonConvert.SerializeObject(new XchangeMessage { Id = hasWorkGroup.Id }));
                     else
                         await publish.Publish(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
-                }
             }
-            
-            
-            
+
+
             return affectedRecords;
         }
     }

@@ -59,6 +59,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     MatchExpression = subscriber.MatchExpression,
                     PartnerId = subscriber.PartnerId,
                     CategoryId = subscriber.CategoryId,
+                    WorkGroupId =  subscriber.WorkGroupId,
                     CategoryDescription = subscriber.Category.Description,
                     CategoryCode = subscriber.Category.Code
                 };

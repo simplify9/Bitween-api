@@ -18,4 +18,5 @@ public interface IInfolinkCache
 
     Task<WorkGroup[]> ListWorkGroupsAsync();
     Task<WorkGroup> WorkGroupByIdAsync(int workGroupId);
+    Task<WorkGroup> WorkGroupBySubscriptionIdAsync(int subscriptionId);
 }

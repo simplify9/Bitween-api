@@ -62,6 +62,7 @@ namespace SW.Bitween.Model
         public string ReceiverId { get; set; }
         public string ValidatorId { get; set; }
         public int? CategoryId { get; set; }
+        public int? WorkGroupId { get; set; }
 
         public bool Temporary { get; set; }
         public IPropertyMatchSpecification MatchExpression { get; set; }

@@ -133,6 +133,14 @@ public class InMemoryBitweenCache : IInfolinkCache
 
         return cachedWorkGroups.FirstOrDefault(wg => wg.Id == workGroupId);
     }
+    public async Task<WorkGroup> WorkGroupBySubscriptionIdAsync(int subscriptionId)
+    {
+        var subscription = await SubscriptionByIdAsync(subscriptionId);
+        if (subscription?.WorkGroupId == null)
+            return null;
+
+        return await WorkGroupByIdAsync(subscription.WorkGroupId.Value);
+    }
 
     public void Revoke()
     {

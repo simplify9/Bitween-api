@@ -15,15 +15,16 @@ using SW.Bus.RabbitMqExtensions;
 namespace SW.Bitween;
 
 public class XchangeService :
-    IConsume<ApiXchangeCreatedEvent>,
-    IConsume<InternalXchangeCreatedEvent>,
-    IConsume<AggregateXchangeCreatedEvent>,
-    IConsume<ReceivingXchangeCreatedEvent>,
-    IConsume<XchangeResultCreatedEvent>,
+    // IConsume<ApiXchangeCreatedEvent>,
+    // IConsume<InternalXchangeCreatedEvent>,
+    // IConsume<AggregateXchangeCreatedEvent>,
+    // IConsume<ReceivingXchangeCreatedEvent>,
+    // IConsume<XchangeResultCreatedEvent>,
     IConsume<SubscriptionUnpausedEvent>,
     IConsumeExtended
 
 {
+    public const string ResultQueueSuffix = "-Result";
     private readonly BitweenOptions _BitweenSettings;
     private readonly BitweenDbContext _dbContext;
     private readonly FilterService _filterService;
@@ -66,12 +67,13 @@ public class XchangeService :
 
         if (document?.DisregardsUnfilteredMessages ?? false)
         {
-            var result = await _filterService.Filter(documentId, file);
-            await CreateXchangesForHits(correlationId, result, file);
+            xchange = new Xchange(documentId, null, file, references, SubscriptionType.Internal, correlationId);
+            var result = await _filterService.Filter(xchange.DocumentId, file);
+            await CreateXchangesForHits(xchange, result, file);
         }
         else
         {
-            await CreateXchange(document, file, references, correlationId);
+            xchange = await CreateXchange(document, null, file, references, correlationId);
         }
 
         await _dbContext.SaveChangesAsync();
@@ -79,7 +81,7 @@ public class XchangeService :
 
     public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup)
     {
-        var newXchange = new Xchange(xchange, file,workGroup);
+        var newXchange = new Xchange(xchange, file, workGroup);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
@@ -92,10 +94,11 @@ public class XchangeService :
         _dbContext.Add(newXchange);
     }
 
-    public async Task<Xchange> CreateXchange(Document document, WorkGroup workGroup, XchangeFile file, string[] references = null,
+    public async Task<Xchange> CreateXchange(Document document, WorkGroup workGroup, XchangeFile file,
+        string[] references = null,
         string correlationId = null)
     {
-        var xchange = new Xchange(document.Id,workGroup, file, references, SubscriptionType.Internal, correlationId);
+        var xchange = new Xchange(document.Id, workGroup, file, references, SubscriptionType.Internal, correlationId);
         await AddFile(xchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(xchange);
         return xchange;
@@ -208,12 +211,12 @@ public class XchangeService :
         return await reader.ReadToEndAsync();
     }
 
-    private async Task Process(XchangeCreatedEvent message)
+    private async Task Process(XchangeMessage message)
     {
         Xchange responseXchange = null;
         XchangeFile outputFile = null;
         XchangeFile responseFile = null;
-
+        WorkGroup workGroup = null;
         var xchange = await _dbContext.FindAsync<Xchange>(message.Id);
 
         if (xchange == null) throw new BitweenException($"Xchange '{message.Id}' not found.");
@@ -227,6 +230,7 @@ public class XchangeService :
 
             if (xchange.SubscriptionId != null)
             {
+                workGroup = await _BitweenCache.WorkGroupBySubscriptionIdAsync(xchange.SubscriptionId.Value);
                 if (xchange.MapperId == null)
                     responseFile = await RunHandler(xchange, inputFile);
                 else
@@ -254,19 +258,19 @@ public class XchangeService :
                 await CreateXchangesForHits(xchange, result, inputFile);
             }
 
-            _dbContext.Add(new XchangeResult(xchange.Id, outputFile, responseFile, responseXchange?.Id));
+            _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id));
             await _dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
-            _dbContext.Add(new XchangeResult(xchange.Id, outputFile, responseFile, responseXchange?.Id,
+            _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id,
                 ex.ToString()));
             await _dbContext.SaveChangesAsync();
         }
     }
 
 
-    async Task CreateXchangesForHits(string correlationId, FilterResult result, XchangeFile inputFile)
+    async Task CreateXchangesForHits(Xchange xchange, FilterResult result, XchangeFile inputFile)
     {
         foreach (var subscriptionId in result.Hits)
         {
@@ -277,27 +281,30 @@ public class XchangeService :
             }
             else
             {
-                await CreateXchange(subscription, inputFile, null, correlationId);
+                await CreateXchange(subscription, inputFile, null, xchange.CorrelationId);
             }
         }
     }
 
-    Task IConsume<ApiXchangeCreatedEvent>.Process(ApiXchangeCreatedEvent message) => Process(message);
+    // Task IConsume<ApiXchangeCreatedEvent>.Process(ApiXchangeCreatedEvent message) => Process(message);
+    //
+    // Task IConsume<AggregateXchangeCreatedEvent>.Process(AggregateXchangeCreatedEvent message) => Process(message);
+    //
+    // Task IConsume<InternalXchangeCreatedEvent>.Process(InternalXchangeCreatedEvent message) => Process(message);
+    //
+    // Task IConsume<ReceivingXchangeCreatedEvent>.Process(ReceivingXchangeCreatedEvent message) => Process(message);
 
-    Task IConsume<AggregateXchangeCreatedEvent>.Process(AggregateXchangeCreatedEvent message) => Process(message);
 
-    Task IConsume<InternalXchangeCreatedEvent>.Process(InternalXchangeCreatedEvent message) => Process(message);
-
-    Task IConsume<ReceivingXchangeCreatedEvent>.Process(ReceivingXchangeCreatedEvent message) => Process(message);
-
-
-    public async Task Process(XchangeResultCreatedEvent message)
+    private async Task ProcessResult(XchangeMessage message)
     {
         var notifiers = await _BitweenCache.ListNotifiersAsync();
 
         var xchangeResult = await _dbContext.FindAsync<XchangeResult>(message.Id);
-
+        if (xchangeResult == null)
+            throw new BitweenException($"Xchange Result '{message.Id}' not found.");
         var xchange = await _dbContext.FindAsync<Xchange>(message.Id);
+        if (xchange == null)
+            throw new BitweenException($"Xchange '{message.Id}' not found.");
 
         foreach (var notifier in notifiers)
         {
@@ -310,10 +317,10 @@ public class XchangeService :
             }
 
 
-            switch (message.Success)
+            switch (xchangeResult.Success)
             {
-                case true when !message.ResponseBad && notifier.RunOnSuccessfulResult:
-                case true when message.ResponseBad && notifier.RunOnBadResult:
+                case true when !xchangeResult.ResponseBad && notifier.RunOnSuccessfulResult:
+                case true when xchangeResult.ResponseBad && notifier.RunOnBadResult:
                 case false when notifier.RunOnFailedResult:
                     await NotifyResult(notifier, xchangeResult, xchange?.CorrelationId ?? xchange?.Id);
                     break;
@@ -393,31 +400,34 @@ public class XchangeService :
         return messageTypeNamesWithOptions.Keys;
     }
 
-        
+
     public Task Process(string messageTypeName, string message)
     {
-        var eventMessage = JsonConvert.DeserializeObject<XchangeCreatedMessage>(message);
-        return Process(eventMessage);
+        var eventMessage = JsonConvert.DeserializeObject<XchangeMessage>(message);
+
+        return messageTypeName.EndsWith(ResultQueueSuffix) ? ProcessResult(eventMessage) : Process(eventMessage);
     }
 
     public async Task<IDictionary<string, ConsumerOptions>> GetMessageTypeNamesWithOptions()
     {
         var workgroups = (await _BitweenCache.ListWorkGroupsAsync()).ToList();
         workgroups.Add(WorkGroup.None);
-        var dict = new Dictionary<string, ConsumerOptions>();
-        foreach (var w in workgroups)
+        var messageTypeNamesWithOptions = new Dictionary<string, ConsumerOptions>();
+        foreach (var workGroup in workgroups)
         {
-            var messageTypeName = $"{w.Id}{w.BusMessageName}";
-            dict[messageTypeName] = w.Options.RabbitMqOptions;
+            var messageTypeName = workGroup.GetBusMessageName();
+            messageTypeNamesWithOptions[messageTypeName] = workGroup.Options.RabbitMqOptions;
+            var messageTypeNameForResponse = $"{messageTypeName}{ResultQueueSuffix}";
+            messageTypeNamesWithOptions[messageTypeNameForResponse] = workGroup.Options.RabbitMqOptions;
         }
 
-        if (_BitweenSettings.ConsumeLegacyEventMessages)
-        {
-            dict.Add(nameof(ApiXchangeCreatedEvent), new ConsumerOptions(){Priority = 10});
-            dict.Add(nameof(InternalXchangeCreatedEvent), new ConsumerOptions());
-            dict.Add(nameof(ReceivingXchangeCreatedEvent), new ConsumerOptions());
-            dict.Add(nameof(AggregateXchangeCreatedEvent), new ConsumerOptions());  
-        }
-        return dict;
+        if (!_BitweenSettings.ConsumeLegacyEventMessages) return messageTypeNamesWithOptions;
+
+        messageTypeNamesWithOptions.Add(nameof(ApiXchangeCreatedEvent), new ConsumerOptions() { Priority = 10 });
+        messageTypeNamesWithOptions.Add(nameof(InternalXchangeCreatedEvent), new ConsumerOptions());
+        messageTypeNamesWithOptions.Add(nameof(ReceivingXchangeCreatedEvent), new ConsumerOptions());
+        messageTypeNamesWithOptions.Add(nameof(AggregateXchangeCreatedEvent), new ConsumerOptions());
+        messageTypeNamesWithOptions.Add(nameof(XchangeResultCreatedEvent), new ConsumerOptions());
+        return messageTypeNamesWithOptions;
     }
 }

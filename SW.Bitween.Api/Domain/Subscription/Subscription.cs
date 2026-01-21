@@ -14,20 +14,20 @@ namespace SW.Bitween.Domain
         }
 
         //receiving
-        public Subscription(string name, int documentId) : this(name, documentId, SubscriptionType.Receiving)
+        public Subscription(string name, int documentId) : this(WorkGroup.None, name, documentId, SubscriptionType.Receiving)
         {
             Inactive = true;
         }
 
         //aggregation
-        public Subscription(string name, int aggregationFor, int partnerId) : this(name, Document.AggregationDocumentId,
+        public Subscription(string name, int aggregationFor, int partnerId) : this(WorkGroup.None,name, Document.AggregationDocumentId,
             SubscriptionType.Aggregation, partnerId, aggregationFor)
         {
             Inactive = true;
         }
 
         //apiresult or filter
-        public Subscription(string name, int documentId, SubscriptionType type, int partnerId) : this(name, documentId,
+        public Subscription(string name, int documentId, SubscriptionType type, int partnerId) : this(WorkGroup.None,name, documentId,
             type, partnerId, null)
         {
             Inactive = true;
@@ -35,7 +35,7 @@ namespace SW.Bitween.Domain
                 throw new ArgumentException();
         }
 
-        private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null,
+        private Subscription(WorkGroup workGroup, string name, int documentId, SubscriptionType type, int? partnerId = null,
             int? aggregationForId = null, bool temporary = false)
         {
             Inactive = true;
@@ -51,6 +51,7 @@ namespace SW.Bitween.Domain
             ValidatorProperties = new Dictionary<string, string>();
             DocumentFilter = new Dictionary<string, string>();
             Temporary = temporary;
+            WorkGroup = workGroup;
         }
 
         public string Name { get; set; }

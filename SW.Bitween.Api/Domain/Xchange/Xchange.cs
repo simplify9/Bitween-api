@@ -11,7 +11,7 @@ namespace SW.Bitween.Domain
         {
         }
 
-        public Xchange(int documentId, WorkGroup workGroup, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
+        public Xchange(int documentId, IWorkGroup workGroup, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
         {
             Id = Guid.NewGuid().ToString("N"); 
             DocumentId = documentId;
@@ -52,7 +52,7 @@ namespace SW.Bitween.Domain
         }
 
         //retry xchange
-        public Xchange(Xchange xchange, XchangeFile file,WorkGroup workGroup) : 
+        public Xchange(Xchange xchange, XchangeFile file,IWorkGroup workGroup) : 
             this(xchange.DocumentId,workGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;

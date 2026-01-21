@@ -9,7 +9,7 @@ namespace SW.Bitween.Domain
         {
         }
 
-        public XchangeResult(string xchangeId, XchangeFile outputFile, XchangeFile responseFile = null, string responseXchangeId = null, string exception = null)
+        public XchangeResult(string xchangeId,WorkGroup workGroup, XchangeFile outputFile, XchangeFile responseFile = null, string responseXchangeId = null, string exception = null)
         {
             Id = xchangeId;
             Success = exception == null;
@@ -40,7 +40,8 @@ namespace SW.Bitween.Domain
             {
                 Id = Id,
                 Success = Success,
-                ResponseBad = ResponseBad
+                ResponseBad = ResponseBad,
+                WorkGroup =  workGroup ?? WorkGroup.None,
             });
         }
 
