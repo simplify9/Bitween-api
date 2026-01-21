@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SW.Bitween.Domain;
+using SW.Bitween.Model;
 using SW.Bitween.PgSql;
 
 #nullable disable

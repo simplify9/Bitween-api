@@ -416,9 +416,17 @@ public class XchangeService :
         foreach (var workGroup in workgroups)
         {
             var messageTypeName = workGroup.GetBusMessageName();
-            messageTypeNamesWithOptions[messageTypeName] = workGroup.Options.RabbitMqOptions;
+            messageTypeNamesWithOptions[messageTypeName] = new ConsumerOptions()
+            {
+                Prefetch = workGroup.Options?.RabbitMqOptions?.Prefetch,
+                Priority = workGroup.Options?.RabbitMqOptions?.Priority
+            };
             var messageTypeNameForResponse = $"{messageTypeName}{ResultQueueSuffix}";
-            messageTypeNamesWithOptions[messageTypeNameForResponse] = workGroup.Options.RabbitMqOptions;
+            messageTypeNamesWithOptions[messageTypeNameForResponse] = new ConsumerOptions()
+            {
+                Prefetch = workGroup.Options?.RabbitMqOptions?.Prefetch,
+                Priority = workGroup.Options?.RabbitMqOptions?.Priority
+            };
         }
 
         if (!_BitweenSettings.ConsumeLegacyEventMessages) return messageTypeNamesWithOptions;

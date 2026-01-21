@@ -1,3 +1,5 @@
+using SW.Bitween.Domain;
+using SW.Bitween.Model;
 using SW.Bus.RabbitMqExtensions;
 using SW.PrimitiveTypes;
 
@@ -9,10 +11,7 @@ public interface IWorkGroup
     string GetBusMessageName();
     WorkGroupOptions Options { get; }
 }
-public class WorkGroupOptions
-{
-    public ConsumerOptions RabbitMqOptions { get; set; }
-}
+
 public class WorkGroup : BaseEntity,IWorkGroup
 {
     public string Name { get; set; }
