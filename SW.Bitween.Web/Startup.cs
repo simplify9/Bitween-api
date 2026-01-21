@@ -59,7 +59,7 @@ namespace SW.Bitween.Web
 
             services.AddBus(config =>
             {
-                config.ApplicationName = "bitween";
+                config.ApplicationName = bitweenOptions.QueuePrefix;
                 config.DefaultQueuePrefetch = bitweenOptions.BusDefaultQueuePrefetch!.Value;
                 config.AddQueueOption("XchangeService.ApiXchangeCreatedEvent", priority: 10);
             });

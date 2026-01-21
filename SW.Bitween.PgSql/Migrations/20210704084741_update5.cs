@@ -8,20 +8,20 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<bool>(
                 name: "bad_data",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "on_hold_xchange",
                 nullable: false,
                 defaultValue: false);
 
             migrationBuilder.AddColumn<string>(
                 name: "data",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "on_hold_xchange",
                 nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "file_name",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "on_hold_xchange",
                 nullable: true);
         }
@@ -30,17 +30,17 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "bad_data",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "on_hold_xchange");
 
             migrationBuilder.DropColumn(
                 name: "data",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "on_hold_xchange");
 
             migrationBuilder.DropColumn(
                 name: "file_name",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "on_hold_xchange");
         }
     }

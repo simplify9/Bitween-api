@@ -8,13 +8,13 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<string>(
                 name: "properties_raw",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_promoted_properties",
                 nullable: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_promoted_properties_properties_raw",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_promoted_properties",
                 column: "properties_raw");
         }
@@ -23,12 +23,12 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropIndex(
                 name: "ix_xchange_promoted_properties_properties_raw",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_promoted_properties");
 
             migrationBuilder.DropColumn(
                 name: "properties_raw",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_promoted_properties");
         }
     }

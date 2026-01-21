@@ -12,14 +12,14 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<int>(
                 name: "category_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "integer",
                 nullable: true);
 
             migrationBuilder.CreateTable(
                 name: "subscription_category",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -38,23 +38,23 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_category_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 column: "category_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_category_code",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_category",
                 column: "code",
                 unique: true);
 
             migrationBuilder.AddForeignKey(
                 name: "fk_subscription_subscription_category_category_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 column: "category_id",
-                principalSchema: "Bitween",
+                principalSchema: "infolink",
                 principalTable: "subscription_category",
                 principalColumn: "id");
         }
@@ -63,21 +63,21 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "fk_subscription_subscription_category_category_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription");
 
             migrationBuilder.DropTable(
                 name: "subscription_category",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropIndex(
                 name: "ix_subscription_category_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription");
 
             migrationBuilder.DropColumn(
                 name: "category_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription");
         }
     }

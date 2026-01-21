@@ -19,6 +19,7 @@
             StorageProvider = "S3";
             JwtExpiryMinutes = 60;
             BusDefaultQueuePrefetch = 12;
+            QueuePrefix="bitween";
         }
 
         public ushort? BusDefaultQueuePrefetch { get; set; }
@@ -43,5 +44,6 @@
         public string MsalTenantId { get; set; }
         public int JwtExpiryMinutes { get; set; }
         public bool ConsumeLegacyEventMessages { get; set; }
+        public string QueuePrefix { get; set; }
     }
 }

@@ -8,7 +8,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<bool>(
                 name: "is_running",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 nullable: false,
                 defaultValue: false);
@@ -18,7 +18,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "is_running",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription");
         }
     }

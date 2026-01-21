@@ -8,7 +8,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<string>(
                 name: "correlation_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 nullable: true);
         }
@@ -17,7 +17,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "correlation_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange");
         }
     }

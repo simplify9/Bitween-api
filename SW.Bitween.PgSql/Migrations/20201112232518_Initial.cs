@@ -10,11 +10,11 @@ namespace SW.Bitween.PgSql.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.EnsureSchema(
-                name: "Bitween");
+                name: "infolink");
 
             migrationBuilder.CreateTable(
                 name: "document",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<int>(nullable: false),
@@ -31,7 +31,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "partner",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<int>(nullable: false)
@@ -45,7 +45,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "xchange",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(maxLength: 50, nullable: false),
@@ -71,7 +71,7 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_xchange_document_document_id",
                         column: x => x.document_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "document",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
@@ -79,7 +79,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "partner_api_credential",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     partner_id = table.Column<int>(nullable: false),
@@ -94,7 +94,7 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_api_credential_partner_partner_id",
                         column: x => x.partner_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "partner",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -102,7 +102,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "subscription",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<int>(nullable: false)
@@ -137,28 +137,28 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_subscription_aggregation_for",
                         column: x => x.aggregation_for_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "subscription",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "fk_subscription_document_document_id",
                         column: x => x.document_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "document",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "fk_subscription_partner_partner_id",
                         column: x => x.partner_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "partner",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "fk_subscription_response_subscriber",
                         column: x => x.response_subscription_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "subscription",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
@@ -166,7 +166,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "xchange_aggregation",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(maxLength: 50, nullable: false),
@@ -179,7 +179,7 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_xchange_aggregation_xchange_xchange_id",
                         column: x => x.id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "xchange",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -187,7 +187,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "xchange_delivery",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(maxLength: 50, nullable: false),
@@ -199,7 +199,7 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_xchange_delivery_xchange_xchange_id",
                         column: x => x.id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "xchange",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -207,7 +207,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "xchange_promoted_properties",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(maxLength: 50, nullable: false),
@@ -220,7 +220,7 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_xchange_promoted_properties_xchange_xchange_id",
                         column: x => x.id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "xchange",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -228,7 +228,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "xchange_result",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(maxLength: 50, nullable: false),
@@ -253,7 +253,7 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_xchange_result_xchange_xchange_id",
                         column: x => x.id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "xchange",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -261,7 +261,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "subscription_schedule",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     subscription_id = table.Column<int>(nullable: false),
@@ -277,114 +277,114 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_schedule_subscription_subscription_id",
                         column: x => x.subscription_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "subscription",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.InsertData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document",
                 columns: new[] { "id", "bus_enabled", "bus_message_type_name", "duplicate_interval", "name", "promoted_properties" },
                 values: new object[] { 10001, false, null, 0, "Aggregation Document", "{}" });
 
             migrationBuilder.InsertData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner",
                 columns: new[] { "id", "name" },
                 values: new object[] { 1, "SYSTEM" });
 
             migrationBuilder.InsertData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential",
                 columns: new[] { "partner_id", "id", "key", "name" },
                 values: new object[] { 1, 1, "7facc758283844b49cc4ffd26a75b1de", "default" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_document_bus_message_type_name",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document",
                 column: "bus_message_type_name",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_document_name",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document",
                 column: "name",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_partner_api_credential_key",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential",
                 column: "key",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_aggregation_for_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 column: "aggregation_for_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_document_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 column: "document_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_partner_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 column: "partner_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_response_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 column: "response_subscription_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_document_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 column: "document_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_input_hash",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 column: "input_hash");
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_retry_for",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 column: "retry_for");
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_started_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 column: "started_on");
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 column: "subscription_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_aggregation_aggregation_xchange_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_aggregation",
                 column: "aggregation_xchange_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_xchange_delivery_delivered_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_delivery",
                 column: "delivered_on");
         }
@@ -393,43 +393,43 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropTable(
                 name: "partner_api_credential",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "subscription_schedule",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "xchange_aggregation",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "xchange_delivery",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "xchange_promoted_properties",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "xchange_result",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "subscription",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "xchange",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "partner",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "document",
-                schema: "Bitween");
+                schema: "infolink");
         }
     }
 }

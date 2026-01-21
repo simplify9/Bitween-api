@@ -11,13 +11,13 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<string>(
                 name: "match_expression",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "text",
                 nullable: true);
 
             migrationBuilder.UpdateData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts",
                 keyColumn: "id",
                 keyValue: 9999,
@@ -29,11 +29,11 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "match_expression",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription");
 
             migrationBuilder.UpdateData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts",
                 keyColumn: "id",
                 keyValue: 9999,

@@ -11,7 +11,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "document_trail",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(type: "text", nullable: false),
@@ -28,7 +28,7 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_document_trail_document_document_id",
                         column: x => x.document_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "document",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -36,7 +36,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "subscription_trail",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
@@ -53,14 +53,14 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_subscription_trail_subscription_subscription_id",
                         column: x => x.subscription_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "subscription",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.UpdateData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts",
                 keyColumn: "id",
                 keyValue: 9999,
@@ -69,25 +69,25 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "ix_document_trail_created_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document_trail",
                 column: "created_on");
 
             migrationBuilder.CreateIndex(
                 name: "ix_document_trail_document_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document_trail",
                 column: "document_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_trail_created_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_trail",
                 column: "created_on");
 
             migrationBuilder.CreateIndex(
                 name: "ix_subscription_trail_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_trail",
                 column: "subscription_id");
         }
@@ -96,14 +96,14 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropTable(
                 name: "document_trail",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "subscription_trail",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.UpdateData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts",
                 keyColumn: "id",
                 keyValue: 9999,

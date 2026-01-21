@@ -3,9 +3,9 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using SW.Bitween.Domain;
 using SW.Bitween.PgSql;
 
 #nullable disable
@@ -13,15 +13,14 @@ using SW.Bitween.PgSql;
 namespace SW.Bitween.PgSql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    [Migration("20230910151704_SubscriptionCategory")]
-    partial class SubscriptionCategory
+    partial class BitweenDbContextModelSnapshot : ModelSnapshot
     {
-        protected override void BuildTargetModel(ModelBuilder modelBuilder)
+        protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasDefaultSchema("infolink")
-                .HasAnnotation("ProductVersion", "6.0.20")
+                .HasDefaultSchema("bitween")
+                .HasAnnotation("ProductVersion", "8.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -102,7 +101,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_accounts_email");
 
-                    b.ToTable("Accounts", "infolink");
+                    b.ToTable("Accounts", "bitween");
 
                     b.HasData(
                         new
@@ -146,7 +145,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("AccountId")
                         .HasDatabaseName("ix_refresh_tokens_account_id");
 
-                    b.ToTable("RefreshTokens", "infolink");
+                    b.ToTable("RefreshTokens", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Document", b =>
@@ -197,7 +196,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_document_name");
 
-                    b.ToTable("document", "infolink");
+                    b.ToTable("document", "bitween");
 
                     b.HasData(
                         new
@@ -250,7 +249,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("DocumentId")
                         .HasDatabaseName("ix_document_trail_document_id");
 
-                    b.ToTable("document_trail", "infolink");
+                    b.ToTable("document_trail", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
@@ -301,7 +300,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_notifier");
 
-                    b.ToTable("notifier", "infolink");
+                    b.ToTable("notifier", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.OnHoldXchange", b =>
@@ -339,7 +338,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_on_hold_xchange_subscription_id");
 
-                    b.ToTable("on_hold_xchange", "infolink");
+                    b.ToTable("on_hold_xchange", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
@@ -360,7 +359,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_partner");
 
-                    b.ToTable("partner", "infolink");
+                    b.ToTable("partner", "bitween");
 
                     b.HasData(
                         new
@@ -494,6 +493,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("validator_properties");
 
+                    b.Property<int?>("WorkGroupId")
+                        .HasColumnType("integer")
+                        .HasColumnName("work_group_id");
+
                     b.HasKey("Id")
                         .HasName("pk_subscription");
 
@@ -512,7 +515,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("ResponseSubscriptionId")
                         .HasDatabaseName("ix_subscription_response_subscription_id");
 
-                    b.ToTable("subscription", "infolink");
+                    b.HasIndex("WorkGroupId")
+                        .HasDatabaseName("ix_subscription_work_group_id");
+
+                    b.ToTable("subscription", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.SubscriptionCategory", b =>
@@ -555,7 +561,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_subscription_category_code");
 
-                    b.ToTable("subscription_category", "infolink");
+                    b.ToTable("subscription_category", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.SubscriptionTrail", b =>
@@ -598,7 +604,37 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_subscription_trail_subscription_id");
 
-                    b.ToTable("subscription_trail", "infolink");
+                    b.ToTable("subscription_trail", "bitween");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.WorkGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BusMessageName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("bus_message_name");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<WorkGroupOptions>("Options")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("options");
+
+                    b.HasKey("Id")
+                        .HasName("pk_work_group");
+
+                    b.ToTable("work_group", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>
@@ -698,7 +734,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_xchange_subscription_id");
 
-                    b.ToTable("xchange", "infolink");
+                    b.ToTable("xchange", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeAggregation", b =>
@@ -724,7 +760,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("AggregationXchangeId")
                         .HasDatabaseName("ix_xchange_aggregation_aggregation_xchange_id");
 
-                    b.ToTable("xchange_aggregation", "infolink");
+                    b.ToTable("xchange_aggregation", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
@@ -744,7 +780,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("DeliveredOn")
                         .HasDatabaseName("ix_xchange_delivery_delivered_on");
 
-                    b.ToTable("xchange_delivery", "infolink");
+                    b.ToTable("xchange_delivery", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeNotification", b =>
@@ -785,7 +821,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_xchange_notification");
 
-                    b.ToTable("xchange_notification", "infolink");
+                    b.ToTable("xchange_notification", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangePromotedProperties", b =>
@@ -813,7 +849,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("PropertiesRaw")
                         .HasDatabaseName("ix_xchange_promoted_properties_properties_raw");
 
-                    b.ToTable("xchange_promoted_properties", "infolink");
+                    b.ToTable("xchange_promoted_properties", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeResult", b =>
@@ -888,7 +924,7 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_xchange_result");
 
-                    b.ToTable("xchange_result", "infolink");
+                    b.ToTable("xchange_result", "bitween");
                 });
 
             modelBuilder.Entity("SW.Bitween.RunFlagUpdater+RunningResult", b =>
@@ -897,9 +933,9 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_running");
 
-                    b.ToTable("running_result", "infolink");
+                    b.ToTable("running_result", "bitween");
 
-                    b.ToView(null);
+                    b.ToView(null, (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
@@ -958,7 +994,7 @@ namespace SW.Bitween.PgSql.Migrations
                                 .IsUnique()
                                 .HasDatabaseName("ix_partner_api_credential_key");
 
-                            b1.ToTable("partner_api_credential", "infolink");
+                            b1.ToTable("partner_api_credential", "bitween");
 
                             b1.WithOwner()
                                 .HasForeignKey("PartnerId")
@@ -1009,6 +1045,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_subscription_response_subscriber");
 
+                    b.HasOne("SW.Bitween.Domain.WorkGroup", "WorkGroup")
+                        .WithMany()
+                        .HasForeignKey("WorkGroupId")
+                        .HasConstraintName("fk_subscription_work_group_work_group_id");
+
                     b.OwnsMany("SW.Bitween.Domain.Schedule", "Schedules", b1 =>
                         {
                             b1.Property<int>("SubscriptionId")
@@ -1037,7 +1078,7 @@ namespace SW.Bitween.PgSql.Migrations
                             b1.HasKey("SubscriptionId", "Id")
                                 .HasName("pk_subscription_schedule");
 
-                            b1.ToTable("subscription_schedule", "infolink");
+                            b1.ToTable("subscription_schedule", "bitween");
 
                             b1.WithOwner()
                                 .HasForeignKey("SubscriptionId")
@@ -1047,6 +1088,8 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Schedules");
+
+                    b.Navigation("WorkGroup");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.SubscriptionTrail", b =>
@@ -1078,7 +1121,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasForeignKey("SW.Bitween.Domain.XchangeAggregation", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_xchange_aggregation_xchange_xchange_id");
+                        .HasConstraintName("fk_xchange_aggregation_xchange_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
@@ -1088,7 +1131,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasForeignKey("SW.Bitween.Domain.XchangeDelivery", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_xchange_delivery_xchange_xchange_id");
+                        .HasConstraintName("fk_xchange_delivery_xchange_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangePromotedProperties", b =>
@@ -1098,7 +1141,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasForeignKey("SW.Bitween.Domain.XchangePromotedProperties", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_xchange_promoted_properties_xchange_xchange_id");
+                        .HasConstraintName("fk_xchange_promoted_properties_xchange_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeResult", b =>
@@ -1108,7 +1151,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasForeignKey("SW.Bitween.Domain.XchangeResult", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_xchange_result_xchange_xchange_id");
+                        .HasConstraintName("fk_xchange_result_xchange_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>

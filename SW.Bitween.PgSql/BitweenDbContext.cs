@@ -15,7 +15,7 @@ namespace SW.Bitween.PgSql
         //private readonly RequestContext requestContext;
         //private readonly IPublish publish;
 
-        public const string Schema = "Bitween";
+        public const string Schema = "bitween";
 
         public BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) : base(
             options, requestContext, publish)
@@ -73,6 +73,14 @@ namespace SW.Bitween.PgSql
                 sc.HasIndex(i => i.Code).IsUnique();
             });
 
+            modelBuilder.Entity<WorkGroup>(wg =>
+            {
+                wg.HasKey(i => i.Id);
+                wg.Property(i => i.Id).ValueGeneratedOnAdd();
+                wg.Property(p => p.BusMessageName).IsRequired().IsUnicode(false).HasMaxLength(100);
+                wg.Property(p => p.Options).HasColumnType("jsonb");
+
+            });
             modelBuilder.Entity<Partner>(b =>
             {
                 //b.ToTable("Partners");
