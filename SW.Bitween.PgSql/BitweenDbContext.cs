@@ -15,7 +15,7 @@ namespace SW.Bitween.PgSql
         //private readonly RequestContext requestContext;
         //private readonly IPublish publish;
 
-        public const string Schema = "bitween";
+        public const string Schema = "infolink";
 
         public BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) : base(
             options, requestContext, publish)

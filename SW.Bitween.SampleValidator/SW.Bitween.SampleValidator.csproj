@@ -8,8 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="11.11.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.0.1" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.1" />
   </ItemGroup>
 
 
