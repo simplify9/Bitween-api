@@ -5,7 +5,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.WorkGroups;
 
-public class Update(BitweenDbContext dbContext) : ICommandHandler<int, CreateWorkGroupModel, object>
+public class Update(BitweenDbContext dbContext,IInfolinkCache _BitweenCache, IBroadcast _broadcast) : ICommandHandler<int, CreateWorkGroupModel, object>
 {
     public async Task<object> Handle(int key, CreateWorkGroupModel request)
     {
@@ -21,7 +21,12 @@ public class Update(BitweenDbContext dbContext) : ICommandHandler<int, CreateWor
                 Priority = request.Options?.RabbitMqOptions?.Priority
             }
         };
+        
         await dbContext.SaveChangesAsync();
+        
+        await _BitweenCache.BroadcastRevoke();
+        await _broadcast.RefreshConsumers();
+        
         return null;
     }
 }

@@ -61,7 +61,8 @@ namespace SW.Bitween.Resources.Subscriptions
                     CategoryId = subscriber.CategoryId,
                     WorkGroupId =  subscriber.WorkGroupId,
                     CategoryDescription = subscriber.Category.Description,
-                    CategoryCode = subscriber.Category.Code
+                    CategoryCode = subscriber.Category.Code,
+                    
                 };
 
             query = query.AsNoTracking().AsQueryable();

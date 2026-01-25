@@ -18,6 +18,14 @@ public class WorkGroupModel
     public string Name { get; set; }
     public string BusMessageName { get; set; }
     public WorkGroupOptions Options { get; set; }
+    public double? ProcessorAckRate { get; set; }
+    public double? ProcessorIncomingRate { get; set; }
+    public long? ProcessorProcessingCount { get; set; }
+    public long? ProcessorQueueCount { get; set; }
+    public double? NotifierAckRate { get; set; }
+    public double? NotifierIncomingRate { get; set; }
+    public long? NotifierProcessingCount { get; set; }
+    public long? NotifierQueueCount { get; set; }
 }
 
 public class CreateWorkGroupModel

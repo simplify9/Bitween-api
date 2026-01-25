@@ -1,21 +1,14 @@
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
-using SW.Bitween.Model;
-using SW.Bus.RabbitMqExtensions;
+using SW.Bitween.Model; 
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.WorkGroups;
 
-public class Create : ICommandHandler<CreateWorkGroupModel,object>
+public class Create(BitweenDbContext dbContext, RequestContext requestContext,IInfolinkCache _BitweenCache, IBroadcast _broadcast)
+    : ICommandHandler<CreateWorkGroupModel, object>
 {
-    private readonly BitweenDbContext _dbContext;
-    private readonly RequestContext _requestContext;
-
-    public Create(BitweenDbContext dbContext, RequestContext requestContext)
-    {
-        _dbContext = dbContext;
-        _requestContext = requestContext;
-    }
+    private readonly RequestContext _requestContext = requestContext;
 
     public async Task<object> Handle(CreateWorkGroupModel request)
     {
@@ -32,8 +25,10 @@ public class Create : ICommandHandler<CreateWorkGroupModel,object>
                 }
             }
         };
-        _dbContext.Add(workgroup);
-        await _dbContext.SaveChangesAsync();
+        dbContext.Add(workgroup);
+        await dbContext.SaveChangesAsync();
+        _BitweenCache.BroadcastRevoke();
+        await _broadcast.RefreshConsumers();
         return new
         {
             workgroup.Id

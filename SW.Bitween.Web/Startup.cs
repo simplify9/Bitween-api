@@ -27,6 +27,7 @@ using SW.Bitween.Domain;
 using SW.Bitween.Resources.Accounts;
 using SW.Bitween.Services;
 using SW.CqApi.AuthOptions;
+using SW.Logger.ElasticSerach;
 
 namespace SW.Bitween.Web
 {

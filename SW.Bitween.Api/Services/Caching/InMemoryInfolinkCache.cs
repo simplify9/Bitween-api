@@ -105,11 +105,11 @@ public class InMemoryBitweenCache : IInfolinkCache
             string.Equals(d.Name, documentName, StringComparison.CurrentCultureIgnoreCase));
     }
 
-    public void BroadcastRevoke()
+    public Task BroadcastRevoke()
     {
         using var scope = _ssf.CreateScope();
         var broadcast = scope.ServiceProvider.GetRequiredService<IBroadcast>();
-        broadcast.Broadcast(new RevokeCacheMessage());
+        return broadcast.Broadcast(new RevokeCacheMessage());
     }
 
     public async Task<WorkGroup[]> ListWorkGroupsAsync()
