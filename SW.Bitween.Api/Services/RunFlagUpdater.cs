@@ -21,7 +21,7 @@ namespace SW.Bitween
         {
             var sqlUpdate = _dbType.ToLower() switch
             {
-                "pgsql" => $@"UPDATE Bitween.subscription SET is_running = true
+                "pgsql" => $@"UPDATE infolink.subscription SET is_running = true
                         WHERE id = '{id}' and is_running = false
                         RETURNING is_running",
                 "mssql" => $@"UPDATE Subscriptions SET IsRunning = 1
@@ -46,7 +46,7 @@ namespace SW.Bitween
         {
             var sqlUpdate = _dbType.ToLower() switch
             {
-                "pgsql" => $@"UPDATE Bitween.subscription SET is_running = false
+                "pgsql" => $@"UPDATE infolink.subscription SET is_running = false
                         WHERE id = '{id}'",
                 "mssql" => $@"UPDATE Subscriptions SET IsRunning = 0
                         WHERE Id = '{id}'",
