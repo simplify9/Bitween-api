@@ -10,13 +10,13 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<DateTime>(
                 name: "paused_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 nullable: true);
 
             migrationBuilder.CreateTable(
                 name: "on_hold_xchange",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<int>(nullable: false)
@@ -31,7 +31,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "ix_on_hold_xchange_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "on_hold_xchange",
                 column: "subscription_id");
         }
@@ -40,11 +40,11 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropTable(
                 name: "on_hold_xchange",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropColumn(
                 name: "paused_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription");
         }
     }

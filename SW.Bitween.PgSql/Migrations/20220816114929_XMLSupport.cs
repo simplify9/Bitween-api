@@ -10,7 +10,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<int>(
                 name: "document_format",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document",
                 type: "integer",
                 nullable: false,
@@ -21,7 +21,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "document_format",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document");
         }
     }

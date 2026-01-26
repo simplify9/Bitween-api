@@ -9,7 +9,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Xchanges
 {
     [HandlerName("bulkretry")]
-    public class BulkRetry : ICommandHandler<XchangeBulkRetry,object>
+    public class BulkRetry : ICommandHandler<XchangeBulkRetry, object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly XchangeService _xchangeService;
@@ -30,9 +30,11 @@ namespace SW.Bitween.Resources.Xchanges
             {
                 var inputFileData = await _xchangeService.GetFile(xchange.Id, XchangeFileType.Input);
                 var xchangeFile = new XchangeFile(inputFileData, xchange.InputName);
+                var subscription = await _dbContext.Subscriptions()
+                    .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
+                
                 if (request.Reset)
                 {
-                    var subscription = await _dbContext.FindAsync<Subscription>(xchange.SubscriptionId);
                     if (subscription == null)
                         throw new SWValidationException("SUBSCRIPTION_NOT_FOUND",
                             "Cant reset properties, subscription doesnt exist anymore");
@@ -40,7 +42,8 @@ namespace SW.Bitween.Resources.Xchanges
                 }
                 else
                 {
-                    await _xchangeService.CreateXchange(xchange, xchangeFile);
+                    
+                    await _xchangeService.CreateXchange(xchange, xchangeFile, subscription.WorkGroup);
                 }
             }
 

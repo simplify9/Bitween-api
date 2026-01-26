@@ -27,6 +27,7 @@ using SW.Bitween.Domain;
 using SW.Bitween.Resources.Accounts;
 using SW.Bitween.Services;
 using SW.CqApi.AuthOptions;
+using SW.Logger.ElasticSerach;
 
 namespace SW.Bitween.Web
 {
@@ -59,7 +60,7 @@ namespace SW.Bitween.Web
 
             services.AddBus(config =>
             {
-                config.ApplicationName = "bitween";
+                config.ApplicationName = bitweenOptions.QueuePrefix;
                 config.DefaultQueuePrefetch = bitweenOptions.BusDefaultQueuePrefetch!.Value;
                 config.AddQueueOption("XchangeService.ApiXchangeCreatedEvent", priority: 10);
             });

@@ -10,7 +10,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<int>(
                 name: "role",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts",
                 type: "integer",
                 nullable: false,
@@ -21,7 +21,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "role",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts");
         }
     }

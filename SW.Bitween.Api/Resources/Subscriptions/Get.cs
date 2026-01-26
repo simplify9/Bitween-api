@@ -52,6 +52,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     CategoryDescription = subscriber.Category?.Description,
                     CategoryCode = subscriber.Category?.Code,
                     CategoryId = subscriber.CategoryId,
+                    WorkGroupId =  subscriber.WorkGroupId,
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,

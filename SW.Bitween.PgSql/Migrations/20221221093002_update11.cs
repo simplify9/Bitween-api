@@ -10,7 +10,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.AddColumn<bool>(
                 name: "disregards_unfiltered_messages",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document",
                 type: "boolean",
                 nullable: true);
@@ -20,7 +20,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropColumn(
                 name: "disregards_unfiltered_messages",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "document");
         }
     }

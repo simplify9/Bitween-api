@@ -27,5 +27,9 @@ namespace SW.Bitween
 
             return (par, par.ApiCredentials.First(c => c.Key == partnerKey).Name);
         }
+
+        public static IQueryable<Subscription> Subscriptions(this BitweenDbContext dbContext) =>
+            dbContext.Set<Subscription>().Include(s => s.WorkGroup);
     }
+    
 }

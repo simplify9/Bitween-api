@@ -3,12 +3,18 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Domain
 {
-    internal abstract class XchangeCreatedEvent : BaseDomainEvent
+    internal class XchangeMessage
     {
         public string Id { get; set; }
+    }
+    internal abstract class XchangeCreatedEvent : BaseDomainEvent,IHasWorkGroup
+    {
+        public string Id { get; set; }
+        public string GetBusMessageName()=> WorkGroup.GetBusMessageName();
+
+        public IWorkGroup WorkGroup { get; set; }
 
     }
-
     internal class ApiXchangeCreatedEvent : XchangeCreatedEvent
     {
     }

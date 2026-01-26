@@ -34,23 +34,25 @@ public class InMemoryBitweenCache : IInfolinkCache
         using var scope = _ssf.CreateScope();
         var repo = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         _logger.LogInformation("Loading documents and subscriptions to cache");
-        var cachedSubscriptions = await repo.Set<Subscription>()
+        var cachedSubscriptions = await repo.Set<Subscription>().Include(s=>s.WorkGroup)
             .AsNoTracking().Where(i => !i.Inactive).ToArrayAsync();
         var cachedDocuments = await repo.Set<Document>().AsNoTracking().ToArrayAsync();
         var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
-
+        var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
         var span = TimeSpan.FromMinutes(10);
-        _cache.Set("documents", cachedDocuments, span);
-        _cache.Set("subscriptions", cachedSubscriptions, span);
-        _cache.Set("notifiers", cachedNotifiers, span);
+        _cache.Set(nameof(Document), cachedDocuments, span);
+        
+        _cache.Set(nameof(Subscription), cachedSubscriptions, span);
+        _cache.Set(nameof(Notifier), cachedNotifiers, span);
+        _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
     }
 
     public async Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId)
     {
-        if (!_cache.TryGetValue("subscriptions", out Subscription[] cachedSubscriptions))
+        if (!_cache.TryGetValue(nameof(Subscription), out Subscription[] cachedSubscriptions))
         {
             await Load();
-            return _cache.Get<Subscription[]>("subscriptions").Where(sub => sub.DocumentId == documentId).ToArray();
+            return _cache.Get<Subscription[]>(nameof(Subscription)).Where(sub => sub.DocumentId == documentId).ToArray();
         }
 
         return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
@@ -58,10 +60,11 @@ public class InMemoryBitweenCache : IInfolinkCache
 
     public async Task<Notifier[]> ListNotifiersAsync()
     {
-        if (!_cache.TryGetValue("notifiers", out Notifier[] cachedNotifiers))
+        if (!_cache.TryGetValue(nameof(Notifier), out Notifier[] cachedNotifiers))
         {
             await Load();
-            return _cache.Get<Notifier[]>("notifiers");
+            return _cache.Get<Notifier[]>(nameof(Notifier));
+            
         }
 
         return cachedNotifiers;
@@ -69,10 +72,10 @@ public class InMemoryBitweenCache : IInfolinkCache
 
     public async Task<Subscription> SubscriptionByIdAsync(int subscriptionId)
     {
-        if (!_cache.TryGetValue("subscriptions", out Subscription[] cachedSubscriptions))
+        if (!_cache.TryGetValue(nameof(Subscription), out Subscription[] cachedSubscriptions))
         {
             await Load();
-            return _cache.Get<Subscription[]>("subscriptions").FirstOrDefault(sub => sub.Id == subscriptionId);
+            return _cache.Get<Subscription[]>(nameof(Subscription)).FirstOrDefault(sub => sub.Id == subscriptionId);
         }
 
         return cachedSubscriptions.FirstOrDefault(sub => sub.Id == subscriptionId);
@@ -80,10 +83,10 @@ public class InMemoryBitweenCache : IInfolinkCache
 
     public async Task<Document> DocumentByIdAsync(int documentId)
     {
-        if (!_cache.TryGetValue("documents", out Document[] cachedDocuments))
+        if (!_cache.TryGetValue(nameof(Document), out Document[] cachedDocuments))
         {
             await Load();
-            return _cache.Get<Document[]>("documents").FirstOrDefault(d => d.Id == documentId);
+            return _cache.Get<Document[]>(nameof(Document)).FirstOrDefault(d => d.Id == documentId);
         }
 
         return cachedDocuments.FirstOrDefault(d => d.Id == documentId);
@@ -91,10 +94,10 @@ public class InMemoryBitweenCache : IInfolinkCache
 
     public async Task<Document> DocumentByNameAsync(string documentName)
     {
-        if (!_cache.TryGetValue("documents", out Document[] cachedDocuments))
+        if (!_cache.TryGetValue(nameof(Document), out Document[] cachedDocuments))
         {
             await Load();
-            return _cache.Get<Document[]>("documents").FirstOrDefault(d =>
+            return _cache.Get<Document[]>(nameof(Document)).FirstOrDefault(d =>
                 string.Equals(d.Name, documentName, StringComparison.CurrentCultureIgnoreCase));
         }
 
@@ -102,17 +105,48 @@ public class InMemoryBitweenCache : IInfolinkCache
             string.Equals(d.Name, documentName, StringComparison.CurrentCultureIgnoreCase));
     }
 
-    public void BroadcastRevoke()
+    public Task BroadcastRevoke()
     {
         using var scope = _ssf.CreateScope();
         var broadcast = scope.ServiceProvider.GetRequiredService<IBroadcast>();
-        broadcast.Broadcast(new RevokeCacheMessage());
+        return broadcast.Broadcast(new RevokeCacheMessage());
+    }
+
+    public async Task<WorkGroup[]> ListWorkGroupsAsync()
+    {
+        if (!_cache.TryGetValue(nameof(WorkGroup), out WorkGroup[] cachedWorkGroups))
+        {
+            await Load();
+            return _cache.Get<WorkGroup[]>(nameof(WorkGroup));
+        }
+
+        return cachedWorkGroups;
+    }
+
+    public async Task<WorkGroup> WorkGroupByIdAsync(int workGroupId)
+    {
+        if (!_cache.TryGetValue(nameof(WorkGroup), out WorkGroup[] cachedWorkGroups))
+        {
+            await Load();
+            return _cache.Get<WorkGroup[]>(nameof(WorkGroup)).FirstOrDefault(wg => wg.Id == workGroupId);
+        }
+
+        return cachedWorkGroups.FirstOrDefault(wg => wg.Id == workGroupId);
+    }
+    public async Task<WorkGroup> WorkGroupBySubscriptionIdAsync(int subscriptionId)
+    {
+        var subscription = await SubscriptionByIdAsync(subscriptionId);
+        if (subscription?.WorkGroupId == null)
+            return null;
+
+        return await WorkGroupByIdAsync(subscription.WorkGroupId.Value);
     }
 
     public void Revoke()
     {
-        _cache.Remove("subscriptions");
-        _cache.Remove("notifiers");
-        _cache.Remove("documents");
+        _cache.Remove(nameof(Subscription));
+        _cache.Remove(nameof(Notifier));
+        _cache.Remove(nameof(Document));
+        _cache.Remove(nameof(WorkGroup));
     }
 }

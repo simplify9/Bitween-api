@@ -82,6 +82,15 @@ namespace SW.Bitween
                 sc.Property(i => i.Id).ValueGeneratedOnAdd();
                 sc.HasIndex(i => i.Code).IsUnique();
             });
+            
+            modelBuilder.Entity<WorkGroup>(wg =>
+            {
+                wg.HasKey(i => i.Id);
+                wg.Property(i => i.Id).ValueGeneratedOnAdd();
+                wg.Property(p => p.BusMessageName).IsRequired().IsUnicode(false).HasMaxLength(100);
+                wg.Property(p => p.Options).StoreAsJson();
+
+            });
 
             modelBuilder.Entity<Partner>(b =>
             {
@@ -148,6 +157,7 @@ namespace SW.Bitween
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
                     .HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
                 b.HasOne(i => i.Category).WithMany().HasForeignKey(i => i.CategoryId);
+                b.HasOne(i => i.WorkGroup).WithMany().HasForeignKey(i => i.WorkGroupId);
                 b.Property(p => p.MatchExpression).HasConversion(
                     domainObject =>
                         domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
@@ -302,8 +312,25 @@ namespace SW.Bitween
             ChangeTracker.ApplyAuditValues(requestContext.GetNameIdentifier());
             //using var transaction = await Database.BeginTransactionAsync();
             var affectedRecords = await base.SaveChangesAsync(cancellationToken);
-            await ChangeTracker.PublishDomainEvents(publish);
-            //await transaction.CommitAsync();
+            //await ChangeTracker.PublishDomainEvents(publish);
+            var entitiesWithEvents = ChangeTracker.Entries<IGeneratesDomainEvents>()
+                .Select(e => e.Entity)
+                .Where(e => e.Events.Any())
+                .ToArray();
+
+            foreach (var entity in entitiesWithEvents)
+            {
+                var events = entity.Events.ToArray();
+                entity.Events.Clear();
+                foreach (var domainEvent in events)
+                    if (domainEvent is IHasWorkGroup hasWorkGroup)
+                        await publish.Publish(hasWorkGroup.GetBusMessageName(),
+                            JsonConvert.SerializeObject(new XchangeMessage { Id = hasWorkGroup.Id }));
+                    else
+                        await publish.Publish(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
+            }
+
+
             return affectedRecords;
         }
     }

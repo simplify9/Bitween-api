@@ -10,7 +10,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.CreateTable(
                 name: "xchange_notification",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<int>(nullable: false)
@@ -32,7 +32,7 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropTable(
                 name: "xchange_notification",
-                schema: "Bitween");
+                schema: "infolink");
         }
     }
 }

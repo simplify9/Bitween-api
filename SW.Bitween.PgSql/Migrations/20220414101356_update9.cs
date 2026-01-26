@@ -12,27 +12,27 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "fk_api_credential_partner_partner_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential");
 
             migrationBuilder.DropForeignKey(
                 name: "fk_schedule_subscription_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule");
 
             migrationBuilder.DropPrimaryKey(
                 name: "pk_schedule",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule");
 
             migrationBuilder.DropPrimaryKey(
                 name: "pk_api_credential",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential");
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "finished_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_result",
                 type: "timestamp with time zone",
                 nullable: false,
@@ -41,7 +41,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "finished_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_notification",
                 type: "timestamp with time zone",
                 nullable: false,
@@ -50,7 +50,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "delivered_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_delivery",
                 type: "timestamp with time zone",
                 nullable: false,
@@ -59,7 +59,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "aggregated_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_aggregation",
                 type: "timestamp with time zone",
                 nullable: false,
@@ -68,7 +68,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "started_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 type: "timestamp with time zone",
                 nullable: false,
@@ -77,7 +77,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "receive_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -87,7 +87,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "paused_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -97,7 +97,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "aggregate_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "timestamp with time zone",
                 nullable: true,
@@ -107,19 +107,19 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AddPrimaryKey(
                 name: "pk_subscription_schedule",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule",
                 columns: new[] { "subscription_id", "id" });
 
             migrationBuilder.AddPrimaryKey(
                 name: "pk_partner_api_credential",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential",
                 columns: new[] { "partner_id", "id" });
 
             migrationBuilder.CreateTable(
                 name: "Accounts",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -143,7 +143,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "running_result",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     is_running = table.Column<bool>(type: "boolean", nullable: false)
@@ -154,7 +154,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.CreateTable(
                 name: "RefreshTokens",
-                schema: "Bitween",
+                schema: "infolink",
                 columns: table => new
                 {
                     id = table.Column<string>(type: "character varying(50)", unicode: false, maxLength: 50, nullable: false),
@@ -168,47 +168,47 @@ namespace SW.Bitween.PgSql.Migrations
                     table.ForeignKey(
                         name: "fk_refresh_tokens_accounts_account_id",
                         column: x => x.account_id,
-                        principalSchema: "Bitween",
+                        principalSchema: "infolink",
                         principalTable: "Accounts",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.InsertData(
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts",
                 columns: new[] { "id", "created_by", "created_on", "disabled", "display_name", "email", "email_provider", "login_methods", "modified_by", "modified_on", "password", "phone" },
                 values: new object[] { 9999, null, new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), false, "Admin", "admin@Bitween.systems", (byte)0, (byte)2, null, null, "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ", null });
 
             migrationBuilder.CreateIndex(
                 name: "ix_accounts_email",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "Accounts",
                 column: "email",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_refresh_tokens_account_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "RefreshTokens",
                 column: "account_id");
 
             migrationBuilder.AddForeignKey(
                 name: "fk_partner_api_credential_partner_partner_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential",
                 column: "partner_id",
-                principalSchema: "Bitween",
+                principalSchema: "infolink",
                 principalTable: "partner",
                 principalColumn: "id",
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "fk_subscription_schedule_subscription_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule",
                 column: "subscription_id",
-                principalSchema: "Bitween",
+                principalSchema: "infolink",
                 principalTable: "subscription",
                 principalColumn: "id",
                 onDelete: ReferentialAction.Cascade);
@@ -218,39 +218,39 @@ namespace SW.Bitween.PgSql.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "fk_partner_api_credential_partner_partner_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential");
 
             migrationBuilder.DropForeignKey(
                 name: "fk_subscription_schedule_subscription_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "running_result",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropTable(
                 name: "Accounts",
-                schema: "Bitween");
+                schema: "infolink");
 
             migrationBuilder.DropPrimaryKey(
                 name: "pk_subscription_schedule",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule");
 
             migrationBuilder.DropPrimaryKey(
                 name: "pk_partner_api_credential",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential");
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "finished_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_result",
                 type: "timestamp without time zone",
                 nullable: false,
@@ -259,7 +259,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "finished_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_notification",
                 type: "timestamp without time zone",
                 nullable: false,
@@ -268,7 +268,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "delivered_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_delivery",
                 type: "timestamp without time zone",
                 nullable: false,
@@ -277,7 +277,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "aggregated_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange_aggregation",
                 type: "timestamp without time zone",
                 nullable: false,
@@ -286,7 +286,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "started_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "xchange",
                 type: "timestamp without time zone",
                 nullable: false,
@@ -295,7 +295,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "receive_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "timestamp without time zone",
                 nullable: true,
@@ -305,7 +305,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "paused_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "timestamp without time zone",
                 nullable: true,
@@ -315,7 +315,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AlterColumn<DateTime>(
                 name: "aggregate_on",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription",
                 type: "timestamp without time zone",
                 nullable: true,
@@ -325,32 +325,32 @@ namespace SW.Bitween.PgSql.Migrations
 
             migrationBuilder.AddPrimaryKey(
                 name: "pk_schedule",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule",
                 columns: new[] { "subscription_id", "id" });
 
             migrationBuilder.AddPrimaryKey(
                 name: "pk_api_credential",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential",
                 columns: new[] { "partner_id", "id" });
 
             migrationBuilder.AddForeignKey(
                 name: "fk_api_credential_partner_partner_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "partner_api_credential",
                 column: "partner_id",
-                principalSchema: "Bitween",
+                principalSchema: "infolink",
                 principalTable: "partner",
                 principalColumn: "id",
                 onDelete: ReferentialAction.Cascade);
 
             migrationBuilder.AddForeignKey(
                 name: "fk_schedule_subscription_subscription_id",
-                schema: "Bitween",
+                schema: "infolink",
                 table: "subscription_schedule",
                 column: "subscription_id",
-                principalSchema: "Bitween",
+                principalSchema: "infolink",
                 principalTable: "subscription",
                 principalColumn: "id",
                 onDelete: ReferentialAction.Cascade);

@@ -2,6 +2,8 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Bitween;
 
@@ -10,20 +12,26 @@ using SW.Bitween;
 namespace SW.Bitween.MySql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    partial class BitweenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260121165119_SubscriptionWorkGroup")]
+    partial class SubscriptionWorkGroup
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "6.0.20")
+                .HasAnnotation("ProductVersion", "8.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.Account", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("longtext");
@@ -210,6 +218,8 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -249,6 +259,8 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
                     b.Property<bool>("BadData")
                         .HasColumnType("tinyint(1)");
 
@@ -278,6 +290,8 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -301,6 +315,8 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime?>("AggregateOn")
                         .HasColumnType("datetime(6)");
@@ -395,6 +411,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("ValidatorProperties")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("WorkGroupId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AggregationForId");
@@ -407,6 +426,8 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasIndex("ResponseSubscriptionId");
 
+                    b.HasIndex("WorkGroupId");
+
                     b.ToTable("Subscriptions", (string)null);
                 });
 
@@ -415,6 +436,8 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
                         .HasColumnType("varchar(255)");
@@ -473,6 +496,31 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasIndex("SubscriptionId");
 
                     b.ToTable("SubscriptionTrail");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.WorkGroup", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BusMessageName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Options")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WorkGroup");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>
@@ -606,6 +654,8 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
                     b.Property<string>("Exception")
                         .HasColumnType("longtext");
 
@@ -725,7 +775,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<bool>("IsRunning")
                         .HasColumnType("tinyint(1)");
 
-                    b.ToView(null);
+                    b.ToTable((string)null);
+
+                    b.ToView(null, (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
@@ -758,6 +810,8 @@ namespace SW.Bitween.MySql.Migrations
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
+
+                            MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b1.Property<int>("Id"));
 
                             b1.Property<string>("Key")
                                 .IsRequired()
@@ -822,6 +876,10 @@ namespace SW.Bitween.MySql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_Subscriptions_RespSub");
 
+                    b.HasOne("SW.Bitween.Domain.WorkGroup", "WorkGroup")
+                        .WithMany()
+                        .HasForeignKey("WorkGroupId");
+
                     b.OwnsMany("SW.Bitween.Domain.Schedule", "Schedules", b1 =>
                         {
                             b1.Property<int>("SubscriptionId")
@@ -830,6 +888,8 @@ namespace SW.Bitween.MySql.Migrations
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
+
+                            MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b1.Property<int>("Id"));
 
                             b1.Property<bool>("Backwards")
                                 .HasColumnType("tinyint(1)");
@@ -851,6 +911,8 @@ namespace SW.Bitween.MySql.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Schedules");
+
+                    b.Navigation("WorkGroup");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.SubscriptionTrail", b =>
