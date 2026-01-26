@@ -54,14 +54,6 @@ jobs:
           nobuild: true
           versioningScheme: byBuildNumber
 
-      - task: DotNetCoreCLI@2
-        displayName: Push to NuGet.org
-        condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r8.0')
-        inputs:
-          command: 'push'
-          packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
-          nuGetFeedType: 'external'
-          publishFeedCredentials: 'swnuget'
       # - task: NuGetCommand@2
       #   condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r8.0')
       #   inputs:
