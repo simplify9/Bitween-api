@@ -54,13 +54,21 @@ jobs:
           nobuild: true
           versioningScheme: byBuildNumber
 
-      - task: NuGetCommand@2
+      - task: DotNetCoreCLI@2
+        displayName: Push to NuGet.org
         condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r8.0')
         inputs:
           command: 'push'
           packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
           nuGetFeedType: 'external'
           publishFeedCredentials: 'swnuget'
+      # - task: NuGetCommand@2
+      #   condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r8.0')
+      #   inputs:
+      #     command: 'push'
+      #     packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+      #     nuGetFeedType: 'external'
+      #     publishFeedCredentials: 'swnuget'
 
   - job: build
     displayName: Build, push image and chart and deploy to playground
