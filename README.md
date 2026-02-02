@@ -210,6 +210,7 @@ docker run -p 7000:80 bitween-sftp-handler
 - [**Docker Deployment**](docs/docker-deployment.md) - Container-based deployment
 - [**Kubernetes**](docs/kubernetes-deployment.md) - Orchestrated deployment
 - [**Database Setup**](docs/database-setup.md) - Multi-database configuration
+- [**Azure Managed Identity**](docs/azure-managed-identity.md) - Secure database authentication with Azure
 
 ### 💡 Examples
 - [**Integration Patterns**](docs/integration-patterns.md) - Common usage scenarios

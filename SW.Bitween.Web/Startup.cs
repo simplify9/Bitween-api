@@ -28,6 +28,10 @@ using SW.Bitween.Resources.Accounts;
 using SW.Bitween.Services;
 using SW.CqApi.AuthOptions;
 using SW.Logger.ElasticSerach;
+using Azure.Identity;
+using Microsoft.Data.SqlClient;
+using SqlAuthenticationProvider = Microsoft.Data.SqlClient.SqlAuthenticationProvider;
+using SqlAuthenticationMethod = Microsoft.Data.SqlClient.SqlAuthenticationMethod;
 
 namespace SW.Bitween.Web
 {
@@ -114,26 +118,74 @@ namespace SW.Bitween.Web
             });
             services.AddScoped<RequestContext>();
 
+            // Get and validate connection string
+            var connectionString = Configuration.GetConnectionString(BitweenDbContext.ConnectionString);
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    $"Connection string '{BitweenDbContext.ConnectionString}' is not configured. " +
+                    "Please check your appsettings.json or environment configuration.");
+            }
+
+            // Configure Azure Managed Identity for SQL Server if enabled
+            if (bitweenOptions.UseAzureManagedIdentity && 
+                bitweenOptions.DatabaseType.Equals(RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                var authProvider = new AzureSqlAuthenticationProvider(bitweenOptions.AzureManagedIdentityClientId);
+                SqlAuthenticationProvider.SetProvider(SqlAuthenticationMethod.ActiveDirectoryDefault, authProvider);
+            }
+
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(),
                     StringComparison.CurrentCultureIgnoreCase))
             {
                 
-                var dataSourceBuilder = new NpgsqlDataSourceBuilder(
-                    Configuration.GetConnectionString(BitweenDbContext.ConnectionString));
-                dataSourceBuilder.EnableDynamicJson();
-                var dataSource = dataSourceBuilder.Build();
-                
-                services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
+                // Configure connection with Azure Managed Identity for PostgreSQL if enabled
+                if (bitweenOptions.UseAzureManagedIdentity)
                 {
-                    c.EnableSensitiveDataLogging();
-                    c.UseSnakeCaseNamingConvention();
-                    c.UseNpgsql(dataSource, b =>
+                    var tokenProvider = new AzurePostgreSqlTokenProvider(bitweenOptions.AzureManagedIdentityClientId);
+                    var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+                    dataSourceBuilder.EnableDynamicJson();
+                    
+                    // Configure periodic password provider for token refresh
+                    dataSourceBuilder.UsePeriodicPasswordProvider(
+                        async (_, ct) => await tokenProvider.GetAccessTokenAsync(),
+                        TimeSpan.FromMinutes(50), // Refresh token before expiry (typically 60 min)
+                        TimeSpan.FromSeconds(10)  // Initial delay
+                    );
+                    
+                    var dataSource = dataSourceBuilder.Build();
+                    
+                    services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                     {
-                        b.MigrationsHistoryTable("_ef_migrations_history", PgSql.BitweenDbContext.Schema);
-                        b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
-                        b.UseAdminDatabase(bitweenOptions.AdminDatabaseName);
+                        c.EnableSensitiveDataLogging();
+                        c.UseSnakeCaseNamingConvention();
+                        c.UseNpgsql(dataSource, b =>
+                        {
+                            b.MigrationsHistoryTable("_ef_migrations_history", PgSql.BitweenDbContext.Schema);
+                            b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
+                            b.UseAdminDatabase(bitweenOptions.AdminDatabaseName);
+                        });
                     });
-                });
+                }
+                else
+                {
+                    // Traditional connection string authentication
+                    var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+                    dataSourceBuilder.EnableDynamicJson();
+                    var dataSource = dataSourceBuilder.Build();
+                    
+                    services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
+                    {
+                        c.EnableSensitiveDataLogging();
+                        c.UseSnakeCaseNamingConvention();
+                        c.UseNpgsql(dataSource, b =>
+                        {
+                            b.MigrationsHistoryTable("_ef_migrations_history", PgSql.BitweenDbContext.Schema);
+                            b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
+                            b.UseAdminDatabase(bitweenOptions.AdminDatabaseName);
+                        });
+                    });
+                }
             }
             else
             {
@@ -143,13 +195,24 @@ namespace SW.Bitween.Web
                     if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MySql.ToString(),
                             StringComparison.CurrentCultureIgnoreCase))
                     {
+                        // MySQL doesn't support Azure Managed Identity in the same way
                         c.UseMySql(Configuration.GetConnectionString(BitweenDbContext.ConnectionString),
                             new MySqlServerVersion(new Version(8, 0, 18)),
                             b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
                     }
                     else if (bitweenOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
                     {
-                        c.UseSqlServer(Configuration.GetConnectionString(BitweenDbContext.ConnectionString),
+                        // For Azure Managed Identity with SQL Server, add Authentication parameter
+                        if (bitweenOptions.UseAzureManagedIdentity)
+                        {
+                            // Ensure connection string has the required authentication mode
+                            if (!connectionString.Contains("Authentication=", StringComparison.OrdinalIgnoreCase))
+                            {
+                                connectionString += ";Authentication=Active Directory Default";
+                            }
+                        }
+                        
+                        c.UseSqlServer(connectionString,
                             b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
                     }
                 });
