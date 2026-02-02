@@ -20,6 +20,7 @@
             JwtExpiryMinutes = 60;
             BusDefaultQueuePrefetch = 12;
             QueuePrefix="bitween";
+            UseAzureManagedIdentity = false;
         }
 
         public ushort? BusDefaultQueuePrefetch { get; set; }
@@ -45,5 +46,19 @@
         public int JwtExpiryMinutes { get; set; }
         public bool ConsumeLegacyEventMessages { get; set; }
         public string QueuePrefix { get; set; }
+        
+        /// <summary>
+        /// Enable Azure Managed Identity for database authentication.
+        /// When enabled, access tokens are automatically acquired using managed identity.
+        /// Works with Azure SQL Database and PostgreSQL Flexible Server.
+        /// </summary>
+        public bool UseAzureManagedIdentity { get; set; }
+        
+        /// <summary>
+        /// Optional: Specify a User-Assigned Managed Identity Client ID.
+        /// Leave empty to use System-Assigned Managed Identity.
+        /// Also checks environment variables: AZURE_CLIENT_ID, MSI_CLIENT_ID for Kubernetes Workload Identity.
+        /// </summary>
+        public string AzureManagedIdentityClientId { get; set; }
     }
 }
