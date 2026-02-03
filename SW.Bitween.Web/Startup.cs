@@ -138,6 +138,15 @@ namespace SW.Bitween.Web
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(),
                     StringComparison.CurrentCultureIgnoreCase))
             {
+                // Validate PostgreSQL connection string format
+                if (!connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) &&
+                    !connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"PostgreSQL connection string is missing 'Host=' or 'Server=' parameter. " +
+                        $"Connection string: '{connectionString}'. " +
+                        "Please check your ConnectionStrings:BitweenDb configuration.");
+                }
                 
                 // Configure connection with Azure Managed Identity for PostgreSQL if enabled
                 if (bitweenOptions.UseAzureManagedIdentity)
