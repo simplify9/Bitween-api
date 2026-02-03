@@ -76,6 +76,9 @@ spec:
             - name: Bitween__AreXChangeFilesPrivate
               value: "{{ .Values.areXChangeFilesPrivate }}"
 
+            - name: Bitween__UseAzureManagedIdentity
+              value: "{{ .Values.useAzureManagedIdentity }}"
+
             {{- if .Values.serverlessCommandTimeout }}
             - name: Bitween__ServerlessCommandTimeout
               value: "{{ .Values.serverlessCommandTimeout }}"

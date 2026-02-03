@@ -71,6 +71,7 @@ db: ""
 dbConnectionStringName: ConnectionStrings__BitweenDb
 
 dbType: "pgsql"
+useAzureManagedIdentity: "false"
 adminDb: "defaultdb"
 serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
