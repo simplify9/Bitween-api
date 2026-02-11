@@ -33,16 +33,19 @@ public class XchangeService :
     private readonly IPublish _publish;
     private readonly ILogger _logger;
     private readonly IInfolinkCache _BitweenCache;
+    private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
 
     public XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbContext,
         FilterService filterService,
         ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
-        IPublish publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache)
+        IPublish publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
+        NativeAdapterDiscoveryService nativeAdapterDiscovery)
     {
         _BitweenSettings = BitweenSettings;
         _dbContext = dbContext;
         _filterService = filterService;
         _cloudFiles = cloudFiles;
+        _nativeAdapterDiscovery = nativeAdapterDiscovery;
         _serviceProvider = serviceProvider;
         _publish = publish;
         _logger = logger;
@@ -125,13 +128,23 @@ public class XchangeService :
     {
         if (xchange.MapperId == null) return xchangeFile;
 
-        var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
-
         var mapperProperties = xchange.MapperProperties.ToDictionary();
         mapperProperties["xchangeid"] = xchange.Id;
 
-        await serverless.StartAsync(xchange.MapperId, xchange.CorrelationId ?? xchange.Id, mapperProperties);
-        xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
+        // Check if it's a native adapter
+        if (xchange.MapperId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+        {
+            var handler = InstantiateNativeAdapter<IInfolinkHandler>(xchange.MapperId, mapperProperties);
+            xchangeFile = await handler.Handle(xchangeFile);
+        }
+        else
+        {
+            // Use serverless for external adapters
+            var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
+            await serverless.StartAsync(xchange.MapperId, xchange.CorrelationId ?? xchange.Id, mapperProperties);
+            xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
+        }
+
         if (xchangeFile is null)
             throw new BitweenException(
                 $"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
@@ -145,10 +158,22 @@ public class XchangeService :
     {
         if (validatorId == null) return;
 
-        var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
-        await serverless.StartAsync(validatorId, null, properties);
-        var result =
-            await serverless.InvokeAsync<InfolinkValidatorResult>(nameof(IInfolinkValidator.Validate), xchangeFile);
+        InfolinkValidatorResult result;
+
+        // Check if it's a native adapter
+        if (validatorId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+        {
+            var validator = InstantiateNativeAdapter<IInfolinkValidator>(validatorId, properties);
+            result = await validator.Validate(xchangeFile);
+        }
+        else
+        {
+            // Use serverless for external adapters
+            var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
+            await serverless.StartAsync(validatorId, null, properties);
+            result = await serverless.InvokeAsync<InfolinkValidatorResult>(nameof(IInfolinkValidator.Validate), xchangeFile);
+        }
+
         if (!result.Success)
             throw new SWValidationException(result.Validations);
     }
@@ -157,16 +182,77 @@ public class XchangeService :
     {
         if (xchange.HandlerId == null) return null;
 
-        var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
-
         var handlerProperties = xchange.HandlerProperties.ToDictionary();
         handlerProperties["xchangeid"] = xchange.Id;
 
-        await serverless.StartAsync(xchange.HandlerId, xchange.CorrelationId ?? xchange.Id, handlerProperties);
-        xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
+        // Check if it's a native adapter
+        if (xchange.HandlerId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+        {
+            var handler = InstantiateNativeAdapter<IInfolinkHandler>(xchange.HandlerId, handlerProperties);
+            xchangeFile = await handler.Handle(xchangeFile);
+        }
+        else
+        {
+            // Use serverless for external adapters
+            var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
+            await serverless.StartAsync(xchange.HandlerId, xchange.CorrelationId ?? xchange.Id, handlerProperties);
+            xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), xchangeFile);
+        }
+
         if (xchangeFile != null)
             await AddFile(xchange.Id, XchangeFileType.Response, xchangeFile);
         return xchangeFile;
+    }
+
+    private T InstantiateNativeAdapter<T>(string adapterId, IDictionary<string, string> properties)
+    {
+        var adapterInfo = _nativeAdapterDiscovery.GetNativeAdapterInfo(adapterId);
+        if (adapterInfo == null)
+            throw new BitweenException($"Native adapter not found: {adapterId}");
+
+        // Get the constructor that takes a parameter
+        var constructor = adapterInfo.Type.GetConstructors()
+            .FirstOrDefault(c => c.GetParameters().Length > 0);
+
+        if (constructor == null)
+            throw new BitweenException($"Native adapter {adapterId} must have a constructor that accepts an input model");
+
+        // Get the input parameter type
+        var inputParameter = constructor.GetParameters().First();
+        var inputType = inputParameter.ParameterType;
+
+        // Create an instance of the input model by mapping properties
+        var inputInstance = Activator.CreateInstance(inputType);
+
+        // Map dictionary properties to the input model
+        foreach (var prop in inputType.GetProperties())
+        {
+            // Case-insensitive property lookup
+            var propEntry = properties.FirstOrDefault(p => 
+                string.Equals(p.Key, prop.Name, StringComparison.OrdinalIgnoreCase));
+            
+            if (!string.IsNullOrEmpty(propEntry.Key))
+            {
+                var value = propEntry.Value;
+                try
+                {
+                    var convertedValue = Convert.ChangeType(value, 
+                        Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+                    prop.SetValue(inputInstance, convertedValue);
+                }
+                catch
+                {
+                    // If conversion fails, set string value directly
+                    if (prop.PropertyType == typeof(string))
+                        prop.SetValue(inputInstance, value);
+                }
+            }
+        }
+
+        // Instantiate the adapter with the input model
+        var adapter = Activator.CreateInstance(adapterInfo.Type, inputInstance);
+        
+        return (T)adapter;
     }
 
     private async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
@@ -354,16 +440,28 @@ public class XchangeService :
             CorrelationId = xchange.CorrelationId
         };
 
-        var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
+        
 
         var handlerProperties = notifier.HandlerProperties.ToDictionary();
         handlerProperties["xchangeid"] = xchangeResult.Id;
 
         try
         {
-            await serverless.StartAsync(notifier.HandlerId, correlationId, handlerProperties);
-            await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle),
-                new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
+            // Check if it's a native adapter
+            if (notifier.HandlerId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+            {
+                var handler = InstantiateNativeAdapter<IInfolinkHandler>(notifier.HandlerId, handlerProperties);
+                await handler.Handle(new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
+            }
+            else
+            {
+                
+                // Use serverless for external adapters
+                var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
+                await serverless.StartAsync(notifier.HandlerId, correlationId, handlerProperties);
+                await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle),
+                    new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
+            }
 
             _dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name));
         }

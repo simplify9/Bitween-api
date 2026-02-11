@@ -57,6 +57,7 @@ namespace SW.Bitween.Web
             services.AddMemoryCache();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
+            services.AddSingleton<NativeAdapterDiscoveryService>();
             services.AddScoped<XchangeService>();
             
             services.AddHostedService<AggregationService>();

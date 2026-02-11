@@ -10,17 +10,23 @@ namespace SW.Bitween.Resources.Adapters
     {
         private readonly ServerlessOptions _serverlessOptions;
         private readonly ICloudFilesService _cloudFilesService;
+        private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
 
-        public Search(ServerlessOptions serverlessOptions, ICloudFilesService cloudFilesService)
+        public Search(ServerlessOptions serverlessOptions, ICloudFilesService cloudFilesService,
+            NativeAdapterDiscoveryService nativeAdapterDiscovery)
         {
             _serverlessOptions = serverlessOptions;
             _cloudFilesService = cloudFilesService;
+            _nativeAdapterDiscovery = nativeAdapterDiscovery;
         }
 
 
         public async Task<object> Handle(AdapterSearchRequest request)
         {
+            // Get native adapters first
+            var nativeAdapters = _nativeAdapterDiscovery.GetNativeAdapters(request.Prefix).ToList();
 
+            // Get external adapters from storage
             var cloudFilesList =
                 (await _cloudFilesService.ListAsync(
                     $"{_serverlessOptions.AdapterRemotePath}/infolink6.{request.Prefix}"))
@@ -33,10 +39,13 @@ namespace SW.Bitween.Resources.Adapters
 
                     return key;
                 })
+                .Distinct()
                 .ToList();
 
+            // Combine native (first) and external adapters
+            var allAdapters = nativeAdapters.Concat(cloudFilesList);
 
-            return cloudFilesList.Distinct().ToDictionary(k => k, v => v);
+            return allAdapters.ToDictionary(k => k, v => v);
         }
     }
 }

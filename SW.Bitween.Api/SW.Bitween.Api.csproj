@@ -27,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
     <ProjectReference Include="..\SW.Bitween.Sdk\SW.Bitween.Sdk.csproj" />
   </ItemGroup>
 

@@ -102,10 +102,24 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     RuleFor(i => i.MapperProperties).CustomAsync(async (i, context, ct) =>
                     {
-                        var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).MapperId, null);
-                        var mustProps = (await serverless.GetExpectedStartupValues())
-                            .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        var mapperId = ((SubscriptionUpdate)context.InstanceToValidate).MapperId;
+                        var mustProps = Enumerable.Empty<string>();
+
+                        // Check if it's a native adapter
+                        if (mapperId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var nativeAdapterDiscovery = serviceProvider.GetService<NativeAdapterDiscoveryService>();
+                            var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(mapperId);
+                            mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                        }
+                        else
+                        {
+                            var serverless = serviceProvider.GetService<IServerlessService>();
+                            await serverless.StartAsync(mapperId, null);
+                            mustProps = (await serverless.GetExpectedStartupValues())
+                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        }
+
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
                             .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                         if (missing.Any())
@@ -117,10 +131,24 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
                     {
-                        var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).HandlerId, null);
-                        var mustProps = (await serverless.GetExpectedStartupValues())
-                            .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        var handlerId = ((SubscriptionUpdate)context.InstanceToValidate).HandlerId;
+                        var mustProps = Enumerable.Empty<string>();
+
+                        // Check if it's a native adapter
+                        if (handlerId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var nativeAdapterDiscovery = serviceProvider.GetService<NativeAdapterDiscoveryService>();
+                            var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(handlerId);
+                            mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                        }
+                        else
+                        {
+                            var serverless = serviceProvider.GetService<IServerlessService>();
+                            await serverless.StartAsync(handlerId, null);
+                            mustProps = (await serverless.GetExpectedStartupValues())
+                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        }
+
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
                             .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                         if (missing.Any())
@@ -137,11 +165,24 @@ namespace SW.Bitween.Resources.Subscriptions
                     {
                         RuleFor(i => i.ReceiverProperties).CustomAsync(async (i, context, ct) =>
                         {
-                            var serverless = serviceProvider.GetService<IServerlessService>();
-                            await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).ReceiverId,
-                                null);
-                            var mustProps = (await serverless.GetExpectedStartupValues())
-                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                            var receiverId = ((SubscriptionUpdate)context.InstanceToValidate).ReceiverId;
+                            var mustProps = Enumerable.Empty<string>();
+
+                            // Check if it's a native adapter
+                            if (receiverId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var nativeAdapterDiscovery = serviceProvider.GetService<NativeAdapterDiscoveryService>();
+                                var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(receiverId);
+                                mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                            }
+                            else
+                            {
+                                var serverless = serviceProvider.GetService<IServerlessService>();
+                                await serverless.StartAsync(receiverId, null);
+                                mustProps = (await serverless.GetExpectedStartupValues())
+                                    .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                            }
+
                             var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
                                 .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                             if (missing.Any())
