@@ -7,5 +7,5 @@ public class ApiGatewayPartner
     public Partner Partner { get; set; }
     public int PartnerId { get; set; }
     public Subscription Subscription { get; set; }
-    public int? SubscriptionId { get; set; }
+    public int SubscriptionId { get; set; }
 }

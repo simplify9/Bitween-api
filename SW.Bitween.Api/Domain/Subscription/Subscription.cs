@@ -35,6 +35,13 @@ namespace SW.Bitween.Domain
                 throw new ArgumentException();
         }
 
+        public Subscription(string name, int documentId, SubscriptionType type): this(WorkGroup.None,name, documentId,
+            type)
+        {
+            Inactive = true;
+            if (type != SubscriptionType.GatewayApiCall)
+                throw new ArgumentException();
+        }
         private Subscription(WorkGroup workGroup, string name, int documentId, SubscriptionType type, int? partnerId = null,
             int? aggregationForId = null, bool temporary = false)
         {

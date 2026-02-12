@@ -221,7 +221,7 @@ namespace SW.Bitween.Web
                                 connectionString += ";Authentication=Active Directory Default";
                             }
                         }
-                        
+
                         c.UseSqlServer(connectionString,
                             b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
                     }

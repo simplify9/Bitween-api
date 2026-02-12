@@ -156,46 +156,73 @@ namespace SW.Bitween.Resources.Subscriptions
                     });
                 });
 
-                When(i => i.Type == SubscriptionType.Receiving, () =>
+                RuleFor(i => i).CustomAsync(async (model, context, ct) =>
                 {
-                    RuleFor(i => i.ReceiverId).NotEmpty();
-                    RuleFor(i => i.Schedules).NotEmpty();
-
-                    When(i => i.ReceiverId != null, () =>
+                    var dbContext = serviceProvider.GetService<BitweenDbContext>();
+                    var subscription = await dbContext.FindAsync<Subscription>(new object[] { context.RootContextData["Key"] }, ct);
+                    
+                    if (subscription?.Type == SubscriptionType.Receiving)
                     {
-                        RuleFor(i => i.ReceiverProperties).CustomAsync(async (i, context, ct) =>
+                        if (string.IsNullOrEmpty(model.ReceiverId))
+                            context.AddFailure(nameof(model.ReceiverId), "ReceiverId is required for Receiving subscriptions");
+                        
+                        if (model.Schedules == null || !model.Schedules.Any())
+                            context.AddFailure(nameof(model.Schedules), "Schedules are required for Receiving subscriptions");
+
+                        if (!string.IsNullOrEmpty(model.ReceiverId))
                         {
-                            var receiverId = ((SubscriptionUpdate)context.InstanceToValidate).ReceiverId;
                             var mustProps = Enumerable.Empty<string>();
 
                             // Check if it's a native adapter
-                            if (receiverId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                            if (model.ReceiverId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
                             {
                                 var nativeAdapterDiscovery = serviceProvider.GetService<NativeAdapterDiscoveryService>();
-                                var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(receiverId);
+                                var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(model.ReceiverId);
                                 mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
                             }
                             else
                             {
                                 var serverless = serviceProvider.GetService<IServerlessService>();
-                                await serverless.StartAsync(receiverId, null);
+                                await serverless.StartAsync(model.ReceiverId, null);
                                 mustProps = (await serverless.GetExpectedStartupValues())
                                     .Where(p => p.Value.Optional == false).Select(p => p.Key);
                             }
 
                             var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
-                                .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
+                                .Except(model.ReceiverProperties.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                             if (missing.Any())
-                                context.AddFailure($"Missing properties: {string.Join(",", missing)}");
-                        });
-                    });
+                                context.AddFailure(nameof(model.ReceiverProperties), $"Missing properties: {string.Join(",", missing)}");
+                        }
+                    }
                 });
 
-                When(i => i.Type == SubscriptionType.Aggregation, () =>
+                RuleFor(i => i).CustomAsync(async (model, context, ct) =>
                 {
-                    RuleFor(i => i.Schedules).NotEmpty();
-                    RuleFor(i => i.AggregationForId).NotEmpty();
+                    var dbContext = serviceProvider.GetService<BitweenDbContext>();
+                    var subscription = await dbContext.FindAsync<Subscription>(new object[] { context.RootContextData["Key"] }, ct);
+                    
+                    if (subscription?.Type == SubscriptionType.Aggregation)
+                    {
+                        if (model.Schedules == null || !model.Schedules.Any())
+                            context.AddFailure(nameof(model.Schedules), "Schedules are required for Aggregation subscriptions");
+                        
+                        if (!model.AggregationForId.HasValue)
+                            context.AddFailure(nameof(model.AggregationForId), "AggregationForId is required for Aggregation subscriptions");
+                    }
                 });
+
+                RuleFor(i => i).CustomAsync(async (model, context, ct) =>
+                {
+                    var dbContext = serviceProvider.GetService<BitweenDbContext>();
+                    var subscription = await dbContext.FindAsync<Subscription>(new object[] { context.RootContextData["Key"] }, ct);
+                    
+                    if (subscription?.Type == SubscriptionType.GatewayApiCall)
+                    {
+                        if (model.PartnerId.HasValue)
+                            context.AddFailure(nameof(model.PartnerId), "PartnerId must be null for GatewayApiCall subscriptions");
+                    }
+                });
+                
             }
         }
     }

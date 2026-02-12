@@ -23,7 +23,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync();
 
             return
-                new SubscriptionUpdate
+                new SubscriptionGet
                 {
                     AggregationForId = subscriber.AggregationForId,
                     DocumentFilter = subscriber.DocumentFilter.ToKeyAndValueCollection(),

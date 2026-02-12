@@ -13,7 +13,9 @@
     <Compile Remove="Services\ReceiverService.cs" />
     <Compile Remove="Services\SubscriberService.cs" />
   </ItemGroup>
-
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Azure.Identity" Version="1.13.1" />
     <PackageReference Include="FluentValidation" Version="11.11.0" />

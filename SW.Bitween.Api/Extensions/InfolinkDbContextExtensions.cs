@@ -25,7 +25,7 @@ namespace SW.Bitween
             if (par == null)
                 throw new SWUnauthorizedException();
 
-            return (par, par.ApiCredentials.First(c => c.Key == partnerKey).Name);
+            return (par, par.ApiCredentials.Single(c => c.Key == partnerKey).Name);
         }
 
         public static IQueryable<Subscription> Subscriptions(this BitweenDbContext dbContext) =>

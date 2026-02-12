@@ -36,6 +36,10 @@ namespace SW.Bitween.Resources.Subscriptions
                 case SubscriptionType.Internal:
                     entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId!.Value);
                     break;
+                case SubscriptionType.GatewayApiCall:
+                    entity = new Subscription(model.Name, model.DocumentId, model.Type);
+                    break;
+                    
                 case SubscriptionType.Unknown:
                 default:
                     throw new BitweenException();

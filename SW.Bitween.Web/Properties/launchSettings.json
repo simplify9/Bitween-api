@@ -1,3 +1,6 @@
+
+
+
 {
   "iisSettings": {
     "windowsAuthentication": false,
@@ -15,14 +18,58 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
     },
-    "SW.Bitween.Web": {
+    "TraxisDev": {
       "commandName": "Project",
       "launchBrowser": false,
-      "launchUrl": "https://localhost:5001",
+      "launchUrl": "https://localhost:5003",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SwLogger__LoggingLevel": "2",
+        "ConnectionStrings__InfolinkDb": "Server=pgsql-traxis-do-user-7890710-0.b.db.ondigitalocean.com;Port=25060;SSL Mode=Require;Database=traxis_dev;User Id=doadmin;Password=qi5fh7vuashytm03;Trust Server Certificate=true;Max Auto Prepare=5000;Auto Prepare Min Usages=1",
+        "ConnectionStrings__BitweenDb": "Server=pgsql-traxis-do-user-7890710-0.b.db.ondigitalocean.com;Port=25060;SSL Mode=Require;Database=traxis_dev;User Id=doadmin;Password=qi5fh7vuashytm03;Trust Server Certificate=true;Max Auto Prepare=5000;Auto Prepare Min Usages=1",
+        "CloudFiles__AccessKeyId": "XAZGFKBXRE6C3GL723JA",
+        "CloudFiles__SecretAccessKey": "TVSfjjr7jBLB4SvT/6+9/q1CPv4EQJKOGo1hHF4u+zI",
+        "CloudFiles__BucketName": "traxis",
+        "CloudFiles__ServiceUrl": "https://nyc3.digitaloceanspaces.com",
+        "ConnectionStrings__RabbitMQ" : "amqps://ivtycyae:jRsc0VsYbm1nH37DlO7YjOHg5FKH2UbQ@eager-ivory-wasp.rmq.cloudamqp.com/ivtycyae",
+        "Infolink__DatabaseType": "PgSql",
+        "Infolink__AdminCredentials": "1:1",
+        "InfolinkClient__BaseUrl": "https://localhost:5003/api/",
+        "Bitween__DatabaseType": "PgSql",
+        "Bitween__AdminCredentials": "1:1",
+        "Bitween__BaseUrl": "https://localhost:5003/api/",
+        "Token__Key": "6547647654764764767657658658758765876532542",
+        "Token__Issuer": "local",
+        "Token__Audience": "local"
       },
-      "applicationUrl": "https://localhost:5001;http://localhost:5000"
+      "applicationUrl": "https://localhost:5002;http://localhost:5003"
+    },
+    "PmmDev": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "launchUrl": "https://localhost:5003",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SwLogger__LoggingLevel": "1",
+        "ConnectionStrings__InfolinkDb": "Server=localhost;Database=pmm2;User Id=postgres;Password=postgres;Trust Server Certificate=true",
+        "ConnectionStrings__BitweenDb": "Server=localhost;Database=pmm2;User Id=postgres;Password=postgres;Trust Server Certificate=true",
+        "CloudFiles__AccessKeyId": "R3LNFRKWMAC4OCCRICS5",
+        "CloudFiles__SecretAccessKey": "YPyyTdxs+lZMQEtYIDRK9lkIzjJrCKXinE3OfKEfc7k",
+        "CloudFiles__BucketName": "sf9",
+        "CloudFiles__ServiceUrl": "https://fra1.digitaloceanspaces.com",
+        "ConnectionStrings__RabbitMQ" : "amqps://veebicsq:nw98MHANGkxAMgwOm57ALalyanCAwW2f@cow.rmq2.cloudamqp.com/veebicsq",
+        "Infolink__DatabaseType": "PgSql",
+        "Infolink__AdminCredentials": "1:1",
+        "InfolinkClient__BaseUrl": "https://localhost:5003/api/",
+        "Bitween__DatabaseType": "PgSql",
+        "Bitween__AdminCredentials": "1:1",
+        "Bitween__BaseUrl": "https://localhost:5003/api/",
+        "Token__Key": "6547647654764764767657658658758765876532542",
+        "Token__Issuer": "local",
+        "Token__Audience": "local"
+      },
+      "applicationUrl": "https://localhost:5002;http://localhost:5003"
     }
+
   }
 }

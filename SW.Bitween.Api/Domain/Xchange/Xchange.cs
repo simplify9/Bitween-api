@@ -11,9 +11,10 @@ namespace SW.Bitween.Domain
         {
         }
 
-        public Xchange(int documentId, IWorkGroup workGroup, XchangeFile file, string[] references = null, SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
+        public Xchange(int documentId, IWorkGroup workGroup, XchangeFile file, string[] references = null,
+            SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
         {
-            Id = Guid.NewGuid().ToString("N"); 
+            Id = Guid.NewGuid().ToString("N");
             DocumentId = documentId;
             References = references ?? new string[] { };
             InputName = file.Filename;
@@ -38,22 +39,33 @@ namespace SW.Bitween.Domain
             Events.Add(xchangeEvent);
         }
 
-        public Xchange(Subscription subscription, XchangeFile file, string[] references = null, string correlationId = null) : 
+        public Xchange(Subscription subscription, XchangeFile file, string[] references = null,
+            string correlationId = null, Partner gatewayPartner = null) :
             this(subscription.DocumentId, subscription.WorkGroup, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
             MapperId = subscription.MapperId;
             HandlerId = subscription.HandlerId;
-            MapperProperties = subscription.MapperProperties;
-            HandlerProperties = subscription.HandlerProperties;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             ResponseMessageTypeName = subscription.ResponseMessageTypeName;
             CorrelationId = correlationId;
+            if (gatewayPartner != null)
+            {
+                MapperProperties = subscription.MapperProperties.ToDictionary().Fill(gatewayPartner.AdapterProperties,
+                    Partner.TemplateVariableNamePrefix);
+                HandlerProperties = subscription.HandlerProperties.ToDictionary().Fill(gatewayPartner.AdapterProperties,
+                    Partner.TemplateVariableNamePrefix);
+            }
+            else
+            {
+                MapperProperties = subscription.MapperProperties;
+                HandlerProperties = subscription.HandlerProperties;
+            }
         }
 
         //retry xchange
-        public Xchange(Xchange xchange, XchangeFile file,IWorkGroup workGroup) : 
-            this(xchange.DocumentId,workGroup, file, xchange.References)
+        public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup) :
+            this(xchange.DocumentId, workGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
             MapperId = xchange.MapperId;
@@ -64,9 +76,10 @@ namespace SW.Bitween.Domain
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
         }
+
         //retry with reset subscription properties
-        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file) : 
-            this(xchange.DocumentId,subscription.WorkGroup, file, xchange.References)
+        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file) :
+            this(xchange.DocumentId, subscription.WorkGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
             MapperId = subscription.MapperId;
@@ -95,6 +108,5 @@ namespace SW.Bitween.Domain
 
         public string RetryFor { get; private set; }
         public string CorrelationId { get; set; }
-
     }
 }

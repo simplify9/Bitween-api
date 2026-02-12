@@ -53,11 +53,11 @@ public class XchangeService :
     }
 
     public async Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file,
-        string[] references = null)
+        string[] references = null, Partner gatewayPartner = null)
     {
         var subscription = await _BitweenCache.SubscriptionByIdAsync(subscriptionId);
 
-        var xchange = await CreateXchange(subscription, file, references, Guid.NewGuid().ToString("N"));
+        var xchange = await CreateXchange(subscription, file, references, Guid.NewGuid().ToString("N"), gatewayPartner);
         await _dbContext.SaveChangesAsync();
         return xchange.Id;
     }
@@ -108,7 +108,7 @@ public class XchangeService :
     }
 
     public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file,
-        string[] references = null, string correlationId = null)
+        string[] references = null, string correlationId = null, Partner gatewayPartner = null)
     {
         var xchange = new Xchange(subscription, file, references, correlationId);
         await AddFile(xchange.Id, XchangeFileType.Input, file);

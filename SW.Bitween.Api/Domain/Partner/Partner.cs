@@ -9,6 +9,7 @@ namespace SW.Bitween.Domain
 {
     public class Partner : BaseEntity
     {
+        public const string TemplateVariableNamePrefix = "partner";
         public const int SystemId = 1;
 
         private Partner()
@@ -29,7 +30,7 @@ namespace SW.Bitween.Domain
         }
 
         public string Name { get; set; }
-
+        public Dictionary<string,string> AdapterProperties { get; set; }
 
         readonly HashSet<Subscription> _Subscriptions;
         public IReadOnlyCollection<Subscription> Subscriptions => _Subscriptions;
@@ -41,6 +42,7 @@ namespace SW.Bitween.Domain
         {
             _ApiCredentials.Update(apiCredentials);
         }
+        
 
     }
 }
