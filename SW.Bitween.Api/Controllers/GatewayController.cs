@@ -26,7 +26,7 @@ public class GatewayController(
     [HttpPost("{gatewayApiName}/sync")]
     public  Task<IActionResult> PostSync([FromRoute] string gatewayApiName)
     {
-        return ProcessAsync(gatewayApiName, resultSync: false);
+        return ProcessAsync(gatewayApiName, resultSync: true);
     }
 
     [HttpPost("{gatewayApiName}/async")]
@@ -37,6 +37,7 @@ public class GatewayController(
 
     private async Task<IActionResult> ProcessAsync([FromRoute] string gatewayApiName, bool resultSync)
     {
+        var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
         var apiGateway = await dbContext.Set<ApiGateway>()
             .Include(ag => ag.Partners)
             .ThenInclude(agp => agp.Partner)
@@ -61,7 +62,7 @@ public class GatewayController(
         var xchangeFile = new XchangeFile(json);
         
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
-            .Fill(partner.AdapterProperties, Partner.TemplateVariableNamePrefix);
+            .Fill(partner, globalAdapterValuesSet);
         await xchangeService.RunValidator(subscription.ValidatorId, validatorProperties,
             xchangeFile);
 

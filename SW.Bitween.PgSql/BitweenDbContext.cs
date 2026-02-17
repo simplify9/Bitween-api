@@ -140,6 +140,12 @@ namespace SW.Bitween.PgSql
                     .IsRequired().OnDelete(DeleteBehavior.Restrict);
             });
 
+            modelBuilder.Entity<GlobalAdapterValuesSet>(gav =>
+            {
+                gav.ToTable("global_adapter_values_set");
+                gav.HasKey(i => i.Id);
+                gav.Property(p => p.Values).HasColumnType("jsonb");
+            });
             modelBuilder.Entity<Subscription>(b =>
             {
                 //b.ToTable("Subscriptions");

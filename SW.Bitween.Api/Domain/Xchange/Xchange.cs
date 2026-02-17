@@ -40,7 +40,7 @@ namespace SW.Bitween.Domain
         }
 
         public Xchange(Subscription subscription, XchangeFile file, string[] references = null,
-            string correlationId = null, Partner gatewayPartner = null) :
+            string correlationId = null, Partner gatewayPartner = null,GlobalAdapterValuesSet[] globalAdapterValuesSets = null) :
             this(subscription.DocumentId, subscription.WorkGroup, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
@@ -48,19 +48,11 @@ namespace SW.Bitween.Domain
             HandlerId = subscription.HandlerId;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             ResponseMessageTypeName = subscription.ResponseMessageTypeName;
+            MapperProperties = subscription.MapperProperties.ToDictionary().Fill(gatewayPartner,globalAdapterValuesSets);
+            HandlerProperties = subscription.HandlerProperties.ToDictionary()
+                .Fill(gatewayPartner, globalAdapterValuesSets);
             CorrelationId = correlationId;
-            if (gatewayPartner != null)
-            {
-                MapperProperties = subscription.MapperProperties.ToDictionary().Fill(gatewayPartner.AdapterProperties,
-                    Partner.TemplateVariableNamePrefix);
-                HandlerProperties = subscription.HandlerProperties.ToDictionary().Fill(gatewayPartner.AdapterProperties,
-                    Partner.TemplateVariableNamePrefix);
-            }
-            else
-            {
-                MapperProperties = subscription.MapperProperties;
-                HandlerProperties = subscription.HandlerProperties;
-            }
+            
         }
 
         //retry xchange

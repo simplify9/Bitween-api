@@ -16,4 +16,10 @@
     <ProjectReference Include="..\SW.Bitween.Api\SW.Bitween.Api.csproj" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <Compile Remove="Migrations\20260212153331_ApiGateway.cs" />
+    <Compile Remove="Migrations\20260212153331_ApiGateway.Designer.cs" />
+  </ItemGroup>
+
 </Project>

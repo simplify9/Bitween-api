@@ -115,12 +115,19 @@ namespace SW.Bitween
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
+            modelBuilder.Entity<GlobalAdapterValuesSet>(gav =>
+            {
+                gav.ToTable("GlobalAdapterValuesSets");
+                gav.HasKey(i => i.Id);
+                gav.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
+                gav.Property(p => p.Values).StoreAsJson();
+            });
             modelBuilder.Entity<Partner>(b =>
             {
                 b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.AdditionalValues).StoreAsJson();
+                b.Property(p => p.AdapterProperties).StoreAsJson();
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
                     .OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>

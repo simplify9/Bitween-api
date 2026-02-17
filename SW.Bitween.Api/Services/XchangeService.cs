@@ -108,9 +108,9 @@ public class XchangeService :
     }
 
     public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file,
-        string[] references = null, string correlationId = null, Partner gatewayPartner = null)
+        string[] references = null, string correlationId = null, Partner gatewayPartner = null,GlobalAdapterValuesSet[] globalAdapterValuesSets = null)
     {
-        var xchange = new Xchange(subscription, file, references, correlationId);
+        var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,globalAdapterValuesSets);
         await AddFile(xchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(xchange);
         return xchange;
