@@ -36,7 +36,10 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
 
             _dbContext.Add(entity);
             await _dbContext.SaveChangesAsync();
-            return entity.Id;
+            return new
+            {
+                entity.Id
+            };
         }
 
         private class Validate : AbstractValidator<GlobalAdapterValuesSetCreate>
