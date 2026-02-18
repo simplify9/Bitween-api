@@ -38,7 +38,9 @@ namespace SW.Bitween.Resources.Partners
                         Type = sub.Type,
                         DocumentId = sub.DocumentId,
 
-                    }).ToList()
+                    }).ToList(),
+
+                    AdapterProperties = partner.AdapterProperties
 
                 }).AsNoTracking().SingleOrDefaultAsync();
         }

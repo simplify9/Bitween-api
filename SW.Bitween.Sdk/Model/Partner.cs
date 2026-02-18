@@ -20,5 +20,6 @@ namespace SW.Bitween.Model
     {
         public ICollection<KeyAndValue> ApiCredentials { get; set; }
         public ICollection<SubscriptionSearch> Subscriptions { get; set; }
+        public Dictionary<string, string> AdapterProperties { get; set; }
     }
 }

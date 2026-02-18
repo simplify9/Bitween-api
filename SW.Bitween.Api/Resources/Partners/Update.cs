@@ -29,6 +29,7 @@ namespace SW.Bitween.Resources.Partners
 
             var entity = await _dbContext.FindAsync<Partner>(key);
             entity.SetApiCredentials(model.ApiCredentials.Select(kv => new ApiCredential(kv.Key, kv.Value)));
+            entity.AdapterProperties = model.AdapterProperties;
             _dbContext.Entry(entity).SetProperties(model);
             await _dbContext.SaveChangesAsync();
             return null;
