@@ -65,7 +65,7 @@ public static class StartupValuesFiller
                 v.Key.Equals(keyName, StringComparison.OrdinalIgnoreCase)).Value;
         });
     }
-    
+     
     private static Dictionary<string, string> FillTemplates(
         IDictionary<string, string> inputTemplated,
         string prefix,
@@ -77,20 +77,40 @@ public static class StartupValuesFiller
         {
             var value = kvp.Value;
             
-            // Check if value is a template like {{prefix...}}
-            if (value != null && value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && value.EndsWith("}}"))
+            if (value != null && value.Contains(prefix, StringComparison.OrdinalIgnoreCase))
             {
-                // Extract the content between prefix and }}
-                var content = value.Substring(prefix.Length, value.Length - prefix.Length - 2);
+                var sb = new System.Text.StringBuilder(value);
+                var searchFrom = 0;
                 
-                // Use the resolver to get the actual value
-                var resolvedValue = resolver(content);
+                while (true)
+                {
+                    var current = sb.ToString();
+                    var start = current.IndexOf(prefix, searchFrom, StringComparison.OrdinalIgnoreCase);
+                    if (start == -1) break;
+                    
+                    var end = current.IndexOf("}}", start + prefix.Length, StringComparison.Ordinal);
+                    if (end == -1) break;
+                    
+                    var content = current.Substring(start + prefix.Length, end - start - prefix.Length);
+                    var resolvedValue = resolver(content);
+                    
+                    if (resolvedValue != null)
+                    {
+                        var fullToken = current.Substring(start, end - start + 2);
+                        sb.Replace(fullToken, resolvedValue, start, fullToken.Length);
+                        searchFrom = start + resolvedValue.Length;
+                    }
+                    else
+                    {
+                        // Skip past this token to avoid infinite loop
+                        searchFrom = end + 2;
+                    }
+                }
                 
-                result[kvp.Key] = resolvedValue ?? value; // Use original if not found
+                result[kvp.Key] = sb.ToString();
             }
             else
             {
-                // Keep the original value if it's not a template
                 result[kvp.Key] = value;
             }
         }

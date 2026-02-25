@@ -9,6 +9,7 @@ using SW.Bitween.Domain;
 
 namespace SW.Bitween.Resources.ApiGateways
 {
+    [HandlerName(nameof(UpdatePartner))]
     public class UpdatePartner : ICommandHandler<int, ApiGatewayPartnerCreate, object>
     {
         private readonly BitweenDbContext _dbContext;

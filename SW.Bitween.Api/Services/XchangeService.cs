@@ -53,11 +53,13 @@ public class XchangeService :
     }
 
     public async Task<string> SubmitSubscriptionXchange(int subscriptionId, XchangeFile file,
-        string[] references = null, Partner gatewayPartner = null)
+        string[] references = null, Partner gatewayPartner = null,
+        GlobalAdapterValuesSet[] globalAdapterValuesSets = null)
     {
         var subscription = await _BitweenCache.SubscriptionByIdAsync(subscriptionId);
 
-        var xchange = await CreateXchange(subscription, file, references, Guid.NewGuid().ToString("N"), gatewayPartner);
+        var xchange = await CreateXchange(subscription, file, references, Guid.NewGuid().ToString("N"), gatewayPartner,
+            globalAdapterValuesSets);
         await _dbContext.SaveChangesAsync();
         return xchange.Id;
     }
@@ -108,9 +110,11 @@ public class XchangeService :
     }
 
     public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file,
-        string[] references = null, string correlationId = null, Partner gatewayPartner = null,GlobalAdapterValuesSet[] globalAdapterValuesSets = null)
+        string[] references = null, string correlationId = null, Partner gatewayPartner = null,
+        GlobalAdapterValuesSet[] globalAdapterValuesSets = null)
     {
-        var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,globalAdapterValuesSets);
+        var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
+            globalAdapterValuesSets);
         await AddFile(xchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(xchange);
         return xchange;
@@ -171,7 +175,8 @@ public class XchangeService :
             // Use serverless for external adapters
             var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
             await serverless.StartAsync(validatorId, null, properties);
-            result = await serverless.InvokeAsync<InfolinkValidatorResult>(nameof(IInfolinkValidator.Validate), xchangeFile);
+            result = await serverless.InvokeAsync<InfolinkValidatorResult>(nameof(IInfolinkValidator.Validate),
+                xchangeFile);
         }
 
         if (!result.Success)
@@ -215,7 +220,8 @@ public class XchangeService :
             .FirstOrDefault(c => c.GetParameters().Length > 0);
 
         if (constructor == null)
-            throw new BitweenException($"Native adapter {adapterId} must have a constructor that accepts an input model");
+            throw new BitweenException(
+                $"Native adapter {adapterId} must have a constructor that accepts an input model");
 
         // Get the input parameter type
         var inputParameter = constructor.GetParameters().First();
@@ -228,15 +234,15 @@ public class XchangeService :
         foreach (var prop in inputType.GetProperties())
         {
             // Case-insensitive property lookup
-            var propEntry = properties.FirstOrDefault(p => 
+            var propEntry = properties.FirstOrDefault(p =>
                 string.Equals(p.Key, prop.Name, StringComparison.OrdinalIgnoreCase));
-            
+
             if (!string.IsNullOrEmpty(propEntry.Key))
             {
                 var value = propEntry.Value;
                 try
                 {
-                    var convertedValue = Convert.ChangeType(value, 
+                    var convertedValue = Convert.ChangeType(value,
                         Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
                     prop.SetValue(inputInstance, convertedValue);
                 }
@@ -251,7 +257,7 @@ public class XchangeService :
 
         // Instantiate the adapter with the input model
         var adapter = Activator.CreateInstance(adapterInfo.Type, inputInstance);
-        
+
         return (T)adapter;
     }
 
@@ -440,7 +446,6 @@ public class XchangeService :
             CorrelationId = xchange.CorrelationId
         };
 
-        
 
         var handlerProperties = notifier.HandlerProperties.ToDictionary();
         handlerProperties["xchangeid"] = xchangeResult.Id;
@@ -455,7 +460,6 @@ public class XchangeService :
             }
             else
             {
-                
                 // Use serverless for external adapters
                 var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
                 await serverless.StartAsync(notifier.HandlerId, correlationId, handlerProperties);
@@ -508,7 +512,8 @@ public class XchangeService :
 
     public async Task<IDictionary<string, ConsumerOptions>> GetMessageTypeNamesWithOptions()
     {
-        var workgroups = (await _BitweenCache.ListWorkGroupsAsync()).ToList();
+        // var workgroups = (await _BitweenCache.ListWorkGroupsAsync()).ToList();
+        var workgroups = await _dbContext.Set<WorkGroup>().ToListAsync();
         workgroups.Add(WorkGroup.None);
         var messageTypeNamesWithOptions = new Dictionary<string, ConsumerOptions>();
         foreach (var workGroup in workgroups)

@@ -29,6 +29,7 @@ namespace SW.Bitween.Domain
                 //break;
                 SubscriptionType.Internal => new InternalXchangeCreatedEvent(),
                 SubscriptionType.ApiCall => new ApiXchangeCreatedEvent(),
+                SubscriptionType.GatewayApiCall => new ApiXchangeCreatedEvent(),
                 SubscriptionType.Receiving => new ReceivingXchangeCreatedEvent(),
                 SubscriptionType.Aggregation => new AggregateXchangeCreatedEvent(),
                 _ => throw new ArgumentOutOfRangeException(nameof(subscriptionType), subscriptionType, null)

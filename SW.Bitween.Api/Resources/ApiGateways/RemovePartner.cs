@@ -7,6 +7,7 @@ using System.Linq;
 
 namespace SW.Bitween.Resources.ApiGateways
 {
+    [HandlerName(nameof(RemovePartner))]
     public class RemovePartner : ICommandHandler<int, RemovePartnerRequest, object>
     {
         private readonly BitweenDbContext _dbContext;

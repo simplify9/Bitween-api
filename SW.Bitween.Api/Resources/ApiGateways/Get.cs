@@ -18,26 +18,31 @@ namespace SW.Bitween.Resources.ApiGateways
 
         public async Task<object> Handle(int key)
         {
-            return await _dbContext.Set<ApiGateway>()
+            var gateway = await _dbContext.Set<ApiGateway>()
                 .AsNoTracking()
                 .Include(ag => ag.Partners)
                     .ThenInclude(p => p.Partner)
                 .Include(ag => ag.Partners)
                     .ThenInclude(p => p.Subscription)
-                .Where(ag => ag.Id == key)
-                .Select(gateway => new ApiGatewayUpdate
+                .FirstOrDefaultAsync(ag => ag.Id == key);
+
+            if (gateway == null)
+                throw new SWNotFoundException($"ApiGateway with id '{key}' was not found");
+
+            return new ApiGatewayRow
+            {
+                Id = gateway.Id,
+                Name = gateway.Name,
+                UrlName = gateway.UrlName,
+                PartnersCount = gateway.Partners.Count,
+                Partners = gateway.Partners.Select(p => new ApiGatewayPartnerDto
                 {
-                    Name = gateway.Name,
-                    UrlName = gateway.UrlName,
-                    Partners = gateway.Partners.Select(p => new ApiGatewayPartnerDto
-                    {
-                        PartnerId = p.PartnerId,
-                        SubscriptionId = p.SubscriptionId,
-                        PartnerName = p.Partner.Name,
-                        SubscriptionName = p.Subscription.Name
-                    }).ToList()
-                })
-                .SingleOrDefaultAsync();
+                    PartnerId = p.PartnerId,
+                    SubscriptionId = p.SubscriptionId,
+                    PartnerName = p.Partner.Name,
+                    SubscriptionName = p.Subscription.Name
+                }).ToList()
+            };
         }
     }
 }

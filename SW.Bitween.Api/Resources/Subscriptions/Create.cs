@@ -61,7 +61,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
                 RuleFor(i => i.Type).NotEqual(SubscriptionType.Unknown);
 
-                When(i => i.Type != SubscriptionType.Receiving, () => { RuleFor(i => i.PartnerId).NotEmpty(); });
+                When(i => (i.Type != SubscriptionType.Receiving && i.Type != SubscriptionType.GatewayApiCall), () => { RuleFor(i => i.PartnerId).NotEmpty(); });
 
                 When(i => i.Type == SubscriptionType.Aggregation,
                     () => { RuleFor(i => i.AggregationForId).NotEmpty(); });

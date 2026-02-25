@@ -22,9 +22,8 @@ public class GatewayController(
     XchangeService xchangeService,
     BitweenOptions bitweenSettings) : ControllerBase
 {
-    
     [HttpPost("{gatewayApiName}/sync")]
-    public  Task<IActionResult> PostSync([FromRoute] string gatewayApiName)
+    public Task<IActionResult> PostSync([FromRoute] string gatewayApiName)
     {
         return ProcessAsync(gatewayApiName, resultSync: true);
     }
@@ -44,30 +43,35 @@ public class GatewayController(
             .FirstOrDefaultAsync(ag => ag.UrlName == gatewayApiName);
 
         if (apiGateway == null)
-            throw new SWNotFoundException($"API Gateway with URL name '{gatewayApiName}' not found");
+            return NotFound();
 
         // Resolve partner using API key
-        var (partner, keyName) = await dbContext.AuthorizePartner(requestContext);
+        var (authorized, partner, keyName) = await dbContext.CheckPartnerAuthorized(requestContext);
+
+        if (!authorized)
+            return Unauthorized();
 
         // Verify partner is part of the API Gateway
         var apiGatewayPartner = apiGateway.Partners.FirstOrDefault(agp => agp.PartnerId == partner.Id);
         if (apiGatewayPartner == null)
-            throw new SWUnauthorizedException("Partner is not authorized for this API Gateway");
+            return Unauthorized();
 
         var subscription = await cache.SubscriptionByIdAsync(apiGatewayPartner.SubscriptionId);
-        
+
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
         var xchangeFile = new XchangeFile(json);
-        
+
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);
         await xchangeService.RunValidator(subscription.ValidatorId, validatorProperties,
             xchangeFile);
 
         var xchangeReferences = new List<string> { $"partnerkey: {keyName}" };
-        var xchangeId= await xchangeService.SubmitSubscriptionXchange(subscription.Id, xchangeFile, xchangeReferences.ToArray());
+        var globalAdapterValuesSets = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
+        var xchangeId = await xchangeService.SubmitSubscriptionXchange(subscription.Id, xchangeFile,
+            xchangeReferences.ToArray(), partner, globalAdapterValuesSets);
         if (!resultSync)
         {
             return Accepted(xchangeId);
@@ -80,7 +84,7 @@ public class GatewayController(
         {
             waitResponse = waitResponseValue <= 0 ? 120 : waitResponseValue;
         }
-        
+
         var currentFibTerm = 1;
         var previousTerm = 1;
         while (currentFibTerm <= waitResponse)
@@ -111,14 +115,12 @@ public class GatewayController(
                         Content = response,
                         ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json,
                     };
-                    
                 }
                 case false:
-                    throw new SWValidationException("failure", "Internal processing error.");
+                    return BadRequest();
             }
         }
 
         return Accepted(xchangeId);
     }
-    
 }

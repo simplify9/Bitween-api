@@ -120,11 +120,12 @@ public class HttpHandler : IInfolinkHandler
         else
             uri = new Uri(_options.Url);
 
+        var httpMethod = HttpMethodFromString(_options.Verb);
         HttpRequestMessage request = new HttpRequestMessage()
         {
             RequestUri = uri,
-            Method = HttpMethodFromString(_options.Verb),
-            Content = content
+            Method = httpMethod,
+            Content = httpMethod == HttpMethod.Get ? null : content
         };
         string? headers1 = _options.Headers;
         IEnumerable<KeyValuePair<string, string>>? headers = headers1 != null
