@@ -10,7 +10,8 @@ namespace SW.Bitween.Model
         Internal = 1,
         ApiCall = 2,
         Receiving = 4,
-        Aggregation = 8
+        Aggregation = 8,
+        GatewayApiCall = 16,
     }
 
     public class SubscriptionReceiveNow
@@ -37,25 +38,27 @@ namespace SW.Bitween.Model
         public int SubscriptionId { get; set; }
     }
 
-    public class SubscriptionCreate : IName
+    public abstract class SubscriptionCreateUpdateBase : IName
     {
         public string Name { get; set; }
         public int DocumentId { get; set; }
-        public SubscriptionType Type { get; set; }
         public int? PartnerId { get; set; }
         public int? AggregationForId { get; set; }
     }
+    
+    public class SubscriptionCreate :SubscriptionCreateUpdateBase
+    {
+        public SubscriptionType Type { get; set; }
+    }
 
-    public class SubscriptionSearch : SubscriptionUpdate
+    public class SubscriptionSearch : SubscriptionGet
     {
         public int Id { get; set; }
         public string DocumentName { get; set; }
         public bool? IsRunning { get; set; }
-        public string CategoryCode { get; set; }
-        public string CategoryDescription { get; set; }
     }
 
-    public class SubscriptionUpdate : SubscriptionCreate
+    public class SubscriptionUpdate : SubscriptionCreateUpdateBase
     {
         public string HandlerId { get; set; }
         public string MapperId { get; set; }
@@ -87,5 +90,10 @@ namespace SW.Bitween.Model
         public DateTime? PausedOn { get; set; }
         public string CategoryCode { get; set; }
         public string CategoryDescription { get; set; }
+    }
+    
+    public class SubscriptionGet : SubscriptionUpdate
+    {
+        public SubscriptionType Type { get; set; }
     }
 }

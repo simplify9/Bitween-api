@@ -12,10 +12,20 @@ namespace SW.Bitween
         public static async Task<(Partner Partner, string KeyName)> AuthorizePartner(this BitweenDbContext dbContext,
             RequestContext requestContext)
         {
+            var (partnerAuthorized, partner, keyName) = await dbContext.CheckPartnerAuthorized(requestContext);
+            return !partnerAuthorized
+                ? throw new SWUnauthorizedException("Invalid or missing partner key")
+                : (partner, keyName);
+        }
+
+        public static async Task<(bool Authorized, Partner Partner, string KeyName)> CheckPartnerAuthorized(
+            this BitweenDbContext dbContext,
+            RequestContext requestContext)
+        {
             var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey")
                 .Select(item => item.Value).FirstOrDefault();
             if (partnerKey == null)
-                throw new SWUnauthorizedException();
+                return (false, null, null);
 
             var partnerQuery = from partner in dbContext.Set<Partner>()
                 where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
@@ -23,13 +33,12 @@ namespace SW.Bitween
 
             var par = await partnerQuery.AsNoTracking().SingleOrDefaultAsync();
             if (par == null)
-                throw new SWUnauthorizedException();
+                return (false, null, null);
 
-            return (par, par.ApiCredentials.First(c => c.Key == partnerKey).Name);
+            return (true, par, par.ApiCredentials.Single(c => c.Key == partnerKey).Name);
         }
 
         public static IQueryable<Subscription> Subscriptions(this BitweenDbContext dbContext) =>
             dbContext.Set<Subscription>().Include(s => s.WorkGroup);
     }
-    
 }

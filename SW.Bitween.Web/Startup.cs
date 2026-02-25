@@ -57,7 +57,9 @@ namespace SW.Bitween.Web
             services.AddMemoryCache();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
+            services.AddSingleton<NativeAdapterDiscoveryService>();
             services.AddScoped<XchangeService>();
+            services.AddHttpContextAccessor();
             
             services.AddHostedService<AggregationService>();
             services.AddHostedService<ReceivingService>();
@@ -220,7 +222,7 @@ namespace SW.Bitween.Web
                                 connectionString += ";Authentication=Active Directory Default";
                             }
                         }
-                        
+
                         c.UseSqlServer(connectionString,
                             b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
                     }

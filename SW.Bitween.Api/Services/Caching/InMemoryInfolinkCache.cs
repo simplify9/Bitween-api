@@ -39,12 +39,14 @@ public class InMemoryBitweenCache : IInfolinkCache
         var cachedDocuments = await repo.Set<Document>().AsNoTracking().ToArrayAsync();
         var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
         var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
+        var cachedGlobalValues = await repo.Set<GlobalAdapterValuesSet>().AsNoTracking().ToArrayAsync();
         var span = TimeSpan.FromMinutes(10);
         _cache.Set(nameof(Document), cachedDocuments, span);
         
         _cache.Set(nameof(Subscription), cachedSubscriptions, span);
         _cache.Set(nameof(Notifier), cachedNotifiers, span);
         _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
+        _cache.Set(nameof(GlobalAdapterValuesSet), cachedGlobalValues, span);
     }
 
     public async Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId)
@@ -140,6 +142,28 @@ public class InMemoryBitweenCache : IInfolinkCache
             return null;
 
         return await WorkGroupByIdAsync(subscription.WorkGroupId.Value);
+    }
+
+    public async Task<GlobalAdapterValuesSet> GlobalAdapterValuesSetById(string globalAdapterValuesSetId)
+    {
+        if (!_cache.TryGetValue(nameof(GlobalAdapterValuesSet), out GlobalAdapterValuesSet[] cachedGlobalValues))
+        {
+            await Load();
+            return _cache.Get<GlobalAdapterValuesSet[]>(nameof(GlobalAdapterValuesSet)).FirstOrDefault(gav => gav.Id == globalAdapterValuesSetId);
+        }
+
+        return cachedGlobalValues.FirstOrDefault(gav => gav.Id == globalAdapterValuesSetId);
+    }
+
+    public async Task<GlobalAdapterValuesSet[]> ListGlobalAdapterValuesSetsAsync()
+    {
+        if (!_cache.TryGetValue(nameof(GlobalAdapterValuesSet), out GlobalAdapterValuesSet[] cachedGlobalValues))
+        {
+            await Load();
+            return _cache.Get<GlobalAdapterValuesSet[]>(nameof(GlobalAdapterValuesSet));
+        }
+
+        return cachedGlobalValues;
     }
 
     public void Revoke()

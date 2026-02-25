@@ -252,6 +252,115 @@ namespace SW.Bitween.PgSql.Migrations
                     b.ToTable("document_trail", "infolink");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("UrlName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("url_name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_api_gateway");
+
+                    b.HasIndex("UrlName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_api_gateway_url_name");
+
+                    b.ToTable("api_gateway", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGatewayPartner", b =>
+                {
+                    b.Property<int>("ApiGatewayId")
+                        .HasColumnType("integer")
+                        .HasColumnName("api_gateway_id");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.HasKey("ApiGatewayId", "PartnerId", "SubscriptionId")
+                        .HasName("pk_api_gateway_partner");
+
+                    b.HasIndex("PartnerId")
+                        .HasDatabaseName("ix_api_gateway_partner_partner_id");
+
+                    b.HasIndex("SubscriptionId")
+                        .HasDatabaseName("ix_api_gateway_partner_subscription_id");
+
+                    b.ToTable("api_gateway_partner", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.GlobalAdapterValuesSet", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<IReadOnlyDictionary<string, string>>("Values")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("values");
+
+                    b.HasKey("Id")
+                        .HasName("pk_global_adapter_values_set");
+
+                    b.ToTable("global_adapter_values_set", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
                 {
                     b.Property<int>("Id")
@@ -349,6 +458,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<Dictionary<string, string>>("AdapterProperties")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("adapter_properties");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -960,6 +1073,36 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGatewayPartner", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Gateway.ApiGateway", "ApiGateway")
+                        .WithMany("Partners")
+                        .HasForeignKey("ApiGatewayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_gateway_partner_api_gateway_api_gateway_id");
+
+                    b.HasOne("SW.Bitween.Domain.Partner", "Partner")
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_gateway_partner_partner_partner_id");
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_api_gateway_partner_subscription_subscription_id");
+
+                    b.Navigation("ApiGateway");
+
+                    b.Navigation("Partner");
+
+                    b.Navigation("Subscription");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
                 {
                     b.OwnsMany("SW.Bitween.Domain.ApiCredential", "ApiCredentials", b1 =>
@@ -1152,6 +1295,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_xchange_result_xchange_id");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>
+                {
+                    b.Navigation("Partners");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>

@@ -36,6 +36,10 @@ namespace SW.Bitween.Resources.Subscriptions
                 case SubscriptionType.Internal:
                     entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId!.Value);
                     break;
+                case SubscriptionType.GatewayApiCall:
+                    entity = new Subscription(model.Name, model.DocumentId, model.Type);
+                    break;
+                    
                 case SubscriptionType.Unknown:
                 default:
                     throw new BitweenException();
@@ -57,7 +61,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
                 RuleFor(i => i.Type).NotEqual(SubscriptionType.Unknown);
 
-                When(i => i.Type != SubscriptionType.Receiving, () => { RuleFor(i => i.PartnerId).NotEmpty(); });
+                When(i => (i.Type != SubscriptionType.Receiving && i.Type != SubscriptionType.GatewayApiCall), () => { RuleFor(i => i.PartnerId).NotEmpty(); });
 
                 When(i => i.Type == SubscriptionType.Aggregation,
                     () => { RuleFor(i => i.AggregationForId).NotEmpty(); });

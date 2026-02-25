@@ -1,15 +1,14 @@
 ﻿using System;
-using System.IO;
 using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
 using SW.PrimitiveTypes;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Domain.Gateway;
 using SW.Bitween.JsonConverters;
 
 namespace SW.Bitween
@@ -92,11 +91,43 @@ namespace SW.Bitween
 
             });
 
+            modelBuilder.Entity<ApiGateway>(ag =>
+            {
+                ag.ToTable("ApiGateways");
+                ag.HasKey(i => i.Id);
+                ag.Property(i => i.Id).ValueGeneratedOnAdd();
+                ag.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                ag.Property(p => p.UrlName).IsRequired().HasMaxLength(200);
+                ag.HasIndex(p => p.UrlName).IsUnique();
+                ag.HasMany(p => p.Partners).WithOne(p => p.ApiGateway).HasForeignKey(p => p.ApiGatewayId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ApiGatewayPartner>(agp =>
+            {
+                agp.ToTable("ApiGatewayPartners");
+                agp.HasKey(p => new { p.ApiGatewayId, p.PartnerId, p.SubscriptionId });
+                agp.HasOne(p => p.ApiGateway).WithMany(p => p.Partners).HasForeignKey(p => p.ApiGatewayId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                agp.HasOne(p => p.Partner).WithMany().HasForeignKey(p => p.PartnerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                agp.HasOne(p => p.Subscription).WithMany().HasForeignKey(p => p.SubscriptionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<GlobalAdapterValuesSet>(gav =>
+            {
+                gav.ToTable("GlobalAdapterValuesSets");
+                gav.HasKey(i => i.Id);
+                gav.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
+                gav.Property(p => p.Values).StoreAsJson();
+            });
             modelBuilder.Entity<Partner>(b =>
             {
                 b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
+                b.Property(p => p.AdapterProperties).StoreAsJson();
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
                     .OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>
@@ -305,6 +336,7 @@ namespace SW.Bitween
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
             });
+            
         }
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -335,3 +367,4 @@ namespace SW.Bitween
         }
     }
 }
+

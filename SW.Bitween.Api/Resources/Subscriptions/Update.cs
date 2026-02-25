@@ -7,6 +7,7 @@ using SW.PrimitiveTypes;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
@@ -92,7 +93,19 @@ namespace SW.Bitween.Resources.Subscriptions
 
         private class Validate : AbstractValidator<SubscriptionUpdate>
         {
-            public Validate(IServiceProvider serviceProvider)
+            private ValueTask<Subscription> GetSub(BitweenDbContext dbContext,IHttpContextAccessor httpContextAccessor)
+            {
+                var path = httpContextAccessor.HttpContext?.Request.Path.Value;
+
+                var lastSegment = path?
+                    .Split('/', StringSplitOptions.RemoveEmptyEntries)
+                    .LastOrDefault();
+                if(lastSegment is null || !int.TryParse(lastSegment, out var subId))
+                    return new ValueTask<Subscription>((Subscription)null);
+
+                return dbContext.FindAsync<Subscription>(subId);
+            }
+            public Validate(BitweenDbContext dbContext,IHttpContextAccessor httpContextAccessor,NativeAdapterDiscoveryService nativeAdapterDiscovery, IServerlessService serverless)
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
@@ -100,12 +113,24 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 When(i => i.MapperId != null, () =>
                 {
-                    RuleFor(i => i.MapperProperties).CustomAsync(async (i, context, ct) =>
+                    RuleFor(i => i.MapperProperties).CustomAsync(async (i, context, _) =>
                     {
-                        var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).MapperId, null);
-                        var mustProps = (await serverless.GetExpectedStartupValues())
-                            .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        var mapperId = ((SubscriptionUpdate)context.InstanceToValidate).MapperId;
+                        var mustProps = Enumerable.Empty<string>();
+
+                        // Check if it's a native adapter
+                        if (mapperId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(mapperId);
+                            mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                        }
+                        else
+                        {
+                            await serverless.StartAsync(mapperId, null);
+                            mustProps = (await serverless.GetExpectedStartupValues())
+                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        }
+
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
                             .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                         if (missing.Any())
@@ -117,10 +142,23 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
                     {
-                        var serverless = serviceProvider.GetService<IServerlessService>();
-                        await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).HandlerId, null);
-                        var mustProps = (await serverless.GetExpectedStartupValues())
-                            .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        var handlerId = ((SubscriptionUpdate)context.InstanceToValidate).HandlerId;
+                        var mustProps = Enumerable.Empty<string>();
+
+                        // Check if it's a native adapter
+                        if (handlerId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(handlerId);
+                            mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                        }
+                        else
+                        {
+
+                            await serverless.StartAsync(handlerId, null);
+                            mustProps = (await serverless.GetExpectedStartupValues())
+                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                        }
+
                         var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
                             .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                         if (missing.Any())
@@ -128,33 +166,69 @@ namespace SW.Bitween.Resources.Subscriptions
                     });
                 });
 
-                When(i => i.Type == SubscriptionType.Receiving, () =>
+                RuleFor(i => i).CustomAsync(async (model, context, ct) =>
                 {
-                    RuleFor(i => i.ReceiverId).NotEmpty();
-                    RuleFor(i => i.Schedules).NotEmpty();
+                    var subscription = await GetSub(dbContext, httpContextAccessor);
 
-                    When(i => i.ReceiverId != null, () =>
+                    if (subscription?.Type == SubscriptionType.Receiving)
                     {
-                        RuleFor(i => i.ReceiverProperties).CustomAsync(async (i, context, ct) =>
+                        if (string.IsNullOrEmpty(model.ReceiverId))
+                            context.AddFailure(nameof(model.ReceiverId), "ReceiverId is required for Receiving subscriptions");
+
+                        if (model.Schedules == null || !model.Schedules.Any())
+                            context.AddFailure(nameof(model.Schedules), "Schedules are required for Receiving subscriptions");
+
+                        if (!string.IsNullOrEmpty(model.ReceiverId))
                         {
-                            var serverless = serviceProvider.GetService<IServerlessService>();
-                            await serverless.StartAsync(((SubscriptionUpdate)context.InstanceToValidate).ReceiverId,
-                                null);
-                            var mustProps = (await serverless.GetExpectedStartupValues())
-                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                            var mustProps = Enumerable.Empty<string>();
+
+                            // Check if it's a native adapter
+                            if (model.ReceiverId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                            {
+                                var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(model.ReceiverId);
+                                mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                            }
+                            else
+                            {
+                                await serverless.StartAsync(model.ReceiverId, null);
+                                mustProps = (await serverless.GetExpectedStartupValues())
+                                    .Where(p => p.Value.Optional == false).Select(p => p.Key);
+                            }
+
                             var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
-                                .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
+                                .Except(model.ReceiverProperties.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                             if (missing.Any())
-                                context.AddFailure($"Missing properties: {string.Join(",", missing)}");
-                        });
-                    });
+                                context.AddFailure(nameof(model.ReceiverProperties), $"Missing properties: {string.Join(",", missing)}");
+                        }
+                    }
                 });
 
-                When(i => i.Type == SubscriptionType.Aggregation, () =>
+                RuleFor(i => i).CustomAsync(async (model, context, ct) =>
                 {
-                    RuleFor(i => i.Schedules).NotEmpty();
-                    RuleFor(i => i.AggregationForId).NotEmpty();
+                    var subscription = await GetSub(dbContext, httpContextAccessor);
+
+                    if (subscription?.Type == SubscriptionType.Aggregation)
+                    {
+                        if (model.Schedules == null || !model.Schedules.Any())
+                            context.AddFailure(nameof(model.Schedules), "Schedules are required for Aggregation subscriptions");
+
+                        if (!model.AggregationForId.HasValue)
+                            context.AddFailure(nameof(model.AggregationForId), "AggregationForId is required for Aggregation subscriptions");
+                    }
                 });
+
+                RuleFor(i => i).CustomAsync(async (model, context, ct) =>
+                {
+
+                    var subscription = await GetSub(dbContext, httpContextAccessor);
+
+                    if (subscription?.Type == SubscriptionType.GatewayApiCall)
+                    {
+                        if (model.PartnerId.HasValue)
+                            context.AddFailure(nameof(model.PartnerId), "PartnerId must be null for GatewayApiCall subscriptions");
+                    }
+                });
+
             }
         }
     }

@@ -17,7 +17,7 @@ namespace SW.Bitween.MySql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.12")
+                .HasAnnotation("ProductVersion", "8.0.23")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
@@ -209,6 +209,94 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("DocumentTrail");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("UrlName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UrlName")
+                        .IsUnique();
+
+                    b.ToTable("ApiGateways", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGatewayPartner", b =>
+                {
+                    b.Property<int>("ApiGatewayId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("ApiGatewayId", "PartnerId", "SubscriptionId");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.ToTable("ApiGatewayPartners", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.GlobalAdapterValuesSet", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Values")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GlobalAdapterValuesSets", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
                 {
                     b.Property<int>("Id")
@@ -288,6 +376,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdapterProperties")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -797,6 +888,33 @@ namespace SW.Bitween.MySql.Migrations
                     b.Navigation("Document");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGatewayPartner", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Gateway.ApiGateway", "ApiGateway")
+                        .WithMany("Partners")
+                        .HasForeignKey("ApiGatewayId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Partner", "Partner")
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApiGateway");
+
+                    b.Navigation("Partner");
+
+                    b.Navigation("Subscription");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
                 {
                     b.OwnsMany("SW.Bitween.Domain.ApiCredential", "ApiCredentials", b1 =>
@@ -966,6 +1084,11 @@ namespace SW.Bitween.MySql.Migrations
                         .HasForeignKey("SW.Bitween.Domain.XchangeResult", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>
+                {
+                    b.Navigation("Partners");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>

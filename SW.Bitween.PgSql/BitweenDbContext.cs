@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Domain.Gateway;
 
 namespace SW.Bitween.PgSql
 {
@@ -86,6 +87,7 @@ namespace SW.Bitween.PgSql
                 //b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                b.Property(p => p.AdapterProperties).HasColumnType("jsonb");
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
                     .OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>
@@ -114,6 +116,36 @@ namespace SW.Bitween.PgSql
                     });
             });
 
+            modelBuilder.Entity<ApiGateway>(ag =>
+            {
+                ag.ToTable("api_gateway");
+                ag.HasKey(i => i.Id);
+                ag.Property(i => i.Id).ValueGeneratedOnAdd();
+                ag.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                ag.Property(p => p.UrlName).IsRequired().HasMaxLength(200);
+                ag.HasIndex(p => p.UrlName).IsUnique();
+                ag.HasMany(p => p.Partners).WithOne(p => p.ApiGateway).HasForeignKey(p => p.ApiGatewayId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ApiGatewayPartner>(agp =>
+            {
+                agp.ToTable("api_gateway_partner");
+                agp.HasKey(p => new { p.ApiGatewayId, p.PartnerId, p.SubscriptionId });
+                agp.HasOne(p => p.ApiGateway).WithMany(p => p.Partners).HasForeignKey(p => p.ApiGatewayId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                agp.HasOne(p => p.Partner).WithMany().HasForeignKey(p => p.PartnerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                agp.HasOne(p => p.Subscription).WithMany().HasForeignKey(p => p.SubscriptionId)
+                    .IsRequired().OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<GlobalAdapterValuesSet>(gav =>
+            {
+                gav.ToTable("global_adapter_values_set");
+                gav.HasKey(i => i.Id);
+                gav.Property(p => p.Values).HasColumnType("jsonb");
+            });
             modelBuilder.Entity<Subscription>(b =>
             {
                 //b.ToTable("Subscriptions");
