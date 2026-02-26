@@ -119,9 +119,9 @@ namespace SW.Bitween.Resources.Subscriptions
                         var mustProps = Enumerable.Empty<string>();
 
                         // Check if it's a native adapter
-                        if (mapperId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                        if (mapperId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
                         {
-                            var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(mapperId);
+                            var properties = nativeAdapterDiscovery.GetExpectedStartupValues(mapperId);
                             mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
                         }
                         else
@@ -146,9 +146,9 @@ namespace SW.Bitween.Resources.Subscriptions
                         var mustProps = Enumerable.Empty<string>();
 
                         // Check if it's a native adapter
-                        if (handlerId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                        if (handlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
                         {
-                            var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(handlerId);
+                            var properties = nativeAdapterDiscovery.GetExpectedStartupValues(handlerId);
                             mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
                         }
                         else
@@ -183,9 +183,9 @@ namespace SW.Bitween.Resources.Subscriptions
                             var mustProps = Enumerable.Empty<string>();
 
                             // Check if it's a native adapter
-                            if (model.ReceiverId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+                            if (model.ReceiverId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
                             {
-                                var properties = nativeAdapterDiscovery.GetNativeAdapterProperties(model.ReceiverId);
+                                var properties = nativeAdapterDiscovery.GetExpectedStartupValues(model.ReceiverId);
                                 mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
                             }
                             else

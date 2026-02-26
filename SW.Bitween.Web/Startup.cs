@@ -1,6 +1,5 @@
 using System;
 using System.Text;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +29,7 @@ using SW.CqApi.AuthOptions;
 using SW.Logger.ElasticSerach;
 using Azure.Identity;
 using Microsoft.Data.SqlClient;
+using SW.Bitween.NativeAdapters;
 using SqlAuthenticationProvider = Microsoft.Data.SqlClient.SqlAuthenticationProvider;
 using SqlAuthenticationMethod = Microsoft.Data.SqlClient.SqlAuthenticationMethod;
 
@@ -274,6 +274,9 @@ namespace SW.Bitween.Web
                         builder.AllowAnyMethod();
                     });
             });
+
+            services.AddNativeAdapters();
+
         }
 
 

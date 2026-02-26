@@ -136,9 +136,9 @@ public class XchangeService :
         mapperProperties["xchangeid"] = xchange.Id;
 
         // Check if it's a native adapter
-        if (xchange.MapperId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+        if (xchange.MapperId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var handler = InstantiateNativeAdapter<IInfolinkHandler>(xchange.MapperId, mapperProperties);
+            var handler = _nativeAdapterDiscovery.GetNativeHandler(xchange.MapperId, mapperProperties);
             xchangeFile = await handler.Handle(xchangeFile);
         }
         else
@@ -165,9 +165,10 @@ public class XchangeService :
         InfolinkValidatorResult result;
 
         // Check if it's a native adapter
-        if (validatorId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+        if (validatorId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var validator = InstantiateNativeAdapter<IInfolinkValidator>(validatorId, properties);
+            var validator = _nativeAdapterDiscovery.GetNativeValidator(validatorId, properties);
+            
             result = await validator.Validate(xchangeFile);
         }
         else
@@ -191,9 +192,9 @@ public class XchangeService :
         handlerProperties["xchangeid"] = xchange.Id;
 
         // Check if it's a native adapter
-        if (xchange.HandlerId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+        if (xchange.HandlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var handler = InstantiateNativeAdapter<IInfolinkHandler>(xchange.HandlerId, handlerProperties);
+            var handler = _nativeAdapterDiscovery.GetNativeHandler(xchange.HandlerId, handlerProperties);
             xchangeFile = await handler.Handle(xchangeFile);
         }
         else
@@ -209,57 +210,57 @@ public class XchangeService :
         return xchangeFile;
     }
 
-    private T InstantiateNativeAdapter<T>(string adapterId, IDictionary<string, string> properties)
-    {
-        var adapterInfo = _nativeAdapterDiscovery.GetNativeAdapterInfo(adapterId);
-        if (adapterInfo == null)
-            throw new BitweenException($"Native adapter not found: {adapterId}");
-
-        // Get the constructor that takes a parameter
-        var constructor = adapterInfo.Type.GetConstructors()
-            .FirstOrDefault(c => c.GetParameters().Length > 0);
-
-        if (constructor == null)
-            throw new BitweenException(
-                $"Native adapter {adapterId} must have a constructor that accepts an input model");
-
-        // Get the input parameter type
-        var inputParameter = constructor.GetParameters().First();
-        var inputType = inputParameter.ParameterType;
-
-        // Create an instance of the input model by mapping properties
-        var inputInstance = Activator.CreateInstance(inputType);
-
-        // Map dictionary properties to the input model
-        foreach (var prop in inputType.GetProperties())
-        {
-            // Case-insensitive property lookup
-            var propEntry = properties.FirstOrDefault(p =>
-                string.Equals(p.Key, prop.Name, StringComparison.OrdinalIgnoreCase));
-
-            if (!string.IsNullOrEmpty(propEntry.Key))
-            {
-                var value = propEntry.Value;
-                try
-                {
-                    var convertedValue = Convert.ChangeType(value,
-                        Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
-                    prop.SetValue(inputInstance, convertedValue);
-                }
-                catch
-                {
-                    // If conversion fails, set string value directly
-                    if (prop.PropertyType == typeof(string))
-                        prop.SetValue(inputInstance, value);
-                }
-            }
-        }
-
-        // Instantiate the adapter with the input model
-        var adapter = Activator.CreateInstance(adapterInfo.Type, inputInstance);
-
-        return (T)adapter;
-    }
+    // private T InstantiateNativeAdapter<T>(string adapterId, IDictionary<string, string> properties)
+    // {
+    //     var adapterInfo = _nativeAdapterDiscovery.GetNativeAdapterInfo(adapterId);
+    //     if (adapterInfo == null)
+    //         throw new BitweenException($"Native adapter not found: {adapterId}");
+    //
+    //     // Get the constructor that takes a parameter
+    //     var constructor = adapterInfo.Type.GetConstructors()
+    //         .FirstOrDefault(c => c.GetParameters().Length > 0);
+    //
+    //     if (constructor == null)
+    //         throw new BitweenException(
+    //             $"Native adapter {adapterId} must have a constructor that accepts an input model");
+    //
+    //     // Get the input parameter type
+    //     var inputParameter = constructor.GetParameters().First();
+    //     var inputType = inputParameter.ParameterType;
+    //
+    //     // Create an instance of the input model by mapping properties
+    //     var inputInstance = Activator.CreateInstance(inputType);
+    //
+    //     // Map dictionary properties to the input model
+    //     foreach (var prop in inputType.GetProperties())
+    //     {
+    //         // Case-insensitive property lookup
+    //         var propEntry = properties.FirstOrDefault(p =>
+    //             string.Equals(p.Key, prop.Name, StringComparison.OrdinalIgnoreCase));
+    //
+    //         if (!string.IsNullOrEmpty(propEntry.Key))
+    //         {
+    //             var value = propEntry.Value;
+    //             try
+    //             {
+    //                 var convertedValue = Convert.ChangeType(value,
+    //                     Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+    //                 prop.SetValue(inputInstance, convertedValue);
+    //             }
+    //             catch
+    //             {
+    //                 // If conversion fails, set string value directly
+    //                 if (prop.PropertyType == typeof(string))
+    //                     prop.SetValue(inputInstance, value);
+    //             }
+    //         }
+    //     }
+    //
+    //     // Instantiate the adapter with the input model
+    //     var adapter = Activator.CreateInstance(adapterInfo.Type, inputInstance);
+    //
+    //     return (T)adapter;
+    // }
 
     private async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
     {
@@ -453,9 +454,9 @@ public class XchangeService :
         try
         {
             // Check if it's a native adapter
-            if (notifier.HandlerId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+            if (notifier.HandlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
             {
-                var handler = InstantiateNativeAdapter<IInfolinkHandler>(notifier.HandlerId, handlerProperties);
+                var handler = _nativeAdapterDiscovery.GetNativeHandler(notifier.HandlerId, handlerProperties); 
                 await handler.Handle(new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
             }
             else

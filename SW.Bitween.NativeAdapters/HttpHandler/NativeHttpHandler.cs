@@ -7,7 +7,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters;
 
-public class HttpHandler : IInfolinkHandler
+public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHandler
 {
     private HttpMethod HttpMethodFromString(string method)
     {
@@ -24,16 +24,13 @@ public class HttpHandler : IInfolinkHandler
         }
     }
 
-    private readonly HttpHandlerInput _options;
+    private HttpHandlerInput _options = new();
     
-    public HttpHandler(HttpHandlerInput options)
-    {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-    }
+    
 
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
-        HttpClient client = new HttpClient();
+        HttpClient client = httpProxy.GetClient(_options.Url);
         if (_options.AuthType == "ApiKey")
             client.DefaultRequestHeaders.Add("ApiKey", _options.ApiKey);
         else if (_options.AuthType == "Bearer")
@@ -156,5 +153,12 @@ public class HttpHandler : IInfolinkHandler
         return xchangeFile1;
     }
 
+    
+    public string Name => "native.httpHandler";
+    public void InitializeStartupValues(IDictionary<string, string> settings)
+    {
+        _options = settings.ConvertTo<HttpHandlerInput>();
+    }
 
+    public Type StartupValuesType => typeof(HttpHandlerInput);
 }
