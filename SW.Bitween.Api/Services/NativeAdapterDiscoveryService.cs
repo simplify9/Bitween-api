@@ -48,7 +48,7 @@ namespace SW.Bitween
         public INativeInfolinkHandler GetNativeHandler(string adapterId, Dictionary<string, string> settings)
         {
             var result =
-                nativeHandlers.FirstOrDefault(a => a.GetType().Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase));
+                nativeHandlers.FirstOrDefault(a => a.Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase));
             if (result != null)
             {
                 result.InitializeStartupValues(settings);

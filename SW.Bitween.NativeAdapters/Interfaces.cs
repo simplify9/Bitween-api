@@ -4,7 +4,7 @@ namespace SW.Bitween.NativeAdapters;
 
 public interface INativeAdapter
 {
-    //public string Name { get; }
+    public string Name { get; }
     public void InitializeStartupValues(IDictionary<string, string> settings);
     public Type StartupValuesType { get; }
 }
