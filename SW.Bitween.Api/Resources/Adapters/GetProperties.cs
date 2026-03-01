@@ -25,9 +25,9 @@ namespace SW.Bitween.Resources.Adapters
             var decodedKey = Uri.UnescapeDataString(key);
             
             // Check if it's a native adapter
-            if (decodedKey.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+            if (decodedKey.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
             {
-                return _nativeAdapterDiscovery.GetNativeAdapterProperties(decodedKey);
+                return _nativeAdapterDiscovery.GetExpectedStartupValues(decodedKey);
             }
             
             // Handle serverless adapters

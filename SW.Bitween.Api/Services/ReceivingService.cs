@@ -79,10 +79,10 @@ namespace SW.Bitween
             IDictionary<string, string> startupParameters, int subId)
         {
             // Check if it's a native adapter
-            if (serverlessId.StartsWith("native.", StringComparison.OrdinalIgnoreCase))
+            if (serverlessId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
             {
                 var nativeAdapterDiscovery = serviceProvider.GetRequiredService<NativeAdapterDiscoveryService>();
-                var receiver = InstantiateNativeReceiver(nativeAdapterDiscovery, serverlessId, startupParameters);
+                var receiver = nativeAdapterDiscovery.GetNativeReceiver(serverlessId, startupParameters);
                 
                 await receiver.Initialize();
                 var fileList = (await receiver.ListFiles()).ToList();
@@ -126,58 +126,6 @@ namespace SW.Bitween
 
                 await serverless.InvokeAsync(nameof(IInfolinkReceiver.Finalize), null);
             }
-        }
-
-        private IInfolinkReceiver InstantiateNativeReceiver(NativeAdapterDiscoveryService nativeAdapterDiscovery, 
-            string adapterId, IDictionary<string, string> properties)
-        {
-            var adapterInfo = nativeAdapterDiscovery.GetNativeAdapterInfo(adapterId);
-            if (adapterInfo == null)
-                throw new BitweenException($"Native adapter not found: {adapterId}");
-
-            // Get the constructor that takes a parameter
-            var constructor = adapterInfo.Type.GetConstructors()
-                .FirstOrDefault(c => c.GetParameters().Length > 0);
-
-            if (constructor == null)
-                throw new BitweenException($"Native adapter {adapterId} must have a constructor that accepts an input model");
-
-            // Get the input parameter type
-            var inputParameter = constructor.GetParameters().First();
-            var inputType = inputParameter.ParameterType;
-
-            // Create an instance of the input model by mapping properties
-            var inputInstance = Activator.CreateInstance(inputType);
-
-            // Map dictionary properties to the input model
-            foreach (var prop in inputType.GetProperties())
-            {
-                // Case-insensitive property lookup
-                var propEntry = properties.FirstOrDefault(p => 
-                    string.Equals(p.Key, prop.Name, StringComparison.OrdinalIgnoreCase));
-                
-                if (!string.IsNullOrEmpty(propEntry.Key))
-                {
-                    var value = propEntry.Value;
-                    try
-                    {
-                        var convertedValue = Convert.ChangeType(value, 
-                            Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
-                        prop.SetValue(inputInstance, convertedValue);
-                    }
-                    catch
-                    {
-                        // If conversion fails, set string value directly
-                        if (prop.PropertyType == typeof(string))
-                            prop.SetValue(inputInstance, value);
-                    }
-                }
-            }
-
-            // Instantiate the adapter with the input model
-            var adapter = Activator.CreateInstance(adapterInfo.Type, inputInstance);
-            
-            return (IInfolinkReceiver)adapter;
         }
 
 
