@@ -12,7 +12,7 @@ public static class StartupValuesFiller
         Partner partner, GlobalAdapterValuesSet[] globals)
     {
         // First fill globals templates
-        var afterGlobals = inputTemplated.Fill(globals ?? []);
+        var afterGlobals = inputTemplated?.Fill(globals ?? []) ?? new Dictionary<string, string>();
         
         // Then fill partner templates using AdapterProperties
         var result = afterGlobals.Fill(partner.AdapterProperties ?? new Dictionary<string, string>(), Partner.TemplateVariableNamePrefix);
