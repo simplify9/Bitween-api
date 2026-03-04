@@ -60,5 +60,9 @@
         /// Also checks environment variables: AZURE_CLIENT_ID, MSI_CLIENT_ID for Kubernetes Workload Identity.
         /// </summary>
         public string AzureManagedIdentityClientId { get; set; }
+
+        public string RabbitMqManagementUrl { get; set; }
+        public string RabbitMqManagementUsername { get; set; }
+        public string RabbitMqManagementPassword { get; set; }
     }
 }
