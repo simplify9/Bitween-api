@@ -154,7 +154,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
     }
 
     
-    public string Name => "native.httpHandler";
+    public string Name => "NativeHttpHandler";
     public void InitializeStartupValues(IDictionary<string, string> settings)
     {
         _options = settings.ConvertTo<HttpHandlerInput>();
