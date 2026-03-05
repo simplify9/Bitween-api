@@ -11,12 +11,15 @@ public static class StartupValuesFiller
     public static Dictionary<string, string> Fill(this IDictionary<string, string> inputTemplated,
         Partner partner, GlobalAdapterValuesSet[] globals)
     {
+        if (inputTemplated == null) return new Dictionary<string, string>();
+
         // First fill globals templates
         var afterGlobals = inputTemplated.Fill(globals ?? []);
         
         // Then fill partner templates using AdapterProperties
-        var result = afterGlobals.Fill(partner.AdapterProperties ?? new Dictionary<string, string>(), Partner.TemplateVariableNamePrefix);
-        
+        var adapterProperties = partner?.AdapterProperties ?? new Dictionary<string, string>();
+        var result = afterGlobals.Fill(adapterProperties, Partner.TemplateVariableNamePrefix);
+
         return result;
     }
     //{{partner.XY}} => input["XY"]
@@ -28,9 +31,10 @@ public static class StartupValuesFiller
         return FillTemplates(inputTemplated, prefix, (content) =>
         {
             // Simple case: extract variable name and look up in input dictionary
+            if (input == null) return null;
             // Look up in input dictionary (case-insensitive)
             return input.FirstOrDefault(i => 
-                i.Key.Equals(content, StringComparison.OrdinalIgnoreCase)).Value;
+                content.Equals(i.Key, StringComparison.OrdinalIgnoreCase)).Value;
         });
     }
 
@@ -53,16 +57,16 @@ public static class StartupValuesFiller
             
             // Find the matching global adapter values set
             var globalSet = globals.FirstOrDefault(g => 
-                g.Id.Equals(globalId, StringComparison.OrdinalIgnoreCase));
-            
+                globalId.Equals(g?.Id, StringComparison.OrdinalIgnoreCase));
+
             if (globalSet == null)
             {
                 return null; // Keep original if global set not found
             }
             
             // Look up the key in the Values dictionary (case-insensitive)
-            return globalSet.Values.FirstOrDefault(v => 
-                v.Key.Equals(keyName, StringComparison.OrdinalIgnoreCase)).Value;
+            return globalSet.Values?.FirstOrDefault(v =>
+                keyName.Equals(v.Key, StringComparison.OrdinalIgnoreCase)).Value;
         });
     }
      
