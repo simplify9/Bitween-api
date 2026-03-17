@@ -69,6 +69,8 @@ spec:
             - name: Bitween__BusDefaultQueuePrefetch
               value: "{{ .Values.busDefaultQueuePrefetch }}"
 
+            - name: Bitween__RabbitMqManagementUrl
+              value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUrl | quote }}
 
             - name: Bitween__StorageProvider
               value: {{ .Values.storageProvider }}
