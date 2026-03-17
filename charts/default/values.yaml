@@ -34,6 +34,10 @@ ingress:
     # - secretName: chart-example-tls
     #   hosts:
   #     - chart-example.local
+  
+environmentVariables:
+  Bitween__RabbitMqManagementUrl: ""
+  
 secrets:
 
 resources: {}
