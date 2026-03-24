@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace SW.Bitween
 {
-    internal class BusService : IConsume
+    public class BusService : IConsume
     {
         private const string MessageTypeNameToDocumentId = "MessageTypeNameToDocumentId";
 
