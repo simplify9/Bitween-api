@@ -105,7 +105,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 return dbContext.FindAsync<Subscription>(subId);
             }
-            public Validate(BitweenDbContext dbContext,IHttpContextAccessor httpContextAccessor,NativeAdapterDiscoveryService nativeAdapterDiscovery, IServerlessService serverless)
+            public Validate(BitweenDbContext dbContext,IHttpContextAccessor httpContextAccessor,NativeAdapterDiscoveryService nativeAdapterDiscovery, IServiceProvider serviceProvider)
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
@@ -126,6 +126,7 @@ namespace SW.Bitween.Resources.Subscriptions
                         }
                         else
                         {
+                            var serverless = serviceProvider.GetRequiredService<IServerlessService>();
                             await serverless.StartAsync(mapperId, null);
                             mustProps = (await serverless.GetExpectedStartupValues())
                                 .Where(p => p.Value.Optional == false).Select(p => p.Key);
@@ -153,7 +154,7 @@ namespace SW.Bitween.Resources.Subscriptions
                         }
                         else
                         {
-
+                            var serverless = serviceProvider.GetRequiredService<IServerlessService>(); 
                             await serverless.StartAsync(handlerId, null);
                             mustProps = (await serverless.GetExpectedStartupValues())
                                 .Where(p => p.Value.Optional == false).Select(p => p.Key);
@@ -190,6 +191,7 @@ namespace SW.Bitween.Resources.Subscriptions
                             }
                             else
                             {
+                                var serverless = serviceProvider.GetRequiredService<IServerlessService>();
                                 await serverless.StartAsync(model.ReceiverId, null);
                                 mustProps = (await serverless.GetExpectedStartupValues())
                                     .Where(p => p.Value.Optional == false).Select(p => p.Key);
