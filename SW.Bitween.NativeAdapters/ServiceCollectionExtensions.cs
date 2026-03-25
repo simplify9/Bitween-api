@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using SW.Bitween.NativeAdapters.HttpReceiver;
 
 namespace SW.Bitween.NativeAdapters;
 
@@ -23,5 +24,8 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddScoped<INativeInfolinkHandler, NativeHttpHandler>();
         serviceCollection.AddScoped<INativeAdapter, NativeHttpHandler>();
+        
+        serviceCollection.AddScoped<INativeInfolinkReceiver, NativeHttpReceiver>();
+        serviceCollection.AddScoped<INativeAdapter, NativeHttpReceiver>();
     }
 }
