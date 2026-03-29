@@ -16,15 +16,18 @@ public static class ServiceCollectionExtensions
             });
         });
         serviceCollection.AddSingleton<DynamicHttpProxy>();
-        serviceCollection.AddSingleton<IDynamicHttpProxy>(sp => 
+        serviceCollection.AddSingleton<IDynamicHttpProxy>(sp =>
             sp.GetRequiredService<DynamicHttpProxy>());
 
-        serviceCollection.AddHostedService(sp => 
+        serviceCollection.AddHostedService(sp =>
             sp.GetRequiredService<DynamicHttpProxy>());
 
         serviceCollection.AddScoped<INativeInfolinkHandler, NativeHttpHandler>();
         serviceCollection.AddScoped<INativeAdapter, NativeHttpHandler>();
-        
+
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeJsonFieldMapper>();
+        serviceCollection.AddScoped<INativeAdapter, NativeJsonFieldMapper>();
+
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativeHttpReceiver>();
         serviceCollection.AddScoped<INativeAdapter, NativeHttpReceiver>();
     }
