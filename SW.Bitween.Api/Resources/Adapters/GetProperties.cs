@@ -31,9 +31,26 @@ namespace SW.Bitween.Resources.Adapters
             }
             
             // Handle serverless adapters
-            await serverless.StartAsync(decodedKey, null);
+            try
+            {
+                await serverless.StartAsync(decodedKey, null);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new BitweenException(
+                    $"Adapter '{decodedKey}' metadata is incomplete or the adapter package is not installed. " +
+                    $"Missing metadata key: {ex.Message}", ex);
+            }
+
             var expected = await serverless.GetExpectedStartupValues();
-            return expected.ToList().ToDictionary(k => k.Key, v => $"{v.Key} {(v.Value.Optional ? $" ({v.Value.Default ?? "null"})" : " *")}");
+            if (expected == null)
+                return new Dictionary<string, string>();
+
+            return expected
+                .ToList()
+                .ToDictionary(
+                    k => k.Key,
+                    v => $"{v.Key} {(v.Value.Optional ? $" ({v.Value.Default ?? "null"})" : " *")}");
         }
     }
 
