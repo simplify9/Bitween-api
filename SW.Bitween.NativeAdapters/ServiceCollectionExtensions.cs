@@ -25,8 +25,8 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddScoped<INativeInfolinkHandler, NativeHttpHandler>();
         serviceCollection.AddScoped<INativeAdapter, NativeHttpHandler>();
 
-        serviceCollection.AddScoped<INativeInfolinkHandler, NativeJsonFieldMapper>();
-        serviceCollection.AddScoped<INativeAdapter, NativeJsonFieldMapper>();
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeJSONMapper>();
+        serviceCollection.AddScoped<INativeAdapter, NativeJSONMapper>();
 
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativeHttpReceiver>();
         serviceCollection.AddScoped<INativeAdapter, NativeHttpReceiver>();
