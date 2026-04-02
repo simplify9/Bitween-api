@@ -42,7 +42,7 @@ jobs:
     uses: simplify9/.github/.github/workflows/sw-cicd.yml@main
     with:
       major-version: '8'
-      minor-version: '0'
+      minor-version: '1'
 
       dockerfile-path: './Dockerfile'
       docker-context: '.'
