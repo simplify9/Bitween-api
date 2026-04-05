@@ -26,6 +26,12 @@ namespace SW.Bitween.Model
     {
     }
 
+    public class SubscriptionSaveMapper
+    {
+        public string MapperId { get; set; }
+        public ICollection<KeyAndValue> MapperProperties { get; set; }
+    }
+
     public class SubscriptionTrailModel : TrailBaseModel
     {
         public int SubscriptionId { get; set; }
@@ -45,8 +51,8 @@ namespace SW.Bitween.Model
         public int? PartnerId { get; set; }
         public int? AggregationForId { get; set; }
     }
-    
-    public class SubscriptionCreate :SubscriptionCreateUpdateBase
+
+    public class SubscriptionCreate : SubscriptionCreateUpdateBase
     {
         public SubscriptionType Type { get; set; }
     }
@@ -91,7 +97,7 @@ namespace SW.Bitween.Model
         public string CategoryCode { get; set; }
         public string CategoryDescription { get; set; }
     }
-    
+
     public class SubscriptionGet : SubscriptionUpdate
     {
         public SubscriptionType Type { get; set; }
