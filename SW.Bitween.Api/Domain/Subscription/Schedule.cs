@@ -18,20 +18,20 @@ namespace SW.Bitween.Domain
             switch (Recurrence)
             {
                 case Recurrence.Hourly:
-                    if (on.TotalHours >= 1) throw new BitweenException();
+                    if (on.TotalHours >= 1) throw new BitweenException("Invalid hourly schedule");
                     break;
 
                 case Recurrence.Daily:
-                    if (on.TotalDays >= 1) throw new BitweenException();
+                    if (on.TotalDays >= 1) throw new BitweenException("Invalid daily schedule");
                     break;
 
                 case Recurrence.Weekly:
-                    if (on.TotalDays >= 7) throw new BitweenException();
+                    if (on.TotalDays >= 7) throw new BitweenException("Invalid weekly schedule");
                     break;
 
                 case Recurrence.Monthly:
-                    if (on.TotalDays >= 28) throw new BitweenException();
-                    if (on.Days < 1) throw new BitweenException();
+                    if (on.TotalDays >= 28) throw new BitweenException("Invalid monthly schedule");
+                    if (on.Days < 1) throw new BitweenException("Invalid monthly schedule");
                     break;
 
                 //default:

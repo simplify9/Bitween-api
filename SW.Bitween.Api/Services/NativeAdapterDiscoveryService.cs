@@ -9,6 +9,7 @@ namespace SW.Bitween
 {
     public class NativeAdapterDiscoveryService(
         IEnumerable<INativeInfolinkHandler> nativeHandlers,
+        IEnumerable<INativeInfolinkMapper> nativeMappers,
         IEnumerable<INativeInfolinkReceiver> nativeReceivers,
         IEnumerable<INativeInfolinkValidator> nativeValidators,
         IEnumerable<INativeAdapter> nativeAdapters)
@@ -17,11 +18,11 @@ namespace SW.Bitween
         public Dictionary<string, string> GetExpectedStartupValues(string adapterId)
         {
             var result = new Dictionary<string, string>();
-            
+
             var adapter = nativeAdapters.FirstOrDefault(a => a.GetType().Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase));
             if (adapter == null)
                 return result;
-            
+
             var properties = adapter.StartupValuesType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
             foreach (var prop in properties)
@@ -43,12 +44,24 @@ namespace SW.Bitween
 
             return result;
         }
-        
+
 
         public INativeInfolinkHandler GetNativeHandler(string adapterId, Dictionary<string, string> settings)
         {
             var result =
                 nativeHandlers.FirstOrDefault(a => a.Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase));
+            if (result != null)
+            {
+                result.InitializeStartupValues(settings);
+            }
+
+            return result;
+        }
+
+        public INativeInfolinkMapper GetNativeMapper(string adapterId, Dictionary<string, string> settings)
+        {
+            var result =
+                nativeMappers.FirstOrDefault(a => a.GetType().Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase));
             if (result != null)
             {
                 result.InitializeStartupValues(settings);
@@ -80,11 +93,11 @@ namespace SW.Bitween
 
             return result;
         }
-        
+
         public List<string> GetNativeAdapters(string? type)
         {
             List<INativeAdapter> adapters;
-            
+
             switch (type?.ToLower())
             {
                 case "handlers":
@@ -97,15 +110,15 @@ namespace SW.Bitween
                     adapters = nativeValidators.Cast<INativeAdapter>().ToList();
                     break;
                 case "mappers":
-                    adapters = nativeHandlers.Cast<INativeAdapter>().ToList();
+                    adapters = nativeMappers.Cast<INativeAdapter>().ToList();
                     break;
-                case null: 
+                case null:
                     adapters = nativeAdapters.ToList();
                     break;
                 default:
                     return new List<string>();
             }
-            
+
             return adapters.Select(a => a.GetType().Name).ToList();
         }
         private string? GetDefaultValue(PropertyInfo property)

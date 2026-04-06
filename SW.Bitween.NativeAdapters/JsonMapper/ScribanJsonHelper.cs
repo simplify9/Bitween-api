@@ -10,7 +10,7 @@ public static class ScribanJsonHelper
 {
     /// <summary>
     /// Renders a Scriban template against the provided input JSON and returns the mapped output JSON.
-    /// </summary>
+    /// </summary>`
     public static string Render(string scribanTemplate, string inputJson)
     {
         // 1. Parse input JSON

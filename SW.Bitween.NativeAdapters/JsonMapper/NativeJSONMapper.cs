@@ -3,7 +3,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters;
 
-public class NativeJSONMapper : INativeInfolinkHandler
+public class NativeJSONMapper : INativeInfolinkMapper
 {
     public string Name => "NativeJSONMapper";
     public Type StartupValuesType => typeof(JsonMapperInput);
