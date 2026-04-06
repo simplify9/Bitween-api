@@ -138,7 +138,7 @@ public class XchangeService :
         // Check if it's a native adapter
         if (xchange.MapperId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var handler = _nativeAdapterDiscovery.GetNativeHandler(xchange.MapperId, mapperProperties);
+            var handler = _nativeAdapterDiscovery.GetNativeMapper(xchange.MapperId, mapperProperties);
             xchangeFile = await handler.Handle(xchangeFile);
         }
         else
@@ -168,7 +168,7 @@ public class XchangeService :
         if (validatorId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
         {
             var validator = _nativeAdapterDiscovery.GetNativeValidator(validatorId, properties);
-            
+
             result = await validator.Validate(xchangeFile);
         }
         else
@@ -456,7 +456,7 @@ public class XchangeService :
             // Check if it's a native adapter
             if (notifier.HandlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
             {
-                var handler = _nativeAdapterDiscovery.GetNativeHandler(notifier.HandlerId, handlerProperties); 
+                var handler = _nativeAdapterDiscovery.GetNativeHandler(notifier.HandlerId, handlerProperties);
                 await handler.Handle(new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
             }
             else

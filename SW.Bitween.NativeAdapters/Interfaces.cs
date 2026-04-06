@@ -9,6 +9,7 @@ public interface INativeAdapter
     public Type StartupValuesType { get; }
 }
 
-public interface INativeInfolinkHandler : INativeAdapter,IInfolinkHandler { }
-public interface INativeInfolinkValidator: IInfolinkValidator,INativeAdapter{}
-public interface INativeInfolinkReceiver: IInfolinkReceiver,INativeAdapter{}
+public interface INativeInfolinkHandler : INativeAdapter, IInfolinkHandler { }
+public interface INativeInfolinkMapper : INativeAdapter, IInfolinkHandler { }
+public interface INativeInfolinkValidator : IInfolinkValidator, INativeAdapter { }
+public interface INativeInfolinkReceiver : IInfolinkReceiver, INativeAdapter { }
