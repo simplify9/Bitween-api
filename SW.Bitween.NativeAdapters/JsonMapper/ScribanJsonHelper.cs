@@ -19,9 +19,17 @@ public static class ScribanJsonHelper
         // 2. Build top-level ScriptObject from input (recursive)
         var scriptObj = BuildScriptObject(inputObj);
 
-        // 3. Register custom functions (| json pipe)
+        // 3. Register custom functions (| json pipe, | to_float cast)
         var functions = new ScriptObject();
         functions.Import("json", new Func<object?, string>(JsonFilter));
+        functions.Import("to_float", new Func<object?, object?>(val =>
+        {
+            if (val == null) return null;
+            if (val is double or float or int or long or decimal) return Convert.ToDouble(val);
+            var s = Convert.ToString(val, System.Globalization.CultureInfo.InvariantCulture);
+            return double.TryParse(s, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : (object?)null;
+        }));
 
         // 4. Create template context
         var context = new TemplateContext { StrictVariables = false };
