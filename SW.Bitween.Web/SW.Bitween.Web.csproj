@@ -22,7 +22,7 @@
     <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="8.1.1" />
     <PackageReference Include="SimplyWorks.CqApi" Version="8.2.6" />
     <PackageReference Include="SimplyWorks.Logger.ElasticSearch" Version="8.1.1" />
-    <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.2" />
+    <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.3" />
     <PackageReference Include="SimplyWorks.Serverless" Version="8.1.1" />
     <PackageReference Include="SimplyWorks.SimplyRazor" Version="5.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="7.2.0" />
