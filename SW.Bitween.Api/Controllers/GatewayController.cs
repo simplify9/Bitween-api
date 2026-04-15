@@ -58,6 +58,8 @@ public class GatewayController(
 
         var subscription = await cache.SubscriptionByIdAsync(apiGatewayPartner.SubscriptionId);
 
+        if (subscription == null)
+            return NotFound();
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
@@ -103,19 +105,19 @@ public class GatewayController(
             switch (xchangeResult!.Success)
             {
                 case true when xchangeResult.ResponseSize == 0:
-                {
-                    return Ok(xchangeId);
-                }
-                case true when xchangeResult.ResponseSize != 0:
-                {
-                    var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
-                    return new ContentResult
                     {
-                        StatusCode = xchangeResult.ResponseBad ? 400 : 200,
-                        Content = response,
-                        ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json,
-                    };
-                }
+                        return Ok(xchangeId);
+                    }
+                case true when xchangeResult.ResponseSize != 0:
+                    {
+                        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                        return new ContentResult
+                        {
+                            StatusCode = xchangeResult.ResponseBad ? 400 : 200,
+                            Content = response,
+                            ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json,
+                        };
+                    }
                 case false:
                     return BadRequest();
             }
