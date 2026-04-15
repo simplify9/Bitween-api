@@ -48,7 +48,7 @@ namespace SW.Bitween.Resources.Subscriptions
             trail.SetAfter(entity);
             _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
-            _BitweenCache.BroadcastRevoke();
+            await _BitweenCache.BroadcastRevoke();
             return null;
         }
 
@@ -141,6 +141,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 When(i => i.HandlerId != null, () =>
                 {
+                    
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
                     {
                         var handlerId = ((SubscriptionUpdate)context.InstanceToValidate).HandlerId;
@@ -164,6 +165,14 @@ namespace SW.Bitween.Resources.Subscriptions
                             .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
                         if (missing.Any())
                             context.AddFailure($"Missing: {string.Join(",", missing)}");
+                    });
+
+                    RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, ct) =>
+                    {
+                        if (!responseSubId.HasValue) return;
+                        var subscription = await GetSub(dbContext, httpContextAccessor);
+                        if (subscription != null && responseSubId.Value == subscription.Id)
+                            context.AddFailure(nameof(SubscriptionUpdate.ResponseSubscriptionId), "ResponseSubscriptionId cannot be the same as the current subscription.");
                     });
                 });
 

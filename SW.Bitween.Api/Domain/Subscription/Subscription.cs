@@ -14,7 +14,7 @@ namespace SW.Bitween.Domain
         }
 
         //receiving
-        public Subscription(string name, int documentId) : this(name, documentId, SubscriptionType.Receiving)
+        public Subscription(string name, int documentId) : this(name, documentId, SubscriptionType.Receiving, null)
         {
             Inactive = true;
         }
@@ -35,7 +35,7 @@ namespace SW.Bitween.Domain
                 throw new ArgumentException();
         }
 
-        public Subscription(string name, int documentId, SubscriptionType type): this(name, documentId,
+        public Subscription(string name, int documentId, SubscriptionType type) : this(name, documentId,
             type, null)
         {
             Inactive = true;
