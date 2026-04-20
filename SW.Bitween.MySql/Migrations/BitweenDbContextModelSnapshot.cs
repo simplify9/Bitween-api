@@ -17,7 +17,7 @@ namespace SW.Bitween.MySql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.23")
+                .HasAnnotation("ProductVersion", "8.0.26")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
@@ -657,6 +657,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("MapperProperties")
                         .HasColumnType("longtext");
+
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
 
                     b.Property<string>("References")
                         .HasMaxLength(1024)

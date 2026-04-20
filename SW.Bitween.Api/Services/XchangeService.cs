@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SW.Bus.RabbitMqExtensions;
 
 namespace SW.Bitween;
@@ -131,6 +132,36 @@ public class XchangeService :
     private async Task<XchangeFile> RunMapper(Xchange xchange, XchangeFile xchangeFile)
     {
         if (xchange.MapperId == null) return xchangeFile;
+
+        // Inject __partner__ adapter properties into the input JSON so Scriban templates
+        // can reference them as {{ __partner__?.propkey }}
+        var jObjEnriched = JObject.Parse(xchangeFile.Data);
+        var enriched = false;
+
+        if (xchange.PartnerId.HasValue)
+        {
+            var partner = await _dbContext.FindAsync<Partner>(xchange.PartnerId.Value);
+            if (partner?.AdapterProperties?.Count > 0)
+            {
+                jObjEnriched["__partner__"] = JObject.FromObject(partner.AdapterProperties);
+                enriched = true;
+            }
+        }
+
+        // Inject __globals__ — all global adapter values sets
+        // so templates can use {{ __globals__?.setId?.key }}
+        var globalSets = await _dbContext.Set<GlobalAdapterValuesSet>().ToListAsync();
+        if (globalSets.Any(s => s.Values?.Count > 0))
+        {
+            var globalsObj = new JObject();
+            foreach (var set in globalSets.Where(s => s.Values?.Count > 0))
+                globalsObj[set.Id] = JObject.FromObject(set.Values);
+            jObjEnriched["__globals__"] = globalsObj;
+            enriched = true;
+        }
+
+        if (enriched)
+            xchangeFile = new XchangeFile(jObjEnriched.ToString(Formatting.None), xchangeFile.Filename);
 
         var mapperProperties = xchange.MapperProperties.ToDictionary();
         mapperProperties["xchangeid"] = xchange.Id;

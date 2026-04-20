@@ -41,7 +41,7 @@ namespace SW.Bitween.Domain
         }
 
         public Xchange(Subscription subscription, XchangeFile file, string[] references = null,
-            string correlationId = null, Partner gatewayPartner = null,GlobalAdapterValuesSet[] globalAdapterValuesSets = null) :
+            string correlationId = null, Partner gatewayPartner = null, GlobalAdapterValuesSet[] globalAdapterValuesSets = null) :
             this(subscription.DocumentId, subscription.WorkGroup, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
@@ -49,11 +49,11 @@ namespace SW.Bitween.Domain
             HandlerId = subscription.HandlerId;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             ResponseMessageTypeName = subscription.ResponseMessageTypeName;
-            MapperProperties = subscription.MapperProperties.ToDictionary().Fill(gatewayPartner,globalAdapterValuesSets);
+            PartnerId = gatewayPartner?.Id ?? subscription.PartnerId;
+            MapperProperties = subscription.MapperProperties.ToDictionary().Fill(gatewayPartner, globalAdapterValuesSets);
             HandlerProperties = subscription.HandlerProperties.ToDictionary()
                 .Fill(gatewayPartner, globalAdapterValuesSets);
             CorrelationId = correlationId;
-            
         }
 
         //retry xchange
@@ -61,6 +61,7 @@ namespace SW.Bitween.Domain
             this(xchange.DocumentId, workGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
+            PartnerId = xchange.PartnerId;
             MapperId = xchange.MapperId;
             HandlerId = xchange.HandlerId;
             MapperProperties = xchange.MapperProperties;
@@ -75,6 +76,7 @@ namespace SW.Bitween.Domain
             this(xchange.DocumentId, subscription.WorkGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
+            PartnerId = xchange.PartnerId ?? subscription.PartnerId;
             MapperId = subscription.MapperId;
             HandlerId = subscription.HandlerId;
             MapperProperties = subscription.MapperProperties;
@@ -85,6 +87,7 @@ namespace SW.Bitween.Domain
         }
 
         public int? SubscriptionId { get; private set; }
+        public int? PartnerId { get; private set; }
         public int DocumentId { get; private set; }
         public string HandlerId { get; private set; }
         public string MapperId { get; private set; }
