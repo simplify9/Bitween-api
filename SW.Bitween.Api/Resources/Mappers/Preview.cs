@@ -39,35 +39,43 @@ public class Preview : ICommandHandler<MapperPreviewRequest, MapperPreviewRespon
     {
         _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
+        var partner = request.PartnerId.HasValue
+            ? await _dbContext.FindAsync<Partner>(request.PartnerId.Value)
+            : null;
+
+        var globalSets = await _dbContext.Set<GlobalAdapterValuesSet>().ToListAsync();
+
         try
         {
             var inputJson = request.InputJson;
-            var jObj = JObject.Parse(inputJson);
-            var enriched = false;
 
-            if (request.PartnerId.HasValue)
+            JObject? jObj = null;
+            if (JToken.Parse(inputJson) is JObject parsedObj)
+                jObj = parsedObj;
+
+            if (jObj != null)
             {
-                var partner = await _dbContext.FindAsync<Partner>(request.PartnerId.Value);
+                var enriched = false;
+
                 if (partner?.AdapterProperties?.Count > 0)
                 {
                     jObj["__partner__"] = JObject.FromObject(partner.AdapterProperties);
                     enriched = true;
                 }
-            }
 
-            // Inject all global adapter values sets as __globals__
-            var globalSets = await _dbContext.Set<GlobalAdapterValuesSet>().ToListAsync();
-            if (globalSets.Any(s => s.Values?.Count > 0))
-            {
-                var globalsObj = new JObject();
-                foreach (var set in globalSets.Where(s => s.Values?.Count > 0))
-                    globalsObj[set.Id] = JObject.FromObject(set.Values);
-                jObj["__globals__"] = globalsObj;
-                enriched = true;
-            }
+                var nonEmptySets = globalSets.Where(s => s.Values?.Count > 0).ToList();
+                if (nonEmptySets.Count > 0)
+                {
+                    var globalsObj = new JObject();
+                    foreach (var set in nonEmptySets)
+                        globalsObj[set.Id] = JObject.FromObject(set.Values);
+                    jObj["__globals__"] = globalsObj;
+                    enriched = true;
+                }
 
-            if (enriched)
-                inputJson = jObj.ToString(Formatting.None);
+                if (enriched)
+                    inputJson = jObj.ToString(Formatting.None);
+            }
 
             var output = ScribanJsonHelper.Render(request.ScribanTemplate, inputJson);
             return new MapperPreviewResponse { OutputJson = output };

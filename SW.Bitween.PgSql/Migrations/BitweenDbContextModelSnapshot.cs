@@ -20,7 +20,7 @@ namespace SW.Bitween.PgSql.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("infolink")
-                .HasAnnotation("ProductVersion", "8.0.23")
+                .HasAnnotation("ProductVersion", "8.0.26")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
