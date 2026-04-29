@@ -50,8 +50,8 @@ namespace SW.Bitween.Domain
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             ResponseMessageTypeName = subscription.ResponseMessageTypeName;
             PartnerId = gatewayPartner?.Id ?? subscription.PartnerId;
-            MapperProperties = subscription.MapperProperties.ToDictionary().Fill(gatewayPartner, globalAdapterValuesSets);
-            HandlerProperties = subscription.HandlerProperties.ToDictionary()
+            MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary().Fill(gatewayPartner, globalAdapterValuesSets);
+            HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary()
                 .Fill(gatewayPartner, globalAdapterValuesSets);
             CorrelationId = correlationId;
         }
