@@ -33,7 +33,7 @@ public class JsonExchangePayloadReader : IExchangePayloadReader
         {
             var node = _doc.SelectToken(path);
             if (node == null) return false;
-            var nodeValue = node.Value<string>();
+            var nodeValue = node is JValue jv ? jv.Value<string>() : node.ToString();
             if (nodeValue == null) return true;
             var trimmed = nodeValue.Trim();
             value = trimmed == string.Empty ? null : trimmed;
