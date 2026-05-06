@@ -410,14 +410,6 @@ public class XchangeService :
         }
     }
 
-    // Task IConsume<ApiXchangeCreatedEvent>.Process(ApiXchangeCreatedEvent message) => Process(message);
-    //
-    // Task IConsume<AggregateXchangeCreatedEvent>.Process(AggregateXchangeCreatedEvent message) => Process(message);
-    //
-    // Task IConsume<InternalXchangeCreatedEvent>.Process(InternalXchangeCreatedEvent message) => Process(message);
-    //
-    // Task IConsume<ReceivingXchangeCreatedEvent>.Process(ReceivingXchangeCreatedEvent message) => Process(message);
-
 
     private async Task ProcessResult(XchangeMessage message)
     {

@@ -91,7 +91,10 @@ public static class ScribanJsonHelper
         var so = new ScriptObject();
         foreach (var prop in obj.Properties())
         {
-            so[prop.Name] = ToScribanValue(prop.Value);
+            var key = prop.Name.Length > 0
+                ? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..]
+                : prop.Name;
+            so[key] = ToScribanValue(prop.Value);
         }
         return so;
     }
