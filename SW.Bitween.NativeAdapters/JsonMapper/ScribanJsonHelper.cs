@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Scriban;
+using Scriban.Parsing;
 using Scriban.Runtime;
 
 namespace SW.Bitween.NativeAdapters.JsonMapper;
@@ -102,10 +103,32 @@ public static class ScribanJsonHelper
     private static object? ToScribanValue(JToken token) => token switch
     {
         JObject o => BuildScriptObject(o),
-        JArray a => a.Select(ToScribanValue).ToList(),
+        JArray a => new SmartArray(a.Select(ToScribanValue)),
         JValue v => v.Value,
         _ => null
     };
+
+    /// <summary>
+    /// A Scriban array that also delegates member access to its first element,
+    /// so templates can write either <c>data[0].field</c> or <c>data.field</c>
+    /// when the source JSON value is a single-element (or first-item) array.
+    /// </summary>
+    private sealed class SmartArray : ScriptArray
+    {
+        public SmartArray(IEnumerable<object?> items) : base(items) { }
+
+        public override bool TryGetValue(TemplateContext context, SourceSpan span, string member, out object? value)
+        {
+            if (base.TryGetValue(context, span, member, out value))
+                return true;
+
+            if (Count > 0 && this[0] is ScriptObject first)
+                return first.TryGetValue(context, span, member, out value);
+
+            value = null;
+            return false;
+        }
+    }
 
     /// <summary>Sets a value at a dot-separated path inside a JObject, creating intermediate objects as needed.</summary>
     private static void SetByPath(JObject root, string path, JToken value)
