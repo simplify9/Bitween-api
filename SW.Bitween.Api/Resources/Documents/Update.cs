@@ -6,10 +6,11 @@ using SW.PrimitiveTypes;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain.Accounts;
+using System.Text.RegularExpressions;
 
 namespace SW.Bitween.Resources.Documents
 {
-    public class Update : ICommandHandler<int, DocumentUpdate,object>
+    public class Update : ICommandHandler<int, DocumentUpdate, object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly IInfolinkCache _BitweenCache;
@@ -43,6 +44,44 @@ namespace SW.Bitween.Resources.Documents
                 throw new SWValidationException("DUPLICATED_BUS_TYPE_NAME",
                     "Cant use duplicated bus Message type name");
 
+            if (model.PromotedProperties != null)
+            {
+                foreach (var pp in model.PromotedProperties)
+                {
+                    if (string.IsNullOrWhiteSpace(pp.Key))
+                        throw new SWValidationException("INVALID_PROMOTED_PROPERTY_KEY",
+                            "Promoted property key cannot be null or empty.");
+
+                    if (string.IsNullOrWhiteSpace(pp.Value))
+                        throw new SWValidationException("INVALID_PROMOTED_PROPERTY_VALUE",
+                            $"Promoted property '{pp.Key}' must have a non-empty path value.");
+
+                    if (model.DocumentFormat == DocumentFormat.Json)
+                    {
+                        // Must be a JSONPath: starts with '$' or a simple dot-separated identifier path
+                        var trimmed = pp.Value.Trim();
+                        if (!trimmed.StartsWith("$") && !Regex.IsMatch(trimmed, @"^[a-zA-Z_][a-zA-Z0-9_]*(?:(\.[a-zA-Z_][a-zA-Z0-9_]*)|(\[[0-9]+\]))*$"))
+                            throw new SWValidationException("INVALID_PROMOTED_PROPERTY_PATH",
+                                $"Promoted property '{pp.Key}' has an invalid JSON path: '{pp.Value}'. Expected a JSONPath expression (e.g. '$.field.subField') or dot-notation path.");
+                    }
+                    else if (model.DocumentFormat == DocumentFormat.Xml)
+                    {
+                        // Basic XPath sanity: must start with '/' or '//' or be a valid element path
+                        var trimmed = pp.Value.Trim();
+                        if (!trimmed.StartsWith("/") && !Regex.IsMatch(trimmed, @"^[a-zA-Z_][a-zA-Z0-9_/\[\]@.:*-]*$"))
+                            throw new SWValidationException("INVALID_PROMOTED_PROPERTY_PATH",
+                                $"Promoted property '{pp.Key}' has an invalid XML path: '{pp.Value}'. Expected an XPath expression (e.g. '/root/element').");
+                    }
+                }
+
+                var duplicateKey = model.PromotedProperties
+                    .GroupBy(pp => pp.Key, System.StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault(g => g.Count() > 1)?.Key;
+
+                if (duplicateKey != null)
+                    throw new SWValidationException("DUPLICATE_PROMOTED_PROPERTY_KEY",
+                        $"Promoted property key '{duplicateKey}' appears more than once.");
+            }
 
             var trail = new DocumentTrail(DocumentTrailCode.Updated, entity);
             entity.SetDictionaries(model.PromotedProperties.ToDictionary());
