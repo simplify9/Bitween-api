@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace SW.Bitween.Resources.Documents
 {
-    public class Update : ICommandHandler<int, DocumentUpdate,object>
+    public class Update : ICommandHandler<int, DocumentUpdate, object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly IInfolinkCache _BitweenCache;
@@ -60,7 +60,7 @@ namespace SW.Bitween.Resources.Documents
                     {
                         // Must be a JSONPath: starts with '$' or a simple dot-separated identifier path
                         var trimmed = pp.Value.Trim();
-                        if (!trimmed.StartsWith("$") && !Regex.IsMatch(trimmed, @"^[a-zA-Z_][a-zA-Z0-9_.]*$"))
+                        if (!trimmed.StartsWith("$") && !Regex.IsMatch(trimmed, @"^[a-zA-Z_][a-zA-Z0-9_]*(?:(\.[a-zA-Z_][a-zA-Z0-9_]*)|(\[[0-9]+\]))*$"))
                             throw new SWValidationException("INVALID_PROMOTED_PROPERTY_PATH",
                                 $"Promoted property '{pp.Key}' has an invalid JSON path: '{pp.Value}'. Expected a JSONPath expression (e.g. '$.field.subField') or dot-notation path.");
                     }
