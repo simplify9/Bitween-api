@@ -1,4 +1,6 @@
-﻿namespace SW.Bitween
+﻿using System;
+
+namespace SW.Bitween
 {
     public class BitweenOptions
     {
@@ -19,7 +21,7 @@
             StorageProvider = "S3";
             JwtExpiryMinutes = 60;
             BusDefaultQueuePrefetch = 12;
-            QueuePrefix="bitween";
+            QueuePrefix = "bitween";
             UseAzureManagedIdentity = false;
         }
 
@@ -46,14 +48,14 @@
         public int JwtExpiryMinutes { get; set; }
         public bool ConsumeLegacyEventMessages { get; set; }
         public string QueuePrefix { get; set; }
-        
+
         /// <summary>
         /// Enable Azure Managed Identity for database authentication.
         /// When enabled, access tokens are automatically acquired using managed identity.
         /// Works with Azure SQL Database and PostgreSQL Flexible Server.
         /// </summary>
         public bool UseAzureManagedIdentity { get; set; }
-        
+
         /// <summary>
         /// Optional: Specify a User-Assigned Managed Identity Client ID.
         /// Leave empty to use System-Assigned Managed Identity.
@@ -64,5 +66,12 @@
         public string RabbitMqManagementUrl { get; set; }
         public string RabbitMqManagementUsername { get; set; }
         public string RabbitMqManagementPassword { get; set; }
+
+        /// <summary>
+        /// Allowed CORS origins for credential-bearing requests (cookies).
+        /// When set, enables AllowCredentials() on the CORS policy.
+        /// Example: ["https://localhost:3000", "https://slim-dev.starlinks-me.com"]
+        /// </summary>
+        public string[] CorsOrigins { get; set; } = Array.Empty<string>();
     }
 }

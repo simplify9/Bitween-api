@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SW.HttpExtensions;
 using SW.Bitween.Domain.Accounts;
@@ -11,18 +12,20 @@ namespace SW.Bitween.Resources.Accounts
 {
     [HandlerName("login")]
     [Unprotect]
-    public class Login : ICommandHandler<UserLogin,object>
+    public class Login : ICommandHandler<UserLogin, object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly BitweenOptions _BitweenSettings;
         private readonly JwtTokenParameters _jwtTokenParameters;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
         public Login(JwtTokenParameters jwtTokenParameters, BitweenDbContext dbContext,
-            BitweenOptions BitweenSettings)
+            BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor)
         {
             _jwtTokenParameters = jwtTokenParameters;
             _dbContext = dbContext;
             _BitweenSettings = BitweenSettings;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<object> Handle(UserLogin request)
@@ -33,11 +36,15 @@ namespace SW.Bitween.Resources.Accounts
                 .Set<Account>()
                 .AsQueryable();
 
+            // Prefer refresh token from HttpOnly cookie (secure), fall back to body (legacy)
+            var refreshTokenValue = _httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"];
+            if (string.IsNullOrEmpty(refreshTokenValue))
+                refreshTokenValue = request.RefreshToken;
 
-            if (!string.IsNullOrEmpty(request.RefreshToken))
+            if (!string.IsNullOrEmpty(refreshTokenValue))
             {
                 var refreshToken = await _dbContext.Set<RefreshToken>()
-                    .SingleOrDefaultAsync(x => x.Id == request.RefreshToken);
+                    .SingleOrDefaultAsync(x => x.Id == refreshTokenValue);
                 if (refreshToken is null)
                 {
                     throw new SWException("Invalid refreshToken.");
@@ -64,23 +71,29 @@ namespace SW.Bitween.Resources.Accounts
                 throw new SWValidationException(request.Username, request.Username);
 
 
-            if (string.IsNullOrEmpty(request.RefreshToken) && !string.IsNullOrEmpty(request.Username) &&
+            if (string.IsNullOrEmpty(refreshTokenValue) && !string.IsNullOrEmpty(request.Username) &&
                 !string.IsNullOrEmpty(request.Password) && string.IsNullOrEmpty(request.MsToken))
             {
                 if (request.Password == null ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
                     throw new SWException("Invalid password.");
             }
-            
-            var result = new AccountLoginResult
-            {
-                Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, _jwtTokenParameters, jwtExpiryTimeSpan),
-                RefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword)
-            };
 
+            var newRefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword);
             await _dbContext.SaveChangesAsync();
 
-            return result;
+            // Set refresh token as HttpOnly cookie — not accessible to JavaScript
+            var isHttps = _httpContextAccessor.HttpContext?.Request.IsHttps ?? false;
+            _httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", newRefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = isHttps,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddDays(30)
+            });
+
+            // Return only the JWT — refresh token stays in the cookie, not in the response body
+            return new { Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, _jwtTokenParameters, jwtExpiryTimeSpan) };
         }
 
         private string CreateRefreshToken(Account account, LoginMethod loginMethod)
