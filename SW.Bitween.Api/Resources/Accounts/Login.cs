@@ -68,7 +68,13 @@ namespace SW.Bitween.Resources.Accounts
                 .SingleOrDefaultAsync();
 
             if (account is null)
-                throw new SWValidationException(request.Username, request.Username);
+            {
+                if (!string.IsNullOrEmpty(request.MsToken))
+                    throw new SWException("Your Microsoft account is not registered in the system. Please contact your administrator to be added.");
+
+                var identifier = request.Username ?? "unknown";
+                throw new SWValidationException(identifier, identifier);
+            }
 
 
             if (string.IsNullOrEmpty(refreshTokenValue) && !string.IsNullOrEmpty(request.Username) &&
