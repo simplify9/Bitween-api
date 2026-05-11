@@ -60,7 +60,7 @@ namespace SW.Bitween.Web
             services.AddScoped<NativeAdapterDiscoveryService>();
             services.AddScoped<XchangeService>();
             services.AddHttpContextAccessor();
-            
+
             services.AddHostedService<AggregationService>();
             services.AddHostedService<ReceivingService>();
 
@@ -133,7 +133,7 @@ namespace SW.Bitween.Web
             }
 
             // Configure Azure Managed Identity for SQL Server if enabled
-            if (bitweenOptions.UseAzureManagedIdentity && 
+            if (bitweenOptions.UseAzureManagedIdentity &&
                 bitweenOptions.DatabaseType.Equals(RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 var authProvider = new AzureSqlAuthenticationProvider(bitweenOptions.AzureManagedIdentityClientId);
@@ -152,23 +152,23 @@ namespace SW.Bitween.Web
                         $"Connection string: '{connectionString}'. " +
                         "Please check your ConnectionStrings:BitweenDb configuration.");
                 }
-                
+
                 // Configure connection with Azure Managed Identity for PostgreSQL if enabled
                 if (bitweenOptions.UseAzureManagedIdentity)
                 {
                     var tokenProvider = new AzurePostgreSqlTokenProvider(bitweenOptions.AzureManagedIdentityClientId);
                     var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
                     dataSourceBuilder.EnableDynamicJson();
-                    
+
                     // Configure periodic password provider for token refresh
                     dataSourceBuilder.UsePeriodicPasswordProvider(
                         async (_, ct) => await tokenProvider.GetAccessTokenAsync(),
                         TimeSpan.FromMinutes(50), // Refresh token before expiry (typically 60 min)
                         TimeSpan.FromSeconds(10)  // Initial delay
                     );
-                    
+
                     var dataSource = dataSourceBuilder.Build();
-                    
+
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                     {
                         c.EnableSensitiveDataLogging();
@@ -187,7 +187,7 @@ namespace SW.Bitween.Web
                     var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
                     dataSourceBuilder.EnableDynamicJson();
                     var dataSource = dataSourceBuilder.Build();
-                    
+
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                     {
                         c.EnableSensitiveDataLogging();
@@ -234,7 +234,7 @@ namespace SW.Bitween.Web
 
 
             services.AddHealthChecks();
-            
+
             // services.AddRazorPages(options =>
             // {
             //     options.Conventions.AuthorizeFolder("/");
@@ -272,13 +272,26 @@ namespace SW.Bitween.Web
                 options.AddDefaultPolicy(
                     builder =>
                     {
-                        builder.AllowAnyOrigin();
-                        builder.AllowAnyHeader();
-                        builder.AllowAnyMethod();
+                        if (bitweenOptions.CorsOrigins != null && bitweenOptions.CorsOrigins.Length > 0)
+                        {
+                            builder.WithOrigins(bitweenOptions.CorsOrigins)
+                                   .AllowAnyHeader()
+                                   .AllowAnyMethod()
+                                   .AllowCredentials();
+                        }
+                        else
+                        {
+                            builder.AllowAnyOrigin();
+                            builder.AllowAnyHeader();
+                            builder.AllowAnyMethod();
+                        }
                     });
             });
 
             services.AddNativeAdapters();
+
+            // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
+            // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();
 
         }
 
@@ -308,7 +321,7 @@ namespace SW.Bitween.Web
             {
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
-                
+
             });
         }
     }
