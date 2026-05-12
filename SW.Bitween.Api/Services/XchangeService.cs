@@ -135,33 +135,38 @@ public class XchangeService :
 
         // Inject __partner__ adapter properties into the input JSON so Scriban templates
         // can reference them as {{ __partner__?.propkey }}
-        var jObjEnriched = JObject.Parse(xchangeFile.Data);
+        // Only applies when the data is a JSON object; skip enrichment for non-object payloads
+        // (e.g. a receiver returning a JSON-encoded string).
+        var jObjEnriched = JToken.Parse(xchangeFile.Data) as JObject;
         var enriched = false;
 
-        if (xchange.PartnerId.HasValue)
+        if (jObjEnriched != null)
         {
-            var partner = await _dbContext.FindAsync<Partner>(xchange.PartnerId.Value);
-            if (partner?.AdapterProperties?.Count > 0)
+            if (xchange.PartnerId.HasValue)
             {
-                jObjEnriched["__partner__"] = JObject.FromObject(partner.AdapterProperties);
+                var partner = await _dbContext.FindAsync<Partner>(xchange.PartnerId.Value);
+                if (partner?.AdapterProperties?.Count > 0)
+                {
+                    jObjEnriched["__partner__"] = JObject.FromObject(partner.AdapterProperties);
+                    enriched = true;
+                }
+            }
+
+            // Inject __globals__ — all global adapter values sets
+            // so templates can use {{ __globals__?.setId?.key }}
+            var globalSets = await _dbContext.Set<GlobalAdapterValuesSet>().ToListAsync();
+            if (globalSets.Any(s => s.Values?.Count > 0))
+            {
+                var globalsObj = new JObject();
+                foreach (var set in globalSets.Where(s => s.Values?.Count > 0))
+                    globalsObj[set.Id] = JObject.FromObject(set.Values);
+                jObjEnriched["__globals__"] = globalsObj;
                 enriched = true;
             }
-        }
 
-        // Inject __globals__ — all global adapter values sets
-        // so templates can use {{ __globals__?.setId?.key }}
-        var globalSets = await _dbContext.Set<GlobalAdapterValuesSet>().ToListAsync();
-        if (globalSets.Any(s => s.Values?.Count > 0))
-        {
-            var globalsObj = new JObject();
-            foreach (var set in globalSets.Where(s => s.Values?.Count > 0))
-                globalsObj[set.Id] = JObject.FromObject(set.Values);
-            jObjEnriched["__globals__"] = globalsObj;
-            enriched = true;
+            if (enriched)
+                xchangeFile = new XchangeFile(jObjEnriched.ToString(Formatting.None), xchangeFile.Filename);
         }
-
-        if (enriched)
-            xchangeFile = new XchangeFile(jObjEnriched.ToString(Formatting.None), xchangeFile.Filename);
 
         var mapperProperties = xchange.MapperProperties.ToDictionary();
         mapperProperties["xchangeid"] = xchange.Id;
