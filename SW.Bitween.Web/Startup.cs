@@ -78,6 +78,7 @@ namespace SW.Bitween.Web
 
             var serializer = new JsonSerializer();
             serializer.Converters.Add(new PropertyMatchSpecificationJsonConverter());
+            serializer.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
             serializer.ContractResolver = new CamelCasePropertyNamesContractResolver
             {
                 NamingStrategy = new CamelCaseNamingStrategy
