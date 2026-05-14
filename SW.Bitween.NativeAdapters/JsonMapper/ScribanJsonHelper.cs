@@ -92,10 +92,20 @@ public static class ScribanJsonHelper
         var so = new ScriptObject();
         foreach (var prop in obj.Properties())
         {
-            var key = prop.Name.Length > 0
-                ? char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..]
-                : prop.Name;
-            so[key] = ToScribanValue(prop.Value);
+            var value = ToScribanValue(prop.Value);
+
+            // Always store with the original key so templates that reference the
+            // exact JSON casing (e.g. partner props like "CustomerId") work correctly.
+            so[prop.Name] = value;
+
+            // Also register a first-char-lowercased alias so that templates written
+            // before this fix (which relied on camelCase normalisation) continue to work.
+            if (prop.Name.Length > 0 && char.IsUpper(prop.Name[0]))
+            {
+                var lcKey = char.ToLowerInvariant(prop.Name[0]) + prop.Name[1..];
+                if (!so.ContainsKey(lcKey))
+                    so[lcKey] = value;
+            }
         }
         return so;
     }
