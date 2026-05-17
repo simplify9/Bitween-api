@@ -24,7 +24,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.23" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols" Version="8.3.1" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.3.1" />
-    <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.9" />
+    <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.11" />
     <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="8.1.2" />
   </ItemGroup>
 
