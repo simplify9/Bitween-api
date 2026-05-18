@@ -40,5 +40,12 @@ spec:
                 name: {{ $fullName }}
                 port:
                   name: http
+          - path: {{ $ingressPath2 }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  name: http
     {{- end }}
 {{- end }}
