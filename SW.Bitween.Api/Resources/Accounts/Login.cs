@@ -59,7 +59,12 @@ namespace SW.Bitween.Resources.Accounts
             else if (!string.IsNullOrEmpty(request.MsToken))
             {
                 var email = (await request.GetEmailFromAzureJwtDefault(_logger))?.ToLower();
-                _logger.LogInformation("MS login attempt. Extracted email from token: '{Email}'", email ?? "(null)");
+                if (string.IsNullOrEmpty(email))
+                {
+                    _logger.LogWarning("MS login failed: could not extract email from token.");
+                    throw new SWException("Could not retrieve your email from Microsoft. Please ensure your Microsoft account has a valid email address and try again.");
+                }
+                _logger.LogInformation("MS login attempt. Extracted email from token: '{Email}'", email);
                 accountQ = accountQ.Where(u => u.Email.ToLower() == email);
             }
             else
