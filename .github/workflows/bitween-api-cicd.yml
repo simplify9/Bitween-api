@@ -71,4 +71,4 @@ jobs:
       kubeconfig: ${{ secrets.S9DEV_KUBECONFIG }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      helm-set-secret-values: 'db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }}'
+      helm-set-secret-values: 'db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},Bitween.RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},Bitween.RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},Bitween.RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
