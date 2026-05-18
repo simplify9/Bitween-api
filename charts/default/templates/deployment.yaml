@@ -72,6 +72,12 @@ spec:
             - name: Bitween__RabbitMqManagementUrl
               value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUrl | quote }}
 
+            - name: Bitween__RabbitMqManagementPassword
+              value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementPassword | quote }}
+
+            - name: Bitween__RabbitMqManagementUsername
+              value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUsername | quote }}
+
             - name: Bitween__StorageProvider
               value: {{ .Values.storageProvider }}
 
