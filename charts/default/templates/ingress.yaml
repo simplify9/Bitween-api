@@ -2,6 +2,7 @@
 {{- $fullName := include "project.fullname" . -}}
 {{- $servicePort := .Values.service.port -}}
 {{- $ingressPath := .Values.ingress.path -}}
+{{- $ingressPaths := .Values.ingress.paths | default (list $ingressPath) -}}
 
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -33,19 +34,14 @@ spec:
     - host: {{ . }}
       http:
         paths:
-          - path: {{ $ingressPath }}
+          {{- range $path := $ingressPaths }}
+          - path: {{ $path }}
             pathType: ImplementationSpecific
             backend:
               service:
                 name: {{ $fullName }}
                 port:
                   name: http
-          - path: {{ $ingressPath2 }}
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: {{ $fullName }}
-                port:
-                  name: http
+          {{- end }}
     {{- end }}
 {{- end }}

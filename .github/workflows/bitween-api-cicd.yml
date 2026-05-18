@@ -60,7 +60,7 @@ jobs:
       container-registry: 'docker.io'
       image-name: 'simplify9/bitween'
 
-      helm-set-values: 'ingress.enabled=true,ingress.hosts={app-dev.bitween.io},ingress.path=/api,ingress.path2=/swagger,global.environment=Development,ingress.tls[0].secretName=bitween-tls,ingress.tls[0].hosts={app-dev.bitween.io},ingress.annotations.kubernetes\\.io/ingress\\.class=nginx,ingress.annotations.cert-manager\\.io/cluster-issuer=letsencrypt-nginx'
+      helm-set-values: 'ingress.enabled=true,ingress.hosts={app-dev.bitween.io},ingress.path=/api,ingress.paths[0]=/api,ingress.paths[1]=/swagger,global.environment=Development,ingress.tls[0].secretName=bitween-tls,ingress.tls[0].hosts={app-dev.bitween.io},ingress.annotations.kubernetes\\.io/ingress\\.class=nginx,ingress.annotations.cert-manager\\.io/cluster-issuer=letsencrypt-nginx'
     secrets:
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
       registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
