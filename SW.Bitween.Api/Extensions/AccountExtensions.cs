@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
@@ -15,13 +16,17 @@ namespace SW.Bitween
 {
     public static class AccountExtensions
     {
-        public static async Task<string> GetEmailFromAzureJwtDefault(this UserLogin model)
+        public static Task<string> GetEmailFromAzureJwtDefault(this UserLogin model)
+            => model.GetEmailFromAzureJwtDefault(null);
+
+        public static async Task<string> GetEmailFromAzureJwtDefault(this UserLogin model, ILogger logger)
         {
             try
             {
                 var jwt = model.MsToken;
                 if (string.IsNullOrEmpty(jwt))
                 {
+                    logger?.LogWarning("GetEmailFromAzureJwtDefault: MsToken is null or empty.");
                     return null;
                 }
 
@@ -43,11 +48,16 @@ namespace SW.Bitween
                 handler.ValidateToken(jwt, tokenValidationParameters, out _);
                 var jwtSecurityToken = handler.ReadJwtToken(jwt);
 
+                var allClaims = string.Join(", ", jwtSecurityToken.Claims.Select(c => $"{c.Type}={c.Value}"));
+                logger?.LogInformation("MS token claims: {Claims}", allClaims);
+
                 var email = jwtSecurityToken!.Claims.FirstOrDefault(i => i.Type.Contains("preferred_username"))?.Value;
+                logger?.LogInformation("MS token preferred_username claim value: '{Email}'", email ?? "(not found)");
                 return string.IsNullOrWhiteSpace(email) ? null : email;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                logger?.LogError(ex, "GetEmailFromAzureJwtDefault: failed to extract email from MS token.");
                 return null;
             }
         }
