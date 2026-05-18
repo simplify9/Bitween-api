@@ -40,6 +40,8 @@ ingress:
   
 environmentVariables:
   Bitween__RabbitMqManagementUrl: ""
+  Bitween__RabbitMqManagementPassword: ""
+  Bitween__RabbitMqManagementUsername: ""
   
 secrets:
 
