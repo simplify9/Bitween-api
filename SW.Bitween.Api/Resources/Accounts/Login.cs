@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SW.HttpExtensions;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
@@ -18,14 +19,16 @@ namespace SW.Bitween.Resources.Accounts
         private readonly BitweenOptions _BitweenSettings;
         private readonly JwtTokenParameters _jwtTokenParameters;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<Login> _logger;
 
         public Login(JwtTokenParameters jwtTokenParameters, BitweenDbContext dbContext,
-            BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor)
+            BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger)
         {
             _jwtTokenParameters = jwtTokenParameters;
             _dbContext = dbContext;
             _BitweenSettings = BitweenSettings;
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         public async Task<object> Handle(UserLogin request)
@@ -51,16 +54,17 @@ namespace SW.Bitween.Resources.Accounts
                 }
 
                 _dbContext.Remove(refreshToken);
-                accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId && !u.Disabled);
+                accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId);
             }
             else if (!string.IsNullOrEmpty(request.MsToken))
             {
-                var email = await request.GetEmailFromAzureJwtDefault();
-                accountQ = accountQ.Where(u => u.Email.ToLower() == email && !u.Disabled);
+                var email = (await request.GetEmailFromAzureJwtDefault(_logger))?.ToLower();
+                _logger.LogInformation("MS login attempt. Extracted email from token: '{Email}'", email ?? "(null)");
+                accountQ = accountQ.Where(u => u.Email.ToLower() == email);
             }
             else
             {
-                accountQ = accountQ.Where(u => u.Email.ToLower() == request.Username.ToLower() && !u.Disabled);
+                accountQ = accountQ.Where(u => u.Email.ToLower() == request.Username.ToLower());
             }
 
 
@@ -70,10 +74,24 @@ namespace SW.Bitween.Resources.Accounts
             if (account is null)
             {
                 if (!string.IsNullOrEmpty(request.MsToken))
+                {
+                    _logger.LogWarning("MS login failed: no account found matching the token email.");
                     throw new SWException("Your Microsoft account is not registered in the system. Please contact your administrator to be added.");
+                }
 
                 var identifier = request.Username ?? "unknown";
                 throw new SWValidationException(identifier, identifier);
+            }
+
+            if (account.Disabled)
+            {
+                if (!string.IsNullOrEmpty(request.MsToken))
+                {
+                    _logger.LogWarning("MS login failed: account '{Email}' is disabled.", account.Email);
+                    throw new SWException("Your Microsoft account has been disabled. Please contact your administrator.");
+                }
+
+                throw new SWException("Your account has been disabled. Please contact your administrator.");
             }
 
 
