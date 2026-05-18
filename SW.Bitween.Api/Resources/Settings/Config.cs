@@ -23,6 +23,9 @@ public class Config : IQueryHandler<object>
             _BitweenOptions.MsalClientId,
             _BitweenOptions.MsalRedirectUri,
             _BitweenOptions.MsalTenantId,
+            IsRabbitMqManagementConfigured = !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementUrl)
+                                             && !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementUsername)
+                                             && !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementPassword),
             Theme = _themeOptions
         };
     }

@@ -50,11 +50,20 @@ namespace SW.Bitween.Resources.Accounts
                     .SingleOrDefaultAsync(x => x.Id == refreshTokenValue);
                 if (refreshToken is null)
                 {
-                    throw new SWException("Invalid refreshToken.");
+                    _logger.LogWarning("Refresh token not found in DB, clearing cookie and falling back to credentials.");
+                    _httpContextAccessor.HttpContext?.Response.Cookies.Delete("refresh_token");
+                    refreshTokenValue = null;
                 }
+                else
+                {
+                    _dbContext.Remove(refreshToken);
+                    accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId);
+                }
+            }
 
-                _dbContext.Remove(refreshToken);
-                accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId);
+            if (!string.IsNullOrEmpty(refreshTokenValue))
+            {
+                // account query already filtered above
             }
             else if (!string.IsNullOrEmpty(request.MsToken))
             {
