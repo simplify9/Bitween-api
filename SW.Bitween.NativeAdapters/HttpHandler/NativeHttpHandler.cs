@@ -25,8 +25,8 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
     }
 
     private HttpHandlerInput _options = new();
-    
-    
+
+
 
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
@@ -87,7 +87,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         {
             case "application/x-www-form-urlencoded":
                 content = new FormUrlEncodedContent(
-                    JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody) 
+                    JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody)
                     ?? new Dictionary<string, string>());
                 break;
             case "multipart/form-data":
@@ -144,16 +144,16 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         if (!string.IsNullOrEmpty(_options.CorrelationId))
             request.Headers.Add("request-context-correlation-id", _options.CorrelationId);
         HttpResponseMessage response = await client.SendAsync(request);
-        if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError)
-            throw new Exception(response.StatusCode.ToString());
         string resp = await response.Content.ReadAsStringAsync();
+        if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError)
+            throw new Exception($"{response.StatusCode}: {resp}");
         XchangeFile xchangeFile1 = response.StatusCode < HttpStatusCode.BadRequest
             ? new XchangeFile(resp)
             : new XchangeFile(resp, badData: true);
         return xchangeFile1;
     }
 
-    
+
     public string Name => "NativeHttpHandler";
     public void InitializeStartupValues(IDictionary<string, string> settings)
     {
