@@ -61,14 +61,8 @@ public static class ScribanJsonHelper
             throw new InvalidOperationException($"Template produced invalid JSON: {ex.Message}\n\nRendered:\n{rendered}");
         }
 
-        // 8. Expand dotted keys into nested objects (e.g. "buyer.email" → {buyer:{email:...}})
-        var result = new JObject();
-        foreach (var prop in flat.Properties())
-        {
-            SetByPath(result, prop.Name, prop.Value);
-        }
-
-        return result.ToString(Formatting.Indented);
+        // 8. Expand dotted keys into nested objects recursively at all depths
+        return ExpandDottedKeys(flat).ToString(Formatting.Indented);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -138,6 +132,26 @@ public static class ScribanJsonHelper
             value = null;
             return false;
         }
+    }
+
+    /// <summary>Recursively expands dotted keys in all JObjects at every depth, including inside arrays.</summary>
+    private static JToken ExpandDottedKeys(JToken token)
+    {
+        if (token is JObject obj)
+        {
+            var result = new JObject();
+            foreach (var prop in obj.Properties())
+                SetByPath(result, prop.Name, ExpandDottedKeys(prop.Value));
+            return result;
+        }
+        if (token is JArray arr)
+        {
+            var result = new JArray();
+            foreach (var item in arr)
+                result.Add(ExpandDottedKeys(item));
+            return result;
+        }
+        return token;
     }
 
     /// <summary>Sets a value at a dot-separated path inside a JObject, creating intermediate objects as needed.</summary>
