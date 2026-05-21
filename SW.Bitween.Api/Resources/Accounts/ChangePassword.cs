@@ -8,7 +8,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Accounts;
 
 [HandlerName("changePassword")]
-public class ChangePassword : ICommandHandler<ChangePasswordModel,object>
+public class ChangePassword : ICommandHandler<ChangePasswordModel, object>
 {
     private readonly BitweenDbContext _dbContext;
     private readonly RequestContext _requestContext;
@@ -21,7 +21,7 @@ public class ChangePassword : ICommandHandler<ChangePasswordModel,object>
 
     public async Task<object> Handle(ChangePasswordModel request)
     {
-        _requestContext.EnsureAccess(AccountRole.Admin);
+        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member, AccountRole.Viewer);
 
         var accountId = Convert.ToInt32(_requestContext.GetNameIdentifier());
         var account = await _dbContext.Set<Account>().FindAsync(accountId);
