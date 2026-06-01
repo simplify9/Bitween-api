@@ -37,8 +37,6 @@ public class Preview : ICommandHandler<MapperPreviewRequest, MapperPreviewRespon
 
     public async Task<MapperPreviewResponse> Handle(MapperPreviewRequest request)
     {
-        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
-
         var partner = request.PartnerId.HasValue
             ? await _dbContext.FindAsync<Partner>(request.PartnerId.Value)
             : null;
