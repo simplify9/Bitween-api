@@ -6,9 +6,11 @@ namespace SW.Bitween.NativeAdapters.HttpReceiver;
 public class HttpReceiverInput
 {
     public string? AuthType { get; set; }
+    [Secure]
     public string? ApiKey { get; set; }
     public string? LoginUrl { get; set; }
     public string? LoginUsername { get; set; }
+    [Secure]
     public string? LoginPassword { get; set; }
 
     [Required]
@@ -16,6 +18,7 @@ public class HttpReceiverInput
 
     public string? Headers { get; set; }
     public string? ClientId { get; set; }
+    [Secure]
     public string? ClientSecret { get; set; }
 
     [DefaultValue("application/json")]
@@ -25,6 +28,6 @@ public class HttpReceiverInput
     public string Verb { get; set; } = "get";
 
     public string? DefaultRequest { get; set; }
-    
+
     public string? ArrayPath { get; set; }
 }

@@ -5,16 +5,25 @@ using SW.EfCoreExtensions;
 using System.Linq;
 using System.Threading.Tasks;
 using SW.Bitween.Model;
+using System;
+using System.Collections.Generic;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
-    public class Get : IGetHandler<int,object>
+    public class Get : IGetHandler<int, object>
     {
         private readonly BitweenDbContext dbContext;
+        private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
+        private readonly IServiceProvider _serviceProvider;
 
-        public Get(BitweenDbContext dbContext)
+        private const string PrivateSentinel = "__private__";
+
+        public Get(BitweenDbContext dbContext, NativeAdapterDiscoveryService nativeAdapterDiscovery, IServiceProvider serviceProvider)
         {
             this.dbContext = dbContext;
+            _nativeAdapterDiscovery = nativeAdapterDiscovery;
+            _serviceProvider = serviceProvider;
         }
 
         public async Task<object> Handle(int key)
@@ -22,7 +31,7 @@ namespace SW.Bitween.Resources.Subscriptions
             var subscriber =
                 await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync();
 
-            return
+            var response =
                 new SubscriptionGet
                 {
                     AggregationForId = subscriber.AggregationForId,
@@ -52,7 +61,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     CategoryDescription = subscriber.Category?.Description,
                     CategoryCode = subscriber.Category?.Code,
                     CategoryId = subscriber.CategoryId,
-                    WorkGroupId =  subscriber.WorkGroupId,
+                    WorkGroupId = subscriber.WorkGroupId,
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,
@@ -62,6 +71,46 @@ namespace SW.Bitween.Resources.Subscriptions
                         Minutes = s.On.Minutes
                     }).ToList()
                 };
+
+            response.HandlerProperties = await MaskPrivateProps(subscriber.HandlerId, response.HandlerProperties);
+            response.MapperProperties = await MaskPrivateProps(subscriber.MapperId, response.MapperProperties);
+            response.ReceiverProperties = await MaskPrivateProps(subscriber.ReceiverId, response.ReceiverProperties);
+            response.ValidatorProperties = await MaskPrivateProps(subscriber.ValidatorId, response.ValidatorProperties);
+
+            return response;
+        }
+
+        private async Task<ICollection<KeyAndValue>> MaskPrivateProps(string adapterId, ICollection<KeyAndValue> properties)
+        {
+            if (string.IsNullOrEmpty(adapterId) || properties == null || !properties.Any())
+                return properties;
+
+            IDictionary<string, StartupValue> startupValues;
+
+            try
+            {
+                if (adapterId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    startupValues = _nativeAdapterDiscovery.GetStartupValues(adapterId);
+                }
+                else
+                {
+                    var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
+                    await serverless.StartAsync(adapterId, null);
+                    startupValues = await serverless.GetExpectedStartupValues();
+                }
+            }
+            catch
+            {
+                return properties;
+            }
+
+            return properties.Select(kv =>
+            {
+                if (startupValues.TryGetValue(kv.Key, out var sv) && sv.Private && !string.IsNullOrEmpty(kv.Value))
+                    return new KeyAndValue { Key = kv.Key, Value = PrivateSentinel };
+                return kv;
+            }).ToList();
         }
     }
 }

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,6 +16,33 @@ namespace SW.Bitween
         IEnumerable<INativeAdapter> nativeAdapters)
     {
         public const string NativePrefix = "native";
+        public Dictionary<string, StartupValue> GetStartupValues(string adapterId)
+        {
+            var result = new Dictionary<string, StartupValue>();
+
+            var adapter = nativeAdapters.FirstOrDefault(a => a.GetType().Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase));
+            if (adapter == null)
+                return result;
+
+            var properties = adapter.StartupValuesType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+            foreach (var prop in properties)
+            {
+                var value = new StartupValue
+                {
+                    Type = prop.PropertyType.Name,
+                    Optional = prop.GetCustomAttribute<System.ComponentModel.DataAnnotations.RequiredAttribute>() == null &&
+                               (IsNullableType(prop.PropertyType) || GetDefaultValue(prop) != null),
+                    Default = GetDefaultValue(prop),
+                    Private = prop.GetCustomAttribute<SecureAttribute>() != null
+                };
+
+                result[prop.Name] = value;
+
+            }
+
+            return result;
+        }
         public Dictionary<string, string> GetExpectedStartupValues(string adapterId)
         {
             var result = new Dictionary<string, string>();
