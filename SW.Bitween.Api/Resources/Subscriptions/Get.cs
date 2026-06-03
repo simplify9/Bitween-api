@@ -102,7 +102,11 @@ namespace SW.Bitween.Resources.Subscriptions
             }
             catch
             {
-                return properties;
+                // Fail closed: mask every property value so secrets are never leaked
+                // when adapter metadata cannot be retrieved.
+                return properties
+                    .Select(kv => new KeyAndValue { Key = kv.Key, Value = PrivateSentinel })
+                    .ToList();
             }
 
             return properties.Select(kv =>
