@@ -5,6 +5,7 @@ using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -12,11 +13,13 @@ using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
-    public class Update : ICommandHandler<int, SubscriptionUpdate,object>
+    public class Update : ICommandHandler<int, SubscriptionUpdate, object>
     {
         private readonly BitweenDbContext _dbContext;
         private readonly IInfolinkCache _BitweenCache;
         private readonly RequestContext _requestContext;
+
+        private const string PrivateSentinel = "__private__";
 
         public Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache, RequestContext requestContext)
         {
@@ -36,11 +39,11 @@ namespace SW.Bitween.Resources.Subscriptions
             entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
                 TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
             entity.SetDictionaries(
-                model.HandlerProperties.ToDictionary(),
-                model.MapperProperties.ToDictionary(),
-                model.ReceiverProperties.ToDictionary(),
+                MergeWithOriginal(entity.HandlerProperties, model.HandlerProperties),
+                MergeWithOriginal(entity.MapperProperties, model.MapperProperties),
+                MergeWithOriginal(entity.ReceiverProperties, model.ReceiverProperties),
                 model.DocumentFilter.ToDictionary(),
-                model.ValidatorProperties.ToDictionary()
+                MergeWithOriginal(entity.ValidatorProperties, model.ValidatorProperties)
             );
             entity.SetMatchExpression(model.MatchExpression);
 
@@ -50,6 +53,27 @@ namespace SW.Bitween.Resources.Subscriptions
             await _dbContext.SaveChangesAsync();
             await _BitweenCache.BroadcastRevoke();
             return null;
+        }
+
+        private static System.Collections.Generic.Dictionary<string, string> MergeWithOriginal(
+            IReadOnlyDictionary<string, string> original,
+            ICollection<KeyAndValue> incoming)
+        {
+            var result = new System.Collections.Generic.Dictionary<string, string>();
+            foreach (var kv in incoming ?? Enumerable.Empty<KeyAndValue>())
+            {
+                if (kv.Value == PrivateSentinel)
+                {
+                    // Private prop: restore the original stored value, don't overwrite with sentinel
+                    if (original != null && original.TryGetValue(kv.Key, out var stored))
+                        result[kv.Key] = stored;
+                }
+                else
+                {
+                    result[kv.Key] = kv.Value;
+                }
+            }
+            return result;
         }
 
         // private static Dictionary<string, string> ReplaceHiddenData(IReadOnlyDictionary<string, string> original,
@@ -93,19 +117,19 @@ namespace SW.Bitween.Resources.Subscriptions
 
         private class Validate : AbstractValidator<SubscriptionUpdate>
         {
-            private ValueTask<Subscription> GetSub(BitweenDbContext dbContext,IHttpContextAccessor httpContextAccessor)
+            private ValueTask<Subscription> GetSub(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor)
             {
                 var path = httpContextAccessor.HttpContext?.Request.Path.Value;
 
                 var lastSegment = path?
                     .Split('/', StringSplitOptions.RemoveEmptyEntries)
                     .LastOrDefault();
-                if(lastSegment is null || !int.TryParse(lastSegment, out var subId))
+                if (lastSegment is null || !int.TryParse(lastSegment, out var subId))
                     return new ValueTask<Subscription>((Subscription)null);
 
                 return dbContext.FindAsync<Subscription>(subId);
             }
-            public Validate(BitweenDbContext dbContext,IHttpContextAccessor httpContextAccessor,NativeAdapterDiscoveryService nativeAdapterDiscovery, IServiceProvider serviceProvider)
+            public Validate(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor, NativeAdapterDiscoveryService nativeAdapterDiscovery, IServiceProvider serviceProvider)
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
@@ -141,7 +165,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 When(i => i.HandlerId != null, () =>
                 {
-                    
+
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
                     {
                         var handlerId = ((SubscriptionUpdate)context.InstanceToValidate).HandlerId;
@@ -155,7 +179,7 @@ namespace SW.Bitween.Resources.Subscriptions
                         }
                         else
                         {
-                            var serverless = serviceProvider.GetRequiredService<IServerlessService>(); 
+                            var serverless = serviceProvider.GetRequiredService<IServerlessService>();
                             await serverless.StartAsync(handlerId, null);
                             mustProps = (await serverless.GetExpectedStartupValues())
                                 .Where(p => p.Value.Optional == false).Select(p => p.Key);
