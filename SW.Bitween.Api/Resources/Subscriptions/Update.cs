@@ -145,8 +145,8 @@ namespace SW.Bitween.Resources.Subscriptions
                         // Check if it's a native adapter
                         if (mapperId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
                         {
-                            var properties = nativeAdapterDiscovery.GetExpectedStartupValues(mapperId);
-                            mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                            var properties = nativeAdapterDiscovery.GetStartupValues(mapperId);
+                            mustProps = properties.Where(p => !p.Value.Optional).Select(p => p.Key);
                         }
                         else
                         {
@@ -174,8 +174,8 @@ namespace SW.Bitween.Resources.Subscriptions
                         // Check if it's a native adapter
                         if (handlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
                         {
-                            var properties = nativeAdapterDiscovery.GetExpectedStartupValues(handlerId);
-                            mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                            var properties = nativeAdapterDiscovery.GetStartupValues(handlerId);
+                            mustProps = properties.Where(p => !p.Value.Optional).Select(p => p.Key);
                         }
                         else
                         {
@@ -219,8 +219,8 @@ namespace SW.Bitween.Resources.Subscriptions
                             // Check if it's a native adapter
                             if (model.ReceiverId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
                             {
-                                var properties = nativeAdapterDiscovery.GetExpectedStartupValues(model.ReceiverId);
-                                mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                                var properties = nativeAdapterDiscovery.GetStartupValues(model.ReceiverId);
+                                mustProps = properties.Where(p => !p.Value.Optional).Select(p => p.Key);
                             }
                             else
                             {

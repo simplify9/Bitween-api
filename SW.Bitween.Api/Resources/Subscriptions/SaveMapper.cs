@@ -59,8 +59,8 @@ namespace SW.Bitween.Resources.Subscriptions
 
                         if (mapperId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
                         {
-                            var properties = nativeAdapterDiscovery.GetExpectedStartupValues(mapperId);
-                            mustProps = properties.Where(p => p.Value.EndsWith(" *")).Select(p => p.Key);
+                            var properties = nativeAdapterDiscovery.GetStartupValues(mapperId);
+                            mustProps = properties.Where(p => !p.Value.Optional).Select(p => p.Key);
                         }
                         else
                         {
