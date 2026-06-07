@@ -23,6 +23,7 @@ public class HttpHandlerInput
     [DefaultValue("application/json")]
     public string ContentType { get; set; } = "application/json";
 
+    [Secure]
     public string? Headers { get; set; }
     public string? CorrelationId { get; set; }
     public string? ClientId { get; set; }
