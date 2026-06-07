@@ -16,6 +16,7 @@ public class HttpReceiverInput
     [Required]
     public string Url { get; set; } = string.Empty;
 
+    [Secure]
     public string? Headers { get; set; }
     public string? ClientId { get; set; }
     [Secure]
