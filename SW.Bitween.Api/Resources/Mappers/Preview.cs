@@ -47,32 +47,40 @@ public class Preview : ICommandHandler<MapperPreviewRequest, MapperPreviewRespon
         {
             var inputJson = request.InputJson;
 
-            JObject? jObj = null;
-            if (JToken.Parse(inputJson) is JObject parsedObj)
-                jObj = parsedObj;
+            var parsed = JToken.Parse(inputJson);
+            var jObj = parsed as JObject;
+            var jArr = parsed as JArray;
 
-            if (jObj != null)
+            JObject? partnerObj = partner?.AdapterProperties?.Count > 0
+                ? JObject.FromObject(partner.AdapterProperties)
+                : null;
+
+            JObject? globalsObj = null;
+            var nonEmptySets = globalSets.Where(s => s.Values?.Count > 0).ToList();
+            if (nonEmptySets.Count > 0)
             {
-                var enriched = false;
+                globalsObj = new JObject();
+                foreach (var set in nonEmptySets)
+                    globalsObj[set.Id] = JObject.FromObject(set.Values);
+            }
 
-                if (partner?.AdapterProperties?.Count > 0)
+            if (jObj != null && (partnerObj != null || globalsObj != null))
+            {
+                if (partnerObj != null) jObj["__partner__"] = partnerObj;
+                if (globalsObj != null) jObj["__globals__"] = globalsObj;
+                inputJson = jObj.ToString(Formatting.None);
+            }
+            else if (jArr != null && (partnerObj != null || globalsObj != null))
+            {
+                foreach (var token in jArr)
                 {
-                    jObj["__partner__"] = JObject.FromObject(partner.AdapterProperties);
-                    enriched = true;
+                    if (token is JObject elem)
+                    {
+                        if (partnerObj != null) elem["__partner__"] = partnerObj;
+                        if (globalsObj != null) elem["__globals__"] = globalsObj;
+                    }
                 }
-
-                var nonEmptySets = globalSets.Where(s => s.Values?.Count > 0).ToList();
-                if (nonEmptySets.Count > 0)
-                {
-                    var globalsObj = new JObject();
-                    foreach (var set in nonEmptySets)
-                        globalsObj[set.Id] = JObject.FromObject(set.Values);
-                    jObj["__globals__"] = globalsObj;
-                    enriched = true;
-                }
-
-                if (enriched)
-                    inputJson = jObj.ToString(Formatting.None);
+                inputJson = jArr.ToString(Formatting.None);
             }
 
             var output = ScribanJsonHelper.Render(request.ScribanTemplate, inputJson);
