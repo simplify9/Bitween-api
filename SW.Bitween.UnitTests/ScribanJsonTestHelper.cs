@@ -13,6 +13,9 @@ internal static class ScribanJsonTestHelper
     public static JObject RenderObject(string template, string inputJson) =>
         JObject.Parse(Render(template, inputJson));
 
+    public static JArray RenderArray(string template, string inputJson) =>
+        JArray.Parse(Render(template, inputJson));
+
     public static JToken RenderValue(string valueExpression, string inputJson)
     {
         var template = "{ \"value\": " + valueExpression + " }";

@@ -14,11 +14,37 @@ public static class ScribanJsonHelper
     /// </summary>`
     public static string Render(string scribanTemplate, string inputJson)
     {
-        // 1. Parse input JSON
-        var inputObj = JObject.Parse(inputJson);
+        // 1. Parse input JSON — handle both root object and root array
+        var rootToken = JToken.Parse(inputJson);
 
         // 2. Build top-level ScriptObject from input (recursive)
-        var scriptObj = BuildScriptObject(inputObj);
+        ScriptObject scriptObj;
+        if (rootToken is JArray rootArray)
+        {
+            // Expose the array under "items" and also forward member access to the
+            // first element so templates can write either:
+            //   {{ items[0].OrderId }}  or  {{ for item in items }} ... {{ end }}
+            scriptObj = new ScriptObject();
+            var smartArray = new SmartArray(rootArray.Select(ToScribanValue));
+            scriptObj["items"] = smartArray;
+
+            // If the first element is an object, also hoist its properties to the
+            // top level so templates that reference fields directly still work.
+            if (rootArray.Count > 0 && rootArray[0] is JObject firstObj)
+            {
+                var firstSo = BuildScriptObject(firstObj);
+                foreach (var key in firstSo.Keys.ToList())
+                    scriptObj.TrySetValue(null!, default, key, firstSo[key], false);
+            }
+        }
+        else if (rootToken is JObject rootObj)
+        {
+            scriptObj = BuildScriptObject(rootObj);
+        }
+        else
+        {
+            throw new InvalidOperationException("Input JSON must be a root object or root array.");
+        }
 
         // 3. Register custom functions (| json pipe, | to_float cast)
         var functions = new ScriptObject();
@@ -50,11 +76,11 @@ public static class ScribanJsonHelper
         // 6. Strip trailing commas that may appear after the last field/element
         rendered = Regex.Replace(rendered, @",(\s*[}\]])", "$1");
 
-        // 7. Parse rendered output as JToken
-        JObject flat;
+        // 7. Parse rendered output — root may be an object OR an array
+        JToken renderedToken;
         try
         {
-            flat = JObject.Parse(rendered);
+            renderedToken = JToken.Parse(rendered);
         }
         catch (JsonException ex)
         {
@@ -62,7 +88,7 @@ public static class ScribanJsonHelper
         }
 
         // 8. Expand dotted keys into nested objects recursively at all depths
-        return ExpandDottedKeys(flat).ToString(Formatting.Indented);
+        return ExpandDottedKeys(renderedToken).ToString(Formatting.Indented);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
