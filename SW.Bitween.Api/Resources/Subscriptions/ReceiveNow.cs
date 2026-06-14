@@ -11,11 +11,13 @@ namespace SW.Bitween.Resources.Subscriptions
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly SubscriptionSchedulerService _subScheduler;
 
-        public ReceiveNow(BitweenDbContext dbContext, RequestContext requestContext)
+        public ReceiveNow(BitweenDbContext dbContext, RequestContext requestContext, SubscriptionSchedulerService subScheduler)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _subScheduler = subScheduler;
         }
 
         async public Task<object> Handle(int key, SubscriptionReceiveNow request)
@@ -25,6 +27,8 @@ namespace SW.Bitween.Resources.Subscriptions
             var entity = await _dbContext.FindAsync<Subscription>(key);
             entity.SetReceiveNow();
             await _dbContext.SaveChangesAsync();
+
+            await _subScheduler.RunNow(entity);
             return null;
         }
     }

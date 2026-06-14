@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Domain.Gateway;
+using SW.Scheduler.PgSql;
 
 namespace SW.Bitween.PgSql
 {
@@ -317,6 +318,8 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
             });
+
+            modelBuilder.UseSchedulerPostgreSql(Schema);
         }
 
 

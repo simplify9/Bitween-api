@@ -30,6 +30,11 @@ using SW.Logger.ElasticSerach;
 using Azure.Identity;
 using Microsoft.Data.SqlClient;
 using SW.Bitween.NativeAdapters;
+using SW.Scheduler;
+using SW.Scheduler.EfCore;
+using SW.Scheduler.MySql;
+using SW.Scheduler.PgSql;
+using SW.Scheduler.SqlServer;
 using SqlAuthenticationProvider = Microsoft.Data.SqlClient.SqlAuthenticationProvider;
 using SqlAuthenticationMethod = Microsoft.Data.SqlClient.SqlAuthenticationMethod;
 
@@ -61,8 +66,8 @@ namespace SW.Bitween.Web
             services.AddScoped<XchangeService>();
             services.AddHttpContextAccessor();
 
-            services.AddHostedService<AggregationService>();
-            services.AddHostedService<ReceivingService>();
+            services.AddScoped<SubscriptionSchedulerService>();
+            services.AddHostedService<SchedulerSeedService>();
 
             services.AddBus(config =>
             {
@@ -133,6 +138,32 @@ namespace SW.Bitween.Web
                     "Please check your appsettings.json or environment configuration.");
             }
 
+            // Register the persistent Quartz scheduler using the same DB as Bitween.
+            // Clustering is enabled so only one node fires each job in a multi-node deployment.
+            if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                services.AddPgSqlScheduler(
+                    connectionString: connectionString,
+                    schema: PgSql.BitweenDbContext.Schema,
+                    configure: o => o.EnableClustering = true,
+                    assemblies: typeof(BitweenDbContext).Assembly);
+            }
+            else if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                services.AddSqlServerScheduler(
+                    connectionString: connectionString,
+                    configure: o => o.EnableClustering = true,
+                    assemblies: typeof(BitweenDbContext).Assembly);
+            }
+            else
+            {
+                // MySql (default)
+                services.AddMySqlScheduler(
+                    connectionString: connectionString,
+                    configure: o => o.EnableClustering = true,
+                    assemblies: typeof(BitweenDbContext).Assembly);
+            }
+
             // Configure Azure Managed Identity for SQL Server if enabled
             if (bitweenOptions.UseAzureManagedIdentity &&
                 bitweenOptions.DatabaseType.Equals(RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
@@ -201,36 +232,36 @@ namespace SW.Bitween.Web
                         });
                     });
                 }
+
+                services.AddSchedulerMonitoring<PgSql.BitweenDbContext>();
+            }
+            else if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MsSql.ToString(),
+                StringComparison.OrdinalIgnoreCase))
+            {
+                if (bitweenOptions.UseAzureManagedIdentity &&
+                    !connectionString.Contains("Authentication=", StringComparison.OrdinalIgnoreCase))
+                {
+                    connectionString += ";Authentication=Active Directory Default";
+                }
+
+                services.AddDbContext<BitweenDbContext, MsSql.BitweenDbContext>(c =>
+                {
+                    c.EnableSensitiveDataLogging();
+                    c.UseSqlServer(connectionString,
+                        b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
+                });
+                services.AddSchedulerMonitoring<MsSql.BitweenDbContext>();
             }
             else
             {
-                services.AddDbContext<BitweenDbContext>(c =>
+                // MySql (default)
+                services.AddDbContext<BitweenDbContext, MySql.BitweenDbContext>(c =>
                 {
                     c.EnableSensitiveDataLogging();
-                    if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MySql.ToString(),
-                            StringComparison.CurrentCultureIgnoreCase))
-                    {
-                        // MySQL doesn't support Azure Managed Identity in the same way
-                        c.UseMySql(Configuration.GetConnectionString(BitweenDbContext.ConnectionString),
-                            new MySqlServerVersion(new Version(8, 0, 18)),
-                            b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
-                    }
-                    else if (bitweenOptions.DatabaseType.ToLower() == RelationalDbType.MsSql.ToString().ToLower())
-                    {
-                        // For Azure Managed Identity with SQL Server, add Authentication parameter
-                        if (bitweenOptions.UseAzureManagedIdentity)
-                        {
-                            // Ensure connection string has the required authentication mode
-                            if (!connectionString.Contains("Authentication=", StringComparison.OrdinalIgnoreCase))
-                            {
-                                connectionString += ";Authentication=Active Directory Default";
-                            }
-                        }
-
-                        c.UseSqlServer(connectionString,
-                            b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
-                    }
+                    c.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 18)),
+                        b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
                 });
+                services.AddSchedulerMonitoring<MySql.BitweenDbContext>();
             }
 
 

@@ -31,6 +31,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
     <ProjectReference Include="..\SW.Bitween.Sdk\SW.Bitween.Sdk.csproj" />
+    <ProjectReference Include="..\..\SW-SimplyScheduler\SW.Scheduler\SW.Scheduler.csproj" />
   </ItemGroup>
 
 </Project>

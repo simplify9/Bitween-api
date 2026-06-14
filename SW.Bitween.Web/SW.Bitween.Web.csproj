@@ -35,6 +35,10 @@
     <ProjectReference Include="..\SW.Bitween.MySql\SW.Bitween.MySql.csproj" />
     <ProjectReference Include="..\SW.Bitween.PgSql\SW.Bitween.PgSql.csproj" />
     <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
+    <ProjectReference Include="..\..\SW-SimplyScheduler\SW.Scheduler.EfCore\SW.Scheduler.EfCore.csproj" />
+    <ProjectReference Include="..\..\SW-SimplyScheduler\SW.Scheduler.PgSql\SW.Scheduler.PgSql.csproj" />
+    <ProjectReference Include="..\..\SW-SimplyScheduler\SW.Scheduler.SqlServer\SW.Scheduler.SqlServer.csproj" />
+    <ProjectReference Include="..\..\SW-SimplyScheduler\SW.Scheduler.MySql\SW.Scheduler.MySql.csproj" />
   </ItemGroup>
 
   <ItemGroup>
