@@ -26,12 +26,12 @@
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.3.1" />
     <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.11" />
     <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="8.1.2" />
+    <PackageReference Include="SimplyWorks.Scheduler.Sdk" Version="8.1.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
     <ProjectReference Include="..\SW.Bitween.Sdk\SW.Bitween.Sdk.csproj" />
-    <ProjectReference Include="..\..\SW-SimplyScheduler\SW.Scheduler\SW.Scheduler.csproj" />
   </ItemGroup>
 
 </Project>
