@@ -21,19 +21,19 @@ The result is that Bitween's two background jobs are about 50 lines of plain C# 
 
 ---
 
-## Package layout
+## NuGet packages
 
-SW-Scheduler is split so that projects defining jobs don't pull in Quartz:
+SW-Scheduler is published on NuGet.org under the `SimplyWorks.Scheduler.*` prefix. The solution references them as follows:
 
-| Package | Used by | What it adds |
-|---|---|---|
-| `SW.Scheduler.Sdk` | `SW.Bitween.Api` (job definitions) | `IScheduledJob<TParam>`, `[ScheduleConfig]`, `IScheduleRepository` interfaces |
-| `SW.Scheduler.EfCore` | `SW.Bitween.Web` (host) | `AddSchedulerMonitoring<TDbContext>()`, `job_executions` EF model |
-| `SW.Scheduler.PgSql` | `SW.Bitween.PgSql` | `AddPgSqlScheduler(...)`, `modelBuilder.UseSchedulerPostgreSql(schema)` |
-| `SW.Scheduler.SqlServer` | `SW.Bitween.MsSql` | `AddSqlServerScheduler(...)`, `modelBuilder.UseSchedulerSqlServer()` |
-| `SW.Scheduler.MySql` | `SW.Bitween.MySql` | `AddMySqlScheduler(...)`, `modelBuilder.UseSchedulerMySql()` |
+| NuGet package | Version | Referenced by | What it adds |
+|---|---|---|---|
+| `SimplyWorks.Scheduler.Sdk` | 8.1.1 | `SW.Bitween.Api` | `IScheduledJob<TParam>`, `[ScheduleConfig]`, `IScheduleRepository` interfaces — no Quartz dependency |
+| `SimplyWorks.Scheduler.EfCore` | 8.1.1 | `SW.Bitween.Web` | `AddSchedulerMonitoring<TDbContext>()`, `job_executions` EF model |
+| `SimplyWorks.Scheduler.PgSql` | 8.1.1 | `SW.Bitween.PgSql` | `AddPgSqlScheduler(...)`, `modelBuilder.UseSchedulerPostgreSql(schema)` |
+| `SimplyWorks.Scheduler.SqlServer` | 8.1.1 | `SW.Bitween.MsSql` | `AddSqlServerScheduler(...)`, `modelBuilder.UseSchedulerSqlServer()` |
+| `SimplyWorks.Scheduler.MySql` | 8.1.1 | `SW.Bitween.MySql` | `AddMySqlScheduler(...)`, `modelBuilder.UseSchedulerMySql()` |
 
-`SW.Bitween.Api` only references `SW.Scheduler.Sdk`. Each DB provider project references the matching scheduler provider package and adds the Quartz tables to its EF model.
+`SW.Bitween.Api` references only `SimplyWorks.Scheduler.Sdk` — it defines jobs and uses `IScheduleRepository` but has no dependency on Quartz itself. Each DB provider project references the matching provider package, which transitively brings in the full Quartz runtime. `SW.Bitween.Web` adds `SimplyWorks.Scheduler.EfCore` directly; the three provider packages reach it transitively through the DB provider project references.
 
 ---
 
