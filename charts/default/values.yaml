@@ -23,6 +23,9 @@ service:
 probes:
   enabled: false
 
+# North-south routing. The chart uses ingress-nginx by default. Set
+# gateway.enabled=true to switch to Gateway API (HTTPRoute) instead — this
+# automatically suppresses the Ingress resource below.
 ingress:
   enabled: false
   annotations: {}
@@ -37,7 +40,33 @@ ingress:
     # - secretName: chart-example-tls
     #   hosts:
   #     - chart-example.local
-  
+
+# Gateway API (HTTPRoute). Disabled by default — the chart renders nothing
+# Gateway-API-related unless gateway.enabled is set to true at deploy time.
+# When enabled, the Ingress above is suppressed and routing works exactly like
+# the Gateway API chart. Override parentRefs/hostnames/routes for your cluster
+# (the routes below default to "/"; the ingress equivalents are /api and /swagger).
+gateway:
+  enabled: false
+  parentRefs:
+    - name: public-gateway
+      namespace: s9-dev-edge
+      sectionName: https-wildcard-sf9-io
+  hostnames:
+    - s9genericapp.sf9.io
+  routes:
+    - path: "/"
+      pathType: PathPrefix
+      # Optional route-level timeouts (Gateway API v1.1+ standard channel).
+      # Prevents slow backends from holding connections indefinitely.
+      # Example:
+      # timeout:
+      #   request: "30s"         # Total client-to-backend request timeout
+      #   backendRequest: "10s"  # Single backend attempt timeout
+      backendRef:
+        name: ""
+        port: 80
+
 environmentVariables:
   Bitween__RabbitMqManagementUrl: ""
   Bitween__RabbitMqManagementPassword: ""

@@ -1,5 +1,13 @@
 1. Get the application URL by running these commands:
-{{- if .Values.ingress.enabled }}
+{{- if .Values.gateway.enabled }}
+  Gateway API (HTTPRoute) is enabled.
+{{- range .Values.gateway.hostnames }}
+{{- $host := . -}}
+{{- range $.Values.gateway.routes }}
+  https://{{ $host }}{{ .path }}
+{{- end }}
+{{- end }}
+{{- else if .Values.ingress.enabled }}
 {{- $notesPath := .Values.ingress.path -}}
 {{- if .Values.ingress.paths }}
 {{- $notesPath = first .Values.ingress.paths -}}
