@@ -356,3 +356,12 @@ charts/default/charts/swlib-2.0.11.tgz
 /charts/default/charts/swlib-2.0.12.tgz
 /SW.Infolink.Web/adapters
 .idea
+
+/SW.Bitween.Web/appsettings.Development.json
+/SW.Bitween.Web/appsettings.DevRabbitMq.json
+/SW.Bitween.Web/adapters
+SW.Bitween.NativeAdapters/JsonFieldMapper/Bitween-api.code-workspace
+.DS_Store
+.vscode/
+.postman/
+postman/
