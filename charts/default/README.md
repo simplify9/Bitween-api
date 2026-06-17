@@ -10,32 +10,28 @@ Two mutually exclusive routing modes, selected at deploy time:
 
 | Mode | How to select | Renders |
 |------|---------------|---------|
-| **ingress-nginx** (default) | `--set ingress.enabled=true` | `Ingress` |
+| **ingress-nginx** (default) | nothing — this is the default | `Ingress` |
 | **Gateway API** | `--set gateway.enabled=true` | `HTTPRoute` (and the `Ingress` is suppressed) |
 
-`gateway.enabled` defaults to `false`, so the chart renders nothing
-Gateway-API-related out of the box. Setting `gateway.enabled=true` flips routing
-to the Gateway API and automatically suppresses the `Ingress` — you do **not**
-need to also set `ingress.enabled=false`.
-
-> Note: `ingress.enabled` itself defaults to `false` in this chart, so a host
-> must opt into one of the two routing modes explicitly.
+`gateway.enabled` defaults to `false`, so the chart renders only the `Ingress`
+out of the box. Setting `gateway.enabled=true` flips routing to the Gateway API
+and automatically suppresses the `Ingress` — you do **not** need to also set
+`ingress.enabled=false`.
 
 ### Behavior matrix
 
 | `gateway.enabled` | `ingress.enabled` | Resources rendered |
 |-------------------|-------------------|--------------------|
-| `false` (default) | `false` (default) | neither            |
-| `false`           | `true`            | `Ingress` only     |
+| `false` (default) | `true` (default)  | `Ingress` only     |
+| `false`           | `false`           | neither            |
 | `true`            | `true` or `false` | `HTTPRoute` only   |
 
 ## Usage
 
-### ingress-nginx
+### ingress-nginx (default)
 
 ```sh
 helm install bitween ./charts/default \
-  --set ingress.enabled=true \
   --set ingress.hosts[0]=api.example.com
 # paths default to /api and /swagger (ingress.paths)
 ```
@@ -65,7 +61,7 @@ concerns.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `ingress.enabled` | `false` | Render an `Ingress` (only when `gateway.enabled` is `false`). |
+| `ingress.enabled` | `true` | Render an `Ingress` (only when `gateway.enabled` is `false`). |
 | `ingress.annotations` | `{}` | Annotations applied to the `Ingress`. |
 | `ingress.hosts` | _(unset)_ | List of hostnames; one rule per host. |
 | `ingress.paths` | `[/api, /swagger]` | Paths exposed per host (falls back to `ingress.path`). |
