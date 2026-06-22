@@ -93,8 +93,7 @@ namespace SW.Bitween.Resources.Accounts
                     throw new SWException("Your Microsoft account is not registered in the system. Please contact your administrator to be added.");
                 }
 
-                var identifier = request.Username ?? "unknown";
-                throw new SWValidationException(identifier, identifier);
+                throw new SWException("Invalid username or password.");
             }
 
             if (account.Disabled)
@@ -114,7 +113,7 @@ namespace SW.Bitween.Resources.Accounts
             {
                 if (request.Password == null ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
-                    throw new SWException("Invalid password.");
+                    throw new SWException("Invalid username or password.");
             }
 
             var newRefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword);
