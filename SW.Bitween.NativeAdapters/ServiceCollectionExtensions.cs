@@ -1,5 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.NativeAdapters.HttpReceiver;
+using SW.Bitween.NativeAdapters.Pop3Receiver;
+using SW.Bitween.NativeAdapters.RebexPop3Receiver;
 
 namespace SW.Bitween.NativeAdapters;
 
@@ -30,5 +32,14 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativeHttpReceiver>();
         serviceCollection.AddScoped<INativeAdapter, NativeHttpReceiver>();
+
+        serviceCollection.AddScoped<INativeInfolinkReceiver, NativePop3Receiver>();
+        serviceCollection.AddScoped<INativeAdapter, NativePop3Receiver>();
+
+        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(NativeRebexPop3Receiver.LicenseKeyEnvironmentVariable)))
+        {
+            serviceCollection.AddScoped<INativeInfolinkReceiver, NativeRebexPop3Receiver>();
+            serviceCollection.AddScoped<INativeAdapter, NativeRebexPop3Receiver>();
+        }
     }
 }

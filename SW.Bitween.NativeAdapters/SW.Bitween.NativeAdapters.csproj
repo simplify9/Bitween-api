@@ -10,8 +10,15 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="SW.Bitween.UnitTests" />
+    </ItemGroup>
+
+    <ItemGroup>
       <PackageReference Include="DotLiquid" Version="2.2.692" />
+      <PackageReference Include="MailKit" Version="4.17.0" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+      <PackageReference Include="Rebex.Mail" Version="6.0.8060" />
+      <PackageReference Include="Rebex.Pop3" Version="6.0.8060" />
       <PackageReference Include="Scriban" Version="7.0.6" />
       <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.2" />
     </ItemGroup>
