@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.ExceptionServices;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -39,86 +40,109 @@ public sealed class BitweenFixture : IAsyncLifetime
 
     public IHost App { get; private set; } = null!;
 
+    // Captured instead of re-thrown so that startup failures surface as proper red
+    // test failures in Rider rather than the silent "Inconclusive" that xUnit produces
+    // when InitializeAsync throws and marks the entire collection as skipped.
+    private ExceptionDispatchInfo? _initError;
+
     public async Task InitializeAsync()
     {
-        await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync());
-
-        var dataSourceBuilder = new NpgsqlDataSourceBuilder(_postgres.GetConnectionString());
-        dataSourceBuilder.EnableDynamicJson();
-        var dataSource = dataSourceBuilder.Build();
-
-        App = Host.CreateDefaultBuilder()
-            .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                // Bus reads its AMQP connection string from ConnectionStrings:RabbitMQ
-                ["ConnectionStrings:RabbitMQ"] = _rabbitMq.GetConnectionString(),
-            }))
-            .ConfigureServices((ctx, services) =>
-            {
-                services.AddSingleton(new BitweenOptions
-                {
-                    QueuePrefix = "bitween-test",
-                    StorageProvider = "S3",
-                    DatabaseType = "PgSql",
-                    BusDefaultQueuePrefetch = 10,
-                });
-
-                services.AddMemoryCache();
-                services.AddScoped<RequestContext>();
-
-                // Real PostgreSQL-backed DbContext using the EF migrations from SW.Bitween.PgSql
-                services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
-                    c.UseSnakeCaseNamingConvention()
-                     .UseNpgsql(dataSource, b =>
-                     {
-                         b.MigrationsHistoryTable("_ef_migrations_history", PgSql.BitweenDbContext.Schema);
-                         b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
-                     }));
-
-                // Real RabbitMQ bus — connection string injected via IConfiguration above
-                services.AddBus(cfg =>
-                {
-                    cfg.ApplicationName = "bitween-test";
-                    cfg.DefaultQueuePrefetch = 10;
-                });
-                services.AddBusPublish();
-
-                // Stubs for out-of-scope dependencies
-                services.AddSingleton(CloudFiles);
-                services.AddSingleton(Serverless);
-
-                // Real in-process cache backed by the PostgreSQL DbContext
-                services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
-
-                // Native adapter for receiving tests
-                services.AddSingleton<INativeInfolinkReceiver, NativeTestReceiver>();
-
-                // Core application services
-                services.AddSingleton<FilterService>();
-                services.AddScoped<NativeAdapterDiscoveryService>();
-                services.AddScoped<XchangeService>();
-                services.AddScoped<RunFlagUpdater>();
-                services.AddScoped<ReceivingJob>();
-                services.AddScoped<AggregationJob>();
-            })
-            .Build();
-
-        // Apply all EF migrations against the fresh PostgreSQL container
-        await using (var scope = App.Services.CreateAsyncScope())
+        try
         {
-            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-            await db.Database.MigrateAsync();
-        }
+            await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync());
 
-        await App.StartAsync();
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(_postgres.GetConnectionString());
+            dataSourceBuilder.EnableDynamicJson();
+            var dataSource = dataSourceBuilder.Build();
+
+            App = Host.CreateDefaultBuilder()
+                .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    // Bus reads its AMQP connection string from ConnectionStrings:RabbitMQ
+                    ["ConnectionStrings:RabbitMQ"] = _rabbitMq.GetConnectionString(),
+                }))
+                .ConfigureServices((ctx, services) =>
+                {
+                    services.AddSingleton(new BitweenOptions
+                    {
+                        QueuePrefix = "bitween-test",
+                        StorageProvider = "S3",
+                        DatabaseType = "PgSql",
+                        BusDefaultQueuePrefetch = 10,
+                    });
+
+                    services.AddMemoryCache();
+                    services.AddScoped<RequestContext>();
+
+                    // Real PostgreSQL-backed DbContext using the EF migrations from SW.Bitween.PgSql
+                    services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
+                        c.UseSnakeCaseNamingConvention()
+                         .UseNpgsql(dataSource, b =>
+                         {
+                             b.MigrationsHistoryTable("_ef_migrations_history", PgSql.BitweenDbContext.Schema);
+                             b.MigrationsAssembly(typeof(PgSql.DbType).Assembly.FullName);
+                         }));
+
+                    // Real RabbitMQ bus — connection string injected via IConfiguration above
+                    services.AddBus(cfg =>
+                    {
+                        cfg.ApplicationName = "bitween-test";
+                        cfg.DefaultQueuePrefetch = 10;
+                    });
+                    services.AddBusPublish();
+
+                    // Stubs for out-of-scope dependencies
+                    services.AddSingleton(CloudFiles);
+                    services.AddSingleton(Serverless);
+
+                    // Real in-process cache backed by the PostgreSQL DbContext
+                    services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
+
+                    // Native adapter for receiving tests
+                    services.AddSingleton<INativeInfolinkReceiver, NativeTestReceiver>();
+
+                    // Core application services
+                    services.AddSingleton<FilterService>();
+                    services.AddScoped<NativeAdapterDiscoveryService>();
+                    services.AddScoped<XchangeService>();
+                    services.AddScoped<RunFlagUpdater>();
+                    services.AddScoped<ReceivingJob>();
+                    services.AddScoped<AggregationJob>();
+                })
+                .Build();
+
+            // Apply all EF migrations against the fresh PostgreSQL container
+            await using (var scope = App.Services.CreateAsyncScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+                await db.Database.MigrateAsync();
+            }
+
+            await App.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            // Store rather than re-throw. xUnit treats InitializeAsync exceptions as
+            // "collection skipped", which Rider renders as Inconclusive with no message.
+            // Storing the error and re-throwing from CreateScope() makes every test in
+            // the collection fail with the real exception — visible and actionable.
+            _initError = ExceptionDispatchInfo.Capture(ex);
+        }
     }
 
     /// <summary>Creates a new DI scope. Caller is responsible for disposal.</summary>
-    public AsyncServiceScope CreateScope() => App.Services.CreateAsyncScope();
+    public AsyncServiceScope CreateScope()
+    {
+        // Re-throw any startup failure with its original stack trace so the test
+        // fails with a real error message instead of showing as Inconclusive.
+        _initError?.Throw();
+        return App.Services.CreateAsyncScope();
+    }
 
     public async Task DisposeAsync()
     {
-        await App.StopAsync();
+        if (App is not null)
+            await App.StopAsync();
         await _postgres.DisposeAsync();
         await _rabbitMq.DisposeAsync();
     }

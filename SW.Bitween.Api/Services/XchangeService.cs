@@ -85,17 +85,17 @@ public class XchangeService :
         await _dbContext.SaveChangesAsync();
     }
 
-    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup)
+    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup, Dictionary<string, int> groupAttemptCounts = null)
     {
-        var newXchange = new Xchange(xchange, file, workGroup);
+        var newXchange = new Xchange(xchange, file, workGroup, groupAttemptCounts);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
 
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
-        string[] references = null)
+        string[] references = null, Dictionary<string, int> groupAttemptCounts = null)
     {
-        var newXchange = new Xchange(subscription, xchange, file);
+        var newXchange = new Xchange(subscription, xchange, file, groupAttemptCounts);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
@@ -388,14 +388,62 @@ public class XchangeService :
             }
 
             _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id));
+            if (responseFile?.BadData == true)
+                await TryScheduleAutoRetry(xchange, XchangeResultType.BadResult, responseFile.Data);
             await _dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
             _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id,
                 ex.ToString()));
+            await TryScheduleAutoRetry(xchange, XchangeResultType.Error, ex.ToString());
             await _dbContext.SaveChangesAsync();
         }
+    }
+
+    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content)
+    {
+        if (xchange.SubscriptionId == null) return;
+
+        var subscription = await _dbContext.Set<Subscription>()
+            .Include(s => s.RetryPolicy)
+            .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId.Value);
+
+        IRetryPolicy policy = subscription?.CustomRetryPolicy ?? (IRetryPolicy)subscription?.RetryPolicy;
+        if (policy?.Groups == null || policy.Groups.Count == 0) return;
+
+        var evaluator = new RetryPolicyEvaluator(policy);
+        evaluator.RestoreGroupAttemptCounts(xchange.GroupAttemptCounts ?? new Dictionary<string, int>());
+
+        var attemptIndex = await CountRetryChainDepth(xchange);
+        var decision = evaluator.Evaluate(resultType, content, attemptIndex);
+
+        if (decision.ShouldRetry)
+        {
+            _dbContext.Add(new DelayedRetry
+            {
+                Id = xchange.Id,
+                On = DateTime.UtcNow + decision.Delay,
+                GroupAttemptCounts = evaluator.GetGroupAttemptCounts()
+            });
+        }
+    }
+
+    private async Task<int> CountRetryChainDepth(Xchange xchange)
+    {
+        var depth = 0;
+        var retryFor = xchange.RetryFor;
+        while (retryFor != null)
+        {
+            depth++;
+            var parent = await _dbContext.Set<Xchange>()
+                .AsNoTracking()
+                .Where(x => x.Id == retryFor)
+                .Select(x => x.RetryFor)
+                .FirstOrDefaultAsync();
+            retryFor = parent;
+        }
+        return depth;
     }
 
 

@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SW.Bitween.Domain;
@@ -14,9 +15,11 @@ using SW.Bitween.PgSql;
 namespace SW.Bitween.PgSql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    partial class BitweenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260629104151_AddAutoRetry")]
+    partial class AddAutoRetry
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -524,8 +527,8 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_on");
 
-                    b.Property<string>("Groups")
-                        .HasColumnType("text")
+                    b.Property<List<RetryGroup>>("Groups")
+                        .HasColumnType("jsonb")
                         .HasColumnName("groups");
 
                     b.Property<string>("ModifiedBy")
@@ -585,8 +588,8 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("consecutive_failures");
 
-                    b.Property<string>("CustomRetryPolicy")
-                        .HasColumnType("text")
+                    b.Property<CustomRetryPolicy>("CustomRetryPolicy")
+                        .HasColumnType("jsonb")
                         .HasColumnName("custom_retry_policy");
 
                     b.Property<IReadOnlyDictionary<string, string>>("DocumentFilter")

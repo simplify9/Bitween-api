@@ -51,7 +51,8 @@ namespace SW.Bitween.Resources.Subscriptions
                 MergeWithOriginal(entity.ValidatorProperties, model.ValidatorProperties)
             );
             entity.SetMatchExpression(model.MatchExpression);
-
+            entity.RetryPolicyId = model.RetryPolicyId;
+            entity.CustomRetryPolicy = model.CustomRetryPolicy;
 
             trail.SetAfter(entity);
             _dbContext.Add(trail);

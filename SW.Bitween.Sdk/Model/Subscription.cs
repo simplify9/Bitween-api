@@ -88,6 +88,9 @@ namespace SW.Bitween.Model
         public int? ResponseSubscriptionId { get; set; }
         public string ResponseMessageTypeName { get; set; }
 
+        public int? RetryPolicyId { get; set; }
+        public CustomRetryPolicy CustomRetryPolicy { get; set; }
+
         public DateTime? ReceiveOn { get; set; }
         public DateTime? AggregateOn { get; set; }
         public int ConsecutiveFailures { get; set; }
