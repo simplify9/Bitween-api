@@ -7,7 +7,7 @@ namespace SW.Bitween.NativeAdapters;
 
 public static class ServiceCollectionExtensions
 {
-    public static void AddNativeAdapters(this IServiceCollection serviceCollection)
+    public static void AddNativeAdapters(this IServiceCollection serviceCollection, string? rebexLicenseKey = null)
     {
         serviceCollection.ConfigureHttpClientDefaults(builder =>
         {
@@ -36,10 +36,10 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativePop3Receiver>();
         serviceCollection.AddScoped<INativeAdapter, NativePop3Receiver>();
 
-        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(NativeRebexPop3Receiver.LicenseKeyEnvironmentVariable)))
+        if (!string.IsNullOrEmpty(rebexLicenseKey))
         {
-            serviceCollection.AddScoped<INativeInfolinkReceiver, NativeRebexPop3Receiver>();
-            serviceCollection.AddScoped<INativeAdapter, NativeRebexPop3Receiver>();
+            serviceCollection.AddScoped<INativeInfolinkReceiver>(_ => new NativeRebexPop3Receiver(rebexLicenseKey));
+            serviceCollection.AddScoped<INativeAdapter>(_ => new NativeRebexPop3Receiver(rebexLicenseKey));
         }
     }
 }
