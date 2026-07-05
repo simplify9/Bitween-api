@@ -1,11 +1,13 @@
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
+using SW.Bitween.Domain.Gateway;
 
 namespace SW.Bitween;
 
 public interface IInfolinkCache
 {
     public Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId);
+    public Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId);
     public Task<Notifier[]> ListNotifiersAsync();
 
     public Task<Subscription> SubscriptionByIdAsync(int subscriptionId);

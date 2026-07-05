@@ -107,8 +107,8 @@ namespace SW.Bitween.Resources.Subscriptions
                 return true;
             return model switch
             {
-                NotOneOfSpec notOneOfSpec => !string.IsNullOrEmpty(notOneOfSpec.Name) && notOneOfSpec.Values.Any(),
-                OneOfSpec oneOfSpec => !string.IsNullOrEmpty(oneOfSpec.Name) && oneOfSpec.Values.Any(),
+                NotOneOfSpec notOneOfSpec => !string.IsNullOrEmpty(notOneOfSpec.Path) && notOneOfSpec.Values.Any(),
+                OneOfSpec oneOfSpec => !string.IsNullOrEmpty(oneOfSpec.Path) && oneOfSpec.Values.Any(),
                 AndSpec andSpec => ValidateMatch(andSpec.Left) && ValidateMatch(andSpec.Right),
                 OrSpec orSpec => ValidateMatch(orSpec.Left) && ValidateMatch(orSpec.Right),
                 _ => false
@@ -257,10 +257,11 @@ namespace SW.Bitween.Resources.Subscriptions
 
                     var subscription = await GetSub(dbContext, httpContextAccessor);
 
-                    if (subscription?.Type == SubscriptionType.GatewayApiCall)
+                    if (subscription?.Type == SubscriptionType.GatewayApiCall ||
+                        subscription?.Type == SubscriptionType.BusGateway)
                     {
                         if (model.PartnerId.HasValue)
-                            context.AddFailure(nameof(model.PartnerId), "PartnerId must be null for GatewayApiCall subscriptions");
+                            context.AddFailure(nameof(model.PartnerId), $"PartnerId must be null for {subscription?.Type} subscriptions");
                     }
                 });
 
