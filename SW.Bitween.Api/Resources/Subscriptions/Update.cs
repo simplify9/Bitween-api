@@ -257,10 +257,11 @@ namespace SW.Bitween.Resources.Subscriptions
 
                     var subscription = await GetSub(dbContext, httpContextAccessor);
 
-                    if (subscription?.Type == SubscriptionType.GatewayApiCall)
+                    if (subscription?.Type == SubscriptionType.GatewayApiCall ||
+                        subscription?.Type == SubscriptionType.BusGateway)
                     {
                         if (model.PartnerId.HasValue)
-                            context.AddFailure(nameof(model.PartnerId), "PartnerId must be null for GatewayApiCall subscriptions");
+                            context.AddFailure(nameof(model.PartnerId), $"PartnerId must be null for {subscription?.Type} subscriptions");
                     }
                 });
 

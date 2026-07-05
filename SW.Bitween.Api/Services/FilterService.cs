@@ -45,6 +45,11 @@ namespace SW.Bitween
 
             var matches = subs.Where(sub =>
             {
+                // Bus-gateway subscriptions only run via their gateway routes (with the route's
+                // filter and optional partner), never through the normal auto-match flow.
+                if (sub.Type == SubscriptionType.BusGateway)
+                    return false;
+
                 var exp = sub.BackwardCompatibleMatchExpression(doc);
                 return exp == null || exp.IsMatch(propReader);
             }).ToArray();
@@ -52,6 +57,21 @@ namespace SW.Bitween
             foreach (var subscription in matches)
             {
                 filterResult.Hits.Add(subscription.Id);
+            }
+
+            // Bus-gateway routes: run the assigned subscription (optionally with a partner's values)
+            // for every route whose filter matches. A null filter matches all messages on the doc.
+            var routes = await _cache.ListBusGatewayRoutesByDocumentAsync(documentId);
+            foreach (var route in routes)
+            {
+                if (route.MatchExpression == null || route.MatchExpression.IsMatch(propReader))
+                {
+                    filterResult.GatewayHits.Add(new GatewayHit
+                    {
+                        SubscriptionId = route.SubscriptionId,
+                        PartnerId = route.PartnerId
+                    });
+                }
             }
 
             return filterResult;

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SW.Bitween.Domain;
+using SW.Bitween.Domain.Gateway;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween;
@@ -40,13 +41,15 @@ public class InMemoryBitweenCache : IInfolinkCache
         var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
         var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
         var cachedGlobalValues = await repo.Set<GlobalAdapterValuesSet>().AsNoTracking().ToArrayAsync();
+        var cachedBusGateways = await repo.Set<BusGateway>().Include(g => g.Routes).AsNoTracking().ToArrayAsync();
         var span = TimeSpan.FromMinutes(10);
         _cache.Set(nameof(Document), cachedDocuments, span);
-        
+
         _cache.Set(nameof(Subscription), cachedSubscriptions, span);
         _cache.Set(nameof(Notifier), cachedNotifiers, span);
         _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
         _cache.Set(nameof(GlobalAdapterValuesSet), cachedGlobalValues, span);
+        _cache.Set(nameof(BusGateway), cachedBusGateways, span);
     }
 
     public async Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId)
@@ -58,6 +61,20 @@ public class InMemoryBitweenCache : IInfolinkCache
         }
 
         return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
+    }
+
+    public async Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId)
+    {
+        if (!_cache.TryGetValue(nameof(BusGateway), out BusGateway[] cachedBusGateways))
+        {
+            await Load();
+            cachedBusGateways = _cache.Get<BusGateway[]>(nameof(BusGateway));
+        }
+
+        return cachedBusGateways
+            .Where(g => g.DocumentId == documentId)
+            .SelectMany(g => g.Routes ?? Enumerable.Empty<BusGatewayRoute>())
+            .ToArray();
     }
 
     public async Task<Notifier[]> ListNotifiersAsync()
@@ -172,5 +189,6 @@ public class InMemoryBitweenCache : IInfolinkCache
         _cache.Remove(nameof(Notifier));
         _cache.Remove(nameof(Document));
         _cache.Remove(nameof(WorkGroup));
+        _cache.Remove(nameof(BusGateway));
     }
 }

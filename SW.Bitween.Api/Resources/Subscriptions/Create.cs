@@ -37,6 +37,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     entity = new Subscription(model.Name, model.DocumentId, model.Type, model.PartnerId!.Value);
                     break;
                 case SubscriptionType.GatewayApiCall:
+                case SubscriptionType.BusGateway:
                     entity = new Subscription(model.Name, model.DocumentId, model.Type);
                     break;
                     
@@ -61,7 +62,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
                 RuleFor(i => i.Type).NotEqual(SubscriptionType.Unknown);
 
-                When(i => (i.Type != SubscriptionType.Receiving && i.Type != SubscriptionType.GatewayApiCall), () => { RuleFor(i => i.PartnerId).NotEmpty(); });
+                When(i => (i.Type != SubscriptionType.Receiving && i.Type != SubscriptionType.GatewayApiCall && i.Type != SubscriptionType.BusGateway), () => { RuleFor(i => i.PartnerId).NotEmpty(); });
 
                 When(i => i.Type == SubscriptionType.Aggregation,
                     () => { RuleFor(i => i.AggregationForId).NotEmpty(); });
