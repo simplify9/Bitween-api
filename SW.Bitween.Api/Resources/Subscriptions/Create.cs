@@ -64,6 +64,14 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 When(i => (i.Type != SubscriptionType.Receiving && i.Type != SubscriptionType.GatewayApiCall && i.Type != SubscriptionType.BusGateway), () => { RuleFor(i => i.PartnerId).NotEmpty(); });
 
+                When(i => i.Type == SubscriptionType.GatewayApiCall || i.Type == SubscriptionType.BusGateway,
+                    () =>
+                    {
+                        RuleFor(i => i.PartnerId)
+                            .Null()
+                            .WithMessage(model => $"PartnerId must be null for {model.Type} subscriptions");
+                    });
+
                 When(i => i.Type == SubscriptionType.Aggregation,
                     () => { RuleFor(i => i.AggregationForId).NotEmpty(); });
             }

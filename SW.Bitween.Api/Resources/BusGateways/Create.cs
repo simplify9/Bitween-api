@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
@@ -39,6 +40,14 @@ namespace SW.Bitween.Resources.BusGateways
             await _dbContext.SaveChangesAsync();
             await _cache.BroadcastRevoke();
             return entity.Id;
+        }
+
+        private class Validate : AbstractValidator<BusGatewayCreate>
+        {
+            public Validate()
+            {
+                RuleFor(i => i.Name).NotEmpty().MaximumLength(200);
+            }
         }
     }
 }

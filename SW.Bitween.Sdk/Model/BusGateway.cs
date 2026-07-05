@@ -11,7 +11,6 @@ namespace SW.Bitween.Model
 
     public class BusGatewayUpdate : BusGatewayCreate
     {
-        public ICollection<BusGatewayRouteDto> Routes { get; set; }
     }
 
     public class BusGatewayRow : BusGatewayUpdate
@@ -19,6 +18,7 @@ namespace SW.Bitween.Model
         public int Id { get; set; }
         public string DocumentName { get; set; }
         public int? RoutesCount { get; set; }
+        public ICollection<BusGatewayRouteDto> Routes { get; set; }
     }
 
     public class BusGatewayRouteDto
