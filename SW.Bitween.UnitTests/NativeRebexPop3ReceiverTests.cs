@@ -3,24 +3,31 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SW.Bitween.NativeAdapters.RebexPop3Receiver;
 
 namespace SW.Bitween.UnitTests;
 
 /// <summary>
-/// Requires a real Rebex license via the REBEX_LICENSE_KEY environment variable.
+/// Requires a real Rebex license via the Bitween:RebexLicenseKey configuration value
+/// (settable through the Bitween__RebexLicenseKey environment variable).
 /// Tests report Inconclusive (not Failed) when it's not set, so CI/dev machines
 /// without a license don't fail the build.
 /// </summary>
 [TestClass]
 public class NativeRebexPop3ReceiverTests
 {
+    private static readonly string LicenseKey = new ConfigurationBuilder()
+        .AddEnvironmentVariables()
+        .Build()
+        .GetSection(BitweenOptions.ConfigurationSection)[nameof(BitweenOptions.RebexLicenseKey)];
+
     [TestInitialize]
     public void SkipIfNoLicense()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(NativeRebexPop3Receiver.LicenseKeyEnvironmentVariable)))
-            Assert.Inconclusive($"{NativeRebexPop3Receiver.LicenseKeyEnvironmentVariable} is not set.");
+        if (string.IsNullOrEmpty(LicenseKey))
+            Assert.Inconclusive($"{BitweenOptions.ConfigurationSection}:{nameof(BitweenOptions.RebexLicenseKey)} is not set.");
     }
 
     private static Dictionary<string, string> Settings(string encoding = "utf8", int batchSize = 50) => new()
@@ -34,7 +41,7 @@ public class NativeRebexPop3ReceiverTests
 
     private static NativeRebexPop3Receiver CreateReceiver(FakePop3Server server, string encoding = "utf8", int batchSize = 50)
     {
-        var receiver = new NativeRebexPop3Receiver { Port = server.Port, UseSsl = false };
+        var receiver = new NativeRebexPop3Receiver(LicenseKey) { Port = server.Port, UseSsl = false };
         receiver.InitializeStartupValues(Settings(encoding, batchSize));
         return receiver;
     }
