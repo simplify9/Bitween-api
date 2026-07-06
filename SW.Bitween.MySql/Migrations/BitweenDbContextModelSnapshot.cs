@@ -123,6 +123,26 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.DelayedRetry", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("GroupAttemptCounts")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("On")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("On");
+
+                    b.ToTable("DelayedRetries", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Document", b =>
                 {
                     b.Property<int>("Id")
@@ -398,6 +418,45 @@ namespace SW.Bitween.MySql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Groups")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RetryPolicies", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>
                 {
                     b.Property<int>("Id")
@@ -420,6 +479,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<int>("ConsecutiveFailures")
                         .HasColumnType("int");
+
+                    b.Property<string>("CustomRetryPolicy")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("DocumentFilter")
                         .HasColumnType("longtext");
@@ -485,6 +547,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int?>("ResponseSubscriptionId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("RetryPolicyId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Temporary")
                         .HasColumnType("tinyint(1)");
 
@@ -513,6 +578,8 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasIndex("PartnerId");
 
                     b.HasIndex("ResponseSubscriptionId");
+
+                    b.HasIndex("RetryPolicyId");
 
                     b.HasIndex("WorkGroupId");
 
@@ -623,6 +690,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
+
+                    b.Property<string>("GroupAttemptCounts")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
@@ -1513,6 +1583,11 @@ namespace SW.Bitween.MySql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_Subscriptions_RespSub");
 
+                    b.HasOne("SW.Bitween.Domain.RetryPolicy", "RetryPolicy")
+                        .WithMany()
+                        .HasForeignKey("RetryPolicyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("SW.Bitween.Domain.WorkGroup", "WorkGroup")
                         .WithMany()
                         .HasForeignKey("WorkGroupId");
@@ -1546,6 +1621,8 @@ namespace SW.Bitween.MySql.Migrations
                         });
 
                     b.Navigation("Category");
+
+                    b.Navigation("RetryPolicy");
 
                     b.Navigation("Schedules");
 

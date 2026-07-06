@@ -6,13 +6,44 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SW.Bitween.MsSql.Migrations
 {
     /// <inheritdoc />
-    public partial class Quartz : Migration
+    public partial class QuartzAndAutoRetry : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.EnsureSchema(
                 name: "dbo");
+
+            migrationBuilder.AddColumn<string>(
+                name: "GroupAttemptCounts",
+                table: "Xchanges",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<string>(
+                name: "CustomRetryPolicy",
+                table: "Subscriptions",
+                type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<int>(
+                name: "RetryPolicyId",
+                table: "Subscriptions",
+                type: "int",
+                nullable: true);
+
+            migrationBuilder.CreateTable(
+                name: "DelayedRetries",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false),
+                    On = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    GroupAttemptCounts = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DelayedRetries", x => x.Id);
+                });
 
             migrationBuilder.CreateTable(
                 name: "job_executions",
@@ -136,6 +167,26 @@ namespace SW.Bitween.MsSql.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_QRTZ_scheduler_state", x => new { x.sched_name, x.instance_name });
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RetryPolicies",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Groups = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UpdatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
+                    CreatedOn = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ModifiedOn = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    ModifiedBy = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RetryPolicies", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -275,6 +326,16 @@ namespace SW.Bitween.MsSql.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_RetryPolicyId",
+                table: "Subscriptions",
+                column: "RetryPolicyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DelayedRetries_On",
+                table: "DelayedRetries",
+                column: "On");
+
+            migrationBuilder.CreateIndex(
                 name: "idx_je_fire_instance_id",
                 schema: "dbo",
                 table: "job_executions",
@@ -370,11 +431,26 @@ namespace SW.Bitween.MsSql.Migrations
                 schema: "dbo",
                 table: "QRTZ_triggers",
                 columns: new[] { "sched_name", "job_name", "job_group" });
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Subscriptions_RetryPolicies_RetryPolicyId",
+                table: "Subscriptions",
+                column: "RetryPolicyId",
+                principalTable: "RetryPolicies",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.SetNull);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Subscriptions_RetryPolicies_RetryPolicyId",
+                table: "Subscriptions");
+
+            migrationBuilder.DropTable(
+                name: "DelayedRetries");
+
             migrationBuilder.DropTable(
                 name: "job_executions",
                 schema: "dbo");
@@ -416,12 +492,31 @@ namespace SW.Bitween.MsSql.Migrations
                 schema: "dbo");
 
             migrationBuilder.DropTable(
+                name: "RetryPolicies");
+
+            migrationBuilder.DropTable(
                 name: "QRTZ_triggers",
                 schema: "dbo");
 
             migrationBuilder.DropTable(
                 name: "QRTZ_job_details",
                 schema: "dbo");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Subscriptions_RetryPolicyId",
+                table: "Subscriptions");
+
+            migrationBuilder.DropColumn(
+                name: "GroupAttemptCounts",
+                table: "Xchanges");
+
+            migrationBuilder.DropColumn(
+                name: "CustomRetryPolicy",
+                table: "Subscriptions");
+
+            migrationBuilder.DropColumn(
+                name: "RetryPolicyId",
+                table: "Subscriptions");
         }
     }
 }

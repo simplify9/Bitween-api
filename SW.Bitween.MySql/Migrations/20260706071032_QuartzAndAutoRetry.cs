@@ -7,11 +7,47 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SW.Bitween.MySql.Migrations
 {
     /// <inheritdoc />
-    public partial class Quartz : Migration
+    public partial class QuartzAndAutoRetry : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<string>(
+                name: "GroupAttemptCounts",
+                table: "Xchanges",
+                type: "longtext",
+                nullable: true)
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.AddColumn<string>(
+                name: "CustomRetryPolicy",
+                table: "Subscriptions",
+                type: "longtext",
+                nullable: true)
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.AddColumn<int>(
+                name: "RetryPolicyId",
+                table: "Subscriptions",
+                type: "int",
+                nullable: true);
+
+            migrationBuilder.CreateTable(
+                name: "DelayedRetries",
+                columns: table => new
+                {
+                    Id = table.Column<string>(type: "varchar(50)", unicode: false, maxLength: 50, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    On = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    GroupAttemptCounts = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_DelayedRetries", x => x.Id);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
             migrationBuilder.CreateTable(
                 name: "job_executions",
                 columns: table => new
@@ -161,6 +197,32 @@ namespace SW.Bitween.MySql.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_QRTZ_scheduler_state", x => new { x.sched_name, x.instance_name });
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "RetryPolicies",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    Name = table.Column<string>(type: "varchar(200)", maxLength: 200, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    Groups = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    UpdatedBy = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    UpdatedAt = table.Column<DateTimeOffset>(type: "datetime(6)", nullable: false),
+                    CreatedOn = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    CreatedBy = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    ModifiedOn = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    ModifiedBy = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RetryPolicies", x => x.Id);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -323,6 +385,16 @@ namespace SW.Bitween.MySql.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Subscriptions_RetryPolicyId",
+                table: "Subscriptions",
+                column: "RetryPolicyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_DelayedRetries_On",
+                table: "DelayedRetries",
+                column: "On");
+
+            migrationBuilder.CreateIndex(
                 name: "idx_je_fire_instance_id",
                 table: "job_executions",
                 column: "fire_instance_id",
@@ -402,11 +474,26 @@ namespace SW.Bitween.MySql.Migrations
                 name: "IX_QRTZ_triggers_sched_name_job_name_job_group",
                 table: "QRTZ_triggers",
                 columns: new[] { "sched_name", "job_name", "job_group" });
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Subscriptions_RetryPolicies_RetryPolicyId",
+                table: "Subscriptions",
+                column: "RetryPolicyId",
+                principalTable: "RetryPolicies",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.SetNull);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Subscriptions_RetryPolicies_RetryPolicyId",
+                table: "Subscriptions");
+
+            migrationBuilder.DropTable(
+                name: "DelayedRetries");
+
             migrationBuilder.DropTable(
                 name: "job_executions");
 
@@ -438,10 +525,29 @@ namespace SW.Bitween.MySql.Migrations
                 name: "QRTZ_simprop_triggers");
 
             migrationBuilder.DropTable(
+                name: "RetryPolicies");
+
+            migrationBuilder.DropTable(
                 name: "QRTZ_triggers");
 
             migrationBuilder.DropTable(
                 name: "QRTZ_job_details");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Subscriptions_RetryPolicyId",
+                table: "Subscriptions");
+
+            migrationBuilder.DropColumn(
+                name: "GroupAttemptCounts",
+                table: "Xchanges");
+
+            migrationBuilder.DropColumn(
+                name: "CustomRetryPolicy",
+                table: "Subscriptions");
+
+            migrationBuilder.DropColumn(
+                name: "RetryPolicyId",
+                table: "Subscriptions");
         }
     }
 }

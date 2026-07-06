@@ -1,11 +1,8 @@
 using System;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using NSubstitute;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
@@ -28,19 +25,6 @@ public class RetryJobTests
 
     private RetryJob BuildJob(BitweenDbContext db, XchangeService xchangeService) =>
         new(db, xchangeService);
-
-    /// <summary>
-    /// Configures the CloudFiles mock to return a new stream for every <c>OpenReadAsync</c>
-    /// call. A new <see cref="MemoryStream"/> is created per invocation so the stream is
-    /// not exhausted across multiple retries in a single batch.
-    /// </summary>
-    private void SetupCloudFilesForRead(string content = "{}")
-    {
-        _fixture.CloudFiles
-            .OpenReadAsync(Arg.Any<string>())
-            .Returns(_ => Task.FromResult<Stream>(
-                new MemoryStream(Encoding.UTF8.GetBytes(content))));
-    }
 
     // ─── Batch query ──────────────────────────────────────────────────────────
 
@@ -122,8 +106,6 @@ public class RetryJobTests
     [Fact]
     public async Task RetryJob_processes_due_delayed_retry_and_creates_retry_xchange()
     {
-        SetupCloudFilesForRead();
-
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
@@ -137,9 +119,8 @@ public class RetryJobTests
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
 
-        var originalXchange = new Xchange(sub, new XchangeFile("{}"));
-        db.Set<Xchange>().Add(originalXchange);
-        await db.SaveChangesAsync();
+        // Use CreateXchange so the input file is uploaded to real cloud storage
+        var originalXchange = await xs.CreateXchange(sub, new XchangeFile("{}"));
 
         var groupCounts = new System.Collections.Generic.Dictionary<string, int>
         {
@@ -171,8 +152,6 @@ public class RetryJobTests
     [Fact]
     public async Task RetryJob_carries_group_attempt_counts_onto_retry_xchange()
     {
-        SetupCloudFilesForRead();
-
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
@@ -186,9 +165,7 @@ public class RetryJobTests
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
 
-        var originalXchange = new Xchange(sub, new XchangeFile("{}"));
-        db.Set<Xchange>().Add(originalXchange);
-        await db.SaveChangesAsync();
+        var originalXchange = await xs.CreateXchange(sub, new XchangeFile("{}"));
 
         var groupId = Guid.NewGuid().ToString();
         var delayedRetry = new DelayedRetry
@@ -216,8 +193,6 @@ public class RetryJobTests
     [Fact]
     public async Task RetryJob_processes_multiple_due_records_in_one_invocation()
     {
-        SetupCloudFilesForRead();
-
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
@@ -237,9 +212,7 @@ public class RetryJobTests
             db.Set<Subscription>().Add(sub);
             await db.SaveChangesAsync();
 
-            var xchange = new Xchange(sub, new XchangeFile("{}"));
-            db.Set<Xchange>().Add(xchange);
-            await db.SaveChangesAsync();
+            var xchange = await xs.CreateXchange(sub, new XchangeFile("{}"));
             originalIds[i] = xchange.Id;
 
             db.Set<DelayedRetry>().Add(new DelayedRetry

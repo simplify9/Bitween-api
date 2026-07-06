@@ -332,7 +332,12 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.Groups).HasConversion(
                     groups => JsonSerializer.Serialize(groups, _polymorphicOpts),
-                    json => JsonSerializer.Deserialize<List<RetryGroup>>(json, _polymorphicOpts)!
+                    json => JsonSerializer.Deserialize<List<RetryGroup>>(json, _polymorphicOpts)!,
+                    new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<RetryGroup>>(
+                        (a, b) => JsonSerializer.Serialize(a, _polymorphicOpts) == JsonSerializer.Serialize(b, _polymorphicOpts),
+                        v => JsonSerializer.Serialize(v, _polymorphicOpts).GetHashCode(),
+                        v => JsonSerializer.Deserialize<List<RetryGroup>>(JsonSerializer.Serialize(v, _polymorphicOpts), _polymorphicOpts)!
+                    )
                 );
             });
 
