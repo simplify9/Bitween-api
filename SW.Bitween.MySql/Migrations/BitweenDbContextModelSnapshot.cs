@@ -524,12 +524,6 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("longtext");
-
                     b.HasKey("Id");
 
                     b.ToTable("RetryPolicies", (string)null);

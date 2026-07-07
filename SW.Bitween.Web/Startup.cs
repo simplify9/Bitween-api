@@ -148,6 +148,17 @@ namespace SW.Bitween.Web
                     "Please check your appsettings.json or environment configuration.");
             }
 
+            // For SQL Server + managed identity, augment the connection string up front so both
+            // the Quartz scheduler below and the DbContext registered later use the exact same
+            // (fully authenticated) value — previously this was only applied after the scheduler
+            // had already captured the un-augmented string, so Quartz would fail to authenticate.
+            if (bitweenOptions.UseAzureManagedIdentity &&
+                bitweenOptions.DatabaseType.Equals(RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase) &&
+                !connectionString.Contains("Authentication=", StringComparison.OrdinalIgnoreCase))
+            {
+                connectionString += ";Authentication=Active Directory Default";
+            }
+
             // Register the persistent Quartz scheduler using the same DB as Bitween.
             // NOTE: clustering is only guaranteed once SimplyWorks.Scheduler.* is bumped past
             // 8.1.1 (the version pinned in the .csproj files as of this comment) — the fix that
@@ -249,12 +260,6 @@ namespace SW.Bitween.Web
             else if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MsSql.ToString(),
                 StringComparison.OrdinalIgnoreCase))
             {
-                if (bitweenOptions.UseAzureManagedIdentity &&
-                    !connectionString.Contains("Authentication=", StringComparison.OrdinalIgnoreCase))
-                {
-                    connectionString += ";Authentication=Active Directory Default";
-                }
-
                 services.AddDbContext<BitweenDbContext, MsSql.BitweenDbContext>(c =>
                 {
                     c.EnableSensitiveDataLogging();

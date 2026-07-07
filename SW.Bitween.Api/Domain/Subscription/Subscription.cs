@@ -68,10 +68,9 @@ public class Subscription : BaseEntity
     public int? CategoryId { get; set; }
     public SubscriptionCategory Category { get; set; }
     public int? WorkGroupId { get; set; }
-    public RetryPolicy RetryPolicy { get; set; }
-    public int? RetryPolicyId { get; set; }
-    // this should be saved as json
-    public CustomRetryPolicy CustomRetryPolicy { get; set; }
+    public RetryPolicy RetryPolicy { get; private set; }
+    public int? RetryPolicyId { get; private set; }
+    public CustomRetryPolicy CustomRetryPolicy { get; private set; }
     public WorkGroup WorkGroup { get; set; }
     public bool Temporary { get; private set; }
     public DateTime? PausedOn { get; private set; }
@@ -158,6 +157,27 @@ public class Subscription : BaseEntity
     public void SetMatchExpression(IPropertyMatchSpecification matchExpression)
     {
         MatchExpression = matchExpression;
+    }
+
+    /// <summary>
+    /// Assigns the subscription's retry policy. An inline <paramref name="customRetryPolicy"/>
+    /// always takes precedence over a referenced <paramref name="retryPolicyId"/> — the two are
+    /// mutually exclusive, matching the resolution order used at evaluation time
+    /// (<c>CustomRetryPolicy ?? RetryPolicy</c>). Setting a custom policy clears any referenced
+    /// one and vice versa, so the two fields can never disagree.
+    /// </summary>
+    public void SetRetryPolicy(int? retryPolicyId, CustomRetryPolicy customRetryPolicy)
+    {
+        if (customRetryPolicy != null)
+        {
+            CustomRetryPolicy = customRetryPolicy;
+            RetryPolicyId = null;
+        }
+        else
+        {
+            RetryPolicyId = retryPolicyId;
+            CustomRetryPolicy = null;
+        }
     }
 
     public void Pause()

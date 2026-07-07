@@ -138,10 +138,7 @@ namespace SW.Bitween
                     .OnDelete(DeleteBehavior.Restrict);
                 bgr.HasOne(p => p.Partner).WithMany().HasForeignKey(p => p.PartnerId)
                     .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-                bgr.Property(p => p.MatchExpression).HasConversion(
-                    domainObject =>
-                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
-                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
+                bgr.Property(p => p.MatchExpression).HasMatchExpressionConversion();
             });
 
             modelBuilder.Entity<GlobalAdapterValuesSet>(gav =>
@@ -221,10 +218,7 @@ namespace SW.Bitween
                 b.HasOne(i => i.RetryPolicy).WithMany().HasForeignKey(i => i.RetryPolicyId).IsRequired(false)
                     .OnDelete(DeleteBehavior.SetNull);
                 b.Property(p => p.CustomRetryPolicy).StoreAsJson();
-                b.Property(p => p.MatchExpression).HasConversion(
-                    domainObject =>
-                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
-                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
+                b.Property(p => p.MatchExpression).HasMatchExpressionConversion();
             });
 
             modelBuilder.Entity<RetryPolicy>(b =>

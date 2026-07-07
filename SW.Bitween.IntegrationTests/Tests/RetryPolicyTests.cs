@@ -197,7 +197,7 @@ public class RetryPolicyTests
 
         var policyId = (int)await create.Handle(SimplePolicy("In-Use Policy"));
 
-        sub.RetryPolicyId = policyId;
+        sub.SetRetryPolicy(policyId, null);
         await db.SaveChangesAsync();
 
         await Assert.ThrowsAsync<SWException>(() => delete.Handle(policyId));
@@ -250,7 +250,7 @@ public class RetryPolicyTests
         var policyId = (int)await create.Handle(SimplePolicy("FK Test Policy"));
 
         // Mirror what Subscriptions/Update.cs does: set the FK field and save
-        sub.RetryPolicyId = policyId;
+        sub.SetRetryPolicy(policyId, null);
         await db.SaveChangesAsync();
 
         var reloaded = await db.Set<Subscription>()
@@ -276,7 +276,7 @@ public class RetryPolicyTests
         await db.SaveChangesAsync();
 
         // Mirror what Subscriptions/Update.cs does: set the inline policy and save
-        sub.CustomRetryPolicy = new CustomRetryPolicy
+        sub.SetRetryPolicy(null, new CustomRetryPolicy
         {
             Groups =
             [
@@ -294,7 +294,7 @@ public class RetryPolicyTests
                     }
                 }
             ]
-        };
+        });
         await db.SaveChangesAsync();
 
         var reloaded = await db.Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == sub.Id);
@@ -322,7 +322,7 @@ public class RetryPolicyTests
         db.Set<RetryPolicy>().Add(policy);
         await db.SaveChangesAsync();
 
-        sub.RetryPolicyId = policy.Id;
+        sub.SetRetryPolicy(policy.Id, null);
         await db.SaveChangesAsync();
 
         // Remove the policy directly (bypassing the handler's guard) to test the ON DELETE SET NULL cascade
@@ -331,6 +331,77 @@ public class RetryPolicyTests
 
         var reloaded = await db.Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == sub.Id);
         Assert.Null(reloaded.RetryPolicyId);
+    }
+
+    // ─── Test / dry-run endpoint ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Test_simulates_consecutive_attempts_and_stops_once_blocked()
+    {
+        await using var scope = _fixture.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var handler = new Resources.RetryPolicies.Test(ctx);
+
+        var request = new TestRetryPolicyRequest
+        {
+            Groups = SimplePolicy("Dry-run Policy").Groups,
+            ResultType = XchangeResultType.Error,
+            Content = "System.TimeoutException: contains timeout",
+            AttemptsToSimulate = 5
+        };
+
+        var response = (TestRetryPolicyResponse)await handler.Handle(request);
+
+        // Budget is MaxAttemptsPerError = 3, so attempts 1-3 retry and attempt 4 is blocked;
+        // simulation stops there rather than continuing to the requested 5.
+        Assert.Equal(4, response.Attempts.Count);
+        Assert.All(response.Attempts.Take(3), a =>
+        {
+            Assert.True(a.ShouldRetry);
+            Assert.Equal("Timeout", a.MatchedGroupName);
+            Assert.Equal(5, a.DelaySeconds);
+        });
+        Assert.False(response.Attempts[3].ShouldRetry);
+        Assert.Null(response.Attempts[3].MatchedGroupName);
+    }
+
+    [Fact]
+    public async Task Test_rejects_success_result_type()
+    {
+        await using var scope = _fixture.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var handler = new Resources.RetryPolicies.Test(ctx);
+
+        var request = new TestRetryPolicyRequest
+        {
+            Groups = [],
+            ResultType = XchangeResultType.Success,
+            Content = "n/a"
+        };
+
+        await Assert.ThrowsAsync<SWValidationException>(() => handler.Handle(request));
+    }
+
+    [Fact]
+    public async Task Test_reports_no_match_when_no_group_applies()
+    {
+        await using var scope = _fixture.CreateScope();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var handler = new Resources.RetryPolicies.Test(ctx);
+
+        var request = new TestRetryPolicyRequest
+        {
+            Groups = SimplePolicy("Dry-run Policy").Groups,
+            ResultType = XchangeResultType.Error,
+            Content = "System.NullReferenceException: unrelated failure",
+            AttemptsToSimulate = 3
+        };
+
+        var response = (TestRetryPolicyResponse)await handler.Handle(request);
+
+        Assert.Single(response.Attempts);
+        Assert.False(response.Attempts[0].ShouldRetry);
+        Assert.Null(response.Attempts[0].MatchedGroupName);
     }
 
 }

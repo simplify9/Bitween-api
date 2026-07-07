@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
@@ -51,8 +52,13 @@ namespace SW.Bitween.Resources.Subscriptions
                 MergeWithOriginal(entity.ValidatorProperties, model.ValidatorProperties)
             );
             entity.SetMatchExpression(model.MatchExpression);
-            entity.RetryPolicyId = model.RetryPolicyId;
-            entity.CustomRetryPolicy = model.CustomRetryPolicy;
+
+            if (model.CustomRetryPolicy == null && model.RetryPolicyId != null &&
+                !await _dbContext.Set<RetryPolicy>().AnyAsync(p => p.Id == model.RetryPolicyId))
+                throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
+                    $"Retry policy {model.RetryPolicyId} was not found.");
+
+            entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
 
             trail.SetAfter(entity);
             _dbContext.Add(trail);

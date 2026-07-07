@@ -444,19 +444,33 @@ public class XchangeService :
         if (policy?.Groups == null || policy.Groups.Count == 0) return;
 
         var evaluator = new RetryPolicyEvaluator(policy);
-        evaluator.RestoreGroupAttemptCounts(xchange.GroupAttemptCounts ?? new Dictionary<string, int>());
+        evaluator.RestoreGroupAttemptCounts(xchange.GroupAttemptCounts == null
+            ? new Dictionary<string, int>()
+            : new Dictionary<string, int>(xchange.GroupAttemptCounts));
 
         var attemptIndex = await CountRetryChainDepth(xchange);
         var decision = evaluator.Evaluate(resultType, content, attemptIndex);
 
         if (decision.ShouldRetry)
         {
-            _dbContext.Add(new DelayedRetry
+            // Guard against duplicate scheduling (e.g. an at-least-once redelivery
+            // reprocessing the same xchange) — DelayedRetry.Id is xchange.Id, so a
+            // blind Add would violate the PK and fail the whole SaveChangesAsync.
+            var existing = await _dbContext.Set<DelayedRetry>().FindAsync(xchange.Id);
+            if (existing != null)
             {
-                Id = xchange.Id,
-                On = DateTime.UtcNow + decision.Delay,
-                GroupAttemptCounts = evaluator.GetGroupAttemptCounts()
-            });
+                existing.On = DateTime.UtcNow + decision.Delay;
+                existing.GroupAttemptCounts = evaluator.GetGroupAttemptCounts();
+            }
+            else
+            {
+                _dbContext.Add(new DelayedRetry
+                {
+                    Id = xchange.Id,
+                    On = DateTime.UtcNow + decision.Delay,
+                    GroupAttemptCounts = evaluator.GetGroupAttemptCounts()
+                });
+            }
         }
     }
 

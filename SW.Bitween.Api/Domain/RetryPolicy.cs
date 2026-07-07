@@ -8,10 +8,7 @@ namespace SW.Bitween.Domain;
 public class RetryPolicy : BaseEntity, IAudited, IRetryPolicy
 {
     public string Name { get; set; }
-    // this should be saved as json
     public List<RetryGroup> Groups { get; set; } = [];
-    public string? UpdatedBy { get; set; }
-    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTime CreatedOn { get; set; }
     public string CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
