@@ -78,5 +78,12 @@ namespace SW.Bitween
         /// Example: ["https://localhost:3000", "https://slim-dev.starlinks-me.com"]
         /// </summary>
         public string[] CorsOrigins { get; set; } = Array.Empty<string>();
+
+        /// <summary>
+        /// Quartz cron expression that controls how often <c>RetryJob</c> polls for due
+        /// auto-retry records. Defaults to every minute.
+        /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
+        /// </summary>
+        public string RetryJobCron { get; set; } = "0 * * * * ?";
     }
 }

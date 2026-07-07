@@ -23,7 +23,13 @@ namespace SW.Bitween.Resources.Xchanges
 
         public async Task<object> Handle(XchangeBulkRetry request)
         {
-            var xchanges = await _dbContext.Set<Xchange>().Where(c => request.Ids.Contains(c.Id)).AsNoTracking()
+            var scheduledIds = await _dbContext.Set<DelayedRetry>()
+                .Where(d => request.Ids.Contains(d.Id))
+                .Select(d => d.Id)
+                .ToListAsync();
+
+            var xchanges = await _dbContext.Set<Xchange>()
+                .Where(c => request.Ids.Contains(c.Id) && !scheduledIds.Contains(c.Id)).AsNoTracking()
                 .ToListAsync();
 
             foreach (var xchange in xchanges)

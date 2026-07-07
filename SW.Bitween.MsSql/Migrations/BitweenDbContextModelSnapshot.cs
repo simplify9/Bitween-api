@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using SW.Bitween;
+using SW.Bitween.MsSql;
 
 #nullable disable
 
@@ -122,6 +122,26 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("AccountId");
 
                     b.ToTable("RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.DelayedRetry", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("GroupAttemptCounts")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("On")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("On");
+
+                    b.ToTable("DelayedRetries", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Document", b =>
@@ -478,6 +498,39 @@ namespace SW.Bitween.MsSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Groups")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RetryPolicies", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>
                 {
                     b.Property<int>("Id")
@@ -500,6 +553,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<int>("ConsecutiveFailures")
                         .HasColumnType("int");
+
+                    b.Property<string>("CustomRetryPolicy")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DocumentFilter")
                         .HasColumnType("nvarchar(max)");
@@ -565,6 +621,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int?>("ResponseSubscriptionId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("RetryPolicyId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Temporary")
                         .HasColumnType("bit");
 
@@ -593,6 +652,8 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("PartnerId");
 
                     b.HasIndex("ResponseSubscriptionId");
+
+                    b.HasIndex("RetryPolicyId");
 
                     b.HasIndex("WorkGroupId");
 
@@ -704,6 +765,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
+
+                    b.Property<string>("GroupAttemptCounts")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
@@ -952,6 +1016,525 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToView(null, (string)null);
                 });
 
+            modelBuilder.Entity("SW.Scheduler.JobExecution", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Context")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("context");
+
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_ms");
+
+                    b.Property<DateTime?>("EndTimeUtc")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("end_time_utc");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("error");
+
+                    b.Property<string>("FireInstanceId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("fire_instance_id");
+
+                    b.Property<string>("JobGroup")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_group");
+
+                    b.Property<string>("JobName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_name");
+
+                    b.Property<string>("JobTypeName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_type_name");
+
+                    b.Property<string>("Node")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("node");
+
+                    b.Property<DateTime>("StartTimeUtc")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("start_time_utc");
+
+                    b.Property<bool?>("Success")
+                        .HasColumnType("bit")
+                        .HasColumnName("success");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FireInstanceId")
+                        .IsUnique()
+                        .HasDatabaseName("idx_je_fire_instance_id");
+
+                    b.HasIndex("StartTimeUtc")
+                        .HasDatabaseName("idx_je_start_time");
+
+                    b.HasIndex("Success")
+                        .HasDatabaseName("idx_je_success");
+
+                    b.HasIndex("JobGroup", "JobName", "StartTimeUtc")
+                        .HasDatabaseName("idx_je_group_name_start");
+
+                    b.ToTable("job_executions", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzBlobTrigger", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("TriggerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_name");
+
+                    b.Property<string>("TriggerGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_group");
+
+                    b.Property<byte[]>("BlobData")
+                        .HasColumnType("varbinary(max)")
+                        .HasColumnName("blob_data");
+
+                    b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
+
+                    b.ToTable("QRTZ_blob_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzCalendar", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("CalendarName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("calendar_name");
+
+                    b.Property<byte[]>("Calendar")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)")
+                        .HasColumnName("calendar");
+
+                    b.HasKey("SchedulerName", "CalendarName");
+
+                    b.ToTable("QRTZ_calendars", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzCronTrigger", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("TriggerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_name");
+
+                    b.Property<string>("TriggerGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_group");
+
+                    b.Property<string>("CronExpression")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("cron_expression");
+
+                    b.Property<string>("TimeZoneId")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("time_zone_id");
+
+                    b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
+
+                    b.ToTable("QRTZ_cron_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzFiredTrigger", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("EntryId")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("entry_id");
+
+                    b.Property<long>("FiredTime")
+                        .HasColumnType("bigint")
+                        .HasColumnName("fired_time");
+
+                    b.Property<string>("InstanceName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("instance_name");
+
+                    b.Property<bool>("IsNonConcurrent")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_nonconcurrent");
+
+                    b.Property<string>("JobGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_group");
+
+                    b.Property<string>("JobName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_name");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int")
+                        .HasColumnName("priority");
+
+                    b.Property<bool?>("RequestsRecovery")
+                        .HasColumnType("bit")
+                        .HasColumnName("requests_recovery");
+
+                    b.Property<long>("ScheduledTime")
+                        .HasColumnType("bigint")
+                        .HasColumnName("sched_time");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("TriggerGroup")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_group");
+
+                    b.Property<string>("TriggerName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_name");
+
+                    b.HasKey("SchedulerName", "EntryId");
+
+                    b.HasIndex("InstanceName")
+                        .HasDatabaseName("idx_QRTZ_ft_trig_inst_name");
+
+                    b.HasIndex("JobGroup")
+                        .HasDatabaseName("idx_QRTZ_ft_job_group");
+
+                    b.HasIndex("JobName")
+                        .HasDatabaseName("idx_QRTZ_ft_job_name");
+
+                    b.HasIndex("RequestsRecovery")
+                        .HasDatabaseName("idx_QRTZ_ft_job_req_recovery");
+
+                    b.HasIndex("TriggerGroup")
+                        .HasDatabaseName("idx_QRTZ_ft_trig_group");
+
+                    b.HasIndex("TriggerName")
+                        .HasDatabaseName("idx_QRTZ_ft_trig_name");
+
+                    b.HasIndex("SchedulerName", "TriggerName", "TriggerGroup")
+                        .HasDatabaseName("idx_QRTZ_ft_trig_nm_gp");
+
+                    b.ToTable("QRTZ_fired_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzJobDetail", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("JobName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_name");
+
+                    b.Property<string>("JobGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_group");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsDurable")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_durable");
+
+                    b.Property<bool>("IsNonConcurrent")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_nonconcurrent");
+
+                    b.Property<bool>("IsUpdateData")
+                        .HasColumnType("bit")
+                        .HasColumnName("is_update_data");
+
+                    b.Property<string>("JobClassName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_class_name");
+
+                    b.Property<byte[]>("JobData")
+                        .HasColumnType("varbinary(max)")
+                        .HasColumnName("job_data");
+
+                    b.Property<bool>("RequestsRecovery")
+                        .HasColumnType("bit")
+                        .HasColumnName("requests_recovery");
+
+                    b.HasKey("SchedulerName", "JobName", "JobGroup");
+
+                    b.HasIndex("RequestsRecovery")
+                        .HasDatabaseName("idx_j_req_recovery");
+
+                    b.ToTable("QRTZ_job_details", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzLock", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("LockName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("lock_name");
+
+                    b.HasKey("SchedulerName", "LockName");
+
+                    b.ToTable("QRTZ_locks", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzPausedTriggerGroup", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("TriggerGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_group");
+
+                    b.HasKey("SchedulerName", "TriggerGroup");
+
+                    b.ToTable("QRTZ_paused_trigger_grps", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzSchedulerState", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("InstanceName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("instance_name");
+
+                    b.Property<long>("CheckInInterval")
+                        .HasColumnType("bigint")
+                        .HasColumnName("checkin_interval");
+
+                    b.Property<long>("LastCheckInTime")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_checkin_time");
+
+                    b.HasKey("SchedulerName", "InstanceName");
+
+                    b.ToTable("QRTZ_scheduler_state", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzSimplePropertyTrigger", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("TriggerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_name");
+
+                    b.Property<string>("TriggerGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_group");
+
+                    b.Property<bool?>("BooleanProperty1")
+                        .HasColumnType("bit")
+                        .HasColumnName("bool_prop_1");
+
+                    b.Property<bool?>("BooleanProperty2")
+                        .HasColumnType("bit")
+                        .HasColumnName("bool_prop_2");
+
+                    b.Property<decimal?>("DecimalProperty1")
+                        .HasColumnType("numeric")
+                        .HasColumnName("dec_prop_1");
+
+                    b.Property<decimal?>("DecimalProperty2")
+                        .HasColumnType("numeric")
+                        .HasColumnName("dec_prop_2");
+
+                    b.Property<int?>("IntegerProperty1")
+                        .HasColumnType("int")
+                        .HasColumnName("int_prop_1");
+
+                    b.Property<int?>("IntegerProperty2")
+                        .HasColumnType("int")
+                        .HasColumnName("int_prop_2");
+
+                    b.Property<long?>("LongProperty1")
+                        .HasColumnType("bigint")
+                        .HasColumnName("long_prop_1");
+
+                    b.Property<long?>("LongProperty2")
+                        .HasColumnType("bigint")
+                        .HasColumnName("long_prop_2");
+
+                    b.Property<string>("StringProperty1")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("str_prop_1");
+
+                    b.Property<string>("StringProperty2")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("str_prop_2");
+
+                    b.Property<string>("StringProperty3")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("str_prop_3");
+
+                    b.Property<string>("TimeZoneId")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("time_zone_id");
+
+                    b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
+
+                    b.ToTable("QRTZ_simprop_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzSimpleTrigger", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("TriggerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_name");
+
+                    b.Property<string>("TriggerGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_group");
+
+                    b.Property<long>("RepeatCount")
+                        .HasColumnType("bigint")
+                        .HasColumnName("repeat_count");
+
+                    b.Property<long>("RepeatInterval")
+                        .HasColumnType("bigint")
+                        .HasColumnName("repeat_interval");
+
+                    b.Property<long>("TimesTriggered")
+                        .HasColumnType("bigint")
+                        .HasColumnName("times_triggered");
+
+                    b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
+
+                    b.ToTable("QRTZ_simple_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzTrigger", b =>
+                {
+                    b.Property<string>("SchedulerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("sched_name");
+
+                    b.Property<string>("TriggerName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_name");
+
+                    b.Property<string>("TriggerGroup")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_group");
+
+                    b.Property<string>("CalendarName")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("calendar_name");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("description");
+
+                    b.Property<long?>("EndTime")
+                        .HasColumnType("bigint")
+                        .HasColumnName("end_time");
+
+                    b.Property<byte[]>("JobData")
+                        .HasColumnType("varbinary(max)")
+                        .HasColumnName("job_data");
+
+                    b.Property<string>("JobGroup")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_group");
+
+                    b.Property<string>("JobName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("job_name");
+
+                    b.Property<int?>("MisfireInstruction")
+                        .HasColumnType("int")
+                        .HasColumnName("misfire_instr");
+
+                    b.Property<long?>("NextFireTime")
+                        .HasColumnType("bigint")
+                        .HasColumnName("next_fire_time");
+
+                    b.Property<long?>("PreviousFireTime")
+                        .HasColumnType("bigint")
+                        .HasColumnName("prev_fire_time");
+
+                    b.Property<int?>("Priority")
+                        .HasColumnType("int")
+                        .HasColumnName("priority");
+
+                    b.Property<long>("StartTime")
+                        .HasColumnType("bigint")
+                        .HasColumnName("start_time");
+
+                    b.Property<string>("TriggerState")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_state");
+
+                    b.Property<string>("TriggerType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)")
+                        .HasColumnName("trigger_type");
+
+                    b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
+
+                    b.HasIndex("NextFireTime")
+                        .HasDatabaseName("idx_t_next_fire_time");
+
+                    b.HasIndex("TriggerState")
+                        .HasDatabaseName("idx_t_state");
+
+                    b.HasIndex("NextFireTime", "TriggerState")
+                        .HasDatabaseName("idx_t_nft_st");
+
+                    b.HasIndex("SchedulerName", "JobName", "JobGroup");
+
+                    b.ToTable("QRTZ_triggers", "dbo");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
                 {
                     b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
@@ -1110,6 +1693,11 @@ namespace SW.Bitween.MsSql.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_Subscriptions_RespSub");
 
+                    b.HasOne("SW.Bitween.Domain.RetryPolicy", "RetryPolicy")
+                        .WithMany()
+                        .HasForeignKey("RetryPolicyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("SW.Bitween.Domain.WorkGroup", "WorkGroup")
                         .WithMany()
                         .HasForeignKey("WorkGroupId");
@@ -1143,6 +1731,8 @@ namespace SW.Bitween.MsSql.Migrations
                         });
 
                     b.Navigation("Category");
+
+                    b.Navigation("RetryPolicy");
 
                     b.Navigation("Schedules");
 
@@ -1205,6 +1795,61 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SW.Scheduler.QuartzBlobTrigger", b =>
+                {
+                    b.HasOne("SW.Scheduler.QuartzTrigger", "Trigger")
+                        .WithMany("BlobTriggers")
+                        .HasForeignKey("SchedulerName", "TriggerName", "TriggerGroup")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trigger");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzCronTrigger", b =>
+                {
+                    b.HasOne("SW.Scheduler.QuartzTrigger", "Trigger")
+                        .WithMany("CronTriggers")
+                        .HasForeignKey("SchedulerName", "TriggerName", "TriggerGroup")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trigger");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzSimplePropertyTrigger", b =>
+                {
+                    b.HasOne("SW.Scheduler.QuartzTrigger", "Trigger")
+                        .WithMany("SimplePropertyTriggers")
+                        .HasForeignKey("SchedulerName", "TriggerName", "TriggerGroup")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trigger");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzSimpleTrigger", b =>
+                {
+                    b.HasOne("SW.Scheduler.QuartzTrigger", "Trigger")
+                        .WithMany("SimpleTriggers")
+                        .HasForeignKey("SchedulerName", "TriggerName", "TriggerGroup")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Trigger");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzTrigger", b =>
+                {
+                    b.HasOne("SW.Scheduler.QuartzJobDetail", "JobDetail")
+                        .WithMany("Triggers")
+                        .HasForeignKey("SchedulerName", "JobName", "JobGroup")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("JobDetail");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>
                 {
                     b.Navigation("Partners");
@@ -1218,6 +1863,22 @@ namespace SW.Bitween.MsSql.Migrations
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
                 {
                     b.Navigation("Subscriptions");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzJobDetail", b =>
+                {
+                    b.Navigation("Triggers");
+                });
+
+            modelBuilder.Entity("SW.Scheduler.QuartzTrigger", b =>
+                {
+                    b.Navigation("BlobTriggers");
+
+                    b.Navigation("CronTriggers");
+
+                    b.Navigation("SimplePropertyTriggers");
+
+                    b.Navigation("SimpleTriggers");
                 });
 #pragma warning restore 612, 618
         }

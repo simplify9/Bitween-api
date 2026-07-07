@@ -138,10 +138,7 @@ namespace SW.Bitween
                     .OnDelete(DeleteBehavior.Restrict);
                 bgr.HasOne(p => p.Partner).WithMany().HasForeignKey(p => p.PartnerId)
                     .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
-                bgr.Property(p => p.MatchExpression).HasConversion(
-                    domainObject =>
-                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
-                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
+                bgr.Property(p => p.MatchExpression).HasMatchExpressionConversion();
             });
 
             modelBuilder.Entity<GlobalAdapterValuesSet>(gav =>
@@ -218,10 +215,29 @@ namespace SW.Bitween
                     .HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);
                 b.HasOne(i => i.Category).WithMany().HasForeignKey(i => i.CategoryId);
                 b.HasOne(i => i.WorkGroup).WithMany().HasForeignKey(i => i.WorkGroupId);
-                b.Property(p => p.MatchExpression).HasConversion(
-                    domainObject =>
-                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
-                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
+                b.HasOne(i => i.RetryPolicy).WithMany().HasForeignKey(i => i.RetryPolicyId).IsRequired(false)
+                    .OnDelete(DeleteBehavior.SetNull);
+                b.Property(p => p.CustomRetryPolicy).StoreAsJson();
+                b.Property(p => p.MatchExpression).HasMatchExpressionConversion();
+            });
+
+            modelBuilder.Entity<RetryPolicy>(b =>
+            {
+                b.ToTable("RetryPolicies");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                b.Property(p => p.Groups).StoreAsJson();
+            });
+
+            modelBuilder.Entity<DelayedRetry>(b =>
+            {
+                b.ToTable("DelayedRetries");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.On);
+                b.Property(p => p.GroupAttemptCounts).StoreAsJson();
+                b.HasIndex(p => p.On);
             });
 
             modelBuilder.Entity<Xchange>(b =>
@@ -236,6 +252,7 @@ namespace SW.Bitween
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
+                b.Property(p => p.GroupAttemptCounts).StoreAsJson();
                 b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
 

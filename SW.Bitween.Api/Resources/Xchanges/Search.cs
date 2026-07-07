@@ -38,6 +38,8 @@ namespace SW.Bitween.Resources.Xchanges
                         join document in dbContext.Set<Document>() on xchange.DocumentId equals document.Id
                         join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id into xs
                         from subscriber in xs.DefaultIfEmpty()
+                        join delayedRetry in dbContext.Set<DelayedRetry>() on xchange.Id equals delayedRetry.Id into drGroup
+                        from delayedRetry in drGroup.DefaultIfEmpty()
                         select new XchangeRow
                         {
                             Id = xchange.Id,
@@ -70,7 +72,8 @@ namespace SW.Bitween.Resources.Xchanges
                             OutputFileName = result.OutputName,
                             ResponseFileName = result.ResponseName,
                             CorrelationId = xchange.CorrelationId,
-                            PartnerId = subscriber.PartnerId
+                            PartnerId = subscriber.PartnerId,
+                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null
                         };
 
             var condition = searchyRequest.Conditions.FirstOrDefault();

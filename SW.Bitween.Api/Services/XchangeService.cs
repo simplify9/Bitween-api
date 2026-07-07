@@ -85,17 +85,17 @@ public class XchangeService :
         await _dbContext.SaveChangesAsync();
     }
 
-    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup)
+    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup, Dictionary<string, int> groupAttemptCounts = null)
     {
-        var newXchange = new Xchange(xchange, file, workGroup);
+        var newXchange = new Xchange(xchange, file, workGroup, groupAttemptCounts);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
 
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
-        string[] references = null)
+        string[] references = null, Dictionary<string, int> groupAttemptCounts = null)
     {
-        var newXchange = new Xchange(subscription, xchange, file);
+        var newXchange = new Xchange(subscription, xchange, file, groupAttemptCounts);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
@@ -119,6 +119,37 @@ public class XchangeService :
         await AddFile(xchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(xchange);
         return xchange;
+    }
+
+    /// <summary>
+    /// Executes a due or manually-triggered <see cref="DelayedRetry"/>: resubmits the original
+    /// failed Xchange and removes the DelayedRetry record. Used by both <c>RetryJob</c> (scheduled)
+    /// and the <c>DelayedRetries/RunNow</c> endpoint (immediate).
+    /// </summary>
+    /// <returns><c>false</c> if the original Xchange or its Subscription no longer exist (the
+    /// DelayedRetry record is removed as an orphan in that case); <c>true</c> on success.</returns>
+    public async Task<bool> ExecuteDelayedRetry(DelayedRetry delayedRetry)
+    {
+        var xchange = await _dbContext.FindAsync<Xchange>(delayedRetry.Id);
+        if (xchange == null)
+        {
+            _dbContext.Remove(delayedRetry);
+            return false;
+        }
+
+        var subscription = await _dbContext.Set<Subscription>()
+            .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
+        if (subscription == null)
+        {
+            _dbContext.Remove(delayedRetry);
+            return false;
+        }
+
+        var inputFileData = await GetFile(xchange.Id, XchangeFileType.Input);
+        var inputFile = new XchangeFile(inputFileData, xchange.InputName);
+        await CreateXchange(subscription, xchange, inputFile, groupAttemptCounts: delayedRetry.GroupAttemptCounts);
+        _dbContext.Remove(delayedRetry);
+        return true;
     }
 
     private Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
@@ -388,14 +419,76 @@ public class XchangeService :
             }
 
             _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id));
+            if (responseFile?.BadData == true)
+                await TryScheduleAutoRetry(xchange, XchangeResultType.BadResult, responseFile.Data);
             await _dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
             _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id,
                 ex.ToString()));
+            await TryScheduleAutoRetry(xchange, XchangeResultType.Error, ex.ToString());
             await _dbContext.SaveChangesAsync();
         }
+    }
+
+    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content)
+    {
+        if (xchange.SubscriptionId == null) return;
+
+        var subscription = await _dbContext.Set<Subscription>()
+            .Include(s => s.RetryPolicy)
+            .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId.Value);
+
+        IRetryPolicy policy = subscription?.CustomRetryPolicy ?? (IRetryPolicy)subscription?.RetryPolicy;
+        if (policy?.Groups == null || policy.Groups.Count == 0) return;
+
+        var evaluator = new RetryPolicyEvaluator(policy);
+        evaluator.RestoreGroupAttemptCounts(xchange.GroupAttemptCounts == null
+            ? new Dictionary<string, int>()
+            : new Dictionary<string, int>(xchange.GroupAttemptCounts));
+
+        var attemptIndex = await CountRetryChainDepth(xchange);
+        var decision = evaluator.Evaluate(resultType, content, attemptIndex);
+
+        if (decision.ShouldRetry)
+        {
+            // Guard against duplicate scheduling (e.g. an at-least-once redelivery
+            // reprocessing the same xchange) — DelayedRetry.Id is xchange.Id, so a
+            // blind Add would violate the PK and fail the whole SaveChangesAsync.
+            var existing = await _dbContext.Set<DelayedRetry>().FindAsync(xchange.Id);
+            if (existing != null)
+            {
+                existing.On = DateTime.UtcNow + decision.Delay;
+                existing.GroupAttemptCounts = evaluator.GetGroupAttemptCounts();
+            }
+            else
+            {
+                _dbContext.Add(new DelayedRetry
+                {
+                    Id = xchange.Id,
+                    On = DateTime.UtcNow + decision.Delay,
+                    GroupAttemptCounts = evaluator.GetGroupAttemptCounts()
+                });
+            }
+        }
+    }
+
+    private async Task<int> CountRetryChainDepth(Xchange xchange)
+    {
+        var depth = 0;
+        var retryFor = xchange.RetryFor;
+        while (retryFor != null)
+        {
+            depth++;
+            var parent = await _dbContext.Set<Xchange>()
+                .AsNoTracking()
+                .Where(x => x.Id == retryFor)
+                .Select(x => x.RetryFor)
+                .FirstOrDefaultAsync();
+            retryFor = parent;
+        }
+        return depth;
     }
 
 

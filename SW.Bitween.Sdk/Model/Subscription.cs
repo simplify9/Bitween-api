@@ -97,6 +97,9 @@ namespace SW.Bitween.Model
         public DateTime? PausedOn { get; set; }
         public string CategoryCode { get; set; }
         public string CategoryDescription { get; set; }
+
+        public int? RetryPolicyId { get; set; }
+        public CustomRetryPolicy CustomRetryPolicy { get; set; }
     }
 
     public class SubscriptionGet : SubscriptionUpdate

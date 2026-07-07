@@ -1,22 +1,29 @@
-﻿﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Collections.Generic;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
+using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Domain.Gateway;
+using SW.Scheduler.PgSql;
 
 namespace SW.Bitween.PgSql
 {
     public class BitweenDbContext : Bitween.BitweenDbContext
     {
-        //private readonly RequestContext requestContext;
-        //private readonly IPublish publish;
-
         public const string Schema = "infolink";
+
+        private static readonly JsonSerializerOptions _polymorphicOpts = new()
+        {
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver()
+        };
 
         public BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish) : base(
             options, requestContext, publish)
@@ -346,6 +353,47 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
             });
+
+            modelBuilder.Entity<RetryPolicy>(b =>
+            {
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                b.Property(p => p.Groups).HasConversion(
+                    groups => JsonSerializer.Serialize(groups, _polymorphicOpts),
+                    json => JsonSerializer.Deserialize<List<RetryGroup>>(json, _polymorphicOpts)!,
+                    new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<RetryGroup>>(
+                        (a, b) => JsonSerializer.Serialize(a, _polymorphicOpts) == JsonSerializer.Serialize(b, _polymorphicOpts),
+                        v => JsonSerializer.Serialize(v, _polymorphicOpts).GetHashCode(),
+                        v => JsonSerializer.Deserialize<List<RetryGroup>>(JsonSerializer.Serialize(v, _polymorphicOpts), _polymorphicOpts)!
+                    )
+                );
+            });
+
+            modelBuilder.Entity<Subscription>(b =>
+            {
+                b.HasOne(s => s.RetryPolicy).WithMany().HasForeignKey(s => s.RetryPolicyId).IsRequired(false)
+                    .OnDelete(DeleteBehavior.SetNull);
+                b.Property(s => s.CustomRetryPolicy).HasConversion(
+                    cp => cp == null ? null : JsonSerializer.Serialize(cp, _polymorphicOpts),
+                    json => json == null ? null : JsonSerializer.Deserialize<CustomRetryPolicy>(json, _polymorphicOpts)
+                );
+            });
+
+            modelBuilder.Entity<DelayedRetry>(b =>
+            {
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).HasMaxLength(50);
+                b.Property(p => p.GroupAttemptCounts).HasColumnType("jsonb");
+                b.HasIndex(p => p.On);
+            });
+
+            modelBuilder.Entity<Xchange>(b =>
+            {
+                b.Property(p => p.GroupAttemptCounts).HasColumnType("jsonb");
+            });
+
+            modelBuilder.UseSchedulerPostgreSql(Schema);
         }
 
 

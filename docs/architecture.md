@@ -82,6 +82,31 @@ Custom adapter execution environment:
 - **Mapper Interface** (`IInfolinkMapper`)
 - **Receiver Interface** (`IInfolinkReceiver`)
 
+## Scheduling Architecture
+
+Receiving and aggregation jobs run on a persistent, clustered schedule powered by **SW-Scheduler** — a typed Quartz.NET wrapper.
+
+```
+SchedulerSeedService (startup)
+  └── SubscriptionSchedulerService.ScheduleAll(sub)
+        └── IScheduleRepository.ScheduleIfNotExists<Job, Param>(param, cron, key)
+              └── Quartz persistent job store (qrtz_* tables, same DB as Bitween)
+
+Quartz fires at scheduled time
+  └── ReceivingJob.Execute(ReceivingJobParams)   ← polls receiver adapter, creates Xchanges
+  └── AggregationJob.Execute(AggregationJobParams) ← batches successful Xchanges into one
+```
+
+Key points:
+
+- Quartz state lives in `qrtz_*` tables in the same database as Bitween, added via EF Core migrations.
+- `SubscriptionSchedulerService` is the single point where Bitween's `Schedule` domain entity is translated into Quartz triggers. Call `Sync()` on update, `ScheduleAll()` on create, `RunNow()` for immediate execution.
+- `SchedulerSeedService` re-registers all active subscriptions on startup using `ScheduleIfNotExists` — safe to run against a persistent store without creating duplicates.
+- `EnableClustering = true` ensures only one node fires each trigger across a horizontally scaled deployment.
+- Execution history is recorded in `job_executions` via `AddSchedulerMonitoring<TDbContext>()`.
+
+See [docs/scheduler.md](scheduler.md) for the full reference.
+
 ## Processing Architecture
 
 ### Message Flow

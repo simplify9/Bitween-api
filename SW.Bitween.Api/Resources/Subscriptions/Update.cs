@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
@@ -18,20 +19,25 @@ namespace SW.Bitween.Resources.Subscriptions
         private readonly BitweenDbContext _dbContext;
         private readonly IInfolinkCache _BitweenCache;
         private readonly RequestContext _requestContext;
+        private readonly SubscriptionSchedulerService _subScheduler;
 
         private const string PrivateSentinel = "__private__";
 
-        public Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache, RequestContext requestContext)
+        public Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache, RequestContext requestContext, SubscriptionSchedulerService subScheduler)
         {
             this._dbContext = dbContext;
             _BitweenCache = BitweenCache;
             _requestContext = requestContext;
+            _subScheduler = subScheduler;
         }
 
         public async Task<object> Handle(int key, SubscriptionUpdate model)
         {
             _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
             var entity = await _dbContext.FindAsync<Subscription>(key);
+
+            // Capture before SetSchedules replaces the collection.
+            var oldSchedules = entity.Schedules.ToList();
 
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
             _dbContext.Entry(entity).SetProperties(model);
@@ -47,11 +53,21 @@ namespace SW.Bitween.Resources.Subscriptions
             );
             entity.SetMatchExpression(model.MatchExpression);
 
+            if (model.CustomRetryPolicy == null && model.RetryPolicyId != null &&
+                !await _dbContext.Set<RetryPolicy>().AnyAsync(p => p.Id == model.RetryPolicyId))
+                throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
+                    $"Retry policy {model.RetryPolicyId} was not found.");
+
+            entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
 
             trail.SetAfter(entity);
             _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
             await _BitweenCache.BroadcastRevoke();
+
+            // Sync Quartz: unschedule removed entries, schedule new/kept ones.
+            await _subScheduler.Sync(entity, oldSchedules);
+
             return null;
         }
 
