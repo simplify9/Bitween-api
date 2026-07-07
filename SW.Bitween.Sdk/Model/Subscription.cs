@@ -12,6 +12,7 @@ namespace SW.Bitween.Model
         Receiving = 4,
         Aggregation = 8,
         GatewayApiCall = 16,
+        BusGateway = 32,
     }
 
     public class SubscriptionReceiveNow

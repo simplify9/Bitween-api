@@ -331,7 +331,7 @@ namespace SW.Bitween.Web
                     });
             });
 
-            services.AddNativeAdapters();
+            services.AddNativeAdapters(bitweenOptions.RebexLicenseKey);
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();

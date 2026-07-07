@@ -31,6 +31,8 @@ namespace SW.Bitween.Domain
                 SubscriptionType.Internal => new InternalXchangeCreatedEvent(),
                 SubscriptionType.ApiCall => new ApiXchangeCreatedEvent(),
                 SubscriptionType.GatewayApiCall => new ApiXchangeCreatedEvent(),
+                // Bus-gateway xchanges are bus-triggered async processing, like Internal.
+                SubscriptionType.BusGateway => new InternalXchangeCreatedEvent(),
                 SubscriptionType.Receiving => new ReceivingXchangeCreatedEvent(),
                 SubscriptionType.Aggregation => new AggregateXchangeCreatedEvent(),
                 _ => throw new ArgumentOutOfRangeException(nameof(subscriptionType), subscriptionType, null)

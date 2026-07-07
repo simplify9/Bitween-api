@@ -147,6 +147,35 @@ namespace SW.Bitween.PgSql
                     .IsRequired().OnDelete(DeleteBehavior.Restrict);
             });
 
+            modelBuilder.Entity<BusGateway>(bg =>
+            {
+                bg.ToTable("bus_gateway");
+                bg.HasKey(i => i.Id);
+                bg.Property(i => i.Id).ValueGeneratedOnAdd();
+                bg.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                bg.HasOne<Document>().WithMany().HasForeignKey(p => p.DocumentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                bg.HasMany(p => p.Routes).WithOne(p => p.BusGateway).HasForeignKey(p => p.BusGatewayId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<BusGatewayRoute>(bgr =>
+            {
+                bgr.ToTable("bus_gateway_route");
+                bgr.HasKey(i => i.Id);
+                bgr.Property(i => i.Id).ValueGeneratedOnAdd();
+                bgr.HasOne(p => p.BusGateway).WithMany(p => p.Routes).HasForeignKey(p => p.BusGatewayId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                bgr.HasOne(p => p.Subscription).WithMany().HasForeignKey(p => p.SubscriptionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                bgr.HasOne(p => p.Partner).WithMany().HasForeignKey(p => p.PartnerId)
+                    .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+                bgr.Property(p => p.MatchExpression).HasConversion(
+                    domainObject =>
+                        domainObject == null ? null : MatchSpecValueConverter.SerializeMatchSpec(domainObject),
+                    dbString => dbString == null ? null : MatchSpecValueConverter.DeserializeMatchSpec(dbString));
+            });
+
             modelBuilder.Entity<GlobalAdapterValuesSet>(gav =>
             {
                 gav.ToTable("global_adapter_values_set");

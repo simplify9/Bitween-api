@@ -68,6 +68,11 @@ namespace SW.Bitween
         public string RabbitMqManagementPassword { get; set; }
 
         /// <summary>
+        /// License key for the Rebex POP3 library. When not set, the native Rebex POP3 receiver adapter is not registered.
+        /// </summary>
+        public string RebexLicenseKey { get; set; }
+
+        /// <summary>
         /// Allowed CORS origins for credential-bearing requests (cookies).
         /// When set, enables AllowCredentials() on the CORS policy.
         /// Example: ["https://localhost:3000", "https://slim-dev.starlinks-me.com"]

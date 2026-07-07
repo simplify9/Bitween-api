@@ -62,6 +62,16 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
             return new AndSpec(Evaluate(jLeftObj), Evaluate(jRightObj));
         }
 
+        if (jLeft is JObject soleLeftObj && IsNullOrMissing(jRight))
+        {
+            return Evaluate(soleLeftObj);
+        }
+
+        if (jRight is JObject soleRightObj && IsNullOrMissing(jLeft))
+        {
+            return Evaluate(soleRightObj);
+        }
+
         throw new JsonSerializationException("Invalid Match Specification Format");
     }
 
@@ -74,8 +84,20 @@ public class PropertyMatchSpecificationJsonConverter : JsonConverter<IPropertyMa
             return new OrSpec(Evaluate(jLeftObj), Evaluate(jRightObj));
         }
 
+        if (jLeft is JObject soleLeftObj && IsNullOrMissing(jRight))
+        {
+            return Evaluate(soleLeftObj);
+        }
+
+        if (jRight is JObject soleRightObj && IsNullOrMissing(jLeft))
+        {
+            return Evaluate(soleRightObj);
+        }
+
         throw new JsonSerializationException("Invalid Match Specification Format");
     }
+
+    static bool IsNullOrMissing(JToken token) => token is null || token.Type == JTokenType.Null;
 
     IPropertyMatchSpecification EvaluateOneOf(JObject jObj)
     {

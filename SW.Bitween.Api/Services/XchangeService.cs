@@ -492,6 +492,38 @@ public class XchangeService :
                 await CreateXchange(subscription, inputFile, null, xchange.CorrelationId);
             }
         }
+
+        if (result.GatewayHits.Count == 0)
+            return;
+
+        // Bus-gateway routes: run the assigned subscription with the route's optional partner values,
+        // reusing the same xchange path the API gateway uses (partner + globals injection).
+        var globalAdapterValuesSets = await _dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
+        foreach (var hit in result.GatewayHits)
+        {
+            var subscription = await _BitweenCache.SubscriptionByIdAsync(hit.SubscriptionId);
+            if (subscription == null)
+            {
+                _logger.LogWarning(
+                    "Bus gateway route references subscription {SubscriptionId}, which is not active; skipping.",
+                    hit.SubscriptionId);
+                continue;
+            }
+
+            var partner = hit.PartnerId.HasValue
+                ? await _dbContext.FindAsync<Partner>(hit.PartnerId.Value)
+                : null;
+
+            if (subscription.PausedOn != null)
+            {
+                await CreateOnHoldXchange(subscription, inputFile);
+            }
+            else
+            {
+                await CreateXchange(subscription, inputFile, null, xchange.CorrelationId, partner,
+                    globalAdapterValuesSets);
+            }
+        }
     }
 
 
