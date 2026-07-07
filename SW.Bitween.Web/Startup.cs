@@ -44,12 +44,14 @@ namespace SW.Bitween.Web
     {
         private static readonly string ApiXchangeCreatedEventQueueName = "XchangeService.ApiXchangeCreatedEvent";
 
-        public Startup(IConfiguration configuration)
+        public Startup(IConfiguration configuration, IWebHostEnvironment environment)
         {
             Configuration = configuration;
+            Environment = environment;
         }
 
         private IConfiguration Configuration { get; }
+        private IWebHostEnvironment Environment { get; }
 
         public void ConfigureServices(IServiceCollection services)
         {
@@ -83,6 +85,8 @@ namespace SW.Bitween.Web
 
             var serializer = new JsonSerializer();
             serializer.Converters.Add(new PropertyMatchSpecificationJsonConverter());
+            serializer.Converters.Add(new MatcherJsonConverter());
+            serializer.Converters.Add(new DelayStrategyJsonConverter());
             serializer.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
             serializer.ContractResolver = new CamelCasePropertyNamesContractResolver
             {
@@ -118,6 +122,12 @@ namespace SW.Bitween.Web
                 case "S3":
                     services.AddS3CloudFiles();
                     break;
+                case "LOCAL":
+                    if (!Environment.IsDevelopment())
+                        throw new InvalidOperationException(
+                            "StorageProvider 'Local' stores files on the local filesystem and is only allowed when ASPNETCORE_ENVIRONMENT is 'Development'.");
+                    services.AddLocalTestsCloudFiles();
+                    break;
                 default:
                     services.AddS3CloudFiles();
                     break;
@@ -139,20 +149,22 @@ namespace SW.Bitween.Web
             }
 
             // Register the persistent Quartz scheduler using the same DB as Bitween.
-            // Clustering is enabled so only one node fires each job in a multi-node deployment.
+            // NOTE: clustering is only guaranteed once SimplyWorks.Scheduler.* is bumped past
+            // 8.1.1 (the version pinned in the .csproj files as of this comment) — the fix that
+            // makes clustering unconditional (unique auto-generated SchedulerId per instance)
+            // hasn't been published yet. Until that bump happens, these packages run
+            // NON-clustered (EnableClustering defaulted to false and no longer settable here).
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 services.AddPgSqlScheduler(
                     connectionString: connectionString,
                     schema: PgSql.BitweenDbContext.Schema,
-                    configure: o => o.EnableClustering = true,
                     assemblies: typeof(BitweenDbContext).Assembly);
             }
             else if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 services.AddSqlServerScheduler(
                     connectionString: connectionString,
-                    configure: o => o.EnableClustering = true,
                     assemblies: typeof(BitweenDbContext).Assembly);
             }
             else
@@ -160,7 +172,6 @@ namespace SW.Bitween.Web
                 // MySql (default)
                 services.AddMySqlScheduler(
                     connectionString: connectionString,
-                    configure: o => o.EnableClustering = true,
                     assemblies: typeof(BitweenDbContext).Assembly);
             }
 

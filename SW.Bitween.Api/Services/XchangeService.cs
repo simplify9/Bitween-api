@@ -121,6 +121,37 @@ public class XchangeService :
         return xchange;
     }
 
+    /// <summary>
+    /// Executes a due or manually-triggered <see cref="DelayedRetry"/>: resubmits the original
+    /// failed Xchange and removes the DelayedRetry record. Used by both <c>RetryJob</c> (scheduled)
+    /// and the <c>DelayedRetries/RunNow</c> endpoint (immediate).
+    /// </summary>
+    /// <returns><c>false</c> if the original Xchange or its Subscription no longer exist (the
+    /// DelayedRetry record is removed as an orphan in that case); <c>true</c> on success.</returns>
+    public async Task<bool> ExecuteDelayedRetry(DelayedRetry delayedRetry)
+    {
+        var xchange = await _dbContext.FindAsync<Xchange>(delayedRetry.Id);
+        if (xchange == null)
+        {
+            _dbContext.Remove(delayedRetry);
+            return false;
+        }
+
+        var subscription = await _dbContext.Set<Subscription>()
+            .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
+        if (subscription == null)
+        {
+            _dbContext.Remove(delayedRetry);
+            return false;
+        }
+
+        var inputFileData = await GetFile(xchange.Id, XchangeFileType.Input);
+        var inputFile = new XchangeFile(inputFileData, xchange.InputName);
+        await CreateXchange(subscription, xchange, inputFile, groupAttemptCounts: delayedRetry.GroupAttemptCounts);
+        _dbContext.Remove(delayedRetry);
+        return true;
+    }
+
     private Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
     {
         var xchange = new OnHoldXchange(subscription, file.Data, file.Filename, file.BadData, references);

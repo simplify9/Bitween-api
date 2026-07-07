@@ -27,29 +27,7 @@ public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService)
 
         foreach (var delayedRetry in ready)
         {
-            var xchange = await dbContext.FindAsync<Xchange>(delayedRetry.Id);
-            if (xchange == null)
-            {
-                dbContext.Remove(delayedRetry);
-                continue;
-            }
-
-            // Resolve subscription before fetching the file to avoid a cloud round-trip for orphan records.
-            var subscription = await dbContext.Set<Subscription>()
-                .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
-
-            if (subscription == null)
-            {
-                dbContext.Remove(delayedRetry);
-                continue;
-            }
-
-            var inputFileData = await xchangeService.GetFile(xchange.Id, XchangeFileType.Input);
-            var inputFile = new XchangeFile(inputFileData, xchange.InputName);
-
-            await xchangeService.CreateXchange(subscription, xchange, inputFile,
-                groupAttemptCounts: delayedRetry.GroupAttemptCounts);
-            dbContext.Remove(delayedRetry);
+            await xchangeService.ExecuteDelayedRetry(delayedRetry);
         }
 
         await dbContext.SaveChangesAsync();

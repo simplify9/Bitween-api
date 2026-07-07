@@ -96,5 +96,6 @@ namespace SW.Bitween.Model
         public bool? ResponseBad { get; set; }
         public string CorrelationId { get; set; }
         public int? PartnerId { get; set; }
+        public DateTime? ScheduledRetryOn { get; set; }
     }
 }
