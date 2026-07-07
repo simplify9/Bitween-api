@@ -39,7 +39,7 @@ public class Subscription : BaseEntity
         type, null)
     {
         Inactive = true;
-        if (type != SubscriptionType.GatewayApiCall)
+        if (type != SubscriptionType.GatewayApiCall && type != SubscriptionType.BusGateway)
             throw new ArgumentException();
     }
     private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null,
