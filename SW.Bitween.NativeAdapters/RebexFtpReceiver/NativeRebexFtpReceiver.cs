@@ -19,6 +19,7 @@ public class NativeRebexFtpReceiver : INativeInfolinkReceiver
     {
         Rebex.Licensing.Key = _licenseKey;
         FtpProtocol.EnsurePasswordProvided(_options.Protocol, _options.Password);
+        FtpProtocol.EnsurePrivateKeyProvided(_options.Protocol, _options.PrivateKey);
 
         switch (_options.Protocol.ToLower())
         {

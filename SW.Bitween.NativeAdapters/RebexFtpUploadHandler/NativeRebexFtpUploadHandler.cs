@@ -18,6 +18,7 @@ public class NativeRebexFtpUploadHandler : INativeInfolinkHandler
     {
         Rebex.Licensing.Key = _licenseKey;
         FtpProtocol.EnsurePasswordProvided(_options.Protocol, _options.Password);
+        FtpProtocol.EnsurePrivateKeyProvided(_options.Protocol, _options.PrivateKey);
 
         IFtp ftpOrSftp;
         switch (_options.Protocol.ToLower())
