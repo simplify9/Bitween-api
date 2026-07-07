@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.NativeAdapters.HttpReceiver;
 using SW.Bitween.NativeAdapters.Pop3Receiver;
+using SW.Bitween.NativeAdapters.RebexFtpReceiver;
+using SW.Bitween.NativeAdapters.RebexFtpUploadHandler;
 using SW.Bitween.NativeAdapters.RebexPop3Receiver;
 
 namespace SW.Bitween.NativeAdapters;
@@ -40,6 +42,12 @@ public static class ServiceCollectionExtensions
         {
             serviceCollection.AddScoped<INativeInfolinkReceiver>(_ => new NativeRebexPop3Receiver(rebexLicenseKey));
             serviceCollection.AddScoped<INativeAdapter>(_ => new NativeRebexPop3Receiver(rebexLicenseKey));
+
+            serviceCollection.AddScoped<INativeInfolinkHandler>(_ => new NativeRebexFtpUploadHandler(rebexLicenseKey));
+            serviceCollection.AddScoped<INativeAdapter>(_ => new NativeRebexFtpUploadHandler(rebexLicenseKey));
+
+            serviceCollection.AddScoped<INativeInfolinkReceiver>(_ => new NativeRebexFtpReceiver(rebexLicenseKey));
+            serviceCollection.AddScoped<INativeAdapter>(_ => new NativeRebexFtpReceiver(rebexLicenseKey));
         }
     }
 }
