@@ -25,7 +25,11 @@ public class NativeAzureBlobReceiver : INativeInfolinkReceiver
     {
         var blobNames = new List<string>();
 
-        await foreach (var blob in _container.GetBlobsAsync(BlobTraits.None, BlobStates.None, _options.FolderName))
+        // Trailing slash keeps the prefix scoped to the folder itself, so a sibling
+        // like "incoming-archive/x.txt" doesn't match a FolderName of "incoming".
+        var prefix = string.IsNullOrEmpty(_options.FolderName) ? _options.FolderName : _options.FolderName + "/";
+
+        await foreach (var blob in _container.GetBlobsAsync(BlobTraits.None, BlobStates.None, prefix))
         {
             blobNames.Add(blob.Name);
             if (blobNames.Count >= _options.BatchSize)
@@ -55,6 +59,13 @@ public class NativeAzureBlobReceiver : INativeInfolinkReceiver
 
     public async Task DeleteFile(string fileId)
     {
+        var sourceBlob = _container.GetBlobClient(fileId);
+
+        // Retry-safe: if a prior attempt already moved/deleted this file, there's
+        // nothing left to do — treat it as already completed, not an error.
+        if (!await sourceBlob.ExistsAsync())
+            return;
+
         if (!string.IsNullOrWhiteSpace(_options.DeleteMovesFileTo))
         {
             // Preserve the path relative to FolderName so files with the same name in
@@ -66,12 +77,11 @@ public class NativeAzureBlobReceiver : INativeInfolinkReceiver
 
             // Server-side copy: Azure moves the blob internally, so no bytes are
             // downloaded or re-uploaded through this process.
-            var sourceBlob = _container.GetBlobClient(fileId);
             var targetBlob = _container.GetBlobClient(targetName);
             await targetBlob.SyncCopyFromUriAsync(sourceBlob.Uri);
         }
 
-        await _container.GetBlobClient(fileId).DeleteAsync();
+        await sourceBlob.DeleteAsync();
     }
 
     public string Name => "NativeAzureBlobReceiver";
