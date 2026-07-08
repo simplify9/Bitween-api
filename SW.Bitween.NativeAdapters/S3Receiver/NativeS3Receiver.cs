@@ -1,31 +1,45 @@
 using System.Text;
+using Amazon.S3;
 using SW.CloudFiles.S3;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.S3Receiver;
 
-public class NativeS3Receiver : INativeInfolinkReceiver
+public class NativeS3Receiver : INativeInfolinkReceiver, IDisposable
 {
     private S3ReceiverInput _options = new();
-    private CloudFilesService _cloudFiles = null!;
+    private CloudFilesService? _cloudFiles;
+    private AmazonS3Client? _s3Client;
 
     public Task Initialize()
     {
-        _cloudFiles = new CloudFilesService(new CloudFilesOptions
+        var options = new CloudFilesOptions
         {
             AccessKeyId = _options.AccessKeyId,
             SecretAccessKey = _options.SecretAccessKey,
             ServiceUrl = _options.ServiceUrl,
             BucketName = _options.BucketName,
-        });
+        };
+
+        _cloudFiles = new CloudFilesService(options);
+        _s3Client = options.CreateClient();
 
         return Task.CompletedTask;
     }
 
     public Task Finalize()
     {
-        _cloudFiles.Dispose();
+        _cloudFiles?.Dispose();
+        _s3Client?.Dispose();
         return Task.CompletedTask;
+    }
+
+    // Safety net: the DI container disposes scoped instances when the job's scope ends,
+    // even if Initialize/ListFiles/GetFile/DeleteFile threw and Finalize was never reached.
+    public void Dispose()
+    {
+        _cloudFiles?.Dispose();
+        _s3Client?.Dispose();
     }
 
     public async Task<IEnumerable<string>> ListFiles()
@@ -46,7 +60,7 @@ public class NativeS3Receiver : INativeInfolinkReceiver
         await stream.CopyToAsync(memoryStream);
         var bytes = memoryStream.ToArray();
 
-        return _options.ResponseEncoding.ToLower() switch
+        return (_options.ResponseEncoding ?? "utf8").ToLower() switch
         {
             "base64" => new XchangeFile(Convert.ToBase64String(bytes), fileId),
             "utf8" => new XchangeFile(Encoding.UTF8.GetString(bytes), fileId),
@@ -59,13 +73,16 @@ public class NativeS3Receiver : INativeInfolinkReceiver
     {
         if (!string.IsNullOrWhiteSpace(_options.DeleteMovesFileTo))
         {
-            await using var sourceStream = await _cloudFiles.OpenReadAsync(fileId);
-            using var buffer = new MemoryStream();
-            await sourceStream.CopyToAsync(buffer);
-            buffer.Position = 0;
+            // Preserve the path relative to FolderName so files with the same name in
+            // different subdirectories don't collide at the destination.
+            var relativePath = !string.IsNullOrEmpty(_options.FolderName) && fileId.StartsWith(_options.FolderName + "/")
+                ? fileId[(_options.FolderName.Length + 1)..]
+                : fileId;
 
-            var targetKey = $"{_options.DeleteMovesFileTo}/{Path.GetFileName(fileId)}";
-            await _cloudFiles.WriteAsync(buffer, new WriteFileSettings { Key = targetKey });
+            // Server-side copy: S3 moves the object internally, so no bytes are
+            // downloaded or re-uploaded through this process.
+            var targetKey = $"{_options.DeleteMovesFileTo}/{relativePath}";
+            await _s3Client!.CopyObjectAsync(_options.BucketName, fileId, _options.BucketName, targetKey);
         }
 
         await _cloudFiles.DeleteAsync(fileId);

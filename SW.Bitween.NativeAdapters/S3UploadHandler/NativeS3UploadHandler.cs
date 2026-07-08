@@ -20,7 +20,9 @@ public class NativeS3UploadHandler : INativeInfolinkHandler
         var key = _options.FileName;
         if (string.IsNullOrWhiteSpace(key))
         {
-            key = $"{DateTime.UtcNow:yyyyMMddHHmmss}.{_options.FileExtension}";
+            var extension = _options.FileExtension?.TrimStart('.');
+            var name = $"{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}";
+            key = string.IsNullOrEmpty(extension) ? name : $"{name}.{extension}";
 
             if (!string.IsNullOrWhiteSpace(_options.FolderName))
                 key = $"{_options.FolderName}/{key}";
