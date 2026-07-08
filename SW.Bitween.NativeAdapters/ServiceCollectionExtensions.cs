@@ -4,6 +4,8 @@ using SW.Bitween.NativeAdapters.Pop3Receiver;
 using SW.Bitween.NativeAdapters.RebexFtpReceiver;
 using SW.Bitween.NativeAdapters.RebexFtpUploadHandler;
 using SW.Bitween.NativeAdapters.RebexPop3Receiver;
+using SW.Bitween.NativeAdapters.S3Receiver;
+using SW.Bitween.NativeAdapters.S3UploadHandler;
 
 namespace SW.Bitween.NativeAdapters;
 
@@ -37,6 +39,12 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativePop3Receiver>();
         serviceCollection.AddScoped<INativeAdapter, NativePop3Receiver>();
+
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeS3UploadHandler>();
+        serviceCollection.AddScoped<INativeAdapter, NativeS3UploadHandler>();
+
+        serviceCollection.AddScoped<INativeInfolinkReceiver, NativeS3Receiver>();
+        serviceCollection.AddScoped<INativeAdapter, NativeS3Receiver>();
 
         if (!string.IsNullOrEmpty(rebexLicenseKey))
         {
