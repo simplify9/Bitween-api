@@ -14,6 +14,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="Azure.Storage.Blobs" Version="12.23.0" />
       <PackageReference Include="DotLiquid" Version="2.2.692" />
       <PackageReference Include="MailKit" Version="4.17.0" />
       <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
