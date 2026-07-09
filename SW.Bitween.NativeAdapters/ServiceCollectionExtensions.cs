@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using SW.Bitween.NativeAdapters.AzureBlobReceiver;
+using SW.Bitween.NativeAdapters.AzureBlobUploadHandler;
 using SW.Bitween.NativeAdapters.HttpReceiver;
 using SW.Bitween.NativeAdapters.Pop3Receiver;
 using SW.Bitween.NativeAdapters.RebexFtpReceiver;
@@ -45,6 +47,12 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativeS3Receiver>();
         serviceCollection.AddScoped<INativeAdapter, NativeS3Receiver>();
+
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeAzureBlobUploadHandler>();
+        serviceCollection.AddScoped<INativeAdapter, NativeAzureBlobUploadHandler>();
+
+        serviceCollection.AddScoped<INativeInfolinkReceiver, NativeAzureBlobReceiver>();
+        serviceCollection.AddScoped<INativeAdapter, NativeAzureBlobReceiver>();
 
         if (!string.IsNullOrEmpty(rebexLicenseKey))
         {
