@@ -86,9 +86,18 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         switch (str)
         {
             case "application/x-www-form-urlencoded":
-                content = new FormUrlEncodedContent(
-                    JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody)
-                    ?? new Dictionary<string, string>());
+                Dictionary<string, string>? formDict = null;
+                try
+                {
+                    formDict = JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody);
+                }
+                catch (JsonException)
+                {
+                    // requestBody is not JSON (e.g. XML). Wrap it under FormKey if configured.
+                }
+                if (formDict == null && !string.IsNullOrEmpty(_options.FormKey))
+                    formDict = new Dictionary<string, string> { { _options.FormKey, requestBody } };
+                content = new FormUrlEncodedContent(formDict ?? new Dictionary<string, string>());
                 break;
             case "multipart/form-data":
                 multipartTmp = new MultipartFormDataContent();

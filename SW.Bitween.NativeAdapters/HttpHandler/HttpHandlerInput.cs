@@ -30,4 +30,5 @@ public class HttpHandlerInput
     [Secure]
     public string? ClientSecret { get; set; }
     public string? DefaultRequest { get; set; }
+    public string? FormKey { get; set; }
 }
