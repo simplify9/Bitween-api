@@ -24,7 +24,7 @@
       <PackageReference Include="Rebex.Sftp" Version="8.0.9673" />
       <PackageReference Include="Scriban" Version="7.0.6" />
       <PackageReference Include="SimplyWorks.CloudFiles.S3" Version="8.1.1" />
-      <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.2" />
+      <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.5" />
     </ItemGroup>
 
 </Project>
