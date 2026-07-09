@@ -34,7 +34,8 @@ namespace SW.Bitween
                     Optional = prop.GetCustomAttribute<System.ComponentModel.DataAnnotations.RequiredAttribute>() == null &&
                                (IsNullableType(prop.PropertyType) || GetDefaultValue(prop) != null),
                     Default = GetDefaultValue(prop),
-                    Private = prop.GetCustomAttribute<SecureAttribute>() != null
+                    Private = prop.GetCustomAttribute<SecureAttribute>() != null,
+                    Description = prop.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description
                 };
 
                 result[prop.Name] = value;
