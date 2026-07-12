@@ -159,6 +159,27 @@ namespace SW.Bitween.Web
                 connectionString += ";Authentication=Active Directory Default";
             }
 
+            // For PostgreSQL + managed identity, Npgsql has no "Authentication=" connection
+            // string keyword equivalent to SQL Server's — the AAD token has to be supplied as an
+            // explicit Password. The DbContext gets a fresh one on every physical connection via
+            // NpgsqlDataSourceBuilder.UsePeriodicPasswordProvider further below, but Quartz's ADO
+            // job store (SW.Scheduler.PgSql) only accepts a plain connection string and opens
+            // NpgsqlConnections straight from it, with no hook for periodic token refresh. So we
+            // fetch a token up front and bake it in as Password= — this is what was missing and
+            // caused "No password has been provided" at startup. DefaultAzureCredential caches
+            // tokens (~1h validity), so this covers Quartz's long-lived pooled connections; if the
+            // pool ever needs to open a brand-new physical connection after the token has expired,
+            // that reconnect would fail until the process restarts and re-derives a fresh token —
+            // proper support for periodic refresh would need to live in SW.Scheduler.PgSql itself.
+            var quartzConnectionString = connectionString;
+            if (bitweenOptions.UseAzureManagedIdentity &&
+                bitweenOptions.DatabaseType.Equals(RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                var pgTokenProvider = new AzurePostgreSqlTokenProvider(bitweenOptions.AzureManagedIdentityClientId);
+                var token = pgTokenProvider.GetAccessTokenAsync().GetAwaiter().GetResult();
+                quartzConnectionString = new NpgsqlConnectionStringBuilder(connectionString) { Password = token }.ConnectionString;
+            }
+
             // Register the persistent Quartz scheduler using the same DB as Bitween.
             // NOTE: clustering is only guaranteed once SimplyWorks.Scheduler.* is bumped past
             // 8.1.1 (the version pinned in the .csproj files as of this comment) — the fix that
@@ -168,7 +189,7 @@ namespace SW.Bitween.Web
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 services.AddPgSqlScheduler(
-                    connectionString: connectionString,
+                    connectionString: quartzConnectionString,
                     schema: PgSql.BitweenDbContext.Schema,
                     assemblies: typeof(BitweenDbContext).Assembly);
             }
