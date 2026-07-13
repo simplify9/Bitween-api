@@ -83,7 +83,7 @@ jobs:
       # Gateway-API cluster kubeconfig (V2)
       kubeconfig-gateway: ${{ secrets.S9DEV_KUBECONFIG_V2 }}
 
-      dependabot-alerts-token: ${{ secrets.dependabot-alerts-token }}
+      dependabot-alerts-token: ${{ secrets.DEPENDABOT_ALERTS_TOKEN }}
 
       # App configuration passed to helm --set-string during deploy (masked)
       helm-set-secret-values: 'db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
