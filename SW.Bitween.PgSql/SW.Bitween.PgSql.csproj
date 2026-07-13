@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SW.Bitween.Api\SW.Bitween.Api.csproj" />
-    <PackageReference Include="SimplyWorks.Scheduler.PgSql" Version="8.1.2" />
+    <PackageReference Include="SimplyWorks.Scheduler.PgSql" Version="8.1.3" />
   </ItemGroup>
 
 
