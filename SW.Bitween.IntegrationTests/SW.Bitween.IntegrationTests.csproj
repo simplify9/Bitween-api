@@ -14,9 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="8.1.6" />
-    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -30,7 +30,7 @@
     <PackageReference Include="SimplyWorks.Serverless" Version="8.1.5" />
 
     <!-- Bus (for IPublish + AddBus registration) -->
-    <PackageReference Include="SimplyWorks.Bus" Version="8.1.11" />
+    <PackageReference Include="SimplyWorks.Bus" Version="8.1.13" />
 
     <!-- EF Core naming conventions (used by PgSql context) -->
     <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
