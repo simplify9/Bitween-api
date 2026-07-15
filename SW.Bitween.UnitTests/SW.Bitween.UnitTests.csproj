@@ -16,8 +16,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.12" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.12" />
-    <PackageReference Include="MSTest.TestAdapter" Version="3.7.1" />
-    <PackageReference Include="MSTest.TestFramework" Version="3.7.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="4.3.2" />
+    <PackageReference Include="MSTest.TestFramework" Version="4.3.2" />
     <PackageReference Include="SimplyWorks.CqApi" Version="8.2.6" />
     <PackageReference Include="SimplyWorks.Bus" Version="8.0.10" />
   </ItemGroup>
