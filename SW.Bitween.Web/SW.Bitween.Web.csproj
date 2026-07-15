@@ -26,7 +26,7 @@
     <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.5" />
     <PackageReference Include="SimplyWorks.Serverless" Version="8.1.5" />
     <PackageReference Include="SimplyWorks.SimplyRazor" Version="5.0.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.2.3" />
 
   </ItemGroup>
 
