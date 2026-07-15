@@ -8,7 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
     <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.12">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.29">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -16,6 +16,7 @@
 
 
   <ItemGroup>
+    <PackageReference Include="SimplyWorks.Scheduler.EfCore" Version="8.1.6" />
     <ProjectReference Include="..\SW.Bitween.Api\SW.Bitween.Api.csproj" />
     <PackageReference Include="SimplyWorks.Scheduler.PgSql" Version="8.1.3" />
   </ItemGroup>
