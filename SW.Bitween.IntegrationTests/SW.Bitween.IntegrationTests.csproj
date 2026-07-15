@@ -33,7 +33,7 @@
     <PackageReference Include="SimplyWorks.Bus" Version="8.1.11" />
 
     <!-- EF Core naming conventions (used by PgSql context) -->
-    <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
+    <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
