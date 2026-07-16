@@ -365,6 +365,7 @@ namespace SW.Bitween.Web
 
             app.UseCors();
             app.UsePathBase("/bitween");
+            app.UseDefaultFiles();
             app.UseStaticFiles();
             app.UseRouting();
             app.UseAuthentication();
@@ -380,6 +381,9 @@ namespace SW.Bitween.Web
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
 
+                // SPA fallback: unmatched, non-file routes get the UI's index.html
+                // so client-side routes (e.g. /bitween/team/members) survive refresh.
+                endpoints.MapFallbackToFile("index.html");
             });
         }
     }
