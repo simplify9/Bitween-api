@@ -1,0 +1,266 @@
+import type {
+  AdapterInfo,
+  AdapterKind,
+  ApiGateway,
+  ApiGatewayDetail,
+  ApiGatewayRow,
+  BusGateway,
+  BusGatewayDetail,
+  BusGatewayRow,
+  GlobalValuesSetDetail,
+  GlobalValuesSetRow,
+  InformationType,
+  InformationTypeDetail,
+  InformationTypeFormat,
+  InformationTypeRow,
+  Integration,
+  IntegrationDetail,
+  IntegrationInfo,
+  IntegrationRow,
+  IntegrationType,
+  Invite,
+  MatchGroup,
+  Notifier,
+  NotifierChannel,
+  NotifierDetail,
+  Partner,
+  PartnerDetail,
+  PartnerRow,
+  PermissionArea,
+  PermissionKey,
+  RetryGroup,
+  RetryPolicy,
+  RetryPolicyDetail,
+  RetryPolicyListRow,
+  RetryResultType,
+  RetryTestAttempt,
+  Role,
+  Schedule,
+  Session,
+  SettingRow,
+  User,
+  WorkGroup,
+  WorkGroupDetail,
+  WorkGroupRow,
+} from "./types";
+
+/**
+ * The single data-access contract the UI is written against.
+ * The mock implementation lives in ./mock; a real HTTP client can
+ * replace it later without touching any component.
+ */
+export interface ApiClient {
+  // — session —
+  getSession(): Promise<Session | null>;
+  login(email: string, password: string): Promise<Session>;
+  loginWithMicrosoft(): Promise<Session>;
+  logout(): Promise<void>;
+
+  // — self service —
+  updateProfile(changes: { displayName?: string; phone?: string }): Promise<Session>;
+  changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  requestPasswordReset(email: string): Promise<{ resetLink: string }>;
+  resetPassword(token: string, newPassword: string): Promise<void>;
+
+  // — members —
+  listUsers(): Promise<User[]>;
+  getUser(id: string): Promise<User>;
+  inviteUser(input: { email: string; roleIds: string[] }): Promise<Invite>;
+  getInviteForUser(userId: string): Promise<Invite | null>;
+  resendInvite(userId: string): Promise<Invite>;
+  revokeInvite(userId: string): Promise<void>;
+  getInvite(token: string): Promise<Invite>;
+  acceptInvite(token: string, input: { displayName: string; password: string }): Promise<Session>;
+  updateUserRoles(id: string, roleIds: string[]): Promise<User>;
+  setUserDisabled(id: string, disabled: boolean): Promise<User>;
+  deleteUser(id: string): Promise<void>;
+  adminResetPassword(id: string): Promise<{ resetLink: string }>;
+
+  // — roles —
+  getPermissionCatalog(): Promise<PermissionArea[]>;
+  listRoles(): Promise<Role[]>;
+  getRole(id: string): Promise<Role>;
+  createRole(input: { name: string; description: string; permissions: PermissionKey[] }): Promise<Role>;
+  updateRole(
+    id: string,
+    input: { name: string; description: string; permissions: PermissionKey[] },
+  ): Promise<Role>;
+  deleteRole(id: string): Promise<void>;
+
+  // — partners —
+  listPartners(): Promise<PartnerRow[]>;
+  getPartner(id: number): Promise<PartnerDetail>;
+  createPartner(input: { name: string }): Promise<Partner>;
+  updatePartner(
+    id: number,
+    changes: { name?: string; adapterProperties?: Record<string, string> },
+  ): Promise<Partner>;
+  deletePartner(id: number): Promise<void>;
+  /** Returns the full key exactly once; afterwards only a prefix is ever shown. */
+  addPartnerCredential(id: number, name: string): Promise<{ key: string }>;
+  revokePartnerCredential(id: number, name: string): Promise<void>;
+
+  // — information types —
+  listInformationTypes(): Promise<InformationTypeRow[]>;
+  getInformationType(id: number): Promise<InformationTypeDetail>;
+  createInformationType(input: {
+    name: string;
+    code: string;
+    format: InformationTypeFormat;
+    busEnabled?: boolean;
+    busMessageTypeName?: string;
+  }): Promise<InformationType>;
+  updateInformationType(
+    id: number,
+    changes: Omit<InformationType, "id" | "createdOn">,
+  ): Promise<InformationType>;
+  deleteInformationType(id: number): Promise<void>;
+
+  // — global values —
+  listValueSets(): Promise<GlobalValuesSetRow[]>;
+  getValueSet(id: string): Promise<GlobalValuesSetDetail>;
+  createValueSet(input: {
+    id: string;
+    name: string;
+    values: Record<string, string>;
+  }): Promise<GlobalValuesSetRow>;
+  updateValueSet(
+    id: string,
+    changes: { name: string; values: Record<string, string> },
+  ): Promise<GlobalValuesSetRow>;
+  deleteValueSet(id: string): Promise<void>;
+
+  // — integrations (light summaries; cache aggressively) —
+  listIntegrations(): Promise<IntegrationInfo[]>;
+
+  // — integrations —
+  listIntegrationRows(): Promise<IntegrationRow[]>;
+  getIntegration(id: number): Promise<IntegrationDetail>;
+  /** Only Receiving / GatewayApiCall / BusGateway — always via the entry-point wizards. */
+  createIntegration(input: {
+    type: IntegrationType;
+    name: string;
+    informationTypeId: number;
+    receiverId?: string | null;
+    receiverProperties?: Record<string, string>;
+    validatorId?: string | null;
+    validatorProperties?: Record<string, string>;
+    mapperId?: string | null;
+    mapperProperties?: Record<string, string>;
+    handlerId?: string | null;
+    handlerProperties?: Record<string, string>;
+    schedules?: Schedule[];
+    retryPolicyId?: number | null;
+    enabled?: boolean;
+  }): Promise<Integration>;
+  updateIntegration(
+    id: number,
+    changes: Partial<
+      Pick<
+        Integration,
+        | "name"
+        | "enabled"
+        | "workGroupId"
+        | "retryPolicyId"
+        | "receiverId"
+        | "receiverProperties"
+        | "validatorId"
+        | "validatorProperties"
+        | "mapperId"
+        | "mapperProperties"
+        | "handlerId"
+        | "handlerProperties"
+        | "matchExpression"
+        | "schedules"
+        | "responseIntegrationId"
+        | "responseMessageTypeName"
+      >
+    >,
+  ): Promise<Integration>;
+  deleteIntegration(id: number): Promise<void>;
+  /** Toggles paused: paused integrations accept work but hold it. */
+  pauseIntegration(id: number): Promise<Integration>;
+  receiveNow(id: number): Promise<Integration>;
+  listAdapters(kind: AdapterKind): Promise<AdapterInfo[]>;
+
+  // — work groups —
+  listWorkGroups(): Promise<WorkGroupRow[]>;
+  getWorkGroup(id: number): Promise<WorkGroupDetail>;
+  createWorkGroup(input: {
+    name: string;
+    busMessageName: string;
+    prefetch: number;
+    priority: number;
+  }): Promise<WorkGroup>;
+  updateWorkGroup(
+    id: number,
+    changes: { name: string; busMessageName: string; prefetch: number; priority: number },
+  ): Promise<WorkGroup>;
+  deleteWorkGroup(id: number): Promise<void>;
+
+  // — API gateways —
+  listApiGateways(): Promise<ApiGatewayRow[]>;
+  getApiGateway(id: number): Promise<ApiGatewayDetail>;
+  createApiGateway(input: { name: string; urlName: string }): Promise<ApiGateway>;
+  updateApiGateway(id: number, changes: { name: string; urlName: string }): Promise<ApiGateway>;
+  deleteApiGateway(id: number): Promise<void>;
+  attachGatewayPartner(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
+  updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
+  removeGatewayAttachment(id: number, partnerId: number): Promise<void>;
+
+  // — bus gateways —
+  listBusGateways(): Promise<BusGatewayRow[]>;
+  getBusGateway(id: number): Promise<BusGatewayDetail>;
+  createBusGateway(input: { name: string; informationTypeId: number }): Promise<BusGateway>;
+  updateBusGateway(id: number, changes: { name: string }): Promise<BusGateway>;
+  deleteBusGateway(id: number): Promise<void>;
+  addBusRoute(
+    id: number,
+    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
+  ): Promise<void>;
+  updateBusRoute(
+    id: number,
+    routeId: number,
+    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
+  ): Promise<void>;
+  removeBusRoute(id: number, routeId: number): Promise<void>;
+
+  // — retry policies —
+  listRetryPolicies(): Promise<RetryPolicyListRow[]>;
+  getRetryPolicy(id: number): Promise<RetryPolicyDetail>;
+  createRetryPolicy(input: { name: string }): Promise<RetryPolicy>;
+  updateRetryPolicy(id: number, changes: { name: string; groups: RetryGroup[] }): Promise<RetryPolicy>;
+  deleteRetryPolicy(id: number): Promise<void>;
+  /** Dry-runs draft groups against a simulated failure over N attempts. */
+  testRetryPolicy(input: {
+    groups: RetryGroup[];
+    resultType: RetryResultType;
+    content: string;
+    attempts: number;
+  }): Promise<RetryTestAttempt[]>;
+
+  // — settings —
+  listSettings(): Promise<SettingRow[]>;
+  /** `value: null` resets the setting back to its default. */
+  updateSetting(key: string, value: string | null): Promise<SettingRow>;
+
+  // — notifiers —
+  listNotifierChannels(): Promise<NotifierChannel[]>;
+  listNotifiers(): Promise<Notifier[]>;
+  getNotifier(id: number): Promise<NotifierDetail>;
+  createNotifier(input: { name: string }): Promise<Notifier>;
+  updateNotifier(id: number, changes: Omit<Notifier, "id" | "createdOn">): Promise<Notifier>;
+  deleteNotifier(id: number): Promise<void>;
+  /** Sends a test notification through a draft channel configuration. */
+  testNotifier(input: {
+    channelId: string;
+    channelProperties: Record<string, string>;
+  }): Promise<{ message: string }>;
+
+  // — prototype-only affordances (not part of the future backend contract) —
+  demo: {
+    listPersonas(): Promise<User[]>;
+    switchTo(userId: string): Promise<Session>;
+    reset(): Promise<void>;
+  };
+}

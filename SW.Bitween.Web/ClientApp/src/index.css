@@ -1,0 +1,71 @@
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource-variable/jetbrains-mono";
+@import "tailwindcss";
+
+/*
+  Bitween design tokens.
+
+  Brand: the crimson ramp is carried over verbatim from the existing
+  Bitween-UI tailwind.config.js — the only thing preserved from the old UI.
+  Neutrals ("ink") are derived from the logo's own wordmark color #372f2e,
+  so chrome and brand always harmonize.
+*/
+@theme {
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", monospace;
+
+  --color-crimson-50: #fef3f2;
+  --color-crimson-100: #ffe4e1;
+  --color-crimson-200: #ffcec8;
+  --color-crimson-300: #ffaba2;
+  --color-crimson-400: #fd7b6c;
+  --color-crimson-500: #f6503d;
+  --color-crimson-600: #e3311d;
+  --color-crimson-700: #bf2716;
+  --color-crimson-800: #9e2416;
+  --color-crimson-900: #832419;
+
+  --color-ink-50: #f6f3f1;
+  --color-ink-100: #ece7e4;
+  --color-ink-200: #d9d1cd;
+  --color-ink-300: #beb3af;
+  --color-ink-400: #9c8f8b;
+  --color-ink-500: #7f726e;
+  --color-ink-600: #665a57;
+  --color-ink-700: #4d4341;
+  --color-ink-800: #372f2e; /* logo wordmark ink */
+  --color-ink-900: #2a2423;
+  --color-ink-950: #201b1a;
+
+  --color-canvas: #faf8f7;
+
+  --color-ok-600: #1a7f4e;
+  --color-ok-100: #d9f2e5;
+  --color-warn-700: #92600a;
+  --color-warn-100: #fbeed0;
+}
+
+@layer base {
+  html {
+    @apply bg-canvas text-ink-900 antialiased;
+    font-size: 15px;
+  }
+  body {
+    font-family: var(--font-sans);
+  }
+  ::selection {
+    @apply bg-crimson-100 text-crimson-900;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-crimson-500);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
