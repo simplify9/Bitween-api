@@ -8,6 +8,14 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 443
 
+# Build the admin UI (SPA) in its own stage; output lands in SW.Bitween.Web/wwwroot
+FROM node:22-alpine AS ui-build
+WORKDIR /src/SW.Bitween.Web/ClientApp
+COPY ["SW.Bitween.Web/ClientApp/package.json", "SW.Bitween.Web/ClientApp/yarn.lock", "./"]
+RUN yarn install --frozen-lockfile
+COPY ["SW.Bitween.Web/ClientApp/", "./"]
+RUN yarn build
+
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ["SW.Bitween.Web/SW.Bitween.Web.csproj", "SW.Bitween.Web/"]
@@ -21,9 +29,11 @@ WORKDIR "/src/SW.Bitween.Web"
 RUN dotnet build "SW.Bitween.Web.csproj" -c Release -o /app/build
 
 FROM build AS publish
-RUN dotnet publish "SW.Bitween.Web.csproj" -c Release -o /app/publish
+# UI is built in the ui-build stage; the SDK image has no node
+RUN dotnet publish "SW.Bitween.Web.csproj" -c Release -o /app/publish -p:SkipClientBuild=true
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=ui-build /src/SW.Bitween.Web/wwwroot ./wwwroot
 ENTRYPOINT ["dotnet", "SW.Bitween.Web.dll"]

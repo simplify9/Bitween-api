@@ -4,7 +4,30 @@
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <RootNamespace>SW.Bitween.Web</RootNamespace>
+    <SpaRoot>ClientApp\</SpaRoot>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The SPA is built by yarn, not MSBuild; keep its sources out of the .NET build. -->
+    <Content Remove="$(SpaRoot)**" />
+    <None Remove="$(SpaRoot)**" />
+    <None Include="$(SpaRoot)**" Exclude="$(SpaRoot)node_modules\**;$(SpaRoot)dist\**" />
+  </ItemGroup>
+
+  <!-- Build the SPA into wwwroot on publish. The Dockerfile builds it in its
+       own node stage instead and passes -p:SkipClientBuild=true here. -->
+  <Target Name="BuildClientApp" AfterTargets="ComputeFilesToPublish" Condition="'$(SkipClientBuild)' != 'true'">
+    <Exec WorkingDirectory="$(SpaRoot)" Command="yarn install --frozen-lockfile" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="yarn build" />
+    <ItemGroup>
+      <ClientAppFiles Include="wwwroot\**" />
+      <ResolvedFileToPublish Include="@(ClientAppFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>%(ClientAppFiles.Identity)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
