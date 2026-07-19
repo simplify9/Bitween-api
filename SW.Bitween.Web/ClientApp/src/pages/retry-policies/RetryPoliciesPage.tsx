@@ -1,0 +1,166 @@
+import { useMemo, useState, type FormEvent } from "react";
+import { useNavigate, useSearchParams } from "react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, RotateCcw, Search } from "lucide-react";
+import { api } from "../../api";
+import { Can } from "../../auth/guards";
+import { PageHeader } from "../../components/layout/PageHeader";
+import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Field, TextInput } from "../../components/ui/forms";
+import { Dialog } from "../../components/ui/overlays";
+import { formatDate } from "../../lib/dates";
+
+function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+
+  const create = useMutation({
+    mutationFn: () => api.createRetryPolicy({ name }),
+    onSuccess: (policy) => {
+      void queryClient.invalidateQueries({ queryKey: ["retry-policies"] });
+      navigate(`/retry-policies/${policy.id}`);
+    },
+  });
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    create.mutate();
+  };
+
+  return (
+    <Dialog title="New retry policy" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-4">
+        <Field label="Name" htmlFor="nrp-name" hint="Groups and budgets are added on the policy's page.">
+          <TextInput
+            id="nrp-name"
+            required
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Transient failures"
+          />
+        </Field>
+        <FormError>{create.error?.message}</FormError>
+        <div className="flex justify-end gap-2">
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" busy={create.isPending}>
+            Create policy
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+export function RetryPoliciesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const q = searchParams.get("q") ?? "";
+  const creating = searchParams.get("new") === "1";
+
+  const policies = useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies() });
+
+  const setParam = (key: string, value: string | null) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: key === "q" },
+    );
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (policies.data ?? []).filter((p) => !needle || p.name.toLowerCase().includes(needle));
+  }, [policies.data, q]);
+
+  return (
+    <div>
+      <PageHeader
+        title="Retry policies"
+        description="Rules for what happens after an exchange fails — retry with a delay, or stop and alert."
+        help={{
+          title: "How retry policies work",
+          body: (
+            <>
+              <p>
+                A policy is a list of <strong>groups</strong>, checked in priority order (lowest
+                first). The first group whose conditions match the failure decides: retry within a
+                budget, or block retries entirely. If nothing matches, the exchange isn't retried.
+              </p>
+              <p>
+                Assign a policy to an integration to activate it. You can dry-run any policy against
+                a sample error right on its page.
+              </p>
+            </>
+          ),
+        }}
+        actions={
+          <Can permission="retry-policies.create">
+            <Button variant="primary" onClick={() => setParam("new", "1")}>
+              <Plus className="size-4" /> New retry policy
+            </Button>
+          </Can>
+        }
+      />
+
+      <div className="relative mb-4 max-w-xs">
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setParam("q", e.target.value || null)}
+          placeholder="Search retry policies"
+          aria-label="Search retry policies"
+          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+        />
+      </div>
+
+      {policies.isPending ? (
+        <LoadingBlock label="Loading retry policies…" />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={<RotateCcw />} title={q ? "No policies match" : "No retry policies yet"}>
+          {q ? "Try a different search." : "Create a policy to control what happens after failures."}
+        </EmptyState>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
+          <table className="w-full min-w-130 text-sm">
+            <thead>
+              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
+                <th className="px-4 py-2.5 font-medium">Policy</th>
+                <th className="px-4 py-2.5 font-medium">Groups</th>
+                <th className="px-4 py-2.5 font-medium">Used by</th>
+                <th className="px-4 py-2.5 font-medium">Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr
+                  key={p.id}
+                  onClick={() => navigate(`/retry-policies/${p.id}`)}
+                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
+                >
+                  <td className="px-4 py-3 font-medium text-ink-900">{p.name}</td>
+                  <td className="px-4 py-3 text-ink-600">{p.groups.length}</td>
+                  <td className="px-4 py-3 text-ink-600">
+                    {p.usedByCount > 0 ? (
+                      `${p.usedByCount} integration${p.usedByCount === 1 ? "" : "s"}`
+                    ) : (
+                      <span className="text-ink-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-ink-500">{formatDate(p.createdOn)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {creating && <CreateRetryPolicyDialog onClose={() => setParam("new", null)} />}
+    </div>
+  );
+}

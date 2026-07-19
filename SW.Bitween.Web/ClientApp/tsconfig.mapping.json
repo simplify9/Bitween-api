@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.mapping.tsbuildinfo",
+    "outDir": "./node_modules/.tmp/mapping-decl",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+
+    /* The mapping lib is copied verbatim from the legacy Bitween-UI repo
+       (see BITWEEN_UI_REDESIGN_BRIEF.md §9 chunk F). It is held to the legacy
+       repo's laxer rules on purpose so the files stay byte-identical — the port's
+       whole guarantee is that the mapping logic is untouched. The stricter
+       app-wide flags (verbatimModuleSyntax / noUnusedLocals / noUnusedParameters)
+       are intentionally NOT applied here. */
+    "verbatimModuleSyntax": false,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/lib/mapping"],
+  "exclude": ["src/lib/mapping/__tests__/**"]
+}
