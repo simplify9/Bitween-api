@@ -39,10 +39,11 @@ export function BusGatewayPage() {
 
   const save = useMutation({
     mutationFn: () => api.updateBusGateway(gatewayId, { name }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["bus-gateway", gatewayId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["bus-gateway", gatewayId] });
       void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
+      setLoaded(false);
     },
   });
 

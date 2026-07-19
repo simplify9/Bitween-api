@@ -123,16 +123,18 @@ export function IntegrationPage() {
   }, [integration.data, draft]);
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["integration", integrationId] });
+    const detail = queryClient.invalidateQueries({ queryKey: ["integration", integrationId] });
     void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
     void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+    return detail;
   };
 
   const save = useMutation({
     mutationFn: () => api.updateIntegration(integrationId, draft!),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await invalidate();
       setLoaded(false);
-      invalidate();
     },
   });
 

@@ -74,10 +74,11 @@ export function InformationTypePage() {
           .filter((r) => r.key.trim() || r.value.trim())
           .map((r) => ({ key: r.key, path: r.value })),
       }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["information-type", typeId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["information-type", typeId] });
       void queryClient.invalidateQueries({ queryKey: ["information-types"] });
+      setLoaded(false);
     },
   });
 

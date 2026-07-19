@@ -104,10 +104,11 @@ export function NotifierPage() {
 
   const save = useMutation({
     mutationFn: () => api.updateNotifier(notifierId, draft!),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["notifier", notifierId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["notifier", notifierId] });
       void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
+      setLoaded(false);
     },
   });
 
