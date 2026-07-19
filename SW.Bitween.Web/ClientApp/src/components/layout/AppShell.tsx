@@ -10,7 +10,6 @@ import { visibleGroups } from "../../nav";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/basics";
 import { Menu, MenuItem } from "../ui/overlays";
-import { DemoSwitcher } from "./DemoSwitcher";
 
 /**
  * Shown on every page while unsaved setting changes exist — the whole app
@@ -260,8 +259,6 @@ export function AppShell() {
         </div>
         <AppFooter branding={branding} />
       </main>
-
-      <DemoSwitcher />
     </div>
   );
 }

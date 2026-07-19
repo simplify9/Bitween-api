@@ -1,12 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { api, type Session, type User } from "../../api";
-import { DEMO_PASSWORD } from "../../api/mock/seed";
+import { useQuery } from "@tanstack/react-query";
+import { getAppConfig, type Session } from "../../api";
 import { useSession } from "../../auth/SessionContext";
 import { homePath } from "../../nav";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, PasswordInput, TextInput } from "../../components/ui/forms";
-import { Avatar } from "../../components/ui/Avatar";
 import { AuthLayout } from "./AuthLayout";
 
 function MicrosoftMark() {
@@ -30,11 +29,10 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [personas, setPersonas] = useState<User[]>([]);
 
-  useEffect(() => {
-    api.demo.listPersonas().then((users) => setPersonas(users.filter((u) => u.status === "active")));
-  }, []);
+  // Microsoft sign-in only shows when the backend has MSAL configured.
+  const appConfig = useQuery({ queryKey: ["app-config"], queryFn: getAppConfig });
+  const microsoftEnabled = Boolean(appConfig.data?.msalClientId);
 
   // already signed in (e.g. back-button to /login)
   useEffect(() => {
@@ -98,41 +96,19 @@ export function LoginPage() {
         </div>
       </form>
 
-      <div className="my-6 flex items-center gap-3 text-xs text-ink-400">
-        <span className="h-px flex-1 bg-ink-200" />
-        or
-        <span className="h-px flex-1 bg-ink-200" />
-      </div>
-
-      <Button className="w-full" disabled={busy} onClick={() => void attempt(signInWithMicrosoft)}>
-        <MicrosoftMark />
-        Continue with Microsoft
-      </Button>
-
-      {personas.length > 0 && (
-        <div className="mt-8 rounded-xl border border-dashed border-ink-300 p-4">
-          <p className="text-xs font-semibold tracking-wide text-ink-500 uppercase">Prototype accounts</p>
-          <p className="mt-1 mb-3 text-[13px] text-ink-500">
-            One click signs you in. Every demo password is{" "}
-            <code className="font-mono text-xs text-ink-700">{DEMO_PASSWORD}</code>.
-          </p>
-          <div className="space-y-1">
-            {personas.map((p) => (
-              <button
-                key={p.id}
-                disabled={busy}
-                onClick={() => void attempt(() => signIn(p.email, DEMO_PASSWORD))}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ink-50"
-              >
-                <Avatar name={p.displayName} size="sm" />
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-ink-800">{p.displayName}</span>
-                  <span className="block truncate font-mono text-[11px] text-ink-500">{p.email}</span>
-                </span>
-              </button>
-            ))}
+      {microsoftEnabled && (
+        <>
+          <div className="my-6 flex items-center gap-3 text-xs text-ink-400">
+            <span className="h-px flex-1 bg-ink-200" />
+            or
+            <span className="h-px flex-1 bg-ink-200" />
           </div>
-        </div>
+
+          <Button className="w-full" disabled={busy} onClick={() => void attempt(signInWithMicrosoft)}>
+            <MicrosoftMark />
+            Continue with Microsoft
+          </Button>
+        </>
       )}
     </AuthLayout>
   );

@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@azure/msal-browser": "^4.0.1",
     "@fontsource-variable/instrument-sans": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@headlessui/react": "^2.2.10",
