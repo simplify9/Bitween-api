@@ -293,11 +293,4 @@ export interface ApiClient {
 
   // — dashboard —
   getDashboard(): Promise<DashboardData>;
-
-  // — prototype-only affordances (not part of the future backend contract) —
-  demo: {
-    listPersonas(): Promise<User[]>;
-    switchTo(userId: string): Promise<Session>;
-    reset(): Promise<void>;
-  };
 }

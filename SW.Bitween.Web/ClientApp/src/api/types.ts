@@ -75,6 +75,18 @@ export class ApiRequestError extends Error {
   }
 }
 
+/**
+ * Thrown by any ApiClient method whose domain hasn't been wired to the real
+ * backend yet. Screens surface this as an honest "Not connected yet" state —
+ * never fake data. Batches remove these as they land.
+ */
+export class NotWiredError extends Error {
+  code = "NOT_WIRED";
+  constructor(method: string) {
+    super(`"${method}" isn't connected to the backend yet.`);
+  }
+}
+
 // ——— Configuration entities (sub-phase 2) ———
 
 /** Lightweight references for "used by" panels. */
