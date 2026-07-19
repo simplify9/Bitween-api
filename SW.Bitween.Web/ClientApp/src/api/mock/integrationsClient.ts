@@ -97,7 +97,7 @@ const exchangeDto = (db: MockDb, e: MockDb["exchanges"][number]): ExchangeRef =>
   informationTypeCode:
     db.informationTypes.find((t) => t.id === e.informationTypeId)?.code ?? "UNKNOWN",
   status: e.status,
-  on: e.on,
+  on: e.startedOn,
   documents: e.documents ? structuredClone(e.documents) : undefined,
 });
 
@@ -133,7 +133,7 @@ const integrationDetail = (db: MockDb, s: Integration): IntegrationDetail => {
       .map((n) => ({ id: n.id, name: n.name })),
     recentExchanges: db.exchanges
       .filter((e) => e.integrationId === s.id)
-      .sort((a, b) => b.on.localeCompare(a.on))
+      .sort((a, b) => b.startedOn.localeCompare(a.startedOn))
       .slice(0, 8)
       .map((e) => exchangeDto(db, e)),
     trail: structuredClone(db.integrationTrails[s.id] ?? []),
@@ -292,13 +292,20 @@ export const integrationsClient = {
     s.lastReceiveOn = new Date().toISOString();
     db.exchanges.unshift({
       id: `0x8DD${Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, "0")}`,
+      status: "processing",
       partnerId: null,
       informationTypeId: s.informationTypeId,
       integrationId: s.id,
-      partnerName: undefined,
-      informationTypeCode: "",
-      status: "processing",
-      on: new Date().toISOString(),
+      startedOn: new Date().toISOString(),
+      finishedOn: null,
+      correlationId: null,
+      retryFor: null,
+      aggregationXchangeId: null,
+      scheduledRetryOn: null,
+      exception: null,
+      promotedProperties: null,
+      mapperSkipped: !s.mapperId,
+      files: { input: { name: "received.json", size: 640 }, mapped: null, handled: null },
     });
     saveDb(db);
     return structuredClone(s);

@@ -11,7 +11,9 @@ import {
 import { type MockDb, delay, loadDb, resetDb, saveDb } from "./store";
 import type { SeedRole } from "./seed";
 import { configClient } from "./configClient";
+import { exchangesClient } from "./exchangesClient";
 import { integrationsClient } from "./integrationsClient";
+import { opsClient } from "./opsClient";
 import { settingsClient } from "./settingsClient";
 
 const ADMIN_ROLE_ID = "role-administrator";
@@ -58,7 +60,9 @@ const startSession = (db: MockDb, user: User): Session => {
 
 export const mockClient: ApiClient = {
   ...configClient,
+  ...exchangesClient,
   ...integrationsClient,
+  ...opsClient,
   ...settingsClient,
 
   async getSession() {

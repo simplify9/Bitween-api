@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
+import { SummaryDisclosure } from "../../components/ui/SummaryDisclosure";
 import { useReturnContext, withReturn } from "../../lib/returnTo";
 import { suggestSlug } from "../../lib/identifiers";
 
@@ -18,6 +19,7 @@ export function WorkGroupNewPage() {
   const [busNameTouched, setBusNameTouched] = useState(false);
   const [prefetch, setPrefetch] = useState(10);
   const [priority, setPriority] = useState(5);
+  const [busOpen, setBusOpen] = useState(false);
 
   const create = useMutation({
     mutationFn: () => api.createWorkGroup({ name, busMessageName, prefetch, priority }),
@@ -30,6 +32,11 @@ export function WorkGroupNewPage() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    // Bus name is auto-derived and hidden — surface it if it ended up empty.
+    if (!busMessageName.trim()) {
+      setBusOpen(true);
+      return;
+    }
     create.mutate();
   };
 
@@ -63,43 +70,62 @@ export function WorkGroupNewPage() {
             placeholder="e.g. Priority lane"
           />
         </Field>
-        <Field
-          label="Bus message name"
-          htmlFor="nwg-busname"
-          hint="Combined with the group's id to form its queue name."
+        <SummaryDisclosure
+          open={busOpen}
+          onOpenChange={setBusOpen}
+          summary={
+            <>
+              Bus message name{" "}
+              {busMessageName ? (
+                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-ink-700 ring-1 ring-ink-200">
+                  {busMessageName}
+                </code>
+              ) : (
+                <span className="italic">derived from the name</span>
+              )}
+            </>
+          }
         >
-          <TextInput
-            id="nwg-busname"
-            required
-            value={busMessageName}
-            className="font-mono"
-            onChange={(e) => {
-              setBusNameTouched(true);
-              setBusMessageName(e.target.value.toLowerCase());
-            }}
-            placeholder="priority-lane"
-          />
-        </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Prefetch" htmlFor="nwg-prefetch" hint="Messages pulled per consumer at once.">
+          <Field
+            label="Bus message name"
+            htmlFor="nwg-busname"
+            hint="Combined with the group's id to form its queue name."
+          >
             <TextInput
-              id="nwg-prefetch"
-              type="number"
-              min={1}
-              value={prefetch}
-              onChange={(e) => setPrefetch(Math.max(1, Number(e.target.value)))}
+              id="nwg-busname"
+              required
+              value={busMessageName}
+              className="font-mono"
+              onChange={(e) => {
+                setBusNameTouched(true);
+                setBusMessageName(e.target.value.toLowerCase());
+              }}
+              placeholder="priority-lane"
             />
           </Field>
-          <Field label="Priority" htmlFor="nwg-priority" hint="Higher runs before lower.">
-            <TextInput
-              id="nwg-priority"
-              type="number"
-              min={0}
-              value={priority}
-              onChange={(e) => setPriority(Math.max(0, Number(e.target.value)))}
-            />
-          </Field>
-        </div>
+        </SummaryDisclosure>
+        <SummaryDisclosure summary={`Queue tuning · prefetch ${prefetch} · priority ${priority}`}>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Prefetch" htmlFor="nwg-prefetch" hint="Messages pulled per consumer at once.">
+              <TextInput
+                id="nwg-prefetch"
+                type="number"
+                min={1}
+                value={prefetch}
+                onChange={(e) => setPrefetch(Math.max(1, Number(e.target.value)))}
+              />
+            </Field>
+            <Field label="Priority" htmlFor="nwg-priority" hint="Higher runs before lower.">
+              <TextInput
+                id="nwg-priority"
+                type="number"
+                min={0}
+                value={priority}
+                onChange={(e) => setPriority(Math.max(0, Number(e.target.value)))}
+              />
+            </Field>
+          </div>
+        </SummaryDisclosure>
         <FormError>{create.error?.message}</FormError>
         <div className="flex justify-end">
           <Button type="submit" variant="primary" busy={create.isPending}>

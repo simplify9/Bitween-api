@@ -39,25 +39,24 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Operate",
     items: [
-      { label: "Exchanges", path: "/exchanges", icon: ArrowLeftRight, permissions: ["exchanges.view"], planned: true },
+      { label: "Exchanges", path: "/exchanges", icon: ArrowLeftRight, permissions: ["exchanges.view"] },
       {
         label: "Scheduled retries",
         path: "/scheduled-retries",
         icon: RefreshCw,
         permissions: ["exchanges.view"],
-        planned: true,
       },
-      { label: "Queue health", path: "/queue-health", icon: Activity, permissions: ["monitoring.view"], planned: true },
+      { label: "Queue health", path: "/queue-health", icon: Activity, permissions: ["monitoring.view"] },
     ],
   },
   {
     label: "Integrations",
     items: [
       { label: "Integrations", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
-      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
       { label: "Partners", path: "/partners", icon: Handshake, permissions: ["partners.view"] },
       { label: "Information types", path: "/information-types", icon: FileText, permissions: ["documents.view"] },
       { label: "Global values", path: "/global-values", icon: SlidersHorizontal, permissions: ["global-values.view"] },
+      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
     ],
   },
   {

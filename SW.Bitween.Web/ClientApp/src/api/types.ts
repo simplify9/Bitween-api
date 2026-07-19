@@ -103,7 +103,7 @@ export interface ExchangeRef {
   id: string;
   partnerName?: string;
   informationTypeCode: string;
-  status: "success" | "failed" | "processing";
+  status: ExchangeStatus;
   on: string;
   /** Documents produced as the exchange moved through the pipeline, for drill-down previews. */
   documents?: ExchangeDocument[];
@@ -517,7 +517,6 @@ export type SettingSection =
   | "Messaging"
   | "Adapters"
   | "Reliability & jobs"
-  | "Security"
   | "Brand & theme";
 
 export type SettingValueKind = "string" | "number" | "boolean" | "string[]" | "color";
@@ -539,4 +538,199 @@ export interface Setting {
 }
 export interface SettingRow extends Setting {
   overridden: boolean;
+}
+
+// ——— Exchanges ———
+
+/**
+ * The four observable outcomes of an exchange. "badResponse" = the handler
+ * delivered but the receiving system answered with a business-level error.
+ */
+export type ExchangeStatus = "processing" | "success" | "badResponse" | "failed";
+
+export interface ExchangeFileRef {
+  name: string;
+  /** Bytes. */
+  size: number;
+}
+
+/** One exchange as the Exchanges page sees it — names pre-resolved for display. */
+export interface ExchangeRow {
+  id: string;
+  status: ExchangeStatus;
+  integrationId: number | null;
+  integrationName: string | null;
+  informationTypeId: number;
+  informationTypeCode: string;
+  partnerId: number | null;
+  partnerName: string | null;
+  startedOn: string;
+  /** null while still processing. */
+  finishedOn: string | null;
+  correlationId: string | null;
+  /** Set when this exchange is a retry of another one. */
+  retryFor: string | null;
+  /** Set when this exchange was rolled up into an aggregation exchange. */
+  aggregationXchangeId: string | null;
+  /** A pending auto-retry, when the retry policy scheduled one. */
+  scheduledRetryOn: string | null;
+  exception: string | null;
+  promotedProperties: Record<string, string> | null;
+  /** True when the integration has no mapper — the Mapped stage is skipped. */
+  mapperSkipped: boolean;
+  files: {
+    input: ExchangeFileRef | null;
+    mapped: ExchangeFileRef | null;
+    handled: ExchangeFileRef | null;
+  };
+  /** Stage content previews for the drill-down drawer. */
+  documents?: ExchangeDocument[];
+}
+
+export interface ExchangeQuery {
+  status?: ExchangeStatus;
+  integrationId?: number;
+  partnerId?: number;
+  informationTypeId?: number;
+  /** Comma/pipe/newline separated; matches id, retryFor OR aggregationXchangeId. */
+  ids?: string;
+  correlationId?: string;
+  /** Substring match against promoted property keys and values. */
+  property?: string;
+  from?: string;
+  to?: string;
+  offset: number;
+  limit: number;
+}
+
+export interface Paged<T> {
+  result: T[];
+  total: number;
+}
+
+// ——— Scheduled retries ———
+
+/** A failed exchange whose retry policy scheduled an automatic retry. */
+export interface ScheduledRetryRow {
+  /** The exchange the retry will re-run. */
+  id: string;
+  /** When the retry job will pick it up. */
+  on: string;
+  integrationId: number | null;
+  integrationName: string | null;
+  informationTypeId: number;
+  informationTypeCode: string;
+  exception: string | null;
+  /** When the failed exchange originally started. */
+  startedOn: string;
+}
+
+export interface ScheduledRetryQuery {
+  integrationId?: number;
+  informationTypeId?: number;
+  /** Substring match against the exception text. */
+  exception?: string;
+  from?: string;
+  to?: string;
+  offset: number;
+  limit: number;
+}
+
+// ——— Queue health (Ops) ———
+
+export type QueueSeverity = "healthy" | "warning" | "critical";
+
+export interface QueueHealthSummary {
+  totalConsumers: number;
+  unhealthyConsumers: number;
+  disconnectedConsumers: number;
+  totalQueueDepth: number;
+  totalRetryBacklog: number;
+  totalDeadLetterBacklog: number;
+  /** Messages per second, across all queues. */
+  totalIncomingRate: number;
+  totalAckRate: number;
+  lastUpdated: string;
+}
+
+export interface ConsumerHealth {
+  name: string;
+  messageName: string;
+  queueName: string;
+  /** Set when the consumer belongs to a work group, for drill-down. */
+  workGroupId: number | null;
+  totalNodes: number;
+  processingCount: number;
+  queueCount: number;
+  retryCount: number;
+  failedCount: number;
+  priority: number;
+  prefetch: number;
+  incomingRate: number;
+  ackRate: number;
+  isBackpressured: boolean;
+  health: QueueSeverity;
+}
+
+export interface RetryBacklogRow {
+  consumerName: string;
+  queueName: string;
+  retryBacklog: number;
+  incomingRate: number;
+  ackRate: number;
+  severity: QueueSeverity;
+}
+
+export interface DeadLetterRow {
+  consumerName: string;
+  queueName: string;
+  count: number;
+  lastExceptionType: string | null;
+  lastExceptionMessage: string | null;
+  lastFailedAt: string | null;
+}
+
+export interface QueueAlert {
+  severity: "warning" | "critical";
+  title: string;
+  detail: string;
+  queueName: string;
+  on: string;
+}
+
+/** One poll = one snapshot; everything the Queue health page shows. */
+export interface QueueHealthSnapshot {
+  summary: QueueHealthSummary;
+  consumers: ConsumerHealth[];
+  retryBacklog: RetryBacklogRow[];
+  deadLetters: DeadLetterRow[];
+  alerts: QueueAlert[];
+}
+
+// ——— Dashboard ———
+
+export interface DashboardData {
+  today: { total: number; failed: number; processing: number };
+  yesterdayTotal: number;
+  /** Percentage 0–100 across the last 7 days of finished exchanges. */
+  successRate7d: number;
+  pendingRetries: number;
+  queueAlerts: number;
+  /** Last 14 days, oldest first; today is the final entry. */
+  trafficByDay: { date: string; success: number; failed: number }[];
+  /** Top integrations by 7-day traffic, busiest first. */
+  busiest: { id: number; name: string; count: number; failed: number }[];
+  latestFailures: {
+    id: string;
+    status: ExchangeStatus;
+    integrationId: number | null;
+    integrationName: string | null;
+    informationTypeCode: string;
+    on: string;
+    exception: string | null;
+  }[];
+  attention: {
+    failingIntegrations: { id: number; name: string; consecutiveFailures: number }[];
+    pausedIntegrations: { id: number; name: string }[];
+  };
 }

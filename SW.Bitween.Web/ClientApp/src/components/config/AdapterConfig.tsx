@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Braces, Search } from "lucide-react";
-import { api, type AdapterInfo, type AdapterKind } from "../../api";
+import { ArrowUpRight, Braces, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { api, type AdapterInfo, type AdapterKind, type PartnerRow } from "../../api";
 import { Button } from "../ui/basics";
-import { Field, Select } from "../ui/forms";
+import { Field } from "../ui/forms";
+import { SearchSelect } from "../ui/SearchSelect";
+import { SummaryDisclosure } from "../ui/SummaryDisclosure";
 
 export function useAdapterCatalog(kind: AdapterKind) {
   return useQuery({
@@ -35,7 +37,7 @@ function useReferenceTokens() {
   const partnerKeys: ReferenceToken[] = [
     ...new Set((partners.data ?? []).flatMap((p) => Object.keys(p.adapterProperties))),
   ].map((key) => ({ label: `partner.${key}`, token: `{{partner.${key}}}` }));
-  return { globals, partnerKeys };
+  return { globals, partnerKeys, partners: partners.data ?? [] };
 }
 
 /**
@@ -156,6 +158,113 @@ function ReferenceMenu({
   );
 }
 
+/**
+ * What the references inside a field's value resolve to, shown right under
+ * it: globals show their literal value (linking to the set); partner
+ * properties show how many partners define them and drill down to every
+ * partner's value.
+ */
+function ReferenceHints({
+  value,
+  globals,
+  partners,
+}: {
+  value: string;
+  globals: ReferenceToken[];
+  partners: PartnerRow[];
+}) {
+  const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+
+  const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.([\w-]+)\.([\w-]+)\}\}/g)].map((m) => m[0]))];
+  const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([\w-]+)\}\}/g)].map((m) => m[1]))];
+  if (globalRefs.length === 0 && partnerRefs.length === 0) return null;
+
+  const realPartners = partners.filter((p) => !p.isSystem);
+  const toggle = (key: string) =>
+    setOpenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      {globalRefs.map((token) => {
+        const ref = globals.find((g) => g.token === token);
+        const setId = token.match(/\{\{globals\.([\w-]+)\./)?.[1];
+        return (
+          <div key={token} className="flex flex-wrap items-center gap-1.5 text-xs">
+            <Link
+              to={`/global-values/${setId}`}
+              className="font-mono text-ink-500 hover:text-crimson-700 hover:underline"
+            >
+              {token}
+            </Link>
+            <span className="text-ink-300">→</span>
+            {ref ? (
+              <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] break-all text-ink-700">
+                {ref.value}
+              </code>
+            ) : (
+              <span className="font-medium text-crimson-700">not found — check the set and key</span>
+            )}
+          </div>
+        );
+      })}
+
+      {partnerRefs.map((key) => {
+        const withValue = realPartners.filter((p) => key in p.adapterProperties);
+        const without = realPartners.length - withValue.length;
+        const open = openKeys.has(key);
+        return (
+          <div key={key} className="text-xs">
+            <button
+              type="button"
+              onClick={() => toggle(key)}
+              aria-expanded={open}
+              className="flex items-center gap-1 text-ink-500 hover:text-ink-700"
+            >
+              {open ? <ChevronDown className="size-3" aria-hidden /> : <ChevronRight className="size-3" aria-hidden />}
+              <span className="font-mono">{`{{partner.${key}}}`}</span>
+              <span className="text-ink-300">→</span>
+              <span className={withValue.length === 0 ? "font-medium text-crimson-700" : "font-medium text-ink-700"}>
+                {withValue.length === 0
+                  ? "no partner defines it"
+                  : `defined by ${withValue.length} of ${realPartners.length} partner${realPartners.length === 1 ? "" : "s"}`}
+              </span>
+            </button>
+            {open && (
+              <ul className="mt-1 ml-4 space-y-0.5 border-l border-ink-100 pl-2.5">
+                {withValue.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-1.5">
+                    <Link
+                      to={`/partners/${p.id}`}
+                      className="font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+                    >
+                      {p.name}
+                    </Link>
+                    <span className="text-ink-300">→</span>
+                    <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] break-all text-ink-700">
+                      {p.adapterProperties[key]}
+                    </code>
+                  </li>
+                ))}
+                {without > 0 && (
+                  <li className="text-ink-400">
+                    {without} partner{without === 1 ? " doesn't" : "s don't"} set it — their exchanges resolve it
+                    empty.
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** One adapter property: grows with content, can insert reference tokens. */
 function PropField({
   prop,
@@ -168,7 +277,7 @@ function PropField({
   disabled: boolean;
   onChange: (value: string) => void;
 }) {
-  const { globals, partnerKeys } = useReferenceTokens();
+  const { globals, partnerKeys, partners } = useReferenceTokens();
   const [replacing, setReplacing] = useState(false);
   const masked = prop.secret && !!value && !replacing;
 
@@ -213,6 +322,7 @@ function PropField({
           )}
         </div>
       )}
+      {!masked && <ReferenceHints value={value} globals={globals} partners={partners} />}
     </Field>
   );
 }
@@ -245,6 +355,22 @@ export function AdapterConfig({
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
 
+  // Required fields stay visible; optional ones tuck behind an expander so
+  // the busiest forms (HTTP handler & friends) aren't a wall of inputs.
+  const requiredProps = adapter?.props.filter((p) => !p.optional) ?? [];
+  const optionalProps = adapter?.props.filter((p) => p.optional) ?? [];
+  const setOptionalCount = optionalProps.filter((p) => (properties[p.key] ?? "").trim() !== "").length;
+
+  const renderProp = (prop: AdapterInfo["props"][number]) => (
+    <PropField
+      key={prop.key}
+      prop={prop}
+      value={properties[prop.key] ?? ""}
+      disabled={disabled}
+      onChange={(v) => onChange(adapterId, { ...properties, [prop.key]: v })}
+    />
+  );
+
   const pick = (id: string) => {
     if (id === "") return onChange(null, {});
     const next = catalog.data?.find((a) => a.id === id);
@@ -258,31 +384,41 @@ export function AdapterConfig({
   return (
     <div className="space-y-4">
       <div className="max-w-sm">
-        <Select
+        <SearchSelect
           aria-label={`${kind} adapter`}
           value={adapterId ?? ""}
           disabled={disabled || catalog.isPending}
-          onChange={(e) => pick(e.target.value)}
-          options={[
-            ...(required ? [] : [{ value: "", label: noneLabel }]),
-            ...(catalog.data ?? []).map((a) => ({
-              value: a.id,
-              label: a.native ? a.label : `${a.label} (v${a.versions.at(-1)})`,
-            })),
-          ]}
+          onChange={pick}
+          placeholder={`Pick a ${kind}…`}
+          clearLabel={required ? undefined : noneLabel}
+          options={(catalog.data ?? []).map((a) => ({
+            value: a.id,
+            label: a.label,
+            code: a.id,
+            hint: a.native ? "Native" : `v${a.versions.at(-1)}`,
+          }))}
         />
       </div>
       {adapter && adapter.props.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {adapter.props.map((prop) => (
-            <PropField
-              key={prop.key}
-              prop={prop}
-              value={properties[prop.key] ?? ""}
-              disabled={disabled}
-              onChange={(v) => onChange(adapterId, { ...properties, [prop.key]: v })}
-            />
-          ))}
+        <div className="space-y-4">
+          {requiredProps.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2">{requiredProps.map(renderProp)}</div>
+          )}
+          {optionalProps.length > 0 && (
+            <SummaryDisclosure
+              key={adapterId}
+              defaultOpen={setOptionalCount > 0}
+              changeLabel="Show"
+              summary={
+                <>
+                  {optionalProps.length} optional field{optionalProps.length === 1 ? "" : "s"}
+                  {setOptionalCount > 0 ? ` · ${setOptionalCount} set` : ""}
+                </>
+              }
+            >
+              <div className="grid gap-4 sm:grid-cols-2">{optionalProps.map(renderProp)}</div>
+            </SummaryDisclosure>
+          )}
         </div>
       )}
       {adapter && adapter.id === "NativeJSONMapper" && (

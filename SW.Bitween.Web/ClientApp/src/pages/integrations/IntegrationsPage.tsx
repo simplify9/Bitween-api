@@ -20,7 +20,7 @@ import { useSession } from "../../auth/SessionContext";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { Menu, MenuItem } from "../../components/ui/overlays";
+import { ConfirmDialog, Menu, MenuItem } from "../../components/ui/overlays";
 import { HealthBadge, IntegrationStatusBadges } from "../../components/config/shared";
 import { matchSummary } from "../../lib/match";
 import { formatDate, timeAgo } from "../../lib/dates";
@@ -114,6 +114,7 @@ function BusGatewayDrawer({ g }: { g: BusGatewayRow }) {
 function JobDrawer({ r }: { r: IntegrationRow }) {
   const queryClient = useQueryClient();
   const canOperate = useSessionCan("subscriptions.operate");
+  const [confirming, setConfirming] = useState(false);
   const receive = useMutation({
     mutationFn: () => api.receiveNow(r.id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["integration-rows"] }),
@@ -135,12 +136,22 @@ function JobDrawer({ r }: { r: IntegrationRow }) {
         <Button
           size="sm"
           disabled={!r.enabled}
-          busy={receive.isPending}
           title={r.enabled ? "Check the source right now." : "Enable the job first."}
-          onClick={() => receive.mutate()}
+          onClick={() => setConfirming(true)}
         >
           <DownloadCloud className="size-3.5" /> Receive now
         </Button>
+      )}
+      {confirming && (
+        <ConfirmDialog
+          title="Receive now?"
+          body={`${r.name} checks its source immediately — anything found becomes new exchanges, outside the regular schedule.`}
+          confirmLabel="Receive now"
+          onConfirm={async () => {
+            await receive.mutateAsync();
+          }}
+          onClose={() => setConfirming(false)}
+        />
       )}
     </div>
   );

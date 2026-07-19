@@ -66,7 +66,7 @@ export interface MockDb {
   settings: Setting[];
 }
 
-const KEY = "bitween-proto-db-v7";
+const KEY = "bitween-proto-db-v9";
 
 const seedDb = (): MockDb => ({
   users: structuredClone(SEED_USERS),

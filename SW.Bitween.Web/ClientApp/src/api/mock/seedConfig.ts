@@ -2,7 +2,8 @@ import type {
   ApiGateway,
   BusGateway,
   ExchangeDocument,
-  ExchangeRef,
+  ExchangeFileRef,
+  ExchangeStatus,
   GlobalValuesSet,
   InformationType,
   Integration,
@@ -18,6 +19,7 @@ import type {
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
 const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
+const minutesAhead = (n: number) => new Date(Date.now() + n * 60_000).toISOString();
 
 /** Full credential keys, kept mock-side only; the API surface exposes prefixes. */
 export interface StoredCredential {
@@ -494,8 +496,8 @@ export const SEED_BUS_GATEWAYS: StoredBusGateway[] = [
 ];
 
 /** Length is coprime-ish with the source mix so failures spread across types. */
-const EXCHANGE_STATUSES: ExchangeRef["status"][] = [
-  "success", "success", "failed", "success", "processing", "success",
+const EXCHANGE_STATUSES: ExchangeStatus[] = [
+  "success", "success", "failed", "success", "processing", "badResponse",
 ];
 
 /**
@@ -545,25 +547,136 @@ const SAMPLE_DOCS: Record<number, (i: number) => { input: string; mapped?: strin
   }),
 };
 
-const stageDocuments = (
-  docs: { input: string; mapped?: string; handled?: string },
-  status: ExchangeRef["status"],
-): ExchangeDocument[] => {
-  if (status !== "success") return [{ stage: "Input", content: docs.input }];
-  return [
-    { stage: "Input" as const, content: docs.input },
-    ...(docs.mapped ? [{ stage: "Mapped" as const, content: docs.mapped }] : []),
-    ...(docs.handled ? [{ stage: "Handled" as const, content: docs.handled }] : []),
-  ];
+/** Realistic .NET-flavoured exception texts, cycled across failed rows. */
+const HANDLER_EXCEPTIONS = [
+  "SW.Bitween.AdapterException: handler 'SqlServerCommand' failed.\nMicrosoft.Data.SqlClient.SqlException (0x80131904): Cannot insert duplicate key row in object 'dbo.Orders' with unique index 'IX_Orders_DocNum'. The duplicate key value is (PO-1013).\n   at SW.Bitween.NativeAdapters.SqlServer.SqlServerHandler.Handle(XchangeFile file)",
+  "System.Threading.Tasks.TaskCanceledException: The request was canceled due to the configured HttpClient.Timeout of 100 seconds elapsing.\n   at System.Net.Http.HttpClient.HandleFailure(Exception e)\n   at SW.Bitween.NativeAdapters.Http.HttpHandler.Handle(XchangeFile file)",
+  "Rebex.Net.SftpException: Authentication failed; no suitable authentication method found (server supports: publickey).\n   at Rebex.Net.Sftp.Login(String userName, String password)\n   at SW.Bitween.NativeAdapters.Sftp.SftpHandler.Handle(XchangeFile file)",
+];
+const MAPPER_EXCEPTION =
+  "Scriban.Syntax.ScriptRuntimeException: <input>(12,31): error: Cannot resolve member 'lines' on a null object.\n   at Scriban.Template.Render(TemplateContext context)\n   at SW.Bitween.Mappers.NativeJSONMapper.Map(XchangeFile file)";
+
+/** Business-level rejections shown as the Handled document of bad-response rows. */
+const REJECTIONS: Record<number, string> = {
+  1001: JSON.stringify({ status: "REJECTED", reason: "Store CR-114 is not accepting orders today" }, null, 2),
+  1002: JSON.stringify({ acknowledged: false, error: "Unknown tracking reference" }, null, 2),
+  1003: JSON.stringify({ accepted: false, error: "Company code NL01 is locked for posting period 07-2026" }, null, 2),
+  10001: JSON.stringify({ forwarded: false, error: "Target rejected the batch manifest" }, null, 2),
 };
 
-export type SeedExchange = ExchangeRef & {
+const PROMOTED: Record<number, (i: number) => Record<string, string> | null> = {
+  1001: (i) => ({ orderNumber: `PO-1${String(i).padStart(3, "0")}`, storeId: "CR-114" }),
+  1002: (i) => ({ trackingNumber: `SS-7${String(i).padStart(4, "0")}` }),
+  1003: (i) => ({ invoiceNumber: `INV-9${String(i).padStart(3, "0")}`, companyCode: "NL01" }),
+  10001: () => null,
+};
+
+const INPUT_NAMES: Record<number, (i: number) => string> = {
+  1001: (i) => `PO-1${String(i).padStart(3, "0")}.json`,
+  1002: (i) => `tracking-SS-7${String(i).padStart(4, "0")}.json`,
+  1003: (i) => `INV-9${String(i).padStart(3, "0")}.xml`,
+  10001: (i) => `aggregate-${i}.json`,
+};
+
+/** Exchanges as stored: ids only; names resolve at read time like everything else. */
+export interface SeedExchange {
+  id: string;
+  status: ExchangeStatus;
   partnerId: number | null;
   informationTypeId: number;
-  integrationId: number;
+  integrationId: number | null;
+  startedOn: string;
+  finishedOn: string | null;
+  correlationId: string | null;
+  retryFor: string | null;
+  aggregationXchangeId: string | null;
+  scheduledRetryOn: string | null;
+  exception: string | null;
+  promotedProperties: Record<string, string> | null;
+  mapperSkipped: boolean;
+  files: {
+    input: ExchangeFileRef | null;
+    mapped: ExchangeFileRef | null;
+    handled: ExchangeFileRef | null;
+  };
+  documents?: ExchangeDocument[];
+}
+
+const xid = (i: number) => `0x8DD${(0x41f000 + i * 3271).toString(16).toUpperCase()}`;
+
+/** Integrations without a mapper — their exchanges skip the Mapped stage. */
+const MAPPERLESS = new Set([502, 504]);
+
+interface BuildSpec {
+  /** Drives ids, sample documents, promoted values and file sizes. */
+  seq: number;
+  source: { partnerId: number | null; informationTypeId: number; integrationId: number };
+  status: ExchangeStatus;
+  startedOn: string;
+  correlationId?: string | null;
+  retryFor?: string | null;
+  aggregationXchangeId?: string | null;
+  scheduledRetryOn?: string | null;
+  /** Failure happened in the mapper — no Mapped document, mapper exception. */
+  failedAtMapper?: boolean;
+  id?: string;
+}
+
+const buildExchange = (spec: BuildSpec): SeedExchange => {
+  const { seq, source, status, startedOn } = spec;
+  const mapperSkipped = MAPPERLESS.has(source.integrationId);
+  const failedAtMapper = spec.failedAtMapper === true && !mapperSkipped;
+  const docs = SAMPLE_DOCS[source.informationTypeId]?.(seq);
+  const inputName = INPUT_NAMES[source.informationTypeId]?.(seq) ?? `payload-${seq}.json`;
+  const size = (n: number) => 700 + ((seq * 137 + n * 61) % 3400);
+
+  const hasMapped = !mapperSkipped && docs?.mapped !== undefined && status !== "processing" && !failedAtMapper;
+  const hasHandled = status === "success" || status === "badResponse";
+  const handledContent = status === "badResponse" ? REJECTIONS[source.informationTypeId] : docs?.handled;
+
+  const documents: ExchangeDocument[] = [
+    ...(docs ? [{ stage: "Input" as const, content: docs.input }] : []),
+    ...(hasMapped && docs?.mapped ? [{ stage: "Mapped" as const, content: docs.mapped }] : []),
+    ...(hasHandled && handledContent ? [{ stage: "Handled" as const, content: handledContent }] : []),
+  ];
+
+  return {
+    id: spec.id ?? xid(seq),
+    status,
+    partnerId: source.partnerId,
+    informationTypeId: source.informationTypeId,
+    integrationId: source.integrationId,
+    startedOn,
+    finishedOn:
+      status === "processing"
+        ? null
+        : new Date(Date.parse(startedOn) + 4_000 + ((seq * 733) % 86_000)).toISOString(),
+    correlationId: spec.correlationId ?? null,
+    retryFor: spec.retryFor ?? null,
+    aggregationXchangeId: spec.aggregationXchangeId ?? null,
+    scheduledRetryOn: spec.scheduledRetryOn ?? null,
+    exception:
+      status === "failed"
+        ? failedAtMapper
+          ? MAPPER_EXCEPTION
+          : HANDLER_EXCEPTIONS[seq % HANDLER_EXCEPTIONS.length]
+        : null,
+    promotedProperties: PROMOTED[source.informationTypeId]?.(seq) ?? null,
+    mapperSkipped,
+    files: {
+      input: { name: inputName, size: size(1) },
+      mapped: hasMapped ? { name: inputName.replace(/\.\w+$/, "") + ".mapped.json", size: size(2) } : null,
+      handled: hasHandled ? { name: inputName.replace(/\.\w+$/, "") + ".response.json", size: size(3) } : null,
+    },
+    documents: documents.length > 0 ? documents : undefined,
+  };
 };
 
-/** Deterministic-ish recent traffic across partners, types and integrations. */
+/**
+ * Recent traffic (~19 hours, one row every ~47 min) plus 13 older days that
+ * feed the dashboard chart. Includes a pending-auto-retry pair, a completed
+ * retry chain, a shared-correlation batch and two aggregated members.
+ */
 export const seedExchanges = (): SeedExchange[] => {
   const mix = [
     { partnerId: 2, informationTypeId: 1001, integrationId: 505 },
@@ -572,22 +685,64 @@ export const seedExchanges = (): SeedExchange[] => {
     { partnerId: null, informationTypeId: 10001, integrationId: 504 },
     { partnerId: null, informationTypeId: 1001, integrationId: 501 },
   ];
-  return Array.from({ length: 24 }, (_, i) => {
+  const rows: SeedExchange[] = [];
+
+  for (let i = 0; i < 24; i++) {
     const source = mix[i % mix.length];
-    const status = EXCHANGE_STATUSES[i % EXCHANGE_STATUSES.length];
-    const docs = SAMPLE_DOCS[source.informationTypeId]?.(i);
-    return {
-      id: `0x8DD${(0x41f000 + i * 3271).toString(16).toUpperCase()}`,
-      partnerId: source.partnerId,
-      informationTypeId: source.informationTypeId,
-      integrationId: source.integrationId,
-      partnerName: undefined,
-      informationTypeCode: "",
-      status,
-      on: minutesAgo(8 + i * 47),
-      documents: docs ? stageDocuments(docs, status) : undefined,
-    };
-  });
+    let status = EXCHANGE_STATUSES[i % EXCHANGE_STATUSES.length];
+    if (status === "processing" && i > 5) status = "success"; // nothing "stuck" for hours
+    rows.push(
+      buildExchange({
+        seq: i,
+        source,
+        status,
+        startedOn: minutesAgo(8 + i * 47),
+        correlationId:
+          i === 0 || i === 5 || i === 10
+            ? "ord-8843-batch"
+            : i % 3 === 0
+              ? null
+              : `req-${(0xa100 + i * 613).toString(16)}`,
+        aggregationXchangeId: i === 9 || i === 19 ? xid(3) : null,
+        scheduledRetryOn: i === 2 ? minutesAhead(35) : i === 20 ? minutesAhead(110) : null,
+        failedAtMapper: i === 14,
+      }),
+    );
+  }
+
+  // A successful manual retry of the mapper failure — a complete retry chain.
+  rows.push(
+    buildExchange({
+      seq: 101,
+      id: xid(101),
+      source: mix[14 % mix.length],
+      status: "success",
+      startedOn: minutesAgo(21),
+      retryFor: xid(14),
+    }),
+  );
+
+  // Older days; index = days ago, value = that day's traffic.
+  const perDay = [0, 11, 7, 9, 13, 6, 8, 10, 5, 9, 12, 7, 4, 8];
+  let seq = 200;
+  for (let d = 1; d < perDay.length; d++) {
+    for (let j = 0; j < perDay[d]; j++) {
+      const source = mix[(d + j) % mix.length];
+      const status: ExchangeStatus =
+        (d + j) % 9 === 0 ? "failed" : (d * (j + 3)) % 17 === 13 ? "badResponse" : "success";
+      rows.push(
+        buildExchange({
+          seq: seq++,
+          source,
+          status,
+          startedOn: minutesAgo(d * 1440 + 60 + j * 97 + ((d * 53) % 45)),
+          correlationId: (d + j) % 4 === 0 ? `req-${(0xb000 + d * 100 + j).toString(16)}` : null,
+        }),
+      );
+    }
+  }
+
+  return rows;
 };
 
 export const SEED_SETTINGS: Setting[] = [
@@ -710,18 +865,6 @@ export const SEED_SETTINGS: Setting[] = [
 
   // ——— Reliability & jobs ———
   {
-    key: "Bitween.ServerlessCommandTimeout",
-    section: "Reliability & jobs",
-    label: "Serverless command timeout (seconds)",
-    description:
-      "Increase this if long-running serverless commands are being cancelled before they finish; decrease it to fail fast on commands that hang.",
-    kind: "number",
-    defaultValue: "300",
-    value: null,
-    secret: false,
-    restartRequired: true,
-  },
-  {
     key: "Bitween.ConsumeLegacyEventMessages",
     section: "Reliability & jobs",
     label: "Consume legacy event messages",
@@ -741,20 +884,6 @@ export const SEED_SETTINGS: Setting[] = [
       "Change this cron expression if you want the auto-retry job to check for due exchanges more or less often than once a minute.",
     kind: "string",
     defaultValue: "0 * * * * ?",
-    value: null,
-    secret: false,
-    restartRequired: true,
-  },
-
-  // ——— Security ———
-  {
-    key: "Bitween.CorsOrigins",
-    section: "Security",
-    label: "Allowed CORS origins",
-    description:
-      "List the browser origins (e.g. https://your-app.com) that should be allowed to call the API with cookies attached. Add one if you're building a browser app that needs cookie-based auth against this API; leave empty to allow any origin without credentials.",
-    kind: "string[]",
-    defaultValue: "",
     value: null,
     secret: false,
     restartRequired: true,
@@ -858,6 +987,18 @@ export const SEED_SETTINGS: Setting[] = [
     kind: "string",
     defaultValue:
       "is all-in-one solution to solving integration with third parties, automating workflows with exchanges coming from all forms of requests, ranging from internal messages to files dumped on a server.",
+    value: null,
+    secret: false,
+    restartRequired: false,
+  },
+  {
+    key: "Theme.ShowFooter",
+    section: "Brand & theme",
+    label: "Show the footer",
+    description:
+      "Turn this off to hide the footer everywhere — the copyright line and the website / LinkedIn / GitHub links below every page.",
+    kind: "boolean",
+    defaultValue: "true",
     value: null,
     secret: false,
     restartRequired: false,

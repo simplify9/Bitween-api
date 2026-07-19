@@ -7,14 +7,7 @@ import type { ActionId, PermissionArea, PermissionKey } from "./types";
  * one-to-one onto what its members see.
  */
 export const PERMISSION_CATALOG: PermissionArea[] = [
-  // ——— Operate ———
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    group: "Operate",
-    description: "Traffic and health overview.",
-    actions: [{ id: "view", description: "See the dashboard." }],
-  },
+  // ——— Operate ——— (mirrors the sidebar; Dashboard has no nav entry — logo-only)
   {
     id: "exchanges",
     label: "Exchanges",
@@ -32,8 +25,16 @@ export const PERMISSION_CATALOG: PermissionArea[] = [
     description: "Live message-queue throughput and consumers.",
     actions: [{ id: "view", description: "See queue health and rates." }],
   },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    group: "Operate",
+    description: "Traffic and health overview (reached from the logo).",
+    actions: [{ id: "view", description: "See the dashboard." }],
+  },
 
-  // ——— Integrations ———
+  // ——— Integrations ——— (API/bus gateways are managed inside the Integrations
+  // page, so they have no dedicated sidebar entry but keep their own grants)
   {
     id: "subscriptions",
     label: "Integrations",
@@ -45,6 +46,54 @@ export const PERMISSION_CATALOG: PermissionArea[] = [
       { id: "edit", description: "Change adapters, mappings and settings." },
       { id: "delete", description: "Delete integrations." },
       { id: "operate", description: "Pause, resume, receive now, aggregate now." },
+    ],
+  },
+  {
+    id: "partners",
+    label: "Partners",
+    group: "Integrations",
+    description: "The external parties you exchange data with.",
+    actions: [
+      { id: "view", description: "Browse partners and their properties." },
+      { id: "create", description: "Create partners." },
+      { id: "edit", description: "Change partner details, properties and API keys." },
+      { id: "delete", description: "Delete partners." },
+    ],
+  },
+  {
+    id: "documents",
+    label: "Information types",
+    group: "Integrations",
+    description: "The kinds of business documents that flow between partners.",
+    actions: [
+      { id: "view", description: "Browse information types." },
+      { id: "create", description: "Create information types." },
+      { id: "edit", description: "Change information types, codes and promoted properties." },
+      { id: "delete", description: "Delete unused information types." },
+    ],
+  },
+  {
+    id: "global-values",
+    label: "Global values",
+    group: "Integrations",
+    description: "Shared value sets adapters can reference.",
+    actions: [
+      { id: "view", description: "Browse global value sets." },
+      { id: "create", description: "Create value sets." },
+      { id: "edit", description: "Change value sets." },
+      { id: "delete", description: "Delete value sets." },
+    ],
+  },
+  {
+    id: "notifiers",
+    label: "Notifiers",
+    group: "Integrations",
+    description: "Alerts sent when exchanges fail or succeed.",
+    actions: [
+      { id: "view", description: "Browse notifiers and their delivery history." },
+      { id: "create", description: "Create notifiers." },
+      { id: "edit", description: "Change notifiers." },
+      { id: "delete", description: "Delete notifiers." },
     ],
   },
   {
@@ -71,54 +120,18 @@ export const PERMISSION_CATALOG: PermissionArea[] = [
       { id: "delete", description: "Delete bus gateways." },
     ],
   },
+
+  // ——— Configuration ———
   {
     id: "workgroups",
     label: "Work groups",
-    group: "Integrations",
+    group: "Configuration",
     description: "Processing lanes that spread load across queues.",
     actions: [
       { id: "view", description: "See work groups and their throughput." },
       { id: "create", description: "Create work groups." },
       { id: "edit", description: "Change work group settings." },
       { id: "delete", description: "Delete unused work groups." },
-    ],
-  },
-
-  // ——— Configuration ———
-  {
-    id: "partners",
-    label: "Partners",
-    group: "Configuration",
-    description: "The external parties you exchange data with.",
-    actions: [
-      { id: "view", description: "Browse partners and their properties." },
-      { id: "create", description: "Create partners." },
-      { id: "edit", description: "Change partner details, properties and API keys." },
-      { id: "delete", description: "Delete partners." },
-    ],
-  },
-  {
-    id: "documents",
-    label: "Information types",
-    group: "Configuration",
-    description: "The kinds of business documents that flow between partners.",
-    actions: [
-      { id: "view", description: "Browse information types." },
-      { id: "create", description: "Create information types." },
-      { id: "edit", description: "Change information types, codes and promoted properties." },
-      { id: "delete", description: "Delete unused information types." },
-    ],
-  },
-  {
-    id: "global-values",
-    label: "Global values",
-    group: "Configuration",
-    description: "Shared value sets adapters can reference.",
-    actions: [
-      { id: "view", description: "Browse global value sets." },
-      { id: "create", description: "Create value sets." },
-      { id: "edit", description: "Change value sets." },
-      { id: "delete", description: "Delete value sets." },
     ],
   },
   {
@@ -132,18 +145,6 @@ export const PERMISSION_CATALOG: PermissionArea[] = [
       { id: "edit", description: "Change retry policies." },
       { id: "delete", description: "Delete retry policies." },
       { id: "operate", description: "Run scheduled retries now." },
-    ],
-  },
-  {
-    id: "notifiers",
-    label: "Notifiers",
-    group: "Configuration",
-    description: "Alerts sent when exchanges fail or succeed.",
-    actions: [
-      { id: "view", description: "Browse notifiers and their delivery history." },
-      { id: "create", description: "Create notifiers." },
-      { id: "edit", description: "Change notifiers." },
-      { id: "delete", description: "Delete notifiers." },
     ],
   },
 

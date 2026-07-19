@@ -5,7 +5,9 @@ import { ArrowLeft, BellRing, Cable, DownloadCloud, History, Pause, Play, Trash2
 import { api, type Integration, type IntegrationDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Field, Select, TextInput } from "../../components/ui/forms";
+import { Field, TextInput } from "../../components/ui/forms";
+import { SearchSelect } from "../../components/ui/SearchSelect";
+import { SummaryDisclosure } from "../../components/ui/SummaryDisclosure";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { AdapterConfig } from "../../components/config/AdapterConfig";
@@ -89,6 +91,8 @@ export function IntegrationPage() {
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingPause, setConfirmingPause] = useState(false);
+  const [confirmingReceive, setConfirmingReceive] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -209,8 +213,7 @@ export function IntegrationPage() {
         <div className="flex shrink-0 gap-2">
           {canOperate && (
             <Button
-              busy={pause.isPending}
-              onClick={() => pause.mutate()}
+              onClick={() => setConfirmingPause(true)}
               title={paused ? "Release held work and resume." : "Keep accepting work but hold it for later release."}
             >
               {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
@@ -255,7 +258,7 @@ export function IntegrationPage() {
                 description="When the source is checked for new documents."
                 action={
                   canOperate ? (
-                    <Button size="sm" busy={receive.isPending} onClick={() => receive.mutate()}>
+                    <Button size="sm" onClick={() => setConfirmingReceive(true)}>
                       <DownloadCloud className="size-3.5" /> Receive now
                     </Button>
                   ) : undefined
@@ -329,41 +332,57 @@ export function IntegrationPage() {
                 noneLabel="None — the document stops here"
               />
               {draft.handlerId && (
-                <div className="mt-4 grid gap-4 border-t border-ink-100 pt-4 sm:grid-cols-2">
-                  <Field
-                    label="Feed the response into"
-                    htmlFor="in-resp"
-                    hint="Chains the delivery response into another integration."
+                <div className="mt-4 border-t border-ink-100 pt-4">
+                  <SummaryDisclosure
+                    defaultOpen={draft.responseIntegrationId !== null || !!draft.responseMessageTypeName}
+                    summary={
+                      <>
+                        Response handling ·{" "}
+                        {draft.responseIntegrationId !== null || draft.responseMessageTypeName
+                          ? [
+                              draft.responseIntegrationId !== null &&
+                                `fed into ${allIntegrations.data?.find((x) => x.id === draft.responseIntegrationId)?.name ?? "another integration"}`,
+                              draft.responseMessageTypeName && `published as ${draft.responseMessageTypeName}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")
+                          : "responses are only recorded"}
+                      </>
+                    }
                   >
-                    <Select
-                      id="in-resp"
-                      value={draft.responseIntegrationId === null ? "" : String(draft.responseIntegrationId)}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        set("responseIntegrationId", e.target.value === "" ? null : Number(e.target.value))
-                      }
-                      options={[
-                        { value: "", label: "Nothing — responses are only recorded" },
-                        ...(allIntegrations.data ?? [])
-                          .filter((x) => x.id !== integrationId)
-                          .map((x) => ({ value: String(x.id), label: x.name })),
-                      ]}
-                    />
-                  </Field>
-                  <Field
-                    label="Publish the response on the bus as"
-                    htmlFor="in-respbus"
-                    hint="Leave empty to keep responses off the bus."
-                  >
-                    <TextInput
-                      id="in-respbus"
-                      value={draft.responseMessageTypeName ?? ""}
-                      disabled={!canEdit}
-                      placeholder="e.g. order-confirmation"
-                      className="font-mono"
-                      onChange={(e) => set("responseMessageTypeName", e.target.value || null)}
-                    />
-                  </Field>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field
+                        label="Feed the response into"
+                        htmlFor="in-resp"
+                        hint="Chains the delivery response into another integration."
+                      >
+                        <SearchSelect
+                          id="in-resp"
+                          value={draft.responseIntegrationId === null ? "" : String(draft.responseIntegrationId)}
+                          disabled={!canEdit}
+                          onChange={(v) => set("responseIntegrationId", v === "" ? null : Number(v))}
+                          clearLabel="Nothing — responses are only recorded"
+                          options={(allIntegrations.data ?? [])
+                            .filter((x) => x.id !== integrationId)
+                            .map((x) => ({ value: String(x.id), label: x.name }))}
+                        />
+                      </Field>
+                      <Field
+                        label="Publish the response on the bus as"
+                        htmlFor="in-respbus"
+                        hint="Leave empty to keep responses off the bus."
+                      >
+                        <TextInput
+                          id="in-respbus"
+                          value={draft.responseMessageTypeName ?? ""}
+                          disabled={!canEdit}
+                          placeholder="e.g. order-confirmation"
+                          className="font-mono"
+                          onChange={(e) => set("responseMessageTypeName", e.target.value || null)}
+                        />
+                      </Field>
+                    </div>
+                  </SummaryDisclosure>
                 </div>
               )}
             </Panel>
@@ -401,15 +420,13 @@ export function IntegrationPage() {
             <Panel title="Settings">
               <div className="space-y-4">
                 <Field label="Work group" htmlFor="in-wg" hint="Groups get their own queue, priority and prefetch.">
-                  <Select
+                  <SearchSelect
                     id="in-wg"
                     value={draft.workGroupId === null ? "" : String(draft.workGroupId)}
                     disabled={!canEdit}
-                    onChange={(e) => set("workGroupId", e.target.value === "" ? null : Number(e.target.value))}
-                    options={[
-                      { value: "", label: "Ungrouped (default lane)" },
-                      ...(workGroups.data ?? []).map((w) => ({ value: String(w.id), label: w.name })),
-                    ]}
+                    onChange={(v) => set("workGroupId", v === "" ? null : Number(v))}
+                    clearLabel="Ungrouped (default lane)"
+                    options={(workGroups.data ?? []).map((w) => ({ value: String(w.id), label: w.name }))}
                   />
                   <div className="mt-1 flex items-center gap-3">
                     {draft.workGroupId !== null && (
@@ -431,15 +448,13 @@ export function IntegrationPage() {
                   </div>
                 </Field>
                 <Field label="Retry policy" htmlFor="in-rp">
-                  <Select
+                  <SearchSelect
                     id="in-rp"
                     value={draft.retryPolicyId === null ? "" : String(draft.retryPolicyId)}
                     disabled={!canEdit}
-                    onChange={(e) => set("retryPolicyId", e.target.value === "" ? null : Number(e.target.value))}
-                    options={[
-                      { value: "", label: "None — failures are not retried" },
-                      ...(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name })),
-                    ]}
+                    onChange={(v) => set("retryPolicyId", v === "" ? null : Number(v))}
+                    clearLabel="None — failures are not retried"
+                    options={(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
                   />
                   {draft.retryPolicyId !== null && (
                     <Link
@@ -565,6 +580,34 @@ export function IntegrationPage() {
           error={save.error?.message}
           onSave={() => save.mutate()}
           onDiscard={() => setLoaded(false)}
+        />
+      )}
+
+      {confirmingPause && (
+        <ConfirmDialog
+          title={paused ? "Resume this integration?" : "Pause this integration?"}
+          body={
+            paused
+              ? `${s.name} releases its held exchanges and starts processing again.`
+              : `${s.name} keeps accepting work but holds every exchange until you resume it.`
+          }
+          confirmLabel={paused ? "Resume" : "Pause"}
+          onConfirm={async () => {
+            await pause.mutateAsync();
+          }}
+          onClose={() => setConfirmingPause(false)}
+        />
+      )}
+
+      {confirmingReceive && (
+        <ConfirmDialog
+          title="Receive now?"
+          body={`${s.name} checks its source immediately — anything found becomes new exchanges, outside the regular schedule.`}
+          confirmLabel="Receive now"
+          onConfirm={async () => {
+            await receive.mutateAsync();
+          }}
+          onClose={() => setConfirmingReceive(false)}
         />
       )}
 

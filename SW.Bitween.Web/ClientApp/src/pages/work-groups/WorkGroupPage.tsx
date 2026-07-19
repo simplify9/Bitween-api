@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -11,6 +11,7 @@ import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { SetupList } from "../../components/config/shared";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { formatDate } from "../../lib/dates";
+import { LiveQueueStats } from "./LiveQueueStats";
 
 interface Draft {
   name: string;
@@ -25,6 +26,29 @@ const draftOf = (g: { name: string; busMessageName: string; options: { rabbitMqO
   prefetch: g.options.rabbitMqOptions.consumerSettings.prefetch,
   priority: g.options.rabbitMqOptions.consumerSettings.priority,
 });
+
+/**
+ * This group's slice of the live RabbitMQ picture — the same numbers the
+ * Queue health page shows, brought to where the group is configured.
+ */
+function LiveQueuePanel({ groupId }: { groupId: number }) {
+  return (
+    <Panel
+      title="Live queue"
+      description="This group's consumer, right now."
+      action={
+        <Link
+          to="/queue-health"
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+        >
+          Queue health <ArrowUpRight className="size-3.5" aria-hidden />
+        </Link>
+      }
+    >
+      <LiveQueueStats groupId={groupId} />
+    </Panel>
+  );
+}
 
 export function WorkGroupPage() {
   const { id = "" } = useParams();
@@ -151,6 +175,9 @@ export function WorkGroupPage() {
         </div>
 
         <div className="min-w-0 space-y-5">
+          <Can permission="monitoring.view">
+            <LiveQueuePanel groupId={groupId} />
+          </Can>
           <Panel title="Used by" description="Integrations assigned to this work group.">
             <SetupList items={g.integrations} />
           </Panel>

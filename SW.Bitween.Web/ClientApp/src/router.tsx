@@ -1,9 +1,8 @@
 import { Navigate, createBrowserRouter } from "react-router";
-import { LayoutDashboard } from "lucide-react";
 import { RequireAuth, RequirePermission } from "./auth/guards";
 import { useSession } from "./auth/SessionContext";
 import { AppShell } from "./components/layout/AppShell";
-import { NAV_GROUPS, homePath, type NavItem } from "./nav";
+import { NAV_GROUPS, homePath } from "./nav";
 import { AcceptInvitePage } from "./pages/auth/AcceptInvite";
 import { ForgotPasswordPage } from "./pages/auth/ForgotPassword";
 import { LoginPage } from "./pages/auth/Login";
@@ -12,6 +11,11 @@ import { NotFoundPage, PlaceholderPage } from "./pages/PlaceholderPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import MappingEditor from "./components/mapper/MappingEditor";
+import { DashboardPage } from "./pages/dashboard/DashboardPage";
+import { ExchangeNewPage } from "./pages/exchanges/ExchangeNewPage";
+import { ExchangesPage } from "./pages/exchanges/ExchangesPage";
+import { QueueHealthPage } from "./pages/queue-health/QueueHealthPage";
+import { ScheduledRetriesPage } from "./pages/scheduled-retries/ScheduledRetriesPage";
 import { ApiGatewayNewPage } from "./pages/api-gateways/ApiGatewayNewPage";
 import { ApiGatewayPage } from "./pages/api-gateways/ApiGatewayPage";
 import { AttachPartnerWizard } from "./pages/api-gateways/AttachPartnerWizard";
@@ -58,19 +62,6 @@ const placeholderRoutes = NAV_GROUPS.flatMap((group) => group.items)
     element: <PlaceholderPage item={item} />,
   }));
 
-/**
- * Dashboard has no sidebar entry (the logo links here instead) so it isn't
- * derived from NAV_GROUPS like the other placeholders — it still needs its
- * own route.
- */
-const dashboardNavItem: NavItem = {
-  label: "Dashboard",
-  path: "/dashboard",
-  icon: LayoutDashboard,
-  permissions: ["dashboard.view"],
-  planned: true,
-};
-
 /** "/bitween/" → "/bitween"; "/" → undefined (no basename). */
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
 
@@ -86,7 +77,47 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <HomeRedirect /> },
-          { path: "dashboard", element: <PlaceholderPage item={dashboardNavItem} /> },
+          {
+            // No sidebar entry — the logo links here instead.
+            path: "dashboard",
+            element: (
+              <RequirePermission permission="dashboard.view">
+                <DashboardPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "exchanges",
+            element: (
+              <RequirePermission permission="exchanges.view">
+                <ExchangesPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "exchanges/new",
+            element: (
+              <RequirePermission permission="exchanges.operate">
+                <ExchangeNewPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "scheduled-retries",
+            element: (
+              <RequirePermission permission="exchanges.view">
+                <ScheduledRetriesPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "queue-health",
+            element: (
+              <RequirePermission permission="monitoring.view">
+                <QueueHealthPage />
+              </RequirePermission>
+            ),
+          },
           {
             path: "team",
             element: <TeamPage />,

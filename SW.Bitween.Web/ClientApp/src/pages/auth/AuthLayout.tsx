@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useBranding } from "../../lib/branding";
 
 /** The connection motif: systems as nodes, Bitween as the path between them. */
 function FlowLines() {
@@ -24,24 +25,36 @@ function FlowLines() {
 }
 
 export function AuthLayout({ children }: { children: ReactNode }) {
+  // Brand carriers: the sign-in logo and blurb are Settings-driven
+  // ("Brand & theme"), so a rebrand shows up here too.
+  const branding = useBranding();
+
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(360px,44%)_1fr]">
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-ink-950 p-10 lg:flex">
-        <img src={import.meta.env.BASE_URL + "brand/BitweenFull-light.svg"} alt="Bitween" className="h-8 w-fit" />
+        <img
+          src={branding.loginLogoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull-light.svg"}
+          alt="Bitween"
+          className="h-8 w-fit"
+        />
         <div className="relative z-10 max-w-sm pb-24">
           <p className="text-2xl font-semibold leading-snug tracking-tight text-ink-50">
             The quiet middleman for everything your systems exchange.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-ink-400">
-            Receive, transform and deliver documents between you and your partners — with every
-            exchange traced.
+            {branding.loginBlurb ??
+              "Receive, transform and deliver documents between you and your partners — with every exchange traced."}
           </p>
         </div>
         <FlowLines />
       </aside>
       <main className="flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm">
-          <img src={import.meta.env.BASE_URL + "brand/BitweenFull.svg"} alt="Bitween" className="mb-8 h-7 w-fit lg:hidden" />
+          <img
+            src={branding.loginLogoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull.svg"}
+            alt="Bitween"
+            className="mb-8 h-7 w-fit lg:hidden"
+          />
           {children}
         </div>
       </main>

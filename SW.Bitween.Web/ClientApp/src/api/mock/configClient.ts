@@ -34,7 +34,7 @@ const exchangeDto = (db: MockDb, e: MockDb["exchanges"][number]): ExchangeRef =>
   informationTypeCode:
     db.informationTypes.find((t) => t.id === e.informationTypeId)?.code ?? "UNKNOWN",
   status: e.status,
-  on: e.on,
+  on: e.startedOn,
   documents: e.documents ? structuredClone(e.documents) : undefined,
 });
 
@@ -216,7 +216,7 @@ export const configClient = {
       ),
       recentExchanges: db.exchanges
         .filter((e) => e.partnerId === id)
-        .sort((a, b) => b.on.localeCompare(a.on))
+        .sort((a, b) => b.startedOn.localeCompare(a.startedOn))
         .slice(0, 8)
         .map((e) => exchangeDto(db, e)),
     };
@@ -331,7 +331,7 @@ export const configClient = {
       trail: structuredClone(db.trails[id] ?? []),
       recentExchanges: db.exchanges
         .filter((e) => e.informationTypeId === id)
-        .sort((a, b) => b.on.localeCompare(a.on))
+        .sort((a, b) => b.startedOn.localeCompare(a.startedOn))
         .slice(0, 8)
         .map((e) => exchangeDto(db, e)),
     };

@@ -7,6 +7,9 @@ import type {
   BusGateway,
   BusGatewayDetail,
   BusGatewayRow,
+  DashboardData,
+  ExchangeQuery,
+  ExchangeRow,
   GlobalValuesSetDetail,
   GlobalValuesSetRow,
   InformationType,
@@ -23,11 +26,13 @@ import type {
   Notifier,
   NotifierChannel,
   NotifierDetail,
+  Paged,
   Partner,
   PartnerDetail,
   PartnerRow,
   PermissionArea,
   PermissionKey,
+  QueueHealthSnapshot,
   RetryGroup,
   RetryPolicy,
   RetryPolicyDetail,
@@ -36,6 +41,8 @@ import type {
   RetryTestAttempt,
   Role,
   Schedule,
+  ScheduledRetryQuery,
+  ScheduledRetryRow,
   Session,
   SettingRow,
   User,
@@ -256,6 +263,36 @@ export interface ApiClient {
     channelId: string;
     channelProperties: Record<string, string>;
   }): Promise<{ message: string }>;
+
+  // — exchanges —
+  searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;
+  /**
+   * Re-runs an exchange from its input file. `reset` re-resolves adapter
+   * properties from the integration's current configuration instead of the
+   * values captured when the exchange first ran. Fails with
+   * AUTO_RETRY_SCHEDULED when an auto-retry is already pending.
+   */
+  retryExchange(id: string, opts: { reset: boolean }): Promise<{ id: string }>;
+  /** Retries many; exchanges with a pending auto-retry are skipped, not failed. */
+  bulkRetryExchanges(ids: string[], opts: { reset: boolean }): Promise<{ retried: number; skipped: number }>;
+  /** Manually injects a payload, addressed at an integration or an information type. */
+  createExchange(input: {
+    target: "integration" | "informationType";
+    integrationId?: number;
+    informationTypeId?: number;
+    data: string;
+  }): Promise<{ id: string }>;
+
+  // — scheduled retries —
+  searchScheduledRetries(query: ScheduledRetryQuery): Promise<Paged<ScheduledRetryRow>>;
+  /** Executes a pending auto-retry immediately instead of waiting for its slot. */
+  runScheduledRetryNow(id: string): Promise<void>;
+
+  // — queue health —
+  getQueueHealth(): Promise<QueueHealthSnapshot>;
+
+  // — dashboard —
+  getDashboard(): Promise<DashboardData>;
 
   // — prototype-only affordances (not part of the future backend contract) —
   demo: {

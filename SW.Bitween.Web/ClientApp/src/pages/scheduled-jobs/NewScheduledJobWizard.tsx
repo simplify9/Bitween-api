@@ -34,7 +34,9 @@ const EMPTY: Draft = {
   informationTypeId: null,
   receiverId: null,
   receiverProperties: {},
-  schedules: [],
+  // Start with a sensible default so the step is valid on arrival — shown as
+  // a one-line summary, edited through the full recurrence editor on demand.
+  schedules: [{ recurrence: "Daily", days: 0, hours: 0, minutes: 0, backwards: false }],
   mapperId: null,
   mapperProperties: {},
   handlerId: null,

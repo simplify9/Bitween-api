@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { IntegrationMiniList, useIntegrationsCache } from "../../components/config/shared";
 import { formatDate } from "../../lib/dates";
+import { LiveQueueStats } from "./LiveQueueStats";
 
 export function WorkGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -164,12 +165,10 @@ export function WorkGroupsPage() {
                       <tr className="border-b border-ink-100 last:border-b-0">
                         <td />
                         <td colSpan={6} className="px-3 pt-0.5 pb-3">
-                          <div className="space-y-2 rounded-lg bg-ink-50 px-3.5 py-3">
-                            <p className="text-[13px] text-ink-600">
-                              Prefetch {g.options.rabbitMqOptions.consumerSettings.prefetch} · Priority{" "}
-                              {g.options.rabbitMqOptions.consumerSettings.priority} · {g.consumerCount} live
-                              consumer{g.consumerCount === 1 ? "" : "s"}
-                            </p>
+                          <div className="space-y-3 rounded-lg bg-ink-50 px-3.5 py-3">
+                            <Can permission="monitoring.view">
+                              <LiveQueueStats groupId={g.id} />
+                            </Can>
                             <IntegrationMiniList items={assigned} emptyText="No integrations assigned yet." />
                           </div>
                         </td>

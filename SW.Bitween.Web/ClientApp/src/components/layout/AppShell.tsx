@@ -1,22 +1,87 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, LogOut, Menu as MenuIcon, UserRound, X } from "lucide-react";
-import { api } from "../../api";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, ChevronDown, ChevronRight, LogOut, Menu as MenuIcon, UserRound, X } from "lucide-react";
+import type { SettingRow } from "../../api";
 import { useSession } from "../../auth/SessionContext";
-import { applyColorScale } from "../../lib/colorScale";
+import { type Branding, useApplyBranding } from "../../lib/branding";
+import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 import { visibleGroups } from "../../nav";
 import { Avatar } from "../ui/Avatar";
+import { Button } from "../ui/basics";
 import { Menu, MenuItem } from "../ui/overlays";
 import { DemoSwitcher } from "./DemoSwitcher";
 
-/** Applies the "Theme.PrimaryColor" setting as CSS vars so a rebrand shows up instantly, everywhere. */
-function useLiveBrandColor() {
-  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => api.listSettings() });
-  useEffect(() => {
-    const row = data?.find((s) => s.key === "Theme.PrimaryColor");
-    if (row) applyColorScale(row.value ?? row.defaultValue);
-  }, [data]);
+/**
+ * Shown on every page while unsaved setting changes exist — the whole app
+ * renders with the draft applied, so this is the "you're previewing" strip
+ * that routes back to Settings to keep editing or save. Mirrors the
+ * ReturnBanner detour pattern.
+ */
+function SettingsPreviewBanner() {
+  const draft = useSettingsDraft();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const count = Object.keys(draft).length;
+  if (count === 0 || pathname.startsWith("/settings")) return null;
+
+  // Land back on the section holding the first pending change.
+  const rows = queryClient.getQueryData<SettingRow[]>(["settings"]);
+  const section = rows?.find((r) => r.key in draft)?.section;
+  const editUrl = section ? `/settings?section=${encodeURIComponent(section)}` : "/settings";
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-crimson-200 bg-crimson-50/60 px-4 py-2.5">
+      <p className="min-w-0 text-sm text-ink-700">
+        Previewing <strong className="font-medium text-ink-900">{count} unsaved setting change{count === 1 ? "" : "s"}</strong>{" "}
+        — this is how the app will look once saved.
+      </p>
+      <span className="flex shrink-0 gap-2">
+        <Button size="sm" onClick={() => settingsDraft.discardAll()}>
+          Discard
+        </Button>
+        <Button size="sm" variant="primary" onClick={() => navigate(editUrl)}>
+          Continue editing <ArrowRight className="size-3.5" />
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+function AppFooter({ branding }: { branding: Branding }) {
+  const { footer, companyName } = branding;
+  if (!branding.ready || !footer.show) return null;
+  const links = [
+    { label: "Website", href: footer.websiteUrl },
+    { label: "LinkedIn", href: footer.linkedinUrl },
+    { label: "GitHub", href: footer.githubUrl },
+  ].filter((l) => l.href);
+
+  return (
+    <footer className="mt-auto border-t border-ink-100 px-4 py-4 sm:px-8">
+      <div className="mx-auto flex max-w-350 flex-wrap items-center justify-between gap-2 text-xs text-ink-400">
+        <span>
+          {footer.copyrightIcon} {new Date().getFullYear()} {companyName}. {footer.copyrightText}
+        </span>
+        {links.length > 0 && (
+          <span className="flex gap-4">
+            {links.map((l) => (
+              <a
+                key={l.label}
+                href={l.href}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-ink-500 hover:text-crimson-700 hover:underline"
+              >
+                {l.label}
+              </a>
+            ))}
+          </span>
+        )}
+      </div>
+    </footer>
+  );
 }
 
 const COLLAPSED_KEY = "bitween-nav-collapsed";
@@ -29,7 +94,7 @@ const loadCollapsed = (): string[] => {
   }
 };
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logoUrl: string | null }) {
   const { session, signOut } = useSession();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -49,7 +114,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full flex-col">
       <div className="px-5 pt-6 pb-4">
         <Link to="/dashboard">
-          <img src={import.meta.env.BASE_URL + "brand/BitweenFull-light.svg"} alt="Bitween" className="h-6 w-fit" />
+          <img
+            src={logoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull-light.svg"}
+            alt="Bitween"
+            className="h-6 w-fit"
+          />
         </Link>
       </div>
 
@@ -140,7 +209,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  useLiveBrandColor();
+  const branding = useApplyBranding();
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr]">
@@ -154,7 +223,11 @@ export function AppShell() {
           <MenuIcon className="size-5" />
         </button>
         <Link to="/dashboard">
-          <img src={import.meta.env.BASE_URL + "brand/BitweenFull.svg"} alt="Bitween" className="h-5" />
+          <img
+            src={branding.sidebarLogoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull.svg"}
+            alt="Bitween"
+            className="h-5"
+          />
         </Link>
       </header>
 
@@ -170,20 +243,22 @@ export function AppShell() {
             >
               <X className="size-5" />
             </button>
-            <SidebarContent onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent onNavigate={() => setMobileOpen(false)} logoUrl={branding.sidebarLogoUrl} />
           </div>
         </div>
       )}
 
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen bg-ink-950 lg:block">
-        <SidebarContent />
+        <SidebarContent logoUrl={branding.sidebarLogoUrl} />
       </aside>
 
-      <main className="min-w-0">
-        <div className="mx-auto max-w-350 px-4 py-6 sm:px-8 sm:py-8">
+      <main className="flex min-w-0 flex-col">
+        <div className="mx-auto w-full max-w-350 px-4 py-6 sm:px-8 sm:py-8">
+          <SettingsPreviewBanner />
           <Outlet />
         </div>
+        <AppFooter branding={branding} />
       </main>
 
       <DemoSwitcher />
