@@ -124,7 +124,11 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
 
   if (res.status === 204) return undefined as T;
   const text = await res.text();
-  return (text ? JSON.parse(text) : undefined) as T;
+  if (!text) return undefined as T;
+  // Some endpoints return a bare string as text/plain (e.g. /partners/generatekey),
+  // which isn't valid JSON — only parse when the response actually is JSON.
+  const isJson = res.headers.get("content-type")?.includes("application/json") ?? false;
+  return (isJson ? JSON.parse(text) : text) as T;
 }
 
 export const get = <T>(path: string): Promise<T> => request<T>(path);
