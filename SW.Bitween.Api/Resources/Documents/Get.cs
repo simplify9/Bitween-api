@@ -25,6 +25,7 @@ namespace SW.Bitween.Resources.Documents
             return await dbContext.Set<Document>().Search("Id", key).Select(document => new DocumentUpdate
             {
                 Id = document.Id,
+                Code = document.Code,
                 Name = document.Name,
                 BusEnabled = document.BusEnabled,
                 BusMessageTypeName = document.BusMessageTypeName,

@@ -41,12 +41,13 @@ namespace SW.Bitween
             modelBuilder.Entity<Document>(b =>
             {
                 b.ToTable("Documents");
-                b.Property(p => p.Id).ValueGeneratedNever();
                 b.Property(p => p.Name).HasMaxLength(100).IsUnicode(false).IsRequired();
+                b.Property(p => p.Code).HasMaxLength(50).IsUnicode(false);
                 b.Property(p => p.BusMessageTypeName).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.PromotedProperties).StoreAsJson();
                 b.Property(p => p.DisregardsUnfilteredMessages).IsRequired(false);
                 b.HasIndex(p => p.Name).IsUnique();
+                b.HasIndex(p => p.Code).IsUnique();
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();
 
                 b.HasMany<Subscription>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
