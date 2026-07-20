@@ -42,10 +42,37 @@ namespace SW.Bitween.Resources.BusGateways
 
             query = query.OrderByDescending(g => g.Id);
 
+            var totalCount = await query.Search(searchyRequest.Conditions).CountAsync();
+            var result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync();
+
+            // The list screen needs full route detail up front (not just a count),
+            // so hydrate it with one grouped query instead of Get.cs's per-row
+            // Include (gateways are few, so this stays a single round trip).
+            var ids = result.Select(r => r.Id).ToList();
+            var routesByGateway = (await _dbContext.Set<BusGatewayRoute>()
+                .AsNoTracking()
+                .Where(r => ids.Contains(r.BusGatewayId))
+                .Include(r => r.Subscription)
+                .Include(r => r.Partner)
+                .ToListAsync())
+                .ToLookup(r => r.BusGatewayId);
+            foreach (var row in result)
+            {
+                row.Routes = routesByGateway[row.Id].Select(r => new BusGatewayRouteDto
+                {
+                    Id = r.Id,
+                    SubscriptionId = r.SubscriptionId,
+                    SubscriptionName = r.Subscription != null ? r.Subscription.Name : null,
+                    PartnerId = r.PartnerId,
+                    PartnerName = r.Partner != null ? r.Partner.Name : null,
+                    MatchExpression = r.MatchExpression
+                }).ToList();
+            }
+
             return new SearchyResponse<BusGatewayRow>
             {
-                TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
-                Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()
+                TotalCount = totalCount,
+                Result = result
             };
         }
     }

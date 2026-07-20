@@ -2,6 +2,7 @@ import type { ApiClient } from "../client";
 import { NotWiredError } from "../types";
 import { adapterMethods } from "./adapters";
 import { documentMethods } from "./documents";
+import { gatewayMethods } from "./gateways";
 import { globalValuesMethods } from "./globalValues";
 import { integrationMethods } from "./integrations";
 import { partnerMethods } from "./partners";
@@ -24,6 +25,7 @@ const wired: Partial<ApiClient> = {
   ...retryPolicyMethods,
   ...integrationMethods,
   ...adapterMethods,
+  ...gatewayMethods,
 };
 
 export const httpClient: ApiClient = new Proxy(wired, {

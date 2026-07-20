@@ -6,14 +6,14 @@ import {
   type IntegrationInfo,
   type IntegrationRow,
   type IntegrationType,
-  type MatchGroup,
-  type MatchNode,
   type Schedule,
 } from "../types";
 import { schedulesSummary } from "../../lib/schedules";
 import { documentMethods } from "./documents";
+import { gatewayMethods } from "./gateways";
 import { partnerMethods } from "./partners";
 import { get, post, request } from "./request";
+import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
 
 // ——— backend shapes (camelCase over the wire) ———
 interface SearchyResponse<T> {
@@ -31,12 +31,6 @@ interface RawSchedule {
   minutes: number;
   backwards: boolean;
 }
-// The backend's match tree is strictly binary (and/or each take exactly two
-// operands) and uses snake_case type discriminators, unlike the frontend's
-// n-ary MatchGroup. See toMatchGroup/toRawMatchExpression below.
-type RawMatchSpec =
-  | { type: "one_of" | "not_one_of"; path: string; values: string[] | null }
-  | { type: "and" | "or"; left: RawMatchSpec; right: RawMatchSpec };
 
 interface RawSubscription {
   id?: number;
@@ -116,51 +110,6 @@ const toRawSchedules = (schedules: Schedule[]): RawSchedule[] =>
     minutes: s.minutes,
     backwards: s.backwards,
   }));
-
-/**
- * Fold the backend's binary and/or tree into the frontend's n-ary MatchGroup,
- * flattening runs of the same operator so a flat group round-trips back flat
- * instead of as a deeply right-nested tree.
- */
-function toMatchNode(spec: RawMatchSpec): MatchNode {
-  if (!("left" in spec)) {
-    return { op: spec.type === "one_of" ? "oneOf" : "notOneOf", path: spec.path, values: spec.values ?? [] };
-  }
-  const op = spec.type;
-  const children: MatchNode[] = [];
-  const collect = (s: RawMatchSpec) => {
-    if (s.type === op) {
-      collect(s.left);
-      collect(s.right);
-    } else {
-      children.push(toMatchNode(s));
-    }
-  };
-  collect(spec);
-  return { op, children };
-}
-
-const toMatchGroup = (spec: RawMatchSpec | null): MatchGroup | null => {
-  if (!spec) return null;
-  const node = toMatchNode(spec);
-  // The backend can't represent a single-condition group (and/or always need
-  // two operands), so a lone condition arrives unwrapped and must be rewrapped
-  // here to satisfy the "root is always a group" contract.
-  return "children" in node ? node : { op: "and", children: [node] };
-};
-
-/** Unfold an n-ary MatchGroup into the backend's binary tree, right-associatively. */
-function toBackendNode(node: MatchNode): RawMatchSpec | null {
-  if ("path" in node) {
-    return { type: node.op === "oneOf" ? "one_of" : "not_one_of", path: node.path, values: node.values };
-  }
-  const parts = node.children.map(toBackendNode).filter((s): s is RawMatchSpec => s !== null);
-  if (parts.length === 0) return null; // empty group — matches everything, i.e. no constraint
-  if (parts.length === 1) return parts[0];
-  return parts.reduceRight((right, left) => ({ type: node.op, left, right }));
-}
-
-const toRawMatchExpression = (group: MatchGroup | null): RawMatchSpec | null => (group ? toBackendNode(group) : null);
 
 function toIntegration(raw: RawSubscription, idOverride?: number): Integration {
   return {
@@ -338,15 +287,33 @@ export const integrationMethods = {
   },
 
   async getIntegration(id: number): Promise<IntegrationDetail> {
-    const raw = await fetchRaw(id);
+    const [raw, apiGateways, busGateways] = await Promise.all([
+      fetchRaw(id),
+      gatewayMethods.listApiGateways(),
+      gatewayMethods.listBusGateways(),
+    ]);
     const infoType = await documentMethods.getInformationType(raw.documentId).catch(() => null);
     return {
       ...toIntegration(raw, id),
       informationTypeCode: infoType?.code ?? infoType?.name ?? "",
       informationTypeName: infoType?.name ?? "",
-      // Populated once gateways (Batch 3), notifiers, and exchanges/trail are wired.
-      apiGatewayAttachments: [],
-      busGatewayRoutes: [],
+      apiGatewayAttachments: apiGateways.flatMap((g) =>
+        g.attachments
+          .filter((a) => a.integrationId === id)
+          .map((a) => ({
+            gatewayId: g.id,
+            gatewayName: g.name,
+            urlName: g.urlName,
+            partnerId: a.partnerId,
+            partnerName: a.partnerName,
+          })),
+      ),
+      busGatewayRoutes: busGateways.flatMap((g) =>
+        g.routes
+          .filter((r) => r.integrationId === id)
+          .map((r) => ({ gatewayId: g.id, gatewayName: g.name, partnerId: r.partnerId, partnerName: r.partnerName })),
+      ),
+      // Populated once notifiers and exchanges/trail are wired.
       watchingNotifiers: [],
       recentExchanges: [],
       trail: [],
