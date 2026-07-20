@@ -23,7 +23,7 @@
     </PackageReference>
 
     <!-- Testcontainers — Docker-based infrastructure -->
-    <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <PackageReference Include="Testcontainers.RabbitMq" Version="3.10.0" />
 
     <!-- Serverless runtime -->
