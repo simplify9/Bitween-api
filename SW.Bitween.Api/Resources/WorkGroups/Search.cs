@@ -11,7 +11,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.WorkGroups;
 
 public class Search(
-    IInfolinkCache infolinkCache,
+    BitweenDbContext dbContext,
     IConsumerReader consumerReader,
     ILogger<Search> logger)
     : IQueryHandler<SearchWorkGroupModel, object>
@@ -21,8 +21,15 @@ public class Search(
     {
         request.Limit ??= 20;
         request.Offset ??= 0;
-        
-        var workGroups = await infolinkCache.ListWorkGroupsAsync();
+
+        // Read straight from the DB rather than IInfolinkCache: that cache only
+        // invalidates via a broadcast back to itself over RabbitMQ (see
+        // WorkGroups/Create|Update|Delete.cs calling BroadcastRevoke()), so a
+        // freshly created/edited/deleted work group can stay invisible here
+        // until the cache's own TTL expires whenever that broadcast doesn't
+        // land. GlobalAdapterValuesSets and RetryPolicies already read the DB
+        // directly for the same reason.
+        var workGroups = await dbContext.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
         var consumerCounts = Array.Empty<ConsumerCount>();
 
         try
@@ -65,6 +72,7 @@ public class Search(
                     NotifierIncomingRate = notifiersCounts?.IncomingRate,
                     NotifierProcessingCount = notifiersCounts?.ProcessingCount,
                     NotifierQueueCount = notifiersCounts?.QueueCount,
+                    ProcessorNodeCount = processorsCounts?.TotalNodes,
                 };
             }).ToList();
 

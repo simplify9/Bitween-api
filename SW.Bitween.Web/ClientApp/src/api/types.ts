@@ -259,7 +259,12 @@ export interface RetryPolicy {
   groups: RetryGroup[];
   createdOn: string;
 }
-export interface RetryPolicyListRow extends RetryPolicy {
+export interface RetryPolicyListRow {
+  id: number;
+  name: string;
+  /** The list only counts groups; the full list is in the detail response. */
+  groupCount: number;
+  createdOn: string;
   usedByCount: number;
 }
 export interface RetryPolicyDetail extends RetryPolicy {

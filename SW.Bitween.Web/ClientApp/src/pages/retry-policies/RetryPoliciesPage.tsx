@@ -144,7 +144,7 @@ export function RetryPoliciesPage() {
                   className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
                 >
                   <td className="px-4 py-3 font-medium text-ink-900">{p.name}</td>
-                  <td className="px-4 py-3 text-ink-600">{p.groups.length}</td>
+                  <td className="px-4 py-3 text-ink-600">{p.groupCount}</td>
                   <td className="px-4 py-3 text-ink-600">
                     {p.usedByCount > 0 ? (
                       `${p.usedByCount} integration${p.usedByCount === 1 ? "" : "s"}`
