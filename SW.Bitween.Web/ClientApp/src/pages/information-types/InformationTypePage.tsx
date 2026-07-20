@@ -74,10 +74,11 @@ export function InformationTypePage() {
           .filter((r) => r.key.trim() || r.value.trim())
           .map((r) => ({ key: r.key, path: r.value })),
       }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["information-type", typeId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["information-type", typeId] });
       void queryClient.invalidateQueries({ queryKey: ["information-types"] });
+      setLoaded(false);
     },
   });
 
@@ -110,7 +111,7 @@ export function InformationTypePage() {
         <div>
           <h1 className="flex items-center gap-2.5 text-[22px] font-semibold tracking-tight text-ink-900">
             {t.name}
-            <CodeBadge code={t.code} />
+            <CodeBadge code={t.code} name={t.name} />
           </h1>
           <p className="mt-1 text-sm text-ink-500">Defined {formatDate(t.createdOn)}.</p>
         </div>
@@ -137,14 +138,15 @@ export function InformationTypePage() {
                 <Field
                   label="Code"
                   htmlFor="it-code"
-                  hint="Renaming the code changes how it appears everywhere; existing integrations keep working."
+                  hint="Optional. Renaming it changes how it appears everywhere; existing integrations keep working."
                 >
                   <TextInput
                     id="it-code"
-                    value={draft.code}
+                    value={draft.code ?? ""}
                     disabled={!canEdit}
-                    onChange={(e) => set("code", e.target.value.toUpperCase())}
+                    onChange={(e) => set("code", e.target.value.toUpperCase() || undefined)}
                     className="font-mono"
+                    placeholder="None set"
                   />
                 </Field>
                 <Field label="Payload format" htmlFor="it-format">
@@ -293,7 +295,7 @@ export function InformationTypePage() {
           title="Delete this information type?"
           body={
             <>
-              <strong className="font-medium text-ink-800">{t.code}</strong> and its promoted
+              <strong className="font-medium text-ink-800">{t.code ?? t.name}</strong> and its promoted
               properties will be gone for good. Types still used by integrations can't be deleted.
             </>
           }

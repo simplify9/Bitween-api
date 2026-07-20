@@ -123,16 +123,18 @@ export function IntegrationPage() {
   }, [integration.data, draft]);
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["integration", integrationId] });
+    const detail = queryClient.invalidateQueries({ queryKey: ["integration", integrationId] });
     void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
     void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+    return detail;
   };
 
   const save = useMutation({
     mutationFn: () => api.updateIntegration(integrationId, draft!),
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await invalidate();
       setLoaded(false);
-      invalidate();
     },
   });
 
@@ -205,7 +207,7 @@ export function IntegrationPage() {
           <p className="mt-1 text-sm text-ink-500">
             Carries{" "}
             <Link to={`/information-types/${s.informationTypeId}`} className="hover:underline">
-              <CodeBadge code={s.informationTypeCode} className="align-middle" />
+              <CodeBadge code={s.informationTypeCode} name={s.informationTypeName} className="align-middle" />
             </Link>{" "}
             · created {formatDate(s.createdOn)}.
           </p>

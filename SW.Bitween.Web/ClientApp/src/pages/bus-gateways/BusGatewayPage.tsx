@@ -39,10 +39,11 @@ export function BusGatewayPage() {
 
   const save = useMutation({
     mutationFn: () => api.updateBusGateway(gatewayId, { name }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["bus-gateway", gatewayId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["bus-gateway", gatewayId] });
       void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
+      setLoaded(false);
     },
   });
 
@@ -75,7 +76,7 @@ export function BusGatewayPage() {
           <p className="mt-1 text-sm text-ink-500">
             Listens for{" "}
             <Link to={`/information-types/${g.informationTypeId}`} className="hover:underline">
-              <CodeBadge code={g.informationTypeCode} className="align-middle" />
+              <CodeBadge code={g.informationTypeCode} name={g.informationTypeName} className="align-middle" />
             </Link>{" "}
             on the message bus · created {formatDate(g.createdOn)}.
           </p>

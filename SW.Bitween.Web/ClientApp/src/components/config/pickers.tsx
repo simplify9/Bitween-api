@@ -43,7 +43,7 @@ export function InfoTypePicker({
           onSelect={() => onChange(t.id)}
           title={t.name}
           subtitle={t.format === "Json" ? "JSON" : "XML"}
-          right={<CodeBadge code={t.code} />}
+          right={<CodeBadge code={t.code} name={t.name} />}
           editHref={detourCtx ? withReturn(`/information-types/${t.id}`, detourCtx) : undefined}
         />
       ))}

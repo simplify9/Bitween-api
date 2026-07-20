@@ -44,10 +44,11 @@ export function GlobalValueSetPage() {
 
   const save = useMutation({
     mutationFn: () => api.updateValueSet(id, { name, values: toRecord(rows ?? []) }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["value-set", id] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["value-set", id] });
       void queryClient.invalidateQueries({ queryKey: ["value-sets"] });
+      setLoaded(false);
     },
   });
 

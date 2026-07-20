@@ -14,9 +14,11 @@ namespace SW.Bitween.Model
 
     public class DocumentCreate : IName
     {
-        public int Id { get; set; }
+        public string Code { get; set; }
         public DocumentFormat DocumentFormat { get; set; }
         public string Name { get; set; }
+        public bool BusEnabled { get; set; }
+        public string BusMessageTypeName { get; set; }
     }
 
     public class SearchDocumentTrailModel
@@ -33,8 +35,7 @@ namespace SW.Bitween.Model
 
     public class DocumentUpdate : DocumentCreate
     {
-        public bool BusEnabled { get; set; }
-        public string BusMessageTypeName { get; set; }
+        public int Id { get; set; }
         public int DuplicateInterval { get; set; }
 
         public bool DisregardsUnfilteredMessages { get; set; }

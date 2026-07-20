@@ -1,6 +1,15 @@
 const formatter = new Intl.DateTimeFormat("en", { day: "numeric", month: "short", year: "numeric" });
 
-export const formatDate = (iso: string) => formatter.format(new Date(iso));
+/** Missing/invalid dates (e.g. fields the backend doesn't return) render as a dash. */
+const asDate = (iso: string): Date | null => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+
+export const formatDate = (iso: string) => {
+  const d = asDate(iso);
+  return d ? formatter.format(d) : "—";
+};
 
 export const timeAgo = (iso: string): string => {
   const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -33,7 +42,10 @@ const timeFormatter = new Intl.DateTimeFormat("en", {
   minute: "2-digit",
 });
 
-export const formatDateTime = (iso: string) => timeFormatter.format(new Date(iso));
+export const formatDateTime = (iso: string) => {
+  const d = asDate(iso);
+  return d ? timeFormatter.format(d) : "—";
+};
 
 /** "12s", "1m 42s" — elapsed time between two instants. */
 export const duration = (fromIso: string, toIso: string): string => {

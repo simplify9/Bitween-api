@@ -125,10 +125,12 @@ export function PartnerPage() {
         name: name !== partner.data?.name ? name : undefined,
         adapterProperties: toRecord(propRows ?? []),
       }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
+    onSuccess: async () => {
+      // Await the detail refetch BEFORE re-syncing the draft, so the re-sync
+      // effect reads the freshly-saved server data (not the stale cache).
+      await queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
       void queryClient.invalidateQueries({ queryKey: ["partners"] });
+      setLoaded(false);
     },
   });
 

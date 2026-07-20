@@ -30,7 +30,7 @@ export function InformationTypesPage() {
     const needle = q.trim().toLowerCase();
     return (types.data ?? []).filter(
       (t) =>
-        !needle || t.name.toLowerCase().includes(needle) || t.code.toLowerCase().includes(needle),
+        !needle || t.name.toLowerCase().includes(needle) || (t.code ?? "").toLowerCase().includes(needle),
     );
   }, [types.data, q]);
 
@@ -104,7 +104,7 @@ export function InformationTypesPage() {
                   className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
                 >
                   <td className="px-4 py-3">
-                    <CodeBadge code={t.code} />
+                    <CodeBadge code={t.code} name={t.name} />
                   </td>
                   <td className="px-4 py-3 font-medium text-ink-900">{t.name}</td>
                   <td className="px-4 py-3">

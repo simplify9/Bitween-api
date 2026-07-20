@@ -45,10 +45,11 @@ export function ApiGatewayPage() {
 
   const save = useMutation({
     mutationFn: () => api.updateApiGateway(gatewayId, { name, urlName }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
       void queryClient.invalidateQueries({ queryKey: ["api-gateways"] });
+      setLoaded(false);
     },
   });
 

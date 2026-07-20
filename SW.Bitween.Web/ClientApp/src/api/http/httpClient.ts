@@ -1,5 +1,7 @@
 import type { ApiClient } from "../client";
 import { NotWiredError } from "../types";
+import { documentMethods } from "./documents";
+import { partnerMethods } from "./partners";
 import { sessionMethods } from "./session";
 
 /**
@@ -10,6 +12,8 @@ import { sessionMethods } from "./session";
  */
 const wired: Partial<ApiClient> = {
   ...sessionMethods,
+  ...partnerMethods,
+  ...documentMethods,
 };
 
 export const httpClient: ApiClient = new Proxy(wired, {

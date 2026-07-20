@@ -81,10 +81,11 @@ export function WorkGroupPage() {
 
   const save = useMutation({
     mutationFn: () => api.updateWorkGroup(groupId, draft!),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["work-group", groupId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["work-group", groupId] });
       void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
+      setLoaded(false);
     },
   });
 

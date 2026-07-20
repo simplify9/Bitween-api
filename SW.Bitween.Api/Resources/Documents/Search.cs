@@ -27,6 +27,7 @@ namespace SW.Bitween.Resources.Documents
                         select new DocumentRow
                         {
                             Id = document.Id,
+                            Code = document.Code,
                             Name = document.Name,
                             BusMessageTypeName = document.BusMessageTypeName,
                             BusEnabled = document.BusEnabled,

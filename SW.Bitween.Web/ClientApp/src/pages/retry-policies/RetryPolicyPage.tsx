@@ -144,10 +144,11 @@ export function RetryPolicyPage() {
 
   const save = useMutation({
     mutationFn: () => api.updateRetryPolicy(policyId, { name, groups: groups ?? [] }),
-    onSuccess: () => {
-      setLoaded(false);
-      void queryClient.invalidateQueries({ queryKey: ["retry-policy", policyId] });
+    onSuccess: async () => {
+      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
+      await queryClient.invalidateQueries({ queryKey: ["retry-policy", policyId] });
       void queryClient.invalidateQueries({ queryKey: ["retry-policies"] });
+      setLoaded(false);
     },
   });
 
