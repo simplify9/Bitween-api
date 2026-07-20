@@ -51,6 +51,9 @@ namespace SW.Bitween.Resources.Subscriptions
                     ReceiveOn = subscriber.ReceiveOn,
                     PausedOn = subscriber.PausedOn,
                     IsRunning = subscriber.IsRunning,
+                    ConsecutiveFailures = subscriber.ConsecutiveFailures,
+                    LastException = subscriber.LastException,
+                    RetryPolicyId = subscriber.RetryPolicyId,
                     MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),
                     HandlerProperties = subscriber.HandlerProperties.ToKeyAndValueCollection(),
                     ReceiverProperties = subscriber.ReceiverProperties.ToKeyAndValueCollection(),
@@ -62,7 +65,6 @@ namespace SW.Bitween.Resources.Subscriptions
                     WorkGroupId =  subscriber.WorkGroupId,
                     CategoryDescription = subscriber.Category.Description,
                     CategoryCode = subscriber.Category.Code,
-                    RetryPolicyId = subscriber.RetryPolicyId,
                     CustomRetryPolicy = subscriber.CustomRetryPolicy,
 
                 };

@@ -1,5 +1,7 @@
 import type { ApiClient } from "../client";
 import { ApiRequestError, type IntegrationType, type Partner, type PartnerDetail, type PartnerRow } from "../types";
+import { gatewayMethods } from "./gateways";
+import { matchSummary } from "../../lib/match";
 import { get, post, request } from "./request";
 
 // The built-in SYSTEM partner (Partner.SystemId) can't be renamed or deleted.
@@ -99,7 +101,11 @@ export const partnerMethods = {
   },
 
   async getPartner(id: number): Promise<PartnerDetail> {
-    const d = await requireDetail(id);
+    const [d, apiGateways, busGateways] = await Promise.all([
+      requireDetail(id),
+      gatewayMethods.listApiGateways(),
+      gatewayMethods.listBusGateways(),
+    ]);
     return {
       id,
       name: d.name,
@@ -116,9 +122,15 @@ export const partnerMethods = {
         name: s.name,
         type: toIntegrationType(s.type),
       })),
-      // Populated once their domains are wired (gateways = Batch 3, exchanges = Batch 4).
-      apiGateways: [],
-      busGatewayRoutes: [],
+      apiGateways: apiGateways
+        .filter((g) => g.attachments.some((a) => a.partnerId === id))
+        .map((g) => ({ gatewayId: g.id, gatewayName: g.name, urlName: g.urlName })),
+      busGatewayRoutes: busGateways.flatMap((g) =>
+        g.routes
+          .filter((r) => r.partnerId === id)
+          .map((r) => ({ gatewayId: g.id, gatewayName: g.name, matchExpression: matchSummary(r.matchExpression) })),
+      ),
+      // Populated once exchanges are wired (Batch 4).
       recentExchanges: [],
     };
   },

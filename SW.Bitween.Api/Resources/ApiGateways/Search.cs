@@ -38,10 +38,35 @@ namespace SW.Bitween.Resources.ApiGateways
             // Apply ordering by Id descending
             query = query.OrderByDescending(g => g.Id);
 
+            var totalCount = await query.Search(searchyRequest.Conditions).CountAsync();
+            var result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync();
+
+            // The list screen needs full attachment detail up front (not just a
+            // count), so hydrate it with one grouped query instead of Get.cs's
+            // per-row Include (gateways are few, so this stays a single round trip).
+            var ids = result.Select(r => r.Id).ToList();
+            var partnersByGateway = (await _dbContext.Set<ApiGatewayPartner>()
+                .AsNoTracking()
+                .Where(p => ids.Contains(p.ApiGatewayId))
+                .Include(p => p.Partner)
+                .Include(p => p.Subscription)
+                .ToListAsync())
+                .ToLookup(p => p.ApiGatewayId);
+            foreach (var row in result)
+            {
+                row.Partners = partnersByGateway[row.Id].Select(p => new ApiGatewayPartnerDto
+                {
+                    PartnerId = p.PartnerId,
+                    SubscriptionId = p.SubscriptionId,
+                    PartnerName = p.Partner.Name,
+                    SubscriptionName = p.Subscription.Name
+                }).ToList();
+            }
+
             return new SearchyResponse<ApiGatewayRow>
             {
-                TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
-                Result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()
+                TotalCount = totalCount,
+                Result = result
             };
         }
     }
