@@ -136,7 +136,7 @@ export function IntegrationNewPage() {
           <h2 className="text-[15px] font-semibold text-ink-900">Carries</h2>
           {fixedInfoTypeId !== null ? (
             <p className="mt-2 flex items-center gap-2 text-sm text-ink-600">
-              {fixedInfoType ? <CodeBadge code={fixedInfoType.code} /> : "…"} — fixed by the bus
+              {fixedInfoType ? <CodeBadge code={fixedInfoType.code} name={fixedInfoType.name} /> : "…"} — fixed by the bus
               gateway this integration will route from.
             </p>
           ) : (

@@ -58,13 +58,23 @@ export function EditableTitle({
   );
 }
 
-/** UPPER_SNAKE identity chip, e.g. PURCHASE_ORDER. */
-export function CodeBadge({ code, className = "" }: { code: string; className?: string }) {
+/** UPPER_SNAKE identity chip, e.g. PURCHASE_ORDER. Code is optional — falls back to `name` when unset. */
+export function CodeBadge({
+  code,
+  name,
+  className = "",
+}: {
+  code?: string;
+  name?: string;
+  className?: string;
+}) {
+  const text = code || name;
+  if (!text) return null;
   return (
     <code
       className={`inline-block rounded-md bg-ink-800 px-1.5 py-0.5 font-mono text-[11px] font-medium text-ink-100 ${className}`}
     >
-      {code}
+      {text}
     </code>
   );
 }

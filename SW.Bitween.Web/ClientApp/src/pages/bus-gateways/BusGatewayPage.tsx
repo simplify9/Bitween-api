@@ -76,7 +76,7 @@ export function BusGatewayPage() {
           <p className="mt-1 text-sm text-ink-500">
             Listens for{" "}
             <Link to={`/information-types/${g.informationTypeId}`} className="hover:underline">
-              <CodeBadge code={g.informationTypeCode} className="align-middle" />
+              <CodeBadge code={g.informationTypeCode} name={g.informationTypeName} className="align-middle" />
             </Link>{" "}
             on the message bus · created {formatDate(g.createdOn)}.
           </p>

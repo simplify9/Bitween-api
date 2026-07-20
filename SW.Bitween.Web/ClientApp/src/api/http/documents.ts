@@ -24,7 +24,7 @@ interface RawDocument {
 
 const toInformationType = (d: RawDocument): InformationType => ({
   id: d.id,
-  code: d.code ?? "",
+  code: d.code ?? undefined,
   name: d.name,
   format: d.documentFormat,
   busEnabled: d.busEnabled,
@@ -59,13 +59,13 @@ export const documentMethods = {
 
   async createInformationType(input: {
     name: string;
-    code: string;
+    code?: string;
     format: InformationTypeFormat;
     busEnabled?: boolean;
     busMessageTypeName?: string;
   }): Promise<InformationType> {
     const id = await post<number>("/documents", {
-      code: input.code,
+      code: input.code?.trim() || undefined,
       name: input.name,
       documentFormat: input.format,
       busEnabled: input.busEnabled ?? false,
@@ -80,7 +80,7 @@ export const documentMethods = {
   ): Promise<InformationType> {
     await post(`/documents/${id}`, {
       id,
-      code: changes.code,
+      code: changes.code?.trim() || undefined,
       name: changes.name,
       documentFormat: changes.format,
       busEnabled: changes.busEnabled,

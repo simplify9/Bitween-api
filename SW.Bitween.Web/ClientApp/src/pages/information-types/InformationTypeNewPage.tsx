@@ -40,11 +40,6 @@ export function InformationTypeNewPage() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    // The code field can be emptied and then collapsed away — surface it again.
-    if (!code.trim()) {
-      setDetailsOpen(true);
-      return;
-    }
     create.mutate();
   };
 
@@ -98,7 +93,7 @@ export function InformationTypeNewPage() {
                   {code}
                 </code>
               ) : (
-                <span className="italic">suggested from the name</span>
+                <span className="italic">optional, none set</span>
               )}{" "}
               · stored as {format === "Json" ? "JSON" : "XML"}
             </span>
@@ -109,11 +104,10 @@ export function InformationTypeNewPage() {
               <Field
                 label="Code"
                 htmlFor="nit-code"
-                hint="Short identity shown across the system. Uppercase letters, digits and underscores."
+                hint="Optional short identity shown across the system. Uppercase letters, digits and underscores."
               >
                 <TextInput
                   id="nit-code"
-                  required
                   value={code}
                   onChange={(e) => {
                     setCodeTouched(true);

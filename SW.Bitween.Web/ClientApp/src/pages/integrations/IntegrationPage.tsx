@@ -207,7 +207,7 @@ export function IntegrationPage() {
           <p className="mt-1 text-sm text-ink-500">
             Carries{" "}
             <Link to={`/information-types/${s.informationTypeId}`} className="hover:underline">
-              <CodeBadge code={s.informationTypeCode} className="align-middle" />
+              <CodeBadge code={s.informationTypeCode} name={s.informationTypeName} className="align-middle" />
             </Link>{" "}
             · created {formatDate(s.createdOn)}.
           </p>

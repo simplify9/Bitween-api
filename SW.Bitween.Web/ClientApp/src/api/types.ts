@@ -183,8 +183,8 @@ export type InformationTypeFormat = "Json" | "Xml";
 
 export interface InformationType {
   id: number;
-  /** Short unique identity shown across the system, e.g. PURCHASE_ORDER. */
-  code: string;
+  /** Short unique identity shown across the system, e.g. PURCHASE_ORDER. Optional. */
+  code?: string;
   name: string;
   format: InformationTypeFormat;
   busEnabled: boolean;
