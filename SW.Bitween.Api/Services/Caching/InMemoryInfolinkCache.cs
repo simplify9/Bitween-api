@@ -124,11 +124,23 @@ public class InMemoryBitweenCache : IInfolinkCache
             string.Equals(d.Name, documentName, StringComparison.CurrentCultureIgnoreCase));
     }
 
-    public Task BroadcastRevoke()
+    public async Task BroadcastRevoke()
     {
-        using var scope = _ssf.CreateScope();
-        var broadcast = scope.ServiceProvider.GetRequiredService<IBroadcast>();
-        return broadcast.Broadcast(new RevokeCacheMessage());
+        // This is a best-effort cache-refresh signal, not part of the write
+        // itself — a dozen command handlers across Subscriptions/WorkGroups/
+        // BusGateways/Documents call this right after SaveChangesAsync, and an
+        // unhandled failure here (e.g. the RabbitMQ connection being down)
+        // must not turn an already-successful write into a 500 response.
+        try
+        {
+            using var scope = _ssf.CreateScope();
+            var broadcast = scope.ServiceProvider.GetRequiredService<IBroadcast>();
+            await broadcast.Broadcast(new RevokeCacheMessage());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast cache revoke; cached reads may stay stale until they expire.");
+        }
     }
 
     public async Task<WorkGroup[]> ListWorkGroupsAsync()

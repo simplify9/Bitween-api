@@ -62,6 +62,8 @@ namespace SW.Bitween.Resources.Subscriptions
                     CategoryCode = subscriber.Category?.Code,
                     CategoryId = subscriber.CategoryId,
                     WorkGroupId = subscriber.WorkGroupId,
+                    RetryPolicyId = subscriber.RetryPolicyId,
+                    CustomRetryPolicy = subscriber.CustomRetryPolicy,
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,

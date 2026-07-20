@@ -279,7 +279,7 @@ export function IntegrationsPage() {
           key: `in-${r.id}`,
           kind: "scheduled-jobs",
           name: r.name,
-          details: `${r.scheduleSummary} · pulls in ${r.informationTypeCode}`,
+          details: [r.scheduleSummary, `pulls in ${r.informationTypeCode}`].filter(Boolean).join(" · "),
           status: (
             <span className="inline-flex items-center gap-1">
               <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
