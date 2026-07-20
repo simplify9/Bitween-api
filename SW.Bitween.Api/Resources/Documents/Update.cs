@@ -43,16 +43,21 @@ namespace SW.Bitween.Resources.Documents
             if (nameDuplicated)
                 throw new SWValidationException("NAME_TAKEN", "An information type with this name already exists.");
 
-            if (!Regex.IsMatch(model.Code ?? "", "^[A-Z][A-Z0-9_]{1,49}$"))
+            var code = string.IsNullOrWhiteSpace(model.Code) ? null : model.Code;
+
+            if (code != null && !Regex.IsMatch(code, "^[A-Z][A-Z0-9_]{1,49}$"))
                 throw new SWValidationException("INVALID_CODE",
                     "Codes are upper-case letters, digits and underscores (2-50 chars).");
 
-            var codeDuplicated = await _dbContext.Set<Document>()
-                .AsNoTracking()
-                .Where(i => i.Id != key)
-                .AnyAsync(i => i.Code == model.Code);
-            if (codeDuplicated)
-                throw new SWValidationException("CODE_TAKEN", "This code is already in use.");
+            if (code != null)
+            {
+                var codeDuplicated = await _dbContext.Set<Document>()
+                    .AsNoTracking()
+                    .Where(i => i.Id != key)
+                    .AnyAsync(i => i.Code == code);
+                if (codeDuplicated)
+                    throw new SWValidationException("CODE_TAKEN", "This code is already in use.");
+            }
 
             var busTypeNameDuplicated = await _dbContext.Set<Document>()
                 .AsNoTracking()
@@ -109,7 +114,7 @@ namespace SW.Bitween.Resources.Documents
             // Name/Code have private setters — SetProperties only writes public-setter
             // properties, so it silently no-ops on these two (verified empirically).
             entity.SetName(model.Name);
-            entity.SetCode(model.Code);
+            entity.SetCode(code);
             _dbContext.Entry(entity).SetProperties(model);
 
             trail.SetAfter(entity);

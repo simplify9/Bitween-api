@@ -37,14 +37,9 @@ namespace SW.Bitween.PgSql.Migrations
                 column: "code",
                 value: null);
 
-            // Existing rows predate the code column; give them a derived value so the
-            // (nullable, unique) index has no surprises and the local UI has something
-            // sensible to show instead of a permanently blank code.
-            migrationBuilder.Sql(@"
-                UPDATE infolink.document
-                SET code = upper(regexp_replace(trim(name), '[^a-zA-Z0-9]+', '_', 'g'))
-                WHERE code IS NULL AND id <> 10001;");
-
+            // Code is optional — existing rows stay code = NULL rather than being
+            // backfilled from name, which risked duplicate-derived codes colliding
+            // against the unique index on environments with less controlled data.
             migrationBuilder.CreateIndex(
                 name: "ix_document_code",
                 schema: "infolink",

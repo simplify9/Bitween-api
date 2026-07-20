@@ -28,7 +28,9 @@ namespace SW.Bitween.Resources.Documents
         {
             _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
-            if (await _dbContext.Set<Document>().AsNoTracking().AnyAsync(d => d.Code == model.Code))
+            var code = string.IsNullOrWhiteSpace(model.Code) ? null : model.Code;
+
+            if (code != null && await _dbContext.Set<Document>().AsNoTracking().AnyAsync(d => d.Code == code))
                 throw new SWValidationException("CODE_TAKEN", "This code is already in use.");
 
             if (model.BusEnabled && !string.IsNullOrEmpty(model.BusMessageTypeName))
@@ -41,7 +43,7 @@ namespace SW.Bitween.Resources.Documents
                         "Cant use duplicated bus Message type name");
             }
 
-            var entity = new Document(model.Code, model.Name, model.DocumentFormat)
+            var entity = new Document(code, model.Name, model.DocumentFormat)
             {
                 BusEnabled = model.BusEnabled,
                 BusMessageTypeName = model.BusEnabled ? model.BusMessageTypeName : null,
@@ -57,8 +59,9 @@ namespace SW.Bitween.Resources.Documents
         {
             public Validate()
             {
-                RuleFor(i => i.Code).NotEmpty()
+                RuleFor(i => i.Code)
                     .Matches("^[A-Z][A-Z0-9_]{1,49}$")
+                    .When(i => !string.IsNullOrEmpty(i.Code))
                     .WithMessage("Codes are upper-case letters, digits and underscores (2-50 chars).");
                 RuleFor(i => i.Name).NotEmpty();
             }
