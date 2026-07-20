@@ -524,7 +524,10 @@ export const configClient = {
     await delay();
     const db = loadDb();
     return db.retryPolicies.map((p) => ({
-      ...structuredClone(p),
+      id: p.id,
+      name: p.name,
+      groupCount: p.groups.length,
+      createdOn: p.createdOn,
       usedByCount: db.integrations.filter((s) => s.retryPolicyId === p.id).length,
     }));
   },
