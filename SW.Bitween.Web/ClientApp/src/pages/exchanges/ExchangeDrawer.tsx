@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Copy, FileText, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
 import { useSessionCan } from "../../auth/guards";
@@ -46,19 +46,37 @@ function MetaItem({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+const STAGE_ORDER: ExchangeDocStage[] = ["Input", "Mapped", "Handled"];
+
 /**
  * The expanded exchange row: the pipeline journey with per-stage documents,
  * the failure (when there is one), full metadata and the retry actions.
  */
 export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   const stages = journeyStages(x);
-  const docs = x.documents ?? [];
   const canOperate = useSessionCan("exchanges.operate");
   const queryClient = useQueryClient();
 
+  const files: Record<ExchangeDocStage, ExchangeRow["files"]["input"]> = {
+    Input: x.files.input,
+    Mapped: x.files.mapped,
+    Handled: x.files.handled,
+  };
+
   // Default to the furthest stage that produced a document.
-  const [stage, setStage] = useState<ExchangeDocStage>(docs[docs.length - 1]?.stage ?? "Input");
-  const activeDoc = docs.find((d) => d.stage === stage);
+  const [stage, setStage] = useState<ExchangeDocStage>(
+    [...STAGE_ORDER].reverse().find((s) => files[s]?.key) ?? "Input",
+  );
+  const activeKey = files[stage]?.key ?? null;
+  const {
+    data: activeContent,
+    isLoading: activeLoading,
+    isError: activeErrored,
+  } = useQuery({
+    queryKey: ["exchange-document", activeKey],
+    queryFn: () => api.getExchangeDocument(activeKey!),
+    enabled: activeKey !== null,
+  });
 
   const [confirming, setConfirming] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -89,12 +107,6 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
     },
   });
 
-  const files: Record<ExchangeDocStage, ExchangeRow["files"]["input"]> = {
-    Input: x.files.input,
-    Mapped: x.files.mapped,
-    Handled: x.files.handled,
-  };
-
   return (
     <div className="space-y-4 border-l-2 border-ink-100 py-1 pl-4">
       {/* — journey — */}
@@ -102,17 +114,16 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         {stages.map((s, i) => {
           const tone = STAGE_TONES[s.state];
           const file = files[s.key];
-          const doc = docs.find((d) => d.stage === s.key);
-          const active = doc && s.key === stage;
+          const active = !!file?.key && s.key === stage;
           return (
             <div key={s.key} className="flex items-stretch gap-1.5">
               {i > 0 && <ArrowRight className="size-3.5 self-center text-ink-300" aria-hidden />}
               <button
-                disabled={!doc}
-                onClick={() => doc && setStage(s.key)}
-                title={doc ? `Show the ${s.key} document` : (s.note ?? "No document")}
+                disabled={!file?.key}
+                onClick={() => file?.key && setStage(s.key)}
+                title={file?.key ? `Show the ${s.key} document` : (s.note ?? "No document")}
                 className={`w-44 rounded-xl border bg-white px-3 py-2 text-left transition-colors ${tone.ring} ${
-                  doc ? "cursor-pointer hover:bg-ink-50" : "cursor-default opacity-80"
+                  file?.key ? "cursor-pointer hover:bg-ink-50" : "cursor-default opacity-80"
                 } ${active ? "ring-2 ring-crimson-100" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -137,9 +148,9 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       </div>
 
       {/* — active stage document — */}
-      {activeDoc && (
+      {activeKey && (
         <pre className="max-h-56 overflow-auto rounded-lg bg-ink-950 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-ink-100">
-          {activeDoc.content}
+          {activeLoading ? "Loading…" : activeErrored ? "Failed to load this document." : activeContent}
         </pre>
       )}
 

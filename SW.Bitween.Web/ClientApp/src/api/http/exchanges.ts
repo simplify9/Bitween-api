@@ -29,6 +29,9 @@ interface RawXchangeRow {
   inputFileName: string | null;
   outputFileName: string | null;
   responseFileName: string | null;
+  inputKey: string | null;
+  outputKey: string | null;
+  responseKey: string | null;
   promotedProperties: Record<string, string> | null;
   retryFor: string | null;
   aggregationXchangeId: string | null;
@@ -84,17 +87,14 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
   mapperSkipped: raw.mapperId === null,
   // Search's projection never populates file sizes/hashes (always 0 at the
   // source) — show the name, which is real, with a size of 0 rather than
-  // fabricating one.
+  // fabricating one. Existence is keyed off `*Key` (backend only emits one once
+  // the file actually has bytes), not the file name, since gateway/manually
+  // created exchanges have no name yet content still exists.
   files: {
-    input: raw.inputFileName ? { name: raw.inputFileName, size: 0 } : null,
-    mapped: raw.outputFileName ? { name: raw.outputFileName, size: 0 } : null,
-    handled: raw.responseFileName ? { name: raw.responseFileName, size: 0 } : null,
+    input: raw.inputKey ? { name: raw.inputFileName ?? "input", size: 0, key: raw.inputKey } : null,
+    mapped: raw.outputKey ? { name: raw.outputFileName ?? "mapped", size: 0, key: raw.outputKey } : null,
+    handled: raw.responseKey ? { name: raw.responseFileName ?? "handled", size: 0, key: raw.responseKey } : null,
   },
-  // No backend endpoint serves stage document content (the storage URLs the
-  // search row exposes 403 for anonymous fetches — see BACKEND_CAPABILITIES_NEEDED.md),
-  // so the drawer's content preview can't be populated; it degrades to
-  // showing just the file name/badge per stage.
-  documents: undefined,
 });
 
 const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
@@ -154,6 +154,11 @@ async function partnerNameMap(): Promise<Map<number, string>> {
 }
 
 export const exchangeMethods = {
+  async getExchangeDocument(key: string): Promise<string> {
+    const res = await get<{ data: string; key: string }>(`/bitweendocs?documentKey=${encodeURIComponent(key)}`);
+    return res.data;
+  },
+
   async searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>> {
     const [res, partnerNameById] = await Promise.all([
       get<SearchyResponse<RawXchangeRow>>(`/xchanges?${buildExchangeQuery(query)}`),

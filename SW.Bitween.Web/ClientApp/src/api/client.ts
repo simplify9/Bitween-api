@@ -266,6 +266,8 @@ export interface ApiClient {
 
   // — exchanges —
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;
+  /** Fetches a stage document's raw text content by its storage key (`ExchangeFileRef.key`). */
+  getExchangeDocument(key: string): Promise<string>;
   /**
    * Re-runs an exchange from its input file. `reset` re-resolves adapter
    * properties from the integration's current configuration instead of the

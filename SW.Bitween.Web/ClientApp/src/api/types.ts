@@ -569,6 +569,8 @@ export interface ExchangeFileRef {
   name: string;
   /** Bytes. */
   size: number;
+  /** Storage key to fetch this stage's content through `getExchangeDocument`; null if no file exists. */
+  key: string | null;
 }
 
 /** One exchange as the Exchanges page sees it — names pre-resolved for display. */
@@ -600,8 +602,6 @@ export interface ExchangeRow {
     mapped: ExchangeFileRef | null;
     handled: ExchangeFileRef | null;
   };
-  /** Stage content previews for the drill-down drawer. */
-  documents?: ExchangeDocument[];
 }
 
 export interface ExchangeQuery {
