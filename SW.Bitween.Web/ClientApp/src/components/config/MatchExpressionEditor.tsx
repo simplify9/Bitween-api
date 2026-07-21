@@ -14,7 +14,7 @@ function ConditionRow({
   onRemove,
 }: {
   condition: MatchCondition;
-  properties: string[];
+  properties: { key: string; path: string }[];
   disabled: boolean;
   onChange: (c: MatchCondition) => void;
   onRemove: () => void;
@@ -26,7 +26,7 @@ function ConditionRow({
         value={condition.path}
         disabled={disabled}
         onChange={(e) => onChange({ ...condition, path: e.target.value })}
-        options={properties.map((p) => ({ value: p, label: p }))}
+        options={properties.map((p) => ({ value: p.path, label: p.key }))}
         className="!w-40"
       />
       <Select
@@ -72,7 +72,7 @@ function GroupCard({
   onRemove,
 }: {
   group: MatchGroup;
-  properties: string[];
+  properties: { key: string; path: string }[];
   disabled: boolean;
   depth: number;
   onChange: (g: MatchGroup) => void;
@@ -140,7 +140,7 @@ function GroupCard({
           <Button
             size="sm"
             disabled={properties.length === 0}
-            onClick={() => onChange({ ...group, children: [...group.children, emptyCondition(properties[0])] })}
+            onClick={() => onChange({ ...group, children: [...group.children, emptyCondition(properties[0].path)] })}
           >
             <Plus className="size-3.5" /> Condition
           </Button>
@@ -171,8 +171,8 @@ export function MatchExpressionEditor({
 }: {
   value: MatchGroup | null;
   onChange: (value: MatchGroup | null) => void;
-  /** Promoted property names of the information type being filtered. */
-  properties: string[];
+  /** Promoted properties of the information type being filtered (friendly name + JSON path). */
+  properties: { key: string; path: string }[];
   disabled: boolean;
 }) {
   if (value === null) {
@@ -185,7 +185,9 @@ export function MatchExpressionEditor({
           <Button
             size="sm"
             disabled={properties.length === 0}
-            onClick={() => onChange({ op: "and", children: properties.length ? [emptyCondition(properties[0])] : [] })}
+            onClick={() =>
+              onChange({ op: "and", children: properties.length ? [emptyCondition(properties[0].path)] : [] })
+            }
           >
             <Plus className="size-3.5" /> Add a filter
           </Button>

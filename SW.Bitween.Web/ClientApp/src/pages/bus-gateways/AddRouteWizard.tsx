@@ -121,7 +121,7 @@ export function AddRouteWizard() {
           <MatchExpressionEditor
             value={draft.matchExpression}
             onChange={(matchExpression) => update({ matchExpression })}
-            properties={(infoType.data?.promotedProperties ?? []).map((p) => p.key)}
+            properties={infoType.data?.promotedProperties ?? []}
             disabled={false}
           />
           <StepNav onNext={() => update({ stage: "partner" })} />

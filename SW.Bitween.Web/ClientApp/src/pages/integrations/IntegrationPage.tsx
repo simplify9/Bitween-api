@@ -284,7 +284,7 @@ export function IntegrationPage() {
               <MatchExpressionEditor
                 value={draft.matchExpression}
                 onChange={(matchExpression) => set("matchExpression", matchExpression)}
-                properties={(infoType.data?.promotedProperties ?? []).map((p) => p.key)}
+                properties={infoType.data?.promotedProperties ?? []}
                 disabled={!canEdit}
               />
             </Panel>

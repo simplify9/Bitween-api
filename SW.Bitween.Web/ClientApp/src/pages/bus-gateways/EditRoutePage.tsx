@@ -124,7 +124,7 @@ export function EditRoutePage() {
           <MatchExpressionEditor
             value={draft.matchExpression}
             onChange={(matchExpression) => update({ matchExpression })}
-            properties={(infoType.data?.promotedProperties ?? []).map((p) => p.key)}
+            properties={infoType.data?.promotedProperties ?? []}
             disabled={false}
           />
         </div>
