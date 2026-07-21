@@ -43,7 +43,10 @@ export const adapterMethods = {
         label: r.key,
         native: r.key.toLowerCase().startsWith("native"),
         versions: r.versions ?? [],
-        props: await fetchProps(r.key),
+        // Legacy (non-native) adapters can fail to report startup values (e.g. their
+        // serverless runtime isn't available locally) — don't let that blank out the
+        // whole catalog, including the native adapters that did resolve fine.
+        props: await fetchProps(r.key).catch(() => []),
       })),
     );
   },
