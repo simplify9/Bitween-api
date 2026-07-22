@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CalendarClock, Pencil, Plus, Trash2 } from "lucide-react";
 import type { Recurrence, Schedule } from "../../api";
-import { WEEKDAYS, scheduleSummary } from "../../lib/schedules";
+import { WEEKDAYS, localTimePreview, scheduleSummary } from "../../lib/schedules";
 import { Button } from "../ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../ui/forms";
 import { Dialog } from "../ui/overlays";
@@ -75,7 +75,7 @@ function ScheduleDialog({
             </Field>
           )}
           {draft.recurrence !== "Hourly" && (
-            <Field label="At hour" htmlFor="sc-h">
+            <Field label="At hour (UTC)" htmlFor="sc-h">
               <TextInput
                 id="sc-h"
                 type="number"
@@ -86,7 +86,7 @@ function ScheduleDialog({
               />
             </Field>
           )}
-          <Field label="At minute" htmlFor="sc-m">
+          <Field label="At minute (UTC)" htmlFor="sc-m">
             <TextInput
               id="sc-m"
               type="number"
@@ -105,7 +105,10 @@ function ScheduleDialog({
           onChange={(e) => set("backwards", e.target.checked)}
         />
 
-        <p className="rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-600">{scheduleSummary(draft)}</p>
+        <div className="rounded-lg bg-ink-50 px-3 py-2 text-[13px]">
+          <p className="text-ink-600">{scheduleSummary(draft)}</p>
+          <p className="text-ink-400">→ {localTimePreview(draft)} in your timezone</p>
+        </div>
 
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancel</Button>
