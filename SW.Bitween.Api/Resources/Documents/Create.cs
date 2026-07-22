@@ -64,6 +64,10 @@ namespace SW.Bitween.Resources.Documents
                     .When(i => !string.IsNullOrEmpty(i.Code))
                     .WithMessage("Codes are upper-case letters, digits and underscores (2-50 chars).");
                 RuleFor(i => i.Name).NotEmpty();
+                RuleFor(i => i.BusMessageTypeName)
+                    .Matches("^\\S+$")
+                    .When(i => !string.IsNullOrEmpty(i.BusMessageTypeName))
+                    .WithMessage("Bus message type name cannot contain spaces.");
             }
         }
     }

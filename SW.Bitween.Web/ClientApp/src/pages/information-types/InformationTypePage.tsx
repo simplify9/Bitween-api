@@ -185,12 +185,16 @@ export function InformationTypePage() {
                   />
                   {draft.busEnabled && (
                     <div className="max-w-sm pl-6">
-                      <Field label="Bus message type name" htmlFor="it-bus" hint="Must be unique across information types.">
+                      <Field
+                        label="Bus message type name"
+                        htmlFor="it-bus"
+                        hint="Must be unique across information types. No spaces."
+                      >
                         <TextInput
                           id="it-bus"
                           value={draft.busMessageTypeName ?? ""}
                           disabled={!canEdit}
-                          onChange={(e) => set("busMessageTypeName", e.target.value)}
+                          onChange={(e) => set("busMessageTypeName", e.target.value.replace(/\s+/g, ""))}
                           className="font-mono"
                           placeholder="purchase-order"
                         />

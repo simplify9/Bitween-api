@@ -140,12 +140,16 @@ export function InformationTypeNewPage() {
           />
           {busEnabled && (
             <div className="max-w-sm pl-6">
-              <Field label="Bus message type name" htmlFor="nit-bus" hint="Must be unique across information types.">
+              <Field
+                label="Bus message type name"
+                htmlFor="nit-bus"
+                hint="Must be unique across information types. No spaces."
+              >
                 <TextInput
                   id="nit-bus"
                   required
                   value={busMessageTypeName}
-                  onChange={(e) => setBusMessageTypeName(e.target.value)}
+                  onChange={(e) => setBusMessageTypeName(e.target.value.replace(/\s+/g, ""))}
                   className="font-mono"
                   placeholder="purchase-order"
                 />
