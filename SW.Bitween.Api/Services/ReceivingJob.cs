@@ -34,7 +34,8 @@ public class ReceivingJob(
 
         try
         {
-            var startupParameters = rec.ReceiverProperties.ToDictionary();
+            var globals = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
+            var startupParameters = rec.ReceiverProperties.ToDictionary().Fill(null, globals);
             await RunReceiver(rec.ReceiverId, startupParameters, rec.Id);
             rec.SetSchedules();
             rec.SetHealth();

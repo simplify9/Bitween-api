@@ -372,3 +372,8 @@ SW.Bitween.Web/wwwroot/assets/
 SW.Bitween.Web/wwwroot/brand/
 SW.Bitween.Web/wwwroot/favicon.svg
 SW.Bitween.Web/wwwroot/icons.svg
+
+# Playwright MCP tool output and test-run artifacts (created at repo root when
+# run from here, separate from ClientApp's own .gitignore'd copies)
+/.playwright-mcp/
+/test-results/

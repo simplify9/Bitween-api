@@ -59,6 +59,10 @@ namespace SW.Bitween.Resources.Documents
                     throw new SWValidationException("CODE_TAKEN", "This code is already in use.");
             }
 
+            if (!string.IsNullOrEmpty(model.BusMessageTypeName) && Regex.IsMatch(model.BusMessageTypeName, @"\s"))
+                throw new SWValidationException("INVALID_BUS_TYPE_NAME",
+                    "Bus message type name cannot contain spaces.");
+
             var busTypeNameDuplicated = await _dbContext.Set<Document>()
                 .AsNoTracking()
                 .Where(i => i.Id != key)

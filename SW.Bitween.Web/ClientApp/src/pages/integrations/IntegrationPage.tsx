@@ -22,7 +22,7 @@ import {
 } from "../../components/config/shared";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { takePicked, useHereAsReturnTarget, withReturn } from "../../lib/returnTo";
-import { formatDate, timeAgo } from "../../lib/dates";
+import { formatDate, timeUntil } from "../../lib/dates";
 
 type Draft = Pick<
   Integration,
@@ -284,7 +284,7 @@ export function IntegrationPage() {
               <MatchExpressionEditor
                 value={draft.matchExpression}
                 onChange={(matchExpression) => set("matchExpression", matchExpression)}
-                properties={(infoType.data?.promotedProperties ?? []).map((p) => p.key)}
+                properties={infoType.data?.promotedProperties ?? []}
                 disabled={!canEdit}
               />
             </Panel>
@@ -400,8 +400,8 @@ export function IntegrationPage() {
               </div>
               {isReceiver && (
                 <div className="flex items-center justify-between">
-                  <span className="text-ink-500">Last received</span>
-                  <span className="text-ink-800">{s.lastReceiveOn ? timeAgo(s.lastReceiveOn) : "never"}</span>
+                  <span className="text-ink-500">Next run</span>
+                  <span className="text-ink-800">{s.nextReceiveOn ? timeUntil(s.nextReceiveOn) : "—"}</span>
                 </div>
               )}
               {paused && (

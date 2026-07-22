@@ -63,7 +63,7 @@ public class GatewayController(
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
-        var xchangeFile = new XchangeFile(json);
+        var xchangeFile = new XchangeFile(json, $"{gatewayApiName}.json");
 
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);

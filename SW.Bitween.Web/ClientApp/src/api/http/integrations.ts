@@ -10,6 +10,7 @@ import {
 } from "../types";
 import { schedulesSummary } from "../../lib/schedules";
 import { documentMethods } from "./documents";
+import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { partnerMethods } from "./partners";
 import { get, post, request } from "./request";
@@ -136,7 +137,7 @@ function toIntegration(raw: RawSubscription, idOverride?: number): Integration {
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
     aggregationForId: raw.aggregationForId ?? null,
     isRunning: raw.isRunning ?? false,
-    lastReceiveOn: raw.receiveOn ?? null,
+    nextReceiveOn: raw.receiveOn ?? null,
     consecutiveFailures: raw.consecutiveFailures ?? 0,
     lastException: raw.lastException ?? null,
     // Subscription has no CreatedOn column on the backend.
@@ -280,17 +281,18 @@ export const integrationMethods = {
           schedules.length > 0 && (type === "Receiving" || type === "Aggregation")
             ? schedulesSummary(schedules)
             : undefined,
-        lastReceiveOn: raw.receiveOn ?? null,
+        nextReceiveOn: raw.receiveOn ?? null,
         createdOn: "",
       };
     });
   },
 
   async getIntegration(id: number): Promise<IntegrationDetail> {
-    const [raw, apiGateways, busGateways] = await Promise.all([
+    const [raw, apiGateways, busGateways, recentExchanges] = await Promise.all([
       fetchRaw(id),
       gatewayMethods.listApiGateways(),
       gatewayMethods.listBusGateways(),
+      exchangeMethods.searchExchanges({ integrationId: id, offset: 0, limit: 8 }),
     ]);
     const infoType = await documentMethods.getInformationType(raw.documentId).catch(() => null);
     return {
@@ -313,9 +315,16 @@ export const integrationMethods = {
           .filter((r) => r.integrationId === id)
           .map((r) => ({ gatewayId: g.id, gatewayName: g.name, partnerId: r.partnerId, partnerName: r.partnerName })),
       ),
-      // Populated once notifiers and exchanges/trail are wired.
+      recentExchanges: recentExchanges.result.map((x) => ({
+        id: x.id,
+        partnerName: x.partnerName ?? undefined,
+        informationTypeCode: x.informationTypeCode,
+        status: x.status,
+        on: x.startedOn,
+      })),
+      // Populated once notifiers and the trail (a distinct audit-log endpoint,
+      // deferred alongside the mapper editor/aggregation) are wired.
       watchingNotifiers: [],
-      recentExchanges: [],
       trail: [],
     };
   },

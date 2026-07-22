@@ -49,7 +49,7 @@ namespace SW.Bitween.Resources.Xchanges
                 else
                 {
                     
-                    await _xchangeService.CreateXchange(xchange, xchangeFile, subscription.WorkGroup);
+                    await _xchangeService.CreateXchange(xchange, xchangeFile, subscription?.WorkGroup);
                 }
             }
 

@@ -1,5 +1,6 @@
 import type { ApiClient } from "../client";
 import { ApiRequestError, type IntegrationType, type Partner, type PartnerDetail, type PartnerRow } from "../types";
+import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { matchSummary } from "../../lib/match";
 import { get, post, request } from "./request";
@@ -101,10 +102,11 @@ export const partnerMethods = {
   },
 
   async getPartner(id: number): Promise<PartnerDetail> {
-    const [d, apiGateways, busGateways] = await Promise.all([
+    const [d, apiGateways, busGateways, recentExchanges] = await Promise.all([
       requireDetail(id),
       gatewayMethods.listApiGateways(),
       gatewayMethods.listBusGateways(),
+      exchangeMethods.searchExchanges({ partnerId: id, offset: 0, limit: 8 }),
     ]);
     return {
       id,
@@ -130,8 +132,12 @@ export const partnerMethods = {
           .filter((r) => r.partnerId === id)
           .map((r) => ({ gatewayId: g.id, gatewayName: g.name, matchExpression: matchSummary(r.matchExpression) })),
       ),
-      // Populated once exchanges are wired (Batch 4).
-      recentExchanges: [],
+      recentExchanges: recentExchanges.result.map((x) => ({
+        id: x.id,
+        informationTypeCode: x.informationTypeCode,
+        status: x.status,
+        on: x.startedOn,
+      })),
     };
   },
 
