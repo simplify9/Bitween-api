@@ -95,7 +95,10 @@ public class XchangeService :
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
         string[] references = null, Dictionary<string, int> groupAttemptCounts = null)
     {
-        var newXchange = new Xchange(subscription, xchange, file, groupAttemptCounts);
+        var partnerId = xchange.PartnerId ?? subscription.PartnerId;
+        var partner = partnerId.HasValue ? await _dbContext.FindAsync<Partner>(partnerId.Value) : null;
+        var globalAdapterValuesSets = await _BitweenCache.ListGlobalAdapterValuesSetsAsync();
+        var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets, groupAttemptCounts);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
@@ -114,6 +117,11 @@ public class XchangeService :
         string[] references = null, string correlationId = null, Partner gatewayPartner = null,
         GlobalAdapterValuesSet[] globalAdapterValuesSets = null)
     {
+        // Callers that have no partner/globals context of their own (scheduled receivers,
+        // aggregation, manual "create exchange", plain internal subscription fan-out) leave
+        // this null — resolve it here so {{globals.…}} always gets a chance to translate,
+        // instead of silently no-op'ing for whichever caller forgot to load it.
+        globalAdapterValuesSets ??= await _BitweenCache.ListGlobalAdapterValuesSetsAsync();
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
             globalAdapterValuesSets);
         await AddFile(xchange.Id, XchangeFileType.Input, file);

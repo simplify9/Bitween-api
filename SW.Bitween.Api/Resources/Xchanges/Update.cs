@@ -85,7 +85,9 @@ namespace SW.Bitween.Resources.Xchanges
 
             var xchangeFile = new XchangeFile(request.ToString());
 
-            await _xchangeService.RunValidator(sub.ValidatorId, sub.ValidatorProperties.ToDictionary(), xchangeFile);
+            var globalAdapterValuesSets = await _cache.ListGlobalAdapterValuesSetsAsync();
+            var validatorProperties = sub.ValidatorProperties.ToDictionary().Fill(par.Partner, globalAdapterValuesSets);
+            await _xchangeService.RunValidator(sub.ValidatorId, validatorProperties, xchangeFile);
 
             var xchangeId =
                 await _xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());

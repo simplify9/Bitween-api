@@ -76,15 +76,16 @@ namespace SW.Bitween.Domain
         }
 
         //retry with reset subscription properties
-        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file, IReadOnlyDictionary<string, int> groupAttemptCounts = null) :
+        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file, Partner gatewayPartner = null,
+            GlobalAdapterValuesSet[] globalAdapterValuesSets = null, IReadOnlyDictionary<string, int> groupAttemptCounts = null) :
             this(xchange.DocumentId, subscription.WorkGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
             PartnerId = xchange.PartnerId ?? subscription.PartnerId;
             MapperId = subscription.MapperId;
             HandlerId = subscription.HandlerId;
-            MapperProperties = subscription.MapperProperties;
-            HandlerProperties = subscription.HandlerProperties;
+            MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary().Fill(gatewayPartner, globalAdapterValuesSets);
+            HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary().Fill(gatewayPartner, globalAdapterValuesSets);
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;

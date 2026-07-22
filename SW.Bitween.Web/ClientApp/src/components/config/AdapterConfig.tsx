@@ -175,8 +175,11 @@ function ReferenceHints({
 }) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
-  const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.([\w-]+)\.([\w-]+)\}\}/g)].map((m) => m[0]))];
-  const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([\w-]+)\}\}/g)].map((m) => m[1]))];
+  // Set ids and keys are free-form (spaces included) on the backend — match on the
+  // `{{…}}` delimiters themselves, not a restrictive charset, or refs with a space
+  // in the id/key (e.g. "schedule source url") silently fail to match here.
+  const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.[^}]+\}\}/g)].map((m) => m[0]))];
+  const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([^}]+)\}\}/g)].map((m) => m[1]))];
   if (globalRefs.length === 0 && partnerRefs.length === 0) return null;
 
   const realPartners = partners.filter((p) => !p.isSystem);
@@ -192,7 +195,7 @@ function ReferenceHints({
     <div className="mt-1.5 space-y-1">
       {globalRefs.map((token) => {
         const ref = globals.find((g) => g.token === token);
-        const setId = token.match(/\{\{globals\.([\w-]+)\./)?.[1];
+        const setId = token.match(/\{\{globals\.([^.]+)\./)?.[1];
         return (
           <div key={token} className="flex flex-wrap items-center gap-1.5 text-xs">
             <Link
@@ -280,6 +283,21 @@ function PropField({
   const { globals, partnerKeys, partners } = useReferenceTokens();
   const [replacing, setReplacing] = useState(false);
   const masked = prop.secret && !!value && !replacing;
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Insert at the cursor (or over the current selection) instead of always
+  // appending, so picking a second reference doesn't just tack it onto the end.
+  const insertToken = (token: string) => {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? value.length;
+    const end = el?.selectionEnd ?? value.length;
+    onChange(value.slice(0, start) + token + value.slice(end));
+    const caret = start + token.length;
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(caret, caret);
+    });
+  };
 
   return (
     <Field
@@ -301,6 +319,7 @@ function PropField({
           <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)]">
             <textarea
               id={`prop-${prop.key}`}
+              ref={textareaRef}
               rows={1}
               value={value}
               disabled={disabled}
@@ -316,7 +335,7 @@ function PropField({
             <ReferenceMenu
               globals={globals}
               partnerKeys={partnerKeys}
-              onPick={(token) => onChange(value + token)}
+              onPick={insertToken}
               label={`Insert a reference into ${prop.key}`}
             />
           )}
