@@ -62,7 +62,9 @@ namespace SW.Bitween.Resources.Subscriptions
                     WorkGroupId =  subscriber.WorkGroupId,
                     CategoryDescription = subscriber.Category.Description,
                     CategoryCode = subscriber.Category.Code,
-                    
+                    RetryPolicyId = subscriber.RetryPolicyId,
+                    CustomRetryPolicy = subscriber.CustomRetryPolicy,
+
                 };
 
             query = query.AsNoTracking().AsQueryable();
