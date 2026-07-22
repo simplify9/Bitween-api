@@ -97,6 +97,8 @@ export interface ApiClient {
   // — partners —
   listPartners(): Promise<PartnerRow[]>;
   getPartner(id: number): Promise<PartnerDetail>;
+  /** Light fetch used by the mapper editor's test-partner selector. */
+  getPartnerAdapterProperties(id: number): Promise<Record<string, string>>;
   createPartner(input: { name: string }): Promise<Partner>;
   updatePartner(
     id: number,
@@ -295,4 +297,12 @@ export interface ApiClient {
 
   // — dashboard —
   getDashboard(): Promise<DashboardData>;
+
+  // — mappers —
+  /** Executes a Scriban template against sample input, injecting the partner's adapter properties and global value sets exactly as the runtime mapper does. */
+  previewMapping(input: {
+    scribanTemplate: string;
+    inputJson: string;
+    partnerId?: number | null;
+  }): Promise<{ outputJson: string | null; error: string | null }>;
 }

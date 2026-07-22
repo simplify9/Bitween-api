@@ -101,6 +101,12 @@ export const partnerMethods = {
     }));
   },
 
+  /** Light single-field fetch for the mapper editor's test-partner selector — avoids getPartner's gateway/exchange lookups. */
+  async getPartnerAdapterProperties(id: number): Promise<Record<string, string>> {
+    const d = await requireDetail(id);
+    return d.adapterProperties ?? {};
+  },
+
   async getPartner(id: number): Promise<PartnerDetail> {
     const [d, apiGateways, busGateways, recentExchanges] = await Promise.all([
       requireDetail(id),
