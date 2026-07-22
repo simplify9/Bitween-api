@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SW.Bitween.Api\SW.Bitween.Api.csproj" />
-    <PackageReference Include="SimplyWorks.Scheduler.SqlServer" Version="8.1.2" />
+    <PackageReference Include="SimplyWorks.Scheduler.SqlServer" Version="8.1.7" />
   </ItemGroup>
 
 

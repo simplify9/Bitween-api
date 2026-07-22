@@ -59,7 +59,7 @@
     <ProjectReference Include="..\SW.Bitween.MySql\SW.Bitween.MySql.csproj" />
     <ProjectReference Include="..\SW.Bitween.PgSql\SW.Bitween.PgSql.csproj" />
     <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
-    <PackageReference Include="SimplyWorks.Scheduler.EfCore" Version="8.1.2" />
+    <PackageReference Include="SimplyWorks.Scheduler.EfCore" Version="8.1.7" />
   </ItemGroup>
 
   <ItemGroup>

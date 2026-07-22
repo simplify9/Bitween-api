@@ -137,7 +137,7 @@ function toIntegration(raw: RawSubscription, idOverride?: number): Integration {
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
     aggregationForId: raw.aggregationForId ?? null,
     isRunning: raw.isRunning ?? false,
-    lastReceiveOn: raw.receiveOn ?? null,
+    nextReceiveOn: raw.receiveOn ?? null,
     consecutiveFailures: raw.consecutiveFailures ?? 0,
     lastException: raw.lastException ?? null,
     // Subscription has no CreatedOn column on the backend.
@@ -281,7 +281,7 @@ export const integrationMethods = {
           schedules.length > 0 && (type === "Receiving" || type === "Aggregation")
             ? schedulesSummary(schedules)
             : undefined,
-        lastReceiveOn: raw.receiveOn ?? null,
+        nextReceiveOn: raw.receiveOn ?? null,
         createdOn: "",
       };
     });

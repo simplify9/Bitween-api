@@ -57,7 +57,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await page.getByRole("button", { name: "Receive now" }).click();
   await page.getByRole("dialog", { name: "Receive now?" }).getByRole("button", { name: "Receive now" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("Last received")).toBeVisible();
+  await expect(page.getByText("Next run")).toBeVisible();
 
   // Reload to prove the adapter config truly persisted server-side.
   await page.reload();

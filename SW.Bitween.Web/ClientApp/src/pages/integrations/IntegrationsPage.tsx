@@ -23,7 +23,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { ConfirmDialog, Menu, MenuItem } from "../../components/ui/overlays";
 import { HealthBadge, IntegrationStatusBadges } from "../../components/config/shared";
 import { matchSummary } from "../../lib/match";
-import { formatDate, timeAgo } from "../../lib/dates";
+import { formatDate, timeUntil } from "../../lib/dates";
 
 type KindId = "api-gateways" | "bus-gateways" | "scheduled-jobs" | "internal" | "api-calls";
 
@@ -125,7 +125,7 @@ function JobDrawer({ r }: { r: IntegrationRow }) {
       <DrawerLine>
         {r.scheduleSummary}
         <span className="text-ink-300">·</span>
-        last received {r.lastReceiveOn ? timeAgo(r.lastReceiveOn) : "never"}
+        next run {r.nextReceiveOn ? timeUntil(r.nextReceiveOn) : "—"}
       </DrawerLine>
       {r.lastException && (
         <pre className="max-h-24 overflow-auto rounded-md bg-crimson-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-crimson-800">

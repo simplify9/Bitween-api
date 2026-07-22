@@ -415,7 +415,8 @@ export interface Integration {
   aggregationForId: number | null;
   // — health (read-only) —
   isRunning: boolean;
-  lastReceiveOn: string | null;
+  /** Receiving (and Aggregation) only — when the schedule will next fire, not when it last did. */
+  nextReceiveOn: string | null;
   consecutiveFailures: number;
   lastException: string | null;
   createdOn: string;
@@ -434,7 +435,8 @@ export interface IntegrationRow {
   consecutiveFailures: number;
   lastException: string | null;
   scheduleSummary?: string;
-  lastReceiveOn: string | null;
+  /** Receiving (and Aggregation) only — when the schedule will next fire, not when it last did. */
+  nextReceiveOn: string | null;
   createdOn: string;
 }
 
