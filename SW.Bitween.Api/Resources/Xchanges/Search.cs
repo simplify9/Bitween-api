@@ -72,7 +72,12 @@ namespace SW.Bitween.Resources.Xchanges
                             OutputFileName = result.OutputName,
                             ResponseFileName = result.ResponseName,
                             CorrelationId = xchange.CorrelationId,
-                            PartnerId = subscriber.PartnerId,
+                            // xchange.PartnerId is the authoritative source (set at creation from the
+                            // gateway/bus-route partner, or the subscription's own PartnerId as a
+                            // fallback there too) but the column was added later with no backfill, so
+                            // pre-migration xchanges have it null even when their subscription carries
+                            // a direct PartnerId — fall back to that for those legacy rows.
+                            PartnerId = xchange.PartnerId ?? subscriber.PartnerId,
                             ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null
                         };
 
