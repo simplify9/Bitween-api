@@ -137,14 +137,14 @@ export function WorkGroupPage() {
                   <Field
                     label="Bus message name"
                     htmlFor="wg-busname"
-                    hint="Combined with the group's id to form its queue name."
+                    hint="Combined with the group's id to form its queue name. No spaces."
                   >
                     <TextInput
                       id="wg-busname"
                       value={draft.busMessageName}
                       disabled={!canEdit}
                       className="font-mono"
-                      onChange={(e) => set("busMessageName", e.target.value.toLowerCase())}
+                      onChange={(e) => set("busMessageName", e.target.value.toLowerCase().replace(/\s+/g, ""))}
                     />
                   </Field>
                 </div>

@@ -89,7 +89,7 @@ export function WorkGroupNewPage() {
           <Field
             label="Bus message name"
             htmlFor="nwg-busname"
-            hint="Combined with the group's id to form its queue name."
+            hint="Combined with the group's id to form its queue name. No spaces."
           >
             <TextInput
               id="nwg-busname"
@@ -98,7 +98,7 @@ export function WorkGroupNewPage() {
               className="font-mono"
               onChange={(e) => {
                 setBusNameTouched(true);
-                setBusMessageName(e.target.value.toLowerCase());
+                setBusMessageName(e.target.value.toLowerCase().replace(/\s+/g, ""));
               }}
               placeholder="priority-lane"
             />
