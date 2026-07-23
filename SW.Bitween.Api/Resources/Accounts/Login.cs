@@ -61,6 +61,13 @@ namespace SW.Bitween.Resources.Accounts
                 }
             }
 
+            if (string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken) &&
+                _BitweenSettings.DisableEmailPasswordLogin)
+            {
+                _logger.LogWarning("Email/password login attempt rejected: DisableEmailPasswordLogin is enabled.");
+                throw new SWException("Email and password login is disabled. Please sign in with Microsoft.");
+            }
+
             if (!string.IsNullOrEmpty(refreshTokenValue))
             {
                 // account query already filtered above

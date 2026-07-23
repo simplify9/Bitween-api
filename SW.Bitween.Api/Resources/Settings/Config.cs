@@ -23,6 +23,7 @@ public class Config : IQueryHandler<object>
             _BitweenOptions.MsalClientId,
             _BitweenOptions.MsalRedirectUri,
             _BitweenOptions.MsalTenantId,
+            _BitweenOptions.DisableEmailPasswordLogin,
             IsRabbitMqManagementConfigured = !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementUrl)
                                              && !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementUsername)
                                              && !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementPassword),
