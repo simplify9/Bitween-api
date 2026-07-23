@@ -1,6 +1,7 @@
 import type { ApiClient } from "../client";
 import {
   ApiRequestError,
+  type IntegrationType,
   type RetryDelay,
   type RetryGroup,
   type RetryPolicy,
@@ -23,6 +24,40 @@ interface RawRetryPolicyRow {
 interface RawRetryPolicy {
   name: string;
   groups: RawRetryGroup[] | null;
+}
+interface RawSubscriptionRef {
+  id: number;
+  name: string;
+  type: number | string;
+}
+
+const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
+  1: "Internal",
+  2: "ApiCall",
+  4: "Receiving",
+  8: "Aggregation",
+  16: "GatewayApiCall",
+  32: "BusGateway",
+};
+const INTEGRATION_TYPES: IntegrationType[] = [
+  "Receiving",
+  "GatewayApiCall",
+  "BusGateway",
+  "Internal",
+  "ApiCall",
+  "Aggregation",
+];
+/** Enums may arrive as the numeric value or the name in any case. */
+const toIntegrationType = (t: number | string): IntegrationType => {
+  if (typeof t === "number") return SUB_TYPE_BY_NUM[t] ?? "Internal";
+  return INTEGRATION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
+};
+
+async function fetchSubscriptionsByRetryPolicy(retryPolicyId: number): Promise<RawSubscriptionRef[]> {
+  const res = await get<SearchyResponse<RawSubscriptionRef>>(
+    `/subscriptions?filter=${encodeURIComponent(`RetryPolicyId:1:${retryPolicyId}`)}`,
+  );
+  return res.result ?? [];
 }
 
 // The backend's DelayStrategy keeps durations in milliseconds; the UI works in seconds.
@@ -105,27 +140,37 @@ const toRawGroup = (g: RetryGroup): RawRetryGroup => ({
 });
 
 async function fetchDetail(id: number): Promise<RetryPolicyDetail> {
-  const r = await get<RawRetryPolicy | null>(`/retrypolicies/${id}`);
+  const [r, subs] = await Promise.all([
+    get<RawRetryPolicy | null>(`/retrypolicies/${id}`),
+    fetchSubscriptionsByRetryPolicy(id),
+  ]);
   if (!r) throw new ApiRequestError("NOT_FOUND", "This retry policy no longer exists.");
   return {
     id,
     name: r.name,
     groups: (r.groups ?? []).map(toGroup),
     createdOn: "",
-    // Populated once integrations are wired (Batch 2).
-    integrations: [],
+    integrations: subs.map((s) => ({ id: s.id, name: s.name, type: toIntegrationType(s.type) })),
   };
 }
 
 export const retryPolicyMethods = {
   async listRetryPolicies(): Promise<RetryPolicyListRow[]> {
-    const res = await get<SearchyResponse<RawRetryPolicyRow>>("/retrypolicies");
+    const [res, subs] = await Promise.all([
+      get<SearchyResponse<RawRetryPolicyRow>>("/retrypolicies"),
+      get<SearchyResponse<{ retryPolicyId: number | null }>>("/subscriptions"),
+    ]);
+    const countByRetryPolicy = new Map<number, number>();
+    for (const s of subs.result ?? []) {
+      if (s.retryPolicyId == null) continue;
+      countByRetryPolicy.set(s.retryPolicyId, (countByRetryPolicy.get(s.retryPolicyId) ?? 0) + 1);
+    }
     return (res.result ?? []).map((p) => ({
       id: p.id,
       name: p.name,
       groupCount: p.groupCount,
       createdOn: "",
-      usedByCount: 0,
+      usedByCount: countByRetryPolicy.get(p.id) ?? 0,
     }));
   },
 
