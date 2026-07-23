@@ -98,6 +98,21 @@ function renderFilter(alias: string, filter: ArrayMapping['filter']): string {
   return `${alias}.${filter.field} ${op} ${val}`;
 }
 
+/**
+ * Partner property keys and global value-set ids/keys are free-form user text (spaces,
+ * hyphens, leading digits, ...). Splicing them in as bare Scriban identifiers after `?.`
+ * breaks: Scriban tokenizes hyphens as subtraction, and a leading digit is a hard parse
+ * error. Index by string instead — that works for any content — and use `?? {}` at each
+ * hop so a missing partner/set doesn't throw (Scriban's `?.` only guards ONE hop, not a
+ * chained `[...]` after it).
+ */
+function partnerRef(key: string): string {
+  return `(__partner__ ?? {})[${JSON.stringify(key)}]`;
+}
+function globalRef(setId: string, key: string): string {
+  return `((__globals__ ?? {})[${JSON.stringify(setId)}] ?? {})[${JSON.stringify(key)}]`;
+}
+
 function renderFieldValue(
   mapping: FieldMapping,
   alias?: string,
@@ -107,11 +122,11 @@ function renderFieldValue(
 ): string {
   if (mapping.partnerPropKey) {
     if (targetType === 'number' || targetType === 'boolean') return 'null';
-    return `{{ __partner__?.${mapping.partnerPropKey} | json }}`;
+    return `{{ ${partnerRef(mapping.partnerPropKey)} | json }}`;
   }
   if (mapping.globalSetId && mapping.globalKey) {
     if (targetType === 'number' || targetType === 'boolean') return 'null';
-    return `{{ __globals__?.${mapping.globalSetId}["${mapping.globalKey}"] | json }}`;
+    return `{{ ${globalRef(mapping.globalSetId, mapping.globalKey)} | json }}`;
   }
   if (mapping.fixedValue !== undefined) {
     const num = Number(mapping.fixedValue);
@@ -430,11 +445,11 @@ function renderRootArrayMapping(
       if (item.partnerPropKey) {
         lines.push(elemType === 'number' || elemType === 'boolean'
           ? '  null,'
-          : `  {{ __partner__?.${item.partnerPropKey} | json }},`);
+          : `  {{ ${partnerRef(item.partnerPropKey)} | json }},`);
       } else if (item.globalSetId && item.globalKey) {
         lines.push(elemType === 'number' || elemType === 'boolean'
           ? '  null,'
-          : `  {{ __globals__?.${item.globalSetId}["${item.globalKey}"] | json }},`);
+          : `  {{ ${globalRef(item.globalSetId, item.globalKey)} | json }},`);
       } else if (item.source?.trim()) {
         const path = item.source.trim();
         if (item.transform?.trim()) {
@@ -618,14 +633,14 @@ function renderArrayMapping(
         if (elemType === 'number' || elemType === 'boolean') {
           lines.push(`${fieldPad}null,`);
         } else {
-          lines.push(`${fieldPad}{{ __partner__?.${item.partnerPropKey} | json }},`);
+          lines.push(`${fieldPad}{{ ${partnerRef(item.partnerPropKey)} | json }},`);
         }
       } else if (item.globalSetId && item.globalKey) {
         // Global set values are always strings — incompatible with number/boolean targets
         if (elemType === 'number' || elemType === 'boolean') {
           lines.push(`${fieldPad}null,`);
         } else {
-          lines.push(`${fieldPad}{{ __globals__?.${item.globalSetId}["${item.globalKey}"] | json }},`);
+          lines.push(`${fieldPad}{{ ${globalRef(item.globalSetId, item.globalKey)} | json }},`);
         }
       } else if (item.source?.trim()) {
         const path = item.source.trim();
