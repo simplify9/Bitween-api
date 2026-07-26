@@ -24,7 +24,6 @@ import type {
   Invite,
   MatchGroup,
   Notifier,
-  NotifierChannel,
   NotifierDetail,
   Paged,
   Partner,
@@ -254,17 +253,12 @@ export interface ApiClient {
   updateSetting(key: string, value: string | null): Promise<SettingRow>;
 
   // — notifiers —
-  listNotifierChannels(): Promise<NotifierChannel[]>;
+  // No backend delete/test-send endpoint exists yet (BACKEND_WIRING_PLAN.md G8) — hidden in the UI.
+  // Channel choices come from listAdapters("handler") — same catalog as any other handler slot.
   listNotifiers(): Promise<Notifier[]>;
   getNotifier(id: number): Promise<NotifierDetail>;
   createNotifier(input: { name: string }): Promise<Notifier>;
   updateNotifier(id: number, changes: Omit<Notifier, "id" | "createdOn">): Promise<Notifier>;
-  deleteNotifier(id: number): Promise<void>;
-  /** Sends a test notification through a draft channel configuration. */
-  testNotifier(input: {
-    channelId: string;
-    channelProperties: Record<string, string>;
-  }): Promise<{ message: string }>;
 
   // — exchanges —
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;

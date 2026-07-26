@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
+import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
@@ -64,11 +65,7 @@ export function NotifiersPage() {
   const creating = searchParams.get("new") === "1";
 
   const notifiers = useQuery({ queryKey: ["notifiers"], queryFn: () => api.listNotifiers() });
-  const channels = useQuery({
-    queryKey: ["notifier-channels"],
-    queryFn: () => api.listNotifierChannels(),
-    staleTime: Infinity,
-  });
+  const channels = useAdapterCatalog("handler");
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(

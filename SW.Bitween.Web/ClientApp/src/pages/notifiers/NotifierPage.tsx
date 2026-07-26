@@ -1,13 +1,14 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpRight, BellRing, ChevronDown, ChevronRight, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, BellRing, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Checkbox, Field, Select, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { useSessionCan } from "../../auth/guards";
+import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
+import { SearchSelect } from "../../components/ui/SearchSelect";
+import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { useIntegrationsCache } from "../../components/config/shared";
 import { formatDate, timeAgo } from "../../lib/dates";
 
@@ -68,7 +69,6 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
 export function NotifierPage() {
   const { id = "" } = useParams();
   const notifierId = Number(id);
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("notifiers.edit");
 
@@ -77,16 +77,12 @@ export function NotifierPage() {
     queryFn: () => api.getNotifier(notifierId),
     retry: false,
   });
-  const channels = useQuery({
-    queryKey: ["notifier-channels"],
-    queryFn: () => api.listNotifierChannels(),
-    staleTime: Infinity,
-  });
+  const channels = useAdapterCatalog("handler");
   const integrations = useIntegrationsCache();
 
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [watchSearch, setWatchSearch] = useState("");
 
   useEffect(() => {
     if (!loaded && notifier.data) {
@@ -112,14 +108,6 @@ export function NotifierPage() {
     },
   });
 
-  const test = useMutation({
-    mutationFn: () =>
-      api.testNotifier({
-        channelId: draft!.channelId,
-        channelProperties: draft!.channelProperties,
-      }),
-  });
-
   if (notifier.isPending) return <LoadingBlock label="Loading notifier…" />;
   if (notifier.isError)
     return (
@@ -136,6 +124,11 @@ export function NotifierPage() {
 
   const channel = channels.data?.find((c) => c.id === draft?.channelId);
   const watchesNothing = draft !== null && draft.integrationIds.length === 0;
+
+  const needle = watchSearch.trim().toLowerCase();
+  const filteredIntegrations = (integrations.data ?? []).filter(
+    (s) => !needle || s.name.toLowerCase().includes(needle),
+  );
 
   const toggleIntegration = (setupId: number, include: boolean) =>
     setDraft((d) =>
@@ -183,11 +176,6 @@ export function NotifierPage() {
           </h1>
           <p className="mt-1 text-sm text-ink-500">Created {formatDate(n.createdOn)}.</p>
         </div>
-        <Can permission="notifiers.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            <Trash2 className="size-4" /> Delete
-          </Button>
-        </Can>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -230,24 +218,37 @@ export function NotifierPage() {
               <div className="space-y-4">
                 <div className="max-w-sm">
                   <Field label="Deliver via" htmlFor="nf-channel">
-                    <Select
+                    <SearchSelect
                       id="nf-channel"
+                      aria-label="Deliver via"
                       value={draft.channelId}
-                      disabled={!canEdit}
-                      onChange={(e) => set("channelId", e.target.value)}
-                      options={(channels.data ?? []).map((c) => ({ value: c.id, label: c.label }))}
+                      disabled={!canEdit || channels.isPending}
+                      onChange={(v) => set("channelId", v)}
+                      placeholder="Pick a handler…"
+                      options={(channels.data ?? []).map((a) => ({
+                        value: a.id,
+                        label: a.label,
+                        code: a.id,
+                        hint: a.native ? "Native" : a.versions.length > 0 ? `v${a.versions.at(-1)}` : "Custom",
+                      }))}
                     />
                   </Field>
                 </div>
-                {channel && (
+                {channel && channel.props.length > 0 && (
                   <div className="grid gap-4 sm:grid-cols-2">
                     {channel.props.map((prop) => (
-                      <Field key={prop.key} label={prop.label} htmlFor={`nf-prop-${prop.key}`}>
+                      <Field
+                        key={prop.key}
+                        label={prop.optional ? prop.key : `${prop.key} *`}
+                        htmlFor={`nf-prop-${prop.key}`}
+                        hint={prop.description}
+                      >
                         <TextInput
                           id={`nf-prop-${prop.key}`}
+                          type={prop.secret ? "password" : "text"}
                           value={draft.channelProperties[prop.key] ?? ""}
                           disabled={!canEdit}
-                          placeholder={prop.placeholder}
+                          placeholder={prop.default}
                           onChange={(e) =>
                             set("channelProperties", {
                               ...draft.channelProperties,
@@ -257,15 +258,6 @@ export function NotifierPage() {
                         />
                       </Field>
                     ))}
-                  </div>
-                )}
-                {canEdit && (
-                  <div className="space-y-2 border-t border-ink-100 pt-3">
-                    <Button size="sm" busy={test.isPending} onClick={() => test.mutate()}>
-                      <Send className="size-3.5" /> Send a test notification
-                    </Button>
-                    {test.data && <p className="text-[13px] text-ok-600">{test.data.message}</p>}
-                    <FormError>{test.error?.message}</FormError>
                   </div>
                 )}
               </div>
@@ -285,8 +277,19 @@ export function NotifierPage() {
                     integration.
                   </p>
                 )}
-                <ul className="space-y-1.5">
-                  {(integrations.data ?? []).map((s) => (
+                <div className="relative">
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+                  <input
+                    type="search"
+                    value={watchSearch}
+                    onChange={(e) => setWatchSearch(e.target.value)}
+                    placeholder="Search integrations"
+                    aria-label="Search integrations"
+                    className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+                  />
+                </div>
+                <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
+                  {filteredIntegrations.map((s) => (
                     <li key={s.id} className="flex items-center gap-1">
                       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-sm">
                         <input
@@ -311,6 +314,9 @@ export function NotifierPage() {
                       </Link>
                     </li>
                   ))}
+                  {filteredIntegrations.length === 0 && (
+                    <li className="px-1 py-2 text-sm text-ink-400">No integrations match.</li>
+                  )}
                 </ul>
               </div>
             )}
@@ -331,25 +337,6 @@ export function NotifierPage() {
           error={save.error?.message}
           onSave={() => save.mutate()}
           onDiscard={() => setLoaded(false)}
-        />
-      )}
-
-      {deleting && (
-        <ConfirmDialog
-          title="Delete this notifier?"
-          body={
-            <>
-              <strong className="font-medium text-ink-800">{n.name}</strong> and its delivery
-              history will be gone for good. No integration is affected.
-            </>
-          }
-          confirmLabel="Delete notifier"
-          onConfirm={async () => {
-            await api.deleteNotifier(notifierId);
-            void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
-            navigate("/notifiers");
-          }}
-          onClose={() => setDeleting(false)}
         />
       )}
     </div>
