@@ -105,7 +105,7 @@ describe('generator: root-array output', () => {
       mappings: [field({ target: 'env', source: '', partnerPropKey: 'environment' })],
     })]);
 
-    expect(t).toContain('"env": {{ __partner__?.environment | json }}');
+    expect(t).toContain('"env": {{ (__partner__ ?? {})["environment"] | json }}');
   });
 
   it('global mode', () => {
@@ -114,7 +114,7 @@ describe('generator: root-array output', () => {
       mappings: [field({ target: 'region', source: '', globalSetId: 'mySet', globalKey: 'region' })],
     })]);
 
-    expect(t).toContain('"region": {{ __globals__?.mySet["region"] | json }}');
+    expect(t).toContain('"region": {{ ((__globals__ ?? {})["mySet"] ?? {})["region"] | json }}');
   });
 
   it('lookup — null fallback', () => {

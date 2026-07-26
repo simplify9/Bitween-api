@@ -108,6 +108,10 @@ public class RetryPolicyEvaluator(IRetryPolicy policy)
                      .Where(g => g.Enabled && g.AppliesTo.Contains(resultType))
                      .OrderBy(g => g.Priority))
         {
+            // No conditions configured at all means "match every applicable failure".
+            if (group.Matchers.Count == 0)
+                return group;
+
             var compatibleMatchers = group.Matchers.Where(m => m.ResultType == resultType);
             if (compatibleMatchers.Any(m => m.IsMatch(content)))
                 return group;

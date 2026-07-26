@@ -60,7 +60,13 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
 
   // Sync local dropdown state when selectedPartnerId changes (including reset to null)
   const { data: partners } = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
-  const selectedPartner = (partners ?? []).find((p) => p.id === selectedPartnerId);
+  // listPartners() is a light row (no adapterProperties) — fetch the selected partner's
+  // properties separately so the "Partner" mode datalist actually has options to suggest.
+  const { data: adapterProperties, isFetching: isPartnerFetching } = useQuery({
+    queryKey: ["partner-adapter-properties", selectedPartnerId],
+    queryFn: () => api.getPartnerAdapterProperties(selectedPartnerId!),
+    enabled: selectedPartnerId != null,
+  });
 
   const handlePartnerChange = (idStr: string) => {
     const pid = idStr ? Number(idStr) : null;
@@ -69,13 +75,14 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
     } else {
       dispatch(setSelectedPartner(pid, {}));
     }
-    // selectedPartner effect below handles dispatch when the list resolves
+    // adapterProperties effect below handles dispatch when the fetch resolves
   };
 
   React.useEffect(() => {
     if (selectedPartnerId == null) return;
-    dispatch(setSelectedPartner(selectedPartnerId, selectedPartner?.adapterProperties ?? {}));
-  }, [selectedPartner, selectedPartnerId]);
+    if (isPartnerFetching) return;
+    dispatch(setSelectedPartner(selectedPartnerId, adapterProperties ?? {}));
+  }, [adapterProperties, selectedPartnerId, isPartnerFetching]);
 
   const assignedFieldCount = useMemo(
     () => fieldMappings.filter((m) => m.target && (Boolean(m.source) || m.fixedValue !== undefined)).length,
@@ -191,7 +198,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
           </select>
           {selectedPartnerId && (
             <span className="text-[10px] text-ok-600 font-medium flex-shrink-0">
-              {Object.keys(selectedPartner?.adapterProperties ?? {}).length} props
+              {Object.keys(adapterProperties ?? {}).length} props
             </span>
           )}
         </div>

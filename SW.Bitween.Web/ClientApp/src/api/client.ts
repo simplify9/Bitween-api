@@ -24,7 +24,6 @@ import type {
   Invite,
   MatchGroup,
   Notifier,
-  NotifierChannel,
   NotifierDetail,
   Paged,
   Partner,
@@ -97,6 +96,8 @@ export interface ApiClient {
   // — partners —
   listPartners(): Promise<PartnerRow[]>;
   getPartner(id: number): Promise<PartnerDetail>;
+  /** Light fetch used by the mapper editor's test-partner selector. */
+  getPartnerAdapterProperties(id: number): Promise<Record<string, string>>;
   createPartner(input: { name: string }): Promise<Partner>;
   updatePartner(
     id: number,
@@ -252,17 +253,12 @@ export interface ApiClient {
   updateSetting(key: string, value: string | null): Promise<SettingRow>;
 
   // — notifiers —
-  listNotifierChannels(): Promise<NotifierChannel[]>;
+  // No backend delete/test-send endpoint exists yet (BACKEND_WIRING_PLAN.md G8) — hidden in the UI.
+  // Channel choices come from listAdapters("handler") — same catalog as any other handler slot.
   listNotifiers(): Promise<Notifier[]>;
   getNotifier(id: number): Promise<NotifierDetail>;
   createNotifier(input: { name: string }): Promise<Notifier>;
   updateNotifier(id: number, changes: Omit<Notifier, "id" | "createdOn">): Promise<Notifier>;
-  deleteNotifier(id: number): Promise<void>;
-  /** Sends a test notification through a draft channel configuration. */
-  testNotifier(input: {
-    channelId: string;
-    channelProperties: Record<string, string>;
-  }): Promise<{ message: string }>;
 
   // — exchanges —
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;
@@ -295,4 +291,12 @@ export interface ApiClient {
 
   // — dashboard —
   getDashboard(): Promise<DashboardData>;
+
+  // — mappers —
+  /** Executes a Scriban template against sample input, injecting the partner's adapter properties and global value sets exactly as the runtime mapper does. */
+  previewMapping(input: {
+    scribanTemplate: string;
+    inputJson: string;
+    partnerId?: number | null;
+  }): Promise<{ outputJson: string | null; error: string | null }>;
 }

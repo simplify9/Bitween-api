@@ -7,6 +7,8 @@ import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { globalValuesMethods } from "./globalValues";
 import { integrationMethods } from "./integrations";
+import { mapperMethods } from "./mappers";
+import { notifierMethods } from "./notifiers";
 import { partnerMethods } from "./partners";
 import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
@@ -32,6 +34,8 @@ const wired: Partial<ApiClient> = {
   ...exchangeMethods,
   ...queueHealthMethods,
   ...dashboardMethods,
+  ...mapperMethods,
+  ...notifierMethods,
 };
 
 export const httpClient: ApiClient = new Proxy(wired, {

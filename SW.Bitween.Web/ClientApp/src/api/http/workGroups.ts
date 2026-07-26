@@ -1,5 +1,11 @@
 import type { ApiClient } from "../client";
-import { ApiRequestError, type WorkGroup, type WorkGroupDetail, type WorkGroupRow } from "../types";
+import {
+  ApiRequestError,
+  type IntegrationType,
+  type WorkGroup,
+  type WorkGroupDetail,
+  type WorkGroupRow,
+} from "../types";
 import { get, post } from "./request";
 
 interface SearchyResponse<T> {
@@ -12,6 +18,40 @@ interface RawWorkGroup {
   busMessageName: string;
   options: { rabbitMqOptions: { prefetch: number | null; priority: number | null } | null } | null;
   processorNodeCount: number | null;
+}
+interface RawSubscriptionRef {
+  id: number;
+  name: string;
+  type: number | string;
+}
+
+const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
+  1: "Internal",
+  2: "ApiCall",
+  4: "Receiving",
+  8: "Aggregation",
+  16: "GatewayApiCall",
+  32: "BusGateway",
+};
+const INTEGRATION_TYPES: IntegrationType[] = [
+  "Receiving",
+  "GatewayApiCall",
+  "BusGateway",
+  "Internal",
+  "ApiCall",
+  "Aggregation",
+];
+/** Enums may arrive as the numeric value or the name in any case. */
+const toIntegrationType = (t: number | string): IntegrationType => {
+  if (typeof t === "number") return SUB_TYPE_BY_NUM[t] ?? "Internal";
+  return INTEGRATION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
+};
+
+async function fetchSubscriptionsByWorkGroup(workGroupId: number): Promise<RawSubscriptionRef[]> {
+  const res = await get<SearchyResponse<RawSubscriptionRef>>(
+    `/subscriptions?filter=${encodeURIComponent(`WorkGroupId:1:${workGroupId}`)}`,
+  );
+  return res.result ?? [];
 }
 
 // WorkGroup has no CreatedOn column on the backend.
@@ -37,21 +77,30 @@ async function fetchRows(): Promise<RawWorkGroup[]> {
 
 export const workGroupMethods = {
   async listWorkGroups(): Promise<WorkGroupRow[]> {
-    const rows = await fetchRows();
+    const [rows, subs] = await Promise.all([
+      fetchRows(),
+      get<SearchyResponse<{ workGroupId: number | null }>>("/subscriptions"),
+    ]);
+    const countByWorkGroup = new Map<number, number>();
+    for (const s of subs.result ?? []) {
+      if (s.workGroupId == null) continue;
+      countByWorkGroup.set(s.workGroupId, (countByWorkGroup.get(s.workGroupId) ?? 0) + 1);
+    }
     return rows.map((w) => ({
       ...toWorkGroup(w),
-      // Depends on integrations (Batch 2) to know assignment counts.
-      usedByCount: 0,
+      usedByCount: countByWorkGroup.get(w.id) ?? 0,
       consumerCount: w.processorNodeCount ?? 0,
     }));
   },
 
   async getWorkGroup(id: number): Promise<WorkGroupDetail> {
-    const rows = await fetchRows();
+    const [rows, subs] = await Promise.all([fetchRows(), fetchSubscriptionsByWorkGroup(id)]);
     const w = rows.find((x) => x.id === id);
     if (!w) throw new ApiRequestError("NOT_FOUND", "This work group no longer exists.");
-    // Populated once integrations are wired (Batch 2).
-    return { ...toWorkGroup(w), integrations: [] };
+    return {
+      ...toWorkGroup(w),
+      integrations: subs.map((s) => ({ id: s.id, name: s.name, type: toIntegrationType(s.type) })),
+    };
   },
 
   async createWorkGroup(input: {

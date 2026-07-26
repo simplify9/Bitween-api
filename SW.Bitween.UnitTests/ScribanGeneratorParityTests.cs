@@ -83,7 +83,7 @@ public class ScribanGeneratorParityTests
     {
         const string template = """
             {
-              "pkey": {{ __partner__?.apiKey | json }},
+              "pkey": {{ (__partner__ ?? {})["apiKey"] | json }},
             }
             """;
         const string inputJson = """{"__partner__": {"apiKey": "secret-123"}}""";
@@ -96,11 +96,29 @@ public class ScribanGeneratorParityTests
     {
         const string template = """
             {
-              "pkey": {{ __partner__?.apiKey | json }},
+              "pkey": {{ (__partner__ ?? {})["apiKey"] | json }},
             }
             """;
         var result = ScribanJsonTestHelper.RenderObject(template, "{}");
         Assert.AreEqual(JTokenType.Null, result["pkey"]?.Type);
+    }
+
+    // ── Partner property with a key that isn't a valid bare identifier ─────────
+    // Config: { target: 'pkey', source: '', partnerPropKey: 'gw prop test' }
+    // Regression: the old `__partner__?.gw prop test` shape wasn't even legal Scriban for
+    // a key like this. String-indexing works for any key content.
+
+    [TestMethod]
+    public void Parity_PartnerProperty_KeyWithSpaces_RendersCorrectly()
+    {
+        const string template = """
+            {
+              "pkey": {{ (__partner__ ?? {})["gw prop test"] | json }},
+            }
+            """;
+        const string inputJson = """{"__partner__": {"gw prop test": "test val"}}""";
+        var result = ScribanJsonTestHelper.RenderObject(template, inputJson);
+        Assert.AreEqual("test val", result["pkey"]?.ToString());
     }
 
     // ── Global set key ─────────────────────────────────────────────────────────
@@ -111,12 +129,42 @@ public class ScribanGeneratorParityTests
     {
         const string template = """
             {
-              "gval": {{ __globals__?.mySet["region"] | json }},
+              "gval": {{ ((__globals__ ?? {})["mySet"] ?? {})["region"] | json }},
             }
             """;
         const string inputJson = """{"__globals__": {"mySet": {"region": "eu-west"}}}""";
         var result = ScribanJsonTestHelper.RenderObject(template, inputJson);
         Assert.AreEqual("eu-west", result["gval"]?.ToString());
+    }
+
+    [TestMethod]
+    public void Parity_GlobalSetKey_MissingGlobals_ReturnsNull()
+    {
+        const string template = """
+            {
+              "gval": {{ ((__globals__ ?? {})["mySet"] ?? {})["region"] | json }},
+            }
+            """;
+        var result = ScribanJsonTestHelper.RenderObject(template, "{}");
+        Assert.AreEqual(JTokenType.Null, result["gval"]?.Type);
+    }
+
+    // ── Global set id with characters invalid in a bare identifier ─────────────
+    // Config: { target: 'gval', source: '', globalSetId: 'global-value-name', globalKey: 'baseUrl' }
+    // Regression: the old `__globals__?.global-value-name["baseUrl"]` shape tokenized the
+    // hyphens as subtraction and threw "Object `name` is null" — this is the exact bug report.
+
+    [TestMethod]
+    public void Parity_GlobalSetKey_HyphenatedSetId_RendersCorrectly()
+    {
+        const string template = """
+            {
+              "gval": {{ ((__globals__ ?? {})["global-value-name"] ?? {})["baseUrl"] | json }},
+            }
+            """;
+        const string inputJson = """{"__globals__": {"global-value-name": {"baseUrl": "https://example.test"}}}""";
+        var result = ScribanJsonTestHelper.RenderObject(template, inputJson);
+        Assert.AreEqual("https://example.test", result["gval"]?.ToString());
     }
 
     // ── Lookup — null fallback ─────────────────────────────────────────────────

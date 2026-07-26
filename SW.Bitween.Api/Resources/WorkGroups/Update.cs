@@ -12,7 +12,12 @@ public class Update(BitweenDbContext dbContext,IInfolinkCache _BitweenCache, IBr
         var workGroup = await dbContext.Set<WorkGroup>().FindAsync(key);
         if (workGroup is null)
             throw new SWValidationException("WORK_GROUP_NOT_FOUND", $"Category with id {key} was not found");
+
+        // Update binds the same CreateWorkGroupModel type as Create, so Create's
+        // Validate (IValidator<CreateWorkGroupModel>) already runs for this request too —
+        // CqApiController resolves validators by the request's concrete type.
         workGroup.Name = request.Name;
+        workGroup.BusMessageName = request.BusMessageName;
         workGroup.Options = new WorkGroupOptions
         {
             RabbitMqOptions = new ConsumerSettings

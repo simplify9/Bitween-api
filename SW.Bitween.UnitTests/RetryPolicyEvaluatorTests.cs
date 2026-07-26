@@ -246,6 +246,31 @@ public class RetryPolicyEvaluatorTests
         Assert.IsFalse(decision.ShouldRetry);
     }
 
+    [TestMethod]
+    public void Evaluator_EmptyMatchers_MatchesEveryApplicableFailure()
+    {
+        var group = new RetryGroup
+        {
+            Name = "catch-all",
+            Priority = 10,
+            Enabled = true,
+            AppliesTo = [XchangeResultType.Error],
+            Action = RetryAction.Allow,
+            Matchers = [],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 100,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
+            }
+        };
+        var policy = PolicyWith(group);
+        var ev = new RetryPolicyEvaluator(policy);
+        var decision = ev.Evaluate(XchangeResultType.Error, "anything at all", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+        Assert.AreEqual("catch-all", decision.MatchedGroupName);
+    }
+
     // ─── Evaluator: priority ordering ───────────────────────────────────────────
 
     [TestMethod]

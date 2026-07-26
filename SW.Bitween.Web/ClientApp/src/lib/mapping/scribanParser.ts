@@ -47,13 +47,28 @@ function parseExpr(
 ): Pick<ParsedFieldMapping, 'source' | 'transform' | 'valuesSetId' | 'isRootSource' | 'lookupDictionary' | 'partnerPropKey' | 'globalSetId' | 'globalKey'> {
   const expr = stripJsonPipe(raw.trim());
 
-  // Partner adapter property — {{ __partner__.propkey | json }} or {{ __partner__?.propkey | json }}
+  // Partner adapter property — {{ (__partner__ ?? {})["propkey"] | json }}. Prop keys are
+  // free-form user text (spaces, hyphens, ...), so they're indexed by string, not by a bare
+  // identifier after the dot (see scribanGenerator.ts's partnerRef for why).
+  const partnerMatchNew = expr.match(/^\(__partner__ \?\? \{\}\)\["([^"]*)"\]$/);
+  if (partnerMatchNew) {
+    return { source: '', partnerPropKey: partnerMatchNew[1] };
+  }
+  // Old shape, kept so already-saved templates still round-trip — {{ __partner__.propkey | json }}
+  // or {{ __partner__?.propkey | json }} (only valid for identifier-shaped keys).
   const partnerMatch = expr.match(/^__partner__\??\.(\w+)$/);
   if (partnerMatch) {
     return { source: '', partnerPropKey: partnerMatch[1] };
   }
 
-  // Global adapter values set — {{ __globals__?.SETID["KEY"] | json }} or {{ __globals__?.SETID?["KEY"] | json }}
+  // Global adapter values set — {{ ((__globals__ ?? {})["SETID"] ?? {})["KEY"] | json }}.
+  // Same string-indexing rationale as partnerRef, plus a `?? {}` at each hop.
+  const globalMatchNew = expr.match(/^\(\(__globals__ \?\? \{\}\)\["([^"]*)"\] \?\? \{\}\)\["([^"]*)"\]$/);
+  if (globalMatchNew) {
+    return { source: '', globalSetId: globalMatchNew[1], globalKey: globalMatchNew[2] };
+  }
+  // Old shape, kept so already-saved templates still round-trip — {{ __globals__?.SETID["KEY"] | json }}
+  // or {{ __globals__?.SETID?["KEY"] | json }} (only valid for identifier-shaped set ids).
   const globalMatch = expr.match(/^__globals__\??\.([\w]+)\??(?:\.(\w+)|\["([^"]+)"\])$/);
   if (globalMatch) {
     return { source: '', globalSetId: globalMatch[1], globalKey: globalMatch[2] ?? globalMatch[3] };

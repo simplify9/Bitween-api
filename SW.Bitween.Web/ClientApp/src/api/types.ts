@@ -281,16 +281,6 @@ export interface RetryTestAttempt {
 
 // ——— Notifiers ———
 
-/**
- * A delivery channel = a notifier handler adapter and the configuration
- * it expects. Served by the API so new adapters appear without UI changes.
- */
-export interface NotifierChannel {
-  id: string;
-  label: string;
-  props: { key: string; label: string; placeholder?: string }[];
-}
-
 export interface Notifier {
   id: number;
   name: string;

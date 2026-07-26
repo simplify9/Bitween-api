@@ -56,7 +56,7 @@ describe('generator output snapshots', () => {
     const t = generateScriban([field({ target: 'pkey', source: '', partnerPropKey: 'apiKey' })], []);
     expect(t).toMatchInlineSnapshot(`
       "{
-        "pkey": {{ __partner__?.apiKey | json }},
+        "pkey": {{ (__partner__ ?? {})["apiKey"] | json }},
       }"
     `);
   });
@@ -65,7 +65,7 @@ describe('generator output snapshots', () => {
     const t = generateScriban([field({ target: 'gval', source: '', globalSetId: 'mySet', globalKey: 'region' })], []);
     expect(t).toMatchInlineSnapshot(`
       "{
-        "gval": {{ __globals__?.mySet["region"] | json }},
+        "gval": {{ ((__globals__ ?? {})["mySet"] ?? {})["region"] | json }},
       }"
     `);
   });

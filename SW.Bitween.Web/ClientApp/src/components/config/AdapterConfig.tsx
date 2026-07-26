@@ -414,7 +414,7 @@ export function AdapterConfig({
             value: a.id,
             label: a.label,
             code: a.id,
-            hint: a.native ? "Native" : `v${a.versions.at(-1)}`,
+            hint: a.native ? "Native" : a.versions.length > 0 ? `v${a.versions.at(-1)}` : "Custom",
           }))}
         />
       </div>
