@@ -355,6 +355,28 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
             });
 
+            modelBuilder.Entity<Role>(b =>
+            {
+                b.ToTable("Roles");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => p.Name).IsUnique();
+
+                b.Property(p => p.Name).IsRequired().HasMaxLength(100);
+                b.Property(p => p.Description).HasMaxLength(500);
+                b.Property(p => p.Permissions).StoreAsJson();
+
+                b.HasData(SystemRoleSeed());
+            });
+
+            modelBuilder.Entity<AccountRoleLink>(b =>
+            {
+                b.ToTable("AccountRoles");
+                b.HasKey(p => new { p.AccountId, p.RoleId });
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Role>().WithMany().HasForeignKey(p => p.RoleId).OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<RetryPolicy>(b =>
             {
                 b.HasKey(p => p.Id);
