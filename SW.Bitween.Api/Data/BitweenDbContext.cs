@@ -350,7 +350,6 @@ namespace SW.Bitween
                 b.HasIndex(p => p.Email).IsUnique();
 
                 b.Property(p => p.Email).IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.Phone).IsUnicode(false).HasMaxLength(20);
                 b.Property(p => p.Password).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.DisplayName).IsRequired().HasMaxLength(200);
 

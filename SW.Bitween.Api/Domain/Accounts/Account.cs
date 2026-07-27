@@ -18,7 +18,6 @@ namespace SW.Bitween.Domain.Accounts
         }
 
         public string Email { get; private set; }
-        public string Phone { get; private set; }
         public string DisplayName { get; set; }
 
         public AccountRole Role { get; private set; }
