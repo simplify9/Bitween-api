@@ -101,6 +101,8 @@ test("Viewer can read but not write", async ({ page }) => {
   // Writes are refused at the source, not just hidden.
   expect(await apiStatus(page, "POST", "/partners", { name: "nope" })).toBe(401);
   expect(await apiStatus(page, "POST", "/retrypolicies", { name: "nope" })).toBe(401);
+  // Work groups had no guard of any kind until the handlers were given one.
+  expect(await apiStatus(page, "POST", "/workgroups", { name: "nope", busMessageName: "nope" })).toBe(401);
 
   await signOut(page);
   await signInAsAdmin(page);
