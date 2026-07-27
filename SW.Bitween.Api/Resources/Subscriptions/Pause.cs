@@ -2,7 +2,6 @@ using System.Data.Common;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using SW.Bitween.Domain;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -23,7 +22,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
         public async Task<object> Handle(int key, SubscriptionPause request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Operate);
 
             var entity = await _dbContext.FindAsync<Subscription>(key);
             SubscriptionTrail trail;

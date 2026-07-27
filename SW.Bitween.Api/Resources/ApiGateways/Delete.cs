@@ -3,7 +3,6 @@ using SW.EfCoreExtensions;
 using SW.Bitween.Domain.Gateway;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.ApiGateways
 {
@@ -20,7 +19,7 @@ namespace SW.Bitween.Resources.ApiGateways
 
         public async Task<object> Handle(int key)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.ApiGateways.Delete);
 
             var gateway = await _dbContext.Set<ApiGateway>()
                 .Include(ag => ag.Partners)

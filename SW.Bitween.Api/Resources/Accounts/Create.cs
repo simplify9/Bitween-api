@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +22,7 @@ namespace SW.Bitween.Resources.Accounts
 
         public async Task<object> Handle(CreateAccountModel request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin);
+            await _requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Create);
 
             if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Email) ||
                 string.IsNullOrEmpty(request.Password))
@@ -30,17 +31,35 @@ namespace SW.Bitween.Resources.Accounts
             if (await dbContext.Set<Account>().AnyAsync(a => a.Email == request.Email))
                 throw new SWValidationException("ACCOUNT_EXISTS", $"Account with email {request.Email} exists");
 
+            // Prefer explicit role ids, and fall back to the legacy coarse role only when one was
+            // actually sent. It used to be a plain int, so omitting it meant 0 — which is Admin —
+            // and adding a member with no roles ticked handed them the run of the instance.
+            var roleIds = request.RoleIds is { Count: > 0 }
+                ? request.RoleIds.Distinct().ToList()
+                : request.Role is null
+                    ? []
+                    : [BuiltInRoleFor((AccountRole)request.Role)];
+
             var newAccount = new Account(
                 request.Name,
                 request.Email,
                 SecurePasswordHasher.Hash(request.Password),
-                (AccountRole)request.Role);
+                AccountRoles.LegacyRoleFor(roleIds));
             dbContext.Add(newAccount);
-
             await dbContext.SaveChangesAsync();
 
-            return null;
+            await AccountRoles.Set(dbContext, newAccount.Id, roleIds);
+            await dbContext.SaveChangesAsync();
+
+            return newAccount.Id;
         }
+
+        private static int BuiltInRoleFor(AccountRole role) => role switch
+        {
+            AccountRole.Admin => Role.AdministratorId,
+            AccountRole.Member => Role.MemberId,
+            _ => Role.ViewerId
+        };
 
         private class Validate : AbstractValidator<CreateAccountModel>
         {
@@ -49,7 +68,6 @@ namespace SW.Bitween.Resources.Accounts
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.Email).NotEmpty();
                 RuleFor(i => i.Password).NotEmpty();
-                RuleFor(i => i.Role).NotNull();
             }
         }
     }

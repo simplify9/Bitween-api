@@ -19,7 +19,7 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
 
         public async Task<object> Handle(string key)
         {
-            _requestContext.EnsureAccess(Domain.Accounts.AccountRole.Admin, Domain.Accounts.AccountRole.Member, Domain.Accounts.AccountRole.Viewer);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.GlobalValues.View);
 
             var entity = await _dbContext.Set<GlobalAdapterValuesSet>()
                 .AsNoTracking()

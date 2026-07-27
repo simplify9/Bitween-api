@@ -2,7 +2,6 @@ using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.ApiGateways
 {
@@ -19,7 +18,7 @@ namespace SW.Bitween.Resources.ApiGateways
 
         public async Task<object> Handle(ApiGatewayCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.ApiGateways.Create);
 
             if (string.IsNullOrWhiteSpace(model.UrlName))
                 throw new SWException("UrlName is required");

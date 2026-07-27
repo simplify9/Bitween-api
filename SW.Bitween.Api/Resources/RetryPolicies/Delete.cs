@@ -2,7 +2,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
-using SW.Bitween.Domain.Accounts;
 using SW.EfCoreExtensions;
 using SW.PrimitiveTypes;
 
@@ -21,7 +20,7 @@ public class Delete : IDeleteHandler<int, object>
 
     public async Task<object> Handle(int key)
     {
-        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+        await _requestContext.EnsurePermission(_dbContext, Model.Permissions.RetryPolicies.Delete);
 
         var inUse = await _dbContext.Set<Subscription>()
             .AnyAsync(s => s.RetryPolicyId == key);

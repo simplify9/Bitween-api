@@ -2,7 +2,6 @@ using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -21,7 +20,7 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
 
         public async Task<object> Handle(GlobalAdapterValuesSetCreate request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.GlobalValues.Create);
 
             var exists = await _dbContext.Set<GlobalAdapterValuesSet>().AnyAsync(x => x.Id == request.Id);
             if (exists)

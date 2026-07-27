@@ -1,6 +1,5 @@
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -19,7 +18,7 @@ public class Create : ICommandHandler<RetryPolicyCreate, object>
 
     public async Task<object> Handle(RetryPolicyCreate model)
     {
-        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+        await _requestContext.EnsurePermission(_dbContext, Model.Permissions.RetryPolicies.Create);
 
         var entity = new RetryPolicy
         {

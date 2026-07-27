@@ -1,6 +1,5 @@
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -19,7 +18,7 @@ public class Update : ICommandHandler<int, RetryPolicyUpdate, object>
 
     public async Task<object> Handle(int key, RetryPolicyUpdate model)
     {
-        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+        await _requestContext.EnsurePermission(_dbContext, Model.Permissions.RetryPolicies.Edit);
 
         var entity = await _dbContext.FindAsync<RetryPolicy>(key);
         entity.Name = model.Name;

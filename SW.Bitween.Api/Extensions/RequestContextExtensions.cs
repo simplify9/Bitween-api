@@ -18,14 +18,6 @@ namespace SW.Bitween
         /// </summary>
         public const string SuperuserClaim = "bitween_superuser";
 
-        public static void EnsureAccess(this RequestContext requestContext, params AccountRole[] allowedRoles)
-        {
-
-            var jobRole = requestContext.User.GetRole();
-            if (jobRole is not null && allowedRoles.All(a => a != jobRole))
-                throw new SWUnauthorizedException("INSUFFICIENT_PERMISSIONS");
-        }
-
         /// <summary>Throws unless the caller holds at least one of <paramref name="anyOf"/>.</summary>
         public static async Task EnsurePermission(this RequestContext requestContext, BitweenDbContext dbContext,
             params string[] anyOf)

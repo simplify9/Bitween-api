@@ -63,6 +63,26 @@ namespace SW.Bitween.Domain.Accounts
             Role = role;
         }
 
+        /// <summary>Self-service details. Deliberately cannot touch <see cref="Role"/>.</summary>
+        public void UpdateProfile(string name)
+        {
+            DisplayName = name;
+        }
+
+        /// <summary>
+        /// Legacy coarse role, kept in step with the account's roles for older API consumers.
+        /// Authorization itself reads the role assignments, not this.
+        /// </summary>
+        public void SetRole(AccountRole role)
+        {
+            Role = role;
+        }
+
+        public void SetDisabled(bool disabled)
+        {
+            Disabled = disabled;
+        }
+
         public DateTime CreatedOn { get; set; }
         public string CreatedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
