@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Documents
 {
@@ -26,7 +25,7 @@ namespace SW.Bitween.Resources.Documents
 
         public async Task<object> Handle(DocumentCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Documents.Create);
 
             var code = string.IsNullOrWhiteSpace(model.Code) ? null : model.Code;
 

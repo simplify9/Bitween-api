@@ -31,9 +31,13 @@ namespace SW.Bitween.Resources.Login
             {
                 if (cred[1].Equals(request.Password))
                 {
+                    // No account backs these configured credentials, so there are no roles to
+                    // resolve — grant everything explicitly rather than relying on a guard that
+                    // fails open on a missing claim.
                     var claims = new List<Claim>
                     {
                         new Claim(ClaimTypes.Name, cred[0]),
+                        new Claim(RequestContextExtensions.SuperuserClaim, "true"),
                     };
 
                     return Task.FromResult<object>(new

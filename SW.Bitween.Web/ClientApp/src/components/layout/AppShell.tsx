@@ -181,7 +181,10 @@ function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logo
           align="left"
           side="up"
           trigger={
-            <button className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ink-900">
+            <button
+              aria-label="Account menu"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ink-900"
+            >
               <Avatar name={session.user.displayName} size="sm" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-ink-100">

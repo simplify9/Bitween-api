@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -33,7 +32,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
         public async Task<object> Handle(int key, SubscriptionUpdate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Edit);
             var entity = await _dbContext.FindAsync<Subscription>(key);
 
             // Capture before SetSchedules replaces the collection.

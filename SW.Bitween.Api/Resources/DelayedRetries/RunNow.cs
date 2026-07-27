@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -23,7 +22,9 @@ namespace SW.Bitween.Resources.DelayedRetries
 
         public async Task<object> Handle(string key, DelayedRetryRunNow request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            // What's being operated on is an exchange, not the policy that scheduled the retry —
+            // and this is the same page the UI gates on exchange permissions.
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Exchanges.Operate);
 
             var delayedRetry = await _dbContext.Set<DelayedRetry>().FirstOrDefaultAsync(d => d.Id == key);
             if (delayedRetry == null)

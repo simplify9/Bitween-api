@@ -7,19 +7,17 @@ import { Can } from "../../auth/guards";
 import { Avatar } from "../../components/ui/Avatar";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { timeAgo } from "../../lib/dates";
-import { InviteDialog } from "./InviteDialog";
+import { AddMemberDialog } from "./AddMemberDialog";
 import { MemberDrawer } from "./MemberDrawer";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
-  { value: "invited", label: "Invited" },
   { value: "disabled", label: "Disabled" },
 ];
 
 export function statusBadge(status: UserStatus) {
   if (status === "active") return <Badge tone="ok">Active</Badge>;
-  if (status === "invited") return <Badge tone="warn">Invited</Badge>;
   return <Badge tone="neutral">Disabled</Badge>;
 }
 
@@ -30,7 +28,7 @@ export function MembersTab() {
 
   const q = searchParams.get("q") ?? "";
   const status = searchParams.get("status") ?? "all";
-  const inviteOpen = searchParams.get("invite") === "1";
+  const addOpen = searchParams.get("add") === "1";
 
   const users = useQuery({ queryKey: ["users"], queryFn: () => api.listUsers() });
   const roles = useQuery({ queryKey: ["roles"], queryFn: () => api.listRoles() });
@@ -94,8 +92,8 @@ export function MembersTab() {
 
         <div className="ml-auto">
           <Can permission="users.create">
-            <Button variant="primary" onClick={() => setParam("invite", "1")}>
-              <UserPlus className="size-4" /> Invite member
+            <Button variant="primary" onClick={() => setParam("add", "1")}>
+              <UserPlus className="size-4" /> Add member
             </Button>
           </Can>
         </div>
@@ -112,8 +110,8 @@ export function MembersTab() {
               <Button onClick={() => setSearchParams({})}>Clear filters</Button>
             ) : (
               <Can permission="users.create">
-                <Button variant="primary" onClick={() => setParam("invite", "1")}>
-                  <UserPlus className="size-4" /> Invite member
+                <Button variant="primary" onClick={() => setParam("add", "1")}>
+                  <UserPlus className="size-4" /> Add member
                 </Button>
               </Can>
             )
@@ -121,7 +119,7 @@ export function MembersTab() {
         >
           {q || status !== "all"
             ? "Try a different search or filter."
-            : "Invite the first person to your team."}
+            : "Add the first person to your team."}
         </EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
@@ -170,7 +168,7 @@ export function MembersTab() {
         </div>
       )}
 
-      {inviteOpen && <InviteDialog onClose={() => setParam("invite", null)} />}
+      {addOpen && <AddMemberDialog onClose={() => setParam("add", null)} />}
       {openMemberId && (
         <MemberDrawer
           userId={openMemberId}

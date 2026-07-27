@@ -22,6 +22,8 @@ namespace SW.Bitween.MsSql.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.HasSequence("DocumentIds");
+
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.Account", b =>
                 {
                     b.Property<int>("Id")
@@ -69,11 +71,6 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
 
-                    b.Property<string>("Phone")
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)");
-
                     b.Property<int>("Role")
                         .HasColumnType("int");
 
@@ -101,6 +98,21 @@ namespace SW.Bitween.MsSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
+                {
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AccountId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AccountRoles", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
                 {
                     b.Property<string>("Id")
@@ -122,6 +134,78 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("AccountId");
 
                     b.ToTable("RefreshTokens", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.Role", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Permissions")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Full access to everything, including members, roles and settings.",
+                            IsSystem = true,
+                            Name = "Administrator",
+                            Permissions = "[]"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            IsSystem = true,
+                            Name = "Member",
+                            Permissions = "[]"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Read-only access to integrations, exchanges and configuration.",
+                            IsSystem = true,
+                            Name = "Viewer",
+                            Permissions = "[]"
+                        });
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.DelayedRetry", b =>
@@ -147,7 +231,11 @@ namespace SW.Bitween.MsSql.Migrations
             modelBuilder.Entity("SW.Bitween.Domain.Document", b =>
                 {
                     b.Property<int>("Id")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValueSql("NEXT VALUE FOR [DocumentIds]");
+
+                    SqlServerPropertyBuilderExtensions.UseSequence(b.Property<int>("Id"), "DocumentIds");
 
                     b.Property<bool>("BusEnabled")
                         .HasColumnType("bit");
@@ -156,6 +244,11 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(500)
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<bool?>("DisregardsUnfilteredMessages")
                         .HasColumnType("bit");
@@ -180,6 +273,10 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("BusMessageTypeName")
                         .IsUnique()
                         .HasFilter("[BusMessageTypeName] IS NOT NULL");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -1533,6 +1630,21 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("SchedulerName", "JobName", "JobGroup");
 
                     b.ToTable("QRTZ_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Accounts.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>

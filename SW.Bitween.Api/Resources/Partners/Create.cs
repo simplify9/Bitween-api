@@ -2,7 +2,6 @@
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Partners
 {
@@ -19,7 +18,7 @@ namespace SW.Bitween.Resources.Partners
 
         public async Task<object> Handle(PartnerCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Partners.Create);
 
             var entity = new Partner(model.Name);
             _dbContext.Add(entity);

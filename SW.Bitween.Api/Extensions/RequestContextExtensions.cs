@@ -1,17 +1,70 @@
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween
 {
     public static class RequestContextExtensions
     {
-        public static void EnsureAccess(this RequestContext requestContext, params AccountRole[] allowedRoles)
-        {
+        /// <summary>
+        /// Marks the break-glass token minted by POST /login from configured AdminCredentials. That
+        /// token has no account behind it, so its grants can't be resolved from the database. It
+        /// used to clear every check only because the old role guard failed open on a missing
+        /// claim; this claim makes the same grant deliberate instead of accidental.
+        /// </summary>
+        public const string SuperuserClaim = "bitween_superuser";
 
-            var jobRole = requestContext.User.GetRole();
-            if (jobRole is not null && allowedRoles.All(a => a != jobRole))
+        /// <summary>Throws unless the caller holds at least one of <paramref name="anyOf"/>.</summary>
+        public static async Task EnsurePermission(this RequestContext requestContext, BitweenDbContext dbContext,
+            params string[] anyOf)
+        {
+            var granted = await requestContext.GetPermissions(dbContext);
+            if (!anyOf.Any(granted.Contains))
                 throw new SWUnauthorizedException("INSUFFICIENT_PERMISSIONS");
+        }
+
+        public static async Task<bool> HasPermission(this RequestContext requestContext, BitweenDbContext dbContext,
+            string permission)
+        {
+            var granted = await requestContext.GetPermissions(dbContext);
+            return granted.Contains(permission);
+        }
+
+        /// <summary>
+        /// The union of every permission the caller's roles grant. Resolved from the database on
+        /// each call rather than carried in the token, so revoking a role takes effect immediately
+        /// instead of at token expiry. Handlers guard once, so that's one small indexed query.
+        /// </summary>
+        public static async Task<HashSet<string>> GetPermissions(this RequestContext requestContext,
+            BitweenDbContext dbContext)
+        {
+            if (requestContext.User?.FindFirst(SuperuserClaim) is not null)
+                return PermissionCatalog.AllKeys.ToHashSet();
+
+            // Fail closed: no identifiable account means no grants.
+            if (!int.TryParse(requestContext.GetNameIdentifier(), out var accountId))
+                throw new SWUnauthorizedException("INSUFFICIENT_PERMISSIONS");
+
+            return await GetPermissionsOf(dbContext, accountId);
+        }
+
+        public static async Task<HashSet<string>> GetPermissionsOf(BitweenDbContext dbContext, int accountId)
+        {
+            var roles = await (from link in dbContext.Set<AccountRoleLink>()
+                    join role in dbContext.Set<Role>() on link.RoleId equals role.Id
+                    where link.AccountId == accountId
+                    select new { role.Id, role.IsSystem, role.Permissions })
+                .AsNoTracking()
+                .ToListAsync();
+
+            var granted = new HashSet<string>();
+            foreach (var role in roles)
+                granted.UnionWith(role.IsSystem ? Role.SystemPermissions(role.Id) : role.Permissions ?? []);
+            return granted;
         }
     }
 }

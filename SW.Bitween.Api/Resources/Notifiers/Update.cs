@@ -2,7 +2,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation;
 using SW.Bitween.Domain;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -21,7 +20,7 @@ namespace SW.Bitween.Resources.Notifiers
 
         public async Task<object> Handle(int key, NotifierUpdate request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Notifiers.Edit);
 
             var notifier = await _dbContext.FindAsync<Notifier>(key);
 

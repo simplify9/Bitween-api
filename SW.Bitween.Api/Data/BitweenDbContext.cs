@@ -350,7 +350,6 @@ namespace SW.Bitween
                 b.HasIndex(p => p.Email).IsUnique();
 
                 b.Property(p => p.Email).IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.Phone).IsUnicode(false).HasMaxLength(20);
                 b.Property(p => p.Password).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.DisplayName).IsRequired().HasMaxLength(200);
 
@@ -383,8 +382,47 @@ namespace SW.Bitween
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
             });
-            
+
+            modelBuilder.Entity<Role>(b =>
+            {
+                b.ToTable("Roles");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => p.Name).IsUnique();
+
+                b.Property(p => p.Name).IsRequired().HasMaxLength(100);
+                b.Property(p => p.Description).HasMaxLength(500);
+                b.Property(p => p.Permissions).StoreAsJson();
+
+                b.HasData(SystemRoleSeed());
+            });
+
+            modelBuilder.Entity<AccountRoleLink>(b =>
+            {
+                b.ToTable("AccountRoles");
+                b.HasKey(p => new { p.AccountId, p.RoleId });
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Role>().WithMany().HasForeignKey(p => p.RoleId).OnDelete(DeleteBehavior.Cascade);
+            });
+
         }
+
+        /// <summary>
+        /// The built-in roles. Their grants aren't stored — <see cref="Role.GetEffectivePermissions"/>
+        /// derives them from the catalog — so adding a permission never needs a data fix-up here.
+        /// </summary>
+        protected Role[] SystemRoleSeed() =>
+        [
+            new Role(Role.AdministratorId, "Administrator",
+                    "Full access to everything, including members, roles and settings.")
+                { CreatedOn = defaultCreatedOn.ToUniversalTime() },
+            new Role(Role.MemberId, "Member",
+                    "Runs and configures integrations. Can't manage members, roles or settings.")
+                { CreatedOn = defaultCreatedOn.ToUniversalTime() },
+            new Role(Role.ViewerId, "Viewer",
+                    "Read-only access to integrations, exchanges and configuration.")
+                { CreatedOn = defaultCreatedOn.ToUniversalTime() }
+        ];
 
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

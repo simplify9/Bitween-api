@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { Lock } from "lucide-react";
 import type { PermissionKey } from "../api";
-import { PERMISSION_CATALOG, ACTION_LABELS } from "../api/permissions";
+import { labelIn, usePermissionCatalog } from "../api/permissions";
 import { useSession } from "./SessionContext";
 
 /** Redirects to /login when signed out; shows a splash while checking. */
@@ -23,15 +23,10 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
-export const permissionLabel = (key: PermissionKey): string => {
-  const [areaId, actionId] = key.split(".");
-  const area = PERMISSION_CATALOG.find((a) => a.id === areaId);
-  const action = ACTION_LABELS[actionId as keyof typeof ACTION_LABELS];
-  return area ? `${area.label} · ${action ?? actionId}` : key;
-};
-
 /** Full-page stop for routes the session's roles don't unlock. */
 export function AccessDenied({ permission }: { permission: PermissionKey }) {
+  // Falls back to the raw key until the catalog lands — never blocks the message.
+  const label = labelIn(usePermissionCatalog().data ?? [], permission);
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-ink-100 text-ink-400">
@@ -39,7 +34,7 @@ export function AccessDenied({ permission }: { permission: PermissionKey }) {
       </span>
       <h1 className="text-lg font-semibold text-ink-900">You don't have access to this page</h1>
       <p className="max-w-md text-sm text-ink-500">
-        Seeing it needs the <strong className="font-medium text-ink-700">{permissionLabel(permission)}</strong>{" "}
+        Seeing it needs the <strong className="font-medium text-ink-700">{label}</strong>{" "}
         permission, which none of your roles grant. An administrator can change that under Team → Roles.
       </p>
     </div>
