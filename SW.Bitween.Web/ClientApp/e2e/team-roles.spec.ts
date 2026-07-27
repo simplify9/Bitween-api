@@ -42,18 +42,22 @@ test("granting an action implies View, and clearing View clears the row", async 
   const edit = page.getByRole("checkbox", { name: "Partners: Edit", exact: true });
   const del = page.getByRole("checkbox", { name: "Partners: Delete", exact: true });
 
+  // Only the count granted is asserted, not the catalog size — that changes whenever a
+  // permission is added or dropped, and it isn't what this test is about.
+  const granted = (n: number) => new RegExp(`\\b${n}/\\d+ permissions granted`);
+
   await edit.check();
   await expect(view).toBeChecked();
-  await expect(page.getByText("2/52 permissions granted")).toBeVisible();
+  await expect(page.getByText(granted(2))).toBeVisible();
 
   await del.check();
-  await expect(page.getByText("3/52 permissions granted")).toBeVisible();
+  await expect(page.getByText(granted(3))).toBeVisible();
 
   // Removing View takes the whole area with it.
   await view.uncheck();
   await expect(edit).not.toBeChecked();
   await expect(del).not.toBeChecked();
-  await expect(page.getByText("0/52 permissions granted")).toBeVisible();
+  await expect(page.getByText(granted(0))).toBeVisible();
 });
 
 test("the access preview shows what the role would see", async ({ page }) => {

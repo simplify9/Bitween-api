@@ -60,12 +60,12 @@ public static class Permissions
         public const string Delete = "global-values.delete";
     }
 
+    /// <summary>No delete: notifiers have no delete endpoint, so there is nothing to guard.</summary>
     public static class Notifiers
     {
         public const string View = "notifiers.view";
         public const string Create = "notifiers.create";
         public const string Edit = "notifiers.edit";
-        public const string Delete = "notifiers.delete";
     }
 
     public static class ApiGateways
@@ -92,13 +92,16 @@ public static class Permissions
         public const string Delete = "workgroups.delete";
     }
 
+    /// <summary>
+    /// No operate: running a scheduled retry now is gated on <see cref="Exchanges.Operate"/>,
+    /// because what's being retried is an exchange, not the policy that scheduled it.
+    /// </summary>
     public static class RetryPolicies
     {
         public const string View = "retry-policies.view";
         public const string Create = "retry-policies.create";
         public const string Edit = "retry-policies.edit";
         public const string Delete = "retry-policies.delete";
-        public const string Operate = "retry-policies.operate";
     }
 
     public static class Users
@@ -205,8 +208,7 @@ public static class PermissionCatalog
         Area("notifiers", "Notifiers", "Integrations", "Alerts sent when exchanges fail or succeed.",
             (View, "Browse notifiers and their delivery history."),
             (Create, "Create notifiers."),
-            (Edit, "Change notifiers."),
-            (Delete, "Delete notifiers.")),
+            (Edit, "Change notifiers.")),
 
         Area("api-gateways", "API gateways", "Integrations", "HTTP entry points partners call into.",
             (View, "Browse API gateways and attached partners."),
@@ -231,8 +233,7 @@ public static class PermissionCatalog
             (View, "Browse retry policies and scheduled retries."),
             (Create, "Create retry policies."),
             (Edit, "Change retry policies."),
-            (Delete, "Delete retry policies."),
-            (Operate, "Run scheduled retries now.")),
+            (Delete, "Delete retry policies.")),
 
         // ——— Administration ———
         Area("users", "Members", "Administration", "The people who can sign in to this Bitween instance.",
