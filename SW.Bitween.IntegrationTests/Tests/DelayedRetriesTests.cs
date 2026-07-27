@@ -121,7 +121,7 @@ public class DelayedRetriesTests
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchange.Id, On = scheduledOn });
         await db.SaveChangesAsync();
 
-        var search = new SW.Bitween.Resources.DelayedRetries.Search(db);
+        var search = new SW.Bitween.Resources.DelayedRetries.Search(db, scope.Superuser());
         var response = (SearchyResponse<DelayedRetryRow>)await search.Handle(EmptySearch());
 
         var row = response.Result.FirstOrDefault(r => r.Id == xchange.Id);
@@ -141,7 +141,7 @@ public class DelayedRetriesTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
         var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, 9006, "Run Now Doc");
 
         // Scheduled an hour from now — RunNow must still execute it immediately.
@@ -164,7 +164,7 @@ public class DelayedRetriesTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var runNow = new SW.Bitween.Resources.DelayedRetries.RunNow(db, ctx, xs);
 
@@ -186,7 +186,7 @@ public class DelayedRetriesTests
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchange.Id, On = scheduledOn });
         await db.SaveChangesAsync();
 
-        var search = new SW.Bitween.Resources.Xchanges.Search(db, xs);
+        var search = new SW.Bitween.Resources.Xchanges.Search(db, xs, scope.Superuser());
         var response = (SearchyResponse<XchangeRow>)await search.Handle(EmptySearch());
 
         var row = response.Result.FirstOrDefault(r => r.Id == xchange.Id);
@@ -203,7 +203,7 @@ public class DelayedRetriesTests
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, 9008, "Xchange Search Unscheduled Doc");
 
-        var search = new SW.Bitween.Resources.Xchanges.Search(db, xs);
+        var search = new SW.Bitween.Resources.Xchanges.Search(db, xs, scope.Superuser());
         var response = (SearchyResponse<XchangeRow>)await search.Handle(EmptySearch());
 
         var row = response.Result.FirstOrDefault(r => r.Id == xchange.Id);

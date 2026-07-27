@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { useMutation } from "@tanstack/react-query";
 import { Check, ShieldCheck } from "lucide-react";
 import { api } from "../api";
-import { ALL_PERMISSIONS } from "../api/permissions";
+import { allKeysIn, usePermissionCatalog } from "../api/permissions";
 import { useSession } from "../auth/SessionContext";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Avatar } from "../components/ui/Avatar";
@@ -30,9 +30,9 @@ function SavedFlash({ show }: { show: boolean }) {
 
 export function ProfilePage() {
   const { session, refresh, can } = useSession();
+  const totalPermissions = allKeysIn(usePermissionCatalog().data ?? []).length;
 
   const [displayName, setDisplayName] = useState(session?.user.displayName ?? "");
-  const [phone, setPhone] = useState(session?.user.phone ?? "");
   const [identitySaved, setIdentitySaved] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -42,7 +42,7 @@ export function ProfilePage() {
   const [passwordSaved, setPasswordSaved] = useState(false);
 
   const identity = useMutation({
-    mutationFn: () => api.updateProfile({ displayName, phone }),
+    mutationFn: () => api.updateProfile({ displayName }),
     onSuccess: async () => {
       await refresh();
       setIdentitySaved(true);
@@ -64,7 +64,7 @@ export function ProfilePage() {
   if (!session) return null;
   const { user, roles, permissions } = session;
 
-  const identityDirty = displayName !== user.displayName || phone !== (user.phone ?? "");
+  const identityDirty = displayName !== user.displayName;
 
   const submitIdentity = (e: FormEvent) => {
     e.preventDefault();
@@ -99,9 +99,6 @@ export function ProfilePage() {
               <Field label="Display name" htmlFor="pf-name">
                 <TextInput id="pf-name" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
               </Field>
-              <Field label="Phone" htmlFor="pf-phone" hint="Optional — for teammates, not for sign-in.">
-                <TextInput id="pf-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+962 …" />
-              </Field>
               <Field label="Email" htmlFor="pf-email" hint="Your sign-in identity. Ask an administrator to change it.">
                 <TextInput id="pf-email" value={user.email} disabled />
               </Field>
@@ -122,13 +119,12 @@ export function ProfilePage() {
                   <ShieldCheck className="mt-0.5 size-4 shrink-0 text-crimson-600" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-800">{role.name}</p>
-                    <p className="text-[13px] text-ink-500">{role.description}</p>
                   </div>
                 </li>
               ))}
             </ul>
             <p className="mt-4 font-mono text-xs text-ink-500">
-              {permissions.length}/{ALL_PERMISSIONS.length} permissions via {roles.length} role
+              {permissions.length}/{totalPermissions} permissions via {roles.length} role
               {roles.length === 1 ? "" : "s"}
             </p>
             {can("roles.view") && (

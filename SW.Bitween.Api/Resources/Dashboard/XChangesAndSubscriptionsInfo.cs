@@ -14,6 +14,7 @@ namespace SW.Bitween.Resources.Dashboard;
 public class XChangesAndSubscriptionsInfo : IQueryHandler<object>
 {
     private readonly BitweenDbContext _dbContext;
+    private readonly RequestContext _requestContext;
 
     private readonly DateTime _dataDateLimit;
     private readonly XchangeService _xchangeService;
@@ -21,9 +22,10 @@ public class XChangesAndSubscriptionsInfo : IQueryHandler<object>
     // private readonly IMemoryCache _memoryCache;
     // private const string CACHE_KEY = "XChangesAndSubscriptionsInfoCache";
 
-    public XChangesAndSubscriptionsInfo(BitweenDbContext dbContext, XchangeService xchangeService)
+    public XChangesAndSubscriptionsInfo(BitweenDbContext dbContext, XchangeService xchangeService, RequestContext requestContext)
     {
         _dbContext = dbContext;
+        _requestContext = requestContext;
         _xchangeService = xchangeService;
         //_memoryCache = memoryCache;
         _dataDateLimit = DateTime.UtcNow.AddMonths(-3);
@@ -31,6 +33,8 @@ public class XChangesAndSubscriptionsInfo : IQueryHandler<object>
 
     public async Task<object> Handle()
     {
+        await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Dashboard.View);
+
         var totalXchangesCount = await _dbContext.Set<Xchange>().AsNoTracking().CountAsync();
         var xChangeCountInTimeframe = await _dbContext.Set<Xchange>()
             .Where(i => i.StartedOn >= _dataDateLimit)

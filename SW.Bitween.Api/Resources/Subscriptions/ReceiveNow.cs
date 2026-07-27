@@ -2,7 +2,6 @@
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -22,7 +21,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
         async public Task<object> Handle(int key, SubscriptionReceiveNow request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Operate);
 
             var entity = await _dbContext.FindAsync<Subscription>(key);
             entity.SetReceiveNow();

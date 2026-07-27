@@ -321,7 +321,6 @@ namespace SW.Bitween.PgSql
                 b.HasIndex(p => p.Email).IsUnique();
 
                 b.Property(p => p.Email).IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.Phone).IsUnicode(false).HasMaxLength(20);
                 b.Property(p => p.Password).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.DisplayName).IsRequired().HasMaxLength(200);
 
@@ -353,6 +352,28 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
+            });
+
+            modelBuilder.Entity<Role>(b =>
+            {
+                b.ToTable("Roles");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => p.Name).IsUnique();
+
+                b.Property(p => p.Name).IsRequired().HasMaxLength(100);
+                b.Property(p => p.Description).HasMaxLength(500);
+                b.Property(p => p.Permissions).StoreAsJson();
+
+                b.HasData(SystemRoleSeed());
+            });
+
+            modelBuilder.Entity<AccountRoleLink>(b =>
+            {
+                b.ToTable("AccountRoles");
+                b.HasKey(p => new { p.AccountId, p.RoleId });
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Role>().WithMany().HasForeignKey(p => p.RoleId).OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<RetryPolicy>(b =>

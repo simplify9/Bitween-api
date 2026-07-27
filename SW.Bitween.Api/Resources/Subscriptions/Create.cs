@@ -3,7 +3,6 @@ using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -20,7 +19,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
         public async Task<object> Handle(SubscriptionCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Create);
 
             Subscription entity;
 

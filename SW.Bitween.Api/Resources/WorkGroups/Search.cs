@@ -12,6 +12,7 @@ namespace SW.Bitween.Resources.WorkGroups;
 
 public class Search(
     BitweenDbContext dbContext,
+    RequestContext requestContext,
     IConsumerReader consumerReader,
     ILogger<Search> logger)
     : IQueryHandler<SearchWorkGroupModel, object>
@@ -19,6 +20,8 @@ public class Search(
 
     public async Task<object> Handle(SearchWorkGroupModel request)
     {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.WorkGroups.View);
+
         request.Limit ??= 20;
         request.Offset ??= 0;
 

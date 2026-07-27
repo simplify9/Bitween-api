@@ -1,7 +1,6 @@
 using SW.Bitween.Domain.Gateway;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
@@ -21,7 +20,7 @@ namespace SW.Bitween.Resources.ApiGateways
 
         public async Task<object> Handle(int gatewayId, RemovePartnerRequest request)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.ApiGateways.Edit);
 
             var gateway = await _dbContext.Set<ApiGateway>()
                 .Include(ag => ag.Partners)

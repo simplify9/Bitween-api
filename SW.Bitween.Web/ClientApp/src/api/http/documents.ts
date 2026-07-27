@@ -9,7 +9,7 @@ import type {
 } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
-import { get, post, request } from "./request";
+import { get, getEnrichment, post, request } from "./request";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -125,7 +125,7 @@ export const documentMethods = {
   async listInformationTypes(): Promise<InformationTypeRow[]> {
     const [res, subs] = await Promise.all([
       get<SearchyResponse<RawDocument>>("/documents"),
-      get<SearchyResponse<{ documentId: number }>>("/subscriptions"),
+      getEnrichment<SearchyResponse<{ documentId: number }>>("/subscriptions", { result: [], totalCount: 0 }),
     ]);
     const countByDocument = new Map<number, number>();
     for (const s of subs.result ?? [])

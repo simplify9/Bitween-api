@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -23,7 +22,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
         public async Task<object> Handle(int key)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Viewer);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Delete);
 
             await _dbContext.DeleteByKeyAsync<Subscription>(key);
             return null;

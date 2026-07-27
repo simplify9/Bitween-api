@@ -35,8 +35,8 @@ export function TeamPage() {
                 something if any of their roles allows it; everything else is hidden from them.
               </p>
               <p>
-                To bring someone in: create or pick a role on the Roles tab, then invite them from
-                the Members tab. They'll get a link to choose their own password.
+                To bring someone in: create or pick a role on the Roles tab, then add them from the
+                Members tab. You set their first password and pass it on — Bitween doesn't send mail.
               </p>
             </>
           ),

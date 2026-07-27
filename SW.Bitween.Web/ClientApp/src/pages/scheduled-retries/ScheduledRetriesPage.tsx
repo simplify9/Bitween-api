@@ -203,7 +203,8 @@ export function ScheduledRetriesPage() {
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-ink-500">{timeAgo(r.startedOn)}</td>
                     <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <Can permission="retry-policies.operate">
+                      {/* Matches what runNow itself enforces: the retry operates on an exchange. */}
+                      <Can permission="exchanges.operate">
                         <Button size="sm" onClick={() => setRunNowId(r.id)}>
                           <Play className="size-3.5" aria-hidden />
                           Run now

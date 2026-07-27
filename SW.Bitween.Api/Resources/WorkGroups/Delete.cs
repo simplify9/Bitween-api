@@ -14,6 +14,8 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
 
     public async Task<object> Handle(int key, DeleteWorkGroupModel _)
     {
+        await _requestContext.EnsurePermission(dbContext, Model.Permissions.WorkGroups.Delete);
+
         var category = await dbContext.Set<WorkGroup>().FindAsync(key);
         if (category is null)
             throw new SWValidationException("CATEGORY_NOT_FOUND", $"Workgroup with id {key} was not found");

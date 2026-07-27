@@ -6,10 +6,10 @@ import { api, type ActionId, type PermissionKey } from "../../api";
 import {
   ACTION_LABELS,
   ACTION_ORDER,
-  ALL_PERMISSIONS,
-  PERMISSION_CATALOG,
-  PERMISSION_GROUPS,
+  allKeysIn,
+  groupsIn,
   permissionKey,
+  usePermissionCatalog,
 } from "../../api/permissions";
 import { useSession } from "../../auth/SessionContext";
 import { visibleGroups } from "../../nav";
@@ -18,7 +18,7 @@ import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 
 /** Live answer to "what would someone with this role actually see?" */
-function AccessPreview({ permissions }: { permissions: Set<PermissionKey> }) {
+function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
   const groups = visibleGroups([...permissions]);
   return (
     <div className="rounded-xl border border-ink-200 bg-white p-4">
@@ -53,7 +53,7 @@ function AccessPreview({ permissions }: { permissions: Set<PermissionKey> }) {
         </div>
       )}
       <p className="mt-3 font-mono text-xs text-ink-500">
-        {permissions.size}/{ALL_PERMISSIONS.length} permissions granted
+        {permissions.size}/{total} permissions granted
       </p>
     </div>
   );
@@ -68,6 +68,8 @@ export function RoleEditor() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can } = useSession();
+  const catalog = usePermissionCatalog();
+  const areas = catalog.data ?? [];
 
   const source = useQuery({
     queryKey: ["role", sourceId],
@@ -80,21 +82,28 @@ export function RoleEditor() {
   const [description, setDescription] = useState("");
   const [granted, setGranted] = useState<Set<PermissionKey> | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  // Which role this form is currently filled from. React Router reuses this component when the
+  // route changes between /new and /:id, so tracking identity — not a plain "have we loaded"
+  // flag — is what makes Duplicate refill instead of keeping the role it came from.
+  const identity = isNew ? `new:${sourceId ?? ""}` : `edit:${id}`;
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const loaded = loadedFor === identity;
 
   // prefill once the source role arrives (edit, or duplicate via ?from=)
   useEffect(() => {
     if (loaded) return;
     if (sourceId === null) {
+      setName("");
+      setDescription("");
       setGranted(new Set());
-      setLoaded(true);
+      setLoadedFor(identity);
     } else if (source.data) {
       setName(isNew ? `Copy of ${source.data.name}` : source.data.name);
       setDescription(source.data.description);
       setGranted(new Set(source.data.permissions));
-      setLoaded(true);
+      setLoadedFor(identity);
     }
-  }, [source.data, sourceId, isNew, loaded]);
+  }, [source.data, sourceId, isNew, loaded, identity]);
 
   const isSystem = !isNew && (source.data?.isSystem ?? false);
   const editable = !isSystem && (isNew ? can("roles.create") : can("roles.edit"));
@@ -123,6 +132,7 @@ export function RoleEditor() {
     },
   });
 
+  if (catalog.isPending) return <LoadingBlock label="Loading permissions…" />;
   if (!loaded && source.isPending) return <LoadingBlock label="Loading role…" />;
   if (!isNew && source.isError)
     return (
@@ -227,8 +237,8 @@ export function RoleEditor() {
             </div>
           )}
 
-          {PERMISSION_GROUPS.map((group) => {
-            const areas = PERMISSION_CATALOG.filter((a) => a.group === group);
+          {groupsIn(areas).map((group) => {
+            const groupAreas = areas.filter((a) => a.group === group);
             return (
               <section key={group} className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
                 <table className="w-full min-w-130 text-sm">
@@ -246,7 +256,7 @@ export function RoleEditor() {
                     </tr>
                   </thead>
                   <tbody>
-                    {areas.map((area) => {
+                    {groupAreas.map((area) => {
                       const actionIds = area.actions.map((a) => a.id);
                       const allOn = actionIds.every((a) => granted.has(permissionKey(area.id, a)));
                       return (
@@ -299,7 +309,7 @@ export function RoleEditor() {
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-8 lg:self-start">
-          <AccessPreview permissions={granted} />
+          <AccessPreview permissions={granted} total={allKeysIn(areas).length} />
 
           {!isNew && !isSystem && can("roles.delete") && (
             <div className="rounded-xl border border-crimson-200 bg-white p-4">

@@ -16,10 +16,13 @@ public class Search : IQueryHandler<SearchSubscriptionCategoryModel,object>
     {
         _dbContext = dbContext;
         _requestContext = requestContext;
+        _requestContext = requestContext;
     }
 
     public async Task<object> Handle(SearchSubscriptionCategoryModel request)
     {
+        await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.View);
+
         request.Limit ??= 20;
         request.Offset ??= 0;
         var q = _dbContext.Set<SubscriptionCategory>().AsNoTracking().AsQueryable();

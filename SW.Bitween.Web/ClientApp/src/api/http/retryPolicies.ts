@@ -10,7 +10,7 @@ import {
   type RetryResultType,
   type RetryTestAttempt,
 } from "../types";
-import { get, post, request } from "./request";
+import { get, getEnrichment, post, request } from "./request";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -158,7 +158,7 @@ export const retryPolicyMethods = {
   async listRetryPolicies(): Promise<RetryPolicyListRow[]> {
     const [res, subs] = await Promise.all([
       get<SearchyResponse<RawRetryPolicyRow>>("/retrypolicies"),
-      get<SearchyResponse<{ retryPolicyId: number | null }>>("/subscriptions"),
+      getEnrichment<SearchyResponse<{ retryPolicyId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
     ]);
     const countByRetryPolicy = new Map<number, number>();
     for (const s of subs.result ?? []) {

@@ -1,6 +1,5 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
@@ -23,7 +22,7 @@ namespace SW.Bitween.Resources.BusGateways
 
         public async Task<object> Handle(int key, BusGatewayUpdate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.BusGateways.Edit);
 
             var entity = await _dbContext.Set<BusGateway>()
                 .FirstOrDefaultAsync(bg => bg.Id == key);

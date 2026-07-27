@@ -13,6 +13,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext,II
 
     public async Task<object> Handle(CreateWorkGroupModel request)
     {
+        await _requestContext.EnsurePermission(dbContext, Model.Permissions.WorkGroups.Create);
+
         var workgroup = new WorkGroup()
         {
             Name = request.Name,

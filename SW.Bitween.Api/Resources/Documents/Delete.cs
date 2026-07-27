@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Documents
 {
@@ -22,7 +21,7 @@ namespace SW.Bitween.Resources.Documents
 
         async public Task<object> Handle(int key)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Documents.Delete);
 
             await _dbContext.DeleteByKeyAsync<Document>(key);
             return null;
