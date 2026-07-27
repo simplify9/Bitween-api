@@ -11,14 +11,18 @@ namespace SW.Bitween.Resources.Partners
     public class Get : IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
 
-        public Get(BitweenDbContext dbContext)
+        public Get(BitweenDbContext dbContext, RequestContext requestContext)
         {
             this.dbContext = dbContext;
+            this.requestContext = requestContext;
         }
 
         async public Task<object> Handle(int key)
         {
+            await requestContext.EnsurePermission(dbContext, Model.Permissions.Partners.View);
+
             return await dbContext.Set<Partner>().AsNoTracking().
                 Search("Id", key).
                 Select(partner => new PartnerUpdate

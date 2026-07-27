@@ -6,7 +6,7 @@ import {
   type WorkGroupDetail,
   type WorkGroupRow,
 } from "../types";
-import { get, post } from "./request";
+import { get, getEnrichment, post } from "./request";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -79,7 +79,7 @@ export const workGroupMethods = {
   async listWorkGroups(): Promise<WorkGroupRow[]> {
     const [rows, subs] = await Promise.all([
       fetchRows(),
-      get<SearchyResponse<{ workGroupId: number | null }>>("/subscriptions"),
+      getEnrichment<SearchyResponse<{ workGroupId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
     ]);
     const countByWorkGroup = new Map<number, number>();
     for (const s of subs.result ?? []) {

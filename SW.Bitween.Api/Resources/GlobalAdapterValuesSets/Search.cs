@@ -11,14 +11,21 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
     public class Search : ISearchyHandler
     {
         private readonly BitweenDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Search(BitweenDbContext dbContext)
+        public Search(BitweenDbContext dbContext, RequestContext requestContext)
         {
             _dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
         public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
+            // Lookup returns only id/name pairs, which pickers across the app rely on;
+            // the full list is the data, so that's what the view permission covers.
+            if (!lookup)
+                await _requestContext.EnsurePermission(_dbContext, Model.Permissions.GlobalValues.View);
+
             var query = from item in _dbContext.Set<GlobalAdapterValuesSet>()
                         select new GlobalAdapterValuesSetRow
                         {

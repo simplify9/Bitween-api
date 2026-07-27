@@ -21,7 +21,10 @@ namespace SW.Bitween.Resources.Accounts
 
         public async Task<object> Handle(SearchMembersModel request)
         {
-            await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.View);
+            // Lookup returns only id/name pairs, which document and integration trails use to turn
+            // createdBy ids into names; the member list itself is the data users.view covers.
+            if (!request.Lookup)
+                await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.View);
 
             request.Limit ??= 20;
             request.Offset ??= 0;

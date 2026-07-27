@@ -134,3 +134,21 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
 export const get = <T>(path: string): Promise<T> => request<T>(path);
 export const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: "POST", body });
+
+/**
+ * For a secondary read that only enriches a page — the "used by" counts, which come from another
+ * area's list. Those are permission-guarded in their own right, so a role that can see this page
+ * but not that area would otherwise take the whole page down with it. The enrichment is worth
+ * losing; the page isn't. Only refusals are swallowed, so a real outage still surfaces.
+ */
+export async function getEnrichment<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return await get<T>(path);
+  } catch (e) {
+    // A refusal for *this* read only. UNAUTHENTICATED deliberately isn't swallowed: that one means
+    // the session itself is gone, and the app needs to hear about it.
+    const code = e instanceof ApiRequestError ? e.code : "";
+    if (code === "HTTP_401" || code === "HTTP_403") return fallback;
+    throw e;
+  }
+}

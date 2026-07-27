@@ -18,7 +18,14 @@ namespace SW.Bitween
         /// </summary>
         public const string SuperuserClaim = "bitween_superuser";
 
-        /// <summary>Throws unless the caller holds at least one of <paramref name="anyOf"/>.</summary>
+        /// <summary>
+        /// Throws unless the caller holds at least one of <paramref name="anyOf"/>. This is really a
+        /// "forbidden" — the caller is signed in and simply isn't allowed — but CqApi renders
+        /// SWForbiddenException as a 401 that's byte-identical to sending no token, so there is no
+        /// distinction to be had on the wire. The client answers a 401 by refreshing the token and
+        /// retrying once, which means every denial costs a wasted round trip. Worth revisiting if
+        /// CqApi ever maps forbidden to 403.
+        /// </summary>
         public static async Task EnsurePermission(this RequestContext requestContext, BitweenDbContext dbContext,
             params string[] anyOf)
         {

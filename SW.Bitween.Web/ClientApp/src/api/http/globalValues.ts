@@ -1,6 +1,6 @@
 import type { ApiClient } from "../client";
 import type { GlobalValuesSet, GlobalValuesSetDetail, GlobalValuesSetRow, IntegrationType, ValueSetUsage } from "../types";
-import { get, post } from "./request";
+import { get, getEnrichment, post } from "./request";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -56,7 +56,7 @@ const toRow = (r: RawValueSet): GlobalValuesSet => ({
 });
 
 async function fetchAllSubscriptionsForUsage(): Promise<RawSubscriptionForUsage[]> {
-  const res = await get<SearchyResponse<RawSubscriptionForUsage>>("/subscriptions");
+  const res = await getEnrichment<SearchyResponse<RawSubscriptionForUsage>>("/subscriptions", { result: [], totalCount: 0 });
   return res.result ?? [];
 }
 

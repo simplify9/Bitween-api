@@ -14,20 +14,24 @@ namespace SW.Bitween.Resources.Subscriptions
     public class Get : IGetHandler<int, object>
     {
         private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
         private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
         private readonly IServiceProvider _serviceProvider;
 
         private const string PrivateSentinel = "__private__";
 
-        public Get(BitweenDbContext dbContext, NativeAdapterDiscoveryService nativeAdapterDiscovery, IServiceProvider serviceProvider)
+        public Get(BitweenDbContext dbContext, NativeAdapterDiscoveryService nativeAdapterDiscovery, IServiceProvider serviceProvider, RequestContext requestContext)
         {
             this.dbContext = dbContext;
+            this.requestContext = requestContext;
             _nativeAdapterDiscovery = nativeAdapterDiscovery;
             _serviceProvider = serviceProvider;
         }
 
         public async Task<object> Handle(int key)
         {
+            await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+
             var subscriber =
                 await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync();
 

@@ -11,14 +11,18 @@ namespace SW.Bitween.Resources.Notifiers
     public class Get: IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
 
-        public Get(BitweenDbContext dbContext)
+        public Get(BitweenDbContext dbContext, RequestContext requestContext)
         {
             this.dbContext = dbContext;
+            this.requestContext = requestContext;
         }
         
         public async Task<object> Handle(int key)
         {
+            await requestContext.EnsurePermission(dbContext, Model.Permissions.Notifiers.View);
+
             var notifier = await dbContext.Set<Notifier>().FirstOrDefaultAsync(n => n.Id == key);
             if (notifier == null) throw new SWNotFoundException();
 

@@ -14,15 +14,19 @@ namespace SW.Bitween.Resources.Subscriptions;
 public class GetTrail : IQueryHandler<SearchSubscriptionTrailModel,object>
 {
     private readonly BitweenDbContext dbContext;
+    private readonly RequestContext requestContext;
 
-    public GetTrail(BitweenDbContext dbContext)
+    public GetTrail(BitweenDbContext dbContext, RequestContext requestContext)
     {
         this.dbContext = dbContext;
+        this.requestContext = requestContext;
     }
 
 
     public async Task<object> Handle(SearchSubscriptionTrailModel request)
     {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+
         request.Limit ??= 20;
         request.Offset ??= 0;
         var trails = dbContext.Set<SubscriptionTrail>()

@@ -12,14 +12,18 @@ namespace SW.Bitween.Resources.Dashboard;
 public class MainInfo : IQueryHandler<object>
 {
     private readonly BitweenDbContext _dbContext;
+    private readonly RequestContext _requestContext;
 
-    public MainInfo(BitweenDbContext dbContext)
+    public MainInfo(BitweenDbContext dbContext, RequestContext requestContext)
     {
         _dbContext = dbContext;
+        _requestContext = requestContext;
     }
 
     public async Task<object> Handle()
     {
+        await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Dashboard.View);
+
         var subscriptionsCount = await _dbContext.Set<Subscription>().AsNoTracking().CountAsync();
         var documentCount = await _dbContext.Set<Document>().AsNoTracking().CountAsync();
         var notifiersCount = await _dbContext.Set<Notifier>().AsNoTracking().CountAsync();
