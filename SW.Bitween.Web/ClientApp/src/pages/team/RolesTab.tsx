@@ -2,13 +2,14 @@ import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus, ShieldCheck } from "lucide-react";
 import { api } from "../../api";
-import { ALL_PERMISSIONS } from "../../api/permissions";
+import { allKeysIn, usePermissionCatalog } from "../../api/permissions";
 import { Can } from "../../auth/guards";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 
 export function RolesTab() {
   const navigate = useNavigate();
   const roles = useQuery({ queryKey: ["roles"], queryFn: () => api.listRoles() });
+  const totalPermissions = allKeysIn(usePermissionCatalog().data ?? []).length;
 
   if (roles.isPending) return <LoadingBlock label="Loading roles…" />;
 
@@ -54,7 +55,7 @@ export function RolesTab() {
                     {role.memberCount} member{role.memberCount === 1 ? "" : "s"}
                   </p>
                   <p className="font-mono text-xs text-ink-500">
-                    {role.permissions.length}/{ALL_PERMISSIONS.length} permissions
+                    {role.permissions.length}/{totalPermissions} permissions
                   </p>
                 </div>
                 <ChevronRight className="size-4 shrink-0 text-ink-300" />

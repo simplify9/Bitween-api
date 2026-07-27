@@ -6,9 +6,8 @@ import { Can } from "../../auth/guards";
 import { useSession } from "../../auth/SessionContext";
 import { Avatar } from "../../components/ui/Avatar";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Checkbox } from "../../components/ui/forms";
+import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { CopyField } from "../../components/ui/CopyField";
 import { formatDate, timeAgo } from "../../lib/dates";
 import { statusBadge } from "./MembersTab";
 
@@ -27,15 +26,9 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
   const user = useQuery({ queryKey: ["user", userId], queryFn: () => api.getUser(userId), retry: false });
   const roles = useQuery({ queryKey: ["roles"], queryFn: () => api.listRoles() });
-  const invite = useQuery({
-    queryKey: ["user-invite", userId],
-    queryFn: () => api.getInviteForUser(userId),
-    enabled: user.data?.status === "invited",
-  });
-
   const [draftRoleIds, setDraftRoleIds] = useState<string[] | null>(null);
-  const [resetLink, setResetLink] = useState("");
-  const [confirming, setConfirming] = useState<"remove" | "revoke" | null>(null);
+  const [confirming, setConfirming] = useState<"remove" | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -60,13 +53,9 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
     mutationFn: (disabled: boolean) => api.setUserDisabled(userId, disabled),
     onSuccess: invalidate,
   });
-  const resetPassword = useMutation({
-    mutationFn: () => api.adminResetPassword(userId),
-    onSuccess: ({ resetLink: link }) => setResetLink(link),
-  });
-  const resend = useMutation({
-    mutationFn: () => api.resendInvite(userId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["user-invite", userId] }),
+  const setPassword = useMutation({
+    mutationFn: (password: string) => api.setUserPassword(userId, password),
+    onSuccess: () => setNewPassword(""),
   });
 
   const isSelf = session?.user.id === userId;
@@ -97,31 +86,6 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
             <div className="mt-1.5">{statusBadge(u.status)}</div>
           </div>
         </div>
-
-        {u.status === "invited" && (
-          <Section title="Pending invite">
-            {invite.data ? (
-              <div className="space-y-3">
-                <p className="text-sm text-ink-600">
-                  Invited by {invite.data.invitedByName} · expires {formatDate(invite.data.expiresOn)}.
-                </p>
-                <CopyField value={`${location.origin}${import.meta.env.BASE_URL}invite/${invite.data.token}`} label="Invite link" />
-                {editable && (
-                  <div className="flex gap-2">
-                    <Button size="sm" busy={resend.isPending} onClick={() => resend.mutate()}>
-                      Send a fresh link
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => setConfirming("revoke")}>
-                      Revoke invite
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <LoadingBlock label="Loading invite…" />
-            )}
-          </Section>
-        )}
 
         <Section title="Roles">
           {editable ? (
@@ -165,10 +129,6 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
         <Section title="Details">
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-ink-500">Phone</dt>
-              <dd className="text-ink-800">{u.phone ?? "—"}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
               <dt className="text-ink-500">Member since</dt>
               <dd className="text-ink-800">{formatDate(u.createdOn)}</dd>
             </div>
@@ -179,23 +139,35 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
           </dl>
         </Section>
 
-        {u.status !== "invited" && (editable || can("users.delete")) && !isSelf && (
+        {(editable || can("users.delete")) && !isSelf && (
           <Section title="Account actions">
             <div className="space-y-3">
-              {editable && u.status === "active" && (
-                <div className="space-y-2">
-                  <Button size="sm" busy={resetPassword.isPending} onClick={() => resetPassword.mutate()}>
-                    <KeyRound className="size-3.5" /> Reset their password
-                  </Button>
-                  {resetLink && (
-                    <div className="rounded-xl border border-dashed border-ink-300 p-3">
-                      <p className="mb-2 text-[13px] text-ink-500">
-                        Prototype: share this link — the email that would carry it isn't wired up.
-                      </p>
-                      <CopyField value={resetLink} />
-                    </div>
-                  )}
-                </div>
+              {editable && (
+                <form
+                  className="space-y-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setPassword.mutate(newPassword);
+                  }}
+                >
+                  <div className="flex gap-2">
+                    <PasswordInput
+                      required
+                      minLength={8}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="New password"
+                      aria-label="New password"
+                    />
+                    <Button size="sm" type="submit" busy={setPassword.isPending}>
+                      <KeyRound className="size-3.5" /> Set password
+                    </Button>
+                  </div>
+                  <p className="text-[13px] text-ink-500">
+                    There's no reset email, so set it here and pass it on yourself.
+                  </p>
+                  <FormError>{setPassword.error?.message}</FormError>
+                </form>
               )}
               {editable && (
                 <div>
@@ -263,25 +235,6 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
           confirmLabel="Remove member"
           onConfirm={async () => {
             await api.deleteUser(userId);
-            invalidate();
-            onClose();
-          }}
-          onClose={() => setConfirming(null)}
-        />
-      )}
-      {confirming === "revoke" && user.data && (
-        <ConfirmDialog
-          title="Revoke this invite?"
-          body={
-            <>
-              The invite link for{" "}
-              <strong className="font-medium text-ink-800">{user.data.email}</strong> will stop
-              working and they'll disappear from the member list.
-            </>
-          }
-          confirmLabel="Revoke invite"
-          onConfirm={async () => {
-            await api.revokeInvite(userId);
             invalidate();
             onClose();
           }}

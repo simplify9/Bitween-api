@@ -3,10 +3,7 @@ import { RequireAuth, RequirePermission } from "./auth/guards";
 import { useSession } from "./auth/SessionContext";
 import { AppShell } from "./components/layout/AppShell";
 import { NAV_GROUPS, homePath } from "./nav";
-import { AcceptInvitePage } from "./pages/auth/AcceptInvite";
-import { ForgotPasswordPage } from "./pages/auth/ForgotPassword";
 import { LoginPage } from "./pages/auth/Login";
-import { ResetPasswordPage } from "./pages/auth/ResetPassword";
 import { NotFoundPage, PlaceholderPage } from "./pages/PlaceholderPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
@@ -67,9 +64,6 @@ const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
-  { path: "/forgot-password", element: <ForgotPasswordPage /> },
-  { path: "/reset-password/:token", element: <ResetPasswordPage /> },
-  { path: "/invite/:token", element: <AcceptInvitePage /> },
   {
     element: <RequireAuth />,
     children: [

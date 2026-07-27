@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getAppConfig, type Session } from "../../api";
 import { useSession } from "../../auth/SessionContext";
@@ -89,11 +89,6 @@ export function LoginPage() {
         <Button type="submit" variant="primary" busy={busy} className="w-full">
           Sign in
         </Button>
-        <div className="text-center">
-          <Link to="/forgot-password" className="text-[13px] font-medium text-crimson-700 hover:underline">
-            Forgot your password?
-          </Link>
-        </div>
       </form>
 
       {microsoftEnabled && (

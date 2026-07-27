@@ -30,13 +30,12 @@ export interface Role {
   memberCount: number;
 }
 
-export type UserStatus = "active" | "invited" | "disabled";
+export type UserStatus = "active" | "disabled";
 
 export interface User {
   id: string;
   displayName: string;
   email: string;
-  phone?: string;
   roleIds: string[];
   status: UserStatus;
   /** Whether a Microsoft account is linked for SSO. */
@@ -45,20 +44,16 @@ export interface User {
   lastActiveOn?: string;
 }
 
-export interface Invite {
-  token: string;
-  email: string;
-  roleIds: string[];
-  /** Resolved names for roleIds, so the public accept page can show them. */
-  roleNames: string[];
-  invitedByName: string;
-  createdOn: string;
-  expiresOn: string;
+/** Just enough to name a role. Full definitions need the roles.view permission. */
+export interface RoleSummary {
+  id: string;
+  name: string;
 }
 
 export interface Session {
   user: User;
-  roles: Role[];
+  roles: RoleSummary[];
+  /** The union of every permission the user's roles grant — resolved by the backend. */
   permissions: PermissionKey[];
 }
 

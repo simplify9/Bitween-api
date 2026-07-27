@@ -21,7 +21,6 @@ import type {
   IntegrationInfo,
   IntegrationRow,
   IntegrationType,
-  Invite,
   MatchGroup,
   Notifier,
   NotifierDetail,
@@ -63,26 +62,32 @@ export interface ApiClient {
   logout(): Promise<void>;
 
   // — self service —
-  updateProfile(changes: { displayName?: string; phone?: string }): Promise<Session>;
+  // No password-reset flow exists on the backend yet (BACKEND_WIRING_PLAN.md G3) — it needs
+  // outbound mail, which Bitween doesn't have. Hidden in the UI rather than faked.
+  updateProfile(changes: { displayName: string }): Promise<Session>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
-  requestPasswordReset(email: string): Promise<{ resetLink: string }>;
-  resetPassword(token: string, newPassword: string): Promise<void>;
 
   // — members —
   listUsers(): Promise<User[]>;
   getUser(id: string): Promise<User>;
-  inviteUser(input: { email: string; roleIds: string[] }): Promise<Invite>;
-  getInviteForUser(userId: string): Promise<Invite | null>;
-  resendInvite(userId: string): Promise<Invite>;
-  revokeInvite(userId: string): Promise<void>;
-  getInvite(token: string): Promise<Invite>;
-  acceptInvite(token: string, input: { displayName: string; password: string }): Promise<Session>;
+  /**
+   * Creates a member outright, password and all. Bitween has no outbound mail, so there's no
+   * invite link — whoever adds the member passes the first password on themselves.
+   */
+  createUser(input: {
+    displayName: string;
+    email: string;
+    password: string;
+    roleIds: string[];
+  }): Promise<User>;
+  /** Stands in for a self-service reset, which would need mail Bitween doesn't have. */
+  setUserPassword(id: string, password: string): Promise<void>;
   updateUserRoles(id: string, roleIds: string[]): Promise<User>;
   setUserDisabled(id: string, disabled: boolean): Promise<User>;
   deleteUser(id: string): Promise<void>;
-  adminResetPassword(id: string): Promise<{ resetLink: string }>;
 
   // — roles —
+  /** The catalog the backend enforces, so the role matrix can never offer a grant it ignores. */
   getPermissionCatalog(): Promise<PermissionArea[]>;
   listRoles(): Promise<Role[]>;
   getRole(id: string): Promise<Role>;

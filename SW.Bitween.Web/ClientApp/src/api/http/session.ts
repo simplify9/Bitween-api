@@ -1,15 +1,18 @@
-import { ALL_PERMISSIONS, PERMISSION_CATALOG, permissionKey } from "../permissions";
-import { ApiRequestError, type PermissionKey, type Role, type Session, type User } from "../types";
+import { ApiRequestError, type Session, type User } from "../types";
 import { getAppConfig } from "./appConfig";
 import { clearToken, get, getToken, post, setToken } from "./request";
 
-/** GET /accounts/profile — camelCase AccountModel. */
+/** GET /accounts/profile — camelCase ProfileModel. */
 interface Profile {
   id: number;
   email: string;
   name: string;
-  role: string; // "Admin" | "Viewer" | "Member"
+  /** Legacy coarse role, kept for older API clients. Authorization uses `permissions`. */
+  role: string;
+  disabled: boolean;
   createdOn: string;
+  roles: { id: number; name: string }[] | null;
+  permissions: string[] | null;
 }
 
 /** POST /accounts/login → { jwt }. */
@@ -17,55 +20,22 @@ interface LoginResult {
   jwt: string;
 }
 
-// ——— coarse role → UI permissions ———
-// The backend identity is a single AccountRole enum (Admin | Viewer | Member).
-// The UI's fine-grained catalog collapses onto it: Admin does everything;
-// Member manages Operate/Integrations/Configuration; Viewer reads those. The
-// Administration group (members/roles/settings) stays Admin-only. This only
-// gates nav visibility — real enforcement is the backend's per-handler role check.
-const NON_ADMIN_GROUPS = ["Operate", "Integrations", "Configuration"];
-
-const permissionsInGroups = (viewOnly: boolean): PermissionKey[] =>
-  PERMISSION_CATALOG.filter((area) => NON_ADMIN_GROUPS.includes(area.group)).flatMap((area) =>
-    area.actions
-      .filter((a) => !viewOnly || a.id === "view")
-      .map((a) => permissionKey(area.id, a.id)),
-  );
-
-const ROLE_LABEL: Record<string, string> = {
-  Admin: "Administrator",
-  Member: "Member",
-  Viewer: "Viewer",
-};
-
-const permissionsForRole = (role: string): PermissionKey[] => {
-  if (role === "Admin") return [...ALL_PERMISSIONS];
-  if (role === "Member") return permissionsInGroups(false);
-  return permissionsInGroups(true); // Viewer / unknown → least privilege
-};
-
 const buildSession = (profile: Profile): Session => {
-  const roleName = ROLE_LABEL[profile.role] ? profile.role : "Viewer";
-  const permissions = permissionsForRole(roleName);
   const user: User = {
     id: String(profile.id),
     displayName: profile.name,
     email: profile.email,
-    roleIds: [roleName],
-    status: "active",
+    roleIds: (profile.roles ?? []).map((r) => String(r.id)),
+    status: profile.disabled ? "disabled" : "active",
     microsoftLinked: false,
     createdOn: profile.createdOn,
   };
-  const role: Role = {
-    id: roleName,
-    name: ROLE_LABEL[roleName],
-    description: `Built-in ${ROLE_LABEL[roleName]} role.`,
-    permissions,
-    isSystem: true,
-    createdOn: profile.createdOn,
-    memberCount: 0,
+  return {
+    user,
+    roles: (profile.roles ?? []).map((r) => ({ id: String(r.id), name: r.name })),
+    // Resolved server-side from the user's roles, so a revoked role takes effect on next load.
+    permissions: profile.permissions ?? [],
   };
-  return { user, roles: [role], permissions };
 };
 
 const loadSession = async (): Promise<Session> => buildSession(await get<Profile>("/accounts/profile"));
@@ -127,5 +97,18 @@ export const sessionMethods = {
     } finally {
       clearToken();
     }
+  },
+
+  async updateProfile(changes: { displayName: string }): Promise<Session> {
+    const current = await loadSession();
+    await post(`/accounts/${current.user.id}`, { name: changes.displayName });
+    return loadSession();
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await post("/accounts/changePassword", {
+      oldPassword: currentPassword,
+      newPassword,
+    });
   },
 };
