@@ -86,3 +86,9 @@ public class SetAccountDisabledModel
 {
     public bool Disabled { get; set; }
 }
+
+/// <summary>An administrator setting someone else's password, standing in for a reset flow.</summary>
+public class SetAccountPasswordModel
+{
+    public string Password { get; set; }
+}
