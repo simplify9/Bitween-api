@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,19 @@ public class RetryPolicyTests
             new Update(db, ctx),
             new Delete(db, ctx));
 
+    /// <summary>
+    /// Handlers resolve their permissions from the database, and no account is signed in here.
+    /// The break-glass superuser claim grants the whole catalog, so these tests exercise the
+    /// handler rather than the guard in front of it.
+    /// </summary>
+    private static RequestContext Superuser(AsyncServiceScope scope)
+    {
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        ctx.Set(new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(Bitween.RequestContextExtensions.SuperuserClaim, "true")], "integration-test")));
+        return ctx;
+    }
+
     private static RetryPolicyCreate SimplePolicy(string name) => new()
     {
         Name = name,
@@ -59,7 +73,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = Superuser(scope);
         var (create, get, _, _) = Handlers(db, ctx);
 
         var id = (int)await create.Handle(SimplePolicy("Round-trip Policy"));
@@ -77,7 +91,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = Superuser(scope);
         var (create, _, _, _) = Handlers(db, ctx);
 
         var policy = new RetryPolicyCreate
@@ -129,7 +143,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = Superuser(scope);
         var (create, _, update, _) = Handlers(db, ctx);
 
         var id = (int)await create.Handle(SimplePolicy("Before Update"));
@@ -168,7 +182,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = Superuser(scope);
         var (create, _, _, delete) = Handlers(db, ctx);
 
         var id = (int)await create.Handle(SimplePolicy("Deletable Policy"));
@@ -186,7 +200,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = Superuser(scope);
         var (create, _, _, delete) = Handlers(db, ctx);
 
         var doc = new Document(7001, "Delete Guard Doc");
@@ -238,7 +252,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = Superuser(scope);
         var (create, _, _, _) = Handlers(db, ctx);
 
         var doc = new Document(7002, "Sub FK Doc");
@@ -339,8 +353,9 @@ public class RetryPolicyTests
     public async Task Test_simulates_consecutive_attempts_and_stops_once_blocked()
     {
         await using var scope = _fixture.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var handler = new Resources.RetryPolicies.Test(ctx);
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = Superuser(scope);
+        var handler = new Resources.RetryPolicies.Test(db, ctx);
 
         var request = new TestRetryPolicyRequest
         {
@@ -369,8 +384,9 @@ public class RetryPolicyTests
     public async Task Test_rejects_success_result_type()
     {
         await using var scope = _fixture.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var handler = new Resources.RetryPolicies.Test(ctx);
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = Superuser(scope);
+        var handler = new Resources.RetryPolicies.Test(db, ctx);
 
         var request = new TestRetryPolicyRequest
         {
@@ -386,8 +402,9 @@ public class RetryPolicyTests
     public async Task Test_reports_no_match_when_no_group_applies()
     {
         await using var scope = _fixture.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var handler = new Resources.RetryPolicies.Test(ctx);
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = Superuser(scope);
+        var handler = new Resources.RetryPolicies.Test(db, ctx);
 
         var request = new TestRetryPolicyRequest
         {
