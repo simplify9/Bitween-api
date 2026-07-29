@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type SettingRow, type SettingSection } from "../../api";
+import { api, resetAppConfig, type SettingRow } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, LoadingBlock } from "../../components/ui/basics";
@@ -9,15 +9,8 @@ import { Checkbox, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 
-const SECTIONS: SettingSection[] = [
-  "Documents & storage",
-  "API behavior",
-  "Single sign-on (Microsoft)",
-  "Messaging",
-  "Adapters",
-  "Reliability & jobs",
-  "Brand & theme",
-];
+/** Sections, in the order the backend catalog lists them. */
+const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section))];
 
 const formatDefault = (row: SettingRow): string => {
   if (row.kind === "boolean") return row.defaultValue === "true" ? "On" : "Off";
@@ -53,10 +46,12 @@ function SettingRowEditor({
     if (value !== effective) stage(value);
   };
 
-  // Shows as overridden: a pending value, or (untouched and) a saved override.
+  // Shows as overridden: a pending value, or (untouched and) a stored value that isn't the default.
   const showsOverridden = staged !== undefined ? staged !== null : row.overridden;
-  const masked = row.secret && row.overridden && staged === undefined && !replacing;
-  const disabled = !canEdit;
+  // A secret's value never reaches the browser, so "there is one" is all we can show.
+  const masked = row.secret && row.hasValue && staged === undefined && !replacing;
+  // `editable: false` means a secret with no encryption key configured on this instance.
+  const disabled = !canEdit || !row.editable;
 
   return (
     <div className="grid grid-cols-1 gap-x-5 gap-y-1.5 py-3 first:pt-0 last:pb-0 sm:grid-cols-[17rem_1fr_auto] sm:items-start">
@@ -64,7 +59,6 @@ function SettingRowEditor({
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-sm font-medium text-ink-800">{row.label}</span>
           {row.secret && <Badge>Secret</Badge>}
-          {row.restartRequired && <Badge tone="warn">Restart</Badge>}
           {staged !== undefined && <Badge tone="crimson">Unsaved</Badge>}
         </div>
         <p className="mt-0.5 text-[13px] text-ink-500">{row.description}</p>
@@ -82,6 +76,7 @@ function SettingRowEditor({
           <div className="flex items-center gap-2">
             <input
               type="color"
+              aria-label={`${row.label} picker`}
               value={/^#[0-9a-fA-F]{6}$/.test(draft) ? draft : effective}
               disabled={disabled}
               onChange={(e) => {
@@ -92,6 +87,7 @@ function SettingRowEditor({
             />
             <TextInput
               type="text"
+              aria-label={row.label}
               value={draft}
               disabled={disabled}
               onFocus={() => setFocused(true)}
@@ -125,6 +121,7 @@ function SettingRowEditor({
           </div>
         ) : (
           <TextInput
+            aria-label={row.label}
             value={draft}
             disabled={disabled}
             placeholder={row.defaultValue}
@@ -142,15 +139,23 @@ function SettingRowEditor({
           />
         )}
 
-        {!row.secret && !showsOverridden && (
-          <p className="mt-1 text-xs text-ink-400">
-            Default: <span className="font-mono">{formatDefault(row)}</span>
+        {!row.editable ? (
+          <p className="mt-1 text-xs text-warn-700">
+            Stored secrets need <span className="font-mono">Bitween:SettingsEncryptionKey</span> configured on this
+            instance. Until then this value comes from configuration and can't be changed here.
           </p>
+        ) : (
+          !row.secret &&
+          !showsOverridden && (
+            <p className="mt-1 text-xs text-ink-400">
+              Default: <span className="font-mono">{formatDefault(row)}</span>
+            </p>
+          )
         )}
       </div>
 
       <div className="sm:pt-1.5">
-        {showsOverridden && canEdit && (
+        {showsOverridden && canEdit && row.editable && (
           <button
             type="button"
             onClick={() => stage(null)}
@@ -176,9 +181,10 @@ export function SettingsPage() {
   const draft = useSettingsDraft();
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const fromUrl = searchParams.get("section") as SettingSection | null;
-  const section: SettingSection = fromUrl && SECTIONS.includes(fromUrl) ? fromUrl : SECTIONS[0];
-  const setSection = (s: SettingSection) => {
+  const sections = sectionsOf(rows ?? []);
+  const fromUrl = searchParams.get("section");
+  const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
+  const setSection = (s: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("section", s);
     setSearchParams(next, { replace: true });
@@ -193,6 +199,10 @@ export function SettingsPage() {
     onSuccess: () => {
       settingsDraft.discardAll();
       void queryClient.invalidateQueries({ queryKey: ["settings"] });
+      // Branding everywhere reads the memoised config payload, so it has to be re-fetched
+      // for a saved brand change to stick once the draft preview is dropped.
+      resetAppConfig();
+      void queryClient.invalidateQueries({ queryKey: ["appConfig"] });
     },
   });
 
@@ -210,9 +220,8 @@ export function SettingsPage() {
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {SECTIONS.map((s) => {
+        {sections.map((s) => {
           const active = s === section;
-          const needsRestart = rows.some((r) => r.section === s && r.restartRequired && r.overridden);
           const hasUnsaved = rows.some((r) => r.section === s && r.key in draft);
           return (
             <button
@@ -228,7 +237,6 @@ export function SettingsPage() {
             >
               {s}
               {hasUnsaved && <span className="size-1.5 rounded-full bg-crimson-600" title="Unsaved changes" aria-hidden />}
-              {needsRestart && <span className="size-1.5 rounded-full bg-warn-700" title="Restart pending" aria-hidden />}
             </button>
           );
         })}

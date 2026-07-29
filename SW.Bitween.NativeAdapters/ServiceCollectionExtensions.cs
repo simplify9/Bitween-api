@@ -13,7 +13,13 @@ namespace SW.Bitween.NativeAdapters;
 
 public static class ServiceCollectionExtensions
 {
-    public static void AddNativeAdapters(this IServiceCollection serviceCollection, string? rebexLicenseKey = null)
+    /// <param name="rebexLicenseKey">
+    /// Reads the current Rebex license key. Called per adapter instance rather than once here,
+    /// because the key is a setting that can be changed while the app is running — pasting one in
+    /// makes the Rebex adapters usable without a restart.
+    /// </param>
+    public static void AddNativeAdapters(this IServiceCollection serviceCollection,
+        Func<IServiceProvider, string?>? rebexLicenseKey = null)
     {
         serviceCollection.ConfigureHttpClientDefaults(builder =>
         {
@@ -54,16 +60,16 @@ public static class ServiceCollectionExtensions
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativeAzureBlobReceiver>();
         serviceCollection.AddScoped<INativeAdapter, NativeAzureBlobReceiver>();
 
-        if (!string.IsNullOrEmpty(rebexLicenseKey))
+        if (rebexLicenseKey is not null)
         {
-            serviceCollection.AddScoped<INativeInfolinkReceiver>(_ => new NativeRebexPop3Receiver(rebexLicenseKey));
-            serviceCollection.AddScoped<INativeAdapter>(_ => new NativeRebexPop3Receiver(rebexLicenseKey));
+            serviceCollection.AddScoped<INativeInfolinkReceiver>(sp => new NativeRebexPop3Receiver(rebexLicenseKey(sp)));
+            serviceCollection.AddScoped<INativeAdapter>(sp => new NativeRebexPop3Receiver(rebexLicenseKey(sp)));
 
-            serviceCollection.AddScoped<INativeInfolinkHandler>(_ => new NativeRebexFtpUploadHandler(rebexLicenseKey));
-            serviceCollection.AddScoped<INativeAdapter>(_ => new NativeRebexFtpUploadHandler(rebexLicenseKey));
+            serviceCollection.AddScoped<INativeInfolinkHandler>(sp => new NativeRebexFtpUploadHandler(rebexLicenseKey(sp)));
+            serviceCollection.AddScoped<INativeAdapter>(sp => new NativeRebexFtpUploadHandler(rebexLicenseKey(sp)));
 
-            serviceCollection.AddScoped<INativeInfolinkReceiver>(_ => new NativeRebexFtpReceiver(rebexLicenseKey));
-            serviceCollection.AddScoped<INativeAdapter>(_ => new NativeRebexFtpReceiver(rebexLicenseKey));
+            serviceCollection.AddScoped<INativeInfolinkReceiver>(sp => new NativeRebexFtpReceiver(rebexLicenseKey(sp)));
+            serviceCollection.AddScoped<INativeAdapter>(sp => new NativeRebexFtpReceiver(rebexLicenseKey(sp)));
         }
     }
 }

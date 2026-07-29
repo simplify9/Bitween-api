@@ -9,6 +9,6 @@ import { httpClient } from "./http/httpClient";
  */
 export const api: ApiClient = httpClient;
 
-export { getAppConfig } from "./http/appConfig";
+export { getAppConfig, resetAppConfig } from "./http/appConfig";
 export type { AppConfig } from "./http/appConfig";
 export * from "./types";

@@ -628,6 +628,33 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("RetryPolicies", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Setting", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Settings", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>
                 {
                     b.Property<int>("Id")

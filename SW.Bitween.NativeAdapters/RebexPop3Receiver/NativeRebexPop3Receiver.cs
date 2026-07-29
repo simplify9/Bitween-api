@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.RebexPop3Receiver;
 
-public class NativeRebexPop3Receiver : INativeInfolinkReceiver
+public class NativeRebexPop3Receiver : INativeInfolinkReceiver, IRequiresRebexLicense
 {
     private readonly string? _licenseKey;
 
