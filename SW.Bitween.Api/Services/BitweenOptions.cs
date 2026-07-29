@@ -46,6 +46,14 @@ namespace SW.Bitween
         public string MsalRedirectUri { get; set; }
 
         public string MsalTenantId { get; set; }
+
+        /// <summary>
+        /// When true, disables email/password login and account creation with a password.
+        /// Only Microsoft (MSAL) login is allowed: the login page hides the email/password
+        /// form, new accounts are created without a password, and the Login handler rejects
+        /// any email/password login attempt outright.
+        /// </summary>
+        public bool DisableEmailPasswordLogin { get; set; }
         public int JwtExpiryMinutes { get; set; }
         public bool ConsumeLegacyEventMessages { get; set; }
         public string QueuePrefix { get; set; }

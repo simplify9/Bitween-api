@@ -173,10 +173,20 @@ namespace SW.Bitween.Web
             // NON-clustered (EnableClustering defaulted to false and no longer settable here).
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {
+                // For PostgreSQL + managed identity, Npgsql has no "Authentication=" connection
+                // string keyword equivalent to SQL Server's — SW.Scheduler.PgSql's
+                // AzureManagedIdentityNpgsqlDbProvider handles this by fetching a fresh AAD token
+                // and supplying it as Password= on every physical connection Quartz opens, so no
+                // password needs to be (or should be) present in the connection string itself.
                 services.AddPgSqlScheduler(
-                    connectionString: connectionString,
-                    schema: PgSql.BitweenDbContext.Schema,
-                    assemblies: typeof(BitweenDbContext).Assembly);
+                    pg =>
+                    {
+                        pg.ConnectionString = connectionString;
+                        pg.Schema = PgSql.BitweenDbContext.Schema;
+                        pg.UseAzureManagedIdentity = bitweenOptions.UseAzureManagedIdentity;
+                        pg.AzureManagedIdentityClientId = bitweenOptions.AzureManagedIdentityClientId;
+                    },
+                    assemblies: new[] { typeof(BitweenDbContext).Assembly });
             }
             else if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {

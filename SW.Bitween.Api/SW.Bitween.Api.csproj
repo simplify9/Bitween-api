@@ -29,7 +29,7 @@
     <PackageReference Include="Quartz" Version="3.15.0" />
     <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.11" />
     <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="8.1.2" />
-        <PackageReference Include="SimplyWorks.Scheduler.Sdk" Version="8.1.7" />
+    <PackageReference Include="SimplyWorks.Scheduler.Sdk" Version="8.1.7" />
   </ItemGroup>
 
   <ItemGroup>
