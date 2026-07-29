@@ -143,6 +143,13 @@ public static class SettingsCatalog
             t => t.Bitween.MsalRedirectUri,
             (t, v) => t.Bitween.MsalRedirectUri = v),
 
+        new("Bitween.DisableEmailPasswordLogin", "Single sign-on (Microsoft)",
+            "Microsoft sign-in only",
+            "Turn this on to stop anyone signing in with an email and password — the sign-in page then offers Microsoft alone, and new teammates are added without a password. Only do this once Microsoft sign-in above is working, or nobody will be able to get in.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.DisableEmailPasswordLogin),
+            (t, v) => t.Bitween.DisableEmailPasswordLogin = Bool(v)),
+
         // ——— Adapters ———
         new("Bitween.RebexLicenseKey", "Adapters",
             "Rebex license key",

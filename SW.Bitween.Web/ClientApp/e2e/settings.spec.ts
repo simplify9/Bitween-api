@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signInAsAdmin, signOut } from "./helpers";
+import { signInAsAdmin, signOut, startsWith } from "./helpers";
 
 const TEAL = "#0f766e";
 /** A second colour, so the sign-in test stands on its own if the one above left residue. */
@@ -64,6 +64,18 @@ test("environment settings are shown but not offered as edits", async ({ page })
   // Neither kind can be reset, because neither is stored.
   await expect(page.getByRole("button", { name: "Reset to default" })).toHaveCount(0);
   await expect(page.getByText("Environment").first()).toBeVisible();
+});
+
+test("Microsoft-only sign-in is an editable setting, not an environment value", async ({ page }) => {
+  await page.goto("settings");
+  await page.getByRole("button", { name: "Single sign-on (Microsoft)" }).click();
+
+  // It applies per request — the Login handler and the config endpoint both read it live — so it
+  // belongs in the catalog as an edit rather than a read-only environment row.
+  const toggle = page.getByRole("checkbox", { name: startsWith("Off") });
+  await expect(toggle).toBeVisible();
+  await expect(toggle).not.toBeChecked();
+  await expect(page.getByText("Microsoft sign-in only")).toBeVisible();
 });
 
 test("the retry schedule is editable and rejects an invalid cron", async ({ page }) => {

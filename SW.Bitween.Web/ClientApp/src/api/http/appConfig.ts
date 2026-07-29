@@ -5,6 +5,8 @@ export interface AppConfig {
   msalClientId?: string | null;
   msalTenantId?: string | null;
   msalRedirectUri?: string | null;
+  /** When true the backend rejects email/password sign-in outright, so don't offer the form. */
+  disableEmailPasswordLogin?: boolean;
   isRabbitMqManagementConfigured?: boolean;
   /** Effective brand values (any stored override already applied), keyed like `ThemeOptions`. */
   theme?: Record<string, string | boolean | null>;
