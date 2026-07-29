@@ -50,9 +50,9 @@ import type {
 } from "./types";
 
 /**
- * The single data-access contract the UI is written against.
- * The mock implementation lives in ./mock; a real HTTP client can
- * replace it later without touching any component.
+ * The single data-access contract the UI is written against, implemented by
+ * ./http/httpClient. Components depend on this interface rather than on fetch,
+ * so an endpoint's shape can change in one place.
  */
 export interface ApiClient {
   // — session —
