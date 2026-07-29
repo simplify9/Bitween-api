@@ -514,34 +514,46 @@ export interface BusGatewayDetail extends BusGateway {
 
 // ——— Settings ———
 
-export type SettingSection =
-  | "Documents & storage"
-  | "API behavior"
-  | "Single sign-on (Microsoft)"
-  | "Messaging"
-  | "Adapters"
-  | "Reliability & jobs"
-  | "Brand & theme";
+export type SettingValueKind = "string" | "number" | "boolean" | "color";
 
-export type SettingValueKind = "string" | "number" | "boolean" | "string[]" | "color";
+/**
+ * How a row behaves:
+ * - `editable` — stored in the database, changeable here, takes effect immediately.
+ * - `readonly` — an environment value, shown so you can see what this instance runs
+ *   on. Read once at startup, so there's nothing to change here.
+ * - `presence` — an environment value whose content stays on the server; only
+ *   whether it's set is reported.
+ */
+export type SettingAccess = "editable" | "readonly" | "presence";
 
-export interface Setting {
-  /** Stable key; mirrors the real config path (e.g. "Bitween.RebexLicenseKey"). */
+/**
+ * One setting on the settings page. Only settings that take effect immediately are
+ * editable, so there is no "restart required" state to represent — anything read
+ * once at startup appears as `readonly` or `presence` instead.
+ */
+export interface SettingRow {
+  /** Stable key; mirrors the config path (e.g. "Bitween.RebexLicenseKey"). */
   key: string;
-  section: SettingSection;
+  /** Grouping label owned by the backend catalog; the page derives its pills from these. */
+  section: string;
   label: string;
   description: string;
   kind: SettingValueKind;
-  /** Stored as a string regardless of kind; parsed for display per `kind`. */
+  /** The product default a reset returns to. Stored as a string per `kind`; empty for secrets. */
   defaultValue: string;
-  /** null = not overridden, falls back to `defaultValue`. */
+  /** The stored value, or null for a secret — those never leave the server. */
   value: string | null;
   secret: boolean;
-  /** Read once at process startup; changing it has no effect until the backend restarts. */
-  restartRequired: boolean;
-}
-export interface SettingRow extends Setting {
+  /** The stored value differs from the product default, so a reset would do something. */
   overridden: boolean;
+  /** Whether the effective value is non-empty — the only way a secret reveals it is set. */
+  hasValue: boolean;
+  /**
+   * Whether this row can be written. False for every environment value, and for a secret on an
+   * instance with no encryption key configured — there's nowhere safe to store that one.
+   */
+  editable: boolean;
+  access: SettingAccess;
 }
 
 // ——— Exchanges ———

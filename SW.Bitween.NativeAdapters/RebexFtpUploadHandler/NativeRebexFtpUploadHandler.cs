@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.RebexFtpUploadHandler;
 
-public class NativeRebexFtpUploadHandler : INativeInfolinkHandler
+public class NativeRebexFtpUploadHandler : INativeInfolinkHandler, IRequiresRebexLicense
 {
     private readonly string? _licenseKey;
     private RebexFtpUploadHandlerInput _options = new();

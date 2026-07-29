@@ -81,6 +81,8 @@ spec:
             - name: Bitween__StorageProvider
               value: {{ .Values.storageProvider }}
 
+            # Seeds the Settings table on the first boot only — after that the app reads the table
+            # and ignores this value. Change it under Settings → Documents & storage instead.
             - name: Bitween__AreXChangeFilesPrivate
               value: "{{ .Values.areXChangeFilesPrivate }}"
 
@@ -131,12 +133,15 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: db
 
+            # As with Bitween__AreXChangeFilesPrivate above, these three seed the Settings table on
+            # the first boot only. Editing them later has no effect — change Microsoft sign-on
+            # under Settings → Single sign-on (Microsoft).
             - name: Bitween__MsalClientId
               value: {{ .Values.msalClientId }}
 
             - name: Bitween__MsalRedirectUri
               value: {{ .Values.msalRedirectUri }}
-              
+
             - name: Bitween__MsalTenantId
               value: {{ .Values.msalTenantId }}
               

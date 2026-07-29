@@ -405,6 +405,15 @@ namespace SW.Bitween
                 b.HasOne<Role>().WithMany().HasForeignKey(p => p.RoleId).OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<Setting>(b =>
+            {
+                b.ToTable("Settings");
+                b.HasKey(p => p.Id);
+                // Id is the catalog key, e.g. "Theme.PrimaryColor". Value is left unbounded:
+                // it carries anything from a hex color to a license key or a page of blurb.
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
+            });
+
         }
 
         /// <summary>

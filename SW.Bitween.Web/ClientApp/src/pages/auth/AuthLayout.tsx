@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useBranding } from "../../lib/branding";
+import { useApplyBranding } from "../../lib/branding";
 
 /** The connection motif: systems as nodes, Bitween as the path between them. */
 function FlowLines() {
@@ -25,9 +25,9 @@ function FlowLines() {
 }
 
 export function AuthLayout({ children }: { children: ReactNode }) {
-  // Brand carriers: the sign-in logo and blurb are Settings-driven
-  // ("Brand & theme"), so a rebrand shows up here too.
-  const branding = useBranding();
+  // Brand carriers: the sign-in logo and blurb are Settings-driven ("Brand & theme"), so a
+  // rebrand shows up here too — colour, tab title and favicon included, before any sign-in.
+  const branding = useApplyBranding();
 
   return (
     <div className="grid min-h-screen lg:grid-cols-[minmax(360px,44%)_1fr]">

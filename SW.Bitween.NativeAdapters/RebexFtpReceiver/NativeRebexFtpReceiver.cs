@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.RebexFtpReceiver;
 
-public class NativeRebexFtpReceiver : INativeInfolinkReceiver
+public class NativeRebexFtpReceiver : INativeInfolinkReceiver, IRequiresRebexLicense
 {
     private readonly string? _licenseKey;
     private RebexFtpReceiverInput _options = new();

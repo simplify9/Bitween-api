@@ -13,6 +13,7 @@ import { partnerMethods } from "./partners";
 import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
 import { sessionMethods } from "./session";
+import { settingsMethods } from "./settings";
 import { teamMethods } from "./team";
 import { workGroupMethods } from "./workGroups";
 
@@ -38,6 +39,7 @@ const wired: Partial<ApiClient> = {
   ...mapperMethods,
   ...notifierMethods,
   ...teamMethods,
+  ...settingsMethods,
 };
 
 export const httpClient: ApiClient = new Proxy(wired, {

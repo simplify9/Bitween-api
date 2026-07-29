@@ -27,7 +27,10 @@ public class Config : IQueryHandler<object>
             IsRabbitMqManagementConfigured = !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementUrl)
                                              && !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementUsername)
                                              && !string.IsNullOrWhiteSpace(_BitweenOptions.RabbitMqManagementPassword),
-            Theme = _themeOptions
+            Theme = _themeOptions,
+            // The product defaults, so the sign-in page — which has no session and can't read the
+            // settings list — can tell a brand value someone chose from one nobody has touched.
+            ThemeDefaults = SettingsService.DefaultsUnder("Theme.")
         };
     }
 }

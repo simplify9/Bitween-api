@@ -1,15 +1,15 @@
 import { useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { getAppConfig } from "../api";
 import { applyColorScale } from "./colorScale";
-import { effectiveValue, useSettingsDraft } from "./settingsDraft";
+import { useSettingsDraft } from "./settingsDraft";
 
 /**
  * The Brand & theme settings, resolved through the unsaved draft so edits
- * preview live everywhere before they're saved. Image-ish values fall back
- * to the app's shipped assets unless actually customized (`null` = not
- * customized) — the seeded defaults point at legacy backend paths that
- * don't exist in this app.
+ * preview live everywhere before they're saved. Image-ish values only count
+ * once someone has actually changed them (`customized`); left at the default,
+ * each component picks its own shipped asset — which is how the sign-in page
+ * gets the light-on-dark logo variant rather than the one-size default.
  */
 export interface Branding {
   ready: boolean;
@@ -32,39 +32,47 @@ export interface Branding {
   };
 }
 
+/** `loginLogo` ⇄ `Theme.LoginLogo` — the draft is keyed by catalog key. */
+const catalogKey = (prop: string) => `Theme.${prop[0].toUpperCase()}${prop.slice(1)}`;
+
 export function useBranding(): Branding {
-  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => api.listSettings() });
+  // Read through the anonymous config endpoint rather than the settings list: the sign-in page
+  // has to brand itself with no session, and this way both sides of the door share one path.
+  const { data } = useQuery({ queryKey: ["appConfig"], queryFn: getAppConfig });
   const draft = useSettingsDraft();
 
   return useMemo(() => {
-    const get = (key: string): string | undefined => {
-      const row = data?.find((r) => r.key === key);
-      return row ? effectiveValue(row, draft) : undefined;
+    const theme = data?.theme ?? {};
+    const defaults = data?.themeDefaults ?? {};
+
+    const get = (prop: string): string | undefined => {
+      const key = catalogKey(prop);
+      if (key in draft) return draft[key] ?? defaults[prop] ?? "";
+      const value = theme[prop];
+      return value == null ? undefined : String(value);
     };
     /** Only meaningful when someone actually changed it away from the default. */
-    const customized = (key: string): string | null => {
-      const row = data?.find((r) => r.key === key);
-      if (!row) return null;
-      const value = effectiveValue(row, draft);
-      return value.trim() && value !== row.defaultValue ? value : null;
+    const customized = (prop: string): string | null => {
+      const value = get(prop);
+      return value?.trim() && value !== defaults[prop] ? value : null;
     };
 
     return {
       ready: data !== undefined,
-      primaryColor: get("Theme.PrimaryColor"),
-      tabTitle: get("Theme.TabTitle"),
-      companyName: get("Theme.CompanyName"),
-      loginBlurb: customized("Theme.BitweenText"),
-      faviconUrl: customized("Theme.TabIcon"),
-      loginLogoUrl: customized("Theme.LoginLogo"),
-      sidebarLogoUrl: customized("Theme.BitweenLogo"),
+      primaryColor: get("primaryColor"),
+      tabTitle: get("tabTitle"),
+      companyName: get("companyName"),
+      loginBlurb: customized("bitweenText"),
+      faviconUrl: customized("tabIcon"),
+      loginLogoUrl: customized("loginLogo"),
+      sidebarLogoUrl: customized("bitweenLogo"),
       footer: {
-        show: get("Theme.ShowFooter") !== "false",
-        copyrightIcon: get("Theme.CopyRightsIcon"),
-        copyrightText: get("Theme.AllRightsReserved"),
-        websiteUrl: get("Theme.WebsiteLink")?.trim(),
-        linkedinUrl: get("Theme.LinkedinLink")?.trim(),
-        githubUrl: get("Theme.GithubLink")?.trim(),
+        show: get("showFooter") !== "false",
+        copyrightIcon: get("copyRightsIcon"),
+        copyrightText: get("allRightsReserved"),
+        websiteUrl: get("websiteLink")?.trim(),
+        linkedinUrl: get("linkedinLink")?.trim(),
+        githubUrl: get("githubLink")?.trim(),
       },
     };
   }, [data, draft]);

@@ -13,7 +13,8 @@ namespace SW.Bitween
         IEnumerable<INativeInfolinkMapper> nativeMappers,
         IEnumerable<INativeInfolinkReceiver> nativeReceivers,
         IEnumerable<INativeInfolinkValidator> nativeValidators,
-        IEnumerable<INativeAdapter> nativeAdapters)
+        IEnumerable<INativeAdapter> nativeAdapters,
+        BitweenOptions bitweenOptions)
     {
         public const string NativePrefix = "native";
         public Dictionary<string, StartupValue> GetStartupValues(string adapterId)
@@ -147,6 +148,12 @@ namespace SW.Bitween
                 default:
                     return new List<string>();
             }
+
+            // Rebex-backed adapters are always registered (the license key is a setting that can
+            // change at runtime), so they're filtered out here while no key is set rather than
+            // being offered in a picker where they could only fail.
+            if (string.IsNullOrWhiteSpace(bitweenOptions.RebexLicenseKey))
+                adapters = adapters.Where(a => a is not IRequiresRebexLicense).ToList();
 
             return adapters.Select(a => a.GetType().Name).ToList();
         }
