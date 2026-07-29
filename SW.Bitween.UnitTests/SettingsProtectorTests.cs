@@ -8,7 +8,11 @@ namespace SW.Bitween.UnitTests;
 [TestClass]
 public class SettingsProtectorTests
 {
-    private const string LicenseKey = "==ARZFVfGNm773EwoCSs04XtoMCK1wPu/CQRG9TfXa6Fhc==";
+    /// <summary>
+    /// Shaped like a Rebex license key — the longest secret the catalog holds — but deliberately
+    /// not one. Nothing here depends on the contents, only on the round trip.
+    /// </summary>
+    private const string Secret = "==NOT-A-REAL-KEY-0123456789abcdefghijklmnop==";
 
     private static SettingsProtector With(string passphrase) =>
         new(new BitweenOptions { SettingsEncryptionKey = passphrase });
@@ -18,15 +22,15 @@ public class SettingsProtectorTests
     {
         var protector = With("a-passphrase");
 
-        Assert.AreEqual(LicenseKey, protector.Unprotect(protector.Protect(LicenseKey)));
+        Assert.AreEqual(Secret, protector.Unprotect(protector.Protect(Secret)));
     }
 
     [TestMethod]
     public void Stored_form_never_contains_the_plaintext()
     {
-        var stored = With("a-passphrase").Protect(LicenseKey);
+        var stored = With("a-passphrase").Protect(Secret);
 
-        Assert.IsFalse(stored.Contains(LicenseKey, StringComparison.Ordinal));
+        Assert.IsFalse(stored.Contains(Secret, StringComparison.Ordinal));
         // The version marker is what tells a stored value apart from a hand-written plain one.
         Assert.IsTrue(stored.StartsWith("enc.v1:", StringComparison.Ordinal));
     }
@@ -40,7 +44,7 @@ public class SettingsProtectorTests
     {
         var protector = With("a-passphrase");
 
-        Assert.AreNotEqual(protector.Protect(LicenseKey), protector.Protect(LicenseKey));
+        Assert.AreNotEqual(protector.Protect(Secret), protector.Protect(Secret));
     }
 
     // Both of these surface as AuthenticationTagMismatchException (a CryptographicException):
@@ -49,7 +53,7 @@ public class SettingsProtectorTests
     [TestMethod]
     public void A_different_passphrase_cannot_read_it()
     {
-        var stored = With("a-passphrase").Protect(LicenseKey);
+        var stored = With("a-passphrase").Protect(Secret);
 
         Assert.ThrowsException<AuthenticationTagMismatchException>(
             () => With("another-passphrase").Unprotect(stored));
@@ -59,7 +63,7 @@ public class SettingsProtectorTests
     public void Tampering_is_detected_rather_than_decrypted()
     {
         var protector = With("a-passphrase");
-        var stored = protector.Protect(LicenseKey);
+        var stored = protector.Protect(Secret);
         // Flip the last ciphertext character — the authentication tag must reject it.
         var tampered = stored[..^2] + (stored[^2] == 'A' ? 'B' : 'A') + stored[^1];
 
@@ -86,6 +90,6 @@ public class SettingsProtectorTests
     {
         Assert.IsFalse(With(null).IsConfigured);
         Assert.IsFalse(With("   ").IsConfigured);
-        Assert.ThrowsException<InvalidOperationException>(() => With(null).Protect(LicenseKey));
+        Assert.ThrowsException<InvalidOperationException>(() => With(null).Protect(Secret));
     }
 }
