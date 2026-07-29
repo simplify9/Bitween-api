@@ -61,6 +61,11 @@ namespace SW.Bitween.Web
             Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
             services.AddSingleton(themeOptions);
             services.AddSingleton(bitweenOptions);
+            // Keeps both option objects in sync with the Settings table, which owns every editable
+            // setting; Program hands configuration over to it at boot. The protector encrypts
+            // secret settings before they're stored.
+            services.AddSingleton<SettingsProtector>();
+            services.AddSingleton<SettingsService>();
             services.AddMemoryCache();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
@@ -136,6 +141,7 @@ namespace SW.Bitween.Web
             services.AddServerless(configure =>
             {
                 configure.CommandTimeout = bitweenOptions.ServerlessCommandTimeout;
+                configure.AdapterRemotePath = bitweenOptions.AdapterPath;
             });
             services.AddScoped<RequestContext>();
 
@@ -336,7 +342,8 @@ namespace SW.Bitween.Web
                     });
             });
 
-            services.AddNativeAdapters(bitweenOptions.RebexLicenseKey);
+            // Resolved per adapter instance so a license key saved in Settings applies without a restart.
+            services.AddNativeAdapters(sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey);
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();

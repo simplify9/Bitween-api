@@ -18,6 +18,8 @@ const ADMINISTRATOR_ROLE_ID = 1;
 
 const TEST_EMAIL = /^pw-.*@example\.test$/;
 const TEST_ROLE = /^PW /;
+/** The only settings the suite writes to — see the reset below for why this is a list, not "all". */
+const TEST_SETTINGS = ["Theme.PrimaryColor", "Theme.TabTitle", "Theme.CompanyName"];
 
 interface Account {
   id: number;
@@ -70,6 +72,14 @@ export default async function purgeTestData() {
   for (const role of ((await roles.json()).result ?? []) as { id: number; name: string }[])
     if (TEST_ROLE.test(role.name))
       await api.delete(`${API}/roles/${role.id}`, { headers: auth() });
+
+  // Settings tests assert against product defaults, so a value left behind by a failed run would
+  // make them fail for the wrong reason. Only the keys the tests actually touch are reset: the
+  // Settings table is now the only home for values like the MSAL ids and the Rebex license key —
+  // configuration is read once at first boot and ignored after that — so a blanket reset here
+  // would destroy real configuration with no way to get it back.
+  for (const key of TEST_SETTINGS)
+    await api.delete(`${API}/settings/${encodeURIComponent(key)}`, { headers: auth() });
 
   await api.dispose();
 }

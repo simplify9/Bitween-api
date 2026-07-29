@@ -255,7 +255,7 @@ export interface ApiClient {
   // — settings —
   listSettings(): Promise<SettingRow[]>;
   /** `value: null` resets the setting back to its default. */
-  updateSetting(key: string, value: string | null): Promise<SettingRow>;
+  updateSetting(key: string, value: string | null): Promise<void>;
 
   // — notifiers —
   // No backend delete/test-send endpoint exists yet (BACKEND_WIRING_PLAN.md G8) — hidden in the UI.

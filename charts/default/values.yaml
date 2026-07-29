@@ -72,7 +72,13 @@ environmentVariables:
   Bitween__RabbitMqManagementPassword: ""
   Bitween__RabbitMqManagementUsername: ""
   
+# Each key here becomes both an entry in the release Secret and an env var of the same name.
+#
+# Bitween__SettingsEncryptionKey encrypts secret settings (e.g. the Rebex license key) before
+# they're stored in the Settings table. Without it those settings stay configuration-only and
+# show read-only in the UI. Rotating it makes anything already stored unreadable.
 secrets:
+  # Bitween__SettingsEncryptionKey: "<32+ random characters>"
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious

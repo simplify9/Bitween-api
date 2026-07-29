@@ -60,9 +60,3 @@ const subscribe = (listener: () => void) => {
 export function useSettingsDraft(): SettingsDraft {
   return useSyncExternalStore(subscribe, () => cache);
 }
-
-/** What a setting currently *shows as*: draft > saved override > default. */
-export function effectiveValue(row: SettingRow, draft: SettingsDraft): string {
-  if (row.key in draft) return draft[row.key] ?? row.defaultValue;
-  return row.value ?? row.defaultValue;
-}

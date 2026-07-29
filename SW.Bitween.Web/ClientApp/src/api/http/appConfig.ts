@@ -6,14 +6,19 @@ export interface AppConfig {
   msalTenantId?: string | null;
   msalRedirectUri?: string | null;
   isRabbitMqManagementConfigured?: boolean;
+  /** Effective brand values (any stored override already applied), keyed like `ThemeOptions`. */
+  theme?: Record<string, string | boolean | null>;
+  /** The same keys as configured, before any override — lets us tell "set" from "untouched". */
+  themeDefaults?: Record<string, string>;
 }
 
 let cached: Promise<AppConfig> | null = null;
 
 /**
  * Bootstrap config served before authentication (MSAL parameters, feature
- * flags). Fetched once and memoised. Never throws to callers — an unreachable
- * backend just yields an empty config, so the login page degrades gracefully.
+ * flags, branding). Fetched once and memoised. Never throws to callers — an
+ * unreachable backend just yields an empty config, so the login page degrades
+ * gracefully.
  */
 export function getAppConfig(): Promise<AppConfig> {
   if (!cached) {
@@ -22,4 +27,9 @@ export function getAppConfig(): Promise<AppConfig> {
       .catch(() => ({}));
   }
   return cached;
+}
+
+/** Drops the memoised copy, so the next read picks up a brand setting that was just saved. */
+export function resetAppConfig(): void {
+  cached = null;
 }
