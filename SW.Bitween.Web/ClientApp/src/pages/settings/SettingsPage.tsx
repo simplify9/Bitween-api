@@ -17,6 +17,44 @@ const formatDefault = (row: SettingRow): string => {
   return row.defaultValue.trim() ? row.defaultValue : "(empty)";
 };
 
+const formatValue = (row: SettingRow, value: string): string => {
+  if (!value.trim()) return "Not set";
+  return row.kind === "boolean" ? (value === "true" ? "On" : "Off") : value;
+};
+
+/**
+ * A setting this instance was started with. Read once at startup, so there's nothing to change
+ * here — the row exists so an administrator can see what the instance is actually running on
+ * without shelling into it. A `presence` row's value never leaves the server.
+ */
+function EnvironmentSettingRow({ row }: { row: SettingRow }) {
+  return (
+    <div className="grid grid-cols-1 gap-x-5 gap-y-1.5 py-3 first:pt-0 last:pb-0 sm:grid-cols-[17rem_1fr_auto] sm:items-start">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-sm font-medium text-ink-800">{row.label}</span>
+          <Badge>Environment</Badge>
+        </div>
+        <p className="mt-0.5 text-[13px] text-ink-500">{row.description}</p>
+      </div>
+
+      <div className="min-w-0 sm:pt-0.5">
+        {row.access === "presence" ? (
+          <Badge tone={row.hasValue ? "ok" : "neutral"}>{row.hasValue ? "Set" : "Not set"}</Badge>
+        ) : (
+          <span
+            className={`font-mono text-sm break-all ${row.value?.trim() ? "text-ink-700" : "text-ink-400"}`}
+          >
+            {formatValue(row, row.value ?? "")}
+          </span>
+        )}
+      </div>
+
+      <div />
+    </div>
+  );
+}
+
 function SettingRowEditor({
   row,
   staged,
@@ -216,7 +254,7 @@ export function SettingsPage() {
     <div className={dirtyCount > 0 ? "pb-20" : ""}>
       <PageHeader
         title="Settings"
-        description="Instance-wide configuration. Changes preview live across the app — walk around and look, then save (or discard) here."
+        description="Instance-wide configuration. Changes preview live across the app — walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -244,9 +282,13 @@ export function SettingsPage() {
 
       <div className="max-w-3xl rounded-xl border border-ink-200 bg-white p-5">
         <div className="divide-y divide-ink-100">
-          {sectionRows.map((row) => (
-            <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
-          ))}
+          {sectionRows.map((row) =>
+            row.access === "editable" ? (
+              <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
+            ) : (
+              <EnvironmentSettingRow key={row.key} row={row} />
+            ),
+          )}
         </div>
       </div>
 

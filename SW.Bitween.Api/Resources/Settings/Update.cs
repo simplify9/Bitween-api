@@ -10,13 +10,15 @@ namespace SW.Bitween.Resources.Settings;
 /// <summary>
 /// Stores a new value for one setting. It's applied to the live options singletons as well as
 /// stored, so the very next request already sees it; the cache-revoke broadcast carries the change
-/// to any other instance. Secrets are encrypted before they're written.
+/// to any other instance. Secrets are encrypted before they're written. Only editable settings can
+/// be written at all — the environment-owned ones the page also lists are rejected here.
 /// </summary>
 public class Update(
     BitweenDbContext dbContext,
     RequestContext requestContext,
     SettingsService settings,
-    IInfolinkCache cache) : ICommandHandler<string, SettingUpdate, object>
+    IInfolinkCache cache,
+    IServiceProvider serviceProvider) : ICommandHandler<string, SettingUpdate, object>
 {
     public async Task<object> Handle(string key, SettingUpdate request)
     {
@@ -24,6 +26,10 @@ public class Update(
 
         var definition = SettingsCatalog.Find(key)
                          ?? throw new SWValidationException("SETTING_NOT_FOUND", $"'{key}' is not a known setting.");
+
+        if (!definition.Stored)
+            throw new SWValidationException("SETTING_NOT_EDITABLE",
+                $"{definition.Label} comes from this instance's configuration and can't be changed here.");
 
         if (!settings.CanStore(definition))
             throw new SWValidationException("SETTING_ENCRYPTION_UNAVAILABLE",
@@ -44,6 +50,11 @@ public class Update(
 
         await Store(definition, value);
         settings.Apply(definition, value);
+
+        // Some settings need more than the property assignment above — re-scheduling a job, for
+        // instance. Runs after Apply so the hook reads the value that's now in effect.
+        if (definition.OnChange is not null) await definition.OnChange(serviceProvider);
+
         await cache.BroadcastRevoke();
 
         return null;

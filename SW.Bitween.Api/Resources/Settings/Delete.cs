@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
 using SW.Bitween.Services;
@@ -17,7 +18,8 @@ public class Delete(
     BitweenDbContext dbContext,
     RequestContext requestContext,
     SettingsService settings,
-    IInfolinkCache cache) : IDeleteHandler<string, object>
+    IInfolinkCache cache,
+    IServiceProvider serviceProvider) : IDeleteHandler<string, object>
 {
     public async Task<object> Handle(string key)
     {
@@ -25,6 +27,10 @@ public class Delete(
 
         var definition = SettingsCatalog.Find(key)
                          ?? throw new SWValidationException("SETTING_NOT_FOUND", $"'{key}' is not a known setting.");
+
+        if (!definition.Stored)
+            throw new SWValidationException("SETTING_NOT_EDITABLE",
+                $"{definition.Label} comes from this instance's configuration, so there's nothing to reset.");
 
         if (!settings.CanStore(definition))
             throw new SWValidationException("SETTING_ENCRYPTION_UNAVAILABLE",
@@ -44,6 +50,10 @@ public class Delete(
         // Resetting an already-default setting is a no-op, not an error — the UI can fire this for
         // a staged reset it never saved a value for.
         settings.Apply(definition, productDefault);
+
+        // A reset has to take effect the same way a write does — see Update.
+        if (definition.OnChange is not null) await definition.OnChange(serviceProvider);
+
         await cache.BroadcastRevoke();
 
         return null;

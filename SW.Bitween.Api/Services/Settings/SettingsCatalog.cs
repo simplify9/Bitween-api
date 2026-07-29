@@ -2,6 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Quartz;
+using SW.Scheduler;
 
 namespace SW.Bitween.Services;
 
@@ -11,6 +15,25 @@ public enum SettingKind
     Number,
     Boolean,
     Color
+}
+
+/// <summary>What the UI is allowed to do with a setting.</summary>
+public enum SettingAccess
+{
+    /// <summary>Stored in the <c>Settings</c> table and changeable from the UI.</summary>
+    Editable,
+
+    /// <summary>
+    /// Environment-owned: shown with its current value so an administrator can see what this
+    /// instance is running on, but not changeable here because it's read once at startup.
+    /// </summary>
+    ReadOnly,
+
+    /// <summary>
+    /// Environment-owned and private: only whether a value is set is reported, never the value —
+    /// for credentials and keys that would be pointless to leak into the browser.
+    /// </summary>
+    Presence
 }
 
 /// <summary>The two option singletons a setting can read from and write to.</summary>
@@ -28,15 +51,38 @@ public sealed record SettingDefinition(
     SettingKind Kind,
     bool Secret,
     Func<SettingsTarget, string> Read,
-    Action<SettingsTarget, string> Write);
+    Action<SettingsTarget, string> Write)
+{
+    /// <summary>Editable unless a definition says otherwise — see <see cref="SettingAccess"/>.</summary>
+    public SettingAccess Access { get; init; } = SettingAccess.Editable;
+
+    /// <summary>
+    /// Extra work needed to make a new value take effect, where assigning the property isn't
+    /// enough — rescheduling a job, re-declaring queues. Runs on the instance that saved it,
+    /// after the value has been applied.
+    /// </summary>
+    public Func<IServiceProvider, Task> OnChange { get; init; }
+
+    /// <summary>Only editable settings get a row; the rest are read straight off the options.</summary>
+    public bool Stored => Access == SettingAccess.Editable;
+}
 
 /// <summary>
-/// The settings a user may change from the UI, and the only ones the <c>Settings</c> table ever
-/// holds. Membership rule: a setting belongs here <b>only</b> if every consumer reads it from
-/// the options singleton per call, so changing it takes effect immediately. Anything captured
-/// once during <c>Startup.ConfigureServices</c> — the bus, CORS, storage, JWT signing, Quartz,
-/// the DB provider — stays environment-only, because a stored value could never apply without
-/// a restart.
+/// Every setting the settings page shows, and — for the editable ones — the only keys the
+/// <c>Settings</c> table ever holds.
+/// <para>
+/// The membership rule is about <see cref="SettingAccess"/>, not about being listed here. A
+/// setting is <b>editable</b> only if every consumer reads it from the options singleton per call,
+/// so a change takes effect immediately. Anything captured once during
+/// <c>Startup.ConfigureServices</c> — the bus, CORS, storage, JWT signing, the DB provider — is
+/// environment-owned and appears as <see cref="SettingAccess.ReadOnly"/> (its value shown) or
+/// <see cref="SettingAccess.Presence"/> (only whether it's set), so an administrator can see what
+/// the instance is running on without being offered an edit that couldn't work.
+/// </para>
+/// <para>
+/// Read-only and presence settings never get a row: they're read straight off the options object,
+/// which configuration bound at startup.
+/// </para>
 /// </summary>
 public static class SettingsCatalog
 {
@@ -49,6 +95,10 @@ public static class SettingsCatalog
             SettingKind.Boolean, false,
             t => Str(t.Bitween.AreXChangeFilesPrivate),
             (t, v) => t.Bitween.AreXChangeFilesPrivate = Bool(v)),
+
+        View("Bitween.DocumentPrefix", "Documents & storage", "Document prefix",
+            "The cloud-storage key prefix every exchange document is written under. Fixed per environment — changing it would leave everything already stored unreachable.",
+            SettingKind.String, t => t.Bitween.DocumentPrefix),
 
         // ——— API behavior ———
         new("Bitween.ApiCallSubscriptionResponseAcceptedStatusCode", "API behavior",
@@ -64,6 +114,10 @@ public static class SettingsCatalog
             SettingKind.Number, false,
             t => t.Bitween.JwtExpiryMinutes.ToString(CultureInfo.InvariantCulture),
             (t, v) => t.Bitween.JwtExpiryMinutes = Int(v)),
+
+        View("Bitween.CorsOrigins", "API behavior", "Allowed browser origins",
+            "The origins allowed to call this API with cookies attached. Read once when the CORS policy is built at startup.",
+            SettingKind.String, t => Join(t.Bitween.CorsOrigins)),
 
         // ——— Single sign-on (Microsoft) ———
         // Not secrets: these are public client identifiers, and the [Unprotect] Config endpoint
@@ -96,6 +150,69 @@ public static class SettingsCatalog
             SettingKind.String, true,
             t => t.Bitween.RebexLicenseKey,
             (t, v) => t.Bitween.RebexLicenseKey = v),
+
+        View("Bitween.AdapterPath", "Adapters", "Custom adapter path",
+            "The cloud-storage key prefix custom adapter packages are downloaded from. Handed to the serverless runner when it's configured at startup.",
+            SettingKind.String, t => t.Bitween.AdapterPath),
+
+        View("Bitween.ServerlessCommandTimeout", "Adapters", "Custom adapter timeout (seconds)",
+            "How long a custom adapter may run before the serverless runner gives up on it.",
+            SettingKind.Number, t => t.Bitween.ServerlessCommandTimeout.ToString(CultureInfo.InvariantCulture)),
+
+        // ——— Reliability & jobs ———
+        new("Bitween.RetryJobCron", "Reliability & jobs",
+            "Retry poll schedule",
+            "How often Bitween looks for exchanges whose scheduled retry has come due, as a cron expression: second minute hour day-of-month month day-of-week. Saving re-schedules the job straight away.",
+            SettingKind.String, false,
+            t => t.Bitween.RetryJobCron,
+            (t, v) => t.Bitween.RetryJobCron = Cron(v))
+        {
+            // Assigning the property isn't enough here: the trigger already lives in the Quartz
+            // store, so it has to be replaced. Schedule() reads the value we just applied.
+            OnChange = sp => sp.GetRequiredService<IScheduleRepository>()
+                .Schedule<RetryJob>(sp.GetRequiredService<BitweenOptions>().RetryJobCron)
+        },
+
+        // ——— Messaging ———
+        // All environment-owned: the bus connection and its queue topology are built once, during
+        // startup, so nothing here could take effect on a running instance.
+        View("Bitween.QueuePrefix", "Messaging", "Queue name prefix",
+            "Prefixed to every queue this instance declares, which is what keeps two Bitween deployments on one RabbitMQ from consuming each other's messages.",
+            SettingKind.String, t => t.Bitween.QueuePrefix),
+
+        View("Bitween.BusDefaultQueuePrefetch", "Messaging", "Default queue prefetch",
+            "How many messages a consumer may hold unacknowledged by default. A work group can override it for its own queue.",
+            SettingKind.Number, t => t.Bitween.BusDefaultQueuePrefetch?.ToString(CultureInfo.InvariantCulture)),
+
+        View("Bitween.ConsumeLegacyEventMessages", "Messaging", "Consume legacy event messages",
+            "Whether this instance also drains the five queues named after exchange events, which an older Bitween published to before work groups existed. Nothing publishes to them today, so this is only for finishing off messages left behind by an upgrade.",
+            SettingKind.Boolean, t => Str(t.Bitween.ConsumeLegacyEventMessages)),
+
+        Presence("Bitween.RabbitMqManagementUrl", "Messaging", "RabbitMQ management URL",
+            "The management API queue health is read from. All three management values are needed before queue depths can be shown.",
+            t => t.Bitween.RabbitMqManagementUrl),
+
+        Presence("Bitween.RabbitMqManagementUsername", "Messaging", "RabbitMQ management username",
+            "The account queue health reads with. Required alongside the URL and password.",
+            t => t.Bitween.RabbitMqManagementUsername),
+
+        Presence("Bitween.RabbitMqManagementPassword", "Messaging", "RabbitMQ management password",
+            "The password for the management account. Required alongside the URL and username.",
+            t => t.Bitween.RabbitMqManagementPassword),
+
+        // ——— Database ———
+        View("Bitween.UseAzureManagedIdentity", "Database", "Use Azure managed identity",
+            "Whether database connections authenticate with an Azure managed identity instead of a password in the connection string.",
+            SettingKind.Boolean, t => Str(t.Bitween.UseAzureManagedIdentity)),
+
+        Presence("Bitween.AzureManagedIdentityClientId", "Database", "Managed identity client ID",
+            "Set only when a user-assigned identity is used; left unset, the system-assigned identity is.",
+            t => t.Bitween.AzureManagedIdentityClientId),
+
+        // ——— Security ———
+        Presence("Bitween.SettingsEncryptionKey", "Security", "Settings encryption key",
+            "Encrypts secret settings before they're stored. Without it, a secret can't be saved here at all and stays environment-only.",
+            t => t.Bitween.SettingsEncryptionKey),
 
         // ——— Brand & theme ———
         new("Theme.PrimaryColor", "Brand & theme",
@@ -210,7 +327,34 @@ public static class SettingsCatalog
     public static SettingDefinition Find(string key) =>
         key is not null && ByKey.TryGetValue(key, out var definition) ? definition : null;
 
+    /// <summary>
+    /// An environment value the UI shows but can't change. No <c>Write</c>: there's nowhere to
+    /// write it to that would matter, since whoever reads it did so at startup.
+    /// </summary>
+    private static SettingDefinition View(string key, string section, string label, string description,
+        SettingKind kind, Func<SettingsTarget, string> read) =>
+        new(key, section, label, description, kind, false, read, null) { Access = SettingAccess.ReadOnly };
+
+    /// <summary>An environment value reported only as set or not set, never by its content.</summary>
+    private static SettingDefinition Presence(string key, string section, string label, string description,
+        Func<SettingsTarget, string> read) =>
+        new(key, section, label, description, SettingKind.String, false, read, null)
+            { Access = SettingAccess.Presence };
+
     private static string Str(bool value) => value ? "true" : "false";
+
+    private static string Join(string[] values) =>
+        values is null ? string.Empty : string.Join(", ", values);
+
+    /// <summary>
+    /// Rejected here rather than by the scheduler, because a bad expression that reached the table
+    /// would throw on the next boot — inside the background service that seeds every subscription's
+    /// schedule, taking all of them down with it.
+    /// </summary>
+    private static string Cron(string value) =>
+        CronExpression.IsValidExpression(value)
+            ? value
+            : throw new FormatException($"'{value}' is not a valid cron expression.");
 
     /// <summary>Anything but an explicit "true" is off — matches how the UI posts checkboxes.</summary>
     private static bool Bool(string value) => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);

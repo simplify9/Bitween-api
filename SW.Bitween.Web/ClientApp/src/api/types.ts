@@ -517,9 +517,19 @@ export interface BusGatewayDetail extends BusGateway {
 export type SettingValueKind = "string" | "number" | "boolean" | "color";
 
 /**
- * One editable setting. Only settings that take effect immediately are editable —
- * anything the backend reads once at startup stays environment-only and never
- * appears here, so there is no "restart required" state to represent.
+ * How a row behaves:
+ * - `editable` — stored in the database, changeable here, takes effect immediately.
+ * - `readonly` — an environment value, shown so you can see what this instance runs
+ *   on. Read once at startup, so there's nothing to change here.
+ * - `presence` — an environment value whose content stays on the server; only
+ *   whether it's set is reported.
+ */
+export type SettingAccess = "editable" | "readonly" | "presence";
+
+/**
+ * One setting on the settings page. Only settings that take effect immediately are
+ * editable, so there is no "restart required" state to represent — anything read
+ * once at startup appears as `readonly` or `presence` instead.
  */
 export interface SettingRow {
   /** Stable key; mirrors the config path (e.g. "Bitween.RebexLicenseKey"). */
@@ -539,10 +549,11 @@ export interface SettingRow {
   /** Whether the effective value is non-empty — the only way a secret reveals it is set. */
   hasValue: boolean;
   /**
-   * False only for a secret on an instance with no encryption key configured: there's nowhere
-   * safe to store it, so it stays configuration-only and shows read-only.
+   * Whether this row can be written. False for every environment value, and for a secret on an
+   * instance with no encryption key configured — there's nowhere safe to store that one.
    */
   editable: boolean;
+  access: SettingAccess;
 }
 
 // ——— Exchanges ———

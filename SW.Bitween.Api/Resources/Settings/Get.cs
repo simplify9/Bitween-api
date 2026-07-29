@@ -26,6 +26,10 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Sett
 
         return SettingsCatalog.All.Select(definition =>
         {
+            // Environment-owned settings have no row to join to: they're reported straight from
+            // the options object, either with their value or as set/not set.
+            if (!definition.Stored) return EnvironmentRow(definition, settings.LiveValue(definition));
+
             var hasRow = rows.TryGetValue(definition.Key, out var stored);
             var productDefault = SettingsService.DefaultOf(definition);
             // A secret's value is withheld either way round: only whether one is set is public.
@@ -49,10 +53,33 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Sett
                 HasValue = definition.Secret
                     ? secretIsSet
                     : !string.IsNullOrEmpty(hasRow ? stored : productDefault),
-                // The only thing that makes a setting uneditable: a secret with no passphrase
-                // configured to protect it.
-                Editable = settings.CanStore(definition)
+                // The only thing that makes a stored setting uneditable: a secret with no
+                // passphrase configured to protect it.
+                Editable = settings.CanStore(definition),
+                Access = Name(definition.Access)
             };
         }).ToArray();
     }
+
+    /// <summary>
+    /// A setting the UI reports but can't change. There's no default and nothing to reset, so
+    /// those stay empty; a presence setting withholds the value the same way a secret does.
+    /// </summary>
+    private static SettingRow EnvironmentRow(SettingDefinition definition, string live) => new()
+    {
+        Key = definition.Key,
+        Section = definition.Section,
+        Label = definition.Label,
+        Description = definition.Description,
+        Kind = definition.Kind.ToString().ToLowerInvariant(),
+        DefaultValue = string.Empty,
+        Value = definition.Access == SettingAccess.Presence ? null : live,
+        Secret = false,
+        Overridden = false,
+        HasValue = !string.IsNullOrEmpty(live),
+        Editable = false,
+        Access = Name(definition.Access)
+    };
+
+    private static string Name(SettingAccess access) => access.ToString().ToLowerInvariant();
 }

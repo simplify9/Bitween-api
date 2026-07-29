@@ -30,10 +30,18 @@ public class SettingRow
     public bool HasValue { get; set; }
 
     /// <summary>
-    /// False only for a secret on an instance with no <c>Bitween:SettingsEncryptionKey</c>: there's
-    /// nowhere safe to store it, so it stays configuration-only and the UI shows it read-only.
+    /// Whether the UI may write this setting. False for every environment-owned setting, and for a
+    /// secret on an instance with no <c>Bitween:SettingsEncryptionKey</c> — there's nowhere safe to
+    /// store that, so it stays configuration-only.
     /// </summary>
     public bool Editable { get; set; }
+
+    /// <summary>
+    /// How to render the row: <c>"editable"</c> (stored, changeable), <c>"readonly"</c> (an
+    /// environment value, shown but not changeable) or <c>"presence"</c> (an environment value
+    /// reported only as set or not set).
+    /// </summary>
+    public string Access { get; set; }
 }
 
 public class SettingUpdate

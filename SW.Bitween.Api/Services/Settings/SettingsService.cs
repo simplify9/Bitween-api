@@ -58,8 +58,15 @@ public class SettingsService
         .Where(d => d.Key.StartsWith(prefix, StringComparison.Ordinal))
         .ToDictionary(d => Camelize(d.Key[prefix.Length..]), DefaultOf);
 
+    /// <summary>
+    /// What this setting is right now on the live options singletons. For an environment-owned
+    /// setting that's the whole story — it's what configuration bound at startup.
+    /// </summary>
+    public string LiveValue(SettingDefinition definition) => definition.Read(_target) ?? string.Empty;
+
     /// <summary>A secret can only be stored if there's a passphrase to protect it with.</summary>
-    public bool CanStore(SettingDefinition definition) => !definition.Secret || _protector.IsConfigured;
+    public bool CanStore(SettingDefinition definition) =>
+        definition.Stored && (!definition.Secret || _protector.IsConfigured);
 
     /// <summary>Ciphertext for a secret, the value itself for everything else.</summary>
     public string ToStored(SettingDefinition definition, string value) =>
@@ -78,6 +85,8 @@ public class SettingsService
         var imported = new List<string>();
         foreach (var definition in SettingsCatalog.All)
         {
+            // Read-only and presence settings are environment-owned; they never get a row.
+            if (!definition.Stored) continue;
             if (have.Contains(definition.Key)) continue;
             // A secret with nowhere safe to go stays in configuration until a passphrase exists.
             if (!CanStore(definition)) continue;
@@ -115,6 +124,8 @@ public class SettingsService
 
         foreach (var definition in SettingsCatalog.All)
         {
+            // Environment-owned settings stay that way even if a row is hand-inserted for one.
+            if (!definition.Stored) continue;
             // No row means nobody could store this key yet (a secret with no passphrase), so
             // whatever configuration bound at startup stands.
             if (!rows.TryGetValue(definition.Key, out var stored)) continue;

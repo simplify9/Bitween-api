@@ -24,6 +24,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.23" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols" Version="8.3.1" />
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" Version="8.3.1" />
+    <!-- Compile-time only, for validating a cron expression before it's stored. Quartz already
+         ships with the app through SimplyWorks.Scheduler.EfCore. -->
+    <PackageReference Include="Quartz" Version="3.15.0" />
     <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.11" />
     <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="8.1.2" />
         <PackageReference Include="SimplyWorks.Scheduler.Sdk" Version="8.1.7" />
