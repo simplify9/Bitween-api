@@ -152,7 +152,7 @@ export function PartnerPicker({
           selected={value === p.id}
           onSelect={() => onChange(p.id)}
           title={p.name}
-          subtitle={`${Object.keys(p.adapterProperties).length} propert${Object.keys(p.adapterProperties).length === 1 ? "y" : "ies"}`}
+          subtitle={`${p.propertyKeys.length} propert${p.propertyKeys.length === 1 ? "y" : "ies"}`}
           editHref={detourCtx ? withReturn(`/partners/${p.id}`, detourCtx) : undefined}
         />
       ))}

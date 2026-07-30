@@ -88,7 +88,7 @@ export function PartnersPage() {
                       {p.isSystem && <Badge tone="ink">Built-in</Badge>}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-ink-600">{Object.keys(p.adapterProperties).length}</td>
+                  <td className="px-4 py-3 text-ink-600">{p.propertyKeys.length}</td>
                   <td className="px-4 py-3 text-ink-600">{p.credentialCount}</td>
                   <td className="px-4 py-3 text-ink-600">
                     {p.usedByCount > 0 ? (

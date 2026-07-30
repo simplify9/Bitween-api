@@ -27,8 +27,11 @@ interface RawNotification {
   exception: string | null;
   finishedOn: string;
 }
+// Empty-valued properties are dropped: an adapter property with no value means
+// "not set", and keeping it would make a freshly-cleared field compare unequal to
+// stored data that never had the key — leaving the Save bar up after an undo.
 const toRecord = (kvs: RawKeyAndValue[] | null): Record<string, string> =>
-  Object.fromEntries((kvs ?? []).map((kv) => [kv.key, kv.value]));
+  Object.fromEntries((kvs ?? []).filter((kv) => kv.value !== "").map((kv) => [kv.key, kv.value]));
 const toKvArray = (record: Record<string, string>): RawKeyAndValue[] =>
   Object.entries(record).map(([key, value]) => ({ key, value }));
 

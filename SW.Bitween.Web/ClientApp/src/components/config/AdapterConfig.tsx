@@ -34,10 +34,36 @@ function useReferenceTokens() {
       value,
     })),
   );
+  // propertyKeys, not adapterProperties: the list endpoint deliberately withholds
+  // property values (they can be secrets) and sends only their names, which is all
+  // a reference token needs.
   const partnerKeys: ReferenceToken[] = [
-    ...new Set((partners.data ?? []).flatMap((p) => Object.keys(p.adapterProperties))),
+    ...new Set((partners.data ?? []).flatMap((p) => p.propertyKeys)),
   ].map((key) => ({ label: `partner.${key}`, token: `{{partner.${key}}}` }));
   return { globals, partnerKeys, partners: partners.data ?? [] };
+}
+
+/**
+ * One partner's value for a `{{partner.KEY}}` reference.
+ *
+ * Fetched per partner, and only once the row is expanded. The partners list
+ * deliberately carries property names without their values, so that something like
+ * an FTP password isn't sitting in the browser on every adapter screen; this pulls
+ * the value on demand, for the handful of partners actually being inspected.
+ */
+function PartnerPropValue({ partnerId, propKey }: { partnerId: number; propKey: string }) {
+  const props = useQuery({
+    queryKey: ["partner-adapter-properties", partnerId],
+    queryFn: () => api.getPartnerAdapterProperties(partnerId),
+    staleTime: 60_000,
+  });
+  if (props.isPending) return <span className="text-ink-300">loading…</span>;
+  const value = props.data?.[propKey];
+  return (
+    <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] break-all text-ink-700">
+      {value === undefined || value === "" ? "—" : value}
+    </code>
+  );
 }
 
 /**
@@ -175,6 +201,7 @@ function ReferenceHints({
 }) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
+
   // Set ids and keys are free-form (spaces included) on the backend — match on the
   // `{{…}}` delimiters themselves, not a restrictive charset, or refs with a space
   // in the id/key (e.g. "schedule source url") silently fail to match here.
@@ -210,14 +237,14 @@ function ReferenceHints({
                 {ref.value}
               </code>
             ) : (
-              <span className="font-medium text-crimson-700">not found — check the set and key</span>
+              <span className="font-medium text-danger-700">not found — check the set and key</span>
             )}
           </div>
         );
       })}
 
       {partnerRefs.map((key) => {
-        const withValue = realPartners.filter((p) => key in p.adapterProperties);
+        const withValue = realPartners.filter((p) => p.propertyKeys.includes(key));
         const without = realPartners.length - withValue.length;
         const open = openKeys.has(key);
         return (
@@ -231,7 +258,7 @@ function ReferenceHints({
               {open ? <ChevronDown className="size-3" aria-hidden /> : <ChevronRight className="size-3" aria-hidden />}
               <span className="font-mono">{`{{partner.${key}}}`}</span>
               <span className="text-ink-300">→</span>
-              <span className={withValue.length === 0 ? "font-medium text-crimson-700" : "font-medium text-ink-700"}>
+              <span className={withValue.length === 0 ? "font-medium text-danger-700" : "font-medium text-ink-700"}>
                 {withValue.length === 0
                   ? "no partner defines it"
                   : `defined by ${withValue.length} of ${realPartners.length} partner${realPartners.length === 1 ? "" : "s"}`}
@@ -248,9 +275,7 @@ function ReferenceHints({
                       {p.name}
                     </Link>
                     <span className="text-ink-300">→</span>
-                    <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] break-all text-ink-700">
-                      {p.adapterProperties[key]}
-                    </code>
+                    <PartnerPropValue partnerId={p.id} propKey={key} />
                   </li>
                 ))}
                 {without > 0 && (
@@ -281,9 +306,28 @@ function PropField({
   onChange: (value: string) => void;
 }) {
   const { globals, partnerKeys, partners } = useReferenceTokens();
-  const [replacing, setReplacing] = useState(false);
-  const masked = prop.secret && !!value && !replacing;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Whether the user is part-way through entering a value. Masking has to key off
+  // this rather than off whether the field currently holds text: the latter flipped
+  // to masked on the very first keystroke, so typing a secret hid what you'd typed.
+  const [entering, setEntering] = useState(false);
+  const lastEmitted = useRef<string | null>(null);
+
+  // The parent re-supplies values from the server after a save or a discard. When
+  // what arrives isn't what this field last emitted, the draft was reset from the
+  // outside, so a stored secret goes back to being masked.
+  useEffect(() => {
+    if (value !== lastEmitted.current) setEntering(false);
+  }, [value]);
+
+  const emit = (next: string) => {
+    lastEmitted.current = next;
+    setEntering(true);
+    onChange(next);
+  };
+
+  const masked = prop.secret && !!value && !entering;
 
   // Insert at the cursor (or over the current selection) instead of always
   // appending, so picking a second reference doesn't just tack it onto the end.
@@ -291,7 +335,7 @@ function PropField({
     const el = textareaRef.current;
     const start = el?.selectionStart ?? value.length;
     const end = el?.selectionEnd ?? value.length;
-    onChange(value.slice(0, start) + token + value.slice(end));
+    emit(value.slice(0, start) + token + value.slice(end));
     const caret = start + token.length;
     requestAnimationFrame(() => {
       el?.focus();
@@ -309,7 +353,7 @@ function PropField({
         <div className="flex h-9.5 items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3">
           <span className="font-mono text-sm tracking-widest text-ink-400">••••••••</span>
           {!disabled && (
-            <Button size="sm" variant="ghost" onClick={() => { onChange(""); setReplacing(true); }}>
+            <Button size="sm" variant="ghost" onClick={() => emit("")}>
               Replace
             </Button>
           )}
@@ -324,7 +368,7 @@ function PropField({
               value={value}
               disabled={disabled}
               placeholder={prop.default}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => emit(e.target.value)}
               className="[grid-area:1/1] w-full resize-none overflow-hidden rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500"
             />
             <span aria-hidden className="[grid-area:1/1] invisible border px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap">
@@ -386,7 +430,16 @@ export function AdapterConfig({
       prop={prop}
       value={properties[prop.key] ?? ""}
       disabled={disabled}
-      onChange={(v) => onChange(adapterId, { ...properties, [prop.key]: v })}
+      onChange={(v) => {
+        // An empty adapter property means "not set", so clearing a field has to
+        // remove the key rather than leave it as "". Keeping it made a cleared
+        // field compare unequal to saved data that never had the key, so the
+        // Save bar stayed up after a change had been undone.
+        const next = { ...properties };
+        if (v === "") delete next[prop.key];
+        else next[prop.key] = v;
+        onChange(adapterId, next);
+      }}
     />
   );
 

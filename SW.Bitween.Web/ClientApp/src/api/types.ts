@@ -165,6 +165,8 @@ export interface Partner {
 export interface PartnerRow extends Partner {
   credentialCount: number;
   usedByCount: number;
+  /** Property names only — the list endpoint never sends values, which may be secrets. */
+  propertyKeys: string[];
 }
 export interface PartnerDetail extends Partner {
   apiCredentials: ApiCredentialRef[];

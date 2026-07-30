@@ -18,6 +18,7 @@ interface RawPartnerRow {
   name: string;
   subscriptionsCount: number;
   keys: number;
+  propertyKeys: string[] | null;
 }
 interface RawKeyAndValue {
   key: string;
@@ -93,7 +94,10 @@ export const partnerMethods = {
     return (res.result ?? []).map((p) => ({
       id: p.id,
       name: p.name,
+      // The list endpoint sends property names, never their values — they can be
+      // secrets. Anything needing values must fetch the partner's detail.
       adapterProperties: {},
+      propertyKeys: p.propertyKeys ?? [],
       isSystem: p.id === SYSTEM_PARTNER_ID,
       createdOn: "",
       credentialCount: p.keys,
