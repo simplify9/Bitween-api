@@ -8,7 +8,7 @@ import { test, expect, type Page } from "@playwright/test";
  * no key, so the flag is exercised at the boundary instead.
  */
 async function withConfig(page: Page, overrides: Record<string, unknown>) {
-  await page.route("**/bitween/api/settings/config", async (route) => {
+  await page.route("**/api/settings/config", async (route) => {
     const real = await route.fetch();
     const body = await real.json();
     await route.fulfill({ json: { ...body, ...overrides } });

@@ -1,10 +1,10 @@
 import { ApiRequestError } from "../types";
 
 /**
- * All endpoints live under /bitween/api (UrlPrefix="api" + UsePathBase("/bitween")).
+ * All endpoints live under /api (UrlPrefix="api").
  * The SPA is served from the same origin, so this stays relative and cookies flow.
  */
-export const API_BASE = "/bitween/api";
+export const API_BASE = "/api";
 
 /** The Jwt is kept in localStorage; the refresh token is an HttpOnly cookie JS never sees. */
 const TOKEN_KEY = "access_token";

@@ -18,7 +18,7 @@ import {
 
 async function apiStatus(page: import("@playwright/test").Page, path: string): Promise<number> {
   const token = await page.evaluate(() => localStorage.getItem("access_token"));
-  const res = await page.request.fetch(`https://localhost:7155/bitween/api${path}`, {
+  const res = await page.request.fetch(`https://localhost:7155/api${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.status();

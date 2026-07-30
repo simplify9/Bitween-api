@@ -27,7 +27,7 @@ async function apiStatus(
   body?: unknown,
 ): Promise<number> {
   const token = await page.evaluate(() => localStorage.getItem("access_token"));
-  const res = await page.request.fetch(`https://localhost:7155/bitween/api${path}`, {
+  const res = await page.request.fetch(`https://localhost:7155/api${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     ...(body === undefined ? {} : { data: body }),

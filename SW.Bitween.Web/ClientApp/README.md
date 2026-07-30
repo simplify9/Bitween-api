@@ -11,15 +11,15 @@ pages so role gating can be demonstrated across the whole navigation.
 
 ```bash
 npm install
-npm run dev        # → http://localhost:5173/bitween/
+npm run dev        # → http://localhost:5173/
 ```
 
 **Backend-served (how it deploys):**
 
 ```bash
-npm run build      # outputs into ../wwwroot with base /bitween/
+npm run build      # outputs into ../wwwroot with base /
 dotnet run --project .. --launch-profile SW.Bitween.Web.Local
-# → https://localhost:7155/bitween/
+# → https://localhost:7155/
 ```
 
 `dotnet publish` runs the npm build automatically (skip with `-p:SkipClientBuild=true`);

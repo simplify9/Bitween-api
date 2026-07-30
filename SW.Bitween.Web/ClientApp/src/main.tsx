@@ -7,8 +7,9 @@ import { SessionProvider } from "./auth/SessionContext";
 import { router } from "./router";
 import "./index.css";
 
-// Reaching the app outside its base path (e.g. "/" when hosted under
-// /bitween) can't be routed — bounce to the base instead of a blank page.
+// Reaching the app outside its base path can't be routed — bounce to the base
+// instead of a blank page. Inert while the app is served from the root, but
+// keeps working if it is ever mounted under a prefix again.
 const base = import.meta.env.BASE_URL;
 if (base !== "/" && !window.location.pathname.startsWith(base.replace(/\/$/, ""))) {
   window.location.replace(base);

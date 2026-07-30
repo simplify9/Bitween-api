@@ -9,7 +9,7 @@ import { request } from "@playwright/test";
  * to tidy up, every run starts by purging its own residue and putting the admin's role back.
  */
 
-const API = "https://localhost:7155/bitween/api";
+const API = "https://localhost:7155/api";
 const ADMIN_EMAIL = "admin@Bitween.systems";
 const ADMIN_PASSWORD = "Mtm@dmin!2";
 /** Configured break-glass credentials — the only way in when the admin has no roles left. */

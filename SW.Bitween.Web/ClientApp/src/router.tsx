@@ -59,7 +59,7 @@ const placeholderRoutes = NAV_GROUPS.flatMap((group) => group.items)
     element: <PlaceholderPage item={item} />,
   }));
 
-/** "/bitween/" → "/bitween"; "/" → undefined (no basename). */
+/** "/" → undefined (no basename); "/prefix/" → "/prefix" if ever remounted. */
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
 
 export const router = createBrowserRouter([
