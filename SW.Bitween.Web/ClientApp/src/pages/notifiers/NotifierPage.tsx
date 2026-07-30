@@ -49,12 +49,12 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
                 <BellRing className="size-3.5 shrink-0 text-ink-300" aria-hidden />
               )}
               <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink-600">{n.xchangeId}</code>
-              {n.success ? <Badge tone="ok">Sent</Badge> : <Badge tone="crimson">Failed</Badge>}
+              {n.success ? <Badge tone="ok">Sent</Badge> : <Badge tone="danger">Failed</Badge>}
               <span className="w-16 shrink-0 text-right text-xs text-ink-400">{timeAgo(n.on)}</span>
             </li>
             {canExpand && open.has(key) && (
               <li>
-                <p className="ml-6 rounded-lg bg-crimson-50 px-3 py-2 font-mono text-[11px] leading-relaxed text-crimson-800">
+                <p className="ml-6 rounded-lg bg-danger-50 px-3 py-2 font-mono text-[11px] leading-relaxed text-danger-800">
                   {n.exception}
                 </p>
               </li>

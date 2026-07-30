@@ -17,7 +17,7 @@ export function StatusBadge({ status }: { status: ExchangeStatus }) {
     status === "success"
       ? ("ok" as const)
       : status === "failed"
-        ? ("crimson" as const)
+        ? ("danger" as const)
         : status === "badResponse"
           ? ("warn" as const)
           : ("neutral" as const);
@@ -64,7 +64,7 @@ export function journeyStages(x: ExchangeRow): JourneyStage[] {
 const STRIP_COLORS: Record<StageState, string> = {
   done: "bg-ok-600",
   bad: "bg-warn-700",
-  failed: "bg-crimson-600",
+  failed: "bg-danger-600",
   skipped: "bg-ink-200",
   running: "bg-ink-400 animate-pulse",
   notReached: "bg-ink-100",

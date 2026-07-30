@@ -58,7 +58,7 @@ export const PrimitiveArrayLeaf: React.FC<PrimitiveArrayLeafProps> = ({
         className="flex items-center gap-1.5 px-2 py-[3px] cursor-pointer hover:bg-ink-50 rounded"
         onClick={() => setPanelOpen((v) => !v)}
       >
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${mappedCount > 0 ? 'bg-ok-100' : 'bg-crimson-300'}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${mappedCount > 0 ? 'bg-ok-100' : 'bg-danger-300'}`} />
         <span className="font-mono text-ink-700">{node.key}</span>
         <span className="text-crimson-500 font-mono ml-0.5">[]</span>
         <span className="ml-auto text-[10px] font-medium text-warn-700 border border-warn-100 bg-warn-100 rounded px-1.5 py-px">

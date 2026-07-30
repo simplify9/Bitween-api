@@ -125,7 +125,7 @@ export function BusGatewayPage() {
                         <button
                           onClick={() => setRemovingRoute(r)}
                           aria-label={`Remove route ${r.id}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-crimson-50 hover:text-crimson-700"
+                          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
                         >
                           <Trash2 className="size-3.5" />
                         </button>

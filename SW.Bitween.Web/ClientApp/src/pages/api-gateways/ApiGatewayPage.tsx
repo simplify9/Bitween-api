@@ -140,7 +140,7 @@ export function ApiGatewayPage() {
                         <button
                           onClick={() => setRemoving({ partnerId: a.partnerId, partnerName: a.partnerName })}
                           aria-label={`Detach ${a.partnerName}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-crimson-50 hover:text-crimson-700"
+                          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
                         >
                           <Trash2 className="size-3.5" />
                         </button>

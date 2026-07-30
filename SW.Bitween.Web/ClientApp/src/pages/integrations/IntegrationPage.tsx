@@ -411,7 +411,7 @@ export function IntegrationPage() {
                 </p>
               )}
               {s.lastException && (
-                <pre className="max-h-32 overflow-auto rounded-lg bg-crimson-50 px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-crimson-800">
+                <pre className="max-h-32 overflow-auto rounded-lg bg-danger-50 px-3 py-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
                   {s.lastException}
                 </pre>
               )}

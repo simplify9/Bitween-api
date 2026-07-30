@@ -12,7 +12,7 @@ import { RetryDialog, journeyStages, type JourneyStage } from "./shared";
 const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNode }> = {
   done: { ring: "border-ok-100", badge: <Badge tone="ok">Done</Badge> },
   bad: { ring: "border-warn-100", badge: <Badge tone="warn">Bad response</Badge> },
-  failed: { ring: "border-crimson-200", badge: <Badge tone="crimson">Failed</Badge> },
+  failed: { ring: "border-danger-200", badge: <Badge tone="danger">Failed</Badge> },
   skipped: { ring: "border-ink-100 border-dashed", badge: <Badge>Skipped</Badge> },
   running: { ring: "border-ink-200", badge: <Badge tone="ink">Running</Badge> },
   notReached: { ring: "border-ink-100", badge: <Badge>Not reached</Badge> },
@@ -156,12 +156,12 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
 
       {/* — failure — */}
       {x.exception && (
-        <div className="rounded-lg bg-crimson-50 px-3 py-2.5">
+        <div className="rounded-lg bg-danger-50 px-3 py-2.5">
           <div className="mb-1 flex items-center justify-between">
-            <p className="text-[11px] font-medium tracking-wide text-crimson-700 uppercase">Exception</p>
+            <p className="text-[11px] font-medium tracking-wide text-danger-700 uppercase">Exception</p>
             <CopyButton value={x.exception} label="exception" />
           </div>
-          <pre className="max-h-40 overflow-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-crimson-800">
+          <pre className="max-h-40 overflow-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
             {x.exception}
           </pre>
         </div>
@@ -263,7 +263,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               </Button>
             )
           )}
-          {actionError && <p className="text-[13px] text-crimson-700">{actionError}</p>}
+          {actionError && <p className="text-[13px] text-danger-700">{actionError}</p>}
         </div>
       )}
 

@@ -128,7 +128,7 @@ function JobDrawer({ r }: { r: IntegrationRow }) {
         next run {r.nextReceiveOn ? timeUntil(r.nextReceiveOn) : "—"}
       </DrawerLine>
       {r.lastException && (
-        <pre className="max-h-24 overflow-auto rounded-md bg-crimson-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-crimson-800">
+        <pre className="max-h-24 overflow-auto rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
           {r.lastException}
         </pre>
       )}
@@ -180,7 +180,7 @@ function LegacyDrawer({ r }: { r: IntegrationRow }) {
         )}
       </DrawerLine>
       {r.lastException && (
-        <pre className="max-h-24 overflow-auto rounded-md bg-crimson-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-crimson-800">
+        <pre className="max-h-24 overflow-auto rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
           {r.lastException}
         </pre>
       )}

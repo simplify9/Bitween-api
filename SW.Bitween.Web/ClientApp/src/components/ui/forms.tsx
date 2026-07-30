@@ -24,7 +24,7 @@ export function Field({
       </label>
       {children}
       {error ? (
-        <p role="alert" className="text-[13px] text-crimson-700">
+        <p role="alert" className="text-[13px] text-danger-700">
           {error}
         </p>
       ) : (

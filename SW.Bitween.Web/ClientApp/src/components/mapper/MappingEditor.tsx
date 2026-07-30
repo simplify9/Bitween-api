@@ -216,7 +216,7 @@ const MappingEditorInner: React.FC = () => {
                 onTouchEnd={() => syncHeight('src')}
               />
               {inputJson && !inputObj && (
-                <p className="text-[10px] text-crimson-600 mt-0.5">Invalid JSON</p>
+                <p className="text-[10px] text-danger-600 mt-0.5">Invalid JSON</p>
               )}
             </div>
 

@@ -157,7 +157,7 @@ export function ScheduleEditor({
                   <button
                     onClick={() => onChange(schedules.filter((_, x) => x !== i))}
                     aria-label={`Remove schedule ${i + 1}`}
-                    className="rounded-md p-1.5 text-ink-400 hover:bg-crimson-50 hover:text-crimson-700"
+                    className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

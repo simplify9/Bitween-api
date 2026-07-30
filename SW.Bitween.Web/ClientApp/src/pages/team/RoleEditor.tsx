@@ -312,8 +312,8 @@ export function RoleEditor() {
           <AccessPreview permissions={granted} total={allKeysIn(areas).length} />
 
           {!isNew && !isSystem && can("roles.delete") && (
-            <div className="rounded-xl border border-crimson-200 bg-white p-4">
-              <h3 className="text-xs font-semibold tracking-wide text-crimson-800 uppercase">
+            <div className="rounded-xl border border-danger-200 bg-white p-4">
+              <h3 className="text-xs font-semibold tracking-wide text-danger-800 uppercase">
                 Danger zone
               </h3>
               <p className="mt-1 mb-3 text-[13px] text-ink-500">

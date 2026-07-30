@@ -10,7 +10,7 @@ const buttonStyles: Record<ButtonVariant, string> = {
     "bg-white text-ink-800 border border-ink-200 hover:border-ink-300 hover:bg-ink-50 disabled:text-ink-300",
   ghost: "text-ink-700 hover:bg-ink-100 disabled:text-ink-300",
   danger:
-    "bg-white text-crimson-700 border border-crimson-200 hover:bg-crimson-50 hover:border-crimson-300 disabled:text-ink-300 disabled:border-ink-200",
+    "bg-white text-danger-700 border border-danger-200 hover:bg-danger-50 hover:border-danger-300 disabled:text-ink-300 disabled:border-ink-200",
 };
 
 export function Button({
@@ -41,11 +41,16 @@ export function Button({
   );
 }
 
-type BadgeTone = "neutral" | "crimson" | "ok" | "warn" | "ink";
+/**
+ * `crimson` is brand emphasis ("You", "Unsaved") and follows the theme color.
+ * `danger` means something is wrong and stays red — see the danger ramp in index.css.
+ */
+type BadgeTone = "neutral" | "crimson" | "danger" | "ok" | "warn" | "ink";
 
 const badgeStyles: Record<BadgeTone, string> = {
   neutral: "bg-ink-100 text-ink-700",
   crimson: "bg-crimson-100 text-crimson-800",
+  danger: "bg-danger-100 text-danger-800",
   ok: "bg-ok-100 text-ok-600",
   warn: "bg-warn-100 text-warn-700",
   ink: "bg-ink-800 text-ink-100",
@@ -103,7 +108,7 @@ export function EmptyState({
 export function FormError({ children }: { children: ReactNode }) {
   if (!children) return null;
   return (
-    <p role="alert" className="rounded-lg bg-crimson-50 px-3 py-2 text-sm text-crimson-800">
+    <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-800">
       {children}
     </p>
   );

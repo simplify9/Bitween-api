@@ -54,7 +54,7 @@ function ConditionRow({
         <button
           onClick={onRemove}
           aria-label="Remove condition"
-          className="rounded-md p-1.5 text-ink-400 hover:bg-crimson-50 hover:text-crimson-700"
+          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
         >
           <Trash2 className="size-3.5" />
         </button>
@@ -102,7 +102,7 @@ function GroupCard({
           <button
             onClick={onRemove}
             aria-label="Remove group"
-            className="ml-auto rounded-md p-1.5 text-ink-400 hover:bg-crimson-50 hover:text-crimson-700"
+            className="ml-auto rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
           >
             <Trash2 className="size-3.5" />
           </button>

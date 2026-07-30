@@ -155,7 +155,7 @@ export function MenuItem({
     <button
       onClick={onSelect}
       className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm ${
-        danger ? "text-crimson-700 hover:bg-crimson-50" : "text-ink-700 hover:bg-ink-50"
+        danger ? "text-danger-700 hover:bg-danger-50" : "text-ink-700 hover:bg-ink-50"
       }`}
     >
       {children}

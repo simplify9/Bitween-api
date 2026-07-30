@@ -54,7 +54,7 @@ export function HealthBadge({
 }) {
   if (consecutiveFailures > 0)
     return (
-      <Badge tone="crimson">
+      <Badge tone="danger">
         {consecutiveFailures} failure{consecutiveFailures === 1 ? "" : "s"}
       </Badge>
     );
@@ -64,7 +64,7 @@ export function HealthBadge({
 
 export function ExchangeStatusBadge({ status }: { status: ExchangeRef["status"] }) {
   if (status === "success") return <Badge tone="ok">Success</Badge>;
-  if (status === "failed") return <Badge tone="crimson">Failed</Badge>;
+  if (status === "failed") return <Badge tone="danger">Failed</Badge>;
   if (status === "badResponse") return <Badge tone="warn">Bad response</Badge>;
   return <Badge tone="neutral">Processing</Badge>;
 }

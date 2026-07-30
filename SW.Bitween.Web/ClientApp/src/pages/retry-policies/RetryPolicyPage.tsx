@@ -96,7 +96,7 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
           {test.data.map((a) => (
             <li key={a.attempt} className="flex items-start gap-2.5 text-[13px]">
               <span className="mt-0.5 w-14 shrink-0 font-mono text-xs text-ink-400">#{a.attempt}</span>
-              {a.shouldRetry ? <Badge tone="ok">Retries</Badge> : <Badge tone="crimson">Stops</Badge>}
+              {a.shouldRetry ? <Badge tone="ok">Retries</Badge> : <Badge tone="danger">Stops</Badge>}
               <span className="min-w-0 flex-1 text-ink-600">
                 {a.matchedGroup && <strong className="font-medium text-ink-800">{a.matchedGroup}: </strong>}
                 {a.reason}
@@ -221,7 +221,7 @@ export function RetryPolicyPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs text-ink-400">#{g.priority}</span>
                       <span className="font-medium text-ink-900">{g.name}</span>
-                      {g.action === "Allow" ? <Badge tone="ok">Retries</Badge> : <Badge tone="crimson">Blocks</Badge>}
+                      {g.action === "Allow" ? <Badge tone="ok">Retries</Badge> : <Badge tone="danger">Blocks</Badge>}
                       {!g.enabled && <Badge>Disabled</Badge>}
                       <span className="ml-auto flex gap-1">
                         {canEdit && (
@@ -236,7 +236,7 @@ export function RetryPolicyPage() {
                             <button
                               onClick={() => setGroups((prev) => (prev ?? []).filter((x) => x.id !== g.id))}
                               aria-label={`Remove ${g.name}`}
-                              className="rounded-md p-1.5 text-ink-400 hover:bg-crimson-50 hover:text-crimson-700"
+                              className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
                             >
                               <Trash2 className="size-3.5" />
                             </button>

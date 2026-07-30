@@ -78,7 +78,7 @@ export const NormalLeaf: React.FC<NormalLeafProps> = ({
         <span
           className={[
             'w-2 h-2 rounded-full flex-shrink-0',
-            isInvalidSource ? 'bg-warn-100' : isMapped ? 'bg-ok-100' : 'bg-crimson-300',
+            isInvalidSource ? 'bg-warn-100' : isMapped ? 'bg-ok-100' : 'bg-danger-300',
           ].join(' ')}
           title={isInvalidSource ? `Source path not found in input: "${mapping!.source}"` : undefined}
         />

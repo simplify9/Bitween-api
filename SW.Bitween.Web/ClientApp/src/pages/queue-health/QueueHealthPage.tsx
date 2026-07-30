@@ -11,7 +11,7 @@ import { timeAgo } from "../../lib/dates";
 const POLL_MS = 5_000;
 
 function HealthBadge({ health }: { health: QueueSeverity }) {
-  if (health === "critical") return <Badge tone="crimson">Critical</Badge>;
+  if (health === "critical") return <Badge tone="danger">Critical</Badge>;
   if (health === "warning") return <Badge tone="warn">Warning</Badge>;
   return <Badge tone="ok">Healthy</Badge>;
 }
@@ -80,7 +80,7 @@ export function QueueHealthPage() {
           value={summary.totalDeadLetterBacklog}
           sub={
             summary.totalDeadLetterBacklog > 0 ? (
-              <span className="font-medium text-crimson-700">need attention</span>
+              <span className="font-medium text-danger-700">need attention</span>
             ) : (
               "empty"
             )
@@ -97,11 +97,11 @@ export function QueueHealthPage() {
             <div
               key={a.queueName + a.title}
               className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 ${
-                a.severity === "critical" ? "border-crimson-200 bg-crimson-50" : "border-warn-100 bg-warn-100/40"
+                a.severity === "critical" ? "border-danger-200 bg-danger-50" : "border-warn-100 bg-warn-100/40"
               }`}
             >
               {a.severity === "critical" ? (
-                <OctagonAlert className="mt-0.5 size-4 shrink-0 text-crimson-700" aria-hidden />
+                <OctagonAlert className="mt-0.5 size-4 shrink-0 text-danger-700" aria-hidden />
               ) : (
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn-700" aria-hidden />
               )}
@@ -163,7 +163,7 @@ export function QueueHealthPage() {
                   <td className={`px-3 py-2 text-right ${c.retryCount > 0 ? "font-medium text-warn-700" : "text-ink-700"}`}>
                     {c.retryCount}
                   </td>
-                  <td className={`px-3 py-2 text-right ${c.failedCount > 0 ? "font-medium text-crimson-700" : "text-ink-700"}`}>
+                  <td className={`px-3 py-2 text-right ${c.failedCount > 0 ? "font-medium text-danger-700" : "text-ink-700"}`}>
                     {c.failedCount}
                   </td>
                   <td className="px-3 py-2 text-right text-ink-500">{c.prefetch}</td>
@@ -198,7 +198,7 @@ export function QueueHealthPage() {
                   <span className="text-xs text-ink-500">
                     in {r.incomingRate}/s · ack {r.ackRate}/s
                   </span>
-                  <Badge tone={r.severity === "critical" ? "crimson" : "warn"}>{r.retryBacklog} waiting</Badge>
+                  <Badge tone={r.severity === "critical" ? "danger" : "warn"}>{r.retryBacklog} waiting</Badge>
                 </li>
               ))}
             </ul>
@@ -218,10 +218,10 @@ export function QueueHealthPage() {
                       <code className="block truncate font-mono text-[11px] text-ink-400">{d.queueName}</code>
                     </span>
                     {d.lastFailedAt && <span className="text-xs text-ink-400">{timeAgo(d.lastFailedAt)}</span>}
-                    <Badge tone="crimson">{d.count} dead</Badge>
+                    <Badge tone="danger">{d.count} dead</Badge>
                   </div>
                   {d.lastExceptionMessage && (
-                    <p className="mt-1 rounded-md bg-crimson-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-crimson-800">
+                    <p className="mt-1 rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-danger-800">
                       {d.lastExceptionType && <span className="font-semibold">{d.lastExceptionType}: </span>}
                       {d.lastExceptionMessage}
                     </p>

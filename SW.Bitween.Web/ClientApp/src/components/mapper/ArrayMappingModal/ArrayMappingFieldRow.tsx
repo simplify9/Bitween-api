@@ -82,7 +82,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
     <div className="rounded border border-ink-100 bg-white px-2 py-1.5 space-y-1">
       {/* Main row */}
       <div className="flex items-center gap-1">
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isMapped ? 'bg-ok-100' : 'bg-crimson-300'}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isMapped ? 'bg-ok-100' : 'bg-danger-300'}`} />
 
         {/* Target field */}
         {targetItemProps.length > 0 ? (

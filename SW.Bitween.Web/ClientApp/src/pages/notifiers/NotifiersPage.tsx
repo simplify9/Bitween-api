@@ -156,7 +156,7 @@ export function NotifiersPage() {
                   <td className="px-4 py-3 font-medium text-ink-900">{n.name}</td>
                   <td className="px-4 py-3">
                     <span className="flex flex-wrap gap-1">
-                      {n.onFailed && <Badge tone="crimson">Failed</Badge>}
+                      {n.onFailed && <Badge tone="danger">Failed</Badge>}
                       {n.onBadResult && <Badge tone="warn">Bad result</Badge>}
                       {n.onSuccess && <Badge tone="ok">Success</Badge>}
                       {!n.onFailed && !n.onBadResult && !n.onSuccess && (

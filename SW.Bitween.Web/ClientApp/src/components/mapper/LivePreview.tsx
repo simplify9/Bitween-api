@@ -90,11 +90,11 @@ const LivePreview: React.FC = () => {
 
       {/* Validation errors */}
       {validationErrors.length > 0 && (
-        <div className="flex-shrink-0 px-4 py-2 bg-crimson-50 border-b border-crimson-100">
+        <div className="flex-shrink-0 px-4 py-2 bg-danger-50 border-b border-danger-100">
           {validationErrors.map((e, i) => (
             <p
               key={i}
-              className={`text-xs font-mono ${e.type === 'error' ? 'text-crimson-600' : 'text-warn-700'}`}
+              className={`text-xs font-mono ${e.type === 'error' ? 'text-danger-600' : 'text-warn-700'}`}
             >
               {e.type === 'error' ? '✗' : '⚠'} {e.message}
             </p>

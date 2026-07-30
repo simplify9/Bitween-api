@@ -3,13 +3,13 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/basics";
 
-function LiveStat({ label, value, tone }: { label: string; value: ReactNode; tone?: "warn" | "crimson" }) {
+function LiveStat({ label, value, tone }: { label: string; value: ReactNode; tone?: "warn" | "danger" }) {
   return (
     <div className="min-w-0">
       <dt className="text-[11px] leading-tight font-medium tracking-wide text-ink-400 uppercase">{label}</dt>
       <dd
         className={`mt-0.5 text-sm font-semibold tabular-nums ${
-          tone === "crimson" ? "text-crimson-700" : tone === "warn" ? "text-warn-700" : "text-ink-800"
+          tone === "danger" ? "text-danger-700" : tone === "warn" ? "text-warn-700" : "text-ink-800"
         }`}
       >
         {value}
@@ -39,7 +39,7 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
     <div className="@container space-y-3">
       <div className="flex flex-wrap items-center gap-1.5">
         {consumer.health === "critical" ? (
-          <Badge tone="crimson">Critical</Badge>
+          <Badge tone="danger">Critical</Badge>
         ) : consumer.health === "warning" ? (
           <Badge tone="warn">Warning</Badge>
         ) : (
@@ -56,7 +56,7 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
         <LiveStat
           label="Dead letters"
           value={consumer.failedCount}
-          tone={consumer.failedCount > 0 ? "crimson" : undefined}
+          tone={consumer.failedCount > 0 ? "danger" : undefined}
         />
         <LiveStat label="Prefetch" value={consumer.prefetch} />
         <LiveStat label="Priority" value={consumer.priority} />

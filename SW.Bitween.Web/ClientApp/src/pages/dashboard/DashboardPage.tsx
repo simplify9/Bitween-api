@@ -23,19 +23,19 @@ function StatTile({
   value: ReactNode;
   sub?: ReactNode;
   to: string;
-  accent?: "crimson" | "warn";
+  accent?: "danger" | "warn";
 }) {
   return (
     <Link
       to={to}
       className={`rounded-xl border bg-white px-4 py-3 transition-colors hover:bg-ink-50 ${
-        accent === "crimson" ? "border-crimson-200" : accent === "warn" ? "border-warn-100" : "border-ink-200"
+        accent === "danger" ? "border-danger-200" : accent === "warn" ? "border-warn-100" : "border-ink-200"
       }`}
     >
       <p className="text-[13px] text-ink-500">{label}</p>
       <p
         className={`mt-0.5 text-2xl font-semibold ${
-          accent === "crimson" ? "text-crimson-700" : accent === "warn" ? "text-warn-700" : "text-ink-900"
+          accent === "danger" ? "text-danger-700" : accent === "warn" ? "text-warn-700" : "text-ink-900"
         }`}
       >
         {value}
@@ -96,7 +96,7 @@ export function DashboardPage() {
           value={data.today.failed}
           sub={data.today.failed > 0 ? "open the failures" : "nothing failed yet"}
           to="/exchanges?status=failed"
-          accent={data.today.failed > 0 ? "crimson" : undefined}
+          accent={data.today.failed > 0 ? "danger" : undefined}
         />
         <StatTile
           label="Pending auto-retries"
@@ -125,7 +125,7 @@ export function DashboardPage() {
               <span className="size-2.5 rounded-[3px] bg-ok-600" aria-hidden /> Succeeded
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-[3px] bg-crimson-600" aria-hidden /> Failed or rejected
+              <span className="size-2.5 rounded-[3px] bg-danger-600" aria-hidden /> Failed or rejected
             </span>
           </span>
         }
@@ -156,7 +156,7 @@ export function DashboardPage() {
                   </div>
                   <div className="flex w-full max-w-6 flex-col items-stretch gap-0.5">
                     {d.failed > 0 && (
-                      <div className="rounded-t-[4px] bg-crimson-600" style={{ height: Math.max(badH, 3) }} />
+                      <div className="rounded-t-[4px] bg-danger-600" style={{ height: Math.max(badH, 3) }} />
                     )}
                     {d.success > 0 && (
                       <div
@@ -252,7 +252,7 @@ export function DashboardPage() {
                   >
                     {s.name}
                   </Link>
-                  <Badge tone="crimson">
+                  <Badge tone="danger">
                     {s.consecutiveFailures} consecutive failure{s.consecutiveFailures === 1 ? "" : "s"}
                   </Badge>
                 </li>
@@ -294,11 +294,11 @@ export function DashboardPage() {
                   </Link>
                   <span className="flex h-2.5 flex-1 items-stretch gap-0.5">
                     <span className="rounded-l-[4px] bg-ok-600" style={{ width: `${okPct}%` }} />
-                    {b.failed > 0 && <span className="rounded-r-[4px] bg-crimson-600" style={{ width: `${badPct}%` }} />}
+                    {b.failed > 0 && <span className="rounded-r-[4px] bg-danger-600" style={{ width: `${badPct}%` }} />}
                   </span>
                   <span className="w-16 text-right text-xs text-ink-500 tabular-nums">
                     {b.count}
-                    {b.failed > 0 && <span className="text-crimson-700"> · {b.failed} ✕</span>}
+                    {b.failed > 0 && <span className="text-danger-700"> · {b.failed} ✕</span>}
                   </span>
                 </li>
               );

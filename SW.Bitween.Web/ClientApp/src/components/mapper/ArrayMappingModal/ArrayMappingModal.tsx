@@ -291,7 +291,7 @@ const ArrayMappingModal: React.FC = () => {
         {/* Footer */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-ink-200 bg-ink-50 flex-shrink-0">
           {!isCreating && (
-            <button className="text-xs text-crimson-500 hover:text-crimson-700 transition" onClick={handleDelete}>
+            <button className="text-xs text-danger-600 hover:text-danger-800 transition" onClick={handleDelete}>
               Delete array mapping
             </button>
           )}

@@ -43,6 +43,24 @@
   --color-ok-100: #d9f2e5;
   --color-warn-700: #92600a;
   --color-warn-100: #fbeed0;
+
+  /*
+    Status red, deliberately NOT the crimson ramp. Brand color is customer-settable
+    (Theme.PrimaryColor rewrites every --color-crimson-* at runtime), so anything
+    that means "this failed" or "this destroys data" has to live outside it —
+    otherwise a yellow-branded tenant gets yellow error badges. Reads as the
+    ok/warn pair's missing third: green good, amber degraded, red bad.
+
+    Values are the shipped crimson ramp verbatim, so a tenant on the default brand
+    color sees no change at all; only re-themed tenants diverge, which is the point.
+  */
+  --color-danger-50: #fef3f2;
+  --color-danger-100: #ffe4e1;
+  --color-danger-200: #ffcec8;
+  --color-danger-300: #ffaba2;
+  --color-danger-600: #e3311d;
+  --color-danger-700: #bf2716;
+  --color-danger-800: #9e2416;
 }
 
 @layer base {
