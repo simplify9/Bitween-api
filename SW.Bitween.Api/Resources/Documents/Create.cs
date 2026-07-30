@@ -16,11 +16,13 @@ namespace SW.Bitween.Resources.Documents
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IBroadcast _broadcast;
 
-        public Create(BitweenDbContext dbContext, RequestContext requestContext)
+        public Create(BitweenDbContext dbContext, RequestContext requestContext, IBroadcast broadcast)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _broadcast = broadcast;
         }
 
         public async Task<object> Handle(DocumentCreate model)
@@ -51,6 +53,13 @@ namespace SW.Bitween.Resources.Documents
             _dbContext.Add(trail);
             _dbContext.Add(entity);
             await _dbContext.SaveChangesAsync();
+
+            // A bus-enabled type adds a queue, and the consumer set is only rebuilt when asked.
+            // Without this the queue is declared but nothing ever consumes it, until either an
+            // unrelated document update happens to refresh consumers or the app restarts.
+            if (entity.BusEnabled)
+                await _broadcast.RefreshConsumers();
+
             return entity.Id;
         }
 
