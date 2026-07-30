@@ -4,6 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { ChevronDown, ChevronRight, Play, X } from "lucide-react";
 import { api, type ScheduledRetryQuery } from "../../api";
 import { Can } from "../../auth/guards";
+import { useSession } from "../../auth/SessionContext";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { TextInput } from "../../components/ui/forms";
@@ -33,6 +34,7 @@ export function ScheduledRetriesPage() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [runNowId, setRunNowId] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { can } = useSession();
 
   const { data, isLoading } = useQuery({
     queryKey: ["scheduled-retries", searchParams.toString()],
@@ -168,22 +170,27 @@ export function ScheduledRetriesPage() {
                       <span className="font-medium text-ink-800">{timeUntil(r.on)}</span>
                       <span className="block text-xs text-ink-400">{formatDateTime(r.on)}</span>
                     </td>
-                    <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    {/* Only the links and the button swallow the click, not the cells
+                        around them — a whole cell opting out left most of a
+                        cursor-pointer row doing nothing when clicked. */}
+                    <td className="px-3 py-2.5">
                       <span className="flex items-center gap-1.5">
                         <XchangeId id={r.id} />
                         <Link
                           to={`/exchanges?ids=${encodeURIComponent(r.id)}`}
                           title="Open in Exchanges"
+                          onClick={(e) => e.stopPropagation()}
                           className="text-xs font-medium text-ink-500 hover:text-crimson-700 hover:underline"
                         >
                           view
                         </Link>
                       </span>
                     </td>
-                    <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-2.5">
                       <span className="flex flex-wrap items-center gap-1 text-[13px]">
                         <Link
                           to={`/information-types/${r.informationTypeId}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
                         >
                           {r.informationTypeCode}
@@ -193,6 +200,7 @@ export function ScheduledRetriesPage() {
                             <span className="text-ink-300">→</span>
                             <Link
                               to={`/subscriptions/${r.integrationId}`}
+                              onClick={(e) => e.stopPropagation()}
                               className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                             >
                               {r.integrationName}
@@ -202,10 +210,16 @@ export function ScheduledRetriesPage() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-ink-500">{timeAgo(r.startedOn)}</td>
-                    <td className="px-3 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-3 py-2.5 text-right">
                       {/* Matches what runNow itself enforces: the retry operates on an exchange. */}
                       <Can permission="exchanges.operate">
-                        <Button size="sm" onClick={() => setRunNowId(r.id)}>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRunNowId(r.id);
+                          }}
+                        >
                           <Play className="size-3.5" aria-hidden />
                           Run now
                         </Button>
@@ -218,8 +232,39 @@ export function ScheduledRetriesPage() {
                   {open.has(r.id) && (
                     <tr className="border-b border-ink-50 last:border-0">
                       <td colSpan={6} className="bg-ink-50/40 px-4 py-3">
+                        {/* The policy is what decided the "Runs" time, so it's the one thing
+                            the exception alone can't explain. Note this is the integration's
+                            policy as it stands now — editing a policy doesn't reschedule
+                            retries it already queued. */}
+                        <p className="mb-2 text-[13px] text-ink-500">
+                          Scheduled by{" "}
+                          {r.retryPolicyId !== null ? (
+                            can("retry-policies.view") ? (
+                              <Link
+                                to={`/retry-policies/${r.retryPolicyId}`}
+                                className="font-medium text-crimson-700 hover:underline"
+                              >
+                                {r.retryPolicyName}
+                              </Link>
+                            ) : (
+                              <span className="font-medium text-ink-700">{r.retryPolicyName}</span>
+                            )
+                          ) : r.integrationId !== null ? (
+                            <>
+                              the retry policy set on{" "}
+                              <Link
+                                to={`/subscriptions/${r.integrationId}`}
+                                className="font-medium text-crimson-700 hover:underline"
+                              >
+                                {r.integrationName ?? "its integration"}
+                              </Link>
+                            </>
+                          ) : (
+                            "a retry policy that has since been removed"
+                          )}
+                        </p>
                         {r.exception ? (
-                          <pre className="max-h-40 overflow-auto rounded-lg bg-crimson-50 px-3 py-2.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-crimson-800">
+                          <pre className="max-h-40 overflow-auto rounded-lg bg-danger-50 px-3 py-2.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
                             {r.exception}
                           </pre>
                         ) : (

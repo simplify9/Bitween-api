@@ -42,7 +42,9 @@ namespace SW.Bitween.Resources.DelayedRetries
                             DocumentId = xchange.DocumentId,
                             DocumentName = document.Name,
                             Exception = result.Exception,
-                            StartedOn = xchange.StartedOn
+                            StartedOn = xchange.StartedOn,
+                            RetryPolicyId = subscriber.RetryPolicyId,
+                            RetryPolicyName = subscriber.RetryPolicy.Name
                         };
 
             query = query.OrderBy(r => r.On).AsNoTracking();

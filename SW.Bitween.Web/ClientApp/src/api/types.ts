@@ -641,6 +641,13 @@ export interface ScheduledRetryRow {
   exception: string | null;
   /** When the failed exchange originally started. */
   startedOn: string;
+  /**
+   * The shared retry policy the integration currently points at. Null when the
+   * policy is defined inline on the integration instead, so the integration — not
+   * the Retry policies list — is where to go and look.
+   */
+  retryPolicyId: number | null;
+  retryPolicyName: string | null;
 }
 
 export interface ScheduledRetryQuery {
