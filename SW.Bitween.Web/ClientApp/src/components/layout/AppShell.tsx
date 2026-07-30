@@ -226,7 +226,13 @@ export function AppShell() {
         </button>
         <Link to="/dashboard">
           <img
-            src={branding.sidebarLogoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull.svg"}
+            // "Mobile header icon" wins here when it's been set; otherwise this keeps
+            // falling back to the sidebar logo, so the default look is unchanged.
+            src={
+              branding.headerIconUrl ??
+              branding.sidebarLogoUrl ??
+              import.meta.env.BASE_URL + "brand/BitweenFull.svg"
+            }
             alt="Bitween"
             className="h-5"
           />

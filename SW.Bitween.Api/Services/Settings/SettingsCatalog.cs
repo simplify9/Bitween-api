@@ -264,16 +264,14 @@ public static class SettingsCatalog
             t => t.Theme.BitweenLogo,
             (t, v) => t.Theme.BitweenLogo = v),
 
-        new("Theme.BitweenIcon", "Brand & theme",
-            "Collapsed sidebar icon",
-            "The compact icon shown when the sidebar is collapsed to icons only.",
-            SettingKind.String, false,
-            t => t.Theme.BitweenIcon,
-            (t, v) => t.Theme.BitweenIcon = v),
+        // Theme.BitweenIcon is deliberately absent: it configured the icon for a
+        // collapsed, icon-only sidebar, and this UI has no such mode. Leaving it
+        // editable meant a setting that silently did nothing. The ThemeOptions
+        // property stays so existing appsettings keep binding.
 
         new("Theme.BitweenHeaderIcon", "Brand & theme",
             "Mobile header icon",
-            "Icon variant used in the mobile top bar.",
+            "Shown instead of the sidebar logo in the narrow top bar on phones. Leave it as-is to reuse the sidebar logo.",
             SettingKind.String, false,
             t => t.Theme.BitweenHeaderIcon,
             (t, v) => t.Theme.BitweenHeaderIcon = v),

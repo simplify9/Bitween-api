@@ -22,6 +22,8 @@ export interface Branding {
   faviconUrl: string | null;
   loginLogoUrl: string | null;
   sidebarLogoUrl: string | null;
+  /** Mobile top-bar mark. Falls back to the sidebar logo when left at the default. */
+  headerIconUrl: string | null;
   footer: {
     show: boolean;
     copyrightIcon?: string;
@@ -66,6 +68,7 @@ export function useBranding(): Branding {
       faviconUrl: customized("tabIcon"),
       loginLogoUrl: customized("loginLogo"),
       sidebarLogoUrl: customized("bitweenLogo"),
+      headerIconUrl: customized("bitweenHeaderIcon"),
       footer: {
         show: get("showFooter") !== "false",
         copyrightIcon: get("copyRightsIcon"),
@@ -91,10 +94,22 @@ export function useApplyBranding(): Branding {
   }, [branding.tabTitle]);
 
   useEffect(() => {
-    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (!link) return;
-    if (!link.dataset.defaultHref) link.dataset.defaultHref = link.href;
-    link.href = branding.faviconUrl ?? link.dataset.defaultHref;
+    const existing = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    const defaultHref = existing?.dataset.defaultHref || existing?.href;
+    const href = branding.faviconUrl ?? defaultHref;
+    if (!href) return;
+
+    // Replace the element rather than reassigning href. Two reasons: browsers
+    // routinely don't re-fetch a favicon when only the href changes, and the
+    // markup ships type="image/svg+xml" — left in place that hint misdescribes a
+    // .png or .ico override, and the browser drops the icon on the floor. The new
+    // element declares no type, so the response's content type decides.
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.href = href;
+    if (defaultHref) link.dataset.defaultHref = defaultHref;
+    existing?.remove();
+    document.head.appendChild(link);
   }, [branding.faviconUrl]);
 
   return branding;
