@@ -7,7 +7,6 @@ import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { IntegrationMiniList, useIntegrationsCache } from "../../components/config/shared";
-import { formatDate } from "../../lib/dates";
 import { LiveQueueStats } from "./LiveQueueStats";
 
 export function WorkGroupsPage() {
@@ -101,7 +100,6 @@ export function WorkGroupsPage() {
                 <th className="px-3 py-2.5 font-medium">Bus message name</th>
                 <th className="px-3 py-2.5 font-medium">Consumers</th>
                 <th className="px-3 py-2.5 font-medium">Used by</th>
-                <th className="px-3 py-2.5 font-medium">Created</th>
                 <th className="w-10 px-3 py-2.5" />
               </tr>
             </thead>
@@ -146,7 +144,6 @@ export function WorkGroupsPage() {
                           <span className="text-ink-400">—</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap text-ink-500">{formatDate(g.createdOn)}</td>
                       <td className="px-3 py-3">
                         <button
                           onClick={(e) => {
@@ -164,7 +161,7 @@ export function WorkGroupsPage() {
                     {expanded && (
                       <tr className="border-b border-ink-100 last:border-b-0">
                         <td />
-                        <td colSpan={6} className="px-3 pt-0.5 pb-3">
+                        <td colSpan={5} className="px-3 pt-0.5 pb-3">
                           <div className="space-y-3 rounded-lg bg-ink-50 px-3.5 py-3">
                             <Can permission="monitoring.view">
                               <LiveQueueStats groupId={g.id} />

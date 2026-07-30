@@ -8,7 +8,6 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
-import { formatDate } from "../../lib/dates";
 
 function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -133,7 +132,6 @@ export function RetryPoliciesPage() {
                 <th className="px-4 py-2.5 font-medium">Policy</th>
                 <th className="px-4 py-2.5 font-medium">Groups</th>
                 <th className="px-4 py-2.5 font-medium">Used by</th>
-                <th className="px-4 py-2.5 font-medium">Created</th>
               </tr>
             </thead>
             <tbody>
@@ -152,7 +150,6 @@ export function RetryPoliciesPage() {
                       <span className="text-ink-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-ink-500">{formatDate(p.createdOn)}</td>
                 </tr>
               ))}
             </tbody>

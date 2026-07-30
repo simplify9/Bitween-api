@@ -6,7 +6,6 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { formatDate } from "../../lib/dates";
 
 export function PartnersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -72,7 +71,6 @@ export function PartnersPage() {
                 <th className="px-4 py-2.5 font-medium">Properties</th>
                 <th className="px-4 py-2.5 font-medium">API keys</th>
                 <th className="px-4 py-2.5 font-medium">Used by</th>
-                <th className="px-4 py-2.5 font-medium">Since</th>
               </tr>
             </thead>
             <tbody>
@@ -97,7 +95,6 @@ export function PartnersPage() {
                       <span className="text-ink-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-ink-500">{formatDate(p.createdOn)}</td>
                 </tr>
               ))}
             </tbody>

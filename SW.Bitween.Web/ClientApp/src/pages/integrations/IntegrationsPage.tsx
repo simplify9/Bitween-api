@@ -23,7 +23,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { ConfirmDialog, Menu, MenuItem } from "../../components/ui/overlays";
 import { HealthBadge, IntegrationStatusBadges } from "../../components/config/shared";
 import { matchSummary } from "../../lib/match";
-import { formatDate, timeUntil } from "../../lib/dates";
+import { timeUntil } from "../../lib/dates";
 
 type KindId = "api-gateways" | "bus-gateways" | "scheduled-jobs" | "internal" | "api-calls";
 
@@ -446,7 +446,6 @@ export function IntegrationsPage() {
                 <th className="px-3 py-2.5 font-medium">Name</th>
                 <th className="px-3 py-2.5 font-medium">Details</th>
                 <th className="px-3 py-2.5 font-medium">Status</th>
-                <th className="px-3 py-2.5 font-medium">Created</th>
                 <th className="w-10 px-3 py-2.5" />
               </tr>
             </thead>
@@ -488,7 +487,6 @@ export function IntegrationsPage() {
                         {r.details}
                       </td>
                       <td className="px-3 py-3">{r.status}</td>
-                      <td className="px-3 py-3 whitespace-nowrap text-ink-500">{formatDate(r.createdOn)}</td>
                       <td className="px-3 py-3">
                         <button
                           onClick={(e) => {
@@ -506,7 +504,7 @@ export function IntegrationsPage() {
                     {expanded && (
                       <tr className="border-b border-ink-100 last:border-b-0">
                         <td />
-                        <td colSpan={6} className="px-3 pt-0.5 pb-3">
+                        <td colSpan={5} className="px-3 pt-0.5 pb-3">
                           <div className="rounded-lg bg-ink-50 px-3.5 py-3">{r.drawer}</div>
                         </td>
                       </tr>

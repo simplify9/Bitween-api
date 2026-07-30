@@ -36,9 +36,9 @@ test("work group create, edit queue settings, list, delete", async ({ page }) =>
   await page.goto("work-groups");
   const row = page.getByRole("row", { name: new RegExp(name) });
   await expect(row).toBeVisible();
-  // Consumers/Used by aren't wired until integrations (Batch 2), and WorkGroup
-  // has no CreatedOn column on the backend — all three render as an em dash.
-  await expect(row.getByText("—")).toHaveCount(3);
+  // A brand-new group has no consumers and nothing assigned to it, so both of
+  // those render as an em dash.
+  await expect(row.getByText("—")).toHaveCount(2);
 
   await row.getByRole("button", { name: `Open ${name}` }).click();
   await expect(page).toHaveURL(/\/work-groups\/\d+$/);

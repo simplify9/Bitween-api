@@ -9,7 +9,6 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
-import { formatDate } from "../../lib/dates";
 
 function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -143,7 +142,6 @@ export function NotifiersPage() {
                 <th className="px-4 py-2.5 font-medium">Channel</th>
                 <th className="px-4 py-2.5 font-medium">Watches</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Created</th>
               </tr>
             </thead>
             <tbody>
@@ -175,7 +173,6 @@ export function NotifiersPage() {
                   <td className="px-4 py-3">
                     {n.enabled ? <Badge tone="ok">Active</Badge> : <Badge>Off</Badge>}
                   </td>
-                  <td className="px-4 py-3 text-ink-500">{formatDate(n.createdOn)}</td>
                 </tr>
               ))}
             </tbody>
