@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
+import { Check, KeyRound, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSession } from "../../auth/SessionContext";
 import { Avatar } from "../../components/ui/Avatar";
+import { CopyField } from "../../components/ui/CopyField";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
@@ -29,6 +30,10 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   const [draftRoleIds, setDraftRoleIds] = useState<string[] | null>(null);
   const [confirming, setConfirming] = useState<"remove" | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  // The password that was just set, kept on screen deliberately. Bitween sends no
+  // mail, so the admin has to pass it on themselves — clearing the field on success
+  // threw away the one thing they still needed, with nothing to say it had worked.
+  const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -55,7 +60,10 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   });
   const setPassword = useMutation({
     mutationFn: (password: string) => api.setUserPassword(userId, password),
-    onSuccess: () => setNewPassword(""),
+    onSuccess: (_result, password) => {
+      setIssuedPassword(password);
+      setNewPassword("");
+    },
   });
 
   const isSelf = session?.user.id === userId;
@@ -142,7 +150,25 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
         {(editable || can("users.delete")) && !isSelf && (
           <Section title="Account actions">
             <div className="space-y-3">
-              {editable && (
+              {editable && issuedPassword && (
+                <div className="space-y-2 rounded-lg border border-ok-200 bg-ok-50 p-3">
+                  <p className="flex items-center gap-1.5 text-[13px] font-medium text-ok-800">
+                    <Check className="size-4 shrink-0" aria-hidden />
+                    Password set for {u.displayName}
+                  </p>
+                  <CopyField value={issuedPassword} label="New password" />
+                  <p className="text-[13px] text-ink-600">
+                    They can sign in with it now. Bitween sends no email, so copy it and pass it on
+                    yourself — it won't be shown again once you dismiss this.
+                  </p>
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={() => setIssuedPassword(null)}>
+                      Done
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {editable && !issuedPassword && (
                 <form
                   className="space-y-2"
                   onSubmit={(e) => {

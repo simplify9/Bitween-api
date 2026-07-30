@@ -171,6 +171,10 @@ export function MembersTab() {
       {addOpen && <AddMemberDialog onClose={() => setParam("add", null)} />}
       {openMemberId && (
         <MemberDrawer
+          // Keyed so switching straight from one member to another remounts the
+          // drawer. Without it, per-member state (staged role edits, a password
+          // just set) carries over and is shown under the next member's name.
+          key={openMemberId}
           userId={openMemberId}
           onClose={() => navigate(`/team/members?${searchParams.toString()}`)}
         />
