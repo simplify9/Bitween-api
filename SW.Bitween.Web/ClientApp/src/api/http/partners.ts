@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import { ApiRequestError, type IntegrationType, type Partner, type PartnerDetail, type PartnerRow } from "../types";
+import { ApiRequestError, type Partner, type PartnerDetail, type PartnerRow } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { matchSummary } from "../../lib/match";
@@ -24,15 +24,9 @@ interface RawKeyAndValue {
   key: string;
   value: string;
 }
-interface RawSubscriptionRef {
-  id: number;
-  name: string;
-  type: number | string;
-}
 interface RawPartnerDetail {
   name: string;
   apiCredentials: RawKeyAndValue[] | null;
-  subscriptions: RawSubscriptionRef[] | null;
   adapterProperties: Record<string, string> | null;
 }
 
@@ -40,28 +34,6 @@ interface RawPartnerDetail {
 const MASK_SUFFIX = "...(hidden)";
 const keyPrefixOf = (masked: string): string =>
   masked.endsWith(MASK_SUFFIX) ? masked.slice(0, -MASK_SUFFIX.length) : masked;
-
-const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
-  1: "Internal",
-  2: "ApiCall",
-  4: "Receiving",
-  8: "Aggregation",
-  16: "GatewayApiCall",
-  32: "BusGateway",
-};
-const INTEGRATION_TYPES: IntegrationType[] = [
-  "Receiving",
-  "GatewayApiCall",
-  "BusGateway",
-  "Internal",
-  "ApiCall",
-  "Aggregation",
-];
-/** Enums may arrive as the numeric value or the name in any case. */
-const toIntegrationType = (t: number | string): IntegrationType => {
-  if (typeof t === "number") return SUB_TYPE_BY_NUM[t] ?? "Internal";
-  return INTEGRATION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
-};
 
 async function requireDetail(id: number): Promise<RawPartnerDetail> {
   const d = await get<RawPartnerDetail | null>(`/partners/${id}`);
@@ -128,11 +100,6 @@ export const partnerMethods = {
         name: c.key,
         keyPrefix: keyPrefixOf(c.value),
         createdOn: "",
-      })),
-      integrationSetups: (d.subscriptions ?? []).map((s) => ({
-        id: s.id,
-        name: s.name,
-        type: toIntegrationType(s.type),
       })),
       apiGateways: apiGateways
         .filter((g) => g.attachments.some((a) => a.partnerId === id))

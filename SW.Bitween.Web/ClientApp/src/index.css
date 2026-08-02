@@ -41,8 +41,19 @@
 
   --color-ok-600: #1a7f4e;
   --color-ok-100: #d9f2e5;
-  --color-warn-700: #92600a;
-  --color-warn-100: #fbeed0;
+  /*
+    Warn reads YELLOW, not brown. The old pair was a tan fill (#fbeed0) with an
+    olive text (#92600a), and since a badge takes its perceived colour from the
+    fill, "Bad response" looked brown. Dark yellow *is* brown, so the fix can't
+    come from the text — it comes from making the fill an unambiguous yellow and
+    keeping the text only as dark as legibility needs.
+
+    warn-400 is the solid-fill yellow, for places that paint a block of colour
+    rather than tint one (the exchange journey strip's "bad" segment).
+  */
+  --color-warn-700: #a16207;
+  --color-warn-400: #eab308;
+  --color-warn-100: #fef7c3;
 
   /*
     Status red, deliberately NOT the crimson ramp. Brand color is customer-settable

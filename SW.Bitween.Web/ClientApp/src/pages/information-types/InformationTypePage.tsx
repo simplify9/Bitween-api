@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Cable, History, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import { api, type InformationType, type InformationTypeFormat } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { KeyValueEditor, type KvRow } from "../../components/ui/KeyValueEditor";
 import { CodeBadge, Panel, UnsavedBar } from "../../components/ui/Panel";
-import { ExchangesList, SetupList } from "../../components/config/shared";
+import { MiniTable } from "../../components/ui/Table";
+import { ExchangesList, SetupList, TrailTable } from "../../components/config/shared";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
-import { formatDate } from "../../lib/dates";
 
 type Draft = Omit<InformationType, "id" | "createdOn" | "promotedProperties">;
 
@@ -113,7 +113,6 @@ export function InformationTypePage() {
             {t.name}
             <CodeBadge code={t.code} name={t.name} />
           </h1>
-          <p className="mt-1 text-sm text-ink-500">Defined {formatDate(t.createdOn)}.</p>
         </div>
         <Can permission="documents.delete">
           <Button variant="danger" onClick={() => setDeleting(true)}>
@@ -235,52 +234,39 @@ export function InformationTypePage() {
             <div className="space-y-4">
               <SetupList items={t.integrationSetups} />
               {t.busGateways.length > 0 && (
-                <ul className="space-y-1.5 border-t border-ink-100 pt-3">
-                  {t.busGateways.map((g) => (
-                    <li key={g.gatewayId} className="flex items-center gap-2.5 text-sm">
-                      <Cable className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                      <Link
-                        to={`/bus-gateways/${g.gatewayId}`}
-                        className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                      >
-                        {g.gatewayName}
-                      </Link>
-                      <Badge>Bus gateway</Badge>
-                    </li>
-                  ))}
-                </ul>
+                <div className="border-t border-ink-100 pt-3">
+                  <MiniTable
+                    rows={t.busGateways}
+                    rowKey={(g) => g.gatewayId}
+                    empty=""
+                    columns={[
+                      {
+                        header: "Bus gateway",
+                        truncate: true,
+                        cell: (g) => (
+                          <Link
+                            to={`/bus-gateways/${g.gatewayId}`}
+                            className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                          >
+                            {g.gatewayName}
+                          </Link>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
               )}
             </div>
           </Panel>
 
           <Can permission="exchanges.view">
-            <Panel
-              title="Recent exchanges"
-              description="Expand a row to see its input, mapped and handled documents."
-            >
-              <ExchangesList items={t.recentExchanges} expandable />
+            <Panel title="Recent exchanges" description="Latest traffic carrying this type.">
+              <ExchangesList items={t.recentExchanges} />
             </Panel>
           </Can>
 
           <Panel title="History">
-            <ul className="space-y-2">
-              {[...t.trail].reverse().map((entry, i) => (
-                <li key={i} className="flex items-center gap-2.5 text-sm">
-                  <History className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-ink-600">
-                    <span className="font-medium text-ink-800">{entry.action}</span> by{" "}
-                    {entry.byUserId ? (
-                      <Link to={`/team/members/${entry.byUserId}`} className="hover:text-crimson-700 hover:underline">
-                        {entry.by}
-                      </Link>
-                    ) : (
-                      entry.by
-                    )}
-                  </span>
-                  <span className="shrink-0 text-xs text-ink-400">{formatDate(entry.on)}</span>
-                </li>
-              ))}
-            </ul>
+            <TrailTable entries={t.trail} />
           </Panel>
         </div>
       </div>

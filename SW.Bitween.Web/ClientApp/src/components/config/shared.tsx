@@ -1,18 +1,19 @@
-import { Fragment, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeftRight, ChevronDown, ChevronRight, Workflow } from "lucide-react";
 import {
   api,
-  type ExchangeDocStage,
-  type ExchangeDocument,
   type ExchangeRef,
   type IntegrationInfo,
   type IntegrationSetupRef,
   type IntegrationType,
+  type TrailEntry,
 } from "../../api";
+import { useSessionCan } from "../../auth/guards";
 import { Badge } from "../ui/basics";
-import { timeAgo } from "../../lib/dates";
+import { Popover } from "../ui/Popover";
+import { MiniTable } from "../ui/Table";
+import { formatDate, timeAgo } from "../../lib/dates";
 
 /** Display names for integration types; Internal and ApiCall are legacy. */
 export const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
@@ -69,126 +70,77 @@ export function ExchangeStatusBadge({ status }: { status: ExchangeRef["status"] 
   return <Badge tone="neutral">Processing</Badge>;
 }
 
-const DOC_STAGES: ExchangeDocStage[] = ["Input", "Mapped", "Handled"];
-
 /**
- * The document trail of one exchange: a tab per pipeline stage. Stages
- * that produced nothing (e.g. after a failure) stay visible but disabled,
- * so the pipeline shape — and where it stopped — is always readable.
+ * Recent traffic for a hub page. Every field the row already carries is a
+ * column — the old version spent a whole line on an id and left the rest of
+ * the width empty, so what the exchange actually *was* never made it to the
+ * screen.
  */
-function ExchangeDocsDrawer({ documents }: { documents: ExchangeDocument[] }) {
-  const [stage, setStage] = useState<ExchangeDocStage>(documents[0]?.stage ?? "Input");
-  const active = documents.find((d) => d.stage === stage);
-
+export function ExchangesList({ items }: { items: ExchangeRef[] }) {
   return (
-    <div className="ml-6">
-      <div className="mb-1.5 flex items-center gap-1">
-        {DOC_STAGES.map((s) => {
-          const exists = documents.some((d) => d.stage === s);
-          return (
-            <button
-              key={s}
-              disabled={!exists}
-              aria-pressed={s === stage}
-              title={exists ? undefined : "This stage produced no document"}
-              onClick={() => setStage(s)}
-              className={`rounded-md px-2 py-0.5 text-xs font-medium ${
-                s === stage
-                  ? "bg-ink-800 text-ink-50"
-                  : exists
-                    ? "text-ink-600 hover:bg-ink-100"
-                    : "cursor-not-allowed text-ink-300"
-              }`}
+    <MiniTable
+      rows={items}
+      rowKey={(x) => x.id}
+      empty="No exchanges yet."
+      columns={[
+        {
+          header: "Exchange",
+          // A bounded width, not `truncate`: MiniTable ignores that flag, and an
+          // unbounded 32-char id would push Status and When out of the panel.
+          className: "max-w-24 overflow-hidden",
+          cell: (x) => (
+            <Link
+              to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
+              title={x.id}
+              className="block truncate font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
             >
-              {s}
-            </button>
-          );
-        })}
-      </div>
-      <pre className="max-h-48 overflow-auto rounded-lg bg-ink-950 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-ink-100">
-        {active?.content}
-      </pre>
-    </div>
-  );
-}
-
-/**
- * Compact recent-traffic list for hub pages. With `expandable`, each row
- * opens a drawer showing the documents from each pipeline stage.
- */
-export function ExchangesList({
-  items,
-  expandable = false,
-}: {
-  items: ExchangeRef[];
-  expandable?: boolean;
-}) {
-  const [open, setOpen] = useState<Set<string>>(new Set());
-
-  const toggle = (id: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  if (items.length === 0) return <p className="text-sm text-ink-500">No exchanges yet.</p>;
-
-  return (
-    <ul className="space-y-1.5">
-      {items.map((x) => {
-        const canExpand = expandable && (x.documents?.length ?? 0) > 0;
-        return (
-          <Fragment key={x.id}>
-            <li className="flex items-center gap-2 text-sm">
-              {canExpand ? (
-                <button
-                  onClick={() => toggle(x.id)}
-                  aria-expanded={open.has(x.id)}
-                  aria-label={`Documents for ${x.id}`}
-                  className="rounded-md p-0.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                >
-                  {open.has(x.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                </button>
-              ) : (
-                <ArrowLeftRight className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-              )}
-              <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink-600">{x.id}</code>
-              <ExchangeStatusBadge status={x.status} />
-              <span className="w-16 shrink-0 text-right text-xs text-ink-400">{timeAgo(x.on)}</span>
-            </li>
-            {canExpand && open.has(x.id) && (
-              <li>
-                <ExchangeDocsDrawer documents={x.documents!} />
-              </li>
-            )}
-          </Fragment>
-        );
-      })}
-    </ul>
+              {x.id}
+            </Link>
+          ),
+        },
+        {
+          header: "Type",
+          cell: (x) => <code className="font-mono text-xs text-ink-500">{x.informationTypeCode}</code>,
+        },
+        {
+          header: "Partner",
+          cell: (x) => <span className="text-[13px] text-ink-600">{x.partnerName ?? "—"}</span>,
+        },
+        { header: "Status", cell: (x) => <ExchangeStatusBadge status={x.status} /> },
+        {
+          header: "When",
+          align: "right",
+          className: "whitespace-nowrap",
+          cell: (x) => <span className="text-xs text-ink-400">{timeAgo(x.on)}</span>,
+        },
+      ]}
+    />
   );
 }
 
 /** Integrations referencing this entity, each linking to its page. */
 export function SetupList({ items }: { items: IntegrationSetupRef[] }) {
-  if (items.length === 0)
-    return <p className="text-sm text-ink-500">Not used by any integration.</p>;
   return (
-    <ul className="space-y-1.5">
-      {items.map((s) => (
-        <li key={s.id} className="flex items-center gap-2.5 text-sm">
-          <Workflow className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-          <Link
-            to={`/subscriptions/${s.id}`}
-            className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-          >
-            {s.name}
-          </Link>
-          <TypeBadge type={s.type} />
-        </li>
-      ))}
-    </ul>
+    <MiniTable
+      rows={items}
+      rowKey={(s) => s.id}
+      empty="Not used by any integration."
+      columns={[
+        {
+          header: "Integration",
+          truncate: true,
+          cell: (s) => (
+            <Link
+              to={`/subscriptions/${s.id}`}
+              className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+            >
+              {s.name}
+            </Link>
+          ),
+        },
+        { header: "Type", align: "right", cell: (s) => <TypeBadge type={s.type} /> },
+      ]}
+    />
   );
 }
 
@@ -204,7 +156,146 @@ export function useIntegrationsCache() {
   });
 }
 
-/** Tiny inline list for drill-down drawers. */
+/**
+ * Which integrations each partner is reached through, keyed by partner id.
+ *
+ * A subscription's own `partnerId` only covers the legacy types. Everything
+ * modern links a partner through a **gateway** — an API-gateway attachment or a
+ * bus route — so those have to be folded in or a partner that is plainly in use
+ * shows up as unused. Both gateway lists are the same cache entries the
+ * Integrations page fills, and each is gated on its own view permission.
+ */
+export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
+  const integrations = useIntegrationsCache().data ?? [];
+  const canSeeApi = useSessionCan("api-gateways.view");
+  const canSeeBus = useSessionCan("bus-gateways.view");
+  const apiGateways =
+    useQuery({ queryKey: ["api-gateways"], queryFn: () => api.listApiGateways(), enabled: canSeeApi }).data ?? [];
+  const busGateways =
+    useQuery({ queryKey: ["bus-gateways"], queryFn: () => api.listBusGateways(), enabled: canSeeBus }).data ?? [];
+
+  return useMemo(() => {
+    const byId = new Map(integrations.map((s) => [s.id, s]));
+    const out = new Map<number, IntegrationInfo[]>();
+    const add = (partnerId: number | null, integrationId: number) => {
+      if (partnerId === null) return;
+      const setup = byId.get(integrationId);
+      if (!setup) return;
+      const list = out.get(partnerId) ?? [];
+      if (!list.some((x) => x.id === setup.id)) {
+        list.push(setup);
+        out.set(partnerId, list);
+      }
+    };
+    for (const s of integrations) for (const pid of s.partnerIds) add(pid, s.id);
+    for (const g of apiGateways) for (const a of g.attachments) add(a.partnerId, a.integrationId);
+    for (const g of busGateways) for (const r of g.routes) add(r.partnerId, r.integrationId);
+    return out;
+  }, [integrations, apiGateways, busGateways]);
+}
+
+/**
+ * The "used by" cell on list pages: the integrations themselves, not a count.
+ *
+ * "3 places" tells you a thing is in use but nothing you can act on — you still
+ * have to open the row to learn whether it's safe to touch. Names answer that in
+ * the table. Overflow goes into a popover rather than wrapping, so row height
+ * stays fixed and the table keeps its rhythm; nothing is reachable only by
+ * opening the entity's own page.
+ */
+export function UsedByCell({ items, max = 2 }: { items: IntegrationInfo[]; max?: number }) {
+  if (items.length === 0) return <span className="text-ink-400">—</span>;
+  const shown = items.slice(0, max);
+  const rest = items.length - shown.length;
+  return (
+    <span className="flex items-baseline gap-1 text-[13px]">
+      <span className="min-w-0 truncate" title={shown.map((s) => s.name).join(", ")}>
+        {shown.map((s, i) => (
+          <span key={s.id}>
+            {i > 0 && <span className="text-ink-300">, </span>}
+            <Link
+              to={`/subscriptions/${s.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-ink-700 hover:text-crimson-700 hover:underline"
+            >
+              {s.name}
+            </Link>
+          </span>
+        ))}
+      </span>
+      {rest > 0 && (
+        <Popover
+          label={`Show all ${items.length} integrations`}
+          width="w-80"
+          button={<span className="whitespace-nowrap">+{rest} more</span>}
+        >
+          <UsedByPanel items={items} />
+        </Popover>
+      )}
+    </span>
+  );
+}
+
+/** The full list behind a "+N more" — every entry a link out. */
+function UsedByPanel({ items }: { items: IntegrationInfo[] }) {
+  return (
+    <>
+      <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+        Used by {items.length} integrations
+      </p>
+      <ul className="border-t border-ink-100 pt-1">
+        {items.map((s) => (
+          <li key={s.id}>
+            <Link
+              to={`/subscriptions/${s.id}`}
+              className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1.5 hover:bg-ink-50"
+            >
+              <span className="truncate text-[13px] font-medium text-ink-800">{s.name}</span>
+              <Badge>{INTEGRATION_TYPE_LABELS[s.type]}</Badge>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** Audit trail for an entity, newest first. Shared by every hub page that has one. */
+export function TrailTable({ entries }: { entries: TrailEntry[] }) {
+  return (
+    <MiniTable
+      rows={[...entries].reverse().map((e, i) => ({ ...e, i }))}
+      rowKey={(e) => e.i}
+      empty="Nothing recorded yet."
+      columns={[
+        { header: "Action", cell: (e) => <span className="font-medium text-ink-800">{e.action}</span> },
+        {
+          header: "By",
+          truncate: true,
+          cell: (e) =>
+            e.byUserId ? (
+              <Link
+                to={`/team/members/${e.byUserId}`}
+                className="block truncate text-ink-600 hover:text-crimson-700 hover:underline"
+              >
+                {e.by}
+              </Link>
+            ) : (
+              <span className="block truncate text-ink-600">{e.by}</span>
+            ),
+        },
+        {
+          header: "When",
+          align: "right",
+          className: "whitespace-nowrap",
+          cell: (e) => <span className="text-xs text-ink-400">{formatDate(e.on)}</span>,
+        },
+      ]}
+    />
+  );
+}
+
+/** Integrations referencing one particular key or value, with their type. */
 export function IntegrationMiniList({
   items,
   emptyText,
@@ -212,21 +303,30 @@ export function IntegrationMiniList({
   items: IntegrationInfo[];
   emptyText: string;
 }) {
-  if (items.length === 0) return <p className="text-[13px] text-ink-500">{emptyText}</p>;
   return (
-    <ul className="space-y-1">
-      {items.map((s) => (
-        <li key={s.id} className="flex items-center gap-2 text-[13px]">
-          <Workflow className="size-3 shrink-0 text-ink-400" aria-hidden />
-          <Link
-            to={`/subscriptions/${s.id}`}
-            className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-          >
-            {s.name}
-          </Link>
-          <Badge>{INTEGRATION_TYPE_LABELS[s.type]}</Badge>
-        </li>
-      ))}
-    </ul>
+    <MiniTable
+      rows={items}
+      rowKey={(s) => s.id}
+      empty={emptyText}
+      columns={[
+        {
+          header: "Integration",
+          truncate: true,
+          cell: (s) => (
+            <Link
+              to={`/subscriptions/${s.id}`}
+              className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+            >
+              {s.name}
+            </Link>
+          ),
+        },
+        {
+          header: "Type",
+          align: "right",
+          cell: (s) => <Badge>{INTEGRATION_TYPE_LABELS[s.type]}</Badge>,
+        },
+      ]}
+    />
   );
 }

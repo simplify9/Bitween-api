@@ -1,16 +1,27 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { RotateCcw } from "lucide-react";
 import { api, resetAppConfig, type SettingRow } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 
 /** Sections, in the order the backend catalog lists them. */
 const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section))];
+
+/**
+ * The one section with a reset-the-lot button, and deliberately the only one.
+ * Everything here is cosmetic and re-enterable from what you can see on screen;
+ * other sections hold values the database is the sole home for — the Rebex
+ * license key, the MSAL client ids — where one click is far too little standing
+ * between an administrator and config nobody can reconstruct. Per-row "Reset to
+ * default" still covers those, one considered decision at a time.
+ */
+const BRAND_SECTION = "Brand & theme";
 
 const formatDefault = (row: SettingRow): string => {
   if (row.kind === "boolean") return row.defaultValue === "true" ? "On" : "Off";
@@ -250,6 +261,19 @@ export function SettingsPage() {
   const dirtyCount = Object.keys(draft).length;
   const sectionRows = rows.filter((r) => r.section === section);
 
+  // Rows a section-wide reset would actually change: a stored value that differs from the
+  // product default, or an edit staged this session. Rows already staged for reset are
+  // excluded, so the button stops offering itself once there is nothing left to do.
+  const resettable =
+    section === BRAND_SECTION && canEdit
+      ? sectionRows.filter(
+          (r) =>
+            r.access === "editable" &&
+            r.editable &&
+            (r.key in draft ? draft[r.key] !== null : r.overridden),
+        )
+      : [];
+
   return (
     <div className={dirtyCount > 0 ? "pb-20" : ""}>
       <PageHeader
@@ -281,6 +305,20 @@ export function SettingsPage() {
       </div>
 
       <div className="max-w-3xl rounded-xl border border-ink-200 bg-white p-5">
+        {resettable.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 pb-4">
+            <p className="text-[13px] text-ink-500">
+              {resettable.length} of these {resettable.length === 1 ? "is" : "are"} customized.
+              Resetting stages the change like any other — nothing is written until you save.
+            </p>
+            {/* Stages a reset per row rather than writing: the draft previews the stock
+                branding across the whole app, and Discard puts it all back untouched. */}
+            <Button size="sm" onClick={() => resettable.forEach((r) => settingsDraft.stage(r, null))}>
+              <RotateCcw className="size-3.5" aria-hidden />
+              Reset all to default
+            </Button>
+          </div>
+        )}
         <div className="divide-y divide-ink-100">
           {sectionRows.map((row) =>
             row.access === "editable" ? (

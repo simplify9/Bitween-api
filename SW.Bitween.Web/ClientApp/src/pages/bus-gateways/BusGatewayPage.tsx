@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, Plus, Trash2, Workflow } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, type BusGatewayRoute } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
+import { MiniTable } from "../../components/ui/Table";
 import { matchSummary } from "../../lib/match";
-import { formatDate } from "../../lib/dates";
 
 export function BusGatewayPage() {
   const { id = "" } = useParams();
@@ -78,7 +78,7 @@ export function BusGatewayPage() {
             <Link to={`/information-types/${g.informationTypeId}`} className="hover:underline">
               <CodeBadge code={g.informationTypeCode} name={g.informationTypeName} className="align-middle" />
             </Link>{" "}
-            on the message bus · created {formatDate(g.createdOn)}.
+            on the message bus.
           </p>
         </div>
         <Can permission="bus-gateways.delete">
@@ -100,63 +100,75 @@ export function BusGatewayPage() {
             </Can>
           }
         >
-          {g.routes.length === 0 ? (
-            <p className="text-sm text-ink-500">
-              No routes — every {g.informationTypeCode} message on the bus is ignored by this
-              gateway.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {g.routes.map((r) => (
-                <li key={r.id} className="rounded-xl border border-ink-200 p-3.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <code className="min-w-0 flex-1 font-mono text-xs text-ink-600">
-                      {matchSummary(r.matchExpression)}
-                    </code>
-                    <Can permission="bus-gateways.edit">
-                      <span className="flex gap-1">
-                        <button
-                          onClick={() => navigate(`/bus-gateways/${gatewayId}/routes/${r.id}`)}
-                          aria-label={`Edit route ${r.id}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                        >
-                          <Pencil className="size-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setRemovingRoute(r)}
-                          aria-label={`Remove route ${r.id}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </span>
-                    </Can>
-                  </div>
-                  <p className="mt-1.5 flex items-center gap-2 text-[13px] text-ink-600">
-                    <Workflow className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                    runs{" "}
+          <MiniTable
+            rows={g.routes}
+            rowKey={(r) => r.id}
+            empty={`No routes — every ${g.informationTypeCode} message on the bus is ignored by this gateway.`}
+            columns={[
+              {
+                header: "Matches",
+                truncate: true,
+                cell: (r) => (
+                  <code
+                    className="block truncate font-mono text-xs text-ink-600"
+                    title={matchSummary(r.matchExpression)}
+                  >
+                    {matchSummary(r.matchExpression)}
+                  </code>
+                ),
+              },
+              {
+                header: "Runs",
+                truncate: true,
+                cell: (r) => (
+                  <Link
+                    to={`/subscriptions/${r.integrationId}`}
+                    className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                  >
+                    {r.integrationName}
+                  </Link>
+                ),
+              },
+              {
+                header: "For partner",
+                cell: (r) =>
+                  r.partnerName ? (
                     <Link
-                      to={`/subscriptions/${r.integrationId}`}
-                      className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      to={`/partners/${r.partnerId}`}
+                      className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                     >
-                      {r.integrationName}
+                      {r.partnerName}
                     </Link>
-                    {r.partnerName && (
-                      <>
-                        for{" "}
-                        <Link
-                          to={`/partners/${r.partnerId}`}
-                          className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                        >
-                          {r.partnerName}
-                        </Link>
-                      </>
-                    )}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+                  ) : (
+                    <span className="text-ink-400">Any</span>
+                  ),
+              },
+              {
+                header: "",
+                align: "right",
+                cell: (r) => (
+                  <Can permission="bus-gateways.edit">
+                    <span className="flex justify-end gap-1">
+                      <button
+                        onClick={() => navigate(`/bus-gateways/${gatewayId}/routes/${r.id}`)}
+                        aria-label={`Edit route ${r.id}`}
+                        className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setRemovingRoute(r)}
+                        aria-label={`Remove route ${r.id}`}
+                        className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </span>
+                  </Can>
+                ),
+              },
+            ]}
+          />
         </Panel>
       </div>
 

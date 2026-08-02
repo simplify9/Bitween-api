@@ -169,6 +169,15 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
 
       {/* — metadata — */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+        {/* The id lives here rather than in the row: it identifies a record you
+            have already found, so it earns its place next to the other
+            copy-and-paste metadata, not in the scanning path. */}
+        <MetaItem label="Exchange id">
+          <span className="inline-flex items-center gap-0.5">
+            <span className="font-mono text-xs break-all text-ink-700">{x.id}</span>
+            <CopyButton value={x.id} label="exchange id" />
+          </span>
+        </MetaItem>
         <MetaItem label="Started">{formatDateTime(x.startedOn)}</MetaItem>
         <MetaItem label="Finished">
           {x.finishedOn ? (

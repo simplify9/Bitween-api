@@ -1,5 +1,5 @@
 import { Fragment, useState, type ReactNode } from "react";
-import { Check, ChevronDown, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Plus, Trash2 } from "lucide-react";
 import { Button } from "./basics";
 
 export interface KvRow {
@@ -85,8 +85,8 @@ function ReferenceToken({ token }: { token: string }) {
  * Inline key-value table used for partner properties, value sets and
  * promoted properties. Fully controlled: the parent owns the draft rows
  * and decides when to save. `token` renders the runtime reference for a
- * row (e.g. {{partner.KEY}}); `rowDetails` adds a collapsible drawer per
- * row (e.g. "where is this used?").
+ * row (e.g. {{partner.KEY}}); `rowDetails` renders a per-row note under it
+ * (e.g. "where is this used?"), always visible.
  */
 export function KeyValueEditor({
   rows,
@@ -117,7 +117,6 @@ export function KeyValueEditor({
   rowDetails?: (row: KvRow) => ReactNode | null;
 }) {
   const [focusLast, setFocusLast] = useState(false);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
   const update = (index: number, patch: Partial<KvRow>) =>
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -127,24 +126,13 @@ export function KeyValueEditor({
     setFocusLast(true);
   };
 
-  const toggleExpanded = (index: number) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-
-  const remove = (index: number) => {
-    onChange(rows.filter((_, x) => x !== index));
-    setExpanded(new Set());
-  };
+  const remove = (index: number) => onChange(rows.filter((_, x) => x !== index));
 
   if (rows.length === 0 && !editable) {
     return <p className="text-sm text-ink-500">{emptyText}</p>;
   }
 
-  const columns = 2 + (rowDetails ? 1 : 0) + (token ? 1 : 0) + (editable ? 1 : 0);
+  const columns = 2 + (token ? 1 : 0) + (editable ? 1 : 0);
 
   return (
     <div>
@@ -152,7 +140,6 @@ export function KeyValueEditor({
         <table className="table-fixed text-sm">
           <thead>
             <tr className="text-left text-xs text-ink-500">
-              {rowDetails && <th className="w-7 pb-1.5" />}
               <th className={`${keyWidthClass} pb-1.5 pr-3 font-medium`}>{keyLabel}</th>
               <th className={`${valueWidthClass} pb-1.5 pr-3 font-medium`}>{valueLabel}</th>
               {token && <th className="hidden w-56 pb-1.5 pr-3 font-medium xl:table-cell">Reference</th>}
@@ -163,24 +150,6 @@ export function KeyValueEditor({
             {rows.map((row, i) => (
               <Fragment key={i}>
                 <tr className="align-top">
-                  {rowDetails && (
-                    <td className="pt-2 pb-1 pr-1">
-                      {rowDetails(row) !== null && (
-                        <button
-                          onClick={() => toggleExpanded(i)}
-                          aria-expanded={expanded.has(i)}
-                          aria-label={`Details for ${row.key || "row"}`}
-                          className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                        >
-                          {expanded.has(i) ? (
-                            <ChevronDown className="size-3.5" />
-                          ) : (
-                            <ChevronRight className="size-3.5" />
-                          )}
-                        </button>
-                      )}
-                    </td>
-                  )}
                   <td className="py-1 pr-3">
                     <input
                       value={row.key}
@@ -218,11 +187,10 @@ export function KeyValueEditor({
                     </td>
                   )}
                 </tr>
-                {rowDetails && expanded.has(i) && (
+                {rowDetails?.(row) !== null && rowDetails !== undefined && (
                   <tr>
-                    <td />
-                    <td colSpan={columns - 1} className="pt-0.5 pb-2">
-                      <div className="rounded-lg bg-ink-50 px-3 py-2.5">{rowDetails(row)}</div>
+                    <td colSpan={columns} className="pt-0.5 pb-2">
+                      <div className="rounded-lg bg-ink-50 px-3 py-2">{rowDetails(row)}</div>
                     </td>
                   </tr>
                 )}

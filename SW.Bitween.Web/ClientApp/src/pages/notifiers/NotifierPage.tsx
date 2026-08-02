@@ -1,68 +1,64 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpRight, BellRing, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Search } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
+import { MiniTable } from "../../components/ui/Table";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { useIntegrationsCache } from "../../components/config/shared";
-import { formatDate, timeAgo } from "../../lib/dates";
+import { timeAgo } from "../../lib/dates";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
-/** Delivery history; failed attempts expand to show why. */
+/** Delivery history. The failure reason is a column, not a drill-down. */
 function NotificationsList({ items }: { items: NotificationEntry[] }) {
-  const [open, setOpen] = useState<Set<string>>(new Set());
-
-  const toggle = (key: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-
-  if (items.length === 0) return <p className="text-sm text-ink-500">Nothing sent yet.</p>;
-
   return (
-    <ul className="space-y-1.5">
-      {items.map((n) => {
-        const key = `${n.xchangeId}-${n.on}`;
-        const canExpand = !!n.exception;
-        return (
-          <Fragment key={key}>
-            <li className="flex items-center gap-2 text-sm">
-              {canExpand ? (
-                <button
-                  onClick={() => toggle(key)}
-                  aria-expanded={open.has(key)}
-                  aria-label={`Failure details for ${n.xchangeId}`}
-                  className="rounded-md p-0.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                >
-                  {open.has(key) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                </button>
-              ) : (
-                <BellRing className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-              )}
-              <code className="min-w-0 flex-1 truncate font-mono text-xs text-ink-600">{n.xchangeId}</code>
-              {n.success ? <Badge tone="ok">Sent</Badge> : <Badge tone="danger">Failed</Badge>}
-              <span className="w-16 shrink-0 text-right text-xs text-ink-400">{timeAgo(n.on)}</span>
-            </li>
-            {canExpand && open.has(key) && (
-              <li>
-                <p className="ml-6 rounded-lg bg-danger-50 px-3 py-2 font-mono text-[11px] leading-relaxed text-danger-800">
-                  {n.exception}
-                </p>
-              </li>
-            )}
-          </Fragment>
-        );
-      })}
-    </ul>
+    <MiniTable
+      rows={items}
+      rowKey={(n) => `${n.xchangeId}-${n.on}`}
+      empty="Nothing sent yet."
+      columns={[
+        {
+          header: "Exchange",
+          truncate: true,
+          cell: (n) => (
+            <Link
+              to={`/exchanges?ids=${encodeURIComponent(n.xchangeId)}`}
+              className="block truncate font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+            >
+              {n.xchangeId}
+            </Link>
+          ),
+        },
+        {
+          header: "Result",
+          cell: (n) => (n.success ? <Badge tone="ok">Sent</Badge> : <Badge tone="danger">Failed</Badge>),
+        },
+        {
+          header: "Reason",
+          truncate: true,
+          cell: (n) =>
+            n.exception ? (
+              <span className="block truncate font-mono text-[11px] text-danger-700" title={n.exception}>
+                {n.exception}
+              </span>
+            ) : (
+              <span className="text-ink-400">—</span>
+            ),
+        },
+        {
+          header: "When",
+          align: "right",
+          className: "whitespace-nowrap",
+          cell: (n) => <span className="text-xs text-ink-400">{timeAgo(n.on)}</span>,
+        },
+      ]}
+    />
   );
 }
 
@@ -174,7 +170,6 @@ export function NotifierPage() {
               </button>
             )}
           </h1>
-          <p className="mt-1 text-sm text-ink-500">Created {formatDate(n.createdOn)}.</p>
         </div>
       </div>
 

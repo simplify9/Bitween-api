@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Handshake, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -9,7 +9,7 @@ import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CopyField } from "../../components/ui/CopyField";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
-import { formatDate } from "../../lib/dates";
+import { MiniTable } from "../../components/ui/Table";
 
 export function ApiGatewayPage() {
   const { id = "" } = useParams();
@@ -79,7 +79,6 @@ export function ApiGatewayPage() {
           <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
             <EditableTitle value={name} onChange={setName} disabled={!canEdit} placeholder="Gateway name" />
           </h1>
-          <p className="mt-1 text-sm text-ink-500">Created {formatDate(g.createdOn)}.</p>
         </div>
         <Can permission="api-gateways.delete">
           <Button variant="danger" onClick={() => setDeleting(true)}>
@@ -101,35 +100,41 @@ export function ApiGatewayPage() {
               </Can>
             }
           >
-            {g.attachments.length === 0 ? (
-              <p className="text-sm text-ink-500">
-                No partners attached — the gateway answers 401 to everyone. Attach a partner to
-                bring it to life.
-              </p>
-            ) : (
-              <ul className="divide-y divide-ink-100">
-                {g.attachments.map((a) => (
-                  <li key={a.partnerId} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                    <Handshake className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                    <span className="min-w-0 flex-1">
-                      <Link
-                        to={`/partners/${a.partnerId}`}
-                        className="block truncate text-sm font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                      >
-                        {a.partnerName}
-                      </Link>
-                      <span className="block truncate text-[13px] text-ink-500">
-                        runs{" "}
-                        <Link
-                          to={`/subscriptions/${a.integrationId}`}
-                          className="font-medium text-ink-700 hover:text-crimson-700 hover:underline"
-                        >
-                          {a.integrationName}
-                        </Link>
-                      </span>
-                    </span>
+            <MiniTable
+              rows={g.attachments}
+              rowKey={(a) => a.partnerId}
+              empty="No partners attached — the gateway answers 401 to everyone. Attach a partner to bring it to life."
+              columns={[
+                {
+                  header: "Partner",
+                  truncate: true,
+                  cell: (a) => (
+                    <Link
+                      to={`/partners/${a.partnerId}`}
+                      className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                    >
+                      {a.partnerName}
+                    </Link>
+                  ),
+                },
+                {
+                  header: "Runs",
+                  truncate: true,
+                  cell: (a) => (
+                    <Link
+                      to={`/subscriptions/${a.integrationId}`}
+                      className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    >
+                      {a.integrationName}
+                    </Link>
+                  ),
+                },
+                {
+                  header: "",
+                  align: "right",
+                  cell: (a) => (
                     <Can permission="api-gateways.edit">
-                      <span className="flex gap-1">
+                      <span className="flex justify-end gap-1">
                         <button
                           onClick={() => navigate(`/api-gateways/${gatewayId}/attachments/${a.partnerId}`)}
                           aria-label={`Edit attachment for ${a.partnerName}`}
@@ -146,10 +151,10 @@ export function ApiGatewayPage() {
                         </button>
                       </span>
                     </Can>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  ),
+                },
+              ]}
+            />
           </Panel>
         </div>
 

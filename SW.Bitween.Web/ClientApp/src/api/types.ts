@@ -126,16 +126,21 @@ export interface IntegrationInfo {
   name: string;
   type: IntegrationType;
   /**
-   * Partners this integration runs for: its own partner (legacy types)
-   * plus partners linked through gateway attachments and bus routes.
+   * The integration's OWN partner, which only the legacy types carry. Partners
+   * linked through a gateway attachment or a bus route are NOT here — the list
+   * endpoint doesn't know about them. Use `usePartnerIntegrations()` when you
+   * need the full picture.
    */
   partnerIds: number[];
   informationTypeId: number;
   workGroupId: number | null;
   retryPolicyId: number | null;
-  /** Keys of partner properties referenced by its adapters ({{partner.KEY}}). */
+  /**
+   * Reference tokens found in its adapter properties. Both are matched
+   * case-insensitively, as the backend resolver does — compare them with
+   * `referencesPartnerProp`/`referencesGlobal` rather than `===`.
+   */
   partnerPropKeys: string[];
-  /** Global value references, per set. */
   globals: { setId: string; keys: string[] }[];
 }
 export interface TrailEntry {
@@ -170,7 +175,6 @@ export interface PartnerRow extends Partner {
 }
 export interface PartnerDetail extends Partner {
   apiCredentials: ApiCredentialRef[];
-  integrationSetups: IntegrationSetupRef[];
   apiGateways: ApiGatewayAttachmentRef[];
   busGatewayRoutes: BusGatewayRouteRef[];
   recentExchanges: ExchangeRef[];
@@ -210,9 +214,8 @@ export interface GlobalValuesSet {
   values: Record<string, string>;
   createdOn: string;
 }
-export interface GlobalValuesSetRow extends GlobalValuesSet {
-  usedByCount: number;
-}
+/** Alias the ported mapper code types its global-set props with. */
+export type GlobalValuesSetRow = GlobalValuesSet;
 export interface ValueSetUsage {
   integrationSetup: IntegrationSetupRef;
   keys: string[];
@@ -641,6 +644,8 @@ export interface ScheduledRetryRow {
   exception: string | null;
   /** When the failed exchange originally started. */
   startedOn: string;
+  /** What the exchange carries — how a pending retry identifies itself in a list. */
+  promotedProperties: Record<string, string> | null;
   /**
    * The shared retry policy the integration currently points at. Null when the
    * policy is defined inline on the integration instead, so the integration — not

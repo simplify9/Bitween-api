@@ -10,7 +10,6 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { SetupList } from "../../components/config/shared";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
-import { formatDate } from "../../lib/dates";
 import { LiveQueueStats } from "./LiveQueueStats";
 
 interface Draft {
@@ -119,7 +118,6 @@ export function WorkGroupPage() {
           <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
             <EditableTitle value={draft?.name ?? g.name} onChange={(v) => set("name", v)} disabled={!canEdit} placeholder="Work group name" />
           </h1>
-          <p className="mt-1 text-sm text-ink-500">Created {formatDate(g.createdOn)}.</p>
         </div>
         <Can permission="workgroups.delete">
           <Button variant="danger" onClick={() => setDeleting(true)}>

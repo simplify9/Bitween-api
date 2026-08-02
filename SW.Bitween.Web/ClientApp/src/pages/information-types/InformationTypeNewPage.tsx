@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { api, type InformationTypeFormat } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../../components/ui/forms";
@@ -19,8 +19,6 @@ export function InformationTypeNewPage() {
   const [format, setFormat] = useState<InformationTypeFormat>("Json");
   const [busEnabled, setBusEnabled] = useState(false);
   const [busMessageTypeName, setBusMessageTypeName] = useState("");
-  // Code and format are auto-derived — tucked away unless someone wants them.
-  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const create = useMutation({
     mutationFn: () =>
@@ -73,63 +71,35 @@ export function InformationTypeNewPage() {
             placeholder="e.g. Purchase order"
           />
         </Field>
-        {/* Auto-derived identity: visible, but out of the way unless changed. */}
-        <div className="rounded-lg bg-ink-50 px-3 py-2.5">
-          <button
-            type="button"
-            onClick={() => setDetailsOpen((o) => !o)}
-            aria-expanded={detailsOpen}
-            className="flex w-full items-center gap-1.5 text-[13px] text-ink-500 hover:text-ink-700"
+        {/* Code is auto-derived from the name until edited — shown, not hidden. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Code"
+            htmlFor="nit-code"
+            hint="Optional short identity shown across the system. Derived from the name until you edit it."
           >
-            {detailsOpen ? (
-              <ChevronDown className="size-3.5 shrink-0" aria-hidden />
-            ) : (
-              <ChevronRight className="size-3.5 shrink-0" aria-hidden />
-            )}
-            <span className="min-w-0 truncate text-left">
-              Code{" "}
-              {code ? (
-                <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-ink-700 ring-1 ring-ink-200">
-                  {code}
-                </code>
-              ) : (
-                <span className="italic">optional, none set</span>
-              )}{" "}
-              · stored as {format === "Json" ? "JSON" : "XML"}
-            </span>
-            {!detailsOpen && <span className="ml-auto shrink-0 font-medium text-crimson-700">Change</span>}
-          </button>
-          {detailsOpen && (
-            <div className="mt-3 space-y-4">
-              <Field
-                label="Code"
-                htmlFor="nit-code"
-                hint="Optional short identity shown across the system. Uppercase letters, digits and underscores."
-              >
-                <TextInput
-                  id="nit-code"
-                  value={code}
-                  onChange={(e) => {
-                    setCodeTouched(true);
-                    setCode(e.target.value.toUpperCase());
-                  }}
-                  placeholder="PURCHASE_ORDER"
-                  className="font-mono"
-                />
-              </Field>
-              <Field label="Format" htmlFor="nit-format">
-                <Select
-                  id="nit-format"
-                  value={format}
-                  onChange={(e) => setFormat(e.target.value as InformationTypeFormat)}
-                  options={[
-                    { value: "Json", label: "JSON" },
-                    { value: "Xml", label: "XML" },
-                  ]}
-                />
-              </Field>
-            </div>
-          )}
+            <TextInput
+              id="nit-code"
+              value={code}
+              onChange={(e) => {
+                setCodeTouched(true);
+                setCode(e.target.value.toUpperCase());
+              }}
+              placeholder="PURCHASE_ORDER"
+              className="font-mono"
+            />
+          </Field>
+          <Field label="Format" htmlFor="nit-format">
+            <Select
+              id="nit-format"
+              value={format}
+              onChange={(e) => setFormat(e.target.value as InformationTypeFormat)}
+              options={[
+                { value: "Json", label: "JSON" },
+                { value: "Xml", label: "XML" },
+              ]}
+            />
+          </Field>
         </div>
         <div className="space-y-3">
           <Checkbox

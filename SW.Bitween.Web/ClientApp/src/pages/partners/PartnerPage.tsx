@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, KeyRound, Plus, Trash2, Webhook } from "lucide-react";
-import { api } from "../../api";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { api, referencesPartnerProp } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
@@ -10,14 +10,14 @@ import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { CopyField } from "../../components/ui/CopyField";
 import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/ui/KeyValueEditor";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
+import { MiniTable } from "../../components/ui/Table";
 import {
   ExchangesList,
   IntegrationMiniList,
   SetupList,
-  useIntegrationsCache,
+  usePartnerIntegrations,
 } from "../../components/config/shared";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
-import { formatDate } from "../../lib/dates";
 
 function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () => void }) {
   const queryClient = useQueryClient();
@@ -94,7 +94,9 @@ export function PartnerPage() {
     queryFn: () => api.getPartner(partnerId),
     retry: false,
   });
-  const integrations = useIntegrationsCache();
+  // Keyed by partner so gateway-linked integrations are included, not just the
+  // legacy ones that carry their own partnerId.
+  const partnerIntegrations = usePartnerIntegrations();
 
   const [name, setName] = useState("");
   const [propRows, setPropRows] = useState<KvRow[] | null>(null);
@@ -154,6 +156,25 @@ export function PartnerPage() {
 
   const p = partner.data;
 
+  // Both gateway kinds in one table — a partner is reached through gateways,
+  // and which mechanism it is belongs in a column, not in a separate list.
+  const gatewayUses = [
+    ...p.apiGateways.map((g) => ({
+      key: `ag-${g.urlName}`,
+      name: g.gatewayName,
+      href: `/api-gateways/${g.gatewayId}`,
+      detail: `/${g.urlName}`,
+      kind: "API gateway",
+    })),
+    ...p.busGatewayRoutes.map((r, i) => ({
+      key: `bg-${r.gatewayId}-${i}`,
+      name: r.gatewayName,
+      href: `/bus-gateways/${r.gatewayId}`,
+      detail: r.matchExpression,
+      kind: "Bus route",
+    })),
+  ];
+
   return (
     <div className="pb-24">
       <Link
@@ -176,10 +197,11 @@ export function PartnerPage() {
             />
             {p.isSystem && <Badge tone="ink">Built-in</Badge>}
           </h1>
-          <p className="mt-1 text-sm text-ink-500">
-            Partner since {formatDate(p.createdOn)}.
-            {p.isSystem && " The built-in partner Bitween uses internally."}
-          </p>
+          {p.isSystem && (
+            <p className="mt-1 text-sm text-ink-500">
+              The built-in partner Bitween uses internally.
+            </p>
+          )}
         </div>
         {!p.isSystem && (
           <Can permission="partners.delete">
@@ -208,8 +230,8 @@ export function PartnerPage() {
               emptyText="No properties yet."
               rowDetails={(row) => {
                 if (!row.key.trim()) return null;
-                const users = (integrations.data ?? []).filter(
-                  (s) => s.partnerIds.includes(partnerId) && s.partnerPropKeys.includes(row.key.trim()),
+                const users = (partnerIntegrations.get(partnerId) ?? []).filter((s) =>
+                  referencesPartnerProp(s, row.key.trim()),
                 );
                 return (
                   <IntegrationMiniList
@@ -232,27 +254,30 @@ export function PartnerPage() {
               </Can>
             }
           >
-            {p.apiCredentials.length === 0 ? (
-              <p className="text-sm text-ink-500">No API keys yet.</p>
-            ) : (
-              <ul className="divide-y divide-ink-100">
-                {p.apiCredentials.map((c) => (
-                  <li key={c.name} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-                    <KeyRound className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-800">
-                      {c.name}
-                    </span>
-                    <code className="font-mono text-xs text-ink-500">{c.keyPrefix}…</code>
-                    <span className="hidden text-xs text-ink-400 sm:block">{formatDate(c.createdOn)}</span>
+            <MiniTable
+              rows={p.apiCredentials}
+              rowKey={(c) => c.name}
+              empty="No API keys yet."
+              columns={[
+                {
+                  header: "Key",
+                  truncate: true,
+                  cell: (c) => <span className="block truncate font-medium text-ink-800">{c.name}</span>,
+                },
+                { header: "Prefix", cell: (c) => <code className="font-mono text-xs text-ink-500">{c.keyPrefix}…</code> },
+                {
+                  header: "",
+                  align: "right",
+                  cell: (c) => (
                     <Can permission="partners.edit">
                       <Button size="sm" variant="danger" onClick={() => setRevoking(c.name)}>
                         Revoke
                       </Button>
                     </Can>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  ),
+                },
+              ]}
+            />
             <FormError>{revoke.error?.message}</FormError>
           </Panel>
         </div>
@@ -260,39 +285,40 @@ export function PartnerPage() {
         <div className="min-w-0 space-y-5">
           <Panel title="Used by" description="Everything that references this partner.">
             <div className="space-y-4">
-              <SetupList items={p.integrationSetups} />
-              {p.apiGateways.length > 0 && (
-                <ul className="space-y-1.5 border-t border-ink-100 pt-3">
-                  {p.apiGateways.map((g) => (
-                    <li key={g.urlName} className="flex items-center gap-2.5 text-sm">
-                      <Webhook className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                      <Link
-                        to={`/api-gateways/${g.gatewayId}`}
-                        className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                      >
-                        {g.gatewayName}
-                      </Link>
-                      <code className="font-mono text-xs text-ink-500">/{g.urlName}</code>
-                      <Badge>API gateway</Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {p.busGatewayRoutes.length > 0 && (
-                <ul className="space-y-1.5 border-t border-ink-100 pt-3">
-                  {p.busGatewayRoutes.map((r, i) => (
-                    <li key={i} className="flex items-center gap-2.5 text-sm">
-                      <Link
-                        to={`/bus-gateways/${r.gatewayId}`}
-                        className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                      >
-                        {r.gatewayName}
-                      </Link>
-                      <code className="truncate font-mono text-xs text-ink-500">{r.matchExpression}</code>
-                      <Badge>Bus route</Badge>
-                    </li>
-                  ))}
-                </ul>
+              {/* Not p.integrationSetups: Partners/Get returns only the partner's
+                  own subscriptions, so a partner reached through a gateway read
+                  "Not used by any integration" while the row below listed the route. */}
+              <SetupList items={partnerIntegrations.get(partnerId) ?? []} />
+              {gatewayUses.length > 0 && (
+                <div className="border-t border-ink-100 pt-3">
+                  <MiniTable
+                    rows={gatewayUses}
+                    rowKey={(g) => g.key}
+                    empty=""
+                    columns={[
+                      {
+                        header: "Gateway",
+                        truncate: true,
+                        cell: (g) => (
+                          <Link
+                            to={g.href}
+                            className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                          >
+                            {g.name}
+                          </Link>
+                        ),
+                      },
+                      {
+                        header: "Match",
+                        truncate: true,
+                        cell: (g) => (
+                          <code className="block truncate font-mono text-xs text-ink-500">{g.detail}</code>
+                        ),
+                      },
+                      { header: "Kind", align: "right", cell: (g) => <Badge>{g.kind}</Badge> },
+                    ]}
+                  />
+                </div>
               )}
             </div>
           </Panel>

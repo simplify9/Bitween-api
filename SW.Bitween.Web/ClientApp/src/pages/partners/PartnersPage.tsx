@@ -6,6 +6,8 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Table } from "../../components/ui/Table";
+import { UsedByCell, usePartnerIntegrations } from "../../components/config/shared";
 
 export function PartnersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -13,6 +15,7 @@ export function PartnersPage() {
   const q = searchParams.get("q") ?? "";
 
   const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
+  const partnerIntegrations = usePartnerIntegrations();
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -63,43 +66,50 @@ export function PartnersPage() {
           {q ? "Try a different search." : "Create the first partner you exchange data with."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full min-w-140 text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="px-4 py-2.5 font-medium">Partner</th>
-                <th className="px-4 py-2.5 font-medium">Properties</th>
-                <th className="px-4 py-2.5 font-medium">API keys</th>
-                <th className="px-4 py-2.5 font-medium">Used by</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr
-                  key={p.id}
-                  onClick={() => navigate(`/partners/${p.id}`)}
-                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
-                >
-                  <td className="px-4 py-3">
-                    <span className="flex items-center gap-2 font-medium text-ink-900">
-                      {p.name}
-                      {p.isSystem && <Badge tone="ink">Built-in</Badge>}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink-600">{p.propertyKeys.length}</td>
-                  <td className="px-4 py-3 text-ink-600">{p.credentialCount}</td>
-                  <td className="px-4 py-3 text-ink-600">
-                    {p.usedByCount > 0 ? (
-                      `${p.usedByCount} place${p.usedByCount === 1 ? "" : "s"}`
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          rows={filtered}
+          rowKey={(p) => p.id}
+          minWidth="min-w-200"
+          onRowClick={(p) => navigate(`/partners/${p.id}`)}
+          columns={[
+            {
+              header: "Partner",
+              cell: (p) => (
+                <span className="flex items-center gap-2 font-medium text-ink-900">
+                  {p.name}
+                  {p.isSystem && <Badge tone="ink">Built-in</Badge>}
+                </span>
+              ),
+            },
+            {
+              // The property names themselves, not a count — a count tells you
+              // nothing you can act on, the keys are what adapters reference.
+              header: "Properties",
+              truncate: true,
+              cell: (p) =>
+                p.propertyKeys.length > 0 ? (
+                  <span
+                    className="block truncate font-mono text-xs text-ink-600"
+                    title={p.propertyKeys.join(", ")}
+                  >
+                    {p.propertyKeys.join(", ")}
+                  </span>
+                ) : (
+                  <span className="text-ink-400">—</span>
+                ),
+            },
+            {
+              header: "API keys",
+              align: "right",
+              cell: (p) => <span className="tabular-nums text-ink-600">{p.credentialCount || "—"}</span>,
+            },
+            {
+              header: "Used by",
+              truncate: true,
+              cell: (p) => <UsedByCell items={partnerIntegrations.get(p.id) ?? []} />,
+            },
+          ]}
+        />
       )}
 
     </div>

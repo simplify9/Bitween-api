@@ -7,6 +7,8 @@ import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { CodeBadge } from "../../components/ui/Panel";
+import { Table } from "../../components/ui/Table";
+import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
 
 export function InformationTypesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,6 +16,7 @@ export function InformationTypesPage() {
   const q = searchParams.get("q") ?? "";
 
   const types = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() });
+  const integrations = useIntegrationsCache().data ?? [];
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -84,52 +87,56 @@ export function InformationTypesPage() {
           {q ? "Try a different search." : "Define the first kind of document your integrations will carry."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full min-w-150 text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="px-4 py-2.5 font-medium">Code</th>
-                <th className="px-4 py-2.5 font-medium">Name</th>
-                <th className="px-4 py-2.5 font-medium">Format</th>
-                <th className="px-4 py-2.5 font-medium">Bus</th>
-                <th className="px-4 py-2.5 font-medium">Promoted</th>
-                <th className="px-4 py-2.5 font-medium">Used by</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((t) => (
-                <tr
-                  key={t.id}
-                  onClick={() => navigate(`/information-types/${t.id}`)}
-                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
-                >
-                  <td className="px-4 py-3">
-                    <CodeBadge code={t.code} name={t.name} />
-                  </td>
-                  <td className="px-4 py-3 font-medium text-ink-900">{t.name}</td>
-                  <td className="px-4 py-3">
-                    <Badge>{t.format.toUpperCase()}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    {t.busEnabled ? (
-                      <code className="font-mono text-xs text-ink-600">{t.busMessageTypeName}</code>
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-ink-600">{t.promotedProperties.length}</td>
-                  <td className="px-4 py-3 text-ink-600">
-                    {t.usedByCount > 0 ? (
-                      `${t.usedByCount} place${t.usedByCount === 1 ? "" : "s"}`
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          rows={filtered}
+          rowKey={(t) => t.id}
+          minWidth="min-w-220"
+          onRowClick={(t) => navigate(`/information-types/${t.id}`)}
+          columns={[
+            { header: "Code", cell: (t) => <CodeBadge code={t.code} name={t.name} /> },
+            { header: "Name", cell: (t) => <span className="font-medium text-ink-900">{t.name}</span> },
+            { header: "Format", cell: (t) => <Badge>{t.format.toUpperCase()}</Badge> },
+            {
+              header: "Bus",
+              cell: (t) =>
+                t.busEnabled ? (
+                  <code className="font-mono text-xs text-ink-600">{t.busMessageTypeName}</code>
+                ) : (
+                  <span className="text-ink-400">—</span>
+                ),
+            },
+            {
+              // The promoted keys themselves — these are what exchange search
+              // filters on, so knowing there are "3" of them helps nobody.
+              header: "Promoted",
+              truncate: true,
+              cell: (t) =>
+                t.promotedProperties.length > 0 ? (
+                  <span
+                    className="block truncate font-mono text-xs text-ink-600"
+                    title={t.promotedProperties.map((p) => p.key).join(", ")}
+                  >
+                    {t.promotedProperties.map((p) => p.key).join(", ")}
+                  </span>
+                ) : (
+                  <span className="text-ink-400">—</span>
+                ),
+            },
+            {
+              header: "Duplicates",
+              cell: (t) => (
+                <span className="text-[13px] text-ink-600">
+                  {t.duplicateIntervalMinutes > 0 ? `${t.duplicateIntervalMinutes}m window` : "Off"}
+                </span>
+              ),
+            },
+            {
+              header: "Used by",
+              truncate: true,
+              cell: (t) => <UsedByCell items={integrations.filter((s) => s.informationTypeId === t.id)} />,
+            },
+          ]}
+        />
       )}
 
     </div>

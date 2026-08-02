@@ -49,6 +49,7 @@ interface RawDelayedRetryRow {
   documentName: string;
   exception: string | null;
   startedOn: string;
+  promotedProperties: Record<string, string> | null;
   retryPolicyId: number | null;
   retryPolicyName: string | null;
 }
@@ -108,6 +109,7 @@ const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
   informationTypeCode: raw.documentName,
   exception: raw.exception,
   startedOn: raw.startedOn,
+  promotedProperties: raw.promotedProperties,
   retryPolicyId: raw.retryPolicyId,
   retryPolicyName: raw.retryPolicyName,
 });

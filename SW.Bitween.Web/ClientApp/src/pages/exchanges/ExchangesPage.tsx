@@ -11,7 +11,7 @@ import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useIntegrationsCache } from "../../components/config/shared";
 import { timeAgo, timeUntil, duration } from "../../lib/dates";
 import { ExchangeDrawer } from "./ExchangeDrawer";
-import { JourneyStrip, RetryDialog, STATUS_LABELS, StatusBadge, XchangeId } from "./shared";
+import { JourneyStrip, PromotedProps, RetryDialog, STATUS_LABELS, StatusBadge } from "./shared";
 
 const PAGE_SIZE = 25;
 const STATUSES: ExchangeStatus[] = ["processing", "success", "badResponse", "failed"];
@@ -294,11 +294,13 @@ export function ExchangesPage() {
                     />
                   </Can>
                 </th>
-                <th className="py-2.5 pr-3">Exchange</th>
-                <th className="px-3 py-2.5">Status</th>
-                <th className="px-3 py-2.5">Journey</th>
-                <th className="px-3 py-2.5">Flow</th>
-                <th className="px-3 py-2.5">Started</th>
+                <th className="py-1.5 pr-3">Properties</th>
+                <th className="px-3 py-1.5">Status</th>
+                <th className="px-3 py-1.5">Journey</th>
+                <th className="px-3 py-1.5">Information type</th>
+                <th className="px-3 py-1.5">Partner</th>
+                <th className="px-3 py-1.5">Integration</th>
+                <th className="px-3 py-1.5">Started</th>
                 <th className="w-8 px-2 py-2.5" />
               </tr>
             </thead>
@@ -309,7 +311,7 @@ export function ExchangesPage() {
                     onClick={() => toggleOpen(x.id)}
                     className="cursor-pointer border-b border-ink-50 transition-colors last:border-0 hover:bg-ink-50/60"
                   >
-                    <td className="py-2.5 pl-4" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-1.5 pl-4" onClick={(e) => e.stopPropagation()}>
                       <Can permission="exchanges.operate">
                         <input
                           type="checkbox"
@@ -320,67 +322,79 @@ export function ExchangesPage() {
                         />
                       </Can>
                     </td>
-                    <td className="py-2.5 pr-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <XchangeId id={x.id} />
+                    <td className="py-1.5 pr-3">
+                      <PromotedProps properties={x.promotedProperties} />
+                    </td>
+                    <td className="px-3 py-1.5">
+                      {/* Status and the relationship markers read as one thought:
+                          "failed, and a retry is already booked". */}
+                      <span className="flex flex-wrap items-center gap-1">
+                        <StatusBadge status={x.status} />
                         {x.retryFor && <Badge tone="neutral">Retry</Badge>}
                         {x.scheduledRetryOn && (
                           <Badge tone="warn">Auto-retry {timeUntil(x.scheduledRetryOn)}</Badge>
                         )}
                         {x.aggregationXchangeId && <Badge tone="neutral">Aggregated</Badge>}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <StatusBadge status={x.status} />
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <JourneyStrip x={x} />
-                    </td>
-                    <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                      <span className="flex flex-wrap items-center gap-1 text-[13px]">
-                        <Link
-                          to={`/information-types/${x.informationTypeId}`}
-                          className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
-                        >
-                          {x.informationTypeCode}
-                        </Link>
-                        {x.partnerName && (
-                          <>
-                            <span className="text-ink-300">·</span>
-                            <Link
-                              to={`/partners/${x.partnerId}`}
-                              className="text-ink-700 hover:text-crimson-700 hover:underline"
-                            >
-                              {x.partnerName}
-                            </Link>
-                          </>
-                        )}
-                        {x.integrationName && (
-                          <>
-                            <span className="text-ink-300">→</span>
-                            <Link
-                              to={`/subscriptions/${x.integrationId}`}
-                              className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                            >
-                              {x.integrationName}
-                            </Link>
-                          </>
-                        )}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-ink-500">
+                    <td className="px-3 py-1.5">
+                      <JourneyStrip x={x} />
+                    </td>
+                    {/* One column per thing, so values line up down the page —
+                        the old single "Flow" cell was a sentence you had to re-read
+                        on every row.
+
+                        Only the links swallow the click, never the cells: three
+                        opted-out cells would leave most of a cursor-pointer row
+                        doing nothing when clicked. */}
+                    <td className="px-3 py-1.5">
+                      <Link
+                        to={`/information-types/${x.informationTypeId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                      >
+                        {x.informationTypeCode}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-1.5 text-[13px]">
+                      {x.partnerName ? (
+                        <Link
+                          to={`/partners/${x.partnerId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-ink-700 hover:text-crimson-700 hover:underline"
+                        >
+                          {x.partnerName}
+                        </Link>
+                      ) : (
+                        <span className="text-ink-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 text-[13px]">
+                      {x.integrationName ? (
+                        <Link
+                          to={`/subscriptions/${x.integrationId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                        >
+                          {x.integrationName}
+                        </Link>
+                      ) : (
+                        <span className="text-ink-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-1.5 whitespace-nowrap text-ink-500">
                       {timeAgo(x.startedOn)}
                       {x.finishedOn && (
                         <span className="text-xs text-ink-400"> · {duration(x.startedOn, x.finishedOn)}</span>
                       )}
                     </td>
-                    <td className="px-2 py-2.5 text-ink-400">
+                    <td className="px-2 py-1.5 text-ink-400">
                       {open.has(x.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
                     </td>
                   </tr>
                   {open.has(x.id) && (
                     <tr className="border-b border-ink-50 last:border-0">
-                      <td colSpan={7} className="bg-ink-50/40 px-4 py-3">
+                      <td colSpan={9} className="bg-ink-50/40 px-4 py-3">
                         <ExchangeDrawer x={x} />
                       </td>
                     </tr>

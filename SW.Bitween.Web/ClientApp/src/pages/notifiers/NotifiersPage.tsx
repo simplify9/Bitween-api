@@ -9,6 +9,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { Table } from "../../components/ui/Table";
 
 function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -133,51 +134,38 @@ export function NotifiersPage() {
           {q ? "Try a different search." : "Create a notifier to get alerted when integrations fail."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full min-w-160 text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="px-4 py-2.5 font-medium">Notifier</th>
-                <th className="px-4 py-2.5 font-medium">Sends when</th>
-                <th className="px-4 py-2.5 font-medium">Channel</th>
-                <th className="px-4 py-2.5 font-medium">Watches</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((n) => (
-                <tr
-                  key={n.id}
-                  onClick={() => navigate(`/notifiers/${n.id}`)}
-                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
-                >
-                  <td className="px-4 py-3 font-medium text-ink-900">{n.name}</td>
-                  <td className="px-4 py-3">
-                    <span className="flex flex-wrap gap-1">
-                      {n.onFailed && <Badge tone="danger">Failed</Badge>}
-                      {n.onBadResult && <Badge tone="warn">Bad result</Badge>}
-                      {n.onSuccess && <Badge tone="ok">Success</Badge>}
-                      {!n.onFailed && !n.onBadResult && !n.onSuccess && (
-                        <span className="text-ink-400">Never</span>
-                      )}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink-600">{channelLabel(n.channelId)}</td>
-                  <td className="px-4 py-3 text-ink-600">
-                    {n.integrationIds.length > 0 ? (
-                      `${n.integrationIds.length} integration${n.integrationIds.length === 1 ? "" : "s"}`
-                    ) : (
-                      <span className="text-warn-700">Nothing — never fires</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {n.enabled ? <Badge tone="ok">Active</Badge> : <Badge>Off</Badge>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          rows={filtered}
+          rowKey={(n) => n.id}
+          onRowClick={(n) => navigate(`/notifiers/${n.id}`)}
+          columns={[
+            { header: "Notifier", cell: (n) => <span className="font-medium text-ink-900">{n.name}</span> },
+            {
+              header: "Sends when",
+              cell: (n) => (
+                <span className="flex flex-wrap gap-1">
+                  {n.onFailed && <Badge tone="danger">Failed</Badge>}
+                  {n.onBadResult && <Badge tone="warn">Bad result</Badge>}
+                  {n.onSuccess && <Badge tone="ok">Success</Badge>}
+                  {!n.onFailed && !n.onBadResult && !n.onSuccess && <span className="text-ink-400">Never</span>}
+                </span>
+              ),
+            },
+            { header: "Channel", cell: (n) => <span className="text-ink-600">{channelLabel(n.channelId)}</span> },
+            {
+              header: "Watches",
+              cell: (n) =>
+                n.integrationIds.length > 0 ? (
+                  <span className="text-ink-600">
+                    {n.integrationIds.length} integration{n.integrationIds.length === 1 ? "" : "s"}
+                  </span>
+                ) : (
+                  <span className="text-warn-700">Nothing — never fires</span>
+                ),
+            },
+            { header: "Status", cell: (n) => (n.enabled ? <Badge tone="ok">Active</Badge> : <Badge>Off</Badge>) },
+          ]}
+        />
       )}
 
       {creating && <CreateNotifierDialog onClose={() => setParam("new", null)} />}

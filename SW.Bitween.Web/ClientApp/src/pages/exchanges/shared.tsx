@@ -63,7 +63,7 @@ export function journeyStages(x: ExchangeRow): JourneyStage[] {
 
 const STRIP_COLORS: Record<StageState, string> = {
   done: "bg-ok-600",
-  bad: "bg-warn-700",
+  bad: "bg-warn-400",
   failed: "bg-danger-600",
   skipped: "bg-ink-200",
   running: "bg-ink-400 animate-pulse",
@@ -82,6 +82,41 @@ export function JourneyStrip({ x }: { x: ExchangeRow }) {
           className={`h-1.5 flex-1 first:rounded-l-full last:rounded-r-full ${STRIP_COLORS[s.state]}`}
         />
       ))}
+    </span>
+  );
+}
+
+/**
+ * Promoted properties as the row's identity, in place of the exchange id.
+ *
+ * An id answers "which record is this row" — which you only ever need once
+ * you've already found the row. The promoted properties answer "which *order*
+ * is this", which is what you were scanning for. Shows the first few and
+ * counts the rest; the full set is in the drawer.
+ */
+export function PromotedProps({
+  properties,
+  max = 3,
+}: {
+  properties: Record<string, string> | null;
+  max?: number;
+}) {
+  const entries = Object.entries(properties ?? {});
+  if (entries.length === 0) return <span className="text-[13px] text-ink-400">—</span>;
+  const shown = entries.slice(0, max);
+  const rest = entries.length - shown.length;
+  return (
+    <span
+      className="flex flex-wrap items-center gap-1"
+      title={entries.map(([k, v]) => `${k}=${v}`).join("\n")}
+    >
+      {shown.map(([k, v]) => (
+        <code key={k} className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
+          <span className="text-ink-500">{k}=</span>
+          {v}
+        </code>
+      ))}
+      {rest > 0 && <span className="text-[11px] text-ink-400">+{rest}</span>}
     </span>
   );
 }

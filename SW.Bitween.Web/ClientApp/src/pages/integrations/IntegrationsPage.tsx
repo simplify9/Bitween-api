@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,7 +6,6 @@ import {
   Cable,
   CalendarClock,
   ChevronDown,
-  ChevronRight,
   DownloadCloud,
   Plus,
   Search,
@@ -15,14 +14,14 @@ import {
   Webhook,
   type LucideIcon,
 } from "lucide-react";
-import { api, type ApiGatewayRow, type BusGatewayRow, type IntegrationRow } from "../../api";
+import { api, type IntegrationRow } from "../../api";
 import { useSession } from "../../auth/SessionContext";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Table } from "../../components/ui/Table";
 import { ConfirmDialog, Menu, MenuItem } from "../../components/ui/overlays";
 import { HealthBadge, IntegrationStatusBadges } from "../../components/config/shared";
-import { matchSummary } from "../../lib/match";
 import { timeUntil } from "../../lib/dates";
 
 type KindId = "api-gateways" | "bus-gateways" | "scheduled-jobs" | "internal" | "api-calls";
@@ -40,80 +39,34 @@ interface ExplorerRow {
   kind: KindId;
   name: string;
   details: string;
+  /** What this is wired to — partners, routes, next run. Was the row drawer. */
+  wiring: ReactNode;
   status: ReactNode;
-  createdOn: string;
+  lastException: string | null;
   href: string;
-  drawer: ReactNode;
+  /** Receiving jobs only: check the source right now. */
+  job: IntegrationRow | null;
 }
 
-function DrawerLine({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-600">{children}</div>;
-}
-
-function ApiGatewayDrawer({ g }: { g: ApiGatewayRow }) {
+/** Comma-separated links, truncated by the cell rather than by a count. */
+function LinkList({ items }: { items: { id: number; name: string; href: string }[] }) {
+  if (items.length === 0) return <span className="text-ink-400">—</span>;
   return (
-    <div className="space-y-1.5">
-      <DrawerLine>
-        <code className="font-mono text-xs text-ink-500">/api/Gateway/{g.urlName}/sync</code>
-        <span className="text-ink-300">·</span>
-        <code className="font-mono text-xs text-ink-500">/async</code>
-      </DrawerLine>
-      {g.attachments.length === 0 ? (
-        <DrawerLine>No partners attached — the gateway answers 401 to everyone.</DrawerLine>
-      ) : (
-        g.attachments.map((a) => (
-          <DrawerLine key={a.partnerId}>
-            <Link to={`/partners/${a.partnerId}`} className="font-medium text-ink-800 hover:text-crimson-700 hover:underline">
-              {a.partnerName}
-            </Link>
-            runs
-            <Link
-              to={`/subscriptions/${a.integrationId}`}
-              className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-            >
-              {a.integrationName}
-            </Link>
-          </DrawerLine>
-        ))
-      )}
-    </div>
+    <span className="block truncate text-[13px]">
+      {items.map((it, i) => (
+        <span key={it.id}>
+          {i > 0 && <span className="text-ink-300">, </span>}
+          <Link to={it.href} className="text-ink-700 hover:text-crimson-700 hover:underline">
+            {it.name}
+          </Link>
+        </span>
+      ))}
+    </span>
   );
 }
 
-function BusGatewayDrawer({ g }: { g: BusGatewayRow }) {
-  return (
-    <div className="space-y-1.5">
-      {g.routes.length === 0 ? (
-        <DrawerLine>No routes — every {g.informationTypeCode} message is ignored by this gateway.</DrawerLine>
-      ) : (
-        g.routes.map((r) => (
-          <DrawerLine key={r.id}>
-            <code className="font-mono text-xs text-ink-500">{matchSummary(r.matchExpression)}</code>
-            <span className="text-ink-300">→</span>
-            <Link
-              to={`/subscriptions/${r.integrationId}`}
-              className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-            >
-              {r.integrationName}
-            </Link>
-            {r.partnerName && (
-              <span className="text-ink-500">
-                for{" "}
-                <Link to={`/partners/${r.partnerId}`} className="font-medium text-ink-800 hover:text-crimson-700 hover:underline">
-                  {r.partnerName}
-                </Link>
-              </span>
-            )}
-          </DrawerLine>
-        ))
-      )}
-    </div>
-  );
-}
-
-function JobDrawer({ r }: { r: IntegrationRow }) {
+function ReceiveNowButton({ r }: { r: IntegrationRow }) {
   const queryClient = useQueryClient();
-  const canOperate = useSessionCan("subscriptions.operate");
   const [confirming, setConfirming] = useState(false);
   const receive = useMutation({
     mutationFn: () => api.receiveNow(r.id),
@@ -121,27 +74,18 @@ function JobDrawer({ r }: { r: IntegrationRow }) {
   });
 
   return (
-    <div className="space-y-1.5">
-      <DrawerLine>
-        {r.scheduleSummary}
-        <span className="text-ink-300">·</span>
-        next run {r.nextReceiveOn ? timeUntil(r.nextReceiveOn) : "—"}
-      </DrawerLine>
-      {r.lastException && (
-        <pre className="max-h-24 overflow-auto rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-          {r.lastException}
-        </pre>
-      )}
-      {canOperate && (
-        <Button
-          size="sm"
-          disabled={!r.enabled}
-          title={r.enabled ? "Check the source right now." : "Enable the job first."}
-          onClick={() => setConfirming(true)}
-        >
-          <DownloadCloud className="size-3.5" /> Receive now
-        </Button>
-      )}
+    <>
+      <Button
+        size="sm"
+        disabled={!r.enabled}
+        title={r.enabled ? "Check the source right now." : "Enable the job first."}
+        onClick={(e) => {
+          e.stopPropagation();
+          setConfirming(true);
+        }}
+      >
+        <DownloadCloud className="size-3.5" /> Receive now
+      </Button>
       {confirming && (
         <ConfirmDialog
           title="Receive now?"
@@ -153,39 +97,7 @@ function JobDrawer({ r }: { r: IntegrationRow }) {
           onClose={() => setConfirming(false)}
         />
       )}
-    </div>
-  );
-}
-
-function LegacyDrawer({ r }: { r: IntegrationRow }) {
-  return (
-    <div className="space-y-1.5">
-      <DrawerLine>
-        Carries{" "}
-        <Link to={`/information-types/${r.informationTypeId}`} className="hover:underline">
-          <code className="font-mono text-xs text-ink-500">{r.informationTypeCode}</code>
-        </Link>
-        {r.partners.length > 0 && (
-          <>
-            <span className="text-ink-300">·</span> for{" "}
-            {r.partners.map((p, i) => (
-              <span key={p.id}>
-                {i > 0 && ", "}
-                <Link to={`/partners/${p.id}`} className="text-ink-800 hover:text-crimson-700 hover:underline">
-                  {p.name}
-                </Link>
-              </span>
-            ))}
-          </>
-        )}
-      </DrawerLine>
-      {r.lastException && (
-        <pre className="max-h-24 overflow-auto rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-          {r.lastException}
-        </pre>
-      )}
-      <DrawerLine>Legacy type — editable, but new ones can't be created.</DrawerLine>
-    </div>
+    </>
   );
 }
 
@@ -198,7 +110,6 @@ export function IntegrationsPage() {
     () => (searchParams.get("types")?.split(",").filter(Boolean) ?? []) as KindId[],
     [searchParams],
   );
-  const [open, setOpen] = useState<Set<string>>(new Set());
 
   const permissions = session?.permissions ?? [];
   const canSeeApiGateways = permissions.includes("api-gateways.view");
@@ -215,6 +126,7 @@ export function IntegrationsPage() {
     enabled: canSeeBusGateways,
   });
   const rows = useQuery({ queryKey: ["integration-rows"], queryFn: () => api.listIntegrationRows() });
+  const canOperate = useSessionCan("subscriptions.operate");
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -245,15 +157,24 @@ export function IntegrationsPage() {
         kind: "api-gateways",
         name: g.name,
         details: `/api/Gateway/${g.urlName}`,
+        wiring: (
+          <LinkList
+            items={g.attachments.map((a) => ({
+              id: a.partnerId,
+              name: a.partnerName,
+              href: `/partners/${a.partnerId}`,
+            }))}
+          />
+        ),
         status:
           g.partnerCount > 0 ? (
             <Badge>{g.partnerCount} partner{g.partnerCount === 1 ? "" : "s"}</Badge>
           ) : (
             <Badge tone="warn">No partners</Badge>
           ),
-        createdOn: g.createdOn,
+        lastException: null,
         href: `/api-gateways/${g.id}`,
-        drawer: <ApiGatewayDrawer g={g} />,
+        job: null,
       });
     }
     for (const g of busGateways.data ?? []) {
@@ -262,49 +183,62 @@ export function IntegrationsPage() {
         kind: "bus-gateways",
         name: g.name,
         details: `Listens for ${g.informationTypeCode}`,
+        wiring: (
+          <LinkList
+            items={g.routes.map((r) => ({
+              id: r.id,
+              name: r.integrationName,
+              href: `/subscriptions/${r.integrationId}`,
+            }))}
+          />
+        ),
         status:
           g.routeCount > 0 ? (
             <Badge>{g.routeCount} route{g.routeCount === 1 ? "" : "s"}</Badge>
           ) : (
             <Badge tone="warn">No routes</Badge>
           ),
-        createdOn: g.createdOn,
+        lastException: null,
         href: `/bus-gateways/${g.id}`,
-        drawer: <BusGatewayDrawer g={g} />,
+        job: null,
       });
     }
     for (const r of rows.data ?? []) {
+      const health = (
+        <span className="inline-flex items-center gap-1">
+          <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
+          <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+        </span>
+      );
       if (r.type === "Receiving") {
         out.push({
           key: `in-${r.id}`,
           kind: "scheduled-jobs",
           name: r.name,
           details: [r.scheduleSummary, `pulls in ${r.informationTypeCode}`].filter(Boolean).join(" · "),
-          status: (
-            <span className="inline-flex items-center gap-1">
-              <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
-              <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+          wiring: (
+            <span className="text-[13px] text-ink-600">
+              next run {r.nextReceiveOn ? timeUntil(r.nextReceiveOn) : "—"}
             </span>
           ),
-          createdOn: r.createdOn,
+          status: health,
+          lastException: r.lastException,
           href: `/subscriptions/${r.id}`,
-          drawer: <JobDrawer r={r} />,
+          job: r,
         });
       } else if (r.type === "Internal" || r.type === "ApiCall") {
         out.push({
           key: `in-${r.id}`,
           kind: r.type === "Internal" ? "internal" : "api-calls",
           name: r.name,
-          details: `Carries ${r.informationTypeCode}${r.partners.length ? ` · ${r.partners.map((p) => p.name).join(", ")}` : ""}`,
-          status: (
-            <span className="inline-flex items-center gap-1">
-              <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
-              <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
-            </span>
+          details: `Carries ${r.informationTypeCode}`,
+          wiring: (
+            <LinkList items={r.partners.map((p) => ({ id: p.id, name: p.name, href: `/partners/${p.id}` }))} />
           ),
-          createdOn: r.createdOn,
+          status: health,
+          lastException: r.lastException,
           href: `/subscriptions/${r.id}`,
-          drawer: <LegacyDrawer r={r} />,
+          job: null,
         });
       }
       // GatewayApiCall / BusGateway pipelines surface through their gateways;
@@ -322,13 +256,6 @@ export function IntegrationsPage() {
     );
   }, [allRows, selected, q]);
 
-  const toggleOpen = (key: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
 
   // create action follows the active filter
   const createables = [
@@ -437,84 +364,76 @@ export function IntegrationsPage() {
             : "Create an API gateway, bus gateway or scheduled job to start moving documents."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full min-w-180 text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="w-10 px-3 py-2.5" />
-                <th className="px-3 py-2.5 font-medium">Type</th>
-                <th className="px-3 py-2.5 font-medium">Name</th>
-                <th className="px-3 py-2.5 font-medium">Details</th>
-                <th className="px-3 py-2.5 font-medium">Status</th>
-                <th className="w-10 px-3 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((r) => {
+        <Table
+          rows={filtered}
+          rowKey={(r) => r.key}
+          minWidth="min-w-240"
+          onRowClick={(r) => navigate(r.href)}
+          columns={[
+            {
+              header: "Type",
+              className: "whitespace-nowrap",
+              cell: (r) => {
                 const meta = KIND_META[r.kind];
-                const expanded = open.has(r.key);
                 return (
-                  <Fragment key={r.key}>
-                    <tr
-                      onClick={() => toggleOpen(r.key)}
-                      className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
-                    >
-                      <td className="px-3 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleOpen(r.key);
-                          }}
-                          aria-expanded={expanded}
-                          aria-label={`Details for ${r.name}`}
-                          className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                        >
-                          {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                        </button>
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-700" aria-hidden>
-                            <meta.icon className="size-4" />
-                          </span>
-                          <span className="text-[13px] text-ink-600">
-                            {meta.label.replace(/s$/, "")}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 font-medium text-ink-900">{r.name}</td>
-                      <td className="max-w-90 truncate px-3 py-3 text-ink-600" title={r.details}>
-                        {r.details}
-                      </td>
-                      <td className="px-3 py-3">{r.status}</td>
-                      <td className="px-3 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(r.href);
-                          }}
-                          aria-label={`Open ${r.name}`}
-                          title="Open"
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                        >
-                          <ArrowUpRight className="size-4" />
-                        </button>
-                      </td>
-                    </tr>
-                    {expanded && (
-                      <tr className="border-b border-ink-100 last:border-b-0">
-                        <td />
-                        <td colSpan={5} className="px-3 pt-0.5 pb-3">
-                          <div className="rounded-lg bg-ink-50 px-3.5 py-3">{r.drawer}</div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                  <span className="inline-flex items-center gap-1.5 text-[13px] text-ink-600">
+                    <meta.icon className="size-4 shrink-0 text-ink-400" aria-hidden />
+                    {meta.label.replace(/s$/, "")}
+                  </span>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            },
+            {
+              header: "Name",
+              truncate: true,
+              cell: (r) => <span className="block truncate font-medium text-ink-900">{r.name}</span>,
+            },
+            {
+              header: "Details",
+              truncate: true,
+              cell: (r) => (
+                <span className="block truncate text-ink-600" title={r.details}>
+                  {r.details}
+                </span>
+              ),
+            },
+            { header: "Wired to", truncate: true, cell: (r) => r.wiring },
+            { header: "Status", cell: (r) => r.status },
+            {
+              header: "Last error",
+              truncate: true,
+              cell: (r) =>
+                r.lastException ? (
+                  <span className="block truncate font-mono text-[11px] text-danger-700" title={r.lastException}>
+                    {r.lastException}
+                  </span>
+                ) : (
+                  <span className="text-ink-400">—</span>
+                ),
+            },
+            {
+              header: "",
+              align: "right",
+              className: "whitespace-nowrap",
+              cell: (r) => (
+                <span className="flex items-center justify-end gap-1">
+                  {r.job && canOperate && <ReceiveNowButton r={r.job} />}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(r.href);
+                    }}
+                    aria-label={`Open ${r.name}`}
+                    title="Open"
+                    className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                  >
+                    <ArrowUpRight className="size-4" />
+                  </button>
+                </span>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );

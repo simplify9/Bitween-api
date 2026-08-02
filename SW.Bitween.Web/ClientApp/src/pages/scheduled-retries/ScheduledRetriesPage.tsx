@@ -1,7 +1,7 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Play, X } from "lucide-react";
+import { Play, X } from "lucide-react";
 import { api, type ScheduledRetryQuery } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSession } from "../../auth/SessionContext";
@@ -10,9 +10,10 @@ import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { TextInput } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { Table } from "../../components/ui/Table";
 import { useIntegrationsCache } from "../../components/config/shared";
 import { formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
-import { XchangeId } from "../exchanges/shared";
+import { PromotedProps } from "../exchanges/shared";
 
 const PAGE_SIZE = 25;
 
@@ -31,7 +32,6 @@ const readQuery = (sp: URLSearchParams): ScheduledRetryQuery => ({
 export function ScheduledRetriesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useMemo(() => readQuery(searchParams), [searchParams]);
-  const [open, setOpen] = useState<Set<string>>(new Set());
   const [runNowId, setRunNowId] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { can } = useSession();
@@ -69,14 +69,6 @@ export function ScheduledRetriesPage() {
 
   const rows = data?.result ?? [];
   const total = data?.total ?? 0;
-
-  const toggleOpen = (id: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   return (
     <div>
@@ -145,161 +137,146 @@ export function ScheduledRetriesPage() {
             : "When a retry policy schedules an automatic re-run for a failed exchange, it appears here."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
-                <th className="py-2.5 pl-4">Runs</th>
-                <th className="px-3 py-2.5">Exchange</th>
-                <th className="px-3 py-2.5">Flow</th>
-                <th className="px-3 py-2.5">Failed</th>
-                <th className="px-3 py-2.5 text-right">
-                  <span className="sr-only">Actions</span>
-                </th>
-                <th className="w-8 px-2 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <Fragment key={r.id}>
-                  <tr
-                    onClick={() => toggleOpen(r.id)}
-                    className="cursor-pointer border-b border-ink-50 transition-colors last:border-0 hover:bg-ink-50/60"
+        <Table
+          rows={rows}
+          rowKey={(r) => r.id}
+          minWidth="min-w-260"
+          columns={[
+            {
+              header: "Runs",
+              className: "whitespace-nowrap",
+              cell: (r) => (
+                <>
+                  <span className="font-medium text-ink-800">{timeUntil(r.on)}</span>
+                  <span className="block text-xs text-ink-400">{formatDateTime(r.on)}</span>
+                </>
+              ),
+            },
+            {
+              // Same identity rule as the Exchanges list: what it carries first,
+              // the id only as a link out.
+              header: "Properties",
+              cell: (r) => <PromotedProps properties={r.promotedProperties} />,
+            },
+            {
+              header: "Information type",
+              cell: (r) => (
+                <Link
+                  to={`/information-types/${r.informationTypeId}`}
+                  className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                >
+                  {r.informationTypeCode}
+                </Link>
+              ),
+            },
+            {
+              header: "Integration",
+              cell: (r) =>
+                r.integrationName ? (
+                  <Link
+                    to={`/subscriptions/${r.integrationId}`}
+                    className="text-[13px] font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                   >
-                    <td className="py-2.5 pl-4 whitespace-nowrap">
-                      <span className="font-medium text-ink-800">{timeUntil(r.on)}</span>
-                      <span className="block text-xs text-ink-400">{formatDateTime(r.on)}</span>
-                    </td>
-                    {/* Only the links and the button swallow the click, not the cells
-                        around them — a whole cell opting out left most of a
-                        cursor-pointer row doing nothing when clicked. */}
-                    <td className="px-3 py-2.5">
-                      <span className="flex items-center gap-1.5">
-                        <XchangeId id={r.id} />
-                        <Link
-                          to={`/exchanges?ids=${encodeURIComponent(r.id)}`}
-                          title="Open in Exchanges"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-xs font-medium text-ink-500 hover:text-crimson-700 hover:underline"
-                        >
-                          view
-                        </Link>
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <span className="flex flex-wrap items-center gap-1 text-[13px]">
-                        <Link
-                          to={`/information-types/${r.informationTypeId}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
-                        >
-                          {r.informationTypeCode}
-                        </Link>
-                        {r.integrationName && (
-                          <>
-                            <span className="text-ink-300">→</span>
-                            <Link
-                              to={`/subscriptions/${r.integrationId}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                            >
-                              {r.integrationName}
-                            </Link>
-                          </>
-                        )}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-ink-500">{timeAgo(r.startedOn)}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      {/* Matches what runNow itself enforces: the retry operates on an exchange. */}
-                      <Can permission="exchanges.operate">
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRunNowId(r.id);
-                          }}
-                        >
-                          <Play className="size-3.5" aria-hidden />
-                          Run now
-                        </Button>
-                      </Can>
-                    </td>
-                    <td className="px-2 py-2.5 text-ink-400">
-                      {open.has(r.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                    </td>
-                  </tr>
-                  {open.has(r.id) && (
-                    <tr className="border-b border-ink-50 last:border-0">
-                      <td colSpan={6} className="bg-ink-50/40 px-4 py-3">
-                        {/* The policy is what decided the "Runs" time, so it's the one thing
-                            the exception alone can't explain. Note this is the integration's
-                            policy as it stands now — editing a policy doesn't reschedule
-                            retries it already queued. */}
-                        <p className="mb-2 text-[13px] text-ink-500">
-                          Scheduled by{" "}
-                          {r.retryPolicyId !== null ? (
-                            can("retry-policies.view") ? (
-                              <Link
-                                to={`/retry-policies/${r.retryPolicyId}`}
-                                className="font-medium text-crimson-700 hover:underline"
-                              >
-                                {r.retryPolicyName}
-                              </Link>
-                            ) : (
-                              <span className="font-medium text-ink-700">{r.retryPolicyName}</span>
-                            )
-                          ) : r.integrationId !== null ? (
-                            <>
-                              the retry policy set on{" "}
-                              <Link
-                                to={`/subscriptions/${r.integrationId}`}
-                                className="font-medium text-crimson-700 hover:underline"
-                              >
-                                {r.integrationName ?? "its integration"}
-                              </Link>
-                            </>
-                          ) : (
-                            "a retry policy that has since been removed"
-                          )}
-                        </p>
-                        {r.exception ? (
-                          <pre className="max-h-40 overflow-auto rounded-lg bg-danger-50 px-3 py-2.5 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-                            {r.exception}
-                          </pre>
-                        ) : (
-                          <p className="text-sm text-ink-500">No exception was recorded.</p>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
-            <span>
-              Showing {query.offset + 1}–{Math.min(query.offset + PAGE_SIZE, total)} of {total}
-            </span>
-            <span className="flex gap-1.5">
-              <Button
-                size="sm"
-                disabled={query.offset === 0}
-                onClick={() => setParam("offset", String(Math.max(0, query.offset - PAGE_SIZE)), false)}
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                disabled={query.offset + PAGE_SIZE >= total}
-                onClick={() => setParam("offset", String(query.offset + PAGE_SIZE), false)}
-              >
-                Next
-              </Button>
-            </span>
-          </div>
-        </div>
+                    {r.integrationName}
+                  </Link>
+                ) : (
+                  <span className="text-ink-400">—</span>
+                ),
+            },
+            {
+              header: "Failed",
+              className: "whitespace-nowrap",
+              cell: (r) => <span className="text-ink-500">{timeAgo(r.startedOn)}</span>,
+            },
+            {
+              // The policy is what decided the "Runs" time, so it's the one thing the
+              // exception alone can't explain. This is the integration's policy as it
+              // stands now — editing a policy doesn't reschedule retries it already queued.
+              header: "Scheduled by",
+              truncate: true,
+              cell: (r) =>
+                r.retryPolicyId !== null ? (
+                  can("retry-policies.view") ? (
+                    <Link
+                      to={`/retry-policies/${r.retryPolicyId}`}
+                      className="block truncate text-[13px] font-medium text-crimson-700 hover:underline"
+                    >
+                      {r.retryPolicyName}
+                    </Link>
+                  ) : (
+                    <span className="block truncate text-[13px] font-medium text-ink-700">{r.retryPolicyName}</span>
+                  )
+                ) : r.integrationId !== null ? (
+                  <Link
+                    to={`/subscriptions/${r.integrationId}`}
+                    title="The retry policy set on its integration"
+                    className="block truncate text-[13px] text-crimson-700 hover:underline"
+                  >
+                    policy on {r.integrationName ?? "its integration"}
+                  </Link>
+                ) : (
+                  <span className="text-[13px] text-ink-400">Policy since removed</span>
+                ),
+            },
+            {
+              header: "Exception",
+              truncate: true,
+              cell: (r) =>
+                r.exception ? (
+                  <span className="block truncate font-mono text-[11px] text-danger-700" title={r.exception}>
+                    {r.exception}
+                  </span>
+                ) : (
+                  <span className="text-ink-400">—</span>
+                ),
+            },
+            {
+              header: "",
+              align: "right",
+              // Matches what runNow itself enforces: the retry operates on an exchange.
+              cell: (r) => (
+                <span className="flex items-center justify-end gap-2">
+                  <Link
+                    to={`/exchanges?ids=${encodeURIComponent(r.id)}`}
+                    title={`Open ${r.id} in Exchanges`}
+                    className="text-xs font-medium text-ink-500 hover:text-crimson-700 hover:underline"
+                  >
+                    View exchange
+                  </Link>
+                  <Can permission="exchanges.operate">
+                    <Button size="sm" onClick={() => setRunNowId(r.id)}>
+                      <Play className="size-3.5" aria-hidden />
+                      Run now
+                    </Button>
+                  </Can>
+                </span>
+              ),
+            },
+          ]}
+          footer={
+            <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
+              <span>
+                Showing {query.offset + 1}–{Math.min(query.offset + PAGE_SIZE, total)} of {total}
+              </span>
+              <span className="flex gap-1.5">
+                <Button
+                  size="sm"
+                  disabled={query.offset === 0}
+                  onClick={() => setParam("offset", String(Math.max(0, query.offset - PAGE_SIZE)), false)}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={query.offset + PAGE_SIZE >= total}
+                  onClick={() => setParam("offset", String(query.offset + PAGE_SIZE), false)}
+                >
+                  Next
+                </Button>
+              </span>
+            </div>
+          }
+        />
       )}
 
       {runNowId && (

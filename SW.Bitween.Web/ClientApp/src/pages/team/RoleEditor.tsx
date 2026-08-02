@@ -330,7 +330,7 @@ export function RoleEditor() {
       {editable && dirty && (
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 backdrop-blur lg:left-62">
           {/* right padding keeps the fixed demo pill clear of the save button */}
-          <div className="mx-auto flex max-w-350 items-center justify-between gap-3 py-3 pl-4 pr-40 sm:pl-8">
+          <div className="flex items-center justify-between gap-3 py-2.5 pl-4 pr-40 sm:pl-6">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-ink-800">
                 {isNew ? "New role" : "Unsaved changes"}

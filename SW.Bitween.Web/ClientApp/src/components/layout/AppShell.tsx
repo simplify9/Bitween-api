@@ -58,8 +58,8 @@ function AppFooter({ branding }: { branding: Branding }) {
   ].filter((l) => l.href);
 
   return (
-    <footer className="mt-auto border-t border-ink-100 px-4 py-4 sm:px-8">
-      <div className="mx-auto flex max-w-350 flex-wrap items-center justify-between gap-2 text-xs text-ink-400">
+    <footer className="mt-auto border-t border-ink-100 px-4 py-3 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-400">
         <span>
           {footer.copyrightIcon} {new Date().getFullYear()} {companyName}. {footer.copyrightText}
         </span>
@@ -97,6 +97,8 @@ function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logo
   const { session, signOut } = useSession();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  // Navigation is the one place that still collapses: "show all the data"
+  // is about data, and a nav group is a shelf, not a row of records.
   const [collapsed, setCollapsed] = useState<string[]>(loadCollapsed);
   if (!session) return null;
 
@@ -262,7 +264,7 @@ export function AppShell() {
       </aside>
 
       <main className="flex min-w-0 flex-col">
-        <div className="mx-auto w-full max-w-350 px-4 py-6 sm:px-8 sm:py-8">
+        <div className="w-full px-4 py-4 sm:px-6 sm:py-5">
           <SettingsPreviewBanner />
           <Outlet />
         </div>

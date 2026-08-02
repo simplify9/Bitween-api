@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Trash2, Workflow } from "lucide-react";
-import { api } from "../../api";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { api, referencesGlobal } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/ui/KeyValueEditor";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
-import { IntegrationMiniList, useIntegrationsCache } from "../../components/config/shared";
-import { formatDate } from "../../lib/dates";
+import { MiniTable } from "../../components/ui/Table";
+import {
+  INTEGRATION_TYPE_LABELS,
+  IntegrationMiniList,
+  useIntegrationsCache,
+} from "../../components/config/shared";
 
 export function GlobalValueSetPage() {
   const { id = "" } = useParams();
@@ -81,7 +85,6 @@ export function GlobalValueSetPage() {
               {s.id}
             </code>
           </h1>
-          <p className="mt-1 text-sm text-ink-500">Created {formatDate(s.createdOn)}.</p>
         </div>
         <Can permission="global-values.delete">
           <Button variant="danger" onClick={() => setDeleting(true)}>
@@ -109,7 +112,7 @@ export function GlobalValueSetPage() {
               rowDetails={(row) => {
                 if (!row.key.trim()) return null;
                 const users = (integrations.data ?? []).filter((setup) =>
-                  setup.globals.some((g) => g.setId === id && g.keys.includes(row.key.trim())),
+                  referencesGlobal(setup, id, row.key.trim()),
                 );
                 return (
                   <IntegrationMiniList
@@ -127,29 +130,41 @@ export function GlobalValueSetPage() {
             title="Used by"
             description="Integrations whose adapters reference this set."
           >
-            {s.usedBy.length === 0 ? (
-              <p className="text-sm text-ink-500">Not referenced anywhere yet — safe to delete.</p>
-            ) : (
-              <ul className="space-y-2.5">
-                {s.usedBy.map((u) => (
-                  <li key={u.integrationSetup.id} className="text-sm">
-                    <div className="flex items-center gap-2.5">
-                      <Workflow className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                      <Link
-                        to={`/subscriptions/${u.integrationSetup.id}`}
-                        className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                      >
-                        {u.integrationSetup.name}
-                      </Link>
-                      <Badge>{u.integrationSetup.type}</Badge>
-                    </div>
-                    <p className="mt-0.5 pl-6 font-mono text-xs text-ink-500">
+            <MiniTable
+              rows={s.usedBy}
+              rowKey={(u) => u.integrationSetup.id}
+              empty="Not referenced anywhere yet — safe to delete."
+              columns={[
+                {
+                  header: "Integration",
+                  truncate: true,
+                  cell: (u) => (
+                    <Link
+                      to={`/subscriptions/${u.integrationSetup.id}`}
+                      className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                    >
+                      {u.integrationSetup.name}
+                    </Link>
+                  ),
+                },
+                {
+                  header: "Type",
+                  cell: (u) => <Badge>{INTEGRATION_TYPE_LABELS[u.integrationSetup.type]}</Badge>,
+                },
+                {
+                  header: "References",
+                  truncate: true,
+                  cell: (u) => (
+                    <span
+                      className="block truncate font-mono text-xs text-ink-500"
+                      title={u.keys.map((k) => `${s.id}.${k}`).join("  ·  ")}
+                    >
                       {u.keys.map((k) => `${s.id}.${k}`).join("  ·  ")}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    </span>
+                  ),
+                },
+              ]}
+            />
           </Panel>
         </div>
       </div>

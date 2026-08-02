@@ -8,6 +8,7 @@ import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../compon
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
+import { MiniTable } from "../../components/ui/Table";
 import { SetupList } from "../../components/config/shared";
 import { GroupDialog } from "./GroupDialog";
 
@@ -210,60 +211,96 @@ export function RetryPolicyPage() {
               ) : undefined
             }
           >
-            {sortedGroups.length === 0 ? (
-              <p className="text-sm text-ink-500">
-                No groups yet — failures under this policy are never retried.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {sortedGroups.map((g) => (
-                  <li key={g.id} className={`rounded-xl border border-ink-200 p-3.5 ${g.enabled ? "" : "opacity-60"}`}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-xs text-ink-400">#{g.priority}</span>
-                      <span className="font-medium text-ink-900">{g.name}</span>
+            <MiniTable
+              rows={sortedGroups}
+              rowKey={(g) => g.id}
+              empty="No groups yet — failures under this policy are never retried."
+              columns={[
+                {
+                  header: "#",
+                  className: "w-8",
+                  cell: (g) => <span className="font-mono text-xs text-ink-400">{g.priority}</span>,
+                },
+                {
+                  header: "Group",
+                  truncate: true,
+                  cell: (g) => (
+                    <span className={`block truncate font-medium text-ink-900 ${g.enabled ? "" : "opacity-60"}`}>
+                      {g.name}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Action",
+                  cell: (g) => (
+                    <span className="flex flex-wrap gap-1">
                       {g.action === "Allow" ? <Badge tone="ok">Retries</Badge> : <Badge tone="danger">Blocks</Badge>}
                       {!g.enabled && <Badge>Disabled</Badge>}
-                      <span className="ml-auto flex gap-1">
-                        {canEdit && (
-                          <>
-                            <button
-                              onClick={() => setEditingGroup(g)}
-                              aria-label={`Edit ${g.name}`}
-                              className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                            >
-                              <Pencil className="size-3.5" />
-                            </button>
-                            <button
-                              onClick={() => setGroups((prev) => (prev ?? []).filter((x) => x.id !== g.id))}
-                              aria-label={`Remove ${g.name}`}
-                              className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </>
-                        )}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Applies to",
+                  truncate: true,
+                  cell: (g) => (
+                    <span className="block truncate text-[13px] text-ink-600">
+                      {g.appliesTo.map((t) => (t === "Error" ? "errors" : "bad results")).join(" and ")}
+                      {g.matchers.length === 0
+                        ? " — any failure"
+                        : ` matching ${g.matchers.map((m) => matcherSummary(m)).join(" or ")}`}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Budget",
+                  truncate: true,
+                  cell: (g) =>
+                    g.action === "Allow" && g.budget ? (
+                      <span className="block truncate text-[13px] text-ink-600">
+                        {g.budget.maxAttemptsPerError} tries ({g.budget.maxAttemptsTotal} total),{" "}
+                        {g.budget.delay.type} delay
                       </span>
-                    </div>
-                    <p className="mt-1.5 text-[13px] text-ink-600">
-                      On {g.appliesTo.map((t) => (t === "Error" ? "errors" : "bad results")).join(" and ")}
-                      {g.matchers.length === 0 ? (
-                        " — any failure"
-                      ) : (
-                        <> matching {g.matchers.map((m) => matcherSummary(m)).join(" or ")}</>
-                      )}
-                      {g.action === "Allow" && g.budget && (
-                        <>
-                          {" "}
-                          → up to {g.budget.maxAttemptsPerError} tries ({g.budget.maxAttemptsTotal} total),{" "}
-                          {g.budget.delay.type} delay
-                        </>
-                      )}
-                    </p>
-                    {g.notes && <p className="mt-1 text-xs text-ink-400 italic">{g.notes}</p>}
-                  </li>
-                ))}
-              </ul>
-            )}
+                    ) : (
+                      <span className="text-ink-400">—</span>
+                    ),
+                },
+                {
+                  header: "Notes",
+                  truncate: true,
+                  cell: (g) =>
+                    g.notes ? (
+                      <span className="block truncate text-xs text-ink-400 italic" title={g.notes}>
+                        {g.notes}
+                      </span>
+                    ) : (
+                      <span className="text-ink-400">—</span>
+                    ),
+                },
+                {
+                  header: "",
+                  align: "right",
+                  cell: (g) =>
+                    canEdit ? (
+                      <span className="flex justify-end gap-1">
+                        <button
+                          onClick={() => setEditingGroup(g)}
+                          aria-label={`Edit ${g.name}`}
+                          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setGroups((prev) => (prev ?? []).filter((x) => x.id !== g.id))}
+                          aria-label={`Remove ${g.name}`}
+                          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </span>
+                    ) : null,
+                },
+              ]}
+            />
           </Panel>
 
           <TestPanel groups={groups ?? []} />

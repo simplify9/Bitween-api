@@ -20,8 +20,8 @@ function LiveStat({ label, value, tone }: { label: string; value: ReactNode; ton
 
 /**
  * One work group's slice of the live RabbitMQ picture — the same numbers
- * the Queue health page shows. Used on the group's hub page and inside the
- * list page's row drill-down (it only polls while mounted).
+ * the Queue health page shows, on the group's own page. The list page renders
+ * these as columns instead, off the same shared query.
  */
 export function LiveQueueStats({ groupId }: { groupId: number }) {
   const { data } = useQuery({

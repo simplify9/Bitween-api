@@ -21,10 +21,10 @@ export function PageHeader({
   const [helpOpen, setHelpOpen] = useState(false);
 
   return (
-    <div className="mb-6">
+    <div className="mb-3.5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-[22px] font-semibold tracking-tight text-ink-900">
+          <h1 className="flex items-center gap-2 text-[20px] font-semibold tracking-tight text-ink-900">
             {title}
             {help && (
               <button

@@ -6,7 +6,6 @@ import { api, type AdapterInfo, type AdapterKind, type PartnerRow } from "../../
 import { Button } from "../ui/basics";
 import { Field } from "../ui/forms";
 import { SearchSelect } from "../ui/SearchSelect";
-import { SummaryDisclosure } from "../ui/SummaryDisclosure";
 
 export function useAdapterCatalog(kind: AdapterKind) {
   return useQuery({
@@ -418,11 +417,11 @@ export function AdapterConfig({
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
 
-  // Required fields stay visible; optional ones tuck behind an expander so
-  // the busiest forms (HTTP handler & friends) aren't a wall of inputs.
+  // Every field is on screen, required first. The busiest adapters (the HTTP
+  // handler has ~20 optional props) do become a wall — that's the accepted
+  // trade for never hiding configuration behind a chevron.
   const requiredProps = adapter?.props.filter((p) => !p.optional) ?? [];
   const optionalProps = adapter?.props.filter((p) => p.optional) ?? [];
-  const setOptionalCount = optionalProps.filter((p) => (properties[p.key] ?? "").trim() !== "").length;
 
   const renderProp = (prop: AdapterInfo["props"][number]) => (
     <PropField
@@ -477,19 +476,12 @@ export function AdapterConfig({
             <div className="grid gap-4 sm:grid-cols-2">{requiredProps.map(renderProp)}</div>
           )}
           {optionalProps.length > 0 && (
-            <SummaryDisclosure
-              key={adapterId}
-              defaultOpen={setOptionalCount > 0}
-              changeLabel="Show"
-              summary={
-                <>
-                  {optionalProps.length} optional field{optionalProps.length === 1 ? "" : "s"}
-                  {setOptionalCount > 0 ? ` · ${setOptionalCount} set` : ""}
-                </>
-              }
-            >
+            <div className="border-t border-ink-100 pt-4">
+              <p className="mb-2.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                Optional · {optionalProps.length} field{optionalProps.length === 1 ? "" : "s"}
+              </p>
               <div className="grid gap-4 sm:grid-cols-2">{optionalProps.map(renderProp)}</div>
-            </SummaryDisclosure>
+            </div>
           )}
         </div>
       )}

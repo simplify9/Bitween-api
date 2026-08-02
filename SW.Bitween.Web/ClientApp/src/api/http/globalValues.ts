@@ -1,5 +1,6 @@
 import type { ApiClient } from "../client";
 import type { GlobalValuesSet, GlobalValuesSetDetail, GlobalValuesSetRow, IntegrationType, ValueSetUsage } from "../types";
+import { referencesGlobal, scanReferenceTokens } from "./references";
 import { get, getEnrichment, post } from "./request";
 
 interface SearchyResponse<T> {
@@ -60,40 +61,22 @@ async function fetchAllSubscriptionsForUsage(): Promise<RawSubscriptionForUsage[
   return res.result ?? [];
 }
 
-/**
- * Backend token resolution (StartupValuesFiller.Fill) splits on the first "."
- * only and puts no character-class restriction on the set id or key, so match
- * the same way here rather than a restrictive charset.
- */
-const GLOBAL_TOKEN_RE = /\{\{globals\.([^.]+)\.([^}]+)\}\}/g;
-
 function globalKeysReferencedBy(sub: RawSubscriptionForUsage, setId: string): string[] {
-  const keys = new Set<string>();
-  const values = [
-    ...(sub.mapperProperties ?? []),
-    ...(sub.handlerProperties ?? []),
-    ...(sub.receiverProperties ?? []),
-    ...(sub.validatorProperties ?? []),
-  ];
-  for (const { value } of values) {
-    if (!value) continue;
-    for (const m of value.matchAll(GLOBAL_TOKEN_RE)) {
-      if (m[1] === setId) keys.add(m[2]);
-    }
-  }
-  return [...keys];
+  const { globals } = scanReferenceTokens(
+    [sub.mapperProperties, sub.handlerProperties, sub.receiverProperties, sub.validatorProperties].flatMap(
+      (props) => (props ?? []).map((p) => p.value),
+    ),
+  );
+  return globals.find((g) => referencesGlobal({ globals: [g] }, setId))?.keys ?? [];
 }
 
+
 export const globalValuesMethods = {
+  // No usage scan here: the list page answers "used by" from the integrations
+  // cache it already holds, so a second full /subscriptions fetch would be waste.
   async listValueSets(): Promise<GlobalValuesSetRow[]> {
-    const [res, subs] = await Promise.all([
-      get<SearchyResponse<RawValueSet>>("/globaladaptervaluessets"),
-      fetchAllSubscriptionsForUsage(),
-    ]);
-    return (res.result ?? []).map((r) => ({
-      ...toRow(r),
-      usedByCount: subs.filter((s) => globalKeysReferencedBy(s, r.id).length > 0).length,
-    }));
+    const res = await get<SearchyResponse<RawValueSet>>("/globaladaptervaluessets");
+    return (res.result ?? []).map(toRow);
   },
 
   async getValueSet(id: string): Promise<GlobalValuesSetDetail> {
@@ -112,7 +95,7 @@ export const globalValuesMethods = {
 
   async createValueSet(input: { id: string; name: string; values: Record<string, string> }): Promise<GlobalValuesSetRow> {
     await post("/globaladaptervaluessets", { id: input.id, name: input.name, values: input.values });
-    return { ...toRow(input), usedByCount: 0 };
+    return toRow(input);
   },
 
   async updateValueSet(
@@ -120,7 +103,7 @@ export const globalValuesMethods = {
     changes: { name: string; values: Record<string, string> },
   ): Promise<GlobalValuesSetRow> {
     await post(`/globaladaptervaluessets/${id}`, { name: changes.name, values: changes.values });
-    return { ...toRow({ id, ...changes }), usedByCount: 0 };
+    return toRow({ id, ...changes });
   },
 
   async deleteValueSet(id: string): Promise<void> {

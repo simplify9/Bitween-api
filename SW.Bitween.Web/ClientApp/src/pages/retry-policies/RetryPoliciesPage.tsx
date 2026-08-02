@@ -8,6 +8,8 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { Table } from "../../components/ui/Table";
+import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
 
 function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -59,6 +61,7 @@ export function RetryPoliciesPage() {
   const creating = searchParams.get("new") === "1";
 
   const policies = useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies() });
+  const integrations = useIntegrationsCache().data ?? [];
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -125,36 +128,25 @@ export function RetryPoliciesPage() {
           {q ? "Try a different search." : "Create a policy to control what happens after failures."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full min-w-130 text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="px-4 py-2.5 font-medium">Policy</th>
-                <th className="px-4 py-2.5 font-medium">Groups</th>
-                <th className="px-4 py-2.5 font-medium">Used by</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr
-                  key={p.id}
-                  onClick={() => navigate(`/retry-policies/${p.id}`)}
-                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
-                >
-                  <td className="px-4 py-3 font-medium text-ink-900">{p.name}</td>
-                  <td className="px-4 py-3 text-ink-600">{p.groupCount}</td>
-                  <td className="px-4 py-3 text-ink-600">
-                    {p.usedByCount > 0 ? (
-                      `${p.usedByCount} integration${p.usedByCount === 1 ? "" : "s"}`
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          rows={filtered}
+          rowKey={(p) => p.id}
+          minWidth="min-w-130"
+          onRowClick={(p) => navigate(`/retry-policies/${p.id}`)}
+          columns={[
+            { header: "Policy", cell: (p) => <span className="font-medium text-ink-900">{p.name}</span> },
+            {
+              header: "Groups",
+              align: "right",
+              cell: (p) => <span className="tabular-nums text-ink-600">{p.groupCount || "—"}</span>,
+            },
+            {
+              header: "Used by",
+              truncate: true,
+              cell: (p) => <UsedByCell items={integrations.filter((s) => s.retryPolicyId === p.id)} />,
+            },
+          ]}
+        />
       )}
 
       {creating && <CreateRetryPolicyDialog onClose={() => setParam("new", null)} />}

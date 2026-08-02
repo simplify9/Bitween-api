@@ -1,22 +1,65 @@
-import { Fragment, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, ChevronDown, ChevronRight, Layers, Plus, Search } from "lucide-react";
-import { api } from "../../api";
-import { Can } from "../../auth/guards";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { ArrowUpRight, Layers, Plus, Search } from "lucide-react";
+import { api, type QueueHealthSnapshot, type WorkGroupRow } from "../../api";
+import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { IntegrationMiniList, useIntegrationsCache } from "../../components/config/shared";
-import { LiveQueueStats } from "./LiveQueueStats";
+import { Table, type Column } from "../../components/ui/Table";
+import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+
+/**
+ * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
+ * One shared `queue-health` query feeds every row — the same cache entry the
+ * Queue health page uses, so this costs one poll, not one per group.
+ */
+function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGroupRow>[] {
+  const consumerFor = (g: WorkGroupRow) => snapshot?.consumers.find((c) => c.workGroupId === g.id);
+  const num = (get: (g: WorkGroupRow) => number | undefined) => (g: WorkGroupRow) => {
+    const v = get(g);
+    return <span className="tabular-nums text-ink-700">{v ?? "—"}</span>;
+  };
+  return [
+    {
+      header: "Health",
+      cell: (g) => {
+        const c = consumerFor(g);
+        if (!c) return <span className="text-ink-400">—</span>;
+        return c.health === "critical" ? (
+          <Badge tone="danger">Critical</Badge>
+        ) : c.health === "warning" ? (
+          <Badge tone="warn">Warning</Badge>
+        ) : (
+          <Badge tone="ok">Healthy</Badge>
+        );
+      },
+    },
+    { header: "Nodes", align: "right", cell: num((g) => consumerFor(g)?.totalNodes) },
+    { header: "In flight", align: "right", cell: num((g) => consumerFor(g)?.processingCount) },
+    { header: "Queued", align: "right", cell: num((g) => consumerFor(g)?.queueCount) },
+    { header: "Retrying", align: "right", cell: num((g) => consumerFor(g)?.retryCount) },
+    { header: "Dead", align: "right", cell: num((g) => consumerFor(g)?.failedCount) },
+    { header: "Prefetch", align: "right", cell: num((g) => consumerFor(g)?.prefetch) },
+    { header: "Priority", align: "right", cell: num((g) => consumerFor(g)?.priority) },
+  ];
+}
 
 export function WorkGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
-  const [open, setOpen] = useState<Set<number>>(new Set());
+  const canMonitor = useSessionCan("monitoring.view");
 
   const groups = useQuery({ queryKey: ["work-groups"], queryFn: () => api.listWorkGroups() });
-  const integrations = useIntegrationsCache();
+  const integrations = useIntegrationsCache().data ?? [];
+  const live = useQuery({
+    queryKey: ["queue-health"],
+    queryFn: () => api.getQueueHealth(),
+    refetchInterval: 5_000,
+    placeholderData: keepPreviousData,
+    enabled: canMonitor,
+  });
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -35,14 +78,6 @@ export function WorkGroupsPage() {
       (g) => !needle || g.name.toLowerCase().includes(needle) || g.busMessageName.toLowerCase().includes(needle),
     );
   }, [groups.data, q]);
-
-  const toggleOpen = (id: number) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
 
   return (
     <div>
@@ -91,92 +126,43 @@ export function WorkGroupsPage() {
           {q ? "Try a different search." : "Create one to give a set of integrations their own queue."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full min-w-150 text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="w-10 px-3 py-2.5" />
-                <th className="px-3 py-2.5 font-medium">Name</th>
-                <th className="px-3 py-2.5 font-medium">Bus message name</th>
-                <th className="px-3 py-2.5 font-medium">Consumers</th>
-                <th className="px-3 py-2.5 font-medium">Used by</th>
-                <th className="w-10 px-3 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((g) => {
-                const expanded = open.has(g.id);
-                const assigned = (integrations.data ?? []).filter((s) => s.workGroupId === g.id);
-                return (
-                  <Fragment key={g.id}>
-                    <tr
-                      onClick={() => toggleOpen(g.id)}
-                      className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
-                    >
-                      <td className="px-3 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleOpen(g.id);
-                          }}
-                          aria-expanded={expanded}
-                          aria-label={`Details for ${g.name}`}
-                          className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                        >
-                          {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-                        </button>
-                      </td>
-                      <td className="px-3 py-3 font-medium text-ink-900">{g.name}</td>
-                      <td className="px-3 py-3">
-                        <code className="font-mono text-xs text-ink-600">{g.busMessageName}</code>
-                      </td>
-                      <td className="px-3 py-3">
-                        {g.consumerCount > 0 ? (
-                          <Badge tone="ok">{g.consumerCount}</Badge>
-                        ) : (
-                          <span className="text-ink-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-ink-600">
-                        {g.usedByCount > 0 ? (
-                          `${g.usedByCount} integration${g.usedByCount === 1 ? "" : "s"}`
-                        ) : (
-                          <span className="text-ink-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/work-groups/${g.id}`);
-                          }}
-                          aria-label={`Open ${g.name}`}
-                          title="Open"
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                        >
-                          <ArrowUpRight className="size-4" />
-                        </button>
-                      </td>
-                    </tr>
-                    {expanded && (
-                      <tr className="border-b border-ink-100 last:border-b-0">
-                        <td />
-                        <td colSpan={5} className="px-3 pt-0.5 pb-3">
-                          <div className="space-y-3 rounded-lg bg-ink-50 px-3.5 py-3">
-                            <Can permission="monitoring.view">
-                              <LiveQueueStats groupId={g.id} />
-                            </Can>
-                            <IntegrationMiniList items={assigned} emptyText="No integrations assigned yet." />
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          rows={filtered}
+          rowKey={(g) => g.id}
+          minWidth="min-w-220"
+          onRowClick={(g) => navigate(`/work-groups/${g.id}`)}
+          columns={[
+            { header: "Name", cell: (g) => <span className="font-medium text-ink-900">{g.name}</span> },
+            {
+              header: "Bus message name",
+              cell: (g) => <code className="font-mono text-xs text-ink-600">{g.busMessageName}</code>,
+            },
+            {
+              header: "Used by",
+              truncate: true,
+              cell: (g) => <UsedByCell items={integrations.filter((s) => s.workGroupId === g.id)} />,
+            },
+            ...(canMonitor ? liveColumns(live.data) : []),
+            {
+              header: "",
+              align: "right",
+              className: "w-10",
+              cell: (g) => (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/work-groups/${g.id}`);
+                  }}
+                  aria-label={`Open ${g.name}`}
+                  title="Open"
+                  className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                >
+                  <ArrowUpRight className="size-4" />
+                </button>
+              ),
+            },
+          ]}
+        />
       )}
     </div>
   );

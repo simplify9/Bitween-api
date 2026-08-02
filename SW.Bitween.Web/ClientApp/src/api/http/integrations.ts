@@ -13,6 +13,7 @@ import { documentMethods } from "./documents";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { partnerMethods } from "./partners";
+import { scanReferenceTokens } from "./references";
 import { get, post, request } from "./request";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
 
@@ -242,10 +243,16 @@ export const integrationMethods = {
       informationTypeId: raw.documentId,
       workGroupId: raw.workGroupId ?? null,
       retryPolicyId: raw.retryPolicyId ?? null,
-      // Requires scanning adapter properties for {{partner.KEY}}/{{globals…}}
-      // reference tokens — no backend endpoint for this; deferred.
-      partnerPropKeys: [],
-      globals: [],
+      // No backend endpoint indexes reference tokens, but the search rows carry
+      // every adapter property, so the scan costs nothing extra here.
+      ...scanReferenceTokens(
+        [
+          raw.receiverProperties,
+          raw.validatorProperties,
+          raw.mapperProperties,
+          raw.handlerProperties,
+        ].flatMap((props) => (props ?? []).map((p) => p.value)),
+      ),
     }));
   },
 

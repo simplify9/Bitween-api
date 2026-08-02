@@ -2,12 +2,14 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
-import { api } from "../../api";
+import { api, referencesGlobal } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { Table } from "../../components/ui/Table";
+import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
 import { suggestSlug } from "../../lib/identifiers";
 
 function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
@@ -82,6 +84,7 @@ export function GlobalValueSetsPage() {
   const creating = searchParams.get("new") === "1";
 
   const sets = useQuery({ queryKey: ["value-sets"], queryFn: () => api.listValueSets() });
+  const integrations = useIntegrationsCache().data ?? [];
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -134,40 +137,26 @@ export function GlobalValueSetsPage() {
           {q ? "Try a different search." : "Create a set of shared values your adapters can reference."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full min-w-120 text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="px-4 py-2.5 font-medium">ID</th>
-                <th className="px-4 py-2.5 font-medium">Name</th>
-                <th className="px-4 py-2.5 font-medium">Values</th>
-                <th className="px-4 py-2.5 font-medium">Used by</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((s) => (
-                <tr
-                  key={s.id}
-                  onClick={() => navigate(`/global-values/${s.id}`)}
-                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
-                >
-                  <td className="px-4 py-3">
-                    <code className="font-mono text-xs text-ink-700">{s.id}</code>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-ink-900">{s.name}</td>
-                  <td className="px-4 py-3 text-ink-600">{Object.keys(s.values).length}</td>
-                  <td className="px-4 py-3 text-ink-600">
-                    {s.usedByCount > 0 ? (
-                      `${s.usedByCount} integration${s.usedByCount === 1 ? "" : "s"}`
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          rows={filtered}
+          rowKey={(s) => s.id}
+          minWidth="min-w-120"
+          onRowClick={(s) => navigate(`/global-values/${s.id}`)}
+          columns={[
+            { header: "ID", cell: (s) => <code className="font-mono text-xs text-ink-700">{s.id}</code> },
+            { header: "Name", cell: (s) => <span className="font-medium text-ink-900">{s.name}</span> },
+            {
+              header: "Values",
+              align: "right",
+              cell: (s) => <span className="tabular-nums text-ink-600">{Object.keys(s.values).length || "—"}</span>,
+            },
+            {
+              header: "Used by",
+              truncate: true,
+              cell: (s) => <UsedByCell items={integrations.filter((i) => referencesGlobal(i, s.id))} />,
+            },
+          ]}
+        />
       )}
 
       {creating && <CreateValueSetDialog onClose={() => setParam("new", null)} />}

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BellRing, Cable, DownloadCloud, History, Pause, Play, Trash2, Webhook } from "lucide-react";
+import { ArrowLeft, DownloadCloud, Pause, Play, Trash2 } from "lucide-react";
 import { api, type Integration, type IntegrationDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
-import { SummaryDisclosure } from "../../components/ui/SummaryDisclosure";
+import { MiniTable } from "../../components/ui/Table";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { AdapterConfig } from "../../components/config/AdapterConfig";
@@ -16,6 +16,7 @@ import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import {
   ExchangesList,
   HealthBadge,
+  TrailTable,
   TypeBadge,
   isLegacyType,
   useIntegrationsCache,
@@ -168,6 +169,29 @@ export function IntegrationPage() {
   const isAggregation = s.type === "Aggregation";
   const paused = s.pausedOn !== null;
 
+  // Both kinds of entry point share one table — what matters is "who can feed
+  // this", not which of the two mechanisms does it.
+  const entryPoints = [
+    ...s.apiGatewayAttachments.map((a) => ({
+      key: `ag-${a.gatewayId}-${a.partnerId}`,
+      name: a.gatewayName,
+      href: `/api-gateways/${a.gatewayId}`,
+      kind: "API gateway",
+      partnerId: a.partnerId as number | null,
+      partnerName: a.partnerName as string | null,
+      detail: `/${a.urlName}`,
+    })),
+    ...s.busGatewayRoutes.map((r, i) => ({
+      key: `bg-${r.gatewayId}-${i}`,
+      name: r.gatewayName,
+      href: `/bus-gateways/${r.gatewayId}`,
+      kind: "Bus route",
+      partnerId: r.partnerId,
+      partnerName: r.partnerName,
+      detail: "—",
+    })),
+  ];
+
   return (
     <div className="pb-24">
       <Link
@@ -208,8 +232,8 @@ export function IntegrationPage() {
             Carries{" "}
             <Link to={`/information-types/${s.informationTypeId}`} className="hover:underline">
               <CodeBadge code={s.informationTypeCode} name={s.informationTypeName} className="align-middle" />
-            </Link>{" "}
-            · created {formatDate(s.createdOn)}.
+            </Link>
+            .
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -335,24 +359,8 @@ export function IntegrationPage() {
               />
               {draft.handlerId && (
                 <div className="mt-4 border-t border-ink-100 pt-4">
-                  <SummaryDisclosure
-                    defaultOpen={draft.responseIntegrationId !== null || !!draft.responseMessageTypeName}
-                    summary={
-                      <>
-                        Response handling ·{" "}
-                        {draft.responseIntegrationId !== null || draft.responseMessageTypeName
-                          ? [
-                              draft.responseIntegrationId !== null &&
-                                `fed into ${allIntegrations.data?.find((x) => x.id === draft.responseIntegrationId)?.name ?? "another integration"}`,
-                              draft.responseMessageTypeName && `published as ${draft.responseMessageTypeName}`,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")
-                          : "responses are only recorded"}
-                      </>
-                    }
-                  >
-                    <div className="grid gap-4 sm:grid-cols-2">
+                  <h3 className="mb-2.5 text-[13px] font-medium text-ink-700">Response handling</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
                       <Field
                         label="Feed the response into"
                         htmlFor="in-resp"
@@ -383,8 +391,7 @@ export function IntegrationPage() {
                           onChange={(e) => set("responseMessageTypeName", e.target.value || null)}
                         />
                       </Field>
-                    </div>
-                  </SummaryDisclosure>
+                  </div>
                 </div>
               )}
             </Panel>
@@ -472,105 +479,86 @@ export function IntegrationPage() {
           )}
 
           <Panel title="Connected through" description="The entry points that feed this integration.">
-            {s.apiGatewayAttachments.length === 0 && s.busGatewayRoutes.length === 0 ? (
-              <p className="text-sm text-ink-500">
-                {isReceiver
+            <MiniTable
+              rows={entryPoints}
+              rowKey={(e) => e.key}
+              empty={
+                isReceiver
                   ? "Runs on its own schedule — no gateway needed."
                   : isLegacyType(s.type)
                     ? "Invoked directly by id (legacy)."
-                    : "Not wired into any gateway yet — it never runs."}
-              </p>
-            ) : (
-              <ul className="space-y-1.5">
-                {s.apiGatewayAttachments.map((a) => (
-                  <li key={`${a.gatewayId}-${a.partnerId}`} className="flex items-center gap-2.5 text-sm">
-                    <Webhook className="size-3.5 shrink-0 text-ink-300" aria-hidden />
+                    : "Not wired into any gateway yet — it never runs."
+              }
+              columns={[
+                {
+                  header: "Entry point",
+                  truncate: true,
+                  cell: (e) => (
                     <Link
-                      to={`/api-gateways/${a.gatewayId}`}
-                      className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      to={e.href}
+                      className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                     >
-                      {a.gatewayName}
+                      {e.name}
                     </Link>
-                    <Link
-                      to={`/partners/${a.partnerId}`}
-                      className="truncate text-xs text-ink-500 hover:text-crimson-700 hover:underline"
-                    >
-                      {a.partnerName}
-                    </Link>
-                    <code className="font-mono text-xs text-ink-400">/{a.urlName}</code>
-                  </li>
-                ))}
-                {s.busGatewayRoutes.map((r, i) => (
-                  <li key={`${r.gatewayId}-${i}`} className="flex items-center gap-2.5 text-sm">
-                    <Cable className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                    <Link
-                      to={`/bus-gateways/${r.gatewayId}`}
-                      className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                    >
-                      {r.gatewayName}
-                    </Link>
-                    {r.partnerName && (
+                  ),
+                },
+                { header: "Kind", cell: (e) => <Badge>{e.kind}</Badge> },
+                {
+                  header: "Partner",
+                  cell: (e) =>
+                    e.partnerId !== null ? (
                       <Link
-                        to={`/partners/${r.partnerId}`}
-                        className="truncate text-xs text-ink-500 hover:text-crimson-700 hover:underline"
+                        to={`/partners/${e.partnerId}`}
+                        className="text-[13px] text-ink-600 hover:text-crimson-700 hover:underline"
                       >
-                        {r.partnerName}
+                        {e.partnerName}
                       </Link>
-                    )}
-                    <Badge>Route</Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    ) : (
+                      <span className="text-ink-400">—</span>
+                    ),
+                },
+                {
+                  header: "Path",
+                  align: "right",
+                  cell: (e) => <code className="font-mono text-xs text-ink-400">{e.detail}</code>,
+                },
+              ]}
+            />
           </Panel>
 
           {s.watchingNotifiers.length > 0 && (
             <Panel title="Watched by" description="Notifiers alerting on this integration's outcomes.">
-              <ul className="space-y-1.5">
-                {s.watchingNotifiers.map((n) => (
-                  <li key={n.id} className="flex items-center gap-2.5 text-sm">
-                    <BellRing className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                    <Link
-                      to={`/notifiers/${n.id}`}
-                      className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                    >
-                      {n.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <MiniTable
+                rows={s.watchingNotifiers}
+                rowKey={(n) => n.id}
+                empty="Nothing watches this integration."
+                columns={[
+                  {
+                    header: "Notifier",
+                    truncate: true,
+                    cell: (n) => (
+                      <Link
+                        to={`/notifiers/${n.id}`}
+                        className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      >
+                        {n.name}
+                      </Link>
+                    ),
+                  },
+                ]}
+              />
             </Panel>
           )}
 
           <Can permission="exchanges.view">
-            <Panel title="Recent exchanges" description="Expand a row to see its documents.">
-              <ExchangesList items={s.recentExchanges} expandable />
+            <Panel title="Recent exchanges" description="Latest traffic through this integration.">
+              <ExchangesList items={s.recentExchanges} />
             </Panel>
           </Can>
 
           {s.trail.length > 0 && (
             <Panel title="History">
-              <ul className="space-y-2">
-                {[...s.trail].reverse().map((entry, i) => (
-                  <li key={i} className="flex items-center gap-2.5 text-sm">
-                    <History className="size-3.5 shrink-0 text-ink-300" aria-hidden />
-                    <span className="min-w-0 flex-1 truncate text-ink-600">
-                      <span className="font-medium text-ink-800">{entry.action}</span> by{" "}
-                      {entry.byUserId ? (
-                        <Link
-                          to={`/team/members/${entry.byUserId}`}
-                          className="hover:text-crimson-700 hover:underline"
-                        >
-                          {entry.by}
-                        </Link>
-                      ) : (
-                        entry.by
-                      )}
-                    </span>
-                    <span className="shrink-0 text-xs text-ink-400">{formatDate(entry.on)}</span>
-                  </li>
-                ))}
-              </ul>
+              <TrailTable entries={s.trail} />
             </Panel>
           )}
         </div>
