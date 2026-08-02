@@ -45,6 +45,72 @@ namespace SW.Bitween.Model
         public int SubscriptionId { get; set; }
     }
 
+    // One execution of a scheduled subscription, out of the scheduler's own history.
+    // Only Receiving and Aggregation subscriptions run on a schedule, so only they
+    // have runs; everything else returns an empty list.
+    public class SubscriptionRunModel
+    {
+        public DateTime StartedOn { get; set; }
+        public DateTime? EndedOn { get; set; }
+        public long? DurationMs { get; set; }
+
+        /// <summary>Null while the run is still in progress.</summary>
+        public bool? Success { get; set; }
+        public string Error { get; set; }
+        public string Node { get; set; }
+
+        /// <summary>True when someone pressed Receive now / Aggregate now instead of waiting for the cron.</summary>
+        public bool Manual { get; set; }
+    }
+
+    public class SubscriptionLastRunModel : SubscriptionRunModel
+    {
+        public int SubscriptionId { get; set; }
+    }
+
+    public class SearchSubscriptionRunsModel
+    {
+        public int? Limit { get; set; }
+        public int SubscriptionId { get; set; }
+    }
+
+    public class SearchSubscriptionLastRunsModel
+    {
+    }
+
+    /// <summary>
+    /// Whether a scheduled subscription will actually fire — read from the scheduler
+    /// itself, not from what Bitween thinks it configured. The two can disagree, and
+    /// when they do it is silent: the UI shows a healthy job that never runs.
+    /// </summary>
+    public class SubscriptionScheduleHealthModel
+    {
+        public int SubscriptionId { get; set; }
+
+        /// <summary>Schedules configured on the subscription.</summary>
+        public int ScheduleCount { get; set; }
+
+        /// <summary>Triggers the scheduler actually holds. Fewer than ScheduleCount means some schedule will never fire.</summary>
+        public int TriggerCount { get; set; }
+
+        /// <summary>Worst state across the subscription's triggers: Normal, Paused, Blocked, Error, Complete, or Missing.</summary>
+        public string State { get; set; }
+
+        /// <summary>The scheduler's own next fire time — computed from the cron, independently of Subscription.ReceiveOn.</summary>
+        public DateTime? NextFireOn { get; set; }
+
+        /// <summary>
+        /// The subscription is flagged as running but the scheduler has nothing executing for it.
+        /// Left behind when a run is killed rather than thrown: the flag is never cleared and
+        /// every later fire is skipped by the concurrency guard, so the job silently stops.
+        /// </summary>
+        public bool Stuck { get; set; }
+    }
+
+    public class SearchSubscriptionScheduleHealthModel
+    {
+    }
+
     public abstract class SubscriptionCreateUpdateBase : IName
     {
         public string Name { get; set; }
