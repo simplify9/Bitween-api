@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
   api,
   type ExchangeRef,
   type IntegrationInfo,
+  type IntegrationRow,
   type IntegrationSetupRef,
   type IntegrationType,
   type TrailEntry,
@@ -12,12 +13,18 @@ import {
 import { useSessionCan } from "../../auth/guards";
 import { Badge } from "../ui/basics";
 import { Popover } from "../ui/Popover";
-import { MiniTable } from "../ui/Table";
+import { MiniTable, type Column } from "../ui/Table";
 import { formatDate, timeAgo } from "../../lib/dates";
 
-/** Display names for integration types; Internal and ApiCall are legacy. */
+/**
+ * Display names for integration types; Internal and ApiCall are legacy.
+ *
+ * `Receiving` reads "Scheduled job", not the backend's "Receiver" — it is the
+ * same thing the sidebar and its own page call a scheduled job, and one entity
+ * with two names in the same screen is just a puzzle for the reader.
+ */
 export const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
-  Receiving: "Receiver",
+  Receiving: "Scheduled job",
   GatewayApiCall: "API gateway",
   BusGateway: "Bus gateway",
   Internal: "Internal",
@@ -195,15 +202,217 @@ export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
 }
 
 /**
- * The "used by" cell on list pages: the integrations themselves, not a count.
+ * The same wiring as `usePartnerIntegrations`, read the other way: partners
+ * reached through a gateway, keyed by *integration* id.
+ *
+ * `IntegrationRow.partners` only carries a subscription's own `partnerId`, which
+ * the modern types never have — without this, every gateway-fed integration
+ * shows a dash where its partner should be.
+ */
+export function useGatewayPartners(): Map<number, { id: number; name: string }[]> {
+  const canSeeApi = useSessionCan("api-gateways.view");
+  const canSeeBus = useSessionCan("bus-gateways.view");
+  const apiGateways =
+    useQuery({ queryKey: ["api-gateways"], queryFn: () => api.listApiGateways(), enabled: canSeeApi }).data ?? [];
+  const busGateways =
+    useQuery({ queryKey: ["bus-gateways"], queryFn: () => api.listBusGateways(), enabled: canSeeBus }).data ?? [];
+
+  return useMemo(() => {
+    const out = new Map<number, { id: number; name: string }[]>();
+    const add = (integrationId: number, partnerId: number | null, partnerName: string | null) => {
+      if (partnerId === null || partnerName === null) return;
+      const list = out.get(integrationId) ?? [];
+      if (!list.some((p) => p.id === partnerId)) {
+        list.push({ id: partnerId, name: partnerName });
+        out.set(integrationId, list);
+      }
+    };
+    for (const g of apiGateways) for (const a of g.attachments) add(a.integrationId, a.partnerId, a.partnerName);
+    for (const g of busGateways) for (const r of g.routes) add(r.integrationId, r.partnerId, r.partnerName);
+    return out;
+  }, [apiGateways, busGateways]);
+}
+
+/** Live status for every integration, keyed by id — shared by the gateway pages. */
+export function useIntegrationRowsById(): Map<number, IntegrationRow> {
+  const rows = useQuery({ queryKey: ["integration-rows"], queryFn: () => api.listIntegrationRows() }).data ?? [];
+  return useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+}
+
+/** Work-group names by id; empty without the permission to read them. */
+export function useWorkGroupNames(): Map<number, string> {
+  const canSee = useSessionCan("workgroups.view");
+  const groups =
+    useQuery({ queryKey: ["work-groups"], queryFn: () => api.listWorkGroups(), enabled: canSee }).data ?? [];
+  return useMemo(() => new Map(groups.map((g) => [g.id, g.name])), [groups]);
+}
+
+/** Retry-policy names by id; empty without the permission to read them. */
+export function useRetryPolicyNames(): Map<number, string> {
+  const canSee = useSessionCan("retry-policies.view");
+  const policies =
+    useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies(), enabled: canSee }).data ?? [];
+  return useMemo(() => new Map(policies.map((p) => [p.id, p.name])), [policies]);
+}
+
+/**
+ * Roll-up health for what a gateway feeds. A gateway itself has no state worth
+ * reporting — it is only as healthy as the pipelines behind it, and "3 partners
+ * attached" says nothing about whether any of them currently works.
+ */
+export function WiredHealthBadge({ rows, empty }: { rows: IntegrationRow[]; empty: string }) {
+  if (rows.length === 0) return <Badge tone="warn">{empty}</Badge>;
+  const failing = rows.filter((r) => r.consecutiveFailures > 0).length;
+  if (failing > 0) return <Badge tone="danger">{failing} failing</Badge>;
+  const paused = rows.filter((r) => r.paused).length;
+  if (paused > 0) return <Badge tone="warn">{paused} paused</Badge>;
+  const disabled = rows.filter((r) => !r.enabled).length;
+  if (disabled > 0) return <Badge>{disabled} disabled</Badge>;
+  return <Badge tone="ok">Healthy</Badge>;
+}
+
+/**
+ * The columns describing the pipeline behind one gateway attachment or route.
+ *
+ * These tables are the only 1:1 place in the gateway story — one row is exactly
+ * one partner and one integration — so this is where its configuration can be
+ * stated in separate columns without the reader having to guess which value
+ * pairs with which. The parent list can't do it: two parallel lists in a row
+ * lose their pairing, which is why the gateway tables carry only aggregates.
+ *
+ * Everything here comes from caches the app already holds, keyed by integration
+ * id; the gateway endpoints know none of it.
+ */
+export function useWiredIntegrationColumns<T>(
+  integrationIdOf: (row: T) => number,
+  /** Off where the parent already fixes it — a bus gateway listens for one type. */
+  { informationType = true }: { informationType?: boolean } = {},
+): Column<T>[] {
+  const rowsById = useIntegrationRowsById();
+  const setups = useIntegrationsCache().data ?? [];
+  const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
+  const workGroupNames = useWorkGroupNames();
+  const retryPolicyNames = useRetryPolicyNames();
+  const canSeeInfoTypes = useSessionCan("documents.view");
+
+  const columns: Column<T>[] = [];
+
+  if (informationType)
+    columns.push({
+      header: "Information type",
+      cell: (row) => {
+        const r = rowsById.get(integrationIdOf(row));
+        if (!r) return <span className="text-ink-400">—</span>;
+        return canSeeInfoTypes ? (
+          <Link
+            to={`/information-types/${r.informationTypeId}`}
+            className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+          >
+            {r.informationTypeCode}
+          </Link>
+        ) : (
+          <code className="font-mono text-xs text-ink-600">{r.informationTypeCode}</code>
+        );
+      },
+    });
+
+  columns.push(
+    {
+      header: "Work group",
+      cell: (row) => {
+        const id = setupById.get(integrationIdOf(row))?.workGroupId ?? null;
+        // "Ungrouped", not "Default": a null WorkGroupId isn't the absence of a
+        // lane, it's `WorkGroup.None` — a real shared queue (`0Ungrouped`) that
+        // every ungrouped integration competes in. Matches the wording the
+        // integration page's work-group picker already uses.
+        if (id === null) return <span className="text-[13px] text-ink-400">Ungrouped</span>;
+        const name = workGroupNames.get(id);
+        return name ? (
+          <Link to={`/work-groups/${id}`} className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline">
+            {name}
+          </Link>
+        ) : (
+          <span className="text-[13px] text-ink-400">—</span>
+        );
+      },
+    },
+    {
+      header: "Retry policy",
+      cell: (row) => {
+        const id = setupById.get(integrationIdOf(row))?.retryPolicyId ?? null;
+        if (id === null) return <span className="text-[13px] text-ink-400">None</span>;
+        const name = retryPolicyNames.get(id);
+        return name ? (
+          <Link to={`/retry-policies/${id}`} className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline">
+            {name}
+          </Link>
+        ) : (
+          <span className="text-[13px] text-ink-400">—</span>
+        );
+      },
+    },
+    {
+      header: "Status",
+      cell: (row) => {
+        const r = rowsById.get(integrationIdOf(row));
+        if (!r) return <span className="text-ink-400">—</span>;
+        return (
+          <span className="inline-flex items-center gap-1">
+            <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
+            <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+          </span>
+        );
+      },
+    },
+    {
+      header: "Last error",
+      // A bounded width, not `truncate`: MiniTable ignores that flag, and an
+      // unbounded stack trace would push everything else out of the panel.
+      className: "max-w-48 overflow-hidden",
+      cell: (row) => {
+        const message = rowsById.get(integrationIdOf(row))?.lastException;
+        return message ? (
+          <span className="block truncate font-mono text-[11px] text-danger-700" title={message}>
+            {message}
+          </span>
+        ) : (
+          <span className="text-ink-400">—</span>
+        );
+      },
+    },
+  );
+
+  return columns;
+}
+
+export interface CellLink {
+  key: string | number;
+  name: string;
+  href: string;
+  /** Shown beside the name inside the popover, e.g. the record's type. */
+  note?: ReactNode;
+}
+
+/**
+ * A cell listing the records something is wired to: the first couple inline,
+ * the rest behind a popover.
  *
  * "3 places" tells you a thing is in use but nothing you can act on — you still
  * have to open the row to learn whether it's safe to touch. Names answer that in
- * the table. Overflow goes into a popover rather than wrapping, so row height
- * stays fixed and the table keeps its rhythm; nothing is reachable only by
- * opening the entity's own page.
+ * the table. The overflow goes into a popover rather than wrapping, so row
+ * height stays fixed and the table keeps its rhythm, and nothing ends up
+ * reachable only by opening the record's own page.
  */
-export function UsedByCell({ items, max = 2 }: { items: IntegrationInfo[]; max?: number }) {
+export function LinkListCell({
+  items,
+  label,
+  max = 2,
+}: {
+  items: CellLink[];
+  /** Plural noun for the popover heading, e.g. "integrations". */
+  label: string;
+  max?: number;
+}) {
   if (items.length === 0) return <span className="text-ink-400">—</span>;
   const shown = items.slice(0, max);
   const rest = items.length - shown.length;
@@ -211,10 +420,10 @@ export function UsedByCell({ items, max = 2 }: { items: IntegrationInfo[]; max?:
     <span className="flex items-baseline gap-1 text-[13px]">
       <span className="min-w-0 truncate" title={shown.map((s) => s.name).join(", ")}>
         {shown.map((s, i) => (
-          <span key={s.id}>
+          <span key={s.key}>
             {i > 0 && <span className="text-ink-300">, </span>}
             <Link
-              to={`/subscriptions/${s.id}`}
+              to={s.href}
               onClick={(e) => e.stopPropagation()}
               className="text-ink-700 hover:text-crimson-700 hover:underline"
             >
@@ -225,38 +434,45 @@ export function UsedByCell({ items, max = 2 }: { items: IntegrationInfo[]; max?:
       </span>
       {rest > 0 && (
         <Popover
-          label={`Show all ${items.length} integrations`}
+          label={`Show all ${items.length} ${label}`}
           width="w-80"
           button={<span className="whitespace-nowrap">+{rest} more</span>}
         >
-          <UsedByPanel items={items} />
+          <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+            {items.length} {label}
+          </p>
+          <ul className="border-t border-ink-100 pt-1">
+            {items.map((s) => (
+              <li key={s.key}>
+                <Link
+                  to={s.href}
+                  className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1.5 hover:bg-ink-50"
+                >
+                  <span className="truncate text-[13px] font-medium text-ink-800">{s.name}</span>
+                  {s.note}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Popover>
       )}
     </span>
   );
 }
 
-/** The full list behind a "+N more" — every entry a link out. */
-function UsedByPanel({ items }: { items: IntegrationInfo[] }) {
+/** `LinkListCell` for the commonest case: the integrations using something. */
+export function UsedByCell({ items, max = 2 }: { items: IntegrationInfo[]; max?: number }) {
   return (
-    <>
-      <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
-        Used by {items.length} integrations
-      </p>
-      <ul className="border-t border-ink-100 pt-1">
-        {items.map((s) => (
-          <li key={s.id}>
-            <Link
-              to={`/subscriptions/${s.id}`}
-              className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1.5 hover:bg-ink-50"
-            >
-              <span className="truncate text-[13px] font-medium text-ink-800">{s.name}</span>
-              <Badge>{INTEGRATION_TYPE_LABELS[s.type]}</Badge>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </>
+    <LinkListCell
+      label="integrations"
+      max={max}
+      items={items.map((s) => ({
+        key: s.id,
+        name: s.name,
+        href: `/subscriptions/${s.id}`,
+        note: <Badge>{INTEGRATION_TYPE_LABELS[s.type]}</Badge>,
+      }))}
+    />
   );
 }
 

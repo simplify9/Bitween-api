@@ -430,6 +430,43 @@ export interface IntegrationRow {
   createdOn: string;
 }
 
+/**
+ * One execution of a scheduled integration, from the scheduler's own history.
+ * Kept for `RetentionDays` (~30) — older runs are purged, not archived here.
+ */
+export interface IntegrationRun {
+  startedOn: string;
+  endedOn: string | null;
+  durationMs: number | null;
+  /** Null while the run is still in progress. */
+  success: boolean | null;
+  error: string | null;
+  node: string;
+  /** Someone pressed Receive now rather than waiting for the schedule. */
+  manual: boolean;
+}
+
+export interface IntegrationLastRun extends IntegrationRun {
+  integrationId: number;
+}
+
+/**
+ * Whether a scheduled integration will actually fire, straight from the scheduler.
+ * Everything here can disagree with what the integration's own record says, and
+ * when it does the job is silently dead rather than visibly broken.
+ */
+export interface ScheduleHealth {
+  integrationId: number;
+  scheduleCount: number;
+  /** Fewer than `scheduleCount` means a schedule exists that nothing will ever fire. */
+  triggerCount: number;
+  state: "Normal" | "Paused" | "Blocked" | "Error" | "Complete" | "Missing";
+  /** The scheduler's own next fire time, computed independently of `nextReceiveOn`. */
+  nextFireOn: string | null;
+  /** Flagged as running with nothing executing — the concurrency guard is skipping every run. */
+  stuck: boolean;
+}
+
 export interface IntegrationDetail extends Integration {
   informationTypeCode: string;
   informationTypeName: string;

@@ -4,9 +4,12 @@ import {
   type Integration,
   type IntegrationDetail,
   type IntegrationInfo,
+  type IntegrationLastRun,
   type IntegrationRow,
+  type IntegrationRun,
   type IntegrationType,
   type Schedule,
+  type ScheduleHealth,
 } from "../types";
 import { schedulesSummary } from "../../lib/schedules";
 import { documentMethods } from "./documents";
@@ -400,5 +403,22 @@ export const integrationMethods = {
   async receiveNow(id: number): Promise<Integration> {
     await post(`/subscriptions/${id}/receivenow`, {});
     return toIntegration(await fetchRaw(id), id);
+  },
+
+  listIntegrationRuns(id: number, limit = 20): Promise<IntegrationRun[]> {
+    return get<IntegrationRun[]>(`/subscriptions/runs?subscriptionId=${id}&limit=${limit}`);
+  },
+
+  async listLastRuns(): Promise<IntegrationLastRun[]> {
+    const rows = await get<(IntegrationRun & { subscriptionId: number })[]>("/subscriptions/lastruns");
+    return rows.map(({ subscriptionId, ...run }) => ({ ...run, integrationId: subscriptionId }));
+  },
+
+  async listScheduleHealth(): Promise<ScheduleHealth[]> {
+    const rows =
+      await get<(Omit<ScheduleHealth, "integrationId"> & { subscriptionId: number })[]>(
+        "/subscriptions/schedulehealth",
+      );
+    return rows.map(({ subscriptionId, ...health }) => ({ ...health, integrationId: subscriptionId }));
   },
 } satisfies Partial<ApiClient>;

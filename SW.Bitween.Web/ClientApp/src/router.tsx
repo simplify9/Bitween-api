@@ -14,12 +14,14 @@ import { ExchangesPage } from "./pages/exchanges/ExchangesPage";
 import { QueueHealthPage } from "./pages/queue-health/QueueHealthPage";
 import { ScheduledRetriesPage } from "./pages/scheduled-retries/ScheduledRetriesPage";
 import { ApiGatewayNewPage } from "./pages/api-gateways/ApiGatewayNewPage";
+import { ApiGatewaysPage } from "./pages/api-gateways/ApiGatewaysPage";
 import { ApiGatewayPage } from "./pages/api-gateways/ApiGatewayPage";
 import { AttachPartnerWizard } from "./pages/api-gateways/AttachPartnerWizard";
 import { EditAttachmentPage } from "./pages/api-gateways/EditAttachmentPage";
 import { AddRouteWizard } from "./pages/bus-gateways/AddRouteWizard";
 import { BusGatewayNewPage } from "./pages/bus-gateways/BusGatewayNewPage";
 import { BusGatewayPage } from "./pages/bus-gateways/BusGatewayPage";
+import { BusGatewaysPage } from "./pages/bus-gateways/BusGatewaysPage";
 import { EditRoutePage } from "./pages/bus-gateways/EditRoutePage";
 import { GlobalValueSetPage } from "./pages/global-values/GlobalValueSetPage";
 import { GlobalValueSetsPage } from "./pages/global-values/GlobalValueSetsPage";
@@ -35,6 +37,7 @@ import { PartnerNewPage } from "./pages/partners/PartnerNewPage";
 import { PartnerPage } from "./pages/partners/PartnerPage";
 import { PartnersPage } from "./pages/partners/PartnersPage";
 import { NewScheduledJobWizard } from "./pages/scheduled-jobs/NewScheduledJobWizard";
+import { ScheduledJobsPage } from "./pages/scheduled-jobs/ScheduledJobsPage";
 import { RetryPoliciesPage } from "./pages/retry-policies/RetryPoliciesPage";
 import { RetryPolicyPage } from "./pages/retry-policies/RetryPolicyPage";
 import { MembersTab } from "./pages/team/MembersTab";
@@ -192,10 +195,30 @@ export const router = createBrowserRouter([
               </RequirePermission>
             ),
           },
-          // the gateway/job list pages live inside /subscriptions now
-          { path: "api-gateways", element: <Navigate to="/subscriptions?types=api-gateways" replace /> },
-          { path: "bus-gateways", element: <Navigate to="/subscriptions?types=bus-gateways" replace /> },
-          { path: "scheduled-jobs", element: <Navigate to="/subscriptions?types=scheduled-jobs" replace /> },
+          {
+            path: "api-gateways",
+            element: (
+              <RequirePermission permission="api-gateways.view">
+                <ApiGatewaysPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "bus-gateways",
+            element: (
+              <RequirePermission permission="bus-gateways.view">
+                <BusGatewaysPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "scheduled-jobs",
+            element: (
+              <RequirePermission permission="subscriptions.view">
+                <ScheduledJobsPage />
+              </RequirePermission>
+            ),
+          },
           {
             path: "api-gateways/new",
             element: (

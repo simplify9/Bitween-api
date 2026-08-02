@@ -59,14 +59,18 @@ const badgeStyles: Record<BadgeTone, string> = {
 export function Badge({
   tone = "neutral",
   className = "",
+  title,
   children,
 }: {
   tone?: BadgeTone;
   className?: string;
+  /** Hover explanation — for badges whose one word can't carry the whole meaning. */
+  title?: string;
   children: ReactNode;
 }) {
   return (
     <span
+      title={title}
       className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap ${badgeStyles[tone]} ${className}`}
     >
       {children}

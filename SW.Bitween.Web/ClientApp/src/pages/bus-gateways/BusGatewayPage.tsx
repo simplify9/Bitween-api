@@ -8,6 +8,7 @@ import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
+import { useWiredIntegrationColumns } from "../../components/config/shared";
 import { matchSummary } from "../../lib/match";
 
 export function BusGatewayPage() {
@@ -16,6 +17,11 @@ export function BusGatewayPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("bus-gateways.edit");
+  // No information-type column: this gateway listens for exactly one, and the
+  // page header already says which.
+  const wiredColumns = useWiredIntegrationColumns<BusGatewayRoute>((r) => r.integrationId, {
+    informationType: false,
+  });
 
   const gateway = useQuery({
     queryKey: ["bus-gateway", gatewayId],
@@ -88,7 +94,7 @@ export function BusGatewayPage() {
         </Can>
       </div>
 
-      <div className="max-w-4xl">
+      <div>
         <Panel
           title="Routes"
           description="Checked against every message — each matching route runs its integration."
@@ -143,6 +149,7 @@ export function BusGatewayPage() {
                     <span className="text-ink-400">Any</span>
                   ),
               },
+              ...wiredColumns,
               {
                 header: "",
                 align: "right",

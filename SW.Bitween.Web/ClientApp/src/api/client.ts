@@ -19,7 +19,9 @@ import type {
   Integration,
   IntegrationDetail,
   IntegrationInfo,
+  IntegrationLastRun,
   IntegrationRow,
+  IntegrationRun,
   IntegrationType,
   MatchGroup,
   Notifier,
@@ -41,6 +43,7 @@ import type {
   Schedule,
   ScheduledRetryQuery,
   ScheduledRetryRow,
+  ScheduleHealth,
   Session,
   SettingRow,
   User,
@@ -194,6 +197,12 @@ export interface ApiClient {
   /** Toggles paused: paused integrations accept work but hold it. */
   pauseIntegration(id: number): Promise<Integration>;
   receiveNow(id: number): Promise<Integration>;
+  /** Run history for one scheduled integration, newest first. Empty for unscheduled types. */
+  listIntegrationRuns(id: number, limit?: number): Promise<IntegrationRun[]>;
+  /** Newest run of every scheduled integration — one request for a whole list. */
+  listLastRuns(): Promise<IntegrationLastRun[]>;
+  /** Will these schedules actually fire? Asks the scheduler, not the integration record. */
+  listScheduleHealth(): Promise<ScheduleHealth[]>;
   listAdapters(kind: AdapterKind): Promise<AdapterInfo[]>;
 
   // — work groups —

@@ -24,6 +24,10 @@ export function Dialog({
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/40 p-4 pt-[10vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+      // Fixed positioning takes the dialog out of the layout but not out of the
+      // tree: opened from inside a clickable table row, every click in here —
+      // including Cancel — would also fire the row's navigation.
+      onClick={(e) => e.stopPropagation()}
     >
       <div
         role="dialog"

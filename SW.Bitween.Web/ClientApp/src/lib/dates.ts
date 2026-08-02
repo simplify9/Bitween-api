@@ -47,6 +47,16 @@ export const formatDateTime = (iso: string) => {
   return d ? timeFormatter.format(d) : "—";
 };
 
+/** "14ms", "1.1s", "2m 3s" — from an elapsed millisecond count. */
+export const formatDurationMs = (ms: number): string => {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ${Math.round(seconds % 60)}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+};
+
 /** "12s", "1m 42s" — elapsed time between two instants. */
 export const duration = (fromIso: string, toIso: string): string => {
   const seconds = Math.max(0, Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 1000));

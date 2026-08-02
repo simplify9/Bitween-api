@@ -2,6 +2,8 @@ import {
   Activity,
   ArrowLeftRight,
   BellRing,
+  Cable,
+  CalendarClock,
   FileText,
   Handshake,
   Layers,
@@ -10,6 +12,7 @@ import {
   Settings,
   SlidersHorizontal,
   Users,
+  Webhook,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -50,18 +53,23 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    // Entry points first — how a document gets in — then the pipelines it runs
+    // through, then who it's with. A gateway is not an integration.
     label: "Integrations",
     items: [
+      { label: "API gateways", path: "/api-gateways", icon: Webhook, permissions: ["api-gateways.view"] },
+      { label: "Bus gateways", path: "/bus-gateways", icon: Cable, permissions: ["bus-gateways.view"] },
+      { label: "Scheduled jobs", path: "/scheduled-jobs", icon: CalendarClock, permissions: ["subscriptions.view"] },
       { label: "Integrations", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
       { label: "Partners", path: "/partners", icon: Handshake, permissions: ["partners.view"] },
-      { label: "Information types", path: "/information-types", icon: FileText, permissions: ["documents.view"] },
-      { label: "Global values", path: "/global-values", icon: SlidersHorizontal, permissions: ["global-values.view"] },
-      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
     ],
   },
   {
     label: "Configuration",
     items: [
+      { label: "Information types", path: "/information-types", icon: FileText, permissions: ["documents.view"] },
+      { label: "Global values", path: "/global-values", icon: SlidersHorizontal, permissions: ["global-values.view"] },
+      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
       { label: "Work groups", path: "/work-groups", icon: Layers, permissions: ["workgroups.view"] },
       { label: "Retry policies", path: "/retry-policies", icon: RotateCcw, permissions: ["retry-policies.view"] },
     ],
