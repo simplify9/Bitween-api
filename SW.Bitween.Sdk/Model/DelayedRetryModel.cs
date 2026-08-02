@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SW.Bitween.Model;
 
@@ -12,6 +13,13 @@ public class DelayedRetryRow
     public string DocumentName { get; set; }
     public string Exception { get; set; }
     public DateTime StartedOn { get; set; }
+
+    /// <summary>
+    /// The exchange's promoted properties, so a pending retry can identify itself
+    /// by what it carries (order number, store…) instead of only by its id.
+    /// Null when the document type promotes nothing.
+    /// </summary>
+    public IDictionary<string, string> PromotedProperties { get; set; }
 
     /// <summary>
     /// The shared retry policy the subscription currently points at. Null when the
