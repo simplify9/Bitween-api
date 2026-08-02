@@ -17,6 +17,9 @@ namespace SW.Bitween.Resources.Subscriptions;
 [HandlerName("lastruns")]
 public class GetLastRuns : IQueryHandler<SearchSubscriptionLastRunsModel, object>
 {
+    /// <summary>How many recent runs the success ratio is measured over.</summary>
+    private const int RecentWindow = 20;
+
     private readonly BitweenDbContext dbContext;
     private readonly RequestContext requestContext;
     private readonly IScheduleRepository scheduleRepo;
@@ -49,32 +52,49 @@ public class GetLastRuns : IQueryHandler<SearchSubscriptionLastRunsModel, object
 
         // One small indexed query per scheduled subscription. The subscription id
         // only exists inside the execution's JSON parameter, so there is nothing to
-        // GROUP BY — but each of these is an ordered top-1, and the alternative
+        // GROUP BY — but each of these is an ordered top-N, and the alternative
         // (pulling a whole retention window of every job's executions and grouping
         // in memory) is far worse on an instance with chatty schedules.
+        //
+        // Taking the window rather than just the newest row gets the success ratio
+        // out of the same query instead of a second aggregate per subscription.
         foreach (var s in subscriptions)
         {
             var job = scheduleRepo.GetJobDefinitions()
                 .Single(d => d.JobType == SubscriptionRunHistory.JobTypeFor(s.Type));
             var manualPrefix = SubscriptionRunHistory.ManualPrefix(job);
 
-            var last = await SubscriptionRunHistory
+            var window = await SubscriptionRunHistory
                 .Query(dbContext, job, s.Id, since)
-                .Select(j => new SubscriptionLastRunModel
+                .Take(RecentWindow)
+                .Select(j => new
                 {
-                    SubscriptionId = s.Id,
-                    StartedOn = j.StartTimeUtc,
-                    EndedOn = j.EndTimeUtc,
-                    DurationMs = j.DurationMs,
-                    Success = j.Success,
-                    Error = j.Error,
-                    Node = j.Node,
+                    j.StartTimeUtc,
+                    j.EndTimeUtc,
+                    j.DurationMs,
+                    j.Success,
+                    j.Error,
+                    j.Node,
                     Manual = j.JobName.StartsWith(manualPrefix)
                 })
-                .FirstOrDefaultAsync();
+                .ToListAsync();
 
-            if (last != null)
-                results.Add(last);
+            if (window.Count == 0) continue;
+
+            var last = window[0];
+            results.Add(new SubscriptionLastRunModel
+            {
+                SubscriptionId = s.Id,
+                StartedOn = last.StartTimeUtc,
+                EndedOn = last.EndTimeUtc,
+                DurationMs = last.DurationMs,
+                Success = last.Success,
+                Error = last.Error,
+                Node = last.Node,
+                Manual = last.Manual,
+                RecentTotal = window.Count(j => j.Success != null),
+                RecentSucceeded = window.Count(j => j.Success == true)
+            });
         }
 
         return results;

@@ -254,6 +254,25 @@ export function ScheduledJobsPage() {
               },
             },
             {
+              // A single failure is noise; a job that has been failing half its
+              // runs is the one to look at, and the health badge can't say that.
+              header: "Reliability",
+              className: "whitespace-nowrap",
+              cell: (r) => {
+                const run = lastRunById.get(r.id);
+                if (!run || run.recentTotal === 0) return <span className="text-ink-400">—</span>;
+                const failed = run.recentTotal - run.recentSucceeded;
+                return (
+                  <span
+                    className={`text-[13px] ${failed > 0 ? "text-danger-700" : "text-ink-600"}`}
+                    title={`${run.recentSucceeded} of the last ${run.recentTotal} finished runs succeeded`}
+                  >
+                    {run.recentSucceeded}/{run.recentTotal}
+                  </span>
+                );
+              },
+            },
+            {
               // No Schedule column: `Search.cs` can't select Schedules in its
               // joined query, so `scheduleSummary` is always empty here and the
               // cell would read "No schedule" for a job that plainly has one.

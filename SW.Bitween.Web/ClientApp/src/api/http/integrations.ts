@@ -410,7 +410,10 @@ export const integrationMethods = {
   },
 
   async listLastRuns(): Promise<IntegrationLastRun[]> {
-    const rows = await get<(IntegrationRun & { subscriptionId: number })[]>("/subscriptions/lastruns");
+    const rows =
+      await get<(Omit<IntegrationLastRun, "integrationId"> & { subscriptionId: number })[]>(
+        "/subscriptions/lastruns",
+      );
     return rows.map(({ subscriptionId, ...run }) => ({ ...run, integrationId: subscriptionId }));
   },
 

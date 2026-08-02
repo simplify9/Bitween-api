@@ -448,6 +448,9 @@ export interface IntegrationRun {
 
 export interface IntegrationLastRun extends IntegrationRun {
   integrationId: number;
+  /** Finished runs in the recent window; in-progress runs count as neither pass nor fail. */
+  recentTotal: number;
+  recentSucceeded: number;
 }
 
 /**

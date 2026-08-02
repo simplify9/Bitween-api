@@ -66,6 +66,12 @@ namespace SW.Bitween.Model
     public class SubscriptionLastRunModel : SubscriptionRunModel
     {
         public int SubscriptionId { get; set; }
+
+        /// <summary>Finished runs in the recent window — in-progress runs are excluded, being neither.</summary>
+        public int RecentTotal { get; set; }
+
+        /// <summary>How many of <see cref="RecentTotal"/> succeeded.</summary>
+        public int RecentSucceeded { get; set; }
     }
 
     public class SearchSubscriptionRunsModel

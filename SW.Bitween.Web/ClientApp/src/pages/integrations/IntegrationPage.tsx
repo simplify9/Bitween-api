@@ -23,7 +23,80 @@ import {
 } from "../../components/config/shared";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { takePicked, useHereAsReturnTarget, withReturn } from "../../lib/returnTo";
-import { formatDate, timeUntil } from "../../lib/dates";
+import { formatDate, formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
+
+/**
+ * What the scheduler recorded, for a job that runs on a schedule. Distinct from the
+ * exchange list below it: a run can find nothing and still be a run, and a run that
+ * fails never produces an exchange to explain itself.
+ */
+function RecentRuns({ integrationId }: { integrationId: number }) {
+  const runs = useQuery({
+    queryKey: ["integration-runs", integrationId],
+    queryFn: () => api.listIntegrationRuns(integrationId, 20),
+  });
+
+  return (
+    <Panel title="Recent runs" description="From the scheduler's own history, kept about 30 days.">
+      {runs.isPending ? (
+        <LoadingBlock label="Loading runs…" />
+      ) : (
+        <MiniTable
+          rows={runs.data ?? []}
+          rowKey={(r) => r.startedOn}
+          empty="No runs recorded in the last 30 days."
+          columns={[
+            {
+              header: "Started",
+              cell: (r) => (
+                <span title={formatDateTime(r.startedOn)} className="text-ink-800">
+                  {timeAgo(r.startedOn)}
+                </span>
+              ),
+            },
+            {
+              header: "Outcome",
+              cell: (r) =>
+                r.success === null ? (
+                  <Badge tone="warn">Running</Badge>
+                ) : r.success ? (
+                  <Badge tone="ok">Succeeded</Badge>
+                ) : (
+                  <Badge tone="danger">Failed</Badge>
+                ),
+            },
+            {
+              header: "Took",
+              cell: (r) => (
+                <span className="text-ink-600">
+                  {r.durationMs === null ? "—" : formatDurationMs(r.durationMs)}
+                </span>
+              ),
+            },
+            {
+              header: "Trigger",
+              cell: (r) => (
+                <span className="text-ink-500">{r.manual ? "Manual" : "Schedule"}</span>
+              ),
+            },
+            {
+              header: "Error",
+              truncate: true,
+              cell: (r) =>
+                r.error ? (
+                  <span className="block truncate font-mono text-[11px] text-danger-700" title={r.error}>
+                    {r.error}
+                  </span>
+                ) : (
+                  <span className="text-ink-400">—</span>
+                ),
+            },
+          ]}
+        />
+      )}
+    </Panel>
+  );
+}
 
 type Draft = Pick<
   Integration,
@@ -299,6 +372,8 @@ export function IntegrationPage() {
               </Panel>
             </>
           )}
+
+          {(isReceiver || isAggregation) && <RecentRuns integrationId={s.id} />}
 
           {isInternal && draft && (
             <Panel
