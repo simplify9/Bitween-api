@@ -723,12 +723,28 @@ export interface QueueHealthSummary {
   lastUpdated: string;
 }
 
+/**
+ * What a queue is for, decoded from its name. The backend names queues after the
+ * C# consumer class and the bus message type, neither of which means anything to
+ * the person on call — see `queueHealth.ts` for the mapping.
+ */
+export type QueueLane = "front-door" | "worker" | "notifications" | "legacy" | "control";
+
 export interface ConsumerHealth {
   name: string;
   messageName: string;
   queueName: string;
+  lane: QueueLane;
+  /** What this lane is, in the operator's words. Falls back to the raw message name. */
+  title: string;
+  /** What it does, one short phrase. */
+  role: string;
+  /** True when the queue exists but the thing it was named after doesn't any more. */
+  orphaned: boolean;
   /** Set when the consumer belongs to a work group, for drill-down. */
   workGroupId: number | null;
+  /** Set on a front-door lane, for drill-down to the information type it listens for. */
+  informationTypeId: number | null;
   totalNodes: number;
   processingCount: number;
   queueCount: number;
@@ -744,6 +760,8 @@ export interface ConsumerHealth {
 
 export interface RetryBacklogRow {
   consumerName: string;
+  /** The lane's operator-facing name, resolved from the consumer rows. */
+  title: string;
   queueName: string;
   retryBacklog: number;
   incomingRate: number;
@@ -753,6 +771,7 @@ export interface RetryBacklogRow {
 
 export interface DeadLetterRow {
   consumerName: string;
+  title: string;
   queueName: string;
   count: number;
   lastExceptionType: string | null;
