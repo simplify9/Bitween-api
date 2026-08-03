@@ -11,7 +11,8 @@ import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useIntegrationsCache } from "../../components/config/shared";
 import { timeAgo, timeUntil, duration } from "../../lib/dates";
 import { ExchangeDrawer } from "./ExchangeDrawer";
-import { JourneyStrip, PromotedProps, RetryDialog, STATUS_LABELS, StatusBadge } from "./shared";
+import { JourneyStrip, RetryDialog, STATUS_LABELS, StatusBadge } from "./shared";
+import { PromotedProps } from "../../components/config/shared";
 
 const PAGE_SIZE = 25;
 const STATUSES: ExchangeStatus[] = ["processing", "success", "badResponse", "failed"];

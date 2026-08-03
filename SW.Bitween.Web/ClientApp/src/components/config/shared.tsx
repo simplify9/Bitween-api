@@ -139,46 +139,113 @@ export function ExchangeStatusBadge({ status }: { status: ExchangeRef["status"] 
  * the width empty, so what the exchange actually *was* never made it to the
  * screen.
  */
-export function ExchangesList({ items }: { items: ExchangeRef[] }) {
+export function PromotedProps({
+  properties,
+  max = 3,
+}: {
+  properties: Record<string, string> | null;
+  max?: number;
+}) {
+  const entries = Object.entries(properties ?? {});
+  if (entries.length === 0) return <span className="text-[13px] text-ink-400">—</span>;
+  const shown = entries.slice(0, max);
+  const rest = entries.length - shown.length;
   return (
-    <MiniTable
-      rows={items}
-      rowKey={(x) => x.id}
-      empty="No exchanges yet."
-      columns={[
-        {
-          header: "Exchange",
-          // A bounded width, not `truncate`: MiniTable ignores that flag, and an
-          // unbounded 32-char id would push Status and When out of the panel.
-          className: "max-w-24 overflow-hidden",
-          cell: (x) => (
-            <Link
-              to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
-              title={x.id}
-              className="block truncate font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
-            >
-              {x.id}
-            </Link>
-          ),
-        },
-        {
-          header: "Type",
-          cell: (x) => <code className="font-mono text-xs text-ink-500">{x.informationTypeCode}</code>,
-        },
-        {
-          header: "Partner",
-          cell: (x) => <span className="text-[13px] text-ink-600">{x.partnerName ?? "—"}</span>,
-        },
-        { header: "Status", cell: (x) => <ExchangeStatusBadge status={x.status} /> },
-        {
-          header: "When",
-          align: "right",
-          className: "whitespace-nowrap",
-          cell: (x) => <span className="text-xs text-ink-400">{timeAgo(x.on)}</span>,
-        },
-      ]}
-    />
+    <span
+      className="flex flex-wrap items-center gap-1"
+      title={entries.map(([k, v]) => `${k}=${v}`).join("\n")}
+    >
+      {shown.map(([k, v]) => (
+        <code key={k} className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
+          <span className="text-ink-500">{k}=</span>
+          {v}
+        </code>
+      ))}
+      {rest > 0 && <span className="text-[11px] text-ink-400">+{rest}</span>}
+    </span>
   );
+}
+
+/**
+ * Recent exchanges for one partner / information type / integration.
+ *
+ * Leads with the promoted properties, because they are the only column that says
+ * what the exchange *was*. The id led before and answered the question nobody
+ * asks — it's a 32-character guid, so all you could fit was the first eight
+ * characters of something meaningless even in full. "Northwind says three orders
+ * are missing" is answered by reading order numbers off these rows; it used to
+ * take eight clicks.
+ *
+ * The id gets no column of its own. These panels are ~360px wide, and a complete
+ * guid pushes the table past the panel edge — MiniTable scrolls rather than
+ * truncating, so the last column ends up clipped instead of shortened. Clicking
+ * the row opens it in Exchanges, where the full id is shown and copyable.
+ *
+ * When an exchange has no promoted properties there is nothing to lead with, so
+ * the short id stands in — a row still needs a handle, and admitting "no
+ * properties, here's the id" beats an empty cell.
+ *
+ * `hide` drops a column that is constant for the host page — Partner on a
+ * partner's page, Type on an information type's — which is where the width for
+ * the properties comes from.
+ */
+export function ExchangesList({
+  items,
+  hide = [],
+}: {
+  items: ExchangeRef[];
+  hide?: ("partner" | "type")[];
+}) {
+  const columns = [
+    {
+      header: "What",
+      cell: (x: ExchangeRef) => {
+        const properties = Object.entries(x.promotedProperties ?? {});
+        return (
+          <Link
+            to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
+            title={properties.length > 0 ? `${x.id}\n\n${properties.map(([k, v]) => `${k}=${v}`).join("\n")}` : x.id}
+            className="block hover:opacity-70"
+          >
+            {properties.length > 0 ? (
+              <PromotedProps properties={x.promotedProperties ?? null} />
+            ) : (
+              <span className="font-mono text-xs text-ink-400">{x.id.slice(0, 8)}…</span>
+            )}
+          </Link>
+        );
+      },
+    },
+    ...(hide.includes("type")
+      ? []
+      : [
+          {
+            header: "Type",
+            cell: (x: ExchangeRef) => (
+              <code className="font-mono text-xs text-ink-500">{x.informationTypeCode}</code>
+            ),
+          },
+        ]),
+    ...(hide.includes("partner")
+      ? []
+      : [
+          {
+            header: "Partner",
+            cell: (x: ExchangeRef) => (
+              <span className="text-[13px] text-ink-600">{x.partnerName ?? "—"}</span>
+            ),
+          },
+        ]),
+    { header: "Status", cell: (x: ExchangeRef) => <ExchangeStatusBadge status={x.status} /> },
+    {
+      header: "When",
+      align: "right" as const,
+      className: "whitespace-nowrap",
+      cell: (x: ExchangeRef) => <span className="text-xs text-ink-400">{timeAgo(x.on)}</span>,
+    },
+  ];
+
+  return <MiniTable rows={items} rowKey={(x) => x.id} empty="No exchanges yet." columns={columns} />;
 }
 
 /** Integrations referencing this entity, each linking to its page. */

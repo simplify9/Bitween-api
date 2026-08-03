@@ -294,7 +294,7 @@ export function Overview({
         <div className="min-w-0 space-y-5">
           <Can permission="exchanges.view">
             <Panel title="Recent exchanges" description="Latest traffic through this integration.">
-              <ExchangesList items={s.recentExchanges} />
+              <ExchangesList items={s.recentExchanges} hide={["type", "partner"]} />
             </Panel>
           </Can>
 

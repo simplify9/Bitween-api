@@ -13,7 +13,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
 import { useIntegrationsCache } from "../../components/config/shared";
 import { formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
-import { PromotedProps } from "../exchanges/shared";
+import { PromotedProps } from "../../components/config/shared";
 
 const PAGE_SIZE = 25;
 

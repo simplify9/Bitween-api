@@ -325,7 +325,7 @@ export function PartnerPage() {
 
           <Can permission="exchanges.view">
             <Panel title="Recent exchanges" description="Latest traffic involving this partner.">
-              <ExchangesList items={p.recentExchanges} />
+              <ExchangesList items={p.recentExchanges} hide={["partner"]} />
             </Panel>
           </Can>
         </div>

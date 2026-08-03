@@ -86,41 +86,6 @@ export function JourneyStrip({ x }: { x: ExchangeRow }) {
   );
 }
 
-/**
- * Promoted properties as the row's identity, in place of the exchange id.
- *
- * An id answers "which record is this row" — which you only ever need once
- * you've already found the row. The promoted properties answer "which *order*
- * is this", which is what you were scanning for. Shows the first few and
- * counts the rest; the full set is in the drawer.
- */
-export function PromotedProps({
-  properties,
-  max = 3,
-}: {
-  properties: Record<string, string> | null;
-  max?: number;
-}) {
-  const entries = Object.entries(properties ?? {});
-  if (entries.length === 0) return <span className="text-[13px] text-ink-400">—</span>;
-  const shown = entries.slice(0, max);
-  const rest = entries.length - shown.length;
-  return (
-    <span
-      className="flex flex-wrap items-center gap-1"
-      title={entries.map(([k, v]) => `${k}=${v}`).join("\n")}
-    >
-      {shown.map(([k, v]) => (
-        <code key={k} className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
-          <span className="text-ink-500">{k}=</span>
-          {v}
-        </code>
-      ))}
-      {rest > 0 && <span className="text-[11px] text-ink-400">+{rest}</span>}
-    </span>
-  );
-}
-
 /** A full exchange id — mono, never truncated, click to copy. */
 export function XchangeId({ id, className = "" }: { id: string; className?: string }) {
   const [copied, setCopied] = useState(false);

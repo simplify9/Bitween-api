@@ -117,6 +117,7 @@ async function fetchDetail(id: number): Promise<InformationTypeDetail> {
       informationTypeCode: x.informationTypeCode,
       status: x.status,
       on: x.startedOn,
+      promotedProperties: x.promotedProperties,
     })),
   };
 }

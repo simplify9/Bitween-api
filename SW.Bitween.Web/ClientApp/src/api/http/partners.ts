@@ -114,6 +114,7 @@ export const partnerMethods = {
         informationTypeCode: x.informationTypeCode,
         status: x.status,
         on: x.startedOn,
+        promotedProperties: x.promotedProperties,
       })),
     };
   },

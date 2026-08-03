@@ -334,6 +334,7 @@ export const integrationMethods = {
         informationTypeCode: x.informationTypeCode,
         status: x.status,
         on: x.startedOn,
+        promotedProperties: x.promotedProperties,
       })),
       // Populated once notifiers and the trail (a distinct audit-log endpoint,
       // deferred alongside the mapper editor/aggregation) are wired.

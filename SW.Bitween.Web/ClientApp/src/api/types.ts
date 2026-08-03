@@ -112,6 +112,8 @@ export interface ExchangeRef {
   informationTypeCode: string;
   status: ExchangeStatus;
   on: string;
+  /** What the exchange was, in the information type's own terms. The lead column. */
+  promotedProperties?: Record<string, string> | null;
   /** Documents produced as the exchange moved through the pipeline, for drill-down previews. */
   documents?: ExchangeDocument[];
 }

@@ -261,7 +261,7 @@ export function InformationTypePage() {
 
           <Can permission="exchanges.view">
             <Panel title="Recent exchanges" description="Latest traffic carrying this type.">
-              <ExchangesList items={t.recentExchanges} />
+              <ExchangesList items={t.recentExchanges} hide={["type"]} />
             </Panel>
           </Can>
 
