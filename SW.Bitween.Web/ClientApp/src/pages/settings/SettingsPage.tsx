@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import { api, resetAppConfig, type SettingRow } from "../../api";
@@ -229,14 +229,16 @@ export function SettingsPage() {
   const { data: rows, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.listSettings() });
   const draft = useSettingsDraft();
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const sections = sectionsOf(rows ?? []);
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
-  const setSection = (s: string) => {
+  // Real links, so a section is a URL an administrator can paste into a ticket.
+  // Replacing rather than pushing: switching section isn't a step you want Back to undo.
+  const searchFor = (s: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("section", s);
-    setSearchParams(next, { replace: true });
+    return `?${next.toString()}`;
   };
 
   const saveAll = useMutation({
@@ -281,52 +283,94 @@ export function SettingsPage() {
         description="Instance-wide configuration. Changes preview live across the app — walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        {sections.map((s) => {
-          const active = s === section;
-          const hasUnsaved = rows.some((r) => r.section === s && r.key in draft);
-          return (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSection(s)}
-              aria-pressed={active}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                active
-                  ? "bg-ink-900 text-white"
-                  : "border border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:bg-ink-50"
-              }`}
-            >
-              {s}
-              {hasUnsaved && <span className="size-1.5 rounded-full bg-crimson-600" title="Unsaved changes" aria-hidden />}
-            </button>
-          );
-        })}
-      </div>
+      {/* A left column, not a row of pill tabs: eight sections wrap to a second row on a
+          narrow window, and a wrapped tab row is precisely where you lose track of which
+          one you're in. House pattern for anything that wanted tabs. On a phone it stacks
+          above the rows — settings is a desk job, and a list that never wraps beats one
+          that sometimes does. */}
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 lg:grid-cols-[13.5rem_minmax(0,48rem)] lg:items-start">
+        <nav aria-label="Settings sections" className="lg:sticky lg:top-4">
+          <ul className="space-y-0.5">
+            {sections.map((s) => {
+              const active = s === section;
+              const hasUnsaved = rows.some((r) => r.section === s && r.key in draft);
+              // Standing count of rows this instance has moved off the product default —
+              // the answer to "what has been done to this instance", visible without
+              // opening all eight sections.
+              const customized = rows.filter((r) => r.section === s && r.overridden).length;
+              return (
+                <li key={s}>
+                  <Link
+                    to={searchFor(s)}
+                    replace
+                    aria-current={active ? "true" : undefined}
+                    className={`relative flex items-center justify-between gap-2 rounded-lg py-1.5 pr-2.5 pl-3 text-sm transition-colors ${
+                      active
+                        ? "bg-ink-100 font-medium text-ink-900"
+                        : "text-ink-600 hover:bg-ink-50 hover:text-ink-900"
+                    }`}
+                  >
+                    {active && (
+                      <span
+                        className="absolute inset-y-1 left-0 w-1 rounded-r-full bg-crimson-600"
+                        aria-hidden
+                      />
+                    )}
+                    <span className="truncate">{s}</span>
+                    {hasUnsaved ? (
+                      <span
+                        className="size-1.5 shrink-0 rounded-full bg-crimson-600"
+                        title="Unsaved changes"
+                        aria-hidden
+                      />
+                    ) : (
+                      customized > 0 && (
+                        <span
+                          className="shrink-0 text-[11px] tabular-nums text-ink-400"
+                          title={`${customized} changed from the default`}
+                        >
+                          {customized}
+                        </span>
+                      )
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      <div className="max-w-3xl rounded-xl border border-ink-200 bg-white p-5">
-        {resettable.length > 0 && (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-ink-100 pb-4">
-            <p className="text-[13px] text-ink-500">
-              {resettable.length} of these {resettable.length === 1 ? "is" : "are"} customized.
-              Resetting stages the change like any other — nothing is written until you save.
-            </p>
-            {/* Stages a reset per row rather than writing: the draft previews the stock
-                branding across the whole app, and Discard puts it all back untouched. */}
-            <Button size="sm" onClick={() => resettable.forEach((r) => settingsDraft.stage(r, null))}>
-              <RotateCcw className="size-3.5" aria-hidden />
-              Reset all to default
-            </Button>
+        <div className="rounded-xl border border-ink-200 bg-white p-5">
+          {/* The active pill used to be what named the panel; with the nav off to the
+              side the panel has to name itself. */}
+          <div className="mb-4 border-b border-ink-100 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[15px] font-semibold text-ink-900">{section}</h2>
+              {/* Stages a reset per row rather than writing: the draft previews the stock
+                  branding across the whole app, and Discard puts it all back untouched. */}
+              {resettable.length > 0 && (
+                <Button size="sm" onClick={() => resettable.forEach((r) => settingsDraft.stage(r, null))}>
+                  <RotateCcw className="size-3.5" aria-hidden />
+                  Reset all to default
+                </Button>
+              )}
+            </div>
+            {resettable.length > 0 && (
+              <p className="mt-1.5 text-[13px] text-ink-500">
+                {resettable.length} of these {resettable.length === 1 ? "is" : "are"} customized.
+                Resetting stages the change like any other — nothing is written until you save.
+              </p>
+            )}
           </div>
-        )}
-        <div className="divide-y divide-ink-100">
-          {sectionRows.map((row) =>
-            row.access === "editable" ? (
-              <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
-            ) : (
-              <EnvironmentSettingRow key={row.key} row={row} />
-            ),
-          )}
+          <div className="divide-y divide-ink-100">
+            {sectionRows.map((row) =>
+              row.access === "editable" ? (
+                <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
+              ) : (
+                <EnvironmentSettingRow key={row.key} row={row} />
+              ),
+            )}
+          </div>
         </div>
       </div>
 
