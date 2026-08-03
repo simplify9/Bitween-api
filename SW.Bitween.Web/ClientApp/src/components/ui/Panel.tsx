@@ -92,7 +92,7 @@ export function UnsavedBar({
   onDiscard: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 backdrop-blur lg:left-62">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 backdrop-blur lg:left-[var(--sidebar-w,15.5rem)]">
       {/* right padding keeps the fixed demo pill clear of the save button */}
       <div className="flex items-center justify-between gap-3 py-2.5 pr-40 pl-4 sm:pl-6">
         <div className="min-w-0">

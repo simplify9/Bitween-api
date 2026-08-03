@@ -8,6 +8,7 @@ import {
   type IntegrationRow,
   type IntegrationSetupRef,
   type IntegrationType,
+  type ScheduleHealth,
   type TrailEntry,
 } from "../../api";
 import { useSessionCan } from "../../auth/guards";
@@ -51,6 +52,61 @@ export function IntegrationStatusBadges({ enabled, paused }: { enabled: boolean;
       {paused && <Badge tone="warn">Paused</Badge>}
     </span>
   );
+}
+
+/**
+ * A fault the scheduler itself reports, which contradicts whatever the
+ * integration's own badges say — "Active" with no trigger behind it is still a
+ * job that never runs. Shared by the scheduled-jobs table and the pipeline rail
+ * so the two can't drift apart.
+ */
+export function scheduleFault(
+  health: ScheduleHealth | undefined,
+): { label: string; tone: "warn" | "danger"; title: string } | null {
+  if (!health) return null;
+
+  if (health.stuck)
+    return {
+      label: "Stuck",
+      tone: "danger",
+      title:
+        "Flagged as running with nothing executing — every later run is being skipped. Usually a run that was killed rather than failing.",
+    };
+
+  switch (health.state) {
+    case "Missing":
+      return {
+        label: "Not scheduled",
+        tone: "danger",
+        title: "The scheduler has no trigger for this schedule — it will never fire.",
+      };
+    case "Error":
+      return {
+        label: "Trigger error",
+        tone: "danger",
+        title: "The scheduler put this trigger in an error state; it will not fire again until fixed.",
+      };
+    case "Paused":
+      return {
+        label: "Trigger paused",
+        tone: "warn",
+        title: "Paused inside the scheduler — this is not the integration's own pause.",
+      };
+    case "Blocked":
+      return {
+        label: "Blocked",
+        tone: "warn",
+        title: "A previous run is still going and this job doesn't allow overlap, so fires are being held.",
+      };
+    case "Complete":
+      return {
+        label: "Schedule ended",
+        tone: "warn",
+        title: "The schedule has run to completion and has no future fire times.",
+      };
+    default:
+      return null;
+  }
 }
 
 export function HealthBadge({

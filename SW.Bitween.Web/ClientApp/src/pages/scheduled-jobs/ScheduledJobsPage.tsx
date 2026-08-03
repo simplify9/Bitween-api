@@ -12,6 +12,7 @@ import {
   HealthBadge,
   IntegrationStatusBadges,
   LinkListCell,
+  scheduleFault,
   useIntegrationsCache,
   useRetryPolicyNames,
   useWorkGroupNames,
@@ -63,49 +64,13 @@ function ReceiveNowButton({ job }: { job: IntegrationRow }) {
  * outranks the ordinary badges rather than sitting beside them.
  */
 function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
-  if (!health) return null;
-
-  if (health.stuck)
-    return (
-      <Badge tone="danger" title="Flagged as running with nothing executing — every later run is being skipped. Usually a run that was killed rather than failing.">
-        Stuck
-      </Badge>
-    );
-
-  switch (health.state) {
-    case "Missing":
-      return (
-        <Badge tone="danger" title="The scheduler has no trigger for this schedule — it will never fire.">
-          Not scheduled
-        </Badge>
-      );
-    case "Error":
-      return (
-        <Badge tone="danger" title="The scheduler put this trigger in an error state; it will not fire again until fixed.">
-          Trigger error
-        </Badge>
-      );
-    case "Paused":
-      return (
-        <Badge tone="warn" title="Paused inside the scheduler — this is not the integration's own pause.">
-          Trigger paused
-        </Badge>
-      );
-    case "Blocked":
-      return (
-        <Badge tone="warn" title="A previous run is still going and this job doesn't allow overlap, so fires are being held.">
-          Blocked
-        </Badge>
-      );
-    case "Complete":
-      return (
-        <Badge tone="warn" title="The schedule has run to completion and has no future fire times.">
-          Schedule ended
-        </Badge>
-      );
-    default:
-      return null;
-  }
+  const fault = scheduleFault(health);
+  if (!fault) return null;
+  return (
+    <Badge tone={fault.tone} title={fault.title}>
+      {fault.label}
+    </Badge>
+  );
 }
 
 /**

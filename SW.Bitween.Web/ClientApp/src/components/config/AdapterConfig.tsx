@@ -7,6 +7,14 @@ import { Button } from "../ui/basics";
 import { Field } from "../ui/forms";
 import { SearchSelect } from "../ui/SearchSelect";
 
+/** What the picker is choosing, named for the band above the fields. */
+const KIND_LABELS: Record<AdapterKind, string> = {
+  receiver: "Receiver",
+  validator: "Validator",
+  mapper: "Mapper",
+  handler: "Handler",
+};
+
 export function useAdapterCatalog(kind: AdapterKind) {
   return useQuery({
     queryKey: ["adapters", kind],
@@ -454,21 +462,45 @@ export function AdapterConfig({
 
   return (
     <div className="space-y-4">
-      <div className="max-w-sm">
-        <SearchSelect
-          aria-label={`${kind} adapter`}
-          value={adapterId ?? ""}
-          disabled={disabled || catalog.isPending}
-          onChange={pick}
-          placeholder={`Pick a ${kind}…`}
-          clearLabel={required ? undefined : noneLabel}
-          options={(catalog.data ?? []).map((a) => ({
-            value: a.id,
-            label: a.label,
-            code: a.id,
-            hint: a.native ? "Native" : a.versions.length > 0 ? `v${a.versions.at(-1)}` : "Custom",
-          }))}
-        />
+      {/*
+        The adapter is what this step *is*; the fields below are its settings.
+        Left as a bare select at the top of the same stack it read as just another
+        property — the first one, unlabelled — so it gets its own tinted band,
+        outside the field grid, everywhere AdapterConfig is used.
+      */}
+      <div className="rounded-xl border border-ink-200 bg-ink-50/70 px-3.5 py-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+            {KIND_LABELS[kind]}
+          </span>
+          <div className="w-full max-w-sm">
+            <SearchSelect
+              aria-label={`${kind} adapter`}
+              value={adapterId ?? ""}
+              disabled={disabled || catalog.isPending}
+              onChange={pick}
+              placeholder={`Pick a ${kind}…`}
+              clearLabel={required ? undefined : noneLabel}
+              options={(catalog.data ?? []).map((a) => ({
+                value: a.id,
+                label: a.label,
+                code: a.id,
+                hint: a.native ? "Native" : a.versions.length > 0 ? `v${a.versions.at(-1)}` : "Custom",
+              }))}
+            />
+          </div>
+          {adapter && (
+            <span className="text-[12px] text-ink-400">
+              {adapter.native
+                ? "Runs in-process"
+                : adapter.versions.length > 0
+                  ? `v${adapter.versions.at(-1)}`
+                  : "Custom package"}
+              {adapter.props.length > 0 &&
+                ` · ${adapter.props.length} setting${adapter.props.length === 1 ? "" : "s"}`}
+            </span>
+          )}
+        </div>
       </div>
       {adapter && adapter.props.length > 0 && (
         <div className="space-y-4">

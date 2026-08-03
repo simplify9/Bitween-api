@@ -1,7 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, ChevronDown, ChevronRight, LogOut, Menu as MenuIcon, UserRound, X } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  LogOut,
+  Menu as MenuIcon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  UserRound,
+  X,
+} from "lucide-react";
 import type { SettingRow } from "../../api";
 import { useSession } from "../../auth/SessionContext";
 import { type Branding, useApplyBranding } from "../../lib/branding";
@@ -93,7 +103,18 @@ const loadCollapsed = (): string[] => {
   }
 };
 
-function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logoUrl: string | null }) {
+function SidebarContent({
+  onNavigate,
+  logoUrl,
+  railed = false,
+  onToggleRail,
+}: {
+  onNavigate?: () => void;
+  logoUrl: string | null;
+  /** Icon-only rail. Desktop only — the mobile drawer is always full width. */
+  railed?: boolean;
+  onToggleRail?: () => void;
+}) {
   const { session, signOut } = useSession();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -113,46 +134,69 @@ function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logo
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-5 pt-6 pb-4">
-        <Link to="/dashboard">
+      <div className={`flex items-center gap-2 pt-6 pb-4 ${railed ? "flex-col px-2" : "px-5"}`}>
+        <Link to="/dashboard" className="min-w-0 flex-1">
           <img
-            src={logoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull-light.svg"}
+            src={
+              railed
+                ? import.meta.env.BASE_URL + "brand/BitweenIcon.svg"
+                : (logoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull-light.svg")
+            }
             alt="Bitween"
-            className="h-6 w-fit"
+            className={railed ? "mx-auto h-6 w-6" : "h-6 w-fit"}
           />
         </Link>
+        {onToggleRail && (
+          <button
+            onClick={onToggleRail}
+            aria-label={railed ? "Expand navigation" : "Collapse navigation"}
+            title={`${railed ? "Expand" : "Collapse"} navigation  [`}
+            className="shrink-0 rounded-md p-1.5 text-ink-500 hover:bg-ink-900 hover:text-ink-100"
+          >
+            {railed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          </button>
+        )}
       </div>
 
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
+      <nav className={`flex-1 space-y-4 overflow-y-auto py-3 ${railed ? "px-2" : "px-3"}`}>
         {groups.map((group) => {
           // never hide the page the user is on
           const containsActive = group.items.some((item) => pathname.startsWith(item.path));
           const isCollapsed = collapsed.includes(group.label) && !containsActive;
           return (
             <div key={group.label}>
-              <button
-                onClick={() => toggleGroup(group.label)}
-                aria-expanded={!isCollapsed}
-                className="flex w-full items-center justify-between rounded-md px-2.5 pb-1.5 text-left hover:text-ink-300"
-              >
-                <span className="text-[11px] font-semibold tracking-widest text-ink-500 uppercase">
-                  {group.label}
-                </span>
-                {isCollapsed ? (
-                  <ChevronRight className="size-3 text-ink-600" aria-hidden />
-                ) : (
-                  <ChevronDown className="size-3 text-ink-600" aria-hidden />
-                )}
-              </button>
-              {!isCollapsed && (
+              {railed ? (
+                // The group label has nowhere to go in a 4rem rail, but the
+                // grouping still carries meaning — keep it as a rule.
+                <div className="mx-2 mb-1.5 border-t border-ink-900" aria-hidden />
+              ) : (
+                <button
+                  onClick={() => toggleGroup(group.label)}
+                  aria-expanded={!isCollapsed}
+                  className="flex w-full items-center justify-between rounded-md px-2.5 pb-1.5 text-left hover:text-ink-300"
+                >
+                  <span className="text-[11px] font-semibold tracking-widest text-ink-500 uppercase">
+                    {group.label}
+                  </span>
+                  {isCollapsed ? (
+                    <ChevronRight className="size-3 text-ink-600" aria-hidden />
+                  ) : (
+                    <ChevronDown className="size-3 text-ink-600" aria-hidden />
+                  )}
+                </button>
+              )}
+              {(railed || !isCollapsed) && (
                 <ul className="space-y-0.5">
                   {group.items.map((item) => (
                     <li key={item.path}>
                       <NavLink
                         to={item.path}
                         onClick={onNavigate}
+                        title={railed ? item.label : undefined}
                         className={({ isActive }) =>
-                          `group relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
+                          `group relative flex items-center rounded-lg py-1.5 text-sm transition-colors ${
+                            railed ? "justify-center px-2" : "gap-2.5 px-2.5"
+                          } ${
                             isActive
                               ? "bg-ink-800 font-medium text-white"
                               : "text-ink-300 hover:bg-ink-900 hover:text-ink-100"
@@ -162,10 +206,14 @@ function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logo
                         {({ isActive }) => (
                           <>
                             {isActive && (
-                              <span className="absolute inset-y-1 -left-3 w-1 rounded-r-full bg-crimson-500" />
+                              <span
+                                className={`absolute inset-y-1 w-1 rounded-r-full bg-crimson-500 ${
+                                  railed ? "-left-2" : "-left-3"
+                                }`}
+                              />
                             )}
                             <item.icon className="size-4 shrink-0" aria-hidden />
-                            <span className="truncate">{item.label}</span>
+                            {!railed && <span className="truncate">{item.label}</span>}
                           </>
                         )}
                       </NavLink>
@@ -178,24 +226,29 @@ function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logo
         })}
       </nav>
 
-      <div className="border-t border-ink-900 p-3">
+      <div className={`border-t border-ink-900 ${railed ? "p-2" : "p-3"}`}>
         <Menu
           align="left"
           side="up"
           trigger={
             <button
               aria-label="Account menu"
-              className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-ink-900"
+              title={railed ? session.user.displayName : undefined}
+              className={`flex w-full items-center rounded-lg py-1.5 text-left hover:bg-ink-900 ${
+                railed ? "justify-center px-1" : "gap-2.5 px-2"
+              }`}
             >
               <Avatar name={session.user.displayName} size="sm" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-ink-100">
-                  {session.user.displayName}
+              {!railed && (
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-ink-100">
+                    {session.user.displayName}
+                  </span>
+                  <span className="block truncate text-[11px] text-ink-400">
+                    {session.roles.map((r) => r.name).join(", ") || "No roles"}
+                  </span>
                 </span>
-                <span className="block truncate text-[11px] text-ink-400">
-                  {session.roles.map((r) => r.name).join(", ") || "No roles"}
-                </span>
-              </span>
+              )}
             </button>
           }
         >
@@ -211,12 +264,44 @@ function SidebarContent({ onNavigate, logoUrl }: { onNavigate?: () => void; logo
   );
 }
 
+const RAILED_KEY = "bitween-nav-railed";
+
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
   const branding = useApplyBranding();
 
+  const toggleRail = () =>
+    setRailed((prev) => {
+      localStorage.setItem(RAILED_KEY, prev ? "0" : "1");
+      return !prev;
+    });
+
+  // `[` toggles the rail. No modifier, so it has to stand down while the user is
+  // typing — an operator editing a handler URL types brackets constantly.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "[" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      if (
+        el instanceof HTMLElement &&
+        (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))
+      )
+        return;
+      e.preventDefault();
+      toggleRail();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[248px_1fr]">
+    <div
+      // Published as a variable so anything pinned across the content column —
+      // the unsaved-changes bars — tracks the sidebar instead of hard-coding it.
+      style={{ "--sidebar-w": railed ? "4rem" : "15.5rem" } as React.CSSProperties}
+      className="min-h-screen lg:grid lg:grid-cols-[var(--sidebar-w)_1fr]"
+    >
       {/* mobile top bar */}
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-ink-100 bg-white px-4 py-2.5 lg:hidden">
         <button
@@ -260,7 +345,11 @@ export function AppShell() {
 
       {/* desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen bg-ink-950 lg:block">
-        <SidebarContent logoUrl={branding.sidebarLogoUrl} />
+        <SidebarContent
+          logoUrl={branding.sidebarLogoUrl}
+          railed={railed}
+          onToggleRail={toggleRail}
+        />
       </aside>
 
       <main className="flex min-w-0 flex-col">
