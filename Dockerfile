@@ -8,7 +8,7 @@ WORKDIR /app
 EXPOSE 8080
 EXPOSE 443
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY ["SW.Bitween.Web/SW.Bitween.Web.csproj", "SW.Bitween.Web/"]
 COPY ["SW.Bitween.Api/SW.Bitween.Api.csproj", "SW.Bitween.Api/"]
