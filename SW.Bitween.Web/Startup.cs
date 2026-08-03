@@ -72,6 +72,7 @@ namespace SW.Bitween.Web
             services.AddScoped<NativeAdapterDiscoveryService>();
             services.AddScoped<XchangeService>();
             services.AddScoped<Resources.Ops.LaneResolver>();
+            services.AddScoped<AdapterRequirements>();
             services.AddHttpContextAccessor();
 
             services.AddScoped<SubscriptionSchedulerService>();

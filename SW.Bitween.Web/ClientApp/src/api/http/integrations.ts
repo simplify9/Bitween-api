@@ -360,32 +360,33 @@ export const integrationMethods = {
     responseMessageTypeName?: string | null;
     enabled?: boolean;
   }): Promise<Integration> {
-    // Create has no field for adapters/schedules/retry policy/response/enabled
-    // at all — every subscription is born Inactive with empty pipelines — so
-    // those all need an immediate follow-up update, which is the same update
-    // call the detail page saves through.
+    // One call, one transaction. This used to be a POST followed by a PATCH,
+    // because create accepted only the name/type/document — and since the POST
+    // committed on its own, a rejected PATCH left an empty subscription behind.
     const id = await post<number>("/subscriptions", {
       name: input.name,
       documentId: input.informationTypeId,
       type: input.type,
       partnerId: null,
       aggregationForId: null,
-    });
-    const current = await fetchRaw(id);
-    await applyChanges(id, current, {
       receiverId: input.receiverId ?? null,
-      receiverProperties: input.receiverProperties ?? {},
+      receiverProperties: toKvArray(input.receiverProperties ?? {}),
       validatorId: input.validatorId ?? null,
-      validatorProperties: input.validatorProperties ?? {},
+      validatorProperties: toKvArray(input.validatorProperties ?? {}),
       mapperId: input.mapperId ?? null,
-      mapperProperties: input.mapperProperties ?? {},
+      mapperProperties: toKvArray(input.mapperProperties ?? {}),
       handlerId: input.handlerId ?? null,
-      handlerProperties: input.handlerProperties ?? {},
-      schedules: input.schedules ?? [],
+      handlerProperties: toKvArray(input.handlerProperties ?? {}),
+      documentFilter: [],
+      // Undefined rather than [] when there is no schedule: an empty array on a
+      // Receiving subscription is rejected, and a job created without one is a
+      // legitimate (if idle) thing to have.
+      schedules: input.schedules?.length ? toRawSchedules(input.schedules) : undefined,
       retryPolicyId: input.retryPolicyId ?? null,
-      responseIntegrationId: input.responseIntegrationId ?? null,
+      customRetryPolicy: null,
+      responseSubscriptionId: input.responseIntegrationId ?? null,
       responseMessageTypeName: input.responseMessageTypeName ?? null,
-      enabled: input.enabled ?? false,
+      inactive: !(input.enabled ?? false),
     });
     return toIntegration(await fetchRaw(id), id);
   },

@@ -1,12 +1,9 @@
 ﻿using FluentValidation;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -19,8 +16,6 @@ namespace SW.Bitween.Resources.Subscriptions
         private readonly IInfolinkCache _BitweenCache;
         private readonly RequestContext _requestContext;
         private readonly SubscriptionSchedulerService _subScheduler;
-
-        private const string PrivateSentinel = "__private__";
 
         public Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache, RequestContext requestContext, SubscriptionSchedulerService subScheduler)
         {
@@ -39,25 +34,12 @@ namespace SW.Bitween.Resources.Subscriptions
             var oldSchedules = entity.Schedules.ToList();
 
             var trail = new SubscriptionTrail(SubscriptionTrialCode.Updated, entity);
+
+            // Name and the runtime-state fields, which only an update may set.
             _dbContext.Entry(entity).SetProperties(model);
 
-            entity.SetSchedules(model.Schedules.Select(dto => new Schedule(dto.Recurrence,
-                TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
-            entity.SetDictionaries(
-                MergeWithOriginal(entity.HandlerProperties, model.HandlerProperties),
-                MergeWithOriginal(entity.MapperProperties, model.MapperProperties),
-                MergeWithOriginal(entity.ReceiverProperties, model.ReceiverProperties),
-                model.DocumentFilter.ToDictionary(),
-                MergeWithOriginal(entity.ValidatorProperties, model.ValidatorProperties)
-            );
-            entity.SetMatchExpression(model.MatchExpression);
-
-            if (model.CustomRetryPolicy == null && model.RetryPolicyId != null &&
-                !await _dbContext.Set<RetryPolicy>().AnyAsync(p => p.Id == model.RetryPolicyId))
-                throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
-                    $"Retry policy {model.RetryPolicyId} was not found.");
-
-            entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
+            // Everything a person configures, through the same code the create handler runs.
+            await SubscriptionConfigurationApplier.Apply(_dbContext, entity, model);
 
             trail.SetAfter(entity);
             _dbContext.Add(trail);
@@ -68,27 +50,6 @@ namespace SW.Bitween.Resources.Subscriptions
             await _subScheduler.Sync(entity, oldSchedules);
 
             return null;
-        }
-
-        private static System.Collections.Generic.Dictionary<string, string> MergeWithOriginal(
-            IReadOnlyDictionary<string, string> original,
-            ICollection<KeyAndValue> incoming)
-        {
-            var result = new System.Collections.Generic.Dictionary<string, string>();
-            foreach (var kv in incoming ?? Enumerable.Empty<KeyAndValue>())
-            {
-                if (kv.Value == PrivateSentinel)
-                {
-                    // Private prop: restore the original stored value, don't overwrite with sentinel
-                    if (original != null && original.TryGetValue(kv.Key, out var stored))
-                        result[kv.Key] = stored;
-                }
-                else
-                {
-                    result[kv.Key] = kv.Value;
-                }
-            }
-            return result;
         }
 
         // private static Dictionary<string, string> ReplaceHiddenData(IReadOnlyDictionary<string, string> original,
@@ -144,7 +105,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 return dbContext.FindAsync<Subscription>(subId);
             }
-            public Validate(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor, NativeAdapterDiscoveryService nativeAdapterDiscovery, IServiceProvider serviceProvider)
+            public Validate(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor, AdapterRequirements adapterRequirements)
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
@@ -152,57 +113,22 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 When(i => i.MapperId != null, () =>
                 {
-                    RuleFor(i => i.MapperProperties).CustomAsync(async (i, context, _) =>
+                    RuleFor(i => i.MapperProperties).CustomAsync(async (provided, context, _) =>
                     {
-                        var mapperId = ((SubscriptionUpdate)context.InstanceToValidate).MapperId;
-                        var mustProps = Enumerable.Empty<string>();
-
-                        // Check if it's a native adapter
-                        if (mapperId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var properties = nativeAdapterDiscovery.GetStartupValues(mapperId);
-                            mustProps = properties.Where(p => !p.Value.Optional).Select(p => p.Key);
-                        }
-                        else
-                        {
-                            var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-                            await serverless.StartAsync(mapperId, null);
-                            mustProps = (await serverless.GetExpectedStartupValues())
-                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
-                        }
-
-                        var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
-                            .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
-                        if (missing.Any())
+                        var missing = await adapterRequirements.MissingFor(
+                            ((SubscriptionUpdate)context.InstanceToValidate).MapperId, provided);
+                        if (missing.Count > 0)
                             context.AddFailure($"Missing: {string.Join(",", missing)}");
                     });
                 });
 
                 When(i => i.HandlerId != null, () =>
                 {
-
-                    RuleFor(i => i.HandlerProperties).CustomAsync(async (i, context, ct) =>
+                    RuleFor(i => i.HandlerProperties).CustomAsync(async (provided, context, _) =>
                     {
-                        var handlerId = ((SubscriptionUpdate)context.InstanceToValidate).HandlerId;
-                        var mustProps = Enumerable.Empty<string>();
-
-                        // Check if it's a native adapter
-                        if (handlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var properties = nativeAdapterDiscovery.GetStartupValues(handlerId);
-                            mustProps = properties.Where(p => !p.Value.Optional).Select(p => p.Key);
-                        }
-                        else
-                        {
-                            var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-                            await serverless.StartAsync(handlerId, null);
-                            mustProps = (await serverless.GetExpectedStartupValues())
-                                .Where(p => p.Value.Optional == false).Select(p => p.Key);
-                        }
-
-                        var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
-                            .Except(i.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
-                        if (missing.Any())
+                        var missing = await adapterRequirements.MissingFor(
+                            ((SubscriptionUpdate)context.InstanceToValidate).HandlerId, provided);
+                        if (missing.Count > 0)
                             context.AddFailure($"Missing: {string.Join(",", missing)}");
                     });
 
@@ -227,29 +153,9 @@ namespace SW.Bitween.Resources.Subscriptions
                         if (model.Schedules == null || !model.Schedules.Any())
                             context.AddFailure(nameof(model.Schedules), "Schedules are required for Receiving subscriptions");
 
-                        if (!string.IsNullOrEmpty(model.ReceiverId))
-                        {
-                            var mustProps = Enumerable.Empty<string>();
-
-                            // Check if it's a native adapter
-                            if (model.ReceiverId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
-                            {
-                                var properties = nativeAdapterDiscovery.GetStartupValues(model.ReceiverId);
-                                mustProps = properties.Where(p => !p.Value.Optional).Select(p => p.Key);
-                            }
-                            else
-                            {
-                                var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-                                await serverless.StartAsync(model.ReceiverId, null);
-                                mustProps = (await serverless.GetExpectedStartupValues())
-                                    .Where(p => p.Value.Optional == false).Select(p => p.Key);
-                            }
-
-                            var missing = mustProps.ToHashSet(StringComparer.OrdinalIgnoreCase)
-                                .Except(model.ReceiverProperties.Where(p => !string.IsNullOrEmpty(p.Value)).Select(p => p.Key));
-                            if (missing.Any())
-                                context.AddFailure(nameof(model.ReceiverProperties), $"Missing properties: {string.Join(",", missing)}");
-                        }
+                        var missing = await adapterRequirements.MissingFor(model.ReceiverId, model.ReceiverProperties);
+                        if (missing.Count > 0)
+                            context.AddFailure(nameof(model.ReceiverProperties), $"Missing properties: {string.Join(",", missing)}");
                     }
                 });
 

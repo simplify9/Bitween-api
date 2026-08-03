@@ -125,9 +125,54 @@ namespace SW.Bitween.Model
         public int? AggregationForId { get; set; }
     }
 
-    public class SubscriptionCreate : SubscriptionCreateUpdateBase
+    /// <summary>
+    /// How a subscription is configured — everything a person chooses. Shared by create and
+    /// update so the two can't drift: a field here is applied by both, through the same code.
+    /// <para>
+    /// Runtime state (what the subscription has since done — failure counts, last exception,
+    /// next fire time) deliberately lives on <see cref="SubscriptionUpdate"/> only. None of it
+    /// is meaningful for something that doesn't exist yet.
+    /// </para>
+    /// </summary>
+    public abstract class SubscriptionConfiguration : SubscriptionCreateUpdateBase
+    {
+        public string HandlerId { get; set; }
+        public string MapperId { get; set; }
+        public string ReceiverId { get; set; }
+        public string ValidatorId { get; set; }
+        public int? CategoryId { get; set; }
+        public int? WorkGroupId { get; set; }
+
+        public IPropertyMatchSpecification MatchExpression { get; set; }
+        public ICollection<KeyAndValue> HandlerProperties { get; set; }
+        public ICollection<KeyAndValue> ValidatorProperties { get; set; }
+        public ICollection<KeyAndValue> MapperProperties { get; set; }
+        public ICollection<KeyAndValue> ReceiverProperties { get; set; }
+        public ICollection<KeyAndValue> DocumentFilter { get; set; }
+
+        public ICollection<ScheduleView> Schedules { get; set; }
+        public int? ResponseSubscriptionId { get; set; }
+        public string ResponseMessageTypeName { get; set; }
+
+        public int? RetryPolicyId { get; set; }
+        public CustomRetryPolicy CustomRetryPolicy { get; set; }
+    }
+
+    /// <summary>
+    /// Creates a subscription complete, in one transaction. Everything beyond
+    /// <see cref="SubscriptionCreateUpdateBase"/> and <see cref="Type"/> is optional — a caller
+    /// that sends only those still gets the empty, inactive subscription it always did.
+    /// </summary>
+    public class SubscriptionCreate : SubscriptionConfiguration
     {
         public SubscriptionType Type { get; set; }
+
+        /// <summary>
+        /// Null (the default) means born inactive, as subscriptions always have been. Pass
+        /// <c>false</c> to have it live the moment it exists. Nullable on purpose: a plain bool
+        /// would silently activate every caller that doesn't mention it.
+        /// </summary>
+        public bool? Inactive { get; set; }
     }
 
     public class SubscriptionSearch : SubscriptionGet
@@ -137,29 +182,10 @@ namespace SW.Bitween.Model
         public bool? IsRunning { get; set; }
     }
 
-    public class SubscriptionUpdate : SubscriptionCreateUpdateBase
+    public class SubscriptionUpdate : SubscriptionConfiguration
     {
-        public string HandlerId { get; set; }
-        public string MapperId { get; set; }
-        public string ReceiverId { get; set; }
-        public string ValidatorId { get; set; }
-        public int? CategoryId { get; set; }
-        public int? WorkGroupId { get; set; }
-
         public bool Temporary { get; set; }
-        public IPropertyMatchSpecification MatchExpression { get; set; }
-        public ICollection<KeyAndValue> HandlerProperties { get; set; }
-        public ICollection<KeyAndValue> ValidatorProperties { get; set; }
-        public ICollection<KeyAndValue> MapperProperties { get; set; }
-        public ICollection<KeyAndValue> ReceiverProperties { get; set; }
-        public ICollection<KeyAndValue> DocumentFilter { get; set; }
-
         public bool Inactive { get; set; }
-
-        //public ICollection<ScheduleView> AggregationSchedules { get; set; }
-        public ICollection<ScheduleView> Schedules { get; set; }
-        public int? ResponseSubscriptionId { get; set; }
-        public string ResponseMessageTypeName { get; set; }
 
         public DateTime? ReceiveOn { get; set; }
         public DateTime? AggregateOn { get; set; }
@@ -169,9 +195,6 @@ namespace SW.Bitween.Model
         public DateTime? PausedOn { get; set; }
         public string CategoryCode { get; set; }
         public string CategoryDescription { get; set; }
-
-        public int? RetryPolicyId { get; set; }
-        public CustomRetryPolicy CustomRetryPolicy { get; set; }
     }
 
     public class SubscriptionGet : SubscriptionUpdate
