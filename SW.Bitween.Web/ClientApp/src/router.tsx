@@ -16,9 +16,9 @@ import { ScheduledRetriesPage } from "./pages/scheduled-retries/ScheduledRetries
 import { ApiGatewayNewPage } from "./pages/api-gateways/ApiGatewayNewPage";
 import { ApiGatewaysPage } from "./pages/api-gateways/ApiGatewaysPage";
 import { ApiGatewayPage } from "./pages/api-gateways/ApiGatewayPage";
-import { AttachPartnerWizard } from "./pages/api-gateways/AttachPartnerWizard";
+import { AttachPartnerPage } from "./pages/api-gateways/AttachPartnerPage";
 import { EditAttachmentPage } from "./pages/api-gateways/EditAttachmentPage";
-import { AddRouteWizard } from "./pages/bus-gateways/AddRouteWizard";
+import { AddRoutePage } from "./pages/bus-gateways/AddRoutePage";
 import { BusGatewayNewPage } from "./pages/bus-gateways/BusGatewayNewPage";
 import { BusGatewayPage } from "./pages/bus-gateways/BusGatewayPage";
 import { BusGatewaysPage } from "./pages/bus-gateways/BusGatewaysPage";
@@ -36,7 +36,7 @@ import { NotifiersPage } from "./pages/notifiers/NotifiersPage";
 import { PartnerNewPage } from "./pages/partners/PartnerNewPage";
 import { PartnerPage } from "./pages/partners/PartnerPage";
 import { PartnersPage } from "./pages/partners/PartnersPage";
-import { NewScheduledJobWizard } from "./pages/scheduled-jobs/NewScheduledJobWizard";
+import { NewScheduledJobPage } from "./pages/scheduled-jobs/NewScheduledJobPage";
 import { ScheduledJobsPage } from "./pages/scheduled-jobs/ScheduledJobsPage";
 import { RetryPoliciesPage } from "./pages/retry-policies/RetryPoliciesPage";
 import { RetryPolicyPage } from "./pages/retry-policies/RetryPolicyPage";
@@ -239,7 +239,7 @@ export const router = createBrowserRouter([
             path: "api-gateways/:id/attach",
             element: (
               <RequirePermission permission="api-gateways.edit">
-                <AttachPartnerWizard />
+                <AttachPartnerPage />
               </RequirePermission>
             ),
           },
@@ -271,7 +271,7 @@ export const router = createBrowserRouter([
             path: "bus-gateways/:id/add-route",
             element: (
               <RequirePermission permission="bus-gateways.edit">
-                <AddRouteWizard />
+                <AddRoutePage />
               </RequirePermission>
             ),
           },
@@ -287,7 +287,7 @@ export const router = createBrowserRouter([
             path: "scheduled-jobs/new",
             element: (
               <RequirePermission permission="subscriptions.create">
-                <NewScheduledJobWizard />
+                <NewScheduledJobPage />
               </RequirePermission>
             ),
           },

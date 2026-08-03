@@ -356,11 +356,14 @@ export const integrationMethods = {
     handlerProperties?: Record<string, string>;
     schedules?: Schedule[];
     retryPolicyId?: number | null;
+    responseIntegrationId?: number | null;
+    responseMessageTypeName?: string | null;
     enabled?: boolean;
   }): Promise<Integration> {
-    // Create has no field for adapters/schedules/retry policy/enabled at all —
-    // every subscription is born Inactive with empty pipelines — so those all
-    // need an immediate follow-up update.
+    // Create has no field for adapters/schedules/retry policy/response/enabled
+    // at all — every subscription is born Inactive with empty pipelines — so
+    // those all need an immediate follow-up update, which is the same update
+    // call the detail page saves through.
     const id = await post<number>("/subscriptions", {
       name: input.name,
       documentId: input.informationTypeId,
@@ -380,6 +383,8 @@ export const integrationMethods = {
       handlerProperties: input.handlerProperties ?? {},
       schedules: input.schedules ?? [],
       retryPolicyId: input.retryPolicyId ?? null,
+      responseIntegrationId: input.responseIntegrationId ?? null,
+      responseMessageTypeName: input.responseMessageTypeName ?? null,
       enabled: input.enabled ?? false,
     });
     return toIntegration(await fetchRaw(id), id);

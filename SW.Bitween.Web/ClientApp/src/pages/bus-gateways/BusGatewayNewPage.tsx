@@ -7,7 +7,7 @@ import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { InfoTypePicker } from "../../components/config/pickers";
-import { usePersistentDraft } from "../../components/config/wizard";
+import { usePersistentDraft } from "../../lib/persistentDraft";
 import { takePicked, useHereAsReturnTarget, useReturnContext, withReturn } from "../../lib/returnTo";
 
 interface Draft {

@@ -152,7 +152,7 @@ export interface ApiClient {
   // — integrations —
   listIntegrationRows(): Promise<IntegrationRow[]>;
   getIntegration(id: number): Promise<IntegrationDetail>;
-  /** Only Receiving / GatewayApiCall / BusGateway — always via the entry-point wizards. */
+  /** Only Receiving / GatewayApiCall / BusGateway — always from a create page. */
   createIntegration(input: {
     type: IntegrationType;
     name: string;
@@ -167,6 +167,8 @@ export interface ApiClient {
     handlerProperties?: Record<string, string>;
     schedules?: Schedule[];
     retryPolicyId?: number | null;
+    responseIntegrationId?: number | null;
+    responseMessageTypeName?: string | null;
     enabled?: boolean;
   }): Promise<Integration>;
   updateIntegration(

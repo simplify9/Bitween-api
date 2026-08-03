@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Search, Workflow } from "lucide-react";
+import { Search, Workflow } from "lucide-react";
 import { api, type IntegrationRow, type IntegrationType } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Table } from "../../components/ui/Table";
 import {
   HealthBadge,
@@ -101,16 +101,14 @@ export function IntegrationsPage() {
                 push in), bus gateways (messages off the bus) and scheduled jobs (pulled in on a
                 schedule). A scheduled job is also an integration, so it appears in both places.
               </p>
+              <p>
+                There is nothing to create from here. A gateway integration is created while
+                attaching a partner or adding a route, so it is wired up the moment it exists; a
+                scheduled job is created from the Scheduled jobs page.
+              </p>
             </>
           ),
         }}
-        actions={
-          <Can permission="subscriptions.create">
-            <Button variant="primary" onClick={() => navigate("/subscriptions/new")}>
-              <Plus className="size-4" /> New integration
-            </Button>
-          </Can>
-        }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { IntegrationPicker } from "../../components/config/pickers";
-import { usePersistentDraft } from "../../components/config/wizard";
+import { usePersistentDraft } from "../../lib/persistentDraft";
 import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { takePicked, useHereAsReturnTarget, useReturnContext } from "../../lib/returnTo";
 
@@ -108,6 +108,7 @@ export function EditAttachmentPage() {
           value={draft.integrationId}
           onChange={(integrationId) => update({ integrationId })}
           detourCtx={detourCtx}
+          triggerHint={`${g.name} → ${attachment.partnerName}`}
         />
         <FormError>{save.error?.message}</FormError>
         <div className="flex justify-end gap-2 border-t border-ink-100 pt-4">
