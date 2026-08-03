@@ -27,6 +27,12 @@
     <!-- Compile-time only, for validating a cron expression before it's stored. Quartz already
          ships with the app through SimplyWorks.Scheduler.EfCore. -->
     <PackageReference Include="Quartz" Version="3.15.0" />
+    <!-- The queue-name prefix, vhost and management credentials all live on BusOptions, which is
+         in the implementation package rather than the contracts one. Ops/UnattendedQueues needs
+         them to ask the broker what exists; without this it would have to rebuild each of them
+         from configuration and get them subtly wrong. Already in the app through SW.Bitween.Web —
+         keep the version in step with it. -->
+    <PackageReference Include="SimplyWorks.Bus" Version="8.1.11" />
     <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.11" />
     <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="8.1.2" />
     <PackageReference Include="SimplyWorks.Scheduler.Sdk" Version="8.1.7" />

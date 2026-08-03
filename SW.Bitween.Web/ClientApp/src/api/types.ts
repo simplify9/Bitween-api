@@ -724,26 +724,22 @@ export interface QueueHealthSummary {
 }
 
 /**
- * What a queue is for, decoded from its name. The backend names queues after the
- * C# consumer class and the bus message type, neither of which means anything to
- * the person on call — see `queueHealth.ts` for the mapping.
+ * What a queue is for. Resolved by `Ops/LaneResolver`, which sits next to
+ * `WorkGroup.GetBusMessageName()` — the formula that builds the name in the
+ * first place. The wording for each lane is this app's, in `QueueHealthPage`.
  */
-export type QueueLane = "front-door" | "worker" | "notifications" | "legacy" | "control";
+export type QueueLane = "FrontDoor" | "Work" | "Notifications" | "Legacy" | "Control";
 
 export interface ConsumerHealth {
   name: string;
   messageName: string;
   queueName: string;
   lane: QueueLane;
-  /** What this lane is, in the operator's words. Falls back to the raw message name. */
+  /** The name of the thing this lane belongs to; the raw message name if it no longer resolves. */
   title: string;
-  /** What it does, one short phrase. */
-  role: string;
-  /** True when the queue exists but the thing it was named after doesn't any more. */
-  orphaned: boolean;
-  /** Set when the consumer belongs to a work group, for drill-down. */
+  /** Set when the lane belongs to a work group, for drill-down. */
   workGroupId: number | null;
-  /** Set on a front-door lane, for drill-down to the information type it listens for. */
+  /** Set on a front door, for drill-down to the information type it listens for. */
   informationTypeId: number | null;
   totalNodes: number;
   processingCount: number;
@@ -779,6 +775,20 @@ export interface DeadLetterRow {
   lastFailedAt: string | null;
 }
 
+/**
+ * A queue RabbitMQ has that nothing here reads. Deleting or renaming a work group
+ * leaves its queues behind, and every other view on this page is built from what the
+ * running process declares — so these are invisible everywhere else.
+ */
+export interface UnattendedQueue {
+  queueName: string;
+  messages: number;
+  retryMessages: number;
+  deadMessages: number;
+  /** Main plus whichever of its retry/dead queues still exist. */
+  queues: number;
+}
+
 export interface QueueAlert {
   severity: "warning" | "critical";
   title: string;
@@ -793,6 +803,7 @@ export interface QueueHealthSnapshot {
   consumers: ConsumerHealth[];
   retryBacklog: RetryBacklogRow[];
   deadLetters: DeadLetterRow[];
+  unattended: UnattendedQueue[];
   alerts: QueueAlert[];
 }
 

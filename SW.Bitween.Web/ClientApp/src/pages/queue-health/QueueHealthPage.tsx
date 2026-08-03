@@ -15,29 +15,48 @@ const POLL_MS = 5_000;
  * a work group's lane, and its result is checked against the notifiers. Control and
  * legacy lanes carry no ordinary traffic, so they sit at the bottom.
  */
-const LANE_ORDER: QueueLane[] = ["front-door", "worker", "notifications", "legacy", "control"];
+const LANE_ORDER: QueueLane[] = ["FrontDoor", "Work", "Notifications", "Legacy", "Control"];
 
-const LANES: Record<QueueLane, { label: string; blurb: string }> = {
-  "front-door": {
+/** The wording is this app's; the lane a row is in comes from `Ops/LaneResolver`. */
+const LANES: Record<QueueLane, { label: string; blurb: string; role: string }> = {
+  FrontDoor: {
     label: "Front doors",
     blurb: "One per information type that listens on the bus. Each message that arrives becomes an exchange.",
+    role: "turns arriving messages into exchanges",
   },
-  worker: {
+  Work: {
     label: "Work",
     blurb: "One per work group. This is where integrations actually run — filter, mapping, delivery.",
+    role: "runs the integrations in this group",
   },
-  notifications: {
+  Notifications: {
     label: "Notifications",
     blurb: "One per work group. Checks every notifier against the results that group produced.",
+    role: "checks every notifier against this group's results",
   },
-  legacy: {
+  Legacy: {
     label: "Legacy",
     blurb: "Old-style event messages, consumed only while that setting is on.",
+    role: "kept for compatibility",
   },
-  control: {
+  Control: {
     label: "Control",
     blurb: "Bookkeeping. No integration traffic passes through these.",
+    role: "internal bookkeeping",
   },
+};
+
+/**
+ * Ungrouped is a lane, not a group — the one every integration without a work group
+ * shares — so it doesn't get the group wording.
+ */
+const roleOf = (c: ConsumerHealth): string => {
+  if (c.title === "Ungrouped") {
+    return c.lane === "Notifications"
+      ? "checks every notifier against results that belong to no work group"
+      : "runs every integration that has no work group";
+  }
+  return LANES[c.lane].role;
 };
 
 /** Work groups drill to their group; front doors to the information type they listen for. */
@@ -78,11 +97,13 @@ export function QueueHealthPage() {
 
   if (isLoading || !data) return <LoadingBlock label="Reading queue statistics…" />;
 
-  const { summary, consumers, retryBacklog, deadLetters, alerts } = data;
+  const { summary, consumers, retryBacklog, deadLetters, unattended, alerts } = data;
+  const unattendedMessages = unattended.reduce((n, q) => n + q.messages + q.retryMessages + q.deadMessages, 0);
+  const unattendedQueueCount = unattended.reduce((n, q) => n + q.queues, 0);
 
   // Same order inside every lane, so Work and Notifications line up row for row and
   // you can read one group's pair across the two sections. Anything that resolved to
-  // nothing sinks to the bottom of its lane — Ungrouped, and orphaned queues.
+  // nothing sinks to the bottom of its lane — Ungrouped, and any unresolved name.
   const sortsLast = (c: ConsumerHealth) => (c.workGroupId === null && c.informationTypeId === null ? 1 : 0);
   const byLane = new Map<QueueLane, ConsumerHealth[]>(
     LANE_ORDER.map((lane) => [
@@ -213,14 +234,7 @@ export function QueueHealthPage() {
                       ) : (
                         <span className="font-medium text-ink-800">{c.title}</span>
                       )}
-                      {c.orphaned && (
-                        <Badge tone="warn" className="ml-1.5">
-                          Orphaned
-                        </Badge>
-                      )}
-                      <span className="block text-xs text-ink-400">
-                        {c.orphaned ? "nothing by this name exists any more — the queue outlived it" : c.role}
-                      </span>
+                      <span className="block text-xs text-ink-400">{roleOf(c)}</span>
                     </td>
                     <td className="px-3 py-2">
                       <code className="font-mono text-xs text-ink-500">{c.queueName}</code>
@@ -250,6 +264,62 @@ export function QueueHealthPage() {
           </table>
         </div>
       </Panel>
+
+      {/* — queues nothing declares — */}
+      {unattended.length > 0 && (
+        <Panel
+          title="Nobody is reading these"
+          description="Queues RabbitMQ still has that nothing here consumes. Deleting or renaming a work group or an information type leaves its queues behind, and every other view on this page is built from what this instance declares — so these appear nowhere else."
+          className="mb-4"
+        >
+          <p className="mb-3 text-[13px] text-ink-600">
+            <span className="font-medium text-ink-900">
+              {unattended.length} {unattended.length === 1 ? "lane" : "lanes"}
+            </span>{" "}
+            ({unattendedQueueCount} queues), holding{" "}
+            <span className={unattendedMessages > 0 ? "font-medium text-warn-700" : "font-medium text-ink-900"}>
+              {unattendedMessages} {unattendedMessages === 1 ? "message" : "messages"}
+            </span>
+            . Empty ones are only clutter; anything holding messages is stuck where nothing will
+            pick it up.
+          </p>
+          {/* Capped height rather than a disclosure: a long list stays scrollable and the
+              rows holding messages sort to the top, where they are seen without a click. */}
+          <div className="max-h-80 overflow-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                  <th className="py-2 pr-3">Queue</th>
+                  <th className="px-3 py-2 text-right">Queued</th>
+                  <th className="px-3 py-2 text-right">Retrying</th>
+                  <th className="px-3 py-2 text-right">Dead</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {/* Toned per cell, matching the lanes table: a lane with 57 dead and nothing
+                    queued should draw the eye to Dead, not to a highlighted zero. */}
+                {unattended.map((q) => (
+                  <tr key={q.queueName} className="border-b border-ink-50 last:border-0">
+                    <td className="py-1.5 pr-3">
+                      <code className="font-mono text-xs text-ink-600">{q.queueName}</code>
+                      {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-400">+{q.queues - 1}</span>}
+                    </td>
+                    <td className={`px-3 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                      {q.messages}
+                    </td>
+                    <td className={`px-3 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                      {q.retryMessages}
+                    </td>
+                    <td className={`px-3 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-400"}`}>
+                      {q.deadMessages}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+      )}
 
       {/* — backlogs — */}
       <div className="grid gap-4 lg:grid-cols-2">
