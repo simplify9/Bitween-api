@@ -54,6 +54,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     Type = subscriber.Type,
                     Temporary = subscriber.Temporary,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
+                    ResponseMessageTypeName = subscriber.ResponseMessageTypeName,
                     ReceiveOn = subscriber.ReceiveOn,
                     AggregateOn = subscriber.AggregateOn,
                     ConsecutiveFailures = subscriber.ConsecutiveFailures,

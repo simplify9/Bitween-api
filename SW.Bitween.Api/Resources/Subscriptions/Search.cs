@@ -73,7 +73,8 @@ namespace SW.Bitween.Resources.Subscriptions
                     CategoryDescription = subscriber.Category.Description,
                     CategoryCode = subscriber.Category.Code,
                     CustomRetryPolicy = subscriber.CustomRetryPolicy,
-
+                    ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
+                    ResponseMessageTypeName = subscriber.ResponseMessageTypeName,
                 };
 
             query = query.AsNoTracking().AsQueryable();
