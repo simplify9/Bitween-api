@@ -20,6 +20,7 @@ public class Update : ICommandHandler<int, RetryPolicyUpdate, object>
     public async Task<object> Handle(int key, RetryPolicyUpdate model)
     {
         _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+        RetryGroupValidation.EnsureCanFire(model.Groups);
 
         var entity = await _dbContext.FindAsync<RetryPolicy>(key);
         entity.Name = model.Name;

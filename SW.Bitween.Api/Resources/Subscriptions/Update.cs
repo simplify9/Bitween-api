@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Resources.RetryPolicies;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -57,6 +58,9 @@ namespace SW.Bitween.Resources.Subscriptions
                 !await _dbContext.Set<RetryPolicy>().AnyAsync(p => p.Id == model.RetryPolicyId))
                 throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
                     $"Retry policy {model.RetryPolicyId} was not found.");
+
+            if (model.CustomRetryPolicy != null)
+                RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
 
             entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
 
