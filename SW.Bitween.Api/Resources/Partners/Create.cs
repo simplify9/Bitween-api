@@ -21,6 +21,10 @@ namespace SW.Bitween.Resources.Partners
             await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Partners.Create);
 
             var entity = new Partner(model.Name);
+            // Same field the update handler writes, applied in the same transaction as
+            // the insert, so a partner is never created half-configured.
+            if (model.AdapterProperties != null)
+                entity.AdapterProperties = model.AdapterProperties;
             _dbContext.Add(entity);
             await _dbContext.SaveChangesAsync();
             return entity.Id;

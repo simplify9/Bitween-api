@@ -7,6 +7,14 @@ namespace SW.Bitween.Model
     public class PartnerCreate  : IName
     {
         public string Name { get; set; }
+
+        /// <summary>
+        /// Referenced from adapter fields as {{partner.KEY}}. Accepted at creation so a
+        /// partner can be made complete in one call — the UI creates partners from
+        /// inside other flows, where a follow-up update that fails would leave a
+        /// partner whose adapters resolve nothing.
+        /// </summary>
+        public Dictionary<string, string> AdapterProperties { get; set; }
     }
     public class PartnerRow : PartnerUpdate
     {
@@ -25,6 +33,5 @@ namespace SW.Bitween.Model
     {
         public ICollection<KeyAndValue> ApiCredentials { get; set; }
         public ICollection<SubscriptionSearch> Subscriptions { get; set; }
-        public Dictionary<string, string> AdapterProperties { get; set; }
     }
 }
