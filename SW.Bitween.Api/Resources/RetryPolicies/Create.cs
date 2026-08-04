@@ -20,6 +20,7 @@ public class Create : ICommandHandler<RetryPolicyCreate, object>
     public async Task<object> Handle(RetryPolicyCreate model)
     {
         _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+        RetryGroupValidation.EnsureCanFire(model.Groups);
 
         var entity = new RetryPolicy
         {

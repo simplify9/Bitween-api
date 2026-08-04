@@ -108,7 +108,7 @@ public class RetryPolicyEvaluator(IRetryPolicy policy)
                      .Where(g => g.Enabled && g.AppliesTo.Contains(resultType))
                      .OrderBy(g => g.Priority))
         {
-            var compatibleMatchers = group.Matchers.Where(m => m.ResultType == resultType);
+            var compatibleMatchers = group.Matchers.Where(m => m.Supports(resultType));
             if (compatibleMatchers.Any(m => m.IsMatch(content)))
                 return group;
         }

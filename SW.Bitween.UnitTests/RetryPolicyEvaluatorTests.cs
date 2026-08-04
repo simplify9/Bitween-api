@@ -246,6 +246,45 @@ public class RetryPolicyEvaluatorTests
         Assert.IsFalse(decision.ShouldRetry);
     }
 
+    [TestMethod]
+    public void Evaluator_ContainsMatcher_MatchesBadResultBody()
+    {
+        var policy = PolicyWith(BadResultGroup("bad", new ContainsMatcher { Value = "INSUFFICIENT_STOCK" }));
+        var ev = new RetryPolicyEvaluator(policy);
+        var decision = ev.Evaluate(XchangeResultType.BadResult, "{\"code\":\"INSUFFICIENT_STOCK\"}", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+        Assert.AreEqual("bad", decision.MatchedGroupName);
+    }
+
+    [TestMethod]
+    public void Evaluator_ContainsMatcher_MatchesNonJsonBadResultBody()
+    {
+        // A 4xx body need not be JSON — text matchers are the only way to reach these.
+        var policy = PolicyWith(BadResultGroup("bad", new ContainsMatcher { Value = "rate limit" }));
+        var ev = new RetryPolicyEvaluator(policy);
+        var decision = ev.Evaluate(XchangeResultType.BadResult, "<html><body>Rate limit exceeded</body></html>", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+    }
+
+    [TestMethod]
+    public void Evaluator_RegexMatcher_MatchesBadResultBody()
+    {
+        var policy = PolicyWith(BadResultGroup("bad", new RegexMatcher { Pattern = @"""status"":\s*""FAILED""" }));
+        var ev = new RetryPolicyEvaluator(policy);
+        var decision = ev.Evaluate(XchangeResultType.BadResult, "{\"status\": \"FAILED\"}", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+    }
+
+    [TestMethod]
+    public void Evaluator_ExceptionTypeMatcher_SkippedForBadResult()
+    {
+        // Exception type names are meaningless against a response body — stays Error-only.
+        var policy = PolicyWith(BadResultGroup("bad", new ExceptionTypeMatcher { Value = "System.TimeoutException" }));
+        var ev = new RetryPolicyEvaluator(policy);
+        var decision = ev.Evaluate(XchangeResultType.BadResult, "System.TimeoutException in body", 0);
+        Assert.IsFalse(decision.ShouldRetry);
+    }
+
     // ─── Evaluator: priority ordering ───────────────────────────────────────────
 
     [TestMethod]

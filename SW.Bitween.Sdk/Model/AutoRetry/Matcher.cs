@@ -34,7 +34,7 @@ public enum JsonPathOp
 /// </summary>
 /// <remarks>
 /// For <see cref="XchangeResultType.Error"/> groups the content is the exception stack-trace text.
-/// For <see cref="XchangeResultType.BadResult"/> groups the content is the raw JSON response string.
+/// For <see cref="XchangeResultType.BadResult"/> groups the content is the raw response body.
 /// Matcher implementations are serialised polymorphically via <c>System.Text.Json</c>.
 /// </remarks>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
@@ -44,8 +44,13 @@ public enum JsonPathOp
 [JsonDerivedType(typeof(JsonPathMatcher),      typeDiscriminator: "jsonPath")]
 public abstract class Matcher
 {
-    /// <summary>The result type this matcher operates on.</summary>
-    public abstract XchangeResultType ResultType { get; }
+    /// <summary>
+    /// Returns <c>true</c> when this matcher can be evaluated against
+    /// <paramref name="resultType"/> content. The evaluator skips incompatible matchers,
+    /// so a group whose matchers all return <c>false</c> here can never fire for that
+    /// result type.
+    /// </summary>
+    public abstract bool Supports(XchangeResultType resultType);
 
     /// <summary>
     /// Returns <c>true</c> when <paramref name="content"/> satisfies this matcher's condition.
@@ -54,16 +59,17 @@ public abstract class Matcher
     public abstract bool IsMatch(string content);
 }
 
-// ── Error matchers ────────────────────────────────────────────────────────────
+// ── Text matchers (Error and BadResult) ───────────────────────────────────────
 
 /// <summary>
-/// Matches when the exception text contains a literal substring.
-/// Applies to <see cref="XchangeResultType.Error"/> content.
+/// Matches when the failure text contains a literal substring — the exception text for
+/// <see cref="XchangeResultType.Error"/>, the response body for <see cref="XchangeResultType.BadResult"/>.
 /// </summary>
 public class ContainsMatcher : Matcher
 {
     /// <inheritdoc/>
-    public override XchangeResultType ResultType => XchangeResultType.Error;
+    public override bool Supports(XchangeResultType resultType) =>
+        resultType is XchangeResultType.Error or XchangeResultType.BadResult;
 
     /// <summary>The substring to search for.</summary>
     public required string Value { get; init; }
@@ -78,13 +84,14 @@ public class ContainsMatcher : Matcher
 }
 
 /// <summary>
-/// Matches when the exception text satisfies a regular expression.
-/// Applies to <see cref="XchangeResultType.Error"/> content.
+/// Matches when the failure text satisfies a regular expression — the exception text for
+/// <see cref="XchangeResultType.Error"/>, the response body for <see cref="XchangeResultType.BadResult"/>.
 /// </summary>
 public class RegexMatcher : Matcher
 {
     /// <inheritdoc/>
-    public override XchangeResultType ResultType => XchangeResultType.Error;
+    public override bool Supports(XchangeResultType resultType) =>
+        resultType is XchangeResultType.Error or XchangeResultType.BadResult;
 
     /// <summary>.NET-compatible regular expression pattern.</summary>
     public required string Pattern { get; init; }
@@ -106,6 +113,8 @@ public class RegexMatcher : Matcher
     public override bool IsMatch(string content) => Compiled.IsMatch(content);
 }
 
+// ── Error-only matcher ────────────────────────────────────────────────────────
+
 /// <summary>
 /// Matches when the exception text mentions a specific .NET exception type name,
 /// scanning the entire stack-trace including inner exceptions.
@@ -118,7 +127,8 @@ public class RegexMatcher : Matcher
 public class ExceptionTypeMatcher : Matcher
 {
     /// <inheritdoc/>
-    public override XchangeResultType ResultType => XchangeResultType.Error;
+    public override bool Supports(XchangeResultType resultType) =>
+        resultType == XchangeResultType.Error;
 
     /// <summary>
     /// Fully-qualified or short exception type name, e.g. <c>"System.TimeoutException"</c>
@@ -163,7 +173,8 @@ public class ExceptionTypeMatcher : Matcher
 public class JsonPathMatcher : Matcher
 {
     /// <inheritdoc/>
-    public override XchangeResultType ResultType => XchangeResultType.BadResult;
+    public override bool Supports(XchangeResultType resultType) =>
+        resultType == XchangeResultType.BadResult;
 
     /// <summary>JSONPath expression, e.g. <c>"$.error.code"</c> or <c>"$.lines[0].status"</c>.</summary>
     public required string Path { get; init; }
