@@ -1,14 +1,20 @@
-import { useEffect } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
 import { IntegrationPicker, PartnerPicker } from "../../components/config/pickers";
-import { ReturnBanner } from "../../components/ui/ReturnBanner";
-import { usePersistentDraft } from "../../lib/persistentDraft";
-import { takePicked, useHereAsReturnTarget, useReturnContext } from "../../lib/returnTo";
+
+/** Local draft state with the patch-and-clear shape the form bodies already use. */
+function useDraft<T extends object>(initial: T) {
+  const [draft, setDraft] = useState<T>(initial);
+  const update = (patch: Partial<T>) => setDraft((d) => ({ ...d, ...patch }));
+  const clear = () => setDraft(initial);
+  return [draft, update, clear] as const;
+}
+
 
 interface Draft {
   partnerId: number | null;
@@ -25,40 +31,18 @@ export function AttachPartnerPage() {
   const gatewayId = Number(id);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const ctx = useReturnContext();
-  const here = useHereAsReturnTarget();
-  const [params, setParams] = useSearchParams();
 
   const gateway = useQuery({
     queryKey: ["api-gateway", gatewayId],
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
 
-  const [draft, update, clear] = usePersistentDraft<Draft>(`bitween-draft-attach-${gatewayId}`, {
+  const [draft, update, clear] = useDraft<Draft>({
     partnerId: null,
     integrationId: null,
   });
 
-  // returning from a create detour: apply the pick and consume the param
-  useEffect(() => {
-    const partner = takePicked(params, "partner");
-    const integration = takePicked(params, "integration");
-    if (partner !== null) update({ partnerId: partner });
-    if (integration !== null) update({ integrationId: integration });
-    if (partner !== null || integration !== null) {
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete("picked");
-          return next;
-        },
-        { replace: true },
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const create = useMutation({
     mutationFn: () =>
@@ -84,28 +68,22 @@ export function AttachPartnerPage() {
     );
 
   const g = gateway.data;
-  const detourCtx = { to: here, label: `Attaching a partner to ${g.name}` };
   const valid = draft.partnerId !== null && draft.integrationId !== null;
-  // Named so a "New integration" detour can say what it will be wired into.
-  // Cached query — PartnerPicker is already reading the same key.
-  const partnerName = partners.data?.find((p) => p.id === draft.partnerId)?.name ?? "";
 
   return (
     <div className="pb-10">
       <Link
-        to={ctx?.to ?? `/api-gateways/${gatewayId}`}
+        to={`/api-gateways/${gatewayId}`}
         className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
       >
-        <ArrowLeft className="size-3.5" /> {ctx ? "Back without attaching" : g.name}
+        <ArrowLeft className="size-3.5" /> {g.name}
       </Link>
-
-      <ReturnBanner />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
         Attach a partner to {g.name}
       </h1>
       <p className="mt-1 text-sm text-ink-500">
-        Anything missing is created on its own page — you continue right back here.
+        Anything you don't have yet — the partner, the integration — is created right here.
       </p>
 
       <div className="mt-6 max-w-2xl space-y-5 rounded-xl border border-ink-200 bg-white p-5">
@@ -119,7 +97,6 @@ export function AttachPartnerPage() {
             value={draft.partnerId}
             onChange={(v) => update({ partnerId: v === "none" ? null : v })}
             excludeIds={g.attachments.map((a) => a.partnerId)}
-            detourCtx={detourCtx}
           />
         </Field>
 
@@ -129,8 +106,6 @@ export function AttachPartnerPage() {
             type="GatewayApiCall"
             value={draft.integrationId}
             onChange={(integrationId) => update({ integrationId })}
-            detourCtx={detourCtx}
-            triggerHint={partnerName ? `${g.name} → ${partnerName}` : g.name}
           />
         </Field>
 

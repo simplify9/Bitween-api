@@ -137,6 +137,10 @@ export interface IntegrationInfo {
   informationTypeId: number;
   workGroupId: number | null;
   retryPolicyId: number | null;
+  /** The bus message its delivery response is published as, if any. */
+  responseMessageTypeName: string | null;
+  /** The integration its delivery response is handed straight to, if any. */
+  responseIntegrationId: number | null;
   /**
    * Reference tokens found in its adapter properties. Both are matched
    * case-insensitively, as the backend resolver does — compare them with

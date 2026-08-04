@@ -1,23 +1,29 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, X } from "lucide-react";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
-import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { InfoTypePicker } from "../../components/config/pickers";
 import { useIntegrationsCache } from "../../components/config/shared";
 import { api } from "../../api";
-import { usePersistentDraft } from "../../lib/persistentDraft";
-import { takePicked, useHereAsReturnTarget } from "../../lib/returnTo";
 import { STAGES, type StageId } from "../integrations/studio/stages";
 import { StageRail } from "../integrations/studio/StageRail";
 import { adapterIncomplete, faceOf } from "../integrations/studio/faces";
 import { ResponseFields } from "../integrations/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../integrations/studio/model";
+
+/** Local draft state with the patch-and-clear shape the form bodies already use. */
+function useDraft<T extends object>(initial: T) {
+  const [draft, setDraft] = useState<T>(initial);
+  const update = (patch: Partial<T>) => setDraft((d) => ({ ...d, ...patch }));
+  const clear = () => setDraft(initial);
+  return [draft, update, clear] as const;
+}
+
 
 /** The whole pipeline — same nodes the studio page edits. */
 const STAGES_HERE: StageId[] = ["source", "schedule", "transformation", "delivery", "response"];
@@ -67,8 +73,6 @@ const EMPTY: Draft = {
 export function NewScheduledJobPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const here = useHereAsReturnTarget();
-  const [params, setParams] = useSearchParams();
   const [stage, setStage] = useState<StageId | null>("source");
 
   const allIntegrations = useIntegrationsCache();
@@ -77,23 +81,8 @@ export function NewScheduledJobPage() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
-  const [draft, update, clear] = usePersistentDraft<Draft>("bitween-draft-new-job", EMPTY);
+  const [draft, update, clear] = useDraft<Draft>(EMPTY);
 
-  useEffect(() => {
-    const picked = takePicked(params, "infotype");
-    if (picked !== null) {
-      update({ informationTypeId: picked });
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete("picked");
-          return next;
-        },
-        { replace: true },
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const create = useMutation({
     mutationFn: () =>
@@ -242,8 +231,6 @@ export function NewScheduledJobPage() {
         <ArrowLeft className="size-3.5" /> Scheduled jobs
       </Link>
 
-      <ReturnBanner />
-
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New scheduled job</h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
         Pulls documents in on a schedule and pushes them through a pipeline.
@@ -267,7 +254,6 @@ export function NewScheduledJobPage() {
               id="nj-type"
               value={draft.informationTypeId}
               onChange={(informationTypeId) => update({ informationTypeId })}
-              detourCtx={{ to: here, label: "Creating a scheduled job" }}
             />
           </Field>
         </div>

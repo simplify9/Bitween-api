@@ -119,9 +119,18 @@ export const partnerMethods = {
     };
   },
 
-  async createPartner({ name }: { name: string }): Promise<Partner> {
-    const id = await post<number>("/partners", { name });
-    return { id, name, adapterProperties: {}, isSystem: false, createdOn: "" };
+  async createPartner({
+    name,
+    adapterProperties = {},
+  }: {
+    name: string;
+    adapterProperties?: Record<string, string>;
+  }): Promise<Partner> {
+    // One call: Partners/Create applies AdapterProperties in the same transaction
+    // as the insert, so a partner is never created without the values its adapters
+    // are about to resolve.
+    const id = await post<number>("/partners", { name, adapterProperties });
+    return { id, name, adapterProperties, isSystem: false, createdOn: "" };
   },
 
   async updatePartner(

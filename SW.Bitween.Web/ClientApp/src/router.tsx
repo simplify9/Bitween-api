@@ -18,22 +18,18 @@ import { ApiGatewaysPage } from "./pages/api-gateways/ApiGatewaysPage";
 import { ApiGatewayPage } from "./pages/api-gateways/ApiGatewayPage";
 import { AttachPartnerPage } from "./pages/api-gateways/AttachPartnerPage";
 import { EditAttachmentPage } from "./pages/api-gateways/EditAttachmentPage";
-import { AddRoutePage } from "./pages/bus-gateways/AddRoutePage";
 import { BusGatewayNewPage } from "./pages/bus-gateways/BusGatewayNewPage";
 import { BusGatewayPage } from "./pages/bus-gateways/BusGatewayPage";
 import { BusGatewaysPage } from "./pages/bus-gateways/BusGatewaysPage";
-import { EditRoutePage } from "./pages/bus-gateways/EditRoutePage";
+import { FlowPage } from "./pages/flow/FlowPage";
 import { GlobalValueSetPage } from "./pages/global-values/GlobalValueSetPage";
 import { GlobalValueSetsPage } from "./pages/global-values/GlobalValueSetsPage";
-import { InformationTypeNewPage } from "./pages/information-types/InformationTypeNewPage";
 import { InformationTypePage } from "./pages/information-types/InformationTypePage";
 import { InformationTypesPage } from "./pages/information-types/InformationTypesPage";
-import { IntegrationNewPage } from "./pages/integrations/IntegrationNewPage";
 import { IntegrationPage } from "./pages/integrations/IntegrationPage";
 import { IntegrationsPage } from "./pages/integrations/IntegrationsPage";
 import { NotifierPage } from "./pages/notifiers/NotifierPage";
 import { NotifiersPage } from "./pages/notifiers/NotifiersPage";
-import { PartnerNewPage } from "./pages/partners/PartnerNewPage";
 import { PartnerPage } from "./pages/partners/PartnerPage";
 import { PartnersPage } from "./pages/partners/PartnersPage";
 import { NewScheduledJobPage } from "./pages/scheduled-jobs/NewScheduledJobPage";
@@ -44,7 +40,6 @@ import { MembersTab } from "./pages/team/MembersTab";
 import { RoleEditor } from "./pages/team/RoleEditor";
 import { RolesTab } from "./pages/team/RolesTab";
 import { TeamIndexRedirect, TeamPage } from "./pages/team/TeamPage";
-import { WorkGroupNewPage } from "./pages/work-groups/WorkGroupNewPage";
 import { WorkGroupPage } from "./pages/work-groups/WorkGroupPage";
 import { WorkGroupsPage } from "./pages/work-groups/WorkGroupsPage";
 
@@ -172,14 +167,6 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "subscriptions/new",
-            element: (
-              <RequirePermission permission="subscriptions.create">
-                <IntegrationNewPage />
-              </RequirePermission>
-            ),
-          },
-          {
             path: "subscriptions/:id",
             element: (
               <RequirePermission permission="subscriptions.view">
@@ -208,6 +195,14 @@ export const router = createBrowserRouter([
             element: (
               <RequirePermission permission="bus-gateways.view">
                 <BusGatewaysPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "flow",
+            element: (
+              <RequirePermission permission="bus-gateways.view">
+                <FlowPage />
               </RequirePermission>
             ),
           },
@@ -268,22 +263,6 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "bus-gateways/:id/add-route",
-            element: (
-              <RequirePermission permission="bus-gateways.edit">
-                <AddRoutePage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "bus-gateways/:id/routes/:routeId",
-            element: (
-              <RequirePermission permission="bus-gateways.edit">
-                <EditRoutePage />
-              </RequirePermission>
-            ),
-          },
-          {
             path: "scheduled-jobs/new",
             element: (
               <RequirePermission permission="subscriptions.create">
@@ -300,14 +279,6 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "partners/new",
-            element: (
-              <RequirePermission permission="partners.create">
-                <PartnerNewPage />
-              </RequirePermission>
-            ),
-          },
-          {
             path: "partners/:id",
             element: (
               <RequirePermission permission="partners.view">
@@ -320,14 +291,6 @@ export const router = createBrowserRouter([
             element: (
               <RequirePermission permission="documents.view">
                 <InformationTypesPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "information-types/new",
-            element: (
-              <RequirePermission permission="documents.create">
-                <InformationTypeNewPage />
               </RequirePermission>
             ),
           },
@@ -392,14 +355,6 @@ export const router = createBrowserRouter([
             element: (
               <RequirePermission permission="workgroups.view">
                 <WorkGroupsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "work-groups/new",
-            element: (
-              <RequirePermission permission="workgroups.create">
-                <WorkGroupNewPage />
               </RequirePermission>
             ),
           },

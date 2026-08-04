@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Handshake, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
+import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Table } from "../../components/ui/Table";
@@ -12,6 +13,7 @@ import { UsedByCell, usePartnerIntegrations } from "../../components/config/shar
 export function PartnersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
 
   const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
@@ -40,7 +42,7 @@ export function PartnersPage() {
         description="The external parties you exchange data with — their connection properties and API keys."
         actions={
           <Can permission="partners.create">
-            <Button variant="primary" onClick={() => navigate("/partners/new")}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               <Plus className="size-4" /> New partner
             </Button>
           </Can>
@@ -112,6 +114,14 @@ export function PartnersPage() {
         />
       )}
 
+
+      {creating && (
+        <PartnerDialog
+          partnerId={null}
+          onClose={() => setCreating(false)}
+          onSaved={(id) => navigate(`/partners/${id}`)}
+        />
+      )}
     </div>
   );
 }

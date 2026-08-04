@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, type IntegrationDetail, type IntegrationRun } from "../../../api";
@@ -8,7 +8,7 @@ import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { MiniTable } from "../../../components/ui/Table";
 import { Panel } from "../../../components/ui/Panel";
 import { ExchangesList, HealthBadge, TrailTable } from "../../../components/config/shared";
-import { withReturn } from "../../../lib/returnTo";
+import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
 import { formatDate, formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../../lib/dates";
 import type { Draft, EntryPoint } from "./model";
 
@@ -155,7 +155,6 @@ export function Overview({
   set,
   canEdit,
   canCreateWorkGroup,
-  here,
   entryPoints,
   scheduled,
 }: {
@@ -164,8 +163,6 @@ export function Overview({
   set: <K extends keyof Draft>(key: K, value: Draft[K]) => void;
   canEdit: boolean;
   canCreateWorkGroup: boolean;
-  /** This page's own URL, for the "+ New work group" detour. */
-  here: string;
   entryPoints: EntryPoint[];
   /** Receiving and Aggregation run on a schedule, so they have run history. */
   scheduled: boolean;
@@ -182,6 +179,8 @@ export function Overview({
     enabled: scheduled,
   });
   const paused = s.pausedOn !== null;
+  /** undefined = closed, null = creating, number = editing that group. */
+  const [groupDialog, setGroupDialog] = useState<number | null | undefined>(undefined);
 
   return (
     <div className="space-y-5">
@@ -222,23 +221,22 @@ export function Overview({
           </div>
           <div className="mt-1 flex items-center gap-3">
             {draft.workGroupId !== null && (
-              <Link
-                to={`/work-groups/${draft.workGroupId}`}
+              <button
+                type="button"
+                onClick={() => setGroupDialog(draft.workGroupId)}
                 className="text-[12px] font-medium text-crimson-700 hover:underline"
               >
-                View
-              </Link>
+                Edit it
+              </button>
             )}
             {canCreateWorkGroup && (
-              <Link
-                to={withReturn("/work-groups/new", {
-                  to: here,
-                  label: `Assigning ${s.name} to a work group`,
-                })}
+              <button
+                type="button"
+                onClick={() => setGroupDialog(null)}
                 className="text-[12px] font-medium text-crimson-700 hover:underline"
               >
                 + New
-              </Link>
+              </button>
             )}
           </div>
         </Fact>
@@ -274,6 +272,14 @@ export function Overview({
         <pre className="max-h-40 overflow-auto rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
           {s.lastException}
         </pre>
+      )}
+
+      {groupDialog !== undefined && (
+        <WorkGroupDialog
+          groupId={groupDialog}
+          onClose={() => setGroupDialog(undefined)}
+          onSaved={(workGroupId) => set("workGroupId", workGroupId)}
+        />
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">

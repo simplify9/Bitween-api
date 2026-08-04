@@ -7,6 +7,7 @@ import {
   FileText,
   Handshake,
   Layers,
+  Network,
   RefreshCw,
   RotateCcw,
   Settings,
@@ -53,10 +54,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    // Entry points first — how a document gets in — then the pipelines it runs
-    // through, then who it's with. A gateway is not an integration.
+    // The overview first, then entry points — how a document gets in — then the
+    // pipelines it runs through, then who it's with. A gateway is not an integration.
     label: "Integrations",
     items: [
+      // Gated on the bus alone: bus messages are what carry work *between*
+      // gateways, so without that permission there is no flow left to map.
+      { label: "Flow map", path: "/flow", icon: Network, permissions: ["bus-gateways.view"] },
       { label: "API gateways", path: "/api-gateways", icon: Webhook, permissions: ["api-gateways.view"] },
       { label: "Bus gateways", path: "/bus-gateways", icon: Cable, permissions: ["bus-gateways.view"] },
       { label: "Scheduled jobs", path: "/scheduled-jobs", icon: CalendarClock, permissions: ["subscriptions.view"] },

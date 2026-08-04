@@ -1,14 +1,20 @@
-import { useEffect, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { type FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { api, type InformationTypeRow } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
-import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { InfoTypePicker } from "../../components/config/pickers";
-import { usePersistentDraft } from "../../lib/persistentDraft";
-import { takePicked, useHereAsReturnTarget, useReturnContext, withReturn } from "../../lib/returnTo";
+
+/** Local draft state with the patch-and-clear shape the form body uses. */
+function useDraft<T extends object>(initial: T) {
+  const [draft, setDraft] = useState<T>(initial);
+  const update = (patch: Partial<T>) => setDraft((d) => ({ ...d, ...patch }));
+  const clear = () => setDraft(initial);
+  return [draft, update, clear] as const;
+}
+
 
 interface Draft {
   name: string;
@@ -21,28 +27,9 @@ const busEnabled = (t: InformationTypeRow) => t.busEnabled;
 export function BusGatewayNewPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const ctx = useReturnContext();
-  const here = useHereAsReturnTarget();
-  const [params, setParams] = useSearchParams();
 
-  const [draft, update, clear] = usePersistentDraft<Draft>("bitween-draft-new-bus-gateway", EMPTY);
+  const [draft, update, clear] = useDraft<Draft>(EMPTY);
 
-  // returning from a "New information type" detour
-  useEffect(() => {
-    const picked = takePicked(params, "infotype");
-    if (picked !== null) {
-      update({ informationTypeId: picked });
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete("picked");
-          return next;
-        },
-        { replace: true },
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const create = useMutation({
     mutationFn: () => api.createBusGateway({ name: draft.name, informationTypeId: draft.informationTypeId! }),
@@ -50,7 +37,7 @@ export function BusGatewayNewPage() {
       clear();
       void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
       const base = `/bus-gateways/${gateway.id}`;
-      navigate(ctx ? `${withReturn(base, ctx)}&picked=bus-gateway:${gateway.id}` : base);
+      navigate(base);
     },
   });
 
@@ -62,13 +49,11 @@ export function BusGatewayNewPage() {
   return (
     <div>
       <Link
-        to={ctx?.to ?? "/subscriptions?types=bus-gateways"}
+        to={"/subscriptions?types=bus-gateways"}
         className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
       >
-        <ArrowLeft className="size-3.5" /> {ctx ? "Back without creating" : "Integrations"}
+        <ArrowLeft className="size-3.5" /> {"Integrations"}
       </Link>
-
-      <ReturnBanner />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New bus gateway</h1>
       <p className="mt-1 text-sm text-ink-500">
@@ -96,7 +81,7 @@ export function BusGatewayNewPage() {
             value={draft.informationTypeId}
             onChange={(id) => update({ informationTypeId: id })}
             filter={busEnabled}
-            detourCtx={{ to: here, label: "Creating a new bus gateway" }}
+            busRequired
           />
         </section>
 

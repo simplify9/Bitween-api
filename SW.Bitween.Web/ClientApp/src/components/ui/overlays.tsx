@@ -2,7 +2,19 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button, FormError } from "./basics";
 
-/** Centered modal. Closes on Escape and backdrop click. */
+/**
+ * Every dialog currently mounted, innermost last.
+ *
+ * Escape used to belong to all of them at once: a confirm opened from inside a
+ * dialog, on a page with its own Escape handling, closed all three in one press
+ * and threw away two levels of context nobody asked to leave. Only the top of the
+ * stack responds now, and pages ask `dialogsOpen()` before claiming the key.
+ */
+const openDialogs: symbol[] = [];
+
+export const dialogsOpen = (): boolean => openDialogs.length > 0;
+
+/** Centered modal. Closes on Escape (when it is the topmost) and backdrop click. */
 export function Dialog({
   title,
   onClose,
@@ -14,8 +26,26 @@ export function Dialog({
   children: ReactNode;
   wide?: boolean;
 }) {
+  // Registered once per mount, so a re-render can't reorder the stack.
+  const token = useRef<symbol | null>(null);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const mine = Symbol("dialog");
+    token.current = mine;
+    openDialogs.push(mine);
+    return () => {
+      const at = openDialogs.indexOf(mine);
+      if (at >= 0) openDialogs.splice(at, 1);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (openDialogs[openDialogs.length - 1] !== token.current) return;
+      // Stops the page underneath from also treating this Escape as its own.
+      e.stopPropagation();
+      onClose();
+    };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);

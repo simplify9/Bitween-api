@@ -5,14 +5,12 @@ import { ArrowLeft, DownloadCloud, Pause, Play, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../components/config/MatchExpressionEditor";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { TypeBadge, scheduleFault, useIntegrationsCache } from "../../components/config/shared";
-import { ReturnBanner } from "../../components/ui/ReturnBanner";
-import { takePicked, useHereAsReturnTarget } from "../../lib/returnTo";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { StageRail } from "./studio/StageRail";
 import { faceOf } from "./studio/faces";
@@ -28,7 +26,6 @@ export function IntegrationPage() {
   const canEdit = useSessionCan("subscriptions.edit");
   const canOperate = useSessionCan("subscriptions.operate");
   const canCreateWorkGroup = useSessionCan("workgroups.create");
-  const here = useHereAsReturnTarget();
   const [params, setParams] = useSearchParams();
 
   const integration = useQuery({
@@ -67,21 +64,7 @@ export function IntegrationPage() {
 
   useEffect(() => {
     if (!loaded && integration.data) {
-      const seeded = draftOf(integration.data);
-      // returning from a "New work group" detour
-      const picked = takePicked(params, "workgroup");
-      if (picked !== null) {
-        seeded.workGroupId = picked;
-        setParams(
-          (prev) => {
-            const next = new URLSearchParams(prev);
-            next.delete("picked");
-            return next;
-          },
-          { replace: true },
-        );
-      }
-      setDraft(seeded);
+      setDraft(draftOf(integration.data));
       setLoaded(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,6 +82,8 @@ export function IntegrationPage() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      // A dialog on top owns Escape — see `dialogsOpen`.
+      if (dialogsOpen()) return;
       const open = params.get("stage") as StageId | null;
       if (!open || !integration.data || !draft) return;
       // let a combobox or a text field have its own Escape first
@@ -333,8 +318,6 @@ export function IntegrationPage() {
         <ArrowLeft className="size-3.5" /> Integrations
       </Link>
 
-      <ReturnBanner />
-
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="flex flex-wrap items-center gap-2.5 text-[22px] font-semibold tracking-tight text-ink-900">
@@ -406,7 +389,6 @@ export function IntegrationPage() {
             set={set}
             canEdit={canEdit}
             canCreateWorkGroup={canCreateWorkGroup}
-            here={here}
             entryPoints={entryPoints}
             scheduled={isReceiver || isAggregation}
           />

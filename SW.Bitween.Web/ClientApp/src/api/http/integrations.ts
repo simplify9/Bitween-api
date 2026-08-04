@@ -246,6 +246,8 @@ export const integrationMethods = {
       informationTypeId: raw.documentId,
       workGroupId: raw.workGroupId ?? null,
       retryPolicyId: raw.retryPolicyId ?? null,
+      responseMessageTypeName: raw.responseMessageTypeName ?? null,
+      responseIntegrationId: raw.responseSubscriptionId ?? null,
       // No backend endpoint indexes reference tokens, but the search rows carry
       // every adapter property, so the scan costs nothing extra here.
       ...scanReferenceTokens(

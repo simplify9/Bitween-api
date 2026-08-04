@@ -106,7 +106,7 @@ export interface ApiClient {
   getPartner(id: number): Promise<PartnerDetail>;
   /** Light fetch used by the mapper editor's test-partner selector. */
   getPartnerAdapterProperties(id: number): Promise<Record<string, string>>;
-  createPartner(input: { name: string }): Promise<Partner>;
+  createPartner(input: { name: string; adapterProperties?: Record<string, string> }): Promise<Partner>;
   updatePartner(
     id: number,
     changes: { name?: string; adapterProperties?: Record<string, string> },

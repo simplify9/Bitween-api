@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Cable, Plus, Search } from "lucide-react";
+import { Cable, Network, Plus, Search } from "lucide-react";
 import { api, type BusGatewayRow, type IntegrationRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -61,11 +61,18 @@ export function BusGatewaysPage() {
         title="Bus gateways"
         description="Listeners that pick messages off the bus and route them to an integration."
         actions={
-          <Can permission="bus-gateways.create">
-            <Button variant="primary" onClick={() => navigate("/bus-gateways/new")}>
-              <Plus className="size-4" /> New bus gateway
+          <>
+            {/* Offered here because this is where someone asking "what feeds what?"
+                is already standing — the map is one level above this table. */}
+            <Button variant="secondary" onClick={() => navigate("/flow")}>
+              <Network className="size-4" /> Flow map
             </Button>
-          </Can>
+            <Can permission="bus-gateways.create">
+              <Button variant="primary" onClick={() => navigate("/bus-gateways/new")}>
+                <Plus className="size-4" /> New bus gateway
+              </Button>
+            </Can>
+          </>
         }
       />
 

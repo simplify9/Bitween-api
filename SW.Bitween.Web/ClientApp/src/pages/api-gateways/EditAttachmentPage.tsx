@@ -1,13 +1,19 @@
-import { useEffect } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { IntegrationPicker } from "../../components/config/pickers";
-import { usePersistentDraft } from "../../lib/persistentDraft";
-import { ReturnBanner } from "../../components/ui/ReturnBanner";
-import { takePicked, useHereAsReturnTarget, useReturnContext } from "../../lib/returnTo";
+
+/** Local draft state with the patch-and-clear shape the form bodies already use. */
+function useDraft<T extends object>(initial: T) {
+  const [draft, setDraft] = useState<T>(initial);
+  const update = (patch: Partial<T>) => setDraft((d) => ({ ...d, ...patch }));
+  const clear = () => setDraft(initial);
+  return [draft, update, clear] as const;
+}
+
 
 interface Draft {
   integrationId: number | null;
@@ -20,9 +26,6 @@ export function EditAttachmentPage() {
   const pid = Number(partnerId);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const ctx = useReturnContext();
-  const here = useHereAsReturnTarget();
-  const [params, setParams] = useSearchParams();
 
   const gateway = useQuery({
     queryKey: ["api-gateway", gatewayId],
@@ -31,9 +34,7 @@ export function EditAttachmentPage() {
   });
   const attachment = gateway.data?.attachments.find((a) => a.partnerId === pid);
 
-  const [draft, update, clear] = usePersistentDraft<Draft>(
-    `bitween-draft-edit-attach-${gatewayId}-${pid}`,
-    { integrationId: null },
+  const [draft, update, clear] = useDraft<Draft>({ integrationId: null },
   );
 
   // seed from the current attachment once it loads (skipped if a detour already picked something)
@@ -44,22 +45,6 @@ export function EditAttachmentPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attachment]);
 
-  // returning from a "New integration" detour
-  useEffect(() => {
-    const picked = takePicked(params, "integration");
-    if (picked !== null) {
-      update({ integrationId: picked });
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.delete("picked");
-          return next;
-        },
-        { replace: true },
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const save = useMutation({
     mutationFn: () => api.updateGatewayAttachment(gatewayId, { partnerId: pid, integrationId: draft.integrationId! }),
@@ -82,18 +67,15 @@ export function EditAttachmentPage() {
     );
 
   const g = gateway.data;
-  const detourCtx = { to: here, label: `Editing ${attachment.partnerName}'s integration on ${g.name}` };
 
   return (
     <div className="pb-10">
       <Link
-        to={ctx?.to ?? `/api-gateways/${gatewayId}`}
+        to={`/api-gateways/${gatewayId}`}
         className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
       >
-        <ArrowLeft className="size-3.5" /> {ctx ? "Back without saving" : g.name}
+        <ArrowLeft className="size-3.5" /> {g.name}
       </Link>
-
-      <ReturnBanner />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
         Integration for {attachment.partnerName}
@@ -107,8 +89,6 @@ export function EditAttachmentPage() {
           type="GatewayApiCall"
           value={draft.integrationId}
           onChange={(integrationId) => update({ integrationId })}
-          detourCtx={detourCtx}
-          triggerHint={`${g.name} → ${attachment.partnerName}`}
         />
         <FormError>{save.error?.message}</FormError>
         <div className="flex justify-end gap-2 border-t border-ink-100 pt-4">

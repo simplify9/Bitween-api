@@ -24,8 +24,7 @@ import { Menu, MenuItem } from "../ui/overlays";
 /**
  * Shown on every page while unsaved setting changes exist — the whole app
  * renders with the draft applied, so this is the "you're previewing" strip
- * that routes back to Settings to keep editing or save. Mirrors the
- * ReturnBanner detour pattern.
+ * that routes back to Settings to keep editing or save.
  */
 function SettingsPreviewBanner() {
   const draft = useSettingsDraft();
@@ -266,10 +265,24 @@ function SidebarContent({
 
 const RAILED_KEY = "bitween-nav-railed";
 
+/**
+ * Pages that own the whole viewport instead of sitting in the shell's page frame.
+ *
+ * The bus-gateway studio is a three-region workspace — route list, canvas,
+ * configuration — each with its own scrollbar, which only works if the shell
+ * stops supplying padding, a footer and a page-level scroll. The flow map is the
+ * same bargain with two regions. Matched here rather than announced by the page
+ * itself: a page can only ask once it has mounted, and the frame would visibly
+ * snap away on arrival.
+ */
+const FULL_BLEED = [/^\/bus-gateways\/\d+$/, /^\/flow$/];
+
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
   const branding = useApplyBranding();
+  const { pathname } = useLocation();
+  const fullBleed = FULL_BLEED.some((r) => r.test(pathname));
 
   const toggleRail = () =>
     setRailed((prev) => {
@@ -352,12 +365,30 @@ export function AppShell() {
         />
       </aside>
 
-      <main className="flex min-w-0 flex-col">
-        <div className="w-full px-4 py-4 sm:px-6 sm:py-5">
-          <SettingsPreviewBanner />
-          <Outlet />
-        </div>
-        <AppFooter branding={branding} />
+      {/* `lg:h-screen` + `overflow-hidden` on a full-bleed page: the workspace
+          scrolls in its own regions, and a page-level scrollbar on top of that is
+          how you end up scrolling the canvas out from under its own toolbar.
+          Below `lg` it stays a normal stacking page — a three-pane studio on a
+          phone is not a thing worth building. */}
+      <main className={`flex min-w-0 flex-col ${fullBleed ? "lg:h-screen lg:overflow-hidden" : ""}`}>
+        {fullBleed ? (
+          <>
+            {/* Empty when there is no settings draft, and hidden with it —
+                otherwise its padding steals a strip off the canvas. */}
+            <div className="px-4 pt-4 empty:hidden sm:px-6">
+              <SettingsPreviewBanner />
+            </div>
+            <Outlet />
+          </>
+        ) : (
+          <>
+            <div className="w-full px-4 py-4 sm:px-6 sm:py-5">
+              <SettingsPreviewBanner />
+              <Outlet />
+            </div>
+            <AppFooter branding={branding} />
+          </>
+        )}
       </main>
     </div>
   );

@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
+import { InformationTypeDialog } from "../../components/config/InformationTypeDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { CodeBadge } from "../../components/ui/Panel";
@@ -13,6 +14,7 @@ import { UsedByCell, useIntegrationsCache } from "../../components/config/shared
 export function InformationTypesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
 
   const types = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() });
@@ -61,7 +63,7 @@ export function InformationTypesPage() {
         }}
         actions={
           <Can permission="documents.create">
-            <Button variant="primary" onClick={() => navigate("/information-types/new")}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               <Plus className="size-4" /> New information type
             </Button>
           </Can>
@@ -139,6 +141,14 @@ export function InformationTypesPage() {
         />
       )}
 
+
+      {creating && (
+        <InformationTypeDialog
+          typeId={null}
+          onClose={() => setCreating(false)}
+          onSaved={({ id }) => navigate(`/information-types/${id}`)}
+        />
+      )}
     </div>
   );
 }

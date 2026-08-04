@@ -1,86 +1,21 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
-import { api, referencesPartnerProp } from "../../api";
+import { ArrowLeft, Trash2 } from "lucide-react";
+import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Field, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
-import { CopyField } from "../../components/ui/CopyField";
-import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/ui/KeyValueEditor";
+import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
+import { ExchangesList, SetupList, usePartnerIntegrations } from "../../components/config/shared";
 import {
-  ExchangesList,
-  IntegrationMiniList,
-  SetupList,
-  usePartnerIntegrations,
-} from "../../components/config/shared";
-import { ReturnBanner } from "../../components/ui/ReturnBanner";
-
-function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () => void }) {
-  const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [issuedKey, setIssuedKey] = useState("");
-
-  const add = useMutation({
-    mutationFn: () => api.addPartnerCredential(partnerId, name),
-    onSuccess: ({ key }) => {
-      setIssuedKey(key);
-      void queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
-      void queryClient.invalidateQueries({ queryKey: ["partners"] });
-    },
-  });
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    add.mutate();
-  };
-
-  if (issuedKey) {
-    return (
-      <Dialog title="API key created" onClose={onClose}>
-        <div className="space-y-4">
-          <CopyField value={issuedKey} label={`Key "${name}"`} />
-          <p className="text-[13px] text-ink-500">
-            Copy it now and share it with the partner — for security, the full key is never shown
-            again.
-          </p>
-          <div className="flex justify-end">
-            <Button variant="primary" onClick={onClose}>
-              Done
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-    );
-  }
-
-  return (
-    <Dialog title="New API key" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Key name" htmlFor="ak-name" hint="What this key is for — the partner may hold several.">
-          <TextInput
-            id="ak-name"
-            required
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Production"
-          />
-        </Field>
-        <FormError>{add.error?.message}</FormError>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={add.isPending}>
-            Generate key
-          </Button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}
+  PartnerFields,
+  partnerChanges,
+  partnerDirty,
+  partnerDraftOf,
+  type PartnerDraft,
+} from "../../components/config/PartnerFields";
 
 export function PartnerPage() {
   const { id = "" } = useParams();
@@ -98,49 +33,30 @@ export function PartnerPage() {
   // legacy ones that carry their own partnerId.
   const partnerIntegrations = usePartnerIntegrations();
 
-  const [name, setName] = useState("");
-  const [propRows, setPropRows] = useState<KvRow[] | null>(null);
-  const [addingKey, setAddingKey] = useState(false);
-  const [revoking, setRevoking] = useState<string | null>(null);
+  const [draft, setDraft] = useState<PartnerDraft | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!loaded && partner.data) {
-      setName(partner.data.name);
-      setPropRows(toRows(partner.data.adapterProperties));
+      setDraft(partnerDraftOf(partner.data));
       setLoaded(true);
     }
   }, [partner.data, loaded]);
 
-  const dirty = useMemo(() => {
-    if (!partner.data || propRows === null) return false;
-    return (
-      name !== partner.data.name ||
-      JSON.stringify(toRecord(propRows)) !== JSON.stringify(partner.data.adapterProperties)
-    );
-  }, [partner.data, name, propRows]);
+  const dirty = useMemo(
+    () => !!partner.data && !!draft && partnerDirty(draft, partnerDraftOf(partner.data)),
+    [partner.data, draft],
+  );
 
   const save = useMutation({
-    mutationFn: () =>
-      api.updatePartner(partnerId, {
-        name: name !== partner.data?.name ? name : undefined,
-        adapterProperties: toRecord(propRows ?? []),
-      }),
+    mutationFn: () => api.updatePartner(partnerId, partnerChanges(draft!)),
     onSuccess: async () => {
       // Await the detail refetch BEFORE re-syncing the draft, so the re-sync
       // effect reads the freshly-saved server data (not the stale cache).
       await queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
       void queryClient.invalidateQueries({ queryKey: ["partners"] });
       setLoaded(false);
-    },
-  });
-
-  const revoke = useMutation({
-    mutationFn: (keyName: string) => api.revokePartnerCredential(partnerId, keyName),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
-      void queryClient.invalidateQueries({ queryKey: ["partners"] });
     },
   });
 
@@ -184,14 +100,12 @@ export function PartnerPage() {
         <ArrowLeft className="size-3.5" /> Partners
       </Link>
 
-      <ReturnBanner />
-
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2.5 text-[22px] font-semibold tracking-tight text-ink-900">
             <EditableTitle
-              value={name}
-              onChange={setName}
+              value={draft?.name ?? p.name}
+              onChange={(name) => setDraft((d) => (d ? { ...d, name } : d))}
               disabled={!canEdit || p.isSystem}
               placeholder="Partner name"
             />
@@ -213,73 +127,17 @@ export function PartnerPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-5">
-          <Panel
-            title="Properties"
-            description="Key-value settings adapters can reference — use the reference token inside any adapter field."
-          >
-            <KeyValueEditor
-              rows={propRows ?? []}
-              onChange={setPropRows}
-              keyLabel="Property"
-              valueLabel="Value"
-              keyPlaceholder="storeId"
-              valuePlaceholder="CR-114"
-              editable={canEdit}
-              token={(row) => `{{partner.${row.key.trim()}}}`}
-              emptyText="No properties yet."
-              rowDetails={(row) => {
-                if (!row.key.trim()) return null;
-                const users = (partnerIntegrations.get(partnerId) ?? []).filter((s) =>
-                  referencesPartnerProp(s, row.key.trim()),
-                );
-                return (
-                  <IntegrationMiniList
-                    items={users}
-                    emptyText="Not referenced by any integration — safe to change or remove."
-                  />
-                );
-              }}
+        <div className="min-w-0">
+          {draft && (
+            <PartnerFields
+              draft={draft}
+              onChange={setDraft}
+              canEdit={canEdit}
+              isSystem={p.isSystem}
+              partnerId={partnerId}
+              credentials={p.apiCredentials}
             />
-          </Panel>
-
-          <Panel
-            title="API keys"
-            description="Credentials partners use to call Bitween's gateways."
-            action={
-              <Can permission="partners.edit">
-                <Button size="sm" onClick={() => setAddingKey(true)}>
-                  <Plus className="size-3.5" /> New key
-                </Button>
-              </Can>
-            }
-          >
-            <MiniTable
-              rows={p.apiCredentials}
-              rowKey={(c) => c.name}
-              empty="No API keys yet."
-              columns={[
-                {
-                  header: "Key",
-                  truncate: true,
-                  cell: (c) => <span className="block truncate font-medium text-ink-800">{c.name}</span>,
-                },
-                { header: "Prefix", cell: (c) => <code className="font-mono text-xs text-ink-500">{c.keyPrefix}…</code> },
-                {
-                  header: "",
-                  align: "right",
-                  cell: (c) => (
-                    <Can permission="partners.edit">
-                      <Button size="sm" variant="danger" onClick={() => setRevoking(c.name)}>
-                        Revoke
-                      </Button>
-                    </Can>
-                  ),
-                },
-              ]}
-            />
-            <FormError>{revoke.error?.message}</FormError>
-          </Panel>
+          )}
         </div>
 
         <div className="min-w-0 space-y-5">
@@ -337,26 +195,6 @@ export function PartnerPage() {
           error={save.error?.message}
           onSave={() => save.mutate()}
           onDiscard={() => setLoaded(false)}
-        />
-      )}
-
-      {addingKey && <AddKeyDialog partnerId={partnerId} onClose={() => setAddingKey(false)} />}
-
-      {revoking && (
-        <ConfirmDialog
-          title="Revoke this API key?"
-          body={
-            <>
-              Anything the partner calls with the key{" "}
-              <strong className="font-medium text-ink-800">{revoking}</strong> will stop
-              authenticating immediately.
-            </>
-          }
-          confirmLabel="Revoke key"
-          onConfirm={async () => {
-            await revoke.mutateAsync(revoking);
-          }}
-          onClose={() => setRevoking(null)}
         />
       )}
 

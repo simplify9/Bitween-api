@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Layers, Plus, Search } from "lucide-react";
 import { api, type QueueHealthSnapshot, type WorkGroupRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
+import { WorkGroupDialog } from "../../components/config/WorkGroupDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Table, type Column } from "../../components/ui/Table";
@@ -48,6 +49,7 @@ function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGrou
 export function WorkGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
   const canMonitor = useSessionCan("monitoring.view");
 
@@ -100,7 +102,7 @@ export function WorkGroupsPage() {
         }}
         actions={
           <Can permission="workgroups.create">
-            <Button variant="primary" onClick={() => navigate("/work-groups/new")}>
+            <Button variant="primary" onClick={() => setCreating(true)}>
               <Plus className="size-4" /> New work group
             </Button>
           </Can>
@@ -162,6 +164,14 @@ export function WorkGroupsPage() {
               ),
             },
           ]}
+        />
+      )}
+
+      {creating && (
+        <WorkGroupDialog
+          groupId={null}
+          onClose={() => setCreating(false)}
+          onSaved={(id) => navigate(`/work-groups/${id}`)}
         />
       )}
     </div>

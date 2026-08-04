@@ -5,26 +5,15 @@ import { ArrowLeft, ArrowUpRight, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import {
+  WorkGroupFields,
+  workGroupDraftOf,
+  type WorkGroupDraft,
+} from "../../components/config/WorkGroupDialog";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { SetupList } from "../../components/config/shared";
-import { ReturnBanner } from "../../components/ui/ReturnBanner";
 import { LiveQueueStats } from "./LiveQueueStats";
-
-interface Draft {
-  name: string;
-  busMessageName: string;
-  prefetch: number;
-  priority: number;
-}
-
-const draftOf = (g: { name: string; busMessageName: string; options: { rabbitMqOptions: { consumerSettings: { prefetch: number; priority: number } } } }): Draft => ({
-  name: g.name,
-  busMessageName: g.busMessageName,
-  prefetch: g.options.rabbitMqOptions.consumerSettings.prefetch,
-  priority: g.options.rabbitMqOptions.consumerSettings.priority,
-});
 
 /**
  * This group's slice of the live RabbitMQ picture — the same numbers the
@@ -62,20 +51,20 @@ export function WorkGroupPage() {
     retry: false,
   });
 
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<WorkGroupDraft | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!loaded && group.data) {
-      setDraft(draftOf(group.data));
+      setDraft(workGroupDraftOf(group.data));
       setLoaded(true);
     }
   }, [group.data, loaded]);
 
   const dirty = useMemo(() => {
     if (!group.data || !draft) return false;
-    return JSON.stringify(draft) !== JSON.stringify(draftOf(group.data));
+    return JSON.stringify(draft) !== JSON.stringify(workGroupDraftOf(group.data));
   }, [group.data, draft]);
 
   const save = useMutation({
@@ -99,8 +88,6 @@ export function WorkGroupPage() {
     );
 
   const g = group.data;
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
-    setDraft((d) => (d ? { ...d, [key]: value } : d));
 
   return (
     <div className="pb-24">
@@ -111,12 +98,10 @@ export function WorkGroupPage() {
         <ArrowLeft className="size-3.5" /> Work groups
       </Link>
 
-      <ReturnBanner />
-
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
-            <EditableTitle value={draft?.name ?? g.name} onChange={(v) => set("name", v)} disabled={!canEdit} placeholder="Work group name" />
+            <EditableTitle value={draft?.name ?? g.name} onChange={(name) => setDraft((d) => (d ? { ...d, name } : d))} disabled={!canEdit} placeholder="Work group name" />
           </h1>
         </div>
         <Can permission="workgroups.delete">
@@ -129,47 +114,7 @@ export function WorkGroupPage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
           <Panel title="Queue settings" description="Groups get their own queue, priority and prefetch.">
-            {draft && (
-              <div className="space-y-4">
-                <div className="max-w-sm">
-                  <Field
-                    label="Bus message name"
-                    htmlFor="wg-busname"
-                    hint="Combined with the group's id to form its queue name. No spaces."
-                  >
-                    <TextInput
-                      id="wg-busname"
-                      value={draft.busMessageName}
-                      disabled={!canEdit}
-                      className="font-mono"
-                      onChange={(e) => set("busMessageName", e.target.value.toLowerCase().replace(/\s+/g, ""))}
-                    />
-                  </Field>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Prefetch" htmlFor="wg-prefetch" hint="Messages pulled per consumer at once.">
-                    <TextInput
-                      id="wg-prefetch"
-                      type="number"
-                      min={1}
-                      value={draft.prefetch}
-                      disabled={!canEdit}
-                      onChange={(e) => set("prefetch", Math.max(1, Number(e.target.value)))}
-                    />
-                  </Field>
-                  <Field label="Priority" htmlFor="wg-priority" hint="Higher runs before lower.">
-                    <TextInput
-                      id="wg-priority"
-                      type="number"
-                      min={0}
-                      value={draft.priority}
-                      disabled={!canEdit}
-                      onChange={(e) => set("priority", Math.max(0, Number(e.target.value)))}
-                    />
-                  </Field>
-                </div>
-              </div>
-            )}
+            {draft && <WorkGroupFields draft={draft} onChange={setDraft} canEdit={canEdit} />}
           </Panel>
         </div>
 
