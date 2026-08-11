@@ -97,5 +97,8 @@ namespace SW.Bitween.Model
         public string CorrelationId { get; set; }
         public int? PartnerId { get; set; }
         public DateTime? ScheduledRetryOn { get; set; }
+
+        /// <summary>Why the retry policy declined to schedule another attempt, when it declined.</summary>
+        public string RetryBlockedReason { get; set; }
     }
 }

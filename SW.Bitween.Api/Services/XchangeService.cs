@@ -85,17 +85,17 @@ public class XchangeService :
         await _dbContext.SaveChangesAsync();
     }
 
-    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup, Dictionary<string, int> groupAttemptCounts = null)
+    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup)
     {
-        var newXchange = new Xchange(xchange, file, workGroup, groupAttemptCounts);
+        var newXchange = new Xchange(xchange, file, workGroup);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
 
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
-        string[] references = null, Dictionary<string, int> groupAttemptCounts = null)
+        string[] references = null)
     {
-        var newXchange = new Xchange(subscription, xchange, file, groupAttemptCounts);
+        var newXchange = new Xchange(subscription, xchange, file);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
@@ -147,7 +147,7 @@ public class XchangeService :
 
         var inputFileData = await GetFile(xchange.Id, XchangeFileType.Input);
         var inputFile = new XchangeFile(inputFileData, xchange.InputName);
-        await CreateXchange(subscription, xchange, inputFile, groupAttemptCounts: delayedRetry.GroupAttemptCounts);
+        await CreateXchange(subscription, xchange, inputFile);
         _dbContext.Remove(delayedRetry);
         return true;
     }
@@ -418,23 +418,58 @@ public class XchangeService :
                 await CreateXchangesForHits(xchange, result, inputFile);
             }
 
-            _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id));
+            var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
+                responseXchange?.Id);
+            _dbContext.Add(xchangeResult);
             if (responseFile?.BadData == true)
-                await TryScheduleAutoRetry(xchange, XchangeResultType.BadResult, responseFile.Data);
+                await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
+                    xchangeResult);
             await _dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
-            _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id,
-                ex.ToString()));
-            await TryScheduleAutoRetry(xchange, XchangeResultType.Error, ex.ToString());
+            var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
+                responseXchange?.Id, ex.ToString());
+            _dbContext.Add(xchangeResult);
+            await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await _dbContext.SaveChangesAsync();
         }
     }
 
-    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content)
+    /// <summary>
+    /// Evaluates the retry policy without ever costing the caller its failure record.
+    /// </summary>
+    /// <remarks>
+    /// Scheduling runs before the <see cref="XchangeResult"/> is saved and touches the database
+    /// several times. Letting it throw would replace the original exception with its own and abort
+    /// the save, so the failure would vanish from the UI entirely and only reappear as a silent
+    /// redelivery. Losing the retry is recoverable; losing the record of what went wrong is not.
+    /// </remarks>
+    private async Task TrySchedulingWithoutLosingTheResult(Xchange xchange, XchangeResultType resultType,
+        string content, XchangeResult xchangeResult)
+    {
+        try
+        {
+            await TryScheduleAutoRetry(xchange, resultType, content, xchangeResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Auto-retry evaluation failed for xchange {XchangeId}; the failure result is still recorded.",
+                xchange.Id);
+        }
+    }
+
+    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content,
+        XchangeResult xchangeResult)
     {
         if (xchange.SubscriptionId == null) return;
+
+        // DelayedRetry.Id is xchange.Id, so an existing row means this failure was already
+        // evaluated and already spent a slot of the group's total budget. Re-evaluating it
+        // (e.g. on an at-least-once redelivery) would both violate the PK on Add and spend a
+        // second slot for the same failure.
+        var alreadyScheduled = await _dbContext.Set<DelayedRetry>().FindAsync(xchange.Id);
+        if (alreadyScheduled != null) return;
 
         var subscription = await _dbContext.Set<Subscription>()
             .Include(s => s.RetryPolicy)
@@ -443,35 +478,22 @@ public class XchangeService :
         IRetryPolicy policy = subscription?.CustomRetryPolicy ?? (IRetryPolicy)subscription?.RetryPolicy;
         if (policy?.Groups == null || policy.Groups.Count == 0) return;
 
-        var evaluator = new RetryPolicyEvaluator(policy);
-        evaluator.RestoreGroupAttemptCounts(xchange.GroupAttemptCounts == null
-            ? new Dictionary<string, int>()
-            : new Dictionary<string, int>(xchange.GroupAttemptCounts));
+        var evaluator = new RetryPolicyEvaluator(policy,
+            new RetryGroupBudget(_dbContext, _serviceProvider, xchange.SubscriptionId.Value));
 
         var attemptIndex = await CountRetryChainDepth(xchange);
-        var decision = evaluator.Evaluate(resultType, content, attemptIndex);
+        var decision = await evaluator.Evaluate(resultType, content, attemptIndex);
 
         if (decision.ShouldRetry)
-        {
-            // Guard against duplicate scheduling (e.g. an at-least-once redelivery
-            // reprocessing the same xchange) — DelayedRetry.Id is xchange.Id, so a
-            // blind Add would violate the PK and fail the whole SaveChangesAsync.
-            var existing = await _dbContext.Set<DelayedRetry>().FindAsync(xchange.Id);
-            if (existing != null)
+            _dbContext.Add(new DelayedRetry
             {
-                existing.On = DateTime.UtcNow + decision.Delay;
-                existing.GroupAttemptCounts = evaluator.GetGroupAttemptCounts();
-            }
-            else
-            {
-                _dbContext.Add(new DelayedRetry
-                {
-                    Id = xchange.Id,
-                    On = DateTime.UtcNow + decision.Delay,
-                    GroupAttemptCounts = evaluator.GetGroupAttemptCounts()
-                });
-            }
-        }
+                Id = xchange.Id,
+                On = DateTime.UtcNow + decision.Delay
+            });
+        else
+            // A policy applied but refused. Recorded so an exhausted budget is distinguishable
+            // from an error no group was ever configured to catch.
+            xchangeResult.SetRetryBlocked(decision.Reason);
     }
 
     private async Task<int> CountRetryChainDepth(Xchange xchange)

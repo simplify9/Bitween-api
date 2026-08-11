@@ -62,6 +62,16 @@ namespace SW.Bitween.Domain
         public bool ResponseBad { get; private set; }
         public string ResponseContentType { get; private set; }
 
+        /// <summary>
+        /// Why the retry policy declined to schedule another attempt for this failure, or
+        /// <c>null</c> when a retry was scheduled or no policy applied. Without it a group that
+        /// has exhausted its budget looks identical to one that never matched.
+        /// </summary>
+        public string RetryBlockedReason { get; private set; }
+
+        /// <summary>Records the policy's refusal so it can be shown alongside the failure.</summary>
+        public void SetRetryBlocked(string reason) => RetryBlockedReason = reason;
+
 
 
     }

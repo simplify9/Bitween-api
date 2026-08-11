@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SW.Bitween.Model;
@@ -13,9 +14,11 @@ using SW.Bitween.PgSql;
 namespace SW.Bitween.PgSql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    partial class BitweenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811081200_SharedRetryGroupTotals")]
+    partial class SharedRetryGroupTotals
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1229,11 +1232,6 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<string>("ResponseXchangeId")
                         .HasColumnType("text")
                         .HasColumnName("response_xchange_id");
-
-                    b.Property<string>("RetryBlockedReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("retry_blocked_reason");
 
                     b.Property<bool>("Success")
                         .HasColumnType("boolean")

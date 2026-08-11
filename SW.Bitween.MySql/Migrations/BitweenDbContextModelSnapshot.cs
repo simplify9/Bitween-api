@@ -130,9 +130,6 @@ namespace SW.Bitween.MySql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime>("On")
                         .HasColumnType("datetime(6)");
 
@@ -496,6 +493,25 @@ namespace SW.Bitween.MySql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.RetryGroupUsage", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("AttemptsUsed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastAttemptOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("SubscriptionId", "GroupId");
+
+                    b.ToTable("RetryGroupUsages", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -763,9 +779,6 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -994,6 +1007,10 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("ResponseXchangeId")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("RetryBlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<bool>("Success")
                         .HasColumnType("tinyint(1)");
