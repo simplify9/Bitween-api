@@ -236,8 +236,15 @@ namespace SW.Bitween
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.On);
-                b.Property(p => p.GroupAttemptCounts).StoreAsJson();
                 b.HasIndex(p => p.On);
+            });
+
+            modelBuilder.Entity<RetryGroupUsage>(b =>
+            {
+                b.ToTable("RetryGroupUsages");
+                b.HasKey(p => new { p.SubscriptionId, p.GroupId });
+                b.Property(p => p.AttemptsUsed);
+                b.Property(p => p.LastAttemptOn);
             });
 
             modelBuilder.Entity<Xchange>(b =>
@@ -252,7 +259,6 @@ namespace SW.Bitween
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
-                b.Property(p => p.GroupAttemptCounts).StoreAsJson();
                 b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
 
@@ -283,6 +289,7 @@ namespace SW.Bitween
                 b.Property(p => p.ResponseName).HasMaxLength(200);
                 b.Property(p => p.ResponseContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).IsUnicode(false).HasMaxLength(200);
+                b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
 
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);

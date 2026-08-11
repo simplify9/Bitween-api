@@ -262,6 +262,7 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.ResponseName).HasMaxLength(200);
                 b.Property(p => p.ResponseContentType).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).HasMaxLength(200);
+                b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
@@ -384,13 +385,14 @@ namespace SW.Bitween.PgSql
             {
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).HasMaxLength(50);
-                b.Property(p => p.GroupAttemptCounts).HasColumnType("jsonb");
                 b.HasIndex(p => p.On);
             });
 
-            modelBuilder.Entity<Xchange>(b =>
+            modelBuilder.Entity<RetryGroupUsage>(b =>
             {
-                b.Property(p => p.GroupAttemptCounts).HasColumnType("jsonb");
+                b.HasKey(p => new { p.SubscriptionId, p.GroupId });
+                b.Property(p => p.AttemptsUsed);
+                b.Property(p => p.LastAttemptOn);
             });
 
             modelBuilder.UseSchedulerPostgreSql(Schema);

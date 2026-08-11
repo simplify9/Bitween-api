@@ -73,7 +73,8 @@ namespace SW.Bitween.Resources.Xchanges
                             ResponseFileName = result.ResponseName,
                             CorrelationId = xchange.CorrelationId,
                             PartnerId = subscriber.PartnerId,
-                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null
+                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null,
+                            RetryBlockedReason = result.RetryBlockedReason
                         };
 
             var condition = searchyRequest.Conditions.FirstOrDefault();

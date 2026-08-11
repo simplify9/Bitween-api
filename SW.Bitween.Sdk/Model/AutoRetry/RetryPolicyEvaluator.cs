@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SW.Bitween.Model;
 
@@ -10,47 +10,18 @@ namespace SW.Bitween.Model;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Stateful per processing window.</strong>  The evaluator accumulates
-/// per-group attempt totals in <c>_groupAttemptCounts</c>.  For a single in-process
-/// window (e.g. a running <c>RetryJob</c> batch) one instance handles all messages.
+/// <strong>Two independent caps.</strong>  <see cref="RetryBudget.MaxAttemptsPerError"/> is
+/// per message and is derived from the caller's <c>attemptIndexForThisMessage</c>, while
+/// <see cref="RetryBudget.MaxAttemptsTotal"/> is shared by every message hitting the group and
+/// is owned by the injected <see cref="IRetryGroupBudget"/>.  The evaluator itself keeps no
+/// counters, so a fresh instance per failure enforces both caps correctly.
 /// </para>
 /// <para>
-/// <strong>Cross-invocation persistence.</strong>  When a retry is scheduled the
-/// current counts are saved to <see cref="GetGroupAttemptCounts"/> and stored on
-/// the <c>DelayedRetry</c> entity (and on the new <c>Xchange</c> so that a later
-/// failure of the retry itself can pick up where the budgets left off).  On the next
-/// evaluation call <see cref="RestoreGroupAttemptCounts"/> before <see cref="Evaluate"/>.
-/// </para>
-/// <para>
-/// <strong>Not thread-safe.</strong>  Each goroutine/task should use its own instance.
+/// <strong>Not thread-safe.</strong>  Each task should use its own instance.
 /// </para>
 /// </remarks>
-public class RetryPolicyEvaluator(IRetryPolicy policy)
+public class RetryPolicyEvaluator(IRetryPolicy policy, IRetryGroupBudget groupBudget)
 {
-    private readonly Dictionary<Guid, int> _groupAttemptCounts = new();
-
-    /// <summary>
-    /// Restores previously persisted group-level attempt counts, allowing budgets
-    /// to continue from where they left off across separate process invocations.
-    /// </summary>
-    /// <param name="counts">
-    /// The dictionary returned by <see cref="GetGroupAttemptCounts"/> from a prior evaluation.
-    /// String keys are parsed back to <see cref="Guid"/> — invalid entries are silently ignored.
-    /// </param>
-    public void RestoreGroupAttemptCounts(Dictionary<string, int> counts)
-    {
-        foreach (var kv in counts)
-            if (Guid.TryParse(kv.Key, out var guid))
-                _groupAttemptCounts[guid] = kv.Value;
-    }
-
-    /// <summary>
-    /// Returns the current group-level attempt counts as a string-keyed dictionary
-    /// suitable for JSON serialisation and storage on <c>DelayedRetry</c> / <c>Xchange</c>.
-    /// </summary>
-    public Dictionary<string, int> GetGroupAttemptCounts() =>
-        _groupAttemptCounts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value);
-
     /// <summary>
     /// Evaluates the policy and returns a retry decision for the failed xchange.
     /// </summary>
@@ -69,7 +40,7 @@ public class RetryPolicyEvaluator(IRetryPolicy policy)
     /// <returns>
     /// A <see cref="RetryDecision"/> indicating whether to retry and, if so, how long to wait.
     /// </returns>
-    public RetryDecision Evaluate(
+    public async Task<RetryDecision> Evaluate(
         XchangeResultType resultType,
         string content,
         int attemptIndexForThisMessage)
@@ -91,12 +62,11 @@ public class RetryPolicyEvaluator(IRetryPolicy policy)
             return RetryDecision.Block(
                 $"Per-message cap reached ({budget.MaxAttemptsPerError}) in group '{group.Name}'");
 
-        var totalUsed = _groupAttemptCounts.GetValueOrDefault(group.Id, 0);
-        if (totalUsed >= budget.MaxAttemptsTotal)
+        // Claimed last so a message already stopped by its own per-message cap doesn't
+        // eat a slot out of the shared total.
+        if (!await groupBudget.TryConsume(group.Id, budget.MaxAttemptsTotal))
             return RetryDecision.Block(
                 $"Group total cap reached ({budget.MaxAttemptsTotal}) for group '{group.Name}'");
-
-        _groupAttemptCounts[group.Id] = totalUsed + 1;
 
         var delay = budget.DelayStrategy.GetDelay(attemptIndexForThisMessage);
         return RetryDecision.Allow(delay, group.Name);

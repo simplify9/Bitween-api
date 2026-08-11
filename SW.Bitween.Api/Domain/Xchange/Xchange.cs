@@ -60,7 +60,7 @@ namespace SW.Bitween.Domain
         }
 
         //retry xchange
-        public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup, IReadOnlyDictionary<string, int> groupAttemptCounts = null) :
+        public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup) :
             this(xchange.DocumentId, workGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
@@ -72,11 +72,10 @@ namespace SW.Bitween.Domain
             ResponseSubscriptionId = xchange.ResponseSubscriptionId;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
-            GroupAttemptCounts = groupAttemptCounts == null ? null : new Dictionary<string, int>(groupAttemptCounts);
         }
 
         //retry with reset subscription properties
-        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file, IReadOnlyDictionary<string, int> groupAttemptCounts = null) :
+        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file) :
             this(xchange.DocumentId, subscription.WorkGroup, file, xchange.References)
         {
             SubscriptionId = xchange.SubscriptionId;
@@ -88,7 +87,6 @@ namespace SW.Bitween.Domain
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
-            GroupAttemptCounts = groupAttemptCounts == null ? null : new Dictionary<string, int>(groupAttemptCounts);
         }
 
         public int? SubscriptionId { get; private set; }
@@ -109,6 +107,5 @@ namespace SW.Bitween.Domain
 
         public string RetryFor { get; private set; }
         public string CorrelationId { get; set; }
-        public IReadOnlyDictionary<string, int> GroupAttemptCounts { get; private set; }
     }
 }

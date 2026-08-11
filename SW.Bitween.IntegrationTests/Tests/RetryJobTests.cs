@@ -122,15 +122,10 @@ public class RetryJobTests
         // Use CreateXchange so the input file is uploaded to real cloud storage
         var originalXchange = await xs.CreateXchange(sub, new XchangeFile("{}"));
 
-        var groupCounts = new System.Collections.Generic.Dictionary<string, int>
-        {
-            [Guid.NewGuid().ToString()] = 1
-        };
         var delayedRetry = new DelayedRetry
         {
             Id = originalXchange.Id,
-            On = DateTime.UtcNow.AddMinutes(-1),
-            GroupAttemptCounts = groupCounts
+            On = DateTime.UtcNow.AddMinutes(-1)
         };
         db.Set<DelayedRetry>().Add(delayedRetry);
         await db.SaveChangesAsync();
@@ -147,47 +142,6 @@ public class RetryJobTests
         Assert.NotNull(retryXchange);
         Assert.Equal(originalXchange.Id, retryXchange.RetryFor);
         Assert.Equal(sub.Id, retryXchange.SubscriptionId);
-    }
-
-    [Fact]
-    public async Task RetryJob_carries_group_attempt_counts_onto_retry_xchange()
-    {
-        await using var scope = _fixture.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-
-        var doc = new Document(8002, "RetryJob GroupCounts Doc");
-        db.Set<Document>().Add(doc);
-        await db.SaveChangesAsync();
-
-        var sub = new Subscription("RetryJob GroupCounts Sub", doc.Id);
-        sub.Inactive = false;
-        db.Set<Subscription>().Add(sub);
-        await db.SaveChangesAsync();
-
-        var originalXchange = await xs.CreateXchange(sub, new XchangeFile("{}"));
-
-        var groupId = Guid.NewGuid().ToString();
-        var delayedRetry = new DelayedRetry
-        {
-            Id = originalXchange.Id,
-            On = DateTime.UtcNow.AddMinutes(-1),
-            GroupAttemptCounts = new System.Collections.Generic.Dictionary<string, int>
-            {
-                [groupId] = 2
-            }
-        };
-        db.Set<DelayedRetry>().Add(delayedRetry);
-        await db.SaveChangesAsync();
-
-        await BuildJob(db, xs).Execute();
-
-        var retryXchange = await db.Set<Xchange>()
-            .FirstOrDefaultAsync(x => x.RetryFor == originalXchange.Id);
-        Assert.NotNull(retryXchange);
-        Assert.NotNull(retryXchange.GroupAttemptCounts);
-        Assert.True(retryXchange.GroupAttemptCounts.TryGetValue(groupId, out var count));
-        Assert.Equal(2, count);
     }
 
     [Fact]
