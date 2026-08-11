@@ -422,7 +422,8 @@ public class XchangeService :
                 responseXchange?.Id);
             _dbContext.Add(xchangeResult);
             if (responseFile?.BadData == true)
-                await TryScheduleAutoRetry(xchange, XchangeResultType.BadResult, responseFile.Data, xchangeResult);
+                await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
+                    xchangeResult);
             await _dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
@@ -430,8 +431,31 @@ public class XchangeService :
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id, ex.ToString());
             _dbContext.Add(xchangeResult);
-            await TryScheduleAutoRetry(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
+            await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await _dbContext.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Evaluates the retry policy without ever costing the caller its failure record.
+    /// </summary>
+    /// <remarks>
+    /// Scheduling runs before the <see cref="XchangeResult"/> is saved and touches the database
+    /// several times. Letting it throw would replace the original exception with its own and abort
+    /// the save, so the failure would vanish from the UI entirely and only reappear as a silent
+    /// redelivery. Losing the retry is recoverable; losing the record of what went wrong is not.
+    /// </remarks>
+    private async Task TrySchedulingWithoutLosingTheResult(Xchange xchange, XchangeResultType resultType,
+        string content, XchangeResult xchangeResult)
+    {
+        try
+        {
+            await TryScheduleAutoRetry(xchange, resultType, content, xchangeResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Auto-retry evaluation failed for xchange {XchangeId}; the failure result is still recorded.",
+                xchange.Id);
         }
     }
 
@@ -455,7 +479,7 @@ public class XchangeService :
         if (policy?.Groups == null || policy.Groups.Count == 0) return;
 
         var evaluator = new RetryPolicyEvaluator(policy,
-            new RetryGroupBudget(_dbContext, xchange.SubscriptionId.Value));
+            new RetryGroupBudget(_dbContext, _serviceProvider, xchange.SubscriptionId.Value));
 
         var attemptIndex = await CountRetryChainDepth(xchange);
         var decision = await evaluator.Evaluate(resultType, content, attemptIndex);

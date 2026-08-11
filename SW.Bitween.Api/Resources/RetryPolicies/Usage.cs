@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
+using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -16,14 +17,18 @@ namespace SW.Bitween.Resources.RetryPolicies;
 public class Usage : ICommandHandler<int, RetryPolicyUsageRequest, object>
 {
     private readonly BitweenDbContext _dbContext;
+    private readonly RequestContext _requestContext;
 
-    public Usage(BitweenDbContext dbContext)
+    public Usage(BitweenDbContext dbContext, RequestContext requestContext)
     {
         _dbContext = dbContext;
+        _requestContext = requestContext;
     }
 
     public async Task<object> Handle(int key, RetryPolicyUsageRequest request)
     {
+        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+
         var policy = await _dbContext.Set<RetryPolicy>().AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == key);
         if (policy == null) throw new SWNotFoundException(key.ToString());

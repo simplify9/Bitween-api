@@ -370,7 +370,7 @@ public class RetryPolicyTests
         for (var attempt = 0; attempt < 3; attempt++)
         {
             // A fresh evaluator and store per failure, exactly as XchangeService builds them.
-            var evaluator = new RetryPolicyEvaluator(policy, new RetryGroupBudget(db, sub.Id));
+            var evaluator = new RetryPolicyEvaluator(policy, new RetryGroupBudget(db, scope.ServiceProvider, sub.Id));
             var decision = await evaluator.Evaluate(XchangeResultType.Error, "timeout", attempt);
             if (decision.ShouldRetry) allowed++;
             await db.SaveChangesAsync();
@@ -421,11 +421,46 @@ public class RetryPolicyTests
 
         async Task<bool> Allow(int subscriptionId)
         {
-            var evaluator = new RetryPolicyEvaluator(policy, new RetryGroupBudget(db, subscriptionId));
+            var evaluator = new RetryPolicyEvaluator(policy, new RetryGroupBudget(db, scope.ServiceProvider, subscriptionId));
             var decision = await evaluator.Evaluate(XchangeResultType.Error, "timeout", 0);
             await db.SaveChangesAsync();
             return decision.ShouldRetry;
         }
+    }
+
+    [Fact]
+    public async Task Concurrent_claims_never_exceed_the_group_total()
+    {
+        await using var setup = _fixture.CreateScope();
+        var setupDb = setup.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7010, "Concurrent Budget Doc");
+        setupDb.Set<Document>().Add(doc);
+        var sub = new Subscription("Concurrent Budget Sub", doc.Id);
+        setupDb.Set<Subscription>().Add(sub);
+        await setupDb.SaveChangesAsync();
+
+        var groupId = Guid.NewGuid();
+        const int cap = 5;
+        const int racers = 16;
+
+        // Bitween runs several instances, so simultaneous failures of the same integration and
+        // group are normal. Each racer gets its own scope and context, mimicking separate
+        // instances: a read-then-write would let several observe the same free slot at once.
+        var tasks = Enumerable.Range(0, racers).Select(async _ =>
+        {
+            await using var scope = _fixture.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            return await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, cap);
+        });
+
+        var granted = (await Task.WhenAll(tasks)).Count(allowed => allowed);
+
+        Assert.Equal(cap, granted);
+
+        var usage = await setupDb.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id && u.GroupId == groupId);
+        Assert.Equal(cap, usage.AttemptsUsed);
     }
 
     // ─── Usage reporting and reset ──────────────────────────────────────────────
@@ -452,11 +487,11 @@ public class RetryPolicyTests
         await db.SaveChangesAsync();
 
         // Spend the whole budget (SimplePolicy allows 10 in total).
-        var budget = new RetryGroupBudget(db, sub.Id);
+        var budget = new RetryGroupBudget(db, scope.ServiceProvider, sub.Id);
         for (var i = 0; i < 10; i++) await budget.TryConsume(groupId, 10);
         await db.SaveChangesAsync();
 
-        var rows = (List<RetryGroupUsageRow>)await new Usage(db).Handle(policyId, new RetryPolicyUsageRequest());
+        var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx).Handle(policyId, new RetryPolicyUsageRequest());
         var row = Assert.Single(rows);
         Assert.Equal(sub.Id, row.SubscriptionId);
         Assert.Equal("Usage Sub", row.SubscriptionName);
@@ -470,10 +505,10 @@ public class RetryPolicyTests
             GroupId = groupId
         });
 
-        Assert.Empty((List<RetryGroupUsageRow>)await new Usage(db).Handle(policyId, new RetryPolicyUsageRequest()));
+        Assert.Empty((List<RetryGroupUsageRow>)await new Usage(db, ctx).Handle(policyId, new RetryPolicyUsageRequest()));
 
         // And the group can retry again.
-        Assert.True(await new RetryGroupBudget(db, sub.Id).TryConsume(groupId, 10));
+        Assert.True(await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, 10));
     }
 
     [Fact]
@@ -498,13 +533,49 @@ public class RetryPolicyTests
         otherSub.SetRetryPolicy(otherId, null);
         await db.SaveChangesAsync();
 
-        await new RetryGroupBudget(db, otherSub.Id).TryConsume(otherGroupId, 10);
+        await new RetryGroupBudget(db, scope.ServiceProvider, otherSub.Id).TryConsume(otherGroupId, 10);
         await db.SaveChangesAsync();
 
         // Resetting everything under one policy must leave the other policy's counters alone.
         await new ResetUsage(db, ctx).Handle(mineId, new RetryPolicyResetUsage());
 
-        Assert.Single((List<RetryGroupUsageRow>)await new Usage(db).Handle(otherId, new RetryPolicyUsageRequest()));
+        Assert.Single((List<RetryGroupUsageRow>)await new Usage(db, ctx).Handle(otherId, new RetryPolicyUsageRequest()));
+    }
+
+    [Fact]
+    public async Task Removing_a_group_clears_its_spent_budget()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+
+        var doc = new Document(7009, "Removed Group Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var policyId = (int)await new Create(db, ctx).Handle(SimplePolicy("Removed Group Policy"));
+        var saved = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+        var groupId = saved.Groups[0].Id;
+
+        var sub = new Subscription("Removed Group Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, 10);
+        await db.SaveChangesAsync();
+        Assert.True(await db.Set<RetryGroupUsage>().AnyAsync(u => u.GroupId == groupId));
+
+        // Dropping the group must take its counter with it, or the row is stranded where
+        // neither the usage report nor reset can reach it.
+        await new Update(db, ctx).Handle(policyId, new RetryPolicyUpdate
+        {
+            Name = "Removed Group Policy",
+            Groups = []
+        });
+
+        Assert.False(await db.Set<RetryGroupUsage>().AnyAsync(u => u.GroupId == groupId));
     }
 
     // ─── Test / dry-run endpoint ────────────────────────────────────────────────
