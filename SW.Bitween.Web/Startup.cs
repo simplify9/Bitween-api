@@ -337,12 +337,9 @@ namespace SW.Bitween.Web
                                    .AllowAnyMethod()
                                    .AllowCredentials();
                         }
-                        else
-                        {
-                            builder.AllowAnyOrigin();
-                            builder.AllowAnyHeader();
-                            builder.AllowAnyMethod();
-                        }
+                        // When no origins are configured, allow no cross-origin access.
+                        // The SPA is served same-origin, so CORS is only needed for
+                        // split-host / local-dev setups that set CorsOrigins explicitly.
                     });
             });
 
@@ -357,6 +354,15 @@ namespace SW.Bitween.Web
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseForwardedHeaders();
+
+            app.Use(async (context, next) =>
+            {
+                var headers = context.Response.Headers;
+                headers["X-Frame-Options"] = "DENY";
+                headers["X-Content-Type-Options"] = "nosniff";
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+                await next();
+            });
 
             if (env.IsDevelopment())
             {
