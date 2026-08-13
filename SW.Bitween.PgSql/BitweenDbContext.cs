@@ -340,7 +340,8 @@ namespace SW.Bitween.PgSql
                         CreatedOn = defaultCreatedOn.ToUniversalTime(),
                         Disabled = false,
                         Password = defaultPasswordHash,
-                        Role = AccountRole.Admin
+                        Role = AccountRole.Admin,
+                        FailedLoginCount = 0
                     });
             });
 

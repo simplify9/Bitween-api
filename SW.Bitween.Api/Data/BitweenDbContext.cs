@@ -375,7 +375,8 @@ namespace SW.Bitween
                         Disabled = false,
                         Password = defaultPasswordHash,
                         Deleted = false,
-                        Role = AccountRole.Admin
+                        Role = AccountRole.Admin,
+                        FailedLoginCount = 0
                     });
             });
 

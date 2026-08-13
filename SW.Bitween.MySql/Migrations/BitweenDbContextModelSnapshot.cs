@@ -55,6 +55,12 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<byte>("EmailProvider")
                         .HasColumnType("tinyint unsigned");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("tinyint unsigned");
 
@@ -94,6 +100,7 @@ namespace SW.Bitween.MySql.Migrations
                             DisplayName = "Admin",
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
+                            FailedLoginCount = 0,
                             LoginMethods = (byte)2,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0

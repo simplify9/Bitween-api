@@ -10,10 +10,12 @@ namespace SW.Bitween.Resources.Accounts
     public class Search : IQueryHandler<SearchMembersModel,object>
     {
         private readonly BitweenDbContext dbContext;
+        private readonly RequestContext _requestContext;
 
-        public Search(BitweenDbContext dbContext)
+        public Search(BitweenDbContext dbContext, RequestContext requestContext)
         {
             this.dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
         public async Task<object> Handle(SearchMembersModel request)
@@ -25,9 +27,13 @@ namespace SW.Bitween.Resources.Accounts
 
             if (request.Lookup)
             {
+                // id -> display name only; needed across the app (e.g. audit trails)
                 return await query.OrderBy(i => i.DisplayName)
                     .ToDictionaryAsync(i => i.Id, i => i.DisplayName);
             }
+
+            // the full roster (email, role) is an admin-only team-management view
+            _requestContext.EnsureAccess(AccountRole.Admin);
 
             var count = await query.CountAsync();
 
@@ -40,7 +46,8 @@ namespace SW.Bitween.Resources.Accounts
                     Email = a.Email,
                     Name = a.DisplayName,
                     Id = a.Id,
-                    Role = a.Role.ToString()
+                    Role = a.Role.ToString(),
+                    LockoutEnd = a.LockoutEnd
                 })
                 .ToListAsync();
 

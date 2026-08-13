@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Bitween.MsSql;
 
@@ -11,9 +12,11 @@ using SW.Bitween.MsSql;
 namespace SW.Bitween.MsSql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    partial class BitweenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812092708_AddAccountLockout")]
+    partial class AddAccountLockout
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -137,6 +140,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("GroupAttemptCounts")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("On")
                         .HasColumnType("datetime2");
@@ -502,25 +508,6 @@ namespace SW.Bitween.MsSql.Migrations
                         });
                 });
 
-            modelBuilder.Entity("SW.Bitween.Domain.RetryGroupUsage", b =>
-                {
-                    b.Property<int>("SubscriptionId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("GroupId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("AttemptsUsed")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("LastAttemptOn")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("SubscriptionId", "GroupId");
-
-                    b.ToTable("RetryGroupUsages", (string)null);
-                });
-
             modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -789,6 +776,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("GroupAttemptCounts")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1017,10 +1007,6 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<string>("ResponseXchangeId")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RetryBlockedReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("Success")
                         .HasColumnType("bit");
