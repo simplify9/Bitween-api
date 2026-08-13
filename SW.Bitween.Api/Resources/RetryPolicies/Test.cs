@@ -21,7 +21,7 @@ public class Test : ICommandHandler<TestRetryPolicyRequest, object>
         _requestContext = requestContext;
     }
 
-    public Task<object> Handle(TestRetryPolicyRequest request)
+    public async Task<object> Handle(TestRetryPolicyRequest request)
     {
         _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
@@ -30,13 +30,14 @@ public class Test : ICommandHandler<TestRetryPolicyRequest, object>
                 "Choose Error or Bad result — a successful result is never retried.");
 
         var policy = new CustomRetryPolicy { Groups = request.Groups ?? [] };
-        var evaluator = new RetryPolicyEvaluator(policy);
+        // In-memory budget: a dry-run must not spend any real integration's total.
+        var evaluator = new RetryPolicyEvaluator(policy, new InMemoryRetryGroupBudget());
         var attemptsToSimulate = Math.Clamp(request.AttemptsToSimulate, 1, 20);
 
         var attempts = new List<TestRetryAttemptResult>();
         for (var attemptIndex = 0; attemptIndex < attemptsToSimulate; attemptIndex++)
         {
-            var decision = evaluator.Evaluate(request.ResultType, request.Content, attemptIndex);
+            var decision = await evaluator.Evaluate(request.ResultType, request.Content, attemptIndex);
 
             attempts.Add(new TestRetryAttemptResult
             {
@@ -53,6 +54,6 @@ public class Test : ICommandHandler<TestRetryPolicyRequest, object>
             if (!decision.ShouldRetry) break;
         }
 
-        return Task.FromResult<object>(new TestRetryPolicyResponse { Attempts = attempts });
+        return new TestRetryPolicyResponse { Attempts = attempts };
     }
 }
