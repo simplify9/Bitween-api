@@ -71,6 +71,16 @@ namespace SW.Bitween.Resources.Accounts
                 throw new SWException("Email and password login is disabled. Please sign in with Microsoft.");
             }
 
+            // A credential login must carry both a username and a password. Without this guard a
+            // request with a valid username but empty/missing password would skip verification
+            // below and still be issued a token.
+            if (string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken) &&
+                (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password)))
+            {
+                _logger.LogWarning("Login rejected: missing username or password on a credential login.");
+                throw new SWException("Invalid username or password.");
+            }
+
             if (!string.IsNullOrEmpty(refreshTokenValue))
             {
                 // account query already filtered above
@@ -134,8 +144,16 @@ namespace SW.Bitween.Resources.Accounts
                 if (request.Password == null ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
                 {
-                    account.RegisterFailedLogin(MaxFailedLoginAttempts, LockoutDuration, nowUtc);
-                    await _dbContext.SaveChangesAsync();
+                    // Atomic DB-side update so concurrent wrong-password attempts can't read the
+                    // same count and lose increments, which would let them slip past the lockout.
+                    var lockoutEnd = nowUtc.Add(LockoutDuration);
+                    await _dbContext.Set<Account>()
+                        .Where(a => a.Id == account.Id)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(a => a.LockoutEnd,
+                                a => a.FailedLoginCount + 1 >= MaxFailedLoginAttempts ? lockoutEnd : a.LockoutEnd)
+                            .SetProperty(a => a.FailedLoginCount,
+                                a => a.FailedLoginCount + 1 >= MaxFailedLoginAttempts ? 0 : a.FailedLoginCount + 1));
                     throw new SWException("Invalid username or password.");
                 }
 

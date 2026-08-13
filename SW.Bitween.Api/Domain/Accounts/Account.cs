@@ -34,16 +34,6 @@ namespace SW.Bitween.Domain.Accounts
 
         public bool IsLockedOut(DateTime nowUtc) => LockoutEnd.HasValue && LockoutEnd.Value > nowUtc;
 
-        public void RegisterFailedLogin(int maxAttempts, TimeSpan lockoutDuration, DateTime nowUtc)
-        {
-            FailedLoginCount++;
-            if (FailedLoginCount >= maxAttempts)
-            {
-                LockoutEnd = nowUtc.Add(lockoutDuration);
-                FailedLoginCount = 0;
-            }
-        }
-
         public void RegisterSuccessfulLogin()
         {
             FailedLoginCount = 0;
