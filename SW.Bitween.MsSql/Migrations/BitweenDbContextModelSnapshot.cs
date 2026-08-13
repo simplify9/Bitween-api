@@ -55,6 +55,12 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<byte>("EmailProvider")
                         .HasColumnType("tinyint");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("datetime2");
+
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("tinyint");
 
@@ -95,6 +101,7 @@ namespace SW.Bitween.MsSql.Migrations
                             DisplayName = "Admin",
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
+                            FailedLoginCount = 0,
                             LoginMethods = (byte)2,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0

@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -361,6 +362,22 @@ namespace SW.Bitween.Web
                 headers["X-Frame-Options"] = "DENY";
                 headers["X-Content-Type-Options"] = "nosniff";
                 headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+                headers["X-Permitted-Cross-Domain-Policies"] = "none";
+                headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups";
+
+                // Sensitive API responses (JSON) must not be cached by the browser or
+                // intermediaries. Scoped by content type so static assets stay cacheable.
+                context.Response.OnStarting(() =>
+                {
+                    var contentType = context.Response.ContentType;
+                    if (!string.IsNullOrEmpty(contentType) &&
+                        contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+                    }
+                    return Task.CompletedTask;
+                });
+
                 await next();
             });
 

@@ -15,6 +15,9 @@ namespace SW.Bitween.Resources.Accounts
     [Unprotect]
     public class Login : ICommandHandler<UserLogin, object>
     {
+        private const int MaxFailedLoginAttempts = 5;
+        private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+
         private readonly BitweenDbContext _dbContext;
         private readonly BitweenOptions _BitweenSettings;
         private readonly JwtTokenParameters _jwtTokenParameters;
@@ -118,20 +121,37 @@ namespace SW.Bitween.Resources.Accounts
             if (string.IsNullOrEmpty(refreshTokenValue) && !string.IsNullOrEmpty(request.Username) &&
                 !string.IsNullOrEmpty(request.Password) && string.IsNullOrEmpty(request.MsToken))
             {
+                var nowUtc = DateTime.UtcNow;
+                if (account.IsLockedOut(nowUtc))
+                {
+                    var minutes = (int)Math.Ceiling((account.LockoutEnd!.Value - nowUtc).TotalMinutes);
+                    _logger.LogWarning("Login rejected: account '{Email}' is temporarily locked.", account.Email);
+                    throw new SWException(
+                        $"Your account is temporarily locked due to multiple failed login attempts. " +
+                        $"Please try again in {minutes} minute{(minutes == 1 ? "" : "s")}.");
+                }
+
                 if (request.Password == null ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
+                {
+                    account.RegisterFailedLogin(MaxFailedLoginAttempts, LockoutDuration, nowUtc);
+                    await _dbContext.SaveChangesAsync();
                     throw new SWException("Invalid username or password.");
+                }
+
+                account.RegisterSuccessfulLogin();
             }
 
             var newRefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword);
             await _dbContext.SaveChangesAsync();
 
-            // Set refresh token as HttpOnly cookie — not accessible to JavaScript
-            var isHttps = _httpContextAccessor.HttpContext?.Request.IsHttps ?? false;
+            // Set refresh token as a secure, HttpOnly cookie — not accessible to JavaScript.
+            // Secure is always on: the app is served over HTTPS, and TLS is terminated at the
+            // reverse proxy, so Request.IsHttps would otherwise be false and drop the attribute.
             _httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", newRefreshToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = isHttps,
+                Secure = true,
                 SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddDays(30)
             });

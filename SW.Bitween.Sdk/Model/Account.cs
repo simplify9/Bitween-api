@@ -35,6 +35,13 @@ public class AccountModel
 
     public string Role { get; set; }
     public DateTime CreatedOn { get; set; }
+
+    // Non-null and in the future => the account is currently locked out.
+    public DateTime? LockoutEnd { get; set; }
+}
+
+public class UnlockAccountModel
+{
 }
 
 public class ChangePasswordModel
