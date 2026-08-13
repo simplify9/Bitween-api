@@ -371,7 +371,8 @@ namespace SW.Bitween.Web
                 {
                     var contentType = context.Response.ContentType;
                     if (!string.IsNullOrEmpty(contentType) &&
-                        contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase))
+                        (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase) ||
+                         contentType.Contains("+json", StringComparison.OrdinalIgnoreCase)))
                     {
                         context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
                     }
