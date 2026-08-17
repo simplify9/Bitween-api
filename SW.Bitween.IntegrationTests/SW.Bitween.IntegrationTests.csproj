@@ -24,7 +24,7 @@
 
     <!-- Testcontainers — Docker-based infrastructure -->
     <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
-    <PackageReference Include="Testcontainers.RabbitMq" Version="3.10.0" />
+    <PackageReference Include="Testcontainers.RabbitMq" Version="4.14.0" />
 
     <!-- Serverless runtime -->
     <PackageReference Include="SimplyWorks.Serverless" Version="8.1.5" />
