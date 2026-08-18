@@ -33,6 +33,10 @@ public class Delete : IDeleteHandler<int, object>
         var policy = await _dbContext.FindAsync<RetryPolicy>(key);
         var groupIds = policy.Groups.Select(g => g.Id).ToList();
 
+        // One change, one commit — same reasoning as Update: a half-done delete leaves rows keyed
+        // by groups that no longer exist anywhere, which nothing can then reach.
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
         await _dbContext.DeleteByKeyAsync<RetryPolicy>(key);
 
         if (groupIds.Count > 0)
@@ -46,6 +50,7 @@ public class Delete : IDeleteHandler<int, object>
                 .ExecuteDeleteAsync();
         }
 
+        await transaction.CommitAsync();
         return null;
     }
 }

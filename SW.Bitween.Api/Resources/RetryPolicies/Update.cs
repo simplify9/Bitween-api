@@ -33,6 +33,12 @@ public class Update : ICommandHandler<int, RetryPolicyUpdate, object>
             .Except((model.Groups ?? []).Select(g => g.Id))
             .ToList();
 
+        // Dropping the groups and clearing what belonged to them is one change, so it commits as
+        // one: a group no policy claims whose usage and override rows survive is unreachable from
+        // the usage report and from reset alike. Safe to span, because RetryPolicy raises no domain
+        // events — nothing reaches the bus before the commit.
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
         entity.Name = model.Name;
         entity.Groups = model.Groups ?? [];
         entity.AlertHandlerId = model.AlertHandlerId;
@@ -52,6 +58,7 @@ public class Update : ICommandHandler<int, RetryPolicyUpdate, object>
                 .ExecuteDeleteAsync();
         }
 
+        await transaction.CommitAsync();
         return null;
     }
 }

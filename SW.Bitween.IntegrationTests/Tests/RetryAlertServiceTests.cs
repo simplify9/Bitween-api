@@ -288,4 +288,36 @@ public class RetryAlertServiceTests
         await alertService.Process(raisedEvent);
         Assert.Equal(1, await MailHogTotal());
     }
+
+    [Fact]
+    public async Task The_handler_refuses_to_send_a_password_over_an_unencrypted_connection()
+    {
+        if (!await MailHogIsReachable())
+            return; // Environment doesn't have MailHog running — nothing to verify against.
+
+        await ClearMailHog();
+
+        await using var scope = _fixture.CreateScope();
+        var discovery = scope.ServiceProvider.GetRequiredService<NativeAdapterDiscoveryService>();
+
+        // MailHog speaks plain SMTP on 1025, which is exactly the shape of the mistake worth
+        // catching: a working relay, no encryption, and a password to hand over.
+        var handler = discovery.GetNativeHandler("NativeSmtpHandler", new Dictionary<string, string>
+        {
+            ["Host"] = "localhost",
+            ["Port"] = "1025",
+            ["UseTls"] = "false",
+            ["Password"] = "hunter2",
+            ["From"] = "bitween-alerts@example.com",
+            ["To"] = "ops@example.com",
+            ["Subject"] = "Should never be sent",
+            ["Body"] = "Should never be sent"
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => handler.Handle(new XchangeFile("{}")));
+
+        // Refusing has to mean refusing: no message, and therefore no password, left the process.
+        Assert.Equal(0, await MailHogTotal());
+    }
 }

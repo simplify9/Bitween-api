@@ -48,17 +48,30 @@ public class NativeSmtpHandler : INativeInfolinkHandler
 
         using var client = new SmtpClient();
 
-        // Auto picks STARTTLS or implicit SSL from the port, which is what makes one adapter work
-        // against 587 and 465 without asking the client which handshake their provider uses.
-        await client.ConnectAsync(_options.Host, _options.Port,
-            _options.UseTls ? SecureSocketOptions.Auto : SecureSocketOptions.None);
+        // Named rather than left to Auto: on any port but 465, Auto means "encrypt if the server
+        // offers it", so a server that does not offer STARTTLS — or an offer stripped in transit —
+        // silently continues in the clear. StartTls demands it and fails if it is not there. 465 is
+        // the implicit-TLS port, where the handshake happens before any of that is negotiable.
+        var security = _options.UseTls
+            ? _options.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls
+            : SecureSocketOptions.None;
+
+        await client.ConnectAsync(_options.Host, _options.Port, security);
 
         // A relay that accepts unauthenticated mail from inside the network is a normal setup, so
         // only authenticate when a password was actually supplied.
         if (!string.IsNullOrWhiteSpace(_options.Password))
+        {
+            // Refusing beats sending the credential over a connection anyone on the path can read.
+            if (!client.IsSecure)
+                throw new InvalidOperationException(
+                    "The SMTP handler will not send a password over an unencrypted connection. " +
+                    "Set UseTls to true, or clear the password if the relay does not need one.");
+
             await client.AuthenticateAsync(
                 string.IsNullOrWhiteSpace(_options.Username) ? _options.From : _options.Username,
                 _options.Password);
+        }
 
         await client.SendAsync(message);
         await client.DisconnectAsync(true);
