@@ -116,6 +116,12 @@ namespace SW.Bitween.PgSql.Migrations
                 schema: "infolink",
                 table: "retry_group_usage");
 
+            // These rows are the alert's own delivery log, and they are the reason the column was
+            // made nullable. Rolling the feature back leaves nowhere to put them, and the column
+            // cannot go back to NOT NULL while they are here, so they go with the feature.
+            migrationBuilder.Sql(
+                "DELETE FROM infolink.xchange_notification WHERE notifier_id IS NULL;");
+
             migrationBuilder.AlterColumn<int>(
                 name: "notifier_id",
                 schema: "infolink",

@@ -64,19 +64,25 @@ public class Usage : ICommandHandler<int, RetryPolicyUsageRequest, object>
 
         // Only groups that allow retries have a budget to spend — and a group that can never spend
         // one can never exhaust it, so it can never alert either. Listing those would invite
-        // configuring an alert that cannot fire.
-        var groups = policy.Groups.Where(g => g.Budget != null).ToList();
+        // configuring an alert that cannot fire. A ceiling of zero counts as "never": TryConsume
+        // denies it outright rather than claiming and exhausting it.
+        var groups = policy.Groups
+            .Where(g => g.Budget is { MaxAttemptsTotal: > 0 })
+            .ToList();
 
         var rows = new List<RetryGroupUsageRow>();
+
+        // Keyed once rather than scanned per pair: both lists are already keyed by exactly this
+        // pair, and a policy shared by many subscriptions turns the scan into the cost of the
+        // whole request.
+        var usageByPair = usages.ToDictionary(u => (u.SubscriptionId, u.GroupId));
+        var overrideByPair = overrides.ToDictionary(o => (o.SubscriptionId, o.GroupId));
 
         foreach (var subscription in subscriptions)
         foreach (var group in groups)
         {
-            var usage = usages.FirstOrDefault(
-                u => u.SubscriptionId == subscription.Id && u.GroupId == group.Id);
-
-            var subscriptionOverride = overrides.FirstOrDefault(
-                o => o.SubscriptionId == subscription.Id && o.GroupId == group.Id);
+            usageByPair.TryGetValue((subscription.Id, group.Id), out var usage);
+            overrideByPair.TryGetValue((subscription.Id, group.Id), out var subscriptionOverride);
 
             var target = RetryAlertResolver.Resolve(subscriptionOverride, group, policy);
 

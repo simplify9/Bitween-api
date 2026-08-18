@@ -30,10 +30,14 @@ public class RetryAlertService(
     public async Task Process(RetryBudgetExhaustedEvent message)
     {
         // The bus is at-least-once, and the exhaustion is stamped on the exchange rather than on
-        // the send, so a redelivery would otherwise email the same alert twice. The log row is the
-        // record that it already went out.
+        // the send, so a redelivery would otherwise email the same alert twice. A *successful* log
+        // row is the record that it already went out — matching any alert row would let one failed
+        // send stand in for a delivery and silence every later attempt. The name is checked too, so
+        // a row written by some other path can never be mistaken for this alert.
         var alreadySent = await dbContext.Set<XchangeNotification>()
-            .AnyAsync(n => n.XchangeId == message.XchangeId && n.NotifierId == null);
+            .AnyAsync(n => n.XchangeId == message.XchangeId
+                           && n.NotifierName == XchangeNotification.RetryBudgetAlertName
+                           && n.Success);
         if (alreadySent) return;
 
         var subscription = await dbContext.Set<Subscription>()
@@ -94,9 +98,9 @@ public class RetryAlertService(
     /// Invokes the resolved handler and records the attempt either way.
     /// </summary>
     /// <remarks>
-    /// A throw is logged rather than propagated: rethrowing would send the message to the bus's
-    /// error queue and, once redelivered, the guard above would suppress the retry anyway. Recording
-    /// the failure is what lets someone answer "did the alert actually go out?".
+    /// A throw is logged rather than propagated, and the failure is recorded so someone can answer
+    /// "did the alert actually go out?". Because the guard above only counts a successful row, a
+    /// failed send leaves the way open for a redelivery to try again rather than closing it.
     /// </remarks>
     private async Task Send(RetryAlertTarget target, RetryBudgetExhaustedNotification notification,
         string xchangeId)

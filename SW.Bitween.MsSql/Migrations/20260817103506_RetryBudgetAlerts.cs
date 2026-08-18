@@ -102,6 +102,12 @@ namespace SW.Bitween.MsSql.Migrations
                 name: "ExhaustedNotifiedOn",
                 table: "RetryGroupUsages");
 
+            // These rows are the alert's own delivery log, and they are the reason the column was
+            // made nullable. Rolling the feature back leaves nowhere to put them, and the column
+            // cannot go back to NOT NULL while they are here, so they go with the feature.
+            migrationBuilder.Sql(
+                "DELETE FROM [XchangeNotifications] WHERE [NotifierId] IS NULL;");
+
             migrationBuilder.AlterColumn<int>(
                 name: "NotifierId",
                 table: "XchangeNotifications",

@@ -27,6 +27,10 @@ namespace SW.Bitween.IntegrationTests.Tests;
 public class RetryAlertServiceTests
 {
     private const string MailHogApi = "http://localhost:8025/api/v2";
+
+    // MailHog is local and answers instantly or not at all, so the default 100 seconds only ever
+    // means "this optional test hangs the run".
+    private static readonly TimeSpan MailHogTimeout = TimeSpan.FromSeconds(5);
     private readonly BitweenFixture _fixture;
 
     public RetryAlertServiceTests(BitweenFixture fixture)
@@ -38,7 +42,7 @@ public class RetryAlertServiceTests
     {
         try
         {
-            using var http = new HttpClient();
+            using var http = new HttpClient { Timeout = MailHogTimeout };
             var response = await http.GetAsync($"{MailHogApi}/messages");
             return response.IsSuccessStatusCode;
         }
@@ -52,14 +56,14 @@ public class RetryAlertServiceTests
     // messages behind, making the assertions depend on leftovers from the previous run.
     private static async Task ClearMailHog()
     {
-        using var http = new HttpClient();
+        using var http = new HttpClient { Timeout = MailHogTimeout };
         var response = await http.DeleteAsync("http://localhost:8025/api/v1/messages");
         response.EnsureSuccessStatusCode();
     }
 
     private static async Task<JsonElement?> LatestMailHogMessage()
     {
-        using var http = new HttpClient();
+        using var http = new HttpClient { Timeout = MailHogTimeout };
         var json = await http.GetStringAsync($"{MailHogApi}/messages");
         using var doc = JsonDocument.Parse(json);
         var items = doc.RootElement.GetProperty("items").Clone();
@@ -68,7 +72,7 @@ public class RetryAlertServiceTests
 
     private static async Task<int> MailHogTotal()
     {
-        using var http = new HttpClient();
+        using var http = new HttpClient { Timeout = MailHogTimeout };
         var json = await http.GetStringAsync($"{MailHogApi}/messages");
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.GetProperty("total").GetInt32();
@@ -194,5 +198,94 @@ public class RetryAlertServiceTests
         var totalAfterFirstSend = await MailHogTotal();
         await alertService.Process(raisedEvent);
         Assert.Equal(totalAfterFirstSend, await MailHogTotal());
+    }
+
+    [Fact]
+    public async Task A_failed_send_does_not_stop_a_later_delivery()
+    {
+        if (!await MailHogIsReachable())
+            return; // Environment doesn't have MailHog running — nothing to verify against.
+
+        await ClearMailHog();
+
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var alertService = scope.ServiceProvider.GetRequiredService<RetryAlertService>();
+
+        var doc = new Document(7202, "Failed Send Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var groupId = Guid.NewGuid();
+        var policy = new RetryPolicy
+        {
+            Name = "Failed Send Policy",
+            Groups =
+            [
+                new RetryGroup
+                {
+                    Id = groupId,
+                    Name = "Timeout",
+                    Priority = 10,
+                    AppliesTo = [XchangeResultType.Error],
+                    Matchers = [new ContainsMatcher { Value = "timeout" }],
+                    Budget = new RetryBudget
+                    {
+                        MaxAttemptsPerError = 1,
+                        MaxAttemptsTotal = 1,
+                        DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
+                    },
+                    AlertMode = RetryAlertMode.Send,
+                    AlertHandlerId = "NativeSmtpHandler",
+                    AlertHandlerProperties = new Dictionary<string, string>
+                    {
+                        ["Host"] = "localhost",
+                        ["Port"] = "1025",
+                        ["UseTls"] = "false",
+                        ["From"] = "bitween-alerts@example.com",
+                        ["To"] = "ops@example.com",
+                        ["Subject"] = "Retries stopped for {{ SubscriptionName }}",
+                        ["Body"] = "{{ GroupName }} used all {{ MaxAttemptsTotal }} retries."
+                    }
+                }
+            ]
+        };
+        db.Set<RetryPolicy>().Add(policy);
+        await db.SaveChangesAsync();
+
+        var sub = new Subscription("Failed Send Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policy.Id, null);
+        await db.SaveChangesAsync();
+
+        var xchange = await scope.ServiceProvider.GetRequiredService<XchangeService>()
+            .CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+
+        // Stands in for a first attempt that threw — a dropped connection, a refused relay. Written
+        // directly because what matters is the row it leaves behind, not how the send failed.
+        db.Add(XchangeNotification.ForRetryBudgetAlert(xchange.Id, "System.Net.Sockets.SocketException: refused"));
+        await db.SaveChangesAsync();
+
+        var xchangeResult = new XchangeResult(xchange.Id, null, null, exception: "timeout");
+        xchangeResult.RaiseBudgetExhausted(sub.Id, groupId, "Timeout", 1);
+        var raisedEvent = Assert.Single(xchangeResult.Events.OfType<RetryBudgetExhaustedEvent>());
+        db.Add(xchangeResult);
+        await db.SaveChangesAsync();
+
+        // The recoverable failure must not read as "already delivered": a transient error would
+        // otherwise silence the alert for good, which is the opposite of what a retry system owes.
+        await alertService.Process(raisedEvent);
+
+        Assert.Equal(1, await MailHogTotal());
+        Assert.True(await db.Set<XchangeNotification>()
+            .AnyAsync(n => n.XchangeId == xchange.Id
+                           && n.NotifierName == XchangeNotification.RetryBudgetAlertName
+                           && n.Success));
+
+        // And now that one did get through, the guard has to hold: no third row, no second email.
+        await alertService.Process(raisedEvent);
+        Assert.Equal(1, await MailHogTotal());
     }
 }

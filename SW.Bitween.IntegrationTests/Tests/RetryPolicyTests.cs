@@ -867,7 +867,12 @@ public class RetryPolicyTests
         await setupDb.SaveChangesAsync();
 
         var groupId = Guid.NewGuid();
-        await new RetryGroupBudget(setupDb, setupScope.ServiceProvider, sub.Id).TryConsume(groupId, 1);
+
+        // Spends the only attempt, so every racer below meets an empty budget. Asserted, or a
+        // failure here would surface as a confusing claim count further down.
+        var setupClaim = await new RetryGroupBudget(setupDb, setupScope.ServiceProvider, sub.Id)
+            .TryConsume(groupId, 1);
+        Assert.True(setupClaim.Granted);
 
         // Several instances can discover the empty budget in the same instant; a read-then-write
         // would let each of them decide it was the first and send its own email.
@@ -954,13 +959,13 @@ public class RetryPolicyTests
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
 
         var model = SimplePolicy("Alert Handler Policy");
-        model.AlertHandlerId = "native.smtp";
+        model.AlertHandlerId = "NativeSmtpHandler";
         model.AlertHandlerProperties = new Dictionary<string, string> { ["to"] = "ops@example.com" };
 
         var policyId = (int)await new Create(db, ctx).Handle(model);
         var loaded = (RetryPolicyUpdate)await new Get(db).Handle(policyId);
 
-        Assert.Equal("native.smtp", loaded.AlertHandlerId);
+        Assert.Equal("NativeSmtpHandler", loaded.AlertHandlerId);
         Assert.Equal("ops@example.com", loaded.AlertHandlerProperties["to"]);
     }
 

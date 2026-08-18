@@ -46,9 +46,18 @@ public class Attempts : ICommandHandler<int, RetryGroupAttemptsRequest, object>
     {
         _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
 
-        // The pair has to belong to the policy in the route: that is what the caller asked about,
-        // and it keeps this from becoming a way to read any subscription's failures through any
-        // policy id.
+        // Both halves of the pair have to belong to the policy in the route. For the subscription
+        // that keeps this from becoming a way to read any subscription's failures through any
+        // policy id; for the group it is about the answer being readable — an unknown group would
+        // otherwise report zero failures, which is indistinguishable from a group that genuinely
+        // has none.
+        var policy = await _dbContext.Set<RetryPolicy>().AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == key);
+        if (policy == null) throw new SWNotFoundException(key.ToString());
+
+        if (policy.Groups.All(g => g.Id != request.GroupId))
+            throw new SWNotFoundException($"{key}/{request.GroupId}");
+
         var belongs = await _dbContext.Set<Subscription>().AsNoTracking()
             .AnyAsync(s => s.Id == request.SubscriptionId && s.RetryPolicyId == key);
         if (!belongs) throw new SWNotFoundException($"{key}/{request.SubscriptionId}");
