@@ -263,6 +263,9 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.ResponseContentType).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).HasMaxLength(200);
                 b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
+                b.Property(p => p.RetryGroupId);
+                b.Property(p => p.AttemptNumber);
+                b.HasIndex(p => p.RetryGroupId);
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
@@ -361,6 +364,8 @@ namespace SW.Bitween.PgSql
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                b.Property(p => p.AlertHandlerId).HasMaxLength(200);
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
                 b.Property(p => p.Groups).HasConversion(
                     groups => JsonSerializer.Serialize(groups, _polymorphicOpts),
                     json => JsonSerializer.Deserialize<List<RetryGroup>>(json, _polymorphicOpts)!,
@@ -394,6 +399,15 @@ namespace SW.Bitween.PgSql
                 b.HasKey(p => new { p.SubscriptionId, p.GroupId });
                 b.Property(p => p.AttemptsUsed);
                 b.Property(p => p.LastAttemptOn);
+                b.Property(p => p.ExhaustedNotifiedOn);
+            });
+
+            modelBuilder.Entity<RetryAlertOverride>(b =>
+            {
+                b.HasKey(p => new { p.SubscriptionId, p.GroupId });
+                b.Property(p => p.AlertMode).HasConversion<byte>();
+                b.Property(p => p.AlertHandlerId).HasMaxLength(200);
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
             });
 
             modelBuilder.UseSchedulerPostgreSql(Schema);

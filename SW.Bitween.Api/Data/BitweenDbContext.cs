@@ -228,6 +228,8 @@ namespace SW.Bitween
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.Groups).StoreAsJson();
+                b.Property(p => p.AlertHandlerId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
             });
 
             modelBuilder.Entity<DelayedRetry>(b =>
@@ -245,6 +247,16 @@ namespace SW.Bitween
                 b.HasKey(p => new { p.SubscriptionId, p.GroupId });
                 b.Property(p => p.AttemptsUsed);
                 b.Property(p => p.LastAttemptOn);
+                b.Property(p => p.ExhaustedNotifiedOn);
+            });
+
+            modelBuilder.Entity<RetryAlertOverride>(b =>
+            {
+                b.ToTable("RetryAlertOverrides");
+                b.HasKey(p => new { p.SubscriptionId, p.GroupId });
+                b.Property(p => p.AlertMode).HasConversion<byte>();
+                b.Property(p => p.AlertHandlerId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
             });
 
             modelBuilder.Entity<Xchange>(b =>
@@ -290,6 +302,9 @@ namespace SW.Bitween
                 b.Property(p => p.ResponseContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
+                b.Property(p => p.RetryGroupId);
+                b.Property(p => p.AttemptNumber);
+                b.HasIndex(p => p.RetryGroupId);
 
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);

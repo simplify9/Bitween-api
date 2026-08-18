@@ -36,9 +36,15 @@ public class Delete : IDeleteHandler<int, object>
         await _dbContext.DeleteByKeyAsync<RetryPolicy>(key);
 
         if (groupIds.Count > 0)
+        {
             await _dbContext.Set<RetryGroupUsage>()
                 .Where(u => groupIds.Contains(u.GroupId))
                 .ExecuteDeleteAsync();
+
+            await _dbContext.Set<RetryAlertOverride>()
+                .Where(o => groupIds.Contains(o.GroupId))
+                .ExecuteDeleteAsync();
+        }
 
         return null;
     }

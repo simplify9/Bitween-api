@@ -19,14 +19,21 @@ public class Get : IGetHandler<int, object>
 
     public async Task<object> Handle(int key)
     {
-        return await _dbContext.Set<RetryPolicy>()
+        // Materialize first: AlertHandlerProperties is a JSON-converted dictionary, and EF cannot
+        // translate a further .ToDictionary() over it into SQL inside a projection.
+        var policy = await _dbContext.Set<RetryPolicy>()
             .AsNoTracking()
             .Search("Id", key)
-            .Select(p => new RetryPolicyUpdate
-            {
-                Name = p.Name,
-                Groups = p.Groups
-            })
             .SingleOrDefaultAsync();
+
+        if (policy == null) return null;
+
+        return new RetryPolicyUpdate
+        {
+            Name = policy.Name,
+            Groups = policy.Groups,
+            AlertHandlerId = policy.AlertHandlerId,
+            AlertHandlerProperties = policy.AlertHandlerProperties?.ToDictionary(kv => kv.Key, kv => kv.Value)
+        };
     }
 }

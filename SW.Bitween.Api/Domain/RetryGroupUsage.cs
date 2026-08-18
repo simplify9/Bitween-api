@@ -24,4 +24,15 @@ public class RetryGroupUsage
 
     /// <summary>When the last attempt was claimed — the only clue left once a group is exhausted.</summary>
     public DateTime LastAttemptOn { get; set; }
+
+    /// <summary>
+    /// When the exhaustion alert for this integration and group was claimed, or <c>null</c> while
+    /// the budget still has room.
+    /// </summary>
+    /// <remarks>
+    /// Claiming this is what makes the alert fire exactly once: every failure after the budget runs
+    /// out would otherwise raise another one. Reset deletes the whole row, which re-arms the alert
+    /// along with the budget.
+    /// </remarks>
+    public DateTime? ExhaustedNotifiedOn { get; set; }
 }

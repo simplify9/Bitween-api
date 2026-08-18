@@ -35,12 +35,22 @@ public class Update : ICommandHandler<int, RetryPolicyUpdate, object>
 
         entity.Name = model.Name;
         entity.Groups = model.Groups ?? [];
+        entity.AlertHandlerId = model.AlertHandlerId;
+        entity.AlertHandlerProperties = model.AlertHandlerProperties;
         await _dbContext.SaveChangesAsync();
 
         if (removedGroupIds.Count > 0)
+        {
             await _dbContext.Set<RetryGroupUsage>()
                 .Where(u => removedGroupIds.Contains(u.GroupId))
                 .ExecuteDeleteAsync();
+
+            // Alert overrides are keyed by group id for the same reason usage is, so they strand the
+            // same way when a group disappears.
+            await _dbContext.Set<RetryAlertOverride>()
+                .Where(o => removedGroupIds.Contains(o.GroupId))
+                .ExecuteDeleteAsync();
+        }
 
         return null;
     }

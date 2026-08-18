@@ -32,7 +32,26 @@ public static class RetryGroupValidation
                     throw new SWValidationException("RETRY_GROUP_INCOMPATIBLE_MATCHERS",
                         $"Group '{group.Name}' applies to {resultType} but none of its matchers can be " +
                         $"evaluated against {resultType} content. {SupportedMatchersFor(resultType)}");
+
+            // An overriding level replaces the one above it rather than merging into it, so a group
+            // set to Send with no handler would silence the policy's alert instead of redirecting it.
+            if (group.AlertMode == RetryAlertMode.Send && string.IsNullOrWhiteSpace(group.AlertHandlerId))
+                throw new SWValidationException("RETRY_GROUP_ALERT_NO_HANDLER",
+                    $"Group '{group.Name}' is set to send its own budget alert but has no handler. " +
+                    "Choose a handler, or set the alert back to inherit.");
         }
+    }
+
+    /// <summary>
+    /// Rejects an alert override that claims to send but names nothing to send with — the same trap
+    /// as <see cref="EnsureCanFire"/> guards at group level.
+    /// </summary>
+    public static void EnsureAlertCanSend(RetryAlertMode mode, string handlerId)
+    {
+        if (mode == RetryAlertMode.Send && string.IsNullOrWhiteSpace(handlerId))
+            throw new SWValidationException("RETRY_ALERT_NO_HANDLER",
+                "This override is set to send its own budget alert but has no handler. " +
+                "Choose a handler, or set it back to inherit.");
     }
 
     private static string SupportedMatchersFor(XchangeResultType resultType) => resultType switch

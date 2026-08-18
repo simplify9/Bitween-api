@@ -25,7 +25,9 @@ public class Create : ICommandHandler<RetryPolicyCreate, object>
         var entity = new RetryPolicy
         {
             Name = model.Name,
-            Groups = model.Groups ?? []
+            Groups = model.Groups ?? [],
+            AlertHandlerId = model.AlertHandlerId,
+            AlertHandlerProperties = model.AlertHandlerProperties
         };
         _dbContext.Add(entity);
         await _dbContext.SaveChangesAsync();
