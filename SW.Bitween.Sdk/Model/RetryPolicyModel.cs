@@ -99,6 +99,55 @@ public class RetryGroupUsageRow
     public RetryAlertLevel? SilencedAt { get; set; }
 }
 
+/// <summary>Asks for one subscription-and-group pair's most recent failures.</summary>
+public class RetryGroupAttemptsRequest
+{
+    public int SubscriptionId { get; set; }
+    public Guid GroupId { get; set; }
+}
+
+/// <summary>
+/// The failures one group caught for one subscription: what the spent budget on a
+/// <see cref="RetryGroupUsageRow"/> was actually spent on.
+/// </summary>
+/// <remarks>
+/// Failures are kept for good, while the budget counter is reset, so <see cref="Total"/> counts
+/// every failure this group has ever caught for this subscription and not the counter's value.
+/// Failures recorded before a group was stamped onto them are not counted at all.
+/// </remarks>
+public class RetryGroupAttempts
+{
+    /// <summary>How many failures exist, of which <see cref="Attempts"/> carries the latest few.</summary>
+    public int Total { get; set; }
+
+    public List<RetryGroupAttemptRow> Attempts { get; set; } = [];
+}
+
+public class RetryGroupAttemptRow
+{
+    /// <summary>The failed exchange, so the full input, output and error can be opened.</summary>
+    public string XchangeId { get; set; }
+
+    /// <summary>
+    /// How deep the retry chain was, 0 being the original delivery. Null for failures recorded
+    /// before the number was stored.
+    /// </summary>
+    public int? AttemptNumber { get; set; }
+
+    public DateTime FailedOn { get; set; }
+
+    public string Exception { get; set; }
+
+    /// <summary>
+    /// True while another attempt is still scheduled for this failure. The one thing here that is
+    /// not history: it stops being true the moment the retry runs.
+    /// </summary>
+    public bool RetryPending { get; set; }
+
+    /// <summary>Why no further attempt was scheduled, when the policy refused one.</summary>
+    public string RetryBlockedReason { get; set; }
+}
+
 /// <summary>
 /// Creates, changes or clears the alert override for one subscription and group. Sending
 /// <see cref="RetryAlertMode.Inherit"/> removes the override rather than storing a row that does

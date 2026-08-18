@@ -639,6 +639,106 @@ public class RetryPolicyTests
         Assert.False(await db.Set<RetryGroupUsage>().AnyAsync(u => u.GroupId == groupId));
     }
 
+    // ─── Attempts drill-down ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Attempts_lists_only_this_pairs_stamped_failures_pending_first()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+
+        var doc = new Document(7012, "Attempts Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var policyId = (int)await new Create(db, ctx).Handle(SimplePolicy("Attempts Policy"));
+        var groupId = (await db.Set<RetryPolicy>().AsNoTracking()
+            .SingleAsync(p => p.Id == policyId)).Groups[0].Id;
+
+        var sub = new Subscription("Attempts Sub", doc.Id);
+        var otherSub = new Subscription("Attempts Other Sub", doc.Id);
+        db.Set<Subscription>().AddRange(sub, otherSub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        otherSub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        // Still being worked on: a scheduled retry is outstanding for it.
+        var pending = new Xchange(sub, new XchangeFile("{}"));
+        var pendingResult = new XchangeResult(pending.Id, null, null, exception: "first timeout");
+        pendingResult.SetRetryEvaluation(groupId, 0);
+
+        // Given up on, and the reason recorded.
+        var stopped = new Xchange(sub, new XchangeFile("{}"));
+        var stoppedResult = new XchangeResult(stopped.Id, null, null, exception: "second timeout");
+        stoppedResult.SetRetryEvaluation(groupId, 1);
+        stoppedResult.SetRetryBlocked("Group 'Timeout' has used all 10 of its total attempts");
+
+        // Carries no group: this is what every failure recorded before the group was stamped onto
+        // results looks like, and it has no pair to be listed under.
+        var unstamped = new Xchange(sub, new XchangeFile("{}"));
+        var unstampedResult = new XchangeResult(unstamped.Id, null, null, exception: "older timeout");
+
+        // Same policy and same group, different subscription — a row of its own, not this one's.
+        var otherPair = new Xchange(otherSub, new XchangeFile("{}"));
+        var otherPairResult = new XchangeResult(otherPair.Id, null, null, exception: "someone else's timeout");
+        otherPairResult.SetRetryEvaluation(groupId, 0);
+
+        db.Set<Xchange>().AddRange(pending, stopped, unstamped, otherPair);
+        db.Set<XchangeResult>().AddRange(pendingResult, stoppedResult, unstampedResult, otherPairResult);
+        db.Set<DelayedRetry>().Add(new DelayedRetry { Id = pending.Id, On = DateTime.UtcNow.AddMinutes(5) });
+        await db.SaveChangesAsync();
+
+        var result = (RetryGroupAttempts)await new Attempts(db, ctx).Handle(policyId,
+            new RetryGroupAttemptsRequest { SubscriptionId = sub.Id, GroupId = groupId });
+
+        // Two, not four: the unstamped failure and the other subscription's are both out.
+        Assert.Equal(2, result.Total);
+        Assert.Equal(2, result.Attempts.Count);
+
+        // Pending leads, so a long history of finished failures can never push the one still moving
+        // out of a capped list.
+        Assert.Equal(pending.Id, result.Attempts[0].XchangeId);
+        Assert.True(result.Attempts[0].RetryPending);
+        Assert.Equal(0, result.Attempts[0].AttemptNumber);
+        Assert.Equal("first timeout", result.Attempts[0].Exception);
+        Assert.Null(result.Attempts[0].RetryBlockedReason);
+
+        Assert.Equal(stopped.Id, result.Attempts[1].XchangeId);
+        Assert.False(result.Attempts[1].RetryPending);
+        Assert.Equal(1, result.Attempts[1].AttemptNumber);
+        Assert.Contains("used all 10", result.Attempts[1].RetryBlockedReason);
+    }
+
+    [Fact]
+    public async Task Attempts_rejects_a_subscription_that_does_not_use_the_policy()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+
+        var doc = new Document(7013, "Attempts Scope Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var mineId = (int)await new Create(db, ctx).Handle(SimplePolicy("Attempts Scope Mine"));
+        var theirsId = (int)await new Create(db, ctx).Handle(SimplePolicy("Attempts Scope Theirs"));
+        var theirGroupId = (await db.Set<RetryPolicy>().AsNoTracking()
+            .SingleAsync(p => p.Id == theirsId)).Groups[0].Id;
+
+        var theirSub = new Subscription("Attempts Scope Their Sub", doc.Id);
+        db.Set<Subscription>().Add(theirSub);
+        await db.SaveChangesAsync();
+        theirSub.SetRetryPolicy(theirsId, null);
+        await db.SaveChangesAsync();
+
+        // Asking one policy for another policy's subscription must fail rather than quietly answer:
+        // the route key is what the caller was authorised against.
+        await Assert.ThrowsAsync<SWNotFoundException>(() => new Attempts(db, ctx).Handle(mineId,
+            new RetryGroupAttemptsRequest { SubscriptionId = theirSub.Id, GroupId = theirGroupId }));
+    }
+
     // ─── Test / dry-run endpoint ────────────────────────────────────────────────
 
     [Fact]
