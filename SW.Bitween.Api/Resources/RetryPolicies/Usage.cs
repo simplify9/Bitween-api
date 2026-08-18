@@ -32,11 +32,14 @@ public class Usage : ICommandHandler<int, RetryPolicyUsageRequest, object>
 {
     private readonly BitweenDbContext _dbContext;
     private readonly RequestContext _requestContext;
+    private readonly AdapterSecretProperties _secrets;
 
-    public Usage(BitweenDbContext dbContext, RequestContext requestContext)
+    public Usage(BitweenDbContext dbContext, RequestContext requestContext,
+        AdapterSecretProperties secrets)
     {
         _dbContext = dbContext;
         _requestContext = requestContext;
+        _secrets = secrets;
     }
 
     public async Task<object> Handle(int key, RetryPolicyUsageRequest request)
@@ -107,11 +110,11 @@ public class Usage : ICommandHandler<int, RetryPolicyUsageRequest, object>
                 ExhaustedNotifiedOn = usage?.ExhaustedNotifiedOn,
                 AlertMode = subscriptionOverride?.AlertMode ?? RetryAlertMode.Inherit,
                 OverrideHandlerId = subscriptionOverride?.AlertHandlerId,
-                OverrideHandlerProperties = subscriptionOverride?.AlertHandlerProperties
-                    ?.ToDictionary(kv => kv.Key, kv => kv.Value),
+                OverrideHandlerProperties = await _secrets.Mask(
+                    subscriptionOverride?.AlertHandlerId, subscriptionOverride?.AlertHandlerProperties),
                 ResolvedHandlerId = target?.HandlerId,
-                ResolvedHandlerProperties = target?.HandlerProperties
-                    ?.ToDictionary(kv => kv.Key, kv => kv.Value),
+                ResolvedHandlerProperties = await _secrets.Mask(
+                    target?.HandlerId, target?.HandlerProperties),
                 ResolvedFrom = target?.Level,
                 SilencedAt = target == null ? silencedAt : null
             });

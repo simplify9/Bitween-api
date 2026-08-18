@@ -25,10 +25,13 @@ public class RetryPolicyTests
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
+    private static AdapterSecretProperties Secrets(AsyncServiceScope scope) =>
+        scope.ServiceProvider.GetRequiredService<AdapterSecretProperties>();
+
     private static (Create create, Get get, Update update, Delete delete)
-        Handlers(BitweenDbContext db, RequestContext ctx) => (
+        Handlers(BitweenDbContext db, RequestContext ctx, AdapterSecretProperties secrets) => (
             new Create(db, ctx),
-            new Get(db),
+            new Get(db, secrets),
             new Update(db, ctx),
             new Delete(db, ctx));
 
@@ -61,7 +64,7 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, get, _, _) = Handlers(db, ctx);
+        var (create, get, _, _) = Handlers(db, ctx, Secrets(scope));
 
         var id = (int)await create.Handle(SimplePolicy("Round-trip Policy"));
 
@@ -79,7 +82,7 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, _) = Handlers(db, ctx);
+        var (create, _, _, _) = Handlers(db, ctx, Secrets(scope));
 
         var policy = new RetryPolicyCreate
         {
@@ -131,7 +134,7 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, update, _) = Handlers(db, ctx);
+        var (create, _, update, _) = Handlers(db, ctx, Secrets(scope));
 
         var id = (int)await create.Handle(SimplePolicy("Before Update"));
 
@@ -170,7 +173,7 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, delete) = Handlers(db, ctx);
+        var (create, _, _, delete) = Handlers(db, ctx, Secrets(scope));
 
         var id = (int)await create.Handle(SimplePolicy("Deletable Policy"));
 
@@ -188,7 +191,7 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, delete) = Handlers(db, ctx);
+        var (create, _, _, delete) = Handlers(db, ctx, Secrets(scope));
 
         var doc = new Document(7001, "Delete Guard Doc");
         db.Set<Document>().Add(doc);
@@ -240,7 +243,7 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, _) = Handlers(db, ctx);
+        var (create, _, _, _) = Handlers(db, ctx, Secrets(scope));
 
         var doc = new Document(7002, "Sub FK Doc");
         db.Set<Document>().Add(doc);
@@ -492,7 +495,7 @@ public class RetryPolicyTests
         for (var i = 0; i < 10; i++) await budget.TryConsume(groupId, 10);
         await db.SaveChangesAsync();
 
-        var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx).Handle(policyId, new RetryPolicyUsageRequest());
+        var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx, Secrets(scope)).Handle(policyId, new RetryPolicyUsageRequest());
         var row = Assert.Single(rows);
         Assert.Equal(sub.Id, row.SubscriptionId);
         Assert.Equal("Usage Sub", row.SubscriptionName);
@@ -509,7 +512,7 @@ public class RetryPolicyTests
         // The pair keeps its row — every subscription-and-group pair gets one so an alert override
         // stays configurable before the first failure — but with nothing spent against the ceiling.
         var afterReset = Assert.Single(
-            (List<RetryGroupUsageRow>)await new Usage(db, ctx).Handle(policyId, new RetryPolicyUsageRequest()));
+            (List<RetryGroupUsageRow>)await new Usage(db, ctx, Secrets(scope)).Handle(policyId, new RetryPolicyUsageRequest()));
         Assert.Equal(0, afterReset.AttemptsUsed);
         Assert.False(afterReset.Exhausted);
         Assert.Null(afterReset.LastAttemptOn);
@@ -552,7 +555,7 @@ public class RetryPolicyTests
         sub.SetRetryPolicy(policyId, null);
         await db.SaveChangesAsync();
 
-        var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx)
+        var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx, Secrets(scope))
             .Handle(policyId, new RetryPolicyUsageRequest());
 
         // One row, not two: the pair is reported even though nothing has ever failed — otherwise its
@@ -599,7 +602,7 @@ public class RetryPolicyTests
         // A row now exists for every pair whether or not it has failed, so assert the spent counter
         // itself survived — row count alone would pass even if the reset had wrongly cleared it.
         var otherRow = Assert.Single(
-            (List<RetryGroupUsageRow>)await new Usage(db, ctx).Handle(otherId, new RetryPolicyUsageRequest()));
+            (List<RetryGroupUsageRow>)await new Usage(db, ctx, Secrets(scope)).Handle(otherId, new RetryPolicyUsageRequest()));
         Assert.Equal(1, otherRow.AttemptsUsed);
     }
 
@@ -951,6 +954,128 @@ public class RetryPolicyTests
         await Assert.ThrowsAsync<SWValidationException>(() => new Create(db, ctx).Handle(model));
     }
 
+    // ─── Alert secrets ──────────────────────────────────────────────────────────
+
+    // What the browser is shown in place of a secret. Spelled out rather than taken from the
+    // constant: the UI has its own copy of this string, and the two have to stay the same.
+    private const string Sentinel = "__private__";
+
+    private static Dictionary<string, string> SmtpProperties(string password, bool useTls) => new()
+    {
+        ["Host"] = "localhost",
+        ["Port"] = "1025",
+        ["UseTls"] = useTls ? "true" : "false",
+        ["Password"] = password,
+        ["From"] = "bitween-alerts@example.com",
+        ["To"] = "ops@example.com",
+        ["Subject"] = "Retries stopped",
+        ["Body"] = "Budget spent."
+    };
+
+    [Fact]
+    public async Task An_alert_password_is_masked_on_read_and_survives_being_saved_back()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+
+        var model = SimplePolicy("Masked Alert Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+        model.AlertHandlerProperties = SmtpProperties("hunter2", useTls: true);
+
+        var policyId = (int)await new Create(db, ctx).Handle(model);
+
+        var loaded = (RetryPolicyUpdate)await new Get(db, Secrets(scope)).Handle(policyId);
+
+        // The password never leaves the server; everything that is not a secret still does, or the
+        // form would have nothing to show.
+        Assert.Equal(Sentinel, loaded.AlertHandlerProperties["Password"]);
+        Assert.Equal("localhost", loaded.AlertHandlerProperties["Host"]);
+        Assert.Equal("Retries stopped", loaded.AlertHandlerProperties["Subject"]);
+
+        // Exactly what the page does when someone edits the subject and saves: the password comes
+        // back as the mask, and must not be stored as one.
+        loaded.AlertHandlerProperties["Subject"] = "Retries stopped for real";
+        await new Update(db, ctx).Handle(policyId, new RetryPolicyUpdate
+        {
+            Name = loaded.Name,
+            Groups = loaded.Groups,
+            AlertHandlerId = loaded.AlertHandlerId,
+            AlertHandlerProperties = loaded.AlertHandlerProperties
+        });
+
+        var stored = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+        Assert.Equal("hunter2", stored.AlertHandlerProperties["Password"]);
+        Assert.Equal("Retries stopped for real", stored.AlertHandlerProperties["Subject"]);
+    }
+
+    [Fact]
+    public async Task Overriding_an_inherited_alert_keeps_the_password_it_was_only_shown_masked()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+
+        var doc = new Document(7014, "Copied Secret Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var model = SimplePolicy("Copied Secret Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+        model.AlertHandlerProperties = SmtpProperties("hunter2", useTls: true);
+        var policyId = (int)await new Create(db, ctx).Handle(model);
+
+        var groupId = (await db.Set<RetryPolicy>().AsNoTracking()
+            .SingleAsync(p => p.Id == policyId)).Groups[0].Id;
+
+        var sub = new Subscription("Copied Secret Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        var row = Assert.Single((List<RetryGroupUsageRow>)await new Usage(db, ctx, Secrets(scope))
+            .Handle(policyId, new RetryPolicyUsageRequest()));
+        Assert.Equal(Sentinel, row.ResolvedHandlerProperties["Password"]);
+
+        // The page offers "start from what this currently sends", so the masked value is what comes
+        // back — and there is no override row yet to restore it from. It has to be recovered from the
+        // level the caller was shown it at, or the new override would send with no password at all.
+        await new SaveAlertOverride(db, ctx, Secrets(scope)).Handle(policyId, new RetryAlertOverrideSave
+        {
+            SubscriptionId = sub.Id,
+            GroupId = groupId,
+            AlertMode = RetryAlertMode.Send,
+            AlertHandlerId = "NativeSmtpHandler",
+            AlertHandlerProperties = row.ResolvedHandlerProperties
+        });
+
+        var stored = await db.Set<RetryAlertOverride>().AsNoTracking()
+            .SingleAsync(o => o.SubscriptionId == sub.Id && o.GroupId == groupId);
+        Assert.Equal("hunter2", stored.AlertHandlerProperties["Password"]);
+        Assert.Equal("ops@example.com", stored.AlertHandlerProperties["To"]);
+    }
+
+    [Fact]
+    public async Task A_mail_alert_with_a_password_and_no_encryption_is_rejected_on_save()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+
+        var model = SimplePolicy("Cleartext Alert Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+        model.AlertHandlerProperties = SmtpProperties("hunter2", useTls: false);
+
+        // Caught on save, where the person configuring it is looking — the handler refuses this at
+        // send time too, but by then the only trace is a missing alert.
+        await Assert.ThrowsAsync<SWValidationException>(() => new Create(db, ctx).Handle(model));
+
+        // Encryption off is fine on its own; it is only the password that must not travel in clear.
+        model.AlertHandlerProperties = SmtpProperties("", useTls: false);
+        await new Create(db, ctx).Handle(model);
+    }
+
     [Fact]
     public async Task Policy_alert_handler_round_trips()
     {
@@ -963,7 +1088,7 @@ public class RetryPolicyTests
         model.AlertHandlerProperties = new Dictionary<string, string> { ["to"] = "ops@example.com" };
 
         var policyId = (int)await new Create(db, ctx).Handle(model);
-        var loaded = (RetryPolicyUpdate)await new Get(db).Handle(policyId);
+        var loaded = (RetryPolicyUpdate)await new Get(db, Secrets(scope)).Handle(policyId);
 
         Assert.Equal("NativeSmtpHandler", loaded.AlertHandlerId);
         Assert.Equal("ops@example.com", loaded.AlertHandlerProperties["to"]);

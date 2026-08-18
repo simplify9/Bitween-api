@@ -23,6 +23,8 @@ public class Update : ICommandHandler<int, RetryPolicyUpdate, object>
     {
         _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
         RetryGroupValidation.EnsureCanFire(model.Groups);
+        RetryGroupValidation.EnsureAlertTransportIsSecure(
+            model.AlertHandlerId, model.AlertHandlerProperties);
 
         var entity = await _dbContext.FindAsync<RetryPolicy>(key);
 
@@ -39,10 +41,22 @@ public class Update : ICommandHandler<int, RetryPolicyUpdate, object>
         // events — nothing reaches the bus before the commit.
         await using var transaction = await _dbContext.Database.BeginTransactionAsync();
 
+        // Secrets came out of Get masked, so put them back from what this same level already holds.
+        // A group matched by id, because a group added in this very save has nothing to restore from.
+        foreach (var group in model.Groups ?? [])
+        {
+            var storedGroup = entity.Groups.FirstOrDefault(g => g.Id == group.Id);
+            AdapterSecretProperties.MergeInPlace(
+                storedGroup?.AlertHandlerProperties, group.AlertHandlerProperties);
+        }
+
+        var storedPolicyProperties = entity.AlertHandlerProperties;
+
         entity.Name = model.Name;
         entity.Groups = model.Groups ?? [];
         entity.AlertHandlerId = model.AlertHandlerId;
-        entity.AlertHandlerProperties = model.AlertHandlerProperties;
+        entity.AlertHandlerProperties =
+            AdapterSecretProperties.Merge(storedPolicyProperties, model.AlertHandlerProperties);
         await _dbContext.SaveChangesAsync();
 
         if (removedGroupIds.Count > 0)

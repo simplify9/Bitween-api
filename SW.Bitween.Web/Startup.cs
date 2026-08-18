@@ -66,6 +66,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<NativeAdapterDiscoveryService>();
+            services.AddScoped<AdapterSecretProperties>();
             services.AddScoped<XchangeService>();
             services.AddHttpContextAccessor();
 

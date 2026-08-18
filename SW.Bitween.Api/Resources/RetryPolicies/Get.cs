@@ -11,10 +11,12 @@ namespace SW.Bitween.Resources.RetryPolicies;
 public class Get : IGetHandler<int, object>
 {
     private readonly BitweenDbContext _dbContext;
+    private readonly AdapterSecretProperties _secrets;
 
-    public Get(BitweenDbContext dbContext)
+    public Get(BitweenDbContext dbContext, AdapterSecretProperties secrets)
     {
         _dbContext = dbContext;
+        _secrets = secrets;
     }
 
     public async Task<object> Handle(int key)
@@ -28,12 +30,18 @@ public class Get : IGetHandler<int, object>
 
         if (policy == null) return null;
 
+        // Every level that can carry a handler can carry that handler's password, so every level is
+        // masked. Groups are edited in place by the caller, which is what Update then merges back.
+        foreach (var group in policy.Groups)
+            await _secrets.MaskInPlace(group.AlertHandlerId, group.AlertHandlerProperties);
+
         return new RetryPolicyUpdate
         {
             Name = policy.Name,
             Groups = policy.Groups,
             AlertHandlerId = policy.AlertHandlerId,
-            AlertHandlerProperties = policy.AlertHandlerProperties?.ToDictionary(kv => kv.Key, kv => kv.Value)
+            AlertHandlerProperties =
+                await _secrets.Mask(policy.AlertHandlerId, policy.AlertHandlerProperties)
         };
     }
 }

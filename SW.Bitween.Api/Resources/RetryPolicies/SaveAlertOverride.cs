@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -17,17 +18,22 @@ public class SaveAlertOverride : ICommandHandler<int, RetryAlertOverrideSave, ob
 {
     private readonly BitweenDbContext _dbContext;
     private readonly RequestContext _requestContext;
+    private readonly AdapterSecretProperties _secrets;
 
-    public SaveAlertOverride(BitweenDbContext dbContext, RequestContext requestContext)
+    public SaveAlertOverride(BitweenDbContext dbContext, RequestContext requestContext,
+        AdapterSecretProperties secrets)
     {
         _dbContext = dbContext;
         _requestContext = requestContext;
+        _secrets = secrets;
     }
 
     public async Task<object> Handle(int key, RetryAlertOverrideSave request)
     {
         _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
         RetryGroupValidation.EnsureAlertCanSend(request.AlertMode, request.AlertHandlerId);
+        RetryGroupValidation.EnsureAlertTransportIsSecure(
+            request.AlertHandlerId, request.AlertHandlerProperties);
 
         var policy = await _dbContext.Set<RetryPolicy>().AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == key);
@@ -58,6 +64,21 @@ public class SaveAlertOverride : ICommandHandler<int, RetryAlertOverrideSave, ob
             return null;
         }
 
+        // A masked secret has to be restored from whichever level the caller was shown it at. Usage
+        // masks two things for a pair: the override's own properties, and the properties of the level
+        // it currently inherits from. Overriding an inherited alert starts from the second — there is
+        // no override row yet — so both are offered here, with the override's own winning.
+        var group = policy.Groups.First(g => g.Id == request.GroupId);
+        var inherited = RetryAlertResolver.Resolve(existing, group, policy);
+
+        var restoreFrom = new Dictionary<string, string>();
+        foreach (var kv in inherited?.HandlerProperties ?? new Dictionary<string, string>())
+            restoreFrom[kv.Key] = kv.Value;
+        foreach (var kv in existing?.AlertHandlerProperties ?? new Dictionary<string, string>())
+            restoreFrom[kv.Key] = kv.Value;
+
+        var properties = AdapterSecretProperties.Merge(restoreFrom, request.AlertHandlerProperties);
+
         if (existing == null)
         {
             _dbContext.Add(new RetryAlertOverride
@@ -66,14 +87,14 @@ public class SaveAlertOverride : ICommandHandler<int, RetryAlertOverrideSave, ob
                 GroupId = request.GroupId,
                 AlertMode = request.AlertMode,
                 AlertHandlerId = request.AlertHandlerId,
-                AlertHandlerProperties = request.AlertHandlerProperties
+                AlertHandlerProperties = properties
             });
         }
         else
         {
             existing.AlertMode = request.AlertMode;
             existing.AlertHandlerId = request.AlertHandlerId;
-            existing.AlertHandlerProperties = request.AlertHandlerProperties;
+            existing.AlertHandlerProperties = properties;
         }
 
         await _dbContext.SaveChangesAsync();
