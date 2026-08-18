@@ -484,6 +484,11 @@ public class XchangeService :
         var attemptIndex = await CountRetryChainDepth(xchange);
         var decision = await evaluator.Evaluate(resultType, content, attemptIndex);
 
+        // Which group owned this failure, so the group's retries can later be listed without
+        // re-deriving the match, and how deep the chain already was without walking it again.
+        if (decision.MatchedGroup is not null)
+            xchangeResult.SetRetryEvaluation(decision.MatchedGroup.Id, attemptIndex);
+
         if (decision.ShouldRetry)
             _dbContext.Add(new DelayedRetry
             {
@@ -494,6 +499,16 @@ public class XchangeService :
             // A policy applied but refused. Recorded so an exhausted budget is distinguishable
             // from an error no group was ever configured to catch.
             xchangeResult.SetRetryBlocked(decision.Reason);
+
+        // Raised on the result rather than published here, so the alert only reaches the bus once
+        // this failure is committed. Its own event type means its own queue and its own consumer,
+        // keeping a slow alert handler away from the ordinary notifier path.
+        if (decision.BudgetJustExhausted)
+            xchangeResult.RaiseBudgetExhausted(
+                xchange.SubscriptionId.Value,
+                decision.MatchedGroup!.Id,
+                decision.MatchedGroup.Name,
+                decision.MatchedGroup.Budget!.MaxAttemptsTotal);
     }
 
     private async Task<int> CountRetryChainDepth(Xchange xchange)

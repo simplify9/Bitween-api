@@ -14,6 +14,37 @@ public static class ScribanJsonHelper
     /// </summary>`
     public static string Render(string scribanTemplate, string inputJson)
     {
+        var rendered = RenderText(scribanTemplate, inputJson);
+
+        // 6. Strip trailing commas that may appear after the last field/element
+        rendered = Regex.Replace(rendered, @",(\s*[}\]])", "$1");
+
+        // 7. Parse rendered output — root may be an object OR an array
+        JToken renderedToken;
+        try
+        {
+            renderedToken = JToken.Parse(rendered);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidOperationException($"Template produced invalid JSON: {ex.Message}\n\nRendered:\n{rendered}");
+        }
+
+        // 8. Expand dotted keys into nested objects recursively at all depths
+        return ExpandDottedKeys(renderedToken).ToString(Formatting.Indented);
+    }
+
+    /// <summary>
+    /// Renders a Scriban template against the provided input JSON and returns the text as-is,
+    /// without requiring the result to be JSON.
+    /// </summary>
+    /// <remarks>
+    /// For templates whose output is prose rather than a payload — an email subject or body, say.
+    /// <see cref="Render"/> builds on this and adds the JSON validation and dotted-key expansion
+    /// that a mapper needs and a sentence does not.
+    /// </remarks>
+    public static string RenderText(string scribanTemplate, string inputJson)
+    {
         // 1. Parse input JSON — handle both root object and root array
         var rootToken = JToken.Parse(inputJson);
 
@@ -71,24 +102,7 @@ public static class ScribanJsonHelper
             throw new InvalidOperationException($"Template parse error: {errors}");
         }
 
-        var rendered = template.Render(context);
-
-        // 6. Strip trailing commas that may appear after the last field/element
-        rendered = Regex.Replace(rendered, @",(\s*[}\]])", "$1");
-
-        // 7. Parse rendered output — root may be an object OR an array
-        JToken renderedToken;
-        try
-        {
-            renderedToken = JToken.Parse(rendered);
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException($"Template produced invalid JSON: {ex.Message}\n\nRendered:\n{rendered}");
-        }
-
-        // 8. Expand dotted keys into nested objects recursively at all depths
-        return ExpandDottedKeys(renderedToken).ToString(Formatting.Indented);
+        return template.Render(context);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────

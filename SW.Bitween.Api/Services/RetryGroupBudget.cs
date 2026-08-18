@@ -34,17 +34,19 @@ public class RetryGroupBudget(
     /// inside SaveChangesAsync.
     /// </para>
     /// </remarks>
-    public async Task<bool> TryConsume(Guid groupId, int maxAttemptsTotal)
+    public async Task<RetryBudgetClaim> TryConsume(Guid groupId, int maxAttemptsTotal)
     {
-        if (maxAttemptsTotal <= 0) return false;
+        // A group configured to allow no retries at all has no budget to exhaust, so it never
+        // alerts — otherwise every single failure under it would raise one.
+        if (maxAttemptsTotal <= 0) return RetryBudgetClaim.Denied;
 
-        if (await TryIncrement(dbContext, groupId, maxAttemptsTotal)) return true;
+        if (await TryIncrement(dbContext, groupId, maxAttemptsTotal)) return RetryBudgetClaim.Allowed;
 
         // Nothing was updated: either the ceiling is reached, or this integration and group have
         // never failed before and so have no row yet.
         var exists = await dbContext.Set<RetryGroupUsage>()
             .AnyAsync(u => u.SubscriptionId == subscriptionId && u.GroupId == groupId);
-        if (exists) return false;
+        if (exists) return await ClaimExhaustionAlert(groupId, maxAttemptsTotal);
 
         // Create that first row on its own context so it commits independently of whatever the
         // caller still has pending. Losing this race is harmless: the primary key rejects the
@@ -63,12 +65,38 @@ public class RetryGroupBudget(
         try
         {
             await isolated.SaveChangesAsync();
-            return true;
+            return RetryBudgetClaim.Allowed;
         }
         catch (DbUpdateException)
         {
-            return await TryIncrement(dbContext, groupId, maxAttemptsTotal);
+            // The winner of the insert race already holds a row, so this is the ordinary
+            // increment path again — including the case where their row is already full.
+            return await TryIncrement(dbContext, groupId, maxAttemptsTotal)
+                ? RetryBudgetClaim.Allowed
+                : await ClaimExhaustionAlert(groupId, maxAttemptsTotal);
         }
+    }
+
+    /// <summary>
+    /// Takes responsibility for alerting that this integration's budget for the group is spent.
+    /// </summary>
+    /// <remarks>
+    /// One conditional UPDATE for the same reason the increment is one: several instances can
+    /// discover the empty budget at the same moment, and a read-then-write would let each of them
+    /// decide it was the first. Exactly one caller updates a row, so exactly one alert is raised —
+    /// and because Reset deletes the row outright, clearing a budget re-arms the alert with it.
+    /// </remarks>
+    private async Task<RetryBudgetClaim> ClaimExhaustionAlert(Guid groupId, int maxAttemptsTotal)
+    {
+        var claimed = await dbContext.Set<RetryGroupUsage>()
+            .Where(u => u.SubscriptionId == subscriptionId
+                        && u.GroupId == groupId
+                        && u.AttemptsUsed >= maxAttemptsTotal
+                        && u.ExhaustedNotifiedOn == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(u => u.ExhaustedNotifiedOn, _ => DateTime.UtcNow)) > 0;
+
+        return claimed ? RetryBudgetClaim.DeniedAndJustExhausted : RetryBudgetClaim.Denied;
     }
 
     private async Task<bool> TryIncrement(BitweenDbContext db, Guid groupId, int maxAttemptsTotal) =>

@@ -11,6 +11,7 @@ using Npgsql;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Adapters;
 using SW.Bitween.NativeAdapters;
+using SW.Bitween.NativeAdapters.SmtpHandler;
 using SW.Bitween.PgSql;
 using SW.Bus;
 using SW.CloudFiles.Extensions;
@@ -92,14 +93,18 @@ public sealed class BitweenFixture : IAsyncLifetime
 
                     services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeTestReceiver>();
+                    services.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
+                    services.AddScoped<INativeAdapter, NativeSmtpHandler>();
 
                     services.AddSingleton<FilterService>();
                     services.AddScoped<NativeAdapterDiscoveryService>();
+                    services.AddScoped<AdapterSecretProperties>();
                     services.AddScoped<XchangeService>();
                     services.AddScoped<RunFlagUpdater>();
                     services.AddScoped<ReceivingJob>();
                     services.AddScoped<AggregationJob>();
                     services.AddScoped<RetryJob>();
+                    services.AddScoped<RetryAlertService>();
                 })
                 .Build();
 

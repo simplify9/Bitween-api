@@ -5,6 +5,29 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Model;
 
 /// <summary>
+/// The outcome of asking a <see cref="RetryGroup"/>'s shared total budget for one attempt.
+/// </summary>
+/// <param name="Granted">
+/// <c>true</c> when a slot was claimed and a retry may be scheduled.
+/// </param>
+/// <param name="JustExhausted">
+/// <c>true</c> only for the single caller that first found the budget spent, so an
+/// exhaustion alert is raised once rather than on every failure that follows.
+/// Always <c>false</c> when <paramref name="Granted"/> is <c>true</c>.
+/// </param>
+public readonly record struct RetryBudgetClaim(bool Granted, bool JustExhausted)
+{
+    /// <summary>A slot was claimed.</summary>
+    public static RetryBudgetClaim Allowed => new(true, false);
+
+    /// <summary>No slot available, and someone else has already taken responsibility for alerting.</summary>
+    public static RetryBudgetClaim Denied => new(false, false);
+
+    /// <summary>No slot available, and this caller owns the alert for it.</summary>
+    public static RetryBudgetClaim DeniedAndJustExhausted => new(false, true);
+}
+
+/// <summary>
 /// Tracks how much of a <see cref="RetryGroup"/>'s <see cref="RetryBudget.MaxAttemptsTotal"/>
 /// has already been spent.
 /// </summary>
@@ -17,11 +40,7 @@ namespace SW.Bitween.Model;
 public interface IRetryGroupBudget
 {
     /// <summary>Claims one attempt from the group's total budget.</summary>
-    /// <returns>
-    /// <c>true</c> when a slot was claimed; <c>false</c> when the total is already spent
-    /// and no further retry may be scheduled for this group.
-    /// </returns>
-    Task<bool> TryConsume(Guid groupId, int maxAttemptsTotal);
+    Task<RetryBudgetClaim> TryConsume(Guid groupId, int maxAttemptsTotal);
 }
 
 /// <summary>
@@ -33,12 +52,16 @@ public class InMemoryRetryGroupBudget : IRetryGroupBudget
     private readonly Dictionary<Guid, int> _used = new();
 
     /// <inheritdoc/>
-    public Task<bool> TryConsume(Guid groupId, int maxAttemptsTotal)
+    /// <remarks>
+    /// Never reports <see cref="RetryBudgetClaim.JustExhausted"/>: simulating a policy must not
+    /// send anyone an alert.
+    /// </remarks>
+    public Task<RetryBudgetClaim> TryConsume(Guid groupId, int maxAttemptsTotal)
     {
         var used = _used.GetValueOrDefault(groupId, 0);
-        if (used >= maxAttemptsTotal) return Task.FromResult(false);
+        if (used >= maxAttemptsTotal) return Task.FromResult(RetryBudgetClaim.Denied);
 
         _used[groupId] = used + 1;
-        return Task.FromResult(true);
+        return Task.FromResult(RetryBudgetClaim.Allowed);
     }
 }
