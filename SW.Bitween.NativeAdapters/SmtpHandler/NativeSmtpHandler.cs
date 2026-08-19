@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
@@ -47,6 +51,18 @@ public class NativeSmtpHandler : INativeInfolinkHandler
             throw new InvalidOperationException("No recipients were configured for the SMTP handler.");
 
         using var client = new SmtpClient();
+
+        // Revocation stays switched on, so a certificate the CA has actually revoked is still refused.
+        // What the callback softens is the other outcome: the lookup needs the CA's OCSP or CRL server
+        // to be reachable, which the corporate networks Bitween runs inside routinely block, and
+        // MailKit's default treats "could not find out" exactly like "revoked". That rejected a
+        // perfectly good Gmail certificate — one OpenSSL accepts on the same machine — and the alert
+        // never went out. Soft-failing an undeterminable status is what browsers and mail clients do;
+        // every other defect, revocation included, still fails.
+        client.CheckCertificateRevocation = true;
+        client.ServerCertificateValidationCallback = (_, _, chain, errors) =>
+            IsCertificateAcceptable(errors,
+                chain?.ChainStatus.Select(s => s.Status) ?? Enumerable.Empty<X509ChainStatusFlags>());
 
         // Named rather than left to Auto: on any port but 465, Auto means "encrypt if the server
         // offers it", so a server that does not offer STARTTLS — or an offer stripped in transit —
@@ -101,6 +117,32 @@ public class NativeSmtpHandler : INativeInfolinkHandler
         if (string.IsNullOrEmpty(template) || !LooksLikeJson(payload)) return template;
 
         return ScribanJsonHelper.RenderText(template, payload);
+    }
+
+    /// <summary>
+    /// Whether a server certificate should be accepted, given what validation found wrong with it.
+    /// </summary>
+    /// <remarks>
+    /// Only one defect is tolerated: a revocation status that could not be established, because the
+    /// CA's OCSP or CRL server was unreachable. A certificate the CA has revoked, an untrusted root,
+    /// a wrong hostname and an expired certificate are all still refused — as is any chain flag not
+    /// named here, so a defect nobody thought about fails closed rather than slipping through.
+    /// </remarks>
+    internal static bool IsCertificateAcceptable(SslPolicyErrors errors,
+        IEnumerable<X509ChainStatusFlags> chainStatus)
+    {
+        if (errors == SslPolicyErrors.None) return true;
+
+        // A missing certificate or the wrong name on one is not a revocation question at all, and the
+        // chain flags say nothing about either.
+        if (errors != SslPolicyErrors.RemoteCertificateChainErrors) return false;
+
+        const X509ChainStatusFlags undeterminable =
+            X509ChainStatusFlags.RevocationStatusUnknown | X509ChainStatusFlags.OfflineRevocation;
+
+        // Masked rather than compared: one entry can carry several flags at once, and "revoked" set
+        // alongside "could not check" has to fail.
+        return chainStatus.All(status => (status & ~undeterminable) == X509ChainStatusFlags.NoError);
     }
 
     private static bool LooksLikeJson(string payload)

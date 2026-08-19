@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
 using SW.Bitween.Model;
@@ -97,5 +99,80 @@ public class NativeSmtpHandlerTests
         Assert.IsTrue(input.UseTls);
         Assert.IsTrue(input.IsHtml);
         Assert.IsNull(input.Password);
+    }
+
+    // ─── Server certificate acceptance ──────────────────────────────────────────
+
+    [TestMethod]
+    public void Certificate_WithNothingWrong_IsAccepted()
+    {
+        Assert.IsTrue(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.None, new[] { X509ChainStatusFlags.NoError }));
+    }
+
+    [TestMethod]
+    public void Certificate_WhoseRevocationCouldNotBeChecked_IsAccepted()
+    {
+        // The whole point of the soft-fail: the CA's OCSP or CRL server was unreachable, which says
+        // nothing bad about the certificate itself.
+        Assert.IsTrue(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.RevocationStatusUnknown }));
+
+        Assert.IsTrue(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.OfflineRevocation }));
+
+        Assert.IsTrue(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.RevocationStatusUnknown | X509ChainStatusFlags.OfflineRevocation }));
+    }
+
+    [TestMethod]
+    public void Certificate_ThatWasRevoked_IsRefused()
+    {
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.Revoked }));
+    }
+
+    [TestMethod]
+    public void Certificate_RevokedAlongsideAnUncheckableStatus_IsRefused()
+    {
+        // One chain entry can carry several flags at once, so the tolerated ones have to be masked
+        // out rather than compared — otherwise a revoked certificate rides in on the same entry.
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.Revoked | X509ChainStatusFlags.RevocationStatusUnknown }));
+
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.RevocationStatusUnknown, X509ChainStatusFlags.Revoked }));
+    }
+
+    [TestMethod]
+    public void Certificate_WithAnyOtherDefect_IsRefused()
+    {
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.UntrustedRoot }));
+
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors,
+            new[] { X509ChainStatusFlags.NotTimeValid }));
+
+        // A wrong hostname or no certificate at all is not a chain question, so the chain flags must
+        // not be allowed to excuse it.
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateNameMismatch,
+            new[] { X509ChainStatusFlags.NoError }));
+
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateNotAvailable,
+            new[] { X509ChainStatusFlags.NoError }));
+
+        Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
+            SslPolicyErrors.RemoteCertificateChainErrors | SslPolicyErrors.RemoteCertificateNameMismatch,
+            new[] { X509ChainStatusFlags.RevocationStatusUnknown }));
     }
 }

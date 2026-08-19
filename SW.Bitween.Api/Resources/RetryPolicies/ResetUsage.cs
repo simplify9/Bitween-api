@@ -9,8 +9,9 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.RetryPolicies;
 
 /// <summary>
-/// Clears spent group budget, letting an exhausted group retry again. The total never resets on
-/// its own, so this is the only way back for an integration that has hit its ceiling.
+/// Clears spent group budget, letting an exhausted group retry again. A budget that has run out also
+/// clears itself when the integration next succeeds, so this is for putting one back before that
+/// happens, or for handing back a total that is spent but not yet exhausted.
 /// </summary>
 [HandlerName("resetusage")]
 public class ResetUsage : ICommandHandler<int, RetryPolicyResetUsage, object>

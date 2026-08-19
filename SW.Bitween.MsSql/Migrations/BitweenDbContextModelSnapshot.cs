@@ -850,6 +850,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("InputSize")
                         .HasColumnType("int");
 
+                    b.Property<bool>("ManualRetry")
+                        .HasColumnType("bit");
+
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
                         .IsUnicode(false)

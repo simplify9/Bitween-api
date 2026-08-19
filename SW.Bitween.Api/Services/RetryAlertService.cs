@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SW.Bitween.Domain;
@@ -23,8 +22,7 @@ namespace SW.Bitween;
 /// </remarks>
 public class RetryAlertService(
     BitweenDbContext dbContext,
-    NativeAdapterDiscoveryService nativeAdapterDiscovery,
-    IServiceProvider serviceProvider,
+    AdapterInvoker adapterInvoker,
     ILogger<RetryAlertService> logger) : IConsume<RetryBudgetExhaustedEvent>
 {
     public async Task Process(RetryBudgetExhaustedEvent message)
@@ -115,19 +113,8 @@ public class RetryAlertService(
 
         try
         {
-            if (target.HandlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix,
-                    StringComparison.OrdinalIgnoreCase))
-            {
-                var handler = nativeAdapterDiscovery.GetNativeHandler(target.HandlerId, handlerProperties);
-                await handler.Handle(payload);
-            }
-            else
-            {
-                var serverless = serviceProvider.GetRequiredService<IServerlessService>();
-                await serverless.StartAsync(target.HandlerId, notification.CorrelationId ?? xchangeId,
-                    handlerProperties);
-                await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle), payload);
-            }
+            await adapterInvoker.Handle(target.HandlerId, handlerProperties,
+                notification.CorrelationId ?? xchangeId, payload);
 
             dbContext.Add(XchangeNotification.ForRetryBudgetAlert(xchangeId));
         }

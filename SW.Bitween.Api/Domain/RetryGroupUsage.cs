@@ -8,9 +8,12 @@ namespace SW.Bitween.Domain;
 /// group, so it cannot be tracked on an individual xchange.
 /// </summary>
 /// <remarks>
-/// The total never resets on its own: once <see cref="AttemptsUsed"/> reaches the group's
-/// <c>MaxAttemptsTotal</c> the group stops retrying for that integration until this row is
-/// cleared.
+/// Once <see cref="AttemptsUsed"/> reaches the group's <c>MaxAttemptsTotal</c> the group stops
+/// retrying for that integration until this row is cleared. A row that has reached the cap is cleared
+/// by the integration's next success — the only signal that the downstream it was failing against has
+/// recovered — or by one of the reset endpoints. A row still below the cap is left alone by a success:
+/// the cap is there for a downstream that fails some messages and succeeds others, which is exactly
+/// when crediting it back would stop it ever being reached.
 /// </remarks>
 public class RetryGroupUsage
 {

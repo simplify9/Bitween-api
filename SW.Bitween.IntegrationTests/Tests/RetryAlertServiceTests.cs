@@ -20,60 +20,49 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// test can prove, because it depends on an actual SMTP handshake succeeding.
 /// </summary>
 /// <remarks>
-/// Requires MailHog running locally: <c>docker run -d -p 1025:1025 -p 8025:8025 mailhog/mailhog</c>.
-/// Skips itself when MailHog is not reachable, so it never fails a normal test run.
+/// MailHog is started by <see cref="BitweenFixture"/> alongside PostgreSQL and RabbitMQ, so these
+/// tests run everywhere the rest of the suite does. They used to return early when a local MailHog
+/// was missing, which xunit reports as a pass — a green run then said nothing about whether an alert
+/// can actually be delivered.
 /// </remarks>
 [Collection("Bitween")]
 public class RetryAlertServiceTests
 {
-    private const string MailHogApi = "http://localhost:8025/api/v2";
-
-    // MailHog is local and answers instantly or not at all, so the default 100 seconds only ever
-    // means "this optional test hangs the run".
+    // MailHog answers instantly or not at all, so the default 100 seconds only ever means "the run
+    // hangs instead of failing".
     private static readonly TimeSpan MailHogTimeout = TimeSpan.FromSeconds(5);
+
     private readonly BitweenFixture _fixture;
+
+    private string MessagesApi => $"{_fixture.MailHogApi}/api/v2/messages";
 
     public RetryAlertServiceTests(BitweenFixture fixture)
     {
         _fixture = fixture;
     }
 
-    private static async Task<bool> MailHogIsReachable()
-    {
-        try
-        {
-            using var http = new HttpClient { Timeout = MailHogTimeout };
-            var response = await http.GetAsync($"{MailHogApi}/messages");
-            return response.IsSuccessStatusCode;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     // Deleting is only exposed on MailHog's v1 API — the v2 route 404s and would silently leave
     // messages behind, making the assertions depend on leftovers from the previous run.
-    private static async Task ClearMailHog()
+    private async Task ClearMailHog()
     {
         using var http = new HttpClient { Timeout = MailHogTimeout };
-        var response = await http.DeleteAsync("http://localhost:8025/api/v1/messages");
+        var response = await http.DeleteAsync($"{_fixture.MailHogApi}/api/v1/messages");
         response.EnsureSuccessStatusCode();
     }
 
-    private static async Task<JsonElement?> LatestMailHogMessage()
+    private async Task<JsonElement?> LatestMailHogMessage()
     {
         using var http = new HttpClient { Timeout = MailHogTimeout };
-        var json = await http.GetStringAsync($"{MailHogApi}/messages");
+        var json = await http.GetStringAsync(MessagesApi);
         using var doc = JsonDocument.Parse(json);
         var items = doc.RootElement.GetProperty("items").Clone();
         return items.GetArrayLength() > 0 ? items[0] : null;
     }
 
-    private static async Task<int> MailHogTotal()
+    private async Task<int> MailHogTotal()
     {
         using var http = new HttpClient { Timeout = MailHogTimeout };
-        var json = await http.GetStringAsync($"{MailHogApi}/messages");
+        var json = await http.GetStringAsync(MessagesApi);
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.GetProperty("total").GetInt32();
     }
@@ -81,9 +70,6 @@ public class RetryAlertServiceTests
     [Fact]
     public async Task Exhausted_budget_alert_arrives_in_MailHog_with_the_group_and_subscription_named()
     {
-        if (!await MailHogIsReachable())
-            return; // Environment doesn't have MailHog running — nothing to verify against.
-
         await ClearMailHog();
 
         await using var scope = _fixture.CreateScope();
@@ -120,7 +106,7 @@ public class RetryAlertServiceTests
                     AlertHandlerProperties = new Dictionary<string, string>
                     {
                         ["Host"] = "localhost",
-                        ["Port"] = "1025",
+                        ["Port"] = _fixture.MailHogSmtpPort.ToString(),
                         ["UseTls"] = "false",
                         ["From"] = "bitween-alerts@example.com",
                         ["To"] = "ops@example.com",
@@ -203,9 +189,6 @@ public class RetryAlertServiceTests
     [Fact]
     public async Task A_failed_send_does_not_stop_a_later_delivery()
     {
-        if (!await MailHogIsReachable())
-            return; // Environment doesn't have MailHog running — nothing to verify against.
-
         await ClearMailHog();
 
         await using var scope = _fixture.CreateScope();
@@ -240,7 +223,7 @@ public class RetryAlertServiceTests
                     AlertHandlerProperties = new Dictionary<string, string>
                     {
                         ["Host"] = "localhost",
-                        ["Port"] = "1025",
+                        ["Port"] = _fixture.MailHogSmtpPort.ToString(),
                         ["UseTls"] = "false",
                         ["From"] = "bitween-alerts@example.com",
                         ["To"] = "ops@example.com",
@@ -285,16 +268,21 @@ public class RetryAlertServiceTests
                            && n.Success));
 
         // And now that one did get through, the guard has to hold: no third row, no second email.
+        // Both are asserted — a redelivery that wrongly logged another success while sending nothing
+        // would otherwise pass here.
+        var rowsAfterDelivery = await db.Set<XchangeNotification>()
+            .CountAsync(n => n.XchangeId == xchange.Id);
+
         await alertService.Process(raisedEvent);
+
         Assert.Equal(1, await MailHogTotal());
+        Assert.Equal(rowsAfterDelivery,
+            await db.Set<XchangeNotification>().CountAsync(n => n.XchangeId == xchange.Id));
     }
 
     [Fact]
     public async Task The_handler_refuses_to_send_a_password_over_an_unencrypted_connection()
     {
-        if (!await MailHogIsReachable())
-            return; // Environment doesn't have MailHog running — nothing to verify against.
-
         await ClearMailHog();
 
         await using var scope = _fixture.CreateScope();
@@ -305,7 +293,7 @@ public class RetryAlertServiceTests
         var handler = discovery.GetNativeHandler("NativeSmtpHandler", new Dictionary<string, string>
         {
             ["Host"] = "localhost",
-            ["Port"] = "1025",
+            ["Port"] = _fixture.MailHogSmtpPort.ToString(),
             ["UseTls"] = "false",
             ["Password"] = "hunter2",
             ["From"] = "bitween-alerts@example.com",
@@ -314,8 +302,12 @@ public class RetryAlertServiceTests
             ["Body"] = "Should never be sent"
         });
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        // Matched on the message, not just the type: the handler also throws
+        // InvalidOperationException for a missing recipient, so dropping the To above would otherwise
+        // leave this passing without ever reaching the credential guard.
+        var refusal = await Assert.ThrowsAsync<InvalidOperationException>(
             () => handler.Handle(new XchangeFile("{}")));
+        Assert.Contains("will not send a password over an unencrypted connection", refusal.Message);
 
         // Refusing has to mean refusing: no message, and therefore no password, left the process.
         Assert.Equal(0, await MailHogTotal());

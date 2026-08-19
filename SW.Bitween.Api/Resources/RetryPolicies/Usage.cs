@@ -32,14 +32,13 @@ public class Usage : ICommandHandler<int, RetryPolicyUsageRequest, object>
 {
     private readonly BitweenDbContext _dbContext;
     private readonly RequestContext _requestContext;
-    private readonly AdapterSecretProperties _secrets;
+    private readonly RetryUsageReport _report;
 
-    public Usage(BitweenDbContext dbContext, RequestContext requestContext,
-        AdapterSecretProperties secrets)
+    public Usage(BitweenDbContext dbContext, RequestContext requestContext, RetryUsageReport report)
     {
         _dbContext = dbContext;
         _requestContext = requestContext;
-        _secrets = secrets;
+        _report = report;
     }
 
     public async Task<object> Handle(int key, RetryPolicyUsageRequest request)
@@ -55,78 +54,7 @@ public class Usage : ICommandHandler<int, RetryPolicyUsageRequest, object>
             .Select(s => new { s.Id, s.Name })
             .ToListAsync();
 
-        var subscriptionIds = subscriptions.Select(s => s.Id).ToList();
-
-        var usages = await _dbContext.Set<RetryGroupUsage>().AsNoTracking()
-            .Where(u => subscriptionIds.Contains(u.SubscriptionId))
-            .ToListAsync();
-
-        var overrides = await _dbContext.Set<RetryAlertOverride>().AsNoTracking()
-            .Where(o => subscriptionIds.Contains(o.SubscriptionId))
-            .ToListAsync();
-
-        // Only groups that allow retries have a budget to spend — and a group that can never spend
-        // one can never exhaust it, so it can never alert either. Listing those would invite
-        // configuring an alert that cannot fire. A ceiling of zero counts as "never": TryConsume
-        // denies it outright rather than claiming and exhausting it.
-        var groups = policy.Groups
-            .Where(g => g.Budget is { MaxAttemptsTotal: > 0 })
-            .ToList();
-
-        var rows = new List<RetryGroupUsageRow>();
-
-        // Keyed once rather than scanned per pair: both lists are already keyed by exactly this
-        // pair, and a policy shared by many subscriptions turns the scan into the cost of the
-        // whole request.
-        var usageByPair = usages.ToDictionary(u => (u.SubscriptionId, u.GroupId));
-        var overrideByPair = overrides.ToDictionary(o => (o.SubscriptionId, o.GroupId));
-
-        foreach (var subscription in subscriptions)
-        foreach (var group in groups)
-        {
-            usageByPair.TryGetValue((subscription.Id, group.Id), out var usage);
-            overrideByPair.TryGetValue((subscription.Id, group.Id), out var subscriptionOverride);
-
-            var target = RetryAlertResolver.Resolve(subscriptionOverride, group, policy);
-
-            // Mirrors the order the resolver walks, so the reported reason is the level that
-            // actually decided: an override silences before the group is consulted at all.
-            var silencedAt = subscriptionOverride?.AlertMode == RetryAlertMode.Silent
-                ? RetryAlertLevel.SubscriptionGroup
-                : group.AlertMode == RetryAlertMode.Silent
-                    ? RetryAlertLevel.Group
-                    : (RetryAlertLevel?)null;
-
-            rows.Add(new RetryGroupUsageRow
-            {
-                SubscriptionId = subscription.Id,
-                SubscriptionName = subscription.Name,
-                GroupId = group.Id,
-                GroupName = group.Name,
-                AttemptsUsed = usage?.AttemptsUsed ?? 0,
-                MaxAttemptsTotal = group.Budget!.MaxAttemptsTotal,
-                Exhausted = usage != null && usage.AttemptsUsed >= group.Budget.MaxAttemptsTotal,
-                LastAttemptOn = usage?.LastAttemptOn,
-                ExhaustedNotifiedOn = usage?.ExhaustedNotifiedOn,
-                AlertMode = subscriptionOverride?.AlertMode ?? RetryAlertMode.Inherit,
-                OverrideHandlerId = subscriptionOverride?.AlertHandlerId,
-                OverrideHandlerProperties = await _secrets.Mask(
-                    subscriptionOverride?.AlertHandlerId, subscriptionOverride?.AlertHandlerProperties),
-                ResolvedHandlerId = target?.HandlerId,
-                ResolvedHandlerProperties = await _secrets.Mask(
-                    target?.HandlerId, target?.HandlerProperties),
-                ResolvedFrom = target?.Level,
-                SilencedAt = target == null ? silencedAt : null
-            });
-        }
-
-        return rows
-            // Worst first: stopped retrying, then alerting nowhere, then whatever has spent most.
-            .OrderByDescending(r => r.Exhausted)
-            .ThenBy(r => r.ResolvedHandlerId != null)
-            .ThenByDescending(r => r.AttemptsUsed)
-            .ThenBy(r => r.SubscriptionName)
-            .ThenBy(r => r.GroupName)
-            .ToList();
+        return await _report.Build(
+            subscriptions.Select(s => (s.Id, s.Name)).ToList(), policy.Groups, policy);
     }
 }

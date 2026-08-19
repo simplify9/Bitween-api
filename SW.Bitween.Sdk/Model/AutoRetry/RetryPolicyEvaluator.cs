@@ -56,7 +56,15 @@ public class RetryPolicyEvaluator(IRetryPolicy policy, IRetryGroupBudget groupBu
         if (group.Action == RetryAction.Block)
             return RetryDecision.Block($"Group '{group.Name}' explicitly blocks this error", group);
 
-        var budget = group.Budget!;
+        // A group that allows retries without saying how many is refused rather than trusted: the
+        // dereference used to throw here, and because the caller logs and swallows that, retries just
+        // stopped happening with no reason recorded anywhere. Validation keeps new policies out of this
+        // state; this is for the ones already saved in it.
+        if (group.Budget is null)
+            return RetryDecision.Block(
+                $"Group '{group.Name}' allows retries but has no budget, so none can be scheduled", group);
+
+        var budget = group.Budget;
 
         if (attemptIndexForThisMessage >= budget.MaxAttemptsPerError)
             return RetryDecision.Block(

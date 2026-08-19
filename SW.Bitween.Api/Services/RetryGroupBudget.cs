@@ -78,6 +78,70 @@ public class RetryGroupBudget(
     }
 
     /// <summary>
+    /// Lifts this integration's group budgets that have run out, because it has just succeeded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An exhausted total is a statement about a downstream that was failing, and one success says
+    /// that is no longer true. Nothing else can say it: an exhausted group schedules no further
+    /// retries, so no retry will ever succeed to report the recovery — only ordinary traffic getting
+    /// through can. Without this, one bad afternoon stops retrying for good until somebody notices
+    /// and resets it by hand.
+    /// </para>
+    /// <para>
+    /// <strong>Only budgets that are actually used up.</strong> A partly-spent total is left alone.
+    /// The cap exists to stop a flaky downstream being hammered, and that is precisely a downstream
+    /// where some messages succeed and others fail — crediting the total back on every ordinary
+    /// success would mean such a subscription never reaches its cap at all.
+    /// </para>
+    /// <para>
+    /// <paramref name="succeededFrom"/> keeps this from erasing a charge it never saw. Bitween runs
+    /// several instances, so a failure can claim a slot while this success is still being processed;
+    /// deleting that row would hand back a slot already spent and let the group exceed its total.
+    /// Only rows whose last attempt predates the success are released.
+    /// </para>
+    /// <para>
+    /// Deleting a row re-arms the exhaustion alert along with the budget, so if the total runs out
+    /// again somebody is told again rather than the second outage passing in silence.
+    /// </para>
+    /// </remarks>
+    /// <returns>How many group budgets were released.</returns>
+    public async Task<int> ReleaseExhaustedBudgets(DateTime succeededFrom)
+    {
+        // Cheapest question first, and for almost every success the answer ends it here: a
+        // subscription that has never spent a retry has no row, and must not pay for a policy load
+        // or a write on the strength of having worked.
+        var spent = await dbContext.Set<RetryGroupUsage>().AsNoTracking()
+            .Where(u => u.SubscriptionId == subscriptionId)
+            .Select(u => new { u.GroupId, u.AttemptsUsed })
+            .ToListAsync();
+        if (spent.Count == 0) return 0;
+
+        var subscription = await dbContext.Set<Subscription>().AsNoTracking()
+            .Include(s => s.RetryPolicy)
+            .FirstOrDefaultAsync(s => s.Id == subscriptionId);
+
+        IRetryPolicy policy = subscription?.CustomRetryPolicy ?? (IRetryPolicy)subscription?.RetryPolicy;
+        if (policy?.Groups == null) return 0;
+
+        // A group whose total is gone from the policy is left to Update and Delete to clean up, which
+        // they already do — releasing it here would be guessing at a cap that no longer exists.
+        var exhausted = spent
+            .Where(u => policy.Groups.Any(g => g.Id == u.GroupId
+                                               && g.Budget is { MaxAttemptsTotal: > 0 }
+                                               && u.AttemptsUsed >= g.Budget.MaxAttemptsTotal))
+            .Select(u => u.GroupId)
+            .ToList();
+        if (exhausted.Count == 0) return 0;
+
+        return await dbContext.Set<RetryGroupUsage>()
+            .Where(u => u.SubscriptionId == subscriptionId
+                        && exhausted.Contains(u.GroupId)
+                        && u.LastAttemptOn < succeededFrom)
+            .ExecuteDeleteAsync();
+    }
+
+    /// <summary>
     /// Takes responsibility for alerting that this integration's budget for the group is spent.
     /// </summary>
     /// <remarks>
