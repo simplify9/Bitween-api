@@ -85,7 +85,8 @@ namespace SW.Bitween.Resources.Xchanges
                             // pre-migration xchanges have it null even when their subscription carries
                             // a direct PartnerId — fall back to that for those legacy rows.
                             PartnerId = xchange.PartnerId ?? subscriber.PartnerId,
-                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null
+                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null,
+                            RetryBlockedReason = result.RetryBlockedReason
                         };
 
             var condition = searchyRequest.Conditions.FirstOrDefault();

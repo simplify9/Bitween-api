@@ -75,7 +75,8 @@ namespace SW.Bitween.Resources.Accounts
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.Email).NotEmpty();
-                RuleFor(i => i.Password).NotEmpty().When(_ => !bitweenOptions.DisableEmailPasswordLogin);
+                RuleFor(i => i.Password).Password().When(_ => !bitweenOptions.DisableEmailPasswordLogin);
+                RuleFor(i => i.Role).NotNull();
             }
         }
     }

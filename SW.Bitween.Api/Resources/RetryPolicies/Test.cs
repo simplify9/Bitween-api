@@ -32,13 +32,14 @@ public class Test : ICommandHandler<TestRetryPolicyRequest, object>
                 "Choose Error or Bad result — a successful result is never retried.");
 
         var policy = new CustomRetryPolicy { Groups = request.Groups ?? [] };
-        var evaluator = new RetryPolicyEvaluator(policy);
+        // In-memory budget: a dry-run must not spend any real integration's total.
+        var evaluator = new RetryPolicyEvaluator(policy, new InMemoryRetryGroupBudget());
         var attemptsToSimulate = Math.Clamp(request.AttemptsToSimulate, 1, 20);
 
         var attempts = new List<TestRetryAttemptResult>();
         for (var attemptIndex = 0; attemptIndex < attemptsToSimulate; attemptIndex++)
         {
-            var decision = evaluator.Evaluate(request.ResultType, request.Content, attemptIndex);
+            var decision = await evaluator.Evaluate(request.ResultType, request.Content, attemptIndex);
 
             attempts.Add(new TestRetryAttemptResult
             {

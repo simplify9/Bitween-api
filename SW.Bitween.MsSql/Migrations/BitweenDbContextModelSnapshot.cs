@@ -57,6 +57,12 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<byte>("EmailProvider")
                         .HasColumnType("tinyint");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("datetime2");
+
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("tinyint");
 
@@ -92,6 +98,7 @@ namespace SW.Bitween.MsSql.Migrations
                             DisplayName = "Admin",
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
+                            FailedLoginCount = 0,
                             LoginMethods = (byte)2,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0
@@ -214,9 +221,6 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
-
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("On")
                         .HasColumnType("datetime2");
@@ -595,6 +599,52 @@ namespace SW.Bitween.MsSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.RetryAlertOverride", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte>("AlertMode")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("SubscriptionId", "GroupId");
+
+                    b.ToTable("RetryAlertOverrides", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryGroupUsage", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptsUsed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExhaustedNotifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastAttemptOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SubscriptionId", "GroupId");
+
+                    b.ToTable("RetryGroupUsages", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -602,6 +652,14 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
@@ -890,9 +948,6 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -918,6 +973,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<int>("InputSize")
                         .HasColumnType("int");
+
+                    b.Property<bool>("ManualRetry")
+                        .HasColumnType("bit");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -1022,7 +1080,7 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<DateTime>("FinishedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("NotifierId")
+                    b.Property<int?>("NotifierId")
                         .HasColumnType("int");
 
                     b.Property<string>("NotifierName")
@@ -1073,6 +1131,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<int?>("AttemptNumber")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("nvarchar(max)");
 
@@ -1122,10 +1183,19 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<string>("ResponseXchangeId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RetryBlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("RetryGroupId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("Success")
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RetryGroupId");
 
                     b.ToTable("XchangeResults", (string)null);
                 });

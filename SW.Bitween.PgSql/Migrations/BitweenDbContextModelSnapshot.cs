@@ -66,6 +66,14 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("email_provider");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_login_count");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lockout_end");
+
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("smallint")
                         .HasColumnName("login_methods");
@@ -107,6 +115,7 @@ namespace SW.Bitween.PgSql.Migrations
                             DisplayName = "Admin",
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
+                            FailedLoginCount = 0,
                             LoginMethods = (byte)2,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0
@@ -250,10 +259,6 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("id");
-
-                    b.Property<Dictionary<string, int>>("GroupAttemptCounts")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("group_attempt_counts");
 
                     b.Property<DateTime>("On")
                         .HasColumnType("timestamp with time zone")
@@ -714,6 +719,63 @@ namespace SW.Bitween.PgSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.RetryAlertOverride", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("alert_handler_id");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("text")
+                        .HasColumnName("alert_handler_properties");
+
+                    b.Property<byte>("AlertMode")
+                        .HasColumnType("smallint")
+                        .HasColumnName("alert_mode");
+
+                    b.HasKey("SubscriptionId", "GroupId")
+                        .HasName("pk_retry_alert_override");
+
+                    b.ToTable("retry_alert_override", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryGroupUsage", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<int>("AttemptsUsed")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts_used");
+
+                    b.Property<DateTime?>("ExhaustedNotifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("exhausted_notified_on");
+
+                    b.Property<DateTime>("LastAttemptOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_on");
+
+                    b.HasKey("SubscriptionId", "GroupId")
+                        .HasName("pk_retry_group_usage");
+
+                    b.ToTable("retry_group_usage", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -722,6 +784,15 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("alert_handler_id");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("text")
+                        .HasColumnName("alert_handler_properties");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text")
@@ -1083,10 +1154,6 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("document_id");
 
-                    b.Property<IReadOnlyDictionary<string, int>>("GroupAttemptCounts")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("group_attempt_counts");
-
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -1115,6 +1182,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<int>("InputSize")
                         .HasColumnType("integer")
                         .HasColumnName("input_size");
+
+                    b.Property<bool>("ManualRetry")
+                        .HasColumnType("boolean")
+                        .HasColumnName("manual_retry");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -1239,7 +1310,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished_on");
 
-                    b.Property<int>("NotifierId")
+                    b.Property<int?>("NotifierId")
                         .HasColumnType("integer")
                         .HasColumnName("notifier_id");
 
@@ -1297,6 +1368,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("id");
+
+                    b.Property<int?>("AttemptNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_number");
 
                     b.Property<string>("Exception")
                         .HasColumnType("text")
@@ -1356,12 +1431,24 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("text")
                         .HasColumnName("response_xchange_id");
 
+                    b.Property<string>("RetryBlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("retry_blocked_reason");
+
+                    b.Property<Guid?>("RetryGroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("retry_group_id");
+
                     b.Property<bool>("Success")
                         .HasColumnType("boolean")
                         .HasColumnName("success");
 
                     b.HasKey("Id")
                         .HasName("pk_xchange_result");
+
+                    b.HasIndex("RetryGroupId")
+                        .HasDatabaseName("ix_xchange_result_retry_group_id");
 
                     b.ToTable("xchange_result", "infolink");
                 });

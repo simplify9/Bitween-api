@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Domain;
@@ -7,5 +6,4 @@ namespace SW.Bitween.Domain;
 public class DelayedRetry : BaseEntity<string>
 {
     public DateTime On { get; set; }
-    public Dictionary<string, int> GroupAttemptCounts { get; set; } = new();
 }
