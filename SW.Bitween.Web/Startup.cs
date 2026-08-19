@@ -67,6 +67,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<FilterService>();
             services.AddScoped<NativeAdapterDiscoveryService>();
             services.AddScoped<AdapterSecretProperties>();
+            services.AddScoped<RetryUsageReport>();
             services.AddScoped<XchangeService>();
             services.AddHttpContextAccessor();
 

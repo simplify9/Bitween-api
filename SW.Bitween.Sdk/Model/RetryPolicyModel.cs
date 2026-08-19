@@ -162,9 +162,19 @@ public class RetryAlertOverrideSave
     public Dictionary<string, string>? AlertHandlerProperties { get; set; }
 }
 
-/// <summary>Empty request body — the policy is identified by the route key.</summary>
+/// <summary>Empty request body — the subject is identified by the route key.</summary>
 public class RetryPolicyUsageRequest
 {
+}
+
+/// <summary>
+/// Clears one subscription's spent budget, for one group or for all of them. Reaches a subscription
+/// whose policy is an inline <c>CustomRetryPolicy</c>, which has no id for the policy-scoped reset to
+/// address.
+/// </summary>
+public class SubscriptionRetryResetUsage
+{
+    public Guid? GroupId { get; set; }
 }
 
 /// <summary>

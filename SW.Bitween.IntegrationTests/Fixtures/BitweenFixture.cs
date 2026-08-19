@@ -18,6 +18,8 @@ using SW.CloudFiles.Extensions;
 using SW.CloudFiles.LocalTests;
 using SW.PrimitiveTypes;
 using SW.Serverless;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Containers;
 using Testcontainers.PostgreSql;
 using Testcontainers.RabbitMq;
 using Xunit;
@@ -25,14 +27,34 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Fixtures;
 
 /// <summary>
-/// Collection-scoped fixture that starts a PostgreSQL container and a RabbitMQ container,
-/// applies EF migrations, installs serverless adapters to local cloud storage, and builds
-/// a fully wired service provider.
+/// Collection-scoped fixture that starts a PostgreSQL container, a RabbitMQ container and a
+/// MailHog container, applies EF migrations, installs serverless adapters to local cloud storage,
+/// and builds a fully wired service provider.
 /// </summary>
 public sealed class BitweenFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder().Build();
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder().Build();
+
+    // A real SMTP server, because the one thing no unit test can prove about the alert feature is
+    // that an actual handshake succeeds. Started here rather than expected on the developer's
+    // machine: a test that quietly does nothing when a local service is missing reports a green run
+    // while the whole delivery path goes unexercised.
+    private readonly IContainer _mailHog = new ContainerBuilder()
+        .WithImage("mailhog/mailhog:v1.0.1")
+        .WithPortBinding(SmtpContainerPort, true)
+        .WithPortBinding(ApiContainerPort, true)
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(ApiContainerPort))
+        .Build();
+
+    private const int SmtpContainerPort = 1025;
+    private const int ApiContainerPort = 8025;
+
+    /// <summary>Host port the MailHog SMTP listener is mapped to, for a handler's Port setting.</summary>
+    public int MailHogSmtpPort => _mailHog.GetMappedPublicPort(SmtpContainerPort);
+
+    /// <summary>Base address of MailHog's own API, for reading back what was delivered.</summary>
+    public string MailHogApi => $"http://{_mailHog.Hostname}:{_mailHog.GetMappedPublicPort(ApiContainerPort)}";
 
     public IHost App { get; private set; } = null!;
 
@@ -42,7 +64,7 @@ public sealed class BitweenFixture : IAsyncLifetime
     {
         try
         {
-            await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync());
+            await Task.WhenAll(_postgres.StartAsync(), _rabbitMq.StartAsync(), _mailHog.StartAsync());
 
             var dataSourceBuilder = new NpgsqlDataSourceBuilder(_postgres.GetConnectionString());
             dataSourceBuilder.EnableDynamicJson();
@@ -99,6 +121,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddSingleton<FilterService>();
                     services.AddScoped<NativeAdapterDiscoveryService>();
                     services.AddScoped<AdapterSecretProperties>();
+                    services.AddScoped<RetryUsageReport>();
                     services.AddScoped<XchangeService>();
                     services.AddScoped<RunFlagUpdater>();
                     services.AddScoped<ReceivingJob>();
@@ -148,6 +171,7 @@ public sealed class BitweenFixture : IAsyncLifetime
         }
         await _postgres.DisposeAsync();
         await _rabbitMq.DisposeAsync();
+        await _mailHog.DisposeAsync();
     }
 }
 
