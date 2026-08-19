@@ -35,6 +35,14 @@ public static class RetryGroupValidation
                         $"Group '{group.Name}' applies to {resultType} but none of its matchers can be " +
                         $"evaluated against {resultType} content. {SupportedMatchersFor(resultType)}");
 
+            // Allow with no budget has nothing to work from — no per-message cap, no total, no delay —
+            // so the evaluator can only refuse it. Caught here because a group saved that way silently
+            // stops retrying, which reads as the whole feature being broken.
+            if (group.Action == RetryAction.Allow && group.Budget == null)
+                throw new SWValidationException("RETRY_GROUP_ALLOW_WITHOUT_BUDGET",
+                    $"Group '{group.Name}' allows retries but has no budget. Set the attempt caps and " +
+                    "delay, or change the action to block.");
+
             // An overriding level replaces the one above it rather than merging into it, so a group
             // set to Send with no handler would silence the policy's alert instead of redirecting it.
             if (group.AlertMode == RetryAlertMode.Send && string.IsNullOrWhiteSpace(group.AlertHandlerId))

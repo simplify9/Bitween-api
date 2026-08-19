@@ -68,6 +68,31 @@ public class RetryPolicyEvaluatorTests
         public List<RetryGroup> Groups { get; } = new List<RetryGroup>(groups);
     }
 
+    // ─── Allow with no budget ───────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task AllowWithoutBudget_IsRefusedWithAReason()
+    {
+        // Only reachable for a policy saved before validation rejected this shape. It used to throw,
+        // and the caller logs and swallows the throw, so retries stopped happening and nothing said why.
+        var group = new RetryGroup
+        {
+            Name = "No budget",
+            Priority = 10,
+            Enabled = true,
+            AppliesTo = [XchangeResultType.Error],
+            Action = RetryAction.Allow,
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = null
+        };
+
+        var decision = await Evaluator(PolicyWith(group)).Evaluate(XchangeResultType.Error, "timeout", 0);
+
+        Assert.IsFalse(decision.ShouldRetry);
+        StringAssert.Contains(decision.Reason, "no budget");
+        Assert.AreEqual("No budget", decision.MatchedGroup?.Name);
+    }
+
     // ─── ContainsMatcher ────────────────────────────────────────────────────────
 
     [TestMethod]

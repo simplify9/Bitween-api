@@ -145,11 +145,39 @@ public class XchangeService :
             return false;
         }
 
-        var inputFileData = await GetFile(xchange.Id, XchangeFileType.Input);
-        var inputFile = new XchangeFile(inputFileData, xchange.InputName);
+        var inputFile = await ReadInputFile(xchange);
+        if (inputFile == null)
+        {
+            // The input is what a retry re-sends, so without it there is nothing to retry with. Handled
+            // like a missing subscription — drop the schedule and move on — but recorded on the result
+            // as well, because unlike a deleted subscription this needs someone to look into it.
+            _dbContext.Remove(delayedRetry);
+
+            var result = await _dbContext.FindAsync<XchangeResult>(xchange.Id);
+            result?.SetRetryBlocked("The scheduled retry was dropped: the input file could not be read.");
+            return false;
+        }
+
         await CreateXchange(subscription, xchange, inputFile);
         _dbContext.Remove(delayedRetry);
         return true;
+    }
+
+    /// <summary>
+    /// The original input, or <c>null</c> when it cannot be read — deleted from storage, expired by a
+    /// lifecycle rule, or storage itself unavailable.
+    /// </summary>
+    private async Task<XchangeFile> ReadInputFile(Xchange xchange)
+    {
+        try
+        {
+            return new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "The input file of xchange {XchangeId} could not be read.", xchange.Id);
+            return null;
+        }
     }
 
     private Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)

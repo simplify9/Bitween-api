@@ -29,8 +29,14 @@ namespace SW.Bitween.Resources.DelayedRetries
             if (delayedRetry == null)
                 throw new SWValidationException("NOT_FOUND", "No auto-retry is currently scheduled for this exchange.");
 
+            // Also covers an input file that can no longer be read, which the exchange itself now
+            // records — so the message points there rather than naming only one of the reasons.
             if (!await _xchangeService.ExecuteDelayedRetry(delayedRetry))
-                throw new SWValidationException("NOT_FOUND", "The original exchange or its subscription no longer exists.");
+            {
+                await _dbContext.SaveChangesAsync();
+                throw new SWValidationException("CANNOT_RETRY",
+                    "This retry could not be carried out. The exchange it belongs to says why.");
+            }
 
             await _dbContext.SaveChangesAsync();
             return null;
