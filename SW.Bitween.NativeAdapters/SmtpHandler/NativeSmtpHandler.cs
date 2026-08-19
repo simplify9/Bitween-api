@@ -48,6 +48,14 @@ public class NativeSmtpHandler : INativeInfolinkHandler
 
         using var client = new SmtpClient();
 
+        // A revocation lookup needs the issuing CA's OCSP or CRL server to be reachable, which the
+        // corporate networks Bitween runs inside routinely block. MailKit checks by default and treats
+        // "could not determine" as a rejection, so a perfectly valid certificate stops the alert —
+        // observed against Gmail, whose certificate OpenSSL accepts on the same machine. The chain,
+        // the hostname and the expiry are all still verified; only the revocation lookup is skipped,
+        // which is the same trade-off ordinary mail clients make.
+        client.CheckCertificateRevocation = false;
+
         // Named rather than left to Auto: on any port but 465, Auto means "encrypt if the server
         // offers it", so a server that does not offer STARTTLS — or an offer stripped in transit —
         // silently continues in the clear. StartTls demands it and fails if it is not there. 465 is
