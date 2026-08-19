@@ -60,9 +60,10 @@ namespace SW.Bitween.Domain
         }
 
         //retry xchange
-        public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup) :
+        public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup, bool manualRetry = false) :
             this(xchange.DocumentId, workGroup, file, xchange.References)
         {
+            ManualRetry = manualRetry;
             SubscriptionId = xchange.SubscriptionId;
             PartnerId = xchange.PartnerId;
             MapperId = xchange.MapperId;
@@ -75,9 +76,10 @@ namespace SW.Bitween.Domain
         }
 
         //retry with reset subscription properties
-        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file) :
+        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file, bool manualRetry = false) :
             this(xchange.DocumentId, subscription.WorkGroup, file, xchange.References)
         {
+            ManualRetry = manualRetry;
             SubscriptionId = xchange.SubscriptionId;
             PartnerId = xchange.PartnerId ?? subscription.PartnerId;
             MapperId = subscription.MapperId;
@@ -106,6 +108,14 @@ namespace SW.Bitween.Domain
         public string ResponseMessageTypeName { get; private set; }
 
         public string RetryFor { get; private set; }
+
+        /// <summary>
+        /// <c>true</c> when a person asked for this retry, rather than the retry policy scheduling
+        /// it. The policy leaves these alone, so pressing Retry never spends the group's shared
+        /// budget and never quietly starts an automatic chain behind the person who pressed it.
+        /// </summary>
+        public bool ManualRetry { get; private set; }
+
         public string CorrelationId { get; set; }
     }
 }

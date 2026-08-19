@@ -78,6 +78,32 @@ public class RetryGroupBudget(
     }
 
     /// <summary>
+    /// Hands back every group total this integration has spent, because it has just succeeded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A spent total is a statement about a downstream that was failing, and one success says that is
+    /// no longer true. Nothing else can say it: an exhausted group schedules no further retries, so
+    /// the only evidence left that the downstream recovered is an ordinary message getting through.
+    /// Without this, one bad afternoon stops retrying for good until somebody notices and resets it
+    /// by hand.
+    /// </para>
+    /// <para>
+    /// Every group is cleared rather than only the exhausted one. The caps are per group, but the
+    /// downstream they were all failing against is shared, and a success is evidence about that
+    /// downstream.
+    /// </para>
+    /// <para>
+    /// Deleting the rows re-arms the exhaustion alert along with the budget, so if the total runs out
+    /// again somebody is told again rather than the second outage passing in silence.
+    /// </para>
+    /// </remarks>
+    public Task ClearAfterSuccess() =>
+        dbContext.Set<RetryGroupUsage>()
+            .Where(u => u.SubscriptionId == subscriptionId)
+            .ExecuteDeleteAsync();
+
+    /// <summary>
     /// Takes responsibility for alerting that this integration's budget for the group is spent.
     /// </summary>
     /// <remarks>

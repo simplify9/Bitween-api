@@ -68,6 +68,7 @@ namespace SW.Bitween.Web
             services.AddScoped<NativeAdapterDiscoveryService>();
             services.AddScoped<AdapterSecretProperties>();
             services.AddScoped<RetryUsageReport>();
+            services.AddScoped<AdapterInvoker>();
             services.AddScoped<XchangeService>();
             services.AddHttpContextAccessor();
 
