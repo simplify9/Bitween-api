@@ -91,9 +91,9 @@ public class RetryBudget
     /// <summary>
     /// Hard ceiling on the total number of group-level retries across all messages, counted per
     /// subscription so one shared policy does not let a single noisy subscription spend everyone's
-    /// allowance. Prevents a burst of failures from hammering the downstream. It is not a rate over
-    /// a rolling window: the count only falls when the subscription succeeds again, or when somebody
-    /// resets it.
+    /// allowance. Prevents a burst of failures from hammering the downstream. It is not a rate over a
+    /// rolling window: the count only falls once it has been reached — the subscription's next success
+    /// then lifts it — or when somebody resets it by hand.
     /// </summary>
     public int MaxAttemptsTotal { get; init; }
 

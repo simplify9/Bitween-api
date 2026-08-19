@@ -1338,10 +1338,15 @@ public class RetryPolicyTests
                 DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 }
             }
         };
-        var policy = new CustomRetryPolicy { Groups = [group] };
+        // Attached to the subscription, not just handed to the evaluator: releasing a budget reads the
+        // group's cap back from the policy the subscription actually holds, because a total that is
+        // only partly spent must be left alone.
+        sub.SetRetryPolicy(null, new CustomRetryPolicy { Groups = [group] });
+        await db.SaveChangesAsync();
 
         async Task<RetryDecision> Fail() =>
-            await new RetryPolicyEvaluator(policy, new RetryGroupBudget(db, scope.ServiceProvider, sub.Id))
+            await new RetryPolicyEvaluator(sub.CustomRetryPolicy,
+                    new RetryGroupBudget(db, scope.ServiceProvider, sub.Id))
                 .Evaluate(XchangeResultType.Error, "System.TimeoutException: timeout", 0);
 
         Assert.True((await Fail()).ShouldRetry);
@@ -1376,5 +1381,123 @@ public class RetryPolicyTests
         // Retrying works again, and because the row is gone the next exhaustion alerts afresh.
         var afterRecovery = await Fail();
         Assert.True(afterRecovery.ShouldRetry);
+    }
+
+    /// <summary>
+    /// A total that is only partly spent is not credited back by an ordinary success.
+    /// </summary>
+    /// <remarks>
+    /// The cap is there for a downstream that fails some messages and succeeds others. Handing the
+    /// total back on every success would mean exactly that downstream never reaches its cap, so the
+    /// release is deliberately limited to a budget that has actually run out.
+    /// </remarks>
+    [Fact]
+    public async Task A_partly_spent_budget_is_left_alone_by_a_success()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+
+        var doc = new Document(7033, "Partly Spent Doc");
+        db.Set<Document>().Add(doc);
+        var sub = new Subscription("Partly Spent Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 4,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 }
+            }
+        };
+        sub.SetRetryPolicy(null, new CustomRetryPolicy { Groups = [group] });
+        await db.SaveChangesAsync();
+
+        // One of four spent, so the group is still allowed to retry and has nothing to recover from.
+        var spend = await new RetryPolicyEvaluator(sub.CustomRetryPolicy,
+                new RetryGroupBudget(db, scope.ServiceProvider, sub.Id))
+            .Evaluate(XchangeResultType.Error, "System.TimeoutException: timeout", 0);
+        Assert.True(spend.ShouldRetry);
+
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+
+        var succeeded = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+
+        await using (var runScope = _fixture.CreateScope())
+            await runScope.ServiceProvider.GetRequiredService<XchangeService>()
+                .Process("XchangeCreated", JsonConvert.SerializeObject(new { Id = succeeded.Id }));
+
+        Assert.True((await db.Set<XchangeResult>().AsNoTracking().SingleAsync(r => r.Id == succeeded.Id)).Success);
+
+        var usage = await db.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id && u.GroupId == group.Id);
+        Assert.Equal(1, usage.AttemptsUsed);
+    }
+
+    /// <summary>
+    /// A slot charged after the success began is not handed back by it.
+    /// </summary>
+    /// <remarks>
+    /// Bitween runs several instances, so a failure can claim a slot while a success is still being
+    /// processed. Releasing that row would give back a slot already spent and let the group retry past
+    /// its total. The row's last attempt is compared against the successful exchange's start, which is
+    /// what this drives directly — the timing is otherwise a race no test could pin down.
+    /// </remarks>
+    [Fact]
+    public async Task A_slot_charged_after_the_success_began_is_not_handed_back()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7034, "Watermark Doc");
+        db.Set<Document>().Add(doc);
+        var sub = new Subscription("Watermark Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 1,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 }
+            }
+        };
+        sub.SetRetryPolicy(null, new CustomRetryPolicy { Groups = [group] });
+        await db.SaveChangesAsync();
+
+        // Exhausted, and charged after the moment the success below claims to have started.
+        db.Set<RetryGroupUsage>().Add(new RetryGroupUsage
+        {
+            SubscriptionId = sub.Id,
+            GroupId = group.Id,
+            AttemptsUsed = 1,
+            LastAttemptOn = DateTime.UtcNow.AddMinutes(5)
+        });
+        await db.SaveChangesAsync();
+
+        var budget = new RetryGroupBudget(db, scope.ServiceProvider, sub.Id);
+
+        Assert.Equal(0, await budget.ReleaseExhaustedBudgets(DateTime.UtcNow));
+        Assert.Equal(1, (await db.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id)).AttemptsUsed);
+
+        // The same budget, released once the success is known to postdate the charge.
+        Assert.Equal(1, await budget.ReleaseExhaustedBudgets(DateTime.UtcNow.AddMinutes(10)));
+        Assert.Empty(await db.Set<RetryGroupUsage>().AsNoTracking()
+            .Where(u => u.SubscriptionId == sub.Id).ToListAsync());
     }
 }

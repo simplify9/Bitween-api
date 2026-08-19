@@ -144,7 +144,14 @@ public class XchangeService :
             .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
         if (subscription == null)
         {
+            // Recorded on the result like the unreadable-input case below, rather than only dropping
+            // the schedule: the exchange is still there for someone to look at, so leaving it with no
+            // reason means the retry simply stopped happening with nothing to explain it.
             _dbContext.Remove(delayedRetry);
+
+            var orphaned = await _dbContext.FindAsync<XchangeResult>(xchange.Id);
+            orphaned?.SetRetryBlocked(
+                "The scheduled retry was dropped: the subscription it belonged to no longer exists.");
             return false;
         }
 
@@ -508,8 +515,10 @@ public class XchangeService :
 
         try
         {
+            // The exchange's own start time is the watermark: anything charged after this run began
+            // belongs to a failure this success knows nothing about, and is left where it is.
             await new RetryGroupBudget(_dbContext, _serviceProvider, xchange.SubscriptionId.Value)
-                .ClearAfterSuccess();
+                .ReleaseExhaustedBudgets(xchange.StartedOn);
         }
         catch (Exception ex)
         {
