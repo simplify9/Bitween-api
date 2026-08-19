@@ -51,9 +51,13 @@ public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService,
                 }
                 catch (Exception ex)
                 {
+                    // Not "dropped": SaveChangesAsync commits before it publishes, so a failure in the
+                    // publish leaves the replacement exchange committed and only its announcement
+                    // missing. Saying the retry was dropped would send whoever reads this looking for
+                    // an exchange that does exist.
                     logger.LogError(ex,
-                        "Dropping the scheduled retry of xchange {XchangeId}: it could not be carried out.",
-                        delayedRetry.Id);
+                        "The scheduled retry of xchange {XchangeId} did not complete; clearing its "
+                        + "schedule so the queue keeps draining.", delayedRetry.Id);
 
                     // Whatever the failed run left staged goes first — saving it would commit the very
                     // changes that failing was meant to prevent.
