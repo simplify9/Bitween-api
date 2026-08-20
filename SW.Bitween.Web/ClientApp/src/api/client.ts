@@ -86,6 +86,8 @@ export interface ApiClient {
   /** Stands in for a self-service reset, which would need mail Bitween doesn't have. */
   setUserPassword(id: string, password: string): Promise<void>;
   updateUserRoles(id: string, roleIds: string[]): Promise<User>;
+  /** Clears a failed-sign-in lockout early, rather than waiting it out. */
+  unlockUser(id: string): Promise<User>;
   setUserDisabled(id: string, disabled: boolean): Promise<User>;
   deleteUser(id: string): Promise<void>;
 

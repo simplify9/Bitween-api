@@ -24,6 +24,8 @@ interface RawAccount {
   email: string;
   role: string;
   disabled: boolean;
+  /** Set by the backend's failed-sign-in lockout; null or in the past means not locked. */
+  lockoutEnd: string | null;
   createdOn: string;
   roles: RawRoleSummary[] | null;
 }
@@ -44,6 +46,8 @@ const toUser = (r: RawAccount): User => ({
   email: r.email,
   roleIds: (r.roles ?? []).map((role) => String(role.id)),
   status: r.disabled ? "disabled" : "active",
+  // Past lockouts are not state anyone can act on, so they read as no lockout at all.
+  lockedUntil: r.lockoutEnd && new Date(r.lockoutEnd) > new Date() ? r.lockoutEnd : null,
   // Not tracked by the backend: no login-method projection, no last-seen column.
   microsoftLinked: false,
   createdOn: r.createdOn,
@@ -110,6 +114,12 @@ export const teamMethods = {
 
   async updateUserRoles(id: string, roleIds: string[]): Promise<User> {
     await post(`/accounts/${id}/setRoles`, { roleIds: roleIds.map(Number) });
+    return fetchUser(id);
+  },
+
+  /** Clears a failed-sign-in lockout early, rather than waiting it out. */
+  async unlockUser(id: string): Promise<User> {
+    await post(`/accounts/${id}/unlock`, {});
     return fetchUser(id);
   },
 

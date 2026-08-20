@@ -364,6 +364,27 @@ namespace SW.Bitween.Web
         }
 
 
+        /// <summary>
+        /// Enforced. Proven Report-Only first across every page in the admin UI — a wrong
+        /// enforced policy blanks the app, so the order matters. Switch back to
+        /// "Content-Security-Policy-Report-Only" before widening the policy again.
+        /// </summary>
+        private const string ContentSecurityPolicyHeader = "Content-Security-Policy";
+
+        /// <summary>Mirrors the policy the legacy UI enforces at nginx, minus its nginx-only bits.</summary>
+        private const string ContentSecurityPolicy =
+            "default-src 'self'; " +
+            "script-src 'self'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; " +
+            "connect-src 'self' https://login.microsoftonline.com; " +
+            "frame-src https://login.microsoftonline.com; " +
+            "font-src 'self' data:; " +
+            "form-action 'self' https://login.microsoftonline.com; " +
+            "frame-ancestors 'none'; " +
+            "base-uri 'self'; " +
+            "object-src 'none'";
+
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseForwardedHeaders();
@@ -376,6 +397,19 @@ namespace SW.Bitween.Web
                 headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
                 headers["X-Permitted-Cross-Domain-Policies"] = "none";
                 headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups";
+
+                // Content-Security-Policy for the admin UI.
+                //
+                // The legacy deployment set this in nginx, which only ever served the SPA.
+                // Here the same host also serves Swagger UI, which needs inline scripts and
+                // styles of its own, so the policy is scoped to everything else — applied
+                // globally it would simply take Swagger down.
+                //
+                // 'unsafe-inline' is present for styles only: the brand colour is applied at
+                // runtime as custom properties. Scripts need no such exemption — the built
+                // index.html carries no inline script, only the module bundle.
+                if (!context.Request.Path.StartsWithSegments("/swagger"))
+                    headers[ContentSecurityPolicyHeader] = ContentSecurityPolicy;
 
                 // Sensitive API responses (JSON) must not be cached by the browser or
                 // intermediaries. Scoped by content type so static assets stay cacheable.

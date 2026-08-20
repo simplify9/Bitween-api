@@ -38,6 +38,12 @@ export interface User {
   email: string;
   roleIds: string[];
   status: UserStatus;
+  /**
+   * Set while the account is locked out after repeated failed sign-ins. Orthogonal to
+   * `status`: a lockout is automatic and expires on its own, where disabling is an
+   * admin decision that does not. Null once it has passed.
+   */
+  lockedUntil: string | null;
   /** Whether a Microsoft account is linked for SSO. */
   microsoftLinked: boolean;
   createdOn: string;

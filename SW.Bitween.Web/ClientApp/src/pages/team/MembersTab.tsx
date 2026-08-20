@@ -16,9 +16,12 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "disabled", label: "Disabled" },
 ];
 
-export function statusBadge(status: UserStatus) {
-  if (status === "active") return <Badge tone="ok">Active</Badge>;
-  return <Badge tone="neutral">Disabled</Badge>;
+export function statusBadge(status: UserStatus, lockedUntil?: string | null) {
+  if (status !== "active") return <Badge tone="neutral">Disabled</Badge>;
+  // A lockout expires on its own, so it is reported with its own tone rather than
+  // as a failure — and never as "Active", which would say the opposite of the truth.
+  if (lockedUntil) return <Badge tone="warn">Locked</Badge>;
+  return <Badge tone="ok">Active</Badge>;
 }
 
 export function MembersTab() {
@@ -157,7 +160,7 @@ export function MembersTab() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-2.5">{statusBadge(user.status)}</td>
+                  <td className="px-4 py-2.5">{statusBadge(user.status, user.lockedUntil)}</td>
                   <td className="px-4 py-2.5 text-ink-500">
                     {user.lastActiveOn ? timeAgo(user.lastActiveOn) : "—"}
                   </td>
