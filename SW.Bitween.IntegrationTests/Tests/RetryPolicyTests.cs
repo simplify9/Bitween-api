@@ -478,7 +478,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7007, "Usage Doc");
         db.Set<Document>().Add(doc);
@@ -530,7 +530,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7011, "Never Failed Doc");
         db.Set<Document>().Add(doc);
@@ -580,7 +580,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7008, "Reset Scope Doc");
         db.Set<Document>().Add(doc);
@@ -615,7 +615,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7009, "Removed Group Doc");
         db.Set<Document>().Add(doc);
@@ -653,7 +653,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7012, "Attempts Doc");
         db.Set<Document>().Add(doc);
@@ -723,7 +723,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7013, "Attempts Scope Doc");
         db.Set<Document>().Add(doc);
@@ -904,7 +904,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7103, "Alert Rearm Doc");
         db.Set<Document>().Add(doc);
@@ -942,7 +942,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var model = SimplePolicy("Alert Validation Policy");
         model.Groups =
@@ -968,7 +968,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7015, "Inline Policy Doc");
         db.Set<Document>().Add(doc);
@@ -1023,7 +1023,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         RetryPolicyCreate PolicyWithBudgetlessGroup(string name, RetryAction action) => new()
         {
@@ -1073,7 +1073,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var model = SimplePolicy("Masked Alert Policy");
         model.AlertHandlerId = "NativeSmtpHandler";
@@ -1110,7 +1110,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var doc = new Document(7014, "Copied Secret Doc");
         db.Set<Document>().Add(doc);
@@ -1157,7 +1157,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var model = SimplePolicy("Cleartext Alert Policy");
         model.AlertHandlerId = "NativeSmtpHandler";
@@ -1177,7 +1177,7 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
+        var ctx = scope.Superuser();
 
         var model = SimplePolicy("Alert Handler Policy");
         model.AlertHandlerId = "NativeSmtpHandler";
