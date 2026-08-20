@@ -50,6 +50,40 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
             .Where(o => subscriptionIds.Contains(o.SubscriptionId))
             .ToListAsync();
 
+        // What became of the alerts that were raised. The counter records only that one was
+        // claimed — claiming is what stops a redelivery sending it twice, and it happens before
+        // the send is tried — so whether anyone was actually told lives here instead, in the
+        // delivery log. The pair is reconstructed the same way the alert reached it: the exchange
+        // names the integration, its result names the group.
+        var alertLog = await (
+                from notification in dbContext.Set<XchangeNotification>().AsNoTracking()
+                where notification.NotifierName == XchangeNotification.RetryBudgetAlertName
+                join xchange in dbContext.Set<Xchange>().AsNoTracking()
+                    on notification.XchangeId equals xchange.Id
+                join result in dbContext.Set<XchangeResult>().AsNoTracking()
+                    on notification.XchangeId equals result.Id
+                where xchange.SubscriptionId != null
+                      && subscriptionIds.Contains(xchange.SubscriptionId.Value)
+                      && result.RetryGroupId != null
+                select new
+                {
+                    SubscriptionId = xchange.SubscriptionId!.Value,
+                    GroupId = result.RetryGroupId!.Value,
+                    notification.Success,
+                    notification.Exception,
+                    notification.FinishedOn
+                })
+            .ToListAsync();
+
+        // One success is delivery, however many failures preceded it — the same rule the sender
+        // itself applies when it decides an alert has already gone out. Failing that, the most
+        // recent failure is the outcome.
+        var alertByPair = alertLog
+            .GroupBy(a => (a.SubscriptionId, a.GroupId))
+            .ToDictionary(
+                g => g.Key,
+                g => g.OrderByDescending(a => a.Success).ThenByDescending(a => a.FinishedOn).First());
+
         // Keyed once rather than scanned per pair: both lists are already keyed by exactly this
         // pair, and a policy shared by many subscriptions turns the scan into the cost of the
         // whole request.
@@ -63,6 +97,7 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
         {
             usageByPair.TryGetValue((subscription.Id, group.Id), out var usage);
             overrideByPair.TryGetValue((subscription.Id, group.Id), out var subscriptionOverride);
+            alertByPair.TryGetValue((subscription.Id, group.Id), out var alert);
 
             var target = RetryAlertResolver.Resolve(subscriptionOverride, group, policy);
 
@@ -85,6 +120,13 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
                 Exhausted = usage != null && usage.AttemptsUsed >= group.Budget.MaxAttemptsTotal,
                 LastAttemptOn = usage?.LastAttemptOn,
                 ExhaustedNotifiedOn = usage?.ExhaustedNotifiedOn,
+                // Only meaningful once an alert has been claimed. A delivery row surviving from
+                // before a reset would otherwise report an outcome for an alert that has since
+                // been re-armed and not raised again.
+                AlertDelivered = usage?.ExhaustedNotifiedOn == null ? null : alert?.Success,
+                AlertError = usage?.ExhaustedNotifiedOn != null && alert is { Success: false }
+                    ? alert.Exception
+                    : null,
                 AlertMode = subscriptionOverride?.AlertMode ?? RetryAlertMode.Inherit,
                 OverrideHandlerId = subscriptionOverride?.AlertHandlerId,
                 OverrideHandlerProperties = await secrets.Mask(

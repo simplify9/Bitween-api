@@ -34,9 +34,12 @@ import type {
   PermissionKey,
   QueueHealthSnapshot,
   RetryGroup,
+  RetryAlertConfig,
+  RetryAttempts,
   RetryPolicy,
   RetryPolicyDetail,
   RetryPolicyListRow,
+  RetryUsageRow,
   RetryResultType,
   RetryTestAttempt,
   Role,
@@ -255,7 +258,15 @@ export interface ApiClient {
   listRetryPolicies(): Promise<RetryPolicyListRow[]>;
   getRetryPolicy(id: number): Promise<RetryPolicyDetail>;
   createRetryPolicy(input: { name: string }): Promise<RetryPolicy>;
-  updateRetryPolicy(id: number, changes: { name: string; groups: RetryGroup[] }): Promise<RetryPolicy>;
+  updateRetryPolicy(
+    id: number,
+    changes: {
+      name: string;
+      groups: RetryGroup[];
+      alertHandlerId: string | null;
+      alertHandlerProperties: Record<string, string>;
+    },
+  ): Promise<RetryPolicy>;
   deleteRetryPolicy(id: number): Promise<void>;
   /** Dry-runs draft groups against a simulated failure over N attempts. */
   testRetryPolicy(input: {
@@ -264,6 +275,26 @@ export interface ApiClient {
     content: string;
     attempts: number;
   }): Promise<RetryTestAttempt[]>;
+
+  /** Spent budget and alert routing for every integration-and-group pair under this policy. */
+  getRetryUsage(policyId: number): Promise<RetryUsageRow[]>;
+  /**
+   * The same report for one integration, which is the only way to reach one whose policy is an
+   * inline `CustomRetryPolicy` — those carry no policy id for the policy-scoped report to address,
+   * yet still spend budget and can sit stopped with no counter anyone can see.
+   */
+  getIntegrationRetryUsage(integrationId: number): Promise<RetryUsageRow[]>;
+  /** The failures one group caught for one integration — what its spent budget went on. */
+  getRetryAttempts(policyId: number, pair: { integrationId: number; groupId: string }): Promise<RetryAttempts>;
+  /** Hands a spent budget back so the group retries again. Omit a field to reset across it. */
+  resetRetryUsage(policyId: number, pair?: { integrationId?: number; groupId?: string }): Promise<void>;
+  /** Reset by integration, for the inline-policy case the policy-scoped reset cannot reach. */
+  resetIntegrationRetryUsage(integrationId: number, groupId?: string): Promise<void>;
+  /** Sets, changes or clears where one pair's alert goes — the most specific level. */
+  saveRetryAlertOverride(
+    policyId: number,
+    input: { integrationId: number; groupId: string } & RetryAlertConfig,
+  ): Promise<void>;
 
   // — settings —
   listSettings(): Promise<SettingRow[]>;

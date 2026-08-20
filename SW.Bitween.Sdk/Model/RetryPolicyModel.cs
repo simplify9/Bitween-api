@@ -69,6 +69,25 @@ public class RetryGroupUsageRow
     /// </summary>
     public DateTime? ExhaustedNotifiedOn { get; set; }
 
+    /// <summary>
+    /// Whether the raised alert actually reached its handler.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ExhaustedNotifiedOn"/> because they are different facts:
+    /// claiming the alert is what stops it firing twice, and it is claimed before the send is
+    /// attempted. A send through a customer-configured adapter can fail — a wrong password, a
+    /// refused TLS handshake — and the counter records none of that. Reporting only the claim
+    /// tells the reader someone was told when nobody was, which is the one thing this page
+    /// must never do.
+    ///
+    /// Null when no alert has been claimed, or when one was claimed with no delivery attempt
+    /// recorded against it. "Not known" and "did not arrive" are not the same answer.
+    /// </remarks>
+    public bool? AlertDelivered { get; set; }
+
+    /// <summary>Why delivery failed, when it did.</summary>
+    public string? AlertError { get; set; }
+
     /// <summary>This pair's own override mode. <c>Inherit</c> when no override row exists.</summary>
     public RetryAlertMode AlertMode { get; set; }
 

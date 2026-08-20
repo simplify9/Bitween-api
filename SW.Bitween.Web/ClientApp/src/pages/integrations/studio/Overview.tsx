@@ -10,6 +10,7 @@ import { Panel } from "../../../components/ui/Panel";
 import { ExchangesList, HealthBadge, TrailTable } from "../../../components/config/shared";
 import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
 import { formatDate, formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../../lib/dates";
+import { RetryBudget } from "./RetryBudget";
 import type { Draft, EntryPoint } from "./model";
 
 /** Who can feed this integration. Shared with the Trigger stage, which is the same question. */
@@ -261,6 +262,8 @@ export function Overview({
           )}
         </Fact>
       </div>
+
+      <RetryBudget integrationId={s.id} canEdit={canEdit} />
 
       {paused && (
         <p className="rounded-xl bg-warn-100 px-4 py-2.5 text-[13px] text-warn-700">

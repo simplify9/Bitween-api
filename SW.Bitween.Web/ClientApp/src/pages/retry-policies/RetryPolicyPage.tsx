@@ -6,11 +6,12 @@ import { api, type RetryGroup, type RetryMatcher, type RetryResultType } from ".
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
-import { SetupList } from "../../components/config/shared";
+import { AdapterConfig } from "../../components/config/AdapterConfig";
 import { GroupDialog } from "./GroupDialog";
+import { UsagePanel } from "./UsagePanel";
 
 const matcherSummary = (m: RetryMatcher): string => {
   switch (m.type) {
@@ -111,6 +112,111 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
   );
 }
 
+/**
+ * The policy-wide alert, summarised — with its adapter form behind a dialog.
+ *
+ * Left open, a mail handler's thirteen fields filled the whole column and left the groups
+ * table sitting beside a void; two columns of them inside a 360px rail wrapped every address
+ * onto three lines. It is also set once and rarely revisited, where everything around it is
+ * read on every visit, so it had the run of the page on the strength of being the longest
+ * form rather than the most useful one.
+ *
+ * A dialog makes the three levels consistent too: a group routes its own alert in the group
+ * dialog, one integration-and-group pair in the override dialog, and the policy default here.
+ * All three stage into the same save bar.
+ */
+function PolicyAlertCard({
+  handlerId,
+  properties,
+  groups,
+  canEdit,
+  onChange,
+}: {
+  handlerId: string | null;
+  properties: Record<string, string>;
+  groups: RetryGroup[];
+  canEdit: boolean;
+  onChange: (handlerId: string | null, properties: Record<string, string>) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draftId, setDraftId] = useState(handlerId);
+  const [draftProps, setDraftProps] = useState(properties);
+
+  // Only a group that retries can exhaust a budget, so only those can inherit an alert.
+  const canAlert = groups.filter((g) => g.action === "Allow");
+  const inheriting = canAlert.filter((g) => g.alertMode === "Inherit");
+
+  const open = () => {
+    setDraftId(handlerId);
+    setDraftProps(properties);
+    setEditing(true);
+  };
+
+  return (
+    <Panel
+      title="Budget-exhausted alert"
+      description="Sent when a group stops retrying. Groups and single integrations can each route their own instead."
+      action={
+        canEdit ? (
+          <Button size="sm" onClick={open}>
+            {handlerId ? "Change" : "Set up"}
+          </Button>
+        ) : undefined
+      }
+    >
+      {handlerId ? (
+        <>
+          <p className="font-mono text-[13px] text-ink-800">{handlerId}</p>
+          <p className="mt-1 text-[13px] text-ink-500">
+            {inheriting.length === 0
+              ? "No group inherits it — each one routes its own alert, or is silent."
+              : `${inheriting.length} of ${canAlert.length} ${canAlert.length === 1 ? "group sends" : "groups send"} here.`}
+          </p>
+        </>
+      ) : (
+        <p className="text-[13px] text-ink-500">
+          No alert. Nothing is sent when a budget runs out, unless a group or a single
+          integration routes one itself.
+        </p>
+      )}
+
+      {editing && (
+        <Dialog title="Budget-exhausted alert" onClose={() => setEditing(false)} wide>
+          <div className="space-y-4">
+            <p className="text-[13px] text-ink-500">
+              Where this policy sends an alert when any of its groups stops retrying. Saved with
+              the rest of the page.
+            </p>
+            <AdapterConfig
+              kind="handler"
+              adapterId={draftId}
+              properties={draftProps}
+              disabled={false}
+              noneLabel="No alert — nothing is sent when a budget runs out"
+              onChange={(id, props) => {
+                setDraftId(id);
+                setDraftProps(props);
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setEditing(false)}>Cancel</Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  onChange(draftId, draftProps);
+                  setEditing(false);
+                }}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+    </Panel>
+  );
+}
+
 export function RetryPolicyPage() {
   const { id = "" } = useParams();
   const policyId = Number(id);
@@ -126,6 +232,8 @@ export function RetryPolicyPage() {
 
   const [name, setName] = useState("");
   const [groups, setGroups] = useState<RetryGroup[] | null>(null);
+  const [alertHandlerId, setAlertHandlerId] = useState<string | null>(null);
+  const [alertProps, setAlertProps] = useState<Record<string, string>>({});
   const [editingGroup, setEditingGroup] = useState<RetryGroup | "new" | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -134,21 +242,36 @@ export function RetryPolicyPage() {
     if (!loaded && policy.data) {
       setName(policy.data.name);
       setGroups(structuredClone(policy.data.groups));
+      setAlertHandlerId(policy.data.alertHandlerId);
+      setAlertProps(structuredClone(policy.data.alertHandlerProperties));
       setLoaded(true);
     }
   }, [policy.data, loaded]);
 
   const dirty = useMemo(() => {
     if (!policy.data || groups === null) return false;
-    return name !== policy.data.name || JSON.stringify(groups) !== JSON.stringify(policy.data.groups);
-  }, [policy.data, name, groups]);
+    return (
+      name !== policy.data.name ||
+      JSON.stringify(groups) !== JSON.stringify(policy.data.groups) ||
+      alertHandlerId !== policy.data.alertHandlerId ||
+      JSON.stringify(alertProps) !== JSON.stringify(policy.data.alertHandlerProperties)
+    );
+  }, [policy.data, name, groups, alertHandlerId, alertProps]);
 
   const save = useMutation({
-    mutationFn: () => api.updateRetryPolicy(policyId, { name, groups: groups ?? [] }),
+    mutationFn: () =>
+      api.updateRetryPolicy(policyId, {
+        name,
+        groups: groups ?? [],
+        alertHandlerId,
+        alertHandlerProperties: alertProps,
+      }),
     onSuccess: async () => {
       // Await the detail refetch before re-syncing the draft (avoids stale-data race).
       await queryClient.invalidateQueries({ queryKey: ["retry-policy", policyId] });
       void queryClient.invalidateQueries({ queryKey: ["retry-policies"] });
+      // Editing a group can change which budgets exist, so the usage report is stale too.
+      void queryClient.invalidateQueries({ queryKey: ["retry-usage"] });
       setLoaded(false);
     },
   });
@@ -265,6 +388,22 @@ export function RetryPolicyPage() {
                     ),
                 },
                 {
+                  header: "Alert",
+                  truncate: true,
+                  cell: (g) =>
+                    g.action !== "Allow" ? (
+                      <span className="text-ink-400">—</span>
+                    ) : g.alertMode === "Silent" ? (
+                      <span className="text-[13px] text-ink-500">Silent</span>
+                    ) : g.alertMode === "Send" && g.alertHandlerId ? (
+                      <span className="block truncate font-mono text-xs text-ink-700">{g.alertHandlerId}</span>
+                    ) : (
+                      <span className="text-[13px] text-ink-400 italic">
+                        {alertHandlerId ? "Inherited" : "Nobody"}
+                      </span>
+                    ),
+                },
+                {
                   header: "Notes",
                   truncate: true,
                   cell: (g) =>
@@ -303,14 +442,25 @@ export function RetryPolicyPage() {
             />
           </Panel>
 
-          <TestPanel groups={groups ?? []} />
         </div>
 
         <div className="min-w-0 space-y-5">
-          <Panel title="Used by" description="Integrations that follow this policy after failures.">
-            <SetupList items={p.integrations} />
-          </Panel>
+          <PolicyAlertCard
+            handlerId={alertHandlerId}
+            properties={alertProps}
+            groups={sortedGroups}
+            canEdit={canEdit}
+            onChange={(id, props) => {
+              setAlertHandlerId(id);
+              setAlertProps(props);
+            }}
+          />
         </div>
+      </div>
+
+      <div className="mt-5 space-y-5">
+        <UsagePanel policyId={policyId} integrations={p.integrations} canEdit={canEdit} />
+        <TestPanel groups={groups ?? []} />
       </div>
 
       {canEdit && dirty && (
@@ -327,6 +477,7 @@ export function RetryPolicyPage() {
           initial={editingGroup === "new" ? undefined : editingGroup}
           onSubmit={upsertGroup}
           onClose={() => setEditingGroup(null)}
+          policyAlertHandlerId={alertHandlerId}
         />
       )}
 
