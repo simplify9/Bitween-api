@@ -89,8 +89,15 @@ namespace SW.Bitween.Resources.Subscriptions
 
         private class Validate : AbstractValidator<SubscriptionCreate>
         {
-            public Validate(AdapterRequirements adapterRequirements)
+            public Validate(BitweenDbContext dbContext, AdapterRequirements adapterRequirements)
             {
+                RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, _) =>
+                {
+                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId);
+                    if (failure != null)
+                        context.AddFailure(nameof(SubscriptionCreate.ResponseSubscriptionId), failure);
+                });
+
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.DocumentId).NotEmpty().When(i => i.Type != SubscriptionType.Aggregation);
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);

@@ -151,6 +151,15 @@ namespace SW.Bitween.Resources.Subscriptions
                     });
                 });
 
+                // Outside the handler check above: a response destination that can never work is
+                // wrong whether or not this same request also sets a handler.
+                RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, ct) =>
+                {
+                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId);
+                    if (failure != null)
+                        context.AddFailure(nameof(SubscriptionUpdate.ResponseSubscriptionId), failure);
+                });
+
                 RuleFor(i => i).CustomAsync(async (model, context, ct) =>
                 {
                     var subscription = await GetSub(dbContext, httpContextAccessor);

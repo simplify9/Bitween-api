@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-import { api } from "../../../api";
+import { api, type IntegrationType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Badge } from "../../../components/ui/basics";
 import { Field, TextInput } from "../../../components/ui/forms";
@@ -337,7 +337,7 @@ export function ResponseBody({
   draft: IntegrationDraft;
   onChange: (patch: Partial<IntegrationDraft>) => void;
   disabled: boolean;
-  candidates: { id: number; name: string }[];
+  candidates: { id: number; name: string; type: IntegrationType }[];
   onNewIntegration: () => void;
   canCreate: boolean;
 }) {

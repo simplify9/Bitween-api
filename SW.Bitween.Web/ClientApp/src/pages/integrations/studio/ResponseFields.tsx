@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { api } from "../../../api";
+import { api, type IntegrationType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Field, TextInput } from "../../../components/ui/forms";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
@@ -33,7 +33,7 @@ export function ResponseFields({
   }) => void;
   disabled: boolean;
   /** Integrations the response can be fed into (excluding this one). */
-  candidates: { id: number; name: string }[];
+  candidates: { id: number; name: string; type: IntegrationType }[];
   idPrefix?: string;
 }) {
   if (handlerId === null)
@@ -43,12 +43,22 @@ export function ResponseFields({
       </p>
     );
 
+  // A bus gateway's routes are chosen by the message that runs them. Feeding a response
+  // straight into one runs that single route with the bus skipped — nothing published, no
+  // matching, no filter, and none of the other routes bound to the same message — which
+  // looks like publishing and isn't. The API refuses it; this keeps it out of reach.
+  // An already-saved one stays listed so opening this panel can't quietly blank it.
+  const offered = candidates.filter((x) => x.type !== "BusGateway" || x.id === responseIntegrationId);
+  const busRouteChosen = candidates.some(
+    (x) => x.id === responseIntegrationId && x.type === "BusGateway",
+  );
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <Field
         label="Feed the response into"
         htmlFor={`${idPrefix}-into`}
-        hint="Chains the delivery response into another integration."
+        hint="Hands the delivery response straight to another integration, off the bus."
       >
         <SearchSelect
           id={`${idPrefix}-into`}
@@ -56,8 +66,14 @@ export function ResponseFields({
           disabled={disabled}
           onChange={(v) => onChange({ responseIntegrationId: v === "" ? null : Number(v) })}
           clearLabel="Nothing — responses are only recorded"
-          options={candidates.map((x) => ({ value: String(x.id), label: x.name }))}
+          options={offered.map((x) => ({ value: String(x.id), label: x.name }))}
         />
+        {busRouteChosen && (
+          <p className="mt-1 text-[13px] text-danger-700">
+            That is a bus gateway route, which saving will refuse — it would run on its own with
+            the bus skipped. Publish on the bus below instead, and its gateway picks it up.
+          </p>
+        )}
       </Field>
       <BusMessageField
         value={responseMessageTypeName}
