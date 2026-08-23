@@ -2,6 +2,7 @@ import type { InformationType, InformationTypeDetail, InformationTypeFormat } fr
 import { Checkbox, Field, Select, TextInput } from "../ui/forms";
 import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
 import { Panel } from "../ui/Panel";
+import { BUS_MESSAGE_NAME_PLACEHOLDER, busMessageNameProblem } from "../../lib/busMessageName";
 
 /**
  * Everything about an information type that can be edited, as one component.
@@ -68,7 +69,10 @@ export function informationTypeMissing(draft: InformationTypeDraft): string[] {
   return [
     draft.name.trim().length < 2 && "a name",
     draft.busEnabled && !draft.busMessageTypeName.trim() && "a bus message name",
-    draft.busEnabled && /\s/.test(draft.busMessageTypeName.trim()) && "a bus message name without spaces",
+    // Same rule the field shows under itself, so the gate and the message cannot disagree.
+    draft.busEnabled &&
+      busMessageNameProblem(draft.busMessageTypeName.trim()) !== null &&
+      "a bus message name without spaces",
   ].filter((m): m is string => typeof m === "string");
 }
 
@@ -162,16 +166,24 @@ export function InformationTypeFields({
                 <Field
                   label="Bus message type name"
                   htmlFor={`${idPrefix}-bus`}
-                  hint="Must be unique across information types. No spaces."
+                  hint="Must be unique across information types."
                 >
                   <TextInput
                     id={`${idPrefix}-bus`}
                     value={draft.busMessageTypeName}
                     disabled={!canEdit}
-                    onChange={(e) => set("busMessageTypeName", e.target.value.replace(/\s+/g, ""))}
+                    // Kept as typed. It used to strip whitespace on the way in, so a
+                    // pasted "my message" turned into "mymessage" with nothing said —
+                    // the same rule the response field states out loud.
+                    onChange={(e) => set("busMessageTypeName", e.target.value)}
                     className="font-mono"
-                    placeholder="purchase-order"
+                    placeholder={BUS_MESSAGE_NAME_PLACEHOLDER}
                   />
+                  {busMessageNameProblem(draft.busMessageTypeName) && (
+                    <p className="mt-1 text-[13px] text-danger-700">
+                      {busMessageNameProblem(draft.busMessageTypeName)}
+                    </p>
+                  )}
                 </Field>
               </div>
             )}

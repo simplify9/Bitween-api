@@ -6,6 +6,7 @@ import { useSessionCan } from "../../../auth/guards";
 import { Field } from "../../../components/ui/forms";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { InformationTypeDialog } from "../../../components/config/InformationTypeDialog";
+import { busMessageNameProblem } from "../../../lib/busMessageName";
 
 /**
  * The Response stage's body: what happens to whatever the delivery hands back.
@@ -141,9 +142,8 @@ function BusMessageField({
         // product entirely — so a name nobody carries is offered right here
         // rather than dead-ending on "nothing matches".
         freeText={(typed) =>
-          /\s/.test(typed)
-            ? "A bus message name cannot contain spaces — it becomes the routing key."
-            : { value: typed, label: `Publish as “${typed}” — a name of your own` }
+          busMessageNameProblem(typed) ??
+          { value: typed, label: `Publish as “${typed}” — a name of your own` }
         }
         options={[
           ...known.map((t) => ({
