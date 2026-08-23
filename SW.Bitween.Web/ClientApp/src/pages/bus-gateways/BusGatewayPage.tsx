@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
 import { api, type BusGatewayDetail, type IntegrationDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
@@ -23,6 +23,7 @@ import {
 import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { NewIntegrationDialog } from "./studio/QuickCreate";
 import { RouteList, type Selection } from "./studio/RouteList";
+import { BackLink } from "../../components/ui/BackLink";
 import {
   BUS_NODES,
   NEW_ROUTE,
@@ -425,13 +426,7 @@ export function BusGatewayPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       {/* ——— toolbar ——— */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-ink-200 bg-white px-4 py-2.5">
-        <Link
-          to="/bus-gateways"
-          title="Back to bus gateways"
-          className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-        >
-          <ArrowLeft className="size-3.5" /> Bus gateways
-        </Link>
+        <BackLink to="/bus-gateways" label="Bus gateways" className="shrink-0" />
         <span className="h-5 w-px shrink-0 bg-ink-200" aria-hidden />
         <button
           type="button"

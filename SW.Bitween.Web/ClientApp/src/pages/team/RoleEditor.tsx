@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, EyeOff, ShieldCheck, Trash2 } from "lucide-react";
+import { Copy, EyeOff, ShieldCheck, Trash2 } from "lucide-react";
 import { api, type ActionId, type PermissionKey } from "../../api";
 import {
   ACTION_LABELS,
@@ -16,6 +16,7 @@ import { visibleGroups } from "../../nav";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { BackLink } from "../../components/ui/BackLink";
 
 /** Live answer to "what would someone with this role actually see?" */
 function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
@@ -175,12 +176,7 @@ export function RoleEditor() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/team/roles"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Roles
-      </Link>
+      <BackLink to="/team/roles" label="Roles" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

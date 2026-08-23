@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { api, type ApiGatewayAttachment } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { finishUrlName, toUrlName } from "../../lib/identifiers";
@@ -12,6 +12,7 @@ import { CopyField } from "../../components/ui/CopyField";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { useWiredIntegrationColumns } from "../../components/config/shared";
+import { BackLink } from "../../components/ui/BackLink";
 
 export function ApiGatewayPage() {
   const { id = "" } = useParams();
@@ -70,12 +71,7 @@ export function ApiGatewayPage() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/api-gateways"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> API gateways
-      </Link>
+      <BackLink to="/api-gateways" label="API gateways" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

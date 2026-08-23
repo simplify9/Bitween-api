@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight, Search } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -12,6 +12,7 @@ import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { useIntegrationsCache } from "../../components/config/shared";
 import { timeAgo } from "../../lib/dates";
+import { BackLink } from "../../components/ui/BackLink";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
@@ -140,12 +141,7 @@ export function NotifierPage() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/notifiers"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Notifiers
-      </Link>
+      <BackLink to="/notifiers" label="Notifiers" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

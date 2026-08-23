@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FlaskConical, Pencil, Plus, Trash2 } from "lucide-react";
+import { FlaskConical, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, type RetryGroup, type RetryMatcher, type RetryResultType } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
@@ -12,6 +12,7 @@ import { MiniTable } from "../../components/ui/Table";
 import { AdapterConfig } from "../../components/config/AdapterConfig";
 import { GroupDialog } from "./GroupDialog";
 import { UsagePanel } from "./UsagePanel";
+import { BackLink } from "../../components/ui/BackLink";
 
 const matcherSummary = (m: RetryMatcher): string => {
   switch (m.type) {
@@ -299,12 +300,7 @@ export function RetryPolicyPage() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/retry-policies"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Retry policies
-      </Link>
+      <BackLink to="/retry-policies" label="Retry policies" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

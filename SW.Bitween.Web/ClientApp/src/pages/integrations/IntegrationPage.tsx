@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, DownloadCloud, Pause, Play, Trash2, X } from "lucide-react";
+import { DownloadCloud, Pause, Play, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
@@ -17,6 +17,7 @@ import { faceOf } from "./studio/faces";
 import { EntryPointsTable, Overview } from "./studio/Overview";
 import { ResponseFields } from "./studio/ResponseFields";
 import { draftOf, entryPointsOf, stageDirty, type Draft } from "./studio/model";
+import { BackLink } from "../../components/ui/BackLink";
 
 export function IntegrationPage() {
   const { id = "" } = useParams();
@@ -311,12 +312,7 @@ export function IntegrationPage() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/subscriptions"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Integrations
-      </Link>
+      <BackLink to="/subscriptions" label="Integrations" />
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

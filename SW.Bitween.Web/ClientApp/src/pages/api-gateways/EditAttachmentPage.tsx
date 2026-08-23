@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { IntegrationPicker } from "../../components/config/pickers";
+import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -70,12 +70,7 @@ export function EditAttachmentPage() {
 
   return (
     <div className="pb-10">
-      <Link
-        to={`/api-gateways/${gatewayId}`}
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> {g.name}
-      </Link>
+      <BackLink to={`/api-gateways/${gatewayId}`} label={g.name} />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
         Integration for {attachment.partnerName}

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
@@ -15,6 +15,7 @@ import { StageRail } from "../integrations/studio/StageRail";
 import { adapterIncomplete, faceOf } from "../integrations/studio/faces";
 import { ResponseFields } from "../integrations/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../integrations/studio/model";
+import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -224,12 +225,7 @@ export function NewScheduledJobPage() {
 
   return (
     <div className="pb-10">
-      <Link
-        to="/scheduled-jobs"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Scheduled jobs
-      </Link>
+      <BackLink to="/scheduled-jobs" label="Scheduled jobs" />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New scheduled job</h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
