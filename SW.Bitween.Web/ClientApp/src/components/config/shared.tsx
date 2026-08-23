@@ -33,7 +33,8 @@ export const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
   Aggregation: "Aggregation",
 };
 
-export const isLegacyType = (type: IntegrationType) => type === "Internal" || type === "ApiCall";
+export const isLegacyType = (type: IntegrationType) =>
+  type === "Internal" || type === "ApiCall";
 
 export function TypeBadge({ type }: { type: IntegrationType }) {
   return (
@@ -45,7 +46,13 @@ export function TypeBadge({ type }: { type: IntegrationType }) {
 }
 
 /** Enabled/paused pair — an integration can be both enabled and paused. */
-export function IntegrationStatusBadges({ enabled, paused }: { enabled: boolean; paused: boolean }) {
+export function IntegrationStatusBadges({
+  enabled,
+  paused,
+}: {
+  enabled: boolean;
+  paused: boolean;
+}) {
   return (
     <span className="inline-flex items-center gap-1">
       {enabled ? <Badge tone="ok">Active</Badge> : <Badge>Disabled</Badge>}
@@ -78,31 +85,36 @@ export function scheduleFault(
       return {
         label: "Not scheduled",
         tone: "danger",
-        title: "The scheduler has no trigger for this schedule — it will never fire.",
+        title:
+          "The scheduler has no trigger for this schedule — it will never fire.",
       };
     case "Error":
       return {
         label: "Trigger error",
         tone: "danger",
-        title: "The scheduler put this trigger in an error state; it will not fire again until fixed.",
+        title:
+          "The scheduler put this trigger in an error state; it will not fire again until fixed.",
       };
     case "Paused":
       return {
         label: "Trigger paused",
         tone: "warn",
-        title: "Paused inside the scheduler — this is not the integration's own pause.",
+        title:
+          "Paused inside the scheduler — this is not the integration's own pause.",
       };
     case "Blocked":
       return {
         label: "Blocked",
         tone: "warn",
-        title: "A previous run is still going and this job doesn't allow overlap, so fires are being held.",
+        title:
+          "A previous run is still going and this job doesn't allow overlap, so fires are being held.",
       };
     case "Complete":
       return {
         label: "Schedule ended",
         tone: "warn",
-        title: "The schedule has run to completion and has no future fire times.",
+        title:
+          "The schedule has run to completion and has no future fire times.",
       };
     default:
       return null;
@@ -126,7 +138,11 @@ export function HealthBadge({
   return <Badge>Idle</Badge>;
 }
 
-export function ExchangeStatusBadge({ status }: { status: ExchangeRef["status"] }) {
+export function ExchangeStatusBadge({
+  status,
+}: {
+  status: ExchangeRef["status"];
+}) {
   if (status === "success") return <Badge tone="ok">Success</Badge>;
   if (status === "failed") return <Badge tone="danger">Failed</Badge>;
   if (status === "badResponse") return <Badge tone="warn">Bad response</Badge>;
@@ -171,7 +187,10 @@ export function PromotedProps({
       title={entries.map(([k, v]) => `${k}=${v}`).join("\n")}
     >
       {shown.map(([k, v]) => (
-        <code key={k} className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
+        <code
+          key={k}
+          className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700"
+        >
           <span className="text-ink-500">{k}=</span>
           {v}
         </code>
@@ -219,10 +238,17 @@ export function ExchangesList({
         return (
           <Link
             to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
-            title={properties.length > 0 ? `${x.id}\n\n${properties.map(([k, v]) => `${k}=${v}`).join("\n")}` : x.id}
+            title={
+              properties.length > 0
+                ? `${x.id}\n\n${properties.map(([k, v]) => `${k}=${v}`).join("\n")}`
+                : x.id
+            }
             className="block hover:opacity-70"
           >
-            <PromotedProps properties={x.promotedProperties ?? null} fallbackId={x.id} />
+            <PromotedProps
+              properties={x.promotedProperties ?? null}
+              fallbackId={x.id}
+            />
           </Link>
         );
       },
@@ -233,7 +259,9 @@ export function ExchangesList({
           {
             header: "Type",
             cell: (x: ExchangeRef) => (
-              <code className="font-mono text-xs text-ink-500">{x.informationTypeCode}</code>
+              <code className="font-mono text-xs text-ink-500">
+                {x.informationTypeCode}
+              </code>
             ),
           },
         ]),
@@ -243,20 +271,34 @@ export function ExchangesList({
           {
             header: "Partner",
             cell: (x: ExchangeRef) => (
-              <span className="text-[13px] text-ink-600">{x.partnerName ?? "—"}</span>
+              <span className="text-[13px] text-ink-600">
+                {x.partnerName ?? "—"}
+              </span>
             ),
           },
         ]),
-    { header: "Status", cell: (x: ExchangeRef) => <ExchangeStatusBadge status={x.status} /> },
+    {
+      header: "Status",
+      cell: (x: ExchangeRef) => <ExchangeStatusBadge status={x.status} />,
+    },
     {
       header: "When",
       align: "right" as const,
       className: "whitespace-nowrap",
-      cell: (x: ExchangeRef) => <span className="text-xs text-ink-400">{timeAgo(x.on)}</span>,
+      cell: (x: ExchangeRef) => (
+        <span className="text-xs text-ink-400">{timeAgo(x.on)}</span>
+      ),
     },
   ];
 
-  return <MiniTable rows={items} rowKey={(x) => x.id} empty="No exchanges yet." columns={columns} />;
+  return (
+    <MiniTable
+      rows={items}
+      rowKey={(x) => x.id}
+      empty="No exchanges yet."
+      columns={columns}
+    />
+  );
 }
 
 /** Integrations referencing this entity, each linking to its page. */
@@ -279,7 +321,11 @@ export function SetupList({ items }: { items: IntegrationSetupRef[] }) {
             </Link>
           ),
         },
-        { header: "Type", align: "right", cell: (s) => <TypeBadge type={s.type} /> },
+        {
+          header: "Type",
+          align: "right",
+          cell: (s) => <TypeBadge type={s.type} />,
+        },
       ]}
     />
   );
@@ -311,9 +357,17 @@ export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
   const canSeeApi = useSessionCan("api-gateways.view");
   const canSeeBus = useSessionCan("bus-gateways.view");
   const apiGateways =
-    useQuery({ queryKey: ["api-gateways"], queryFn: () => api.listApiGateways(), enabled: canSeeApi }).data ?? [];
+    useQuery({
+      queryKey: ["api-gateways"],
+      queryFn: () => api.listApiGateways(),
+      enabled: canSeeApi,
+    }).data ?? [];
   const busGateways =
-    useQuery({ queryKey: ["bus-gateways"], queryFn: () => api.listBusGateways(), enabled: canSeeBus }).data ?? [];
+    useQuery({
+      queryKey: ["bus-gateways"],
+      queryFn: () => api.listBusGateways(),
+      enabled: canSeeBus,
+    }).data ?? [];
 
   return useMemo(() => {
     const byId = new Map(integrations.map((s) => [s.id, s]));
@@ -328,9 +382,12 @@ export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
         out.set(partnerId, list);
       }
     };
-    for (const s of integrations) for (const pid of s.partnerIds) add(pid, s.id);
-    for (const g of apiGateways) for (const a of g.attachments) add(a.partnerId, a.integrationId);
-    for (const g of busGateways) for (const r of g.routes) add(r.partnerId, r.integrationId);
+    for (const s of integrations)
+      for (const pid of s.partnerIds) add(pid, s.id);
+    for (const g of apiGateways)
+      for (const a of g.attachments) add(a.partnerId, a.integrationId);
+    for (const g of busGateways)
+      for (const r of g.routes) add(r.partnerId, r.integrationId);
     return out;
   }, [integrations, apiGateways, busGateways]);
 }
@@ -343,17 +400,32 @@ export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
  * the modern types never have — without this, every gateway-fed integration
  * shows a dash where its partner should be.
  */
-export function useGatewayPartners(): Map<number, { id: number; name: string }[]> {
+export function useGatewayPartners(): Map<
+  number,
+  { id: number; name: string }[]
+> {
   const canSeeApi = useSessionCan("api-gateways.view");
   const canSeeBus = useSessionCan("bus-gateways.view");
   const apiGateways =
-    useQuery({ queryKey: ["api-gateways"], queryFn: () => api.listApiGateways(), enabled: canSeeApi }).data ?? [];
+    useQuery({
+      queryKey: ["api-gateways"],
+      queryFn: () => api.listApiGateways(),
+      enabled: canSeeApi,
+    }).data ?? [];
   const busGateways =
-    useQuery({ queryKey: ["bus-gateways"], queryFn: () => api.listBusGateways(), enabled: canSeeBus }).data ?? [];
+    useQuery({
+      queryKey: ["bus-gateways"],
+      queryFn: () => api.listBusGateways(),
+      enabled: canSeeBus,
+    }).data ?? [];
 
   return useMemo(() => {
     const out = new Map<number, { id: number; name: string }[]>();
-    const add = (integrationId: number, partnerId: number | null, partnerName: string | null) => {
+    const add = (
+      integrationId: number,
+      partnerId: number | null,
+      partnerName: string | null,
+    ) => {
       if (partnerId === null || partnerName === null) return;
       const list = out.get(integrationId) ?? [];
       if (!list.some((p) => p.id === partnerId)) {
@@ -361,15 +433,23 @@ export function useGatewayPartners(): Map<number, { id: number; name: string }[]
         out.set(integrationId, list);
       }
     };
-    for (const g of apiGateways) for (const a of g.attachments) add(a.integrationId, a.partnerId, a.partnerName);
-    for (const g of busGateways) for (const r of g.routes) add(r.integrationId, r.partnerId, r.partnerName);
+    for (const g of apiGateways)
+      for (const a of g.attachments)
+        add(a.integrationId, a.partnerId, a.partnerName);
+    for (const g of busGateways)
+      for (const r of g.routes)
+        add(r.integrationId, r.partnerId, r.partnerName);
     return out;
   }, [apiGateways, busGateways]);
 }
 
 /** Live status for every integration, keyed by id — shared by the gateway pages. */
 export function useIntegrationRowsById(): Map<number, IntegrationRow> {
-  const rows = useQuery({ queryKey: ["integration-rows"], queryFn: () => api.listIntegrationRows() }).data ?? [];
+  const rows =
+    useQuery({
+      queryKey: ["integration-rows"],
+      queryFn: () => api.listIntegrationRows(),
+    }).data ?? [];
   return useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 }
 
@@ -377,7 +457,11 @@ export function useIntegrationRowsById(): Map<number, IntegrationRow> {
 export function useWorkGroupNames(): Map<number, string> {
   const canSee = useSessionCan("workgroups.view");
   const groups =
-    useQuery({ queryKey: ["work-groups"], queryFn: () => api.listWorkGroups(), enabled: canSee }).data ?? [];
+    useQuery({
+      queryKey: ["work-groups"],
+      queryFn: () => api.listWorkGroups(),
+      enabled: canSee,
+    }).data ?? [];
   return useMemo(() => new Map(groups.map((g) => [g.id, g.name])), [groups]);
 }
 
@@ -385,8 +469,15 @@ export function useWorkGroupNames(): Map<number, string> {
 export function useRetryPolicyNames(): Map<number, string> {
   const canSee = useSessionCan("retry-policies.view");
   const policies =
-    useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies(), enabled: canSee }).data ?? [];
-  return useMemo(() => new Map(policies.map((p) => [p.id, p.name])), [policies]);
+    useQuery({
+      queryKey: ["retry-policies"],
+      queryFn: () => api.listRetryPolicies(),
+      enabled: canSee,
+    }).data ?? [];
+  return useMemo(
+    () => new Map(policies.map((p) => [p.id, p.name])),
+    [policies],
+  );
 }
 
 /**
@@ -394,7 +485,13 @@ export function useRetryPolicyNames(): Map<number, string> {
  * reporting — it is only as healthy as the pipelines behind it, and "3 partners
  * attached" says nothing about whether any of them currently works.
  */
-export function WiredHealthBadge({ rows, empty }: { rows: IntegrationRow[]; empty: string }) {
+export function WiredHealthBadge({
+  rows,
+  empty,
+}: {
+  rows: IntegrationRow[];
+  empty: string;
+}) {
   if (rows.length === 0) return <Badge tone="warn">{empty}</Badge>;
   const failing = rows.filter((r) => r.consecutiveFailures > 0).length;
   if (failing > 0) return <Badge tone="danger">{failing} failing</Badge>;
@@ -424,7 +521,10 @@ export function useWiredIntegrationColumns<T>(
 ): Column<T>[] {
   const rowsById = useIntegrationRowsById();
   const setups = useIntegrationsCache().data ?? [];
-  const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
+  const setupById = useMemo(
+    () => new Map(setups.map((s) => [s.id, s])),
+    [setups],
+  );
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
   const canSeeInfoTypes = useSessionCan("documents.view");
@@ -445,7 +545,9 @@ export function useWiredIntegrationColumns<T>(
             {r.informationTypeCode}
           </Link>
         ) : (
-          <code className="font-mono text-xs text-ink-600">{r.informationTypeCode}</code>
+          <code className="font-mono text-xs text-ink-600">
+            {r.informationTypeCode}
+          </code>
         );
       },
     });
@@ -459,10 +561,14 @@ export function useWiredIntegrationColumns<T>(
         // lane, it's `WorkGroup.None` — a real shared queue (`0Ungrouped`) that
         // every ungrouped integration competes in. Matches the wording the
         // integration page's work-group picker already uses.
-        if (id === null) return <span className="text-[13px] text-ink-400">Ungrouped</span>;
+        if (id === null)
+          return <span className="text-[13px] text-ink-400">Ungrouped</span>;
         const name = workGroupNames.get(id);
         return name ? (
-          <Link to={`/work-groups/${id}`} className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline">
+          <Link
+            to={`/work-groups/${id}`}
+            className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+          >
             {name}
           </Link>
         ) : (
@@ -474,10 +580,14 @@ export function useWiredIntegrationColumns<T>(
       header: "Retry policy",
       cell: (row) => {
         const id = setupById.get(integrationIdOf(row))?.retryPolicyId ?? null;
-        if (id === null) return <span className="text-[13px] text-ink-400">None</span>;
+        if (id === null)
+          return <span className="text-[13px] text-ink-400">None</span>;
         const name = retryPolicyNames.get(id);
         return name ? (
-          <Link to={`/retry-policies/${id}`} className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline">
+          <Link
+            to={`/retry-policies/${id}`}
+            className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+          >
             {name}
           </Link>
         ) : (
@@ -493,7 +603,10 @@ export function useWiredIntegrationColumns<T>(
         return (
           <span className="inline-flex items-center gap-1">
             <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
-            <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+            <HealthBadge
+              isRunning={r.isRunning}
+              consecutiveFailures={r.consecutiveFailures}
+            />
           </span>
         );
       },
@@ -506,7 +619,10 @@ export function useWiredIntegrationColumns<T>(
       cell: (row) => {
         const message = rowsById.get(integrationIdOf(row))?.lastException;
         return message ? (
-          <span className="block truncate font-mono text-[11px] text-danger-700" title={message}>
+          <span
+            className="block truncate font-mono text-[11px] text-danger-700"
+            title={message}
+          >
             {message}
           </span>
         ) : (
@@ -540,66 +656,59 @@ export interface CellLink {
 export function LinkListCell({
   items,
   label,
-  max = 2,
 }: {
   items: CellLink[];
   /** Plural noun for the popover heading, e.g. "integrations". */
   label: string;
-  max?: number;
 }) {
   if (items.length === 0) return <span className="text-ink-400">—</span>;
-  const shown = items.slice(0, max);
-  const rest = items.length - shown.length;
+  // "1 integrations" reads as a bug, and every label here is a simple plural.
+  const noun = items.length === 1 ? label.replace(/s$/, "") : label;
   return (
     <span className="flex items-baseline gap-1 text-[13px]">
-      <span className="min-w-0 truncate" title={shown.map((s) => s.name).join(", ")}>
-        {shown.map((s, i) => (
-          <span key={s.key}>
-            {i > 0 && <span className="text-ink-300">, </span>}
-            <Link
-              to={s.href}
-              onClick={(e) => e.stopPropagation()}
-              className="text-ink-700 hover:text-crimson-700 hover:underline"
-            >
-              {s.name}
-            </Link>
+      <Popover
+        label={items.length === 1 ? `Show 1 ${noun}` : `Show all ${items.length} ${label}`}
+        width="w-80"
+        button={
+          // A chip rather than a bare digit: a muted number alone in a table cell reads as
+          // data you can't act on, and the list behind it would never be found. The names
+          // come back on hover, and in full when it is opened.
+          <span
+            className="rounded bg-ink-100 px-1.5 py-0.5 text-[12px] font-medium text-ink-700 tabular-nums"
+            title={items.map((s) => s.name).join(", ")}
+          >
+            {items.length}
           </span>
-        ))}
-      </span>
-      {rest > 0 && (
-        <Popover
-          label={`Show all ${items.length} ${label}`}
-          width="w-80"
-          button={<span className="whitespace-nowrap">+{rest} more</span>}
-        >
-          <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
-            {items.length} {label}
-          </p>
-          <ul className="border-t border-ink-100 pt-1">
-            {items.map((s) => (
-              <li key={s.key}>
-                <Link
-                  to={s.href}
-                  className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1.5 hover:bg-ink-50"
-                >
-                  <span className="truncate text-[13px] font-medium text-ink-800">{s.name}</span>
-                  {s.note}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Popover>
-      )}
+        }
+      >
+        <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+          {items.length} {noun}
+        </p>
+        <ul className="border-t border-ink-100 pt-1">
+          {items.map((s) => (
+            <li key={s.key}>
+              <Link
+                to={s.href}
+                className="flex items-center justify-between gap-2 rounded-lg px-1.5 py-1.5 hover:bg-ink-50"
+              >
+                <span className="truncate text-[13px] font-medium text-ink-800">
+                  {s.name}
+                </span>
+                {s.note}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Popover>
     </span>
   );
 }
 
 /** `LinkListCell` for the commonest case: the integrations using something. */
-export function UsedByCell({ items, max = 2 }: { items: IntegrationInfo[]; max?: number }) {
+export function UsedByCell({ items }: { items: IntegrationInfo[] }) {
   return (
     <LinkListCell
       label="integrations"
-      max={max}
       items={items.map((s) => ({
         key: s.id,
         name: s.name,
@@ -618,7 +727,12 @@ export function TrailTable({ entries }: { entries: TrailEntry[] }) {
       rowKey={(e) => e.i}
       empty="Nothing recorded yet."
       columns={[
-        { header: "Action", cell: (e) => <span className="font-medium text-ink-800">{e.action}</span> },
+        {
+          header: "Action",
+          cell: (e) => (
+            <span className="font-medium text-ink-800">{e.action}</span>
+          ),
+        },
         {
           header: "By",
           truncate: true,
@@ -638,7 +752,9 @@ export function TrailTable({ entries }: { entries: TrailEntry[] }) {
           header: "When",
           align: "right",
           className: "whitespace-nowrap",
-          cell: (e) => <span className="text-xs text-ink-400">{formatDate(e.on)}</span>,
+          cell: (e) => (
+            <span className="text-xs text-ink-400">{formatDate(e.on)}</span>
+          ),
         },
       ]}
     />
