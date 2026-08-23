@@ -29,6 +29,7 @@ export function SearchSelect({
   size = "md",
   id,
   "aria-label": ariaLabel,
+  freeText,
 }: {
   /** "" = nothing selected. */
   value: string;
@@ -41,6 +42,13 @@ export function SearchSelect({
   size?: "sm" | "md";
   id?: string;
   "aria-label"?: string;
+  /**
+   * Accept a typed value the options don't carry, offered as the last row.
+   * For fields where the known list is a convenience rather than the rule —
+   * without it, typing a name nothing matches dead-ends on "Nothing matches",
+   * and the way out is a link elsewhere on the page that reads as unrelated.
+   */
+  freeText?: (query: string) => SearchSelectOption;
 }) {
   const [query, setQuery] = useState("");
 
@@ -108,7 +116,19 @@ export function SearchSelect({
             )}
           </ComboboxOption>
         ))}
-        {filtered.length === 0 && (
+        {freeText && query.trim() !== "" && !all.some((o) => o.label === query.trim()) && (
+          <ComboboxOption
+            value={query.trim()}
+            className="group flex cursor-pointer items-center gap-2 border-t border-ink-100 px-3 py-1.5 first:border-t-0 data-focus:bg-ink-50"
+          >
+            {freeText(query.trim()).render ?? (
+              <span className="min-w-0 flex-1 truncate text-sm text-ink-800">
+                {freeText(query.trim()).label}
+              </span>
+            )}
+          </ComboboxOption>
+        )}
+        {filtered.length === 0 && !freeText && (
           <div className="px-3 py-2 text-sm text-ink-400">Nothing matches “{query}”.</div>
         )}
       </ComboboxOptions>

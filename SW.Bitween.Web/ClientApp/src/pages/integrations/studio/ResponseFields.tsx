@@ -159,16 +159,28 @@ function BusMessageField({
     >
       <SearchSelect
         id={`${idPrefix}-bus`}
-        value={matched?.busMessageTypeName ?? ""}
+        value={matched?.busMessageTypeName ?? value ?? ""}
         disabled={disabled || informationTypes.isPending}
         onChange={(v) => onChange(v === "" ? null : v)}
         clearLabel="Nothing — keep responses off the bus"
-        options={known.map((t) => ({
-          value: t.busMessageTypeName!,
-          label: t.busMessageTypeName!,
-          code: t.code,
-          hint: t.name,
-        }))}
+        // Publishing is not Bitween's to police — the consumer may be another
+        // product entirely — so a name nobody carries is offered right here
+        // rather than dead-ending on "nothing matches".
+        freeText={(typed) => ({
+          value: typed,
+          label: `Publish as “${typed}” — a name of your own`,
+        })}
+        options={[
+          ...known.map((t) => ({
+            value: t.busMessageTypeName!,
+            label: t.busMessageTypeName!,
+            code: t.code,
+            hint: t.name,
+          })),
+          // A saved or just-accepted name no information type carries. Listed so the
+          // field can display it, and marked so it doesn't read as a working choice.
+          ...(unknown ? [{ value: value!, label: value!, hint: "not an information type" }] : []),
+        ]}
       />
       {!disabled && (
         <div className="mt-1 flex flex-wrap items-center gap-3">
