@@ -64,7 +64,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "API gateways", path: "/api-gateways", icon: Webhook, permissions: ["api-gateways.view"] },
       { label: "Bus gateways", path: "/bus-gateways", icon: Cable, permissions: ["bus-gateways.view"] },
       { label: "Scheduled jobs", path: "/scheduled-jobs", icon: CalendarClock, permissions: ["subscriptions.view"] },
-      { label: "Integrations", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
+      { label: "All integrations", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
       { label: "Partners", path: "/partners", icon: Handshake, permissions: ["partners.view"] },
     ],
   },

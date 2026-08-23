@@ -86,7 +86,7 @@ export function IntegrationsPage() {
   return (
     <div>
       <PageHeader
-        title="Integrations"
+        title="All integrations"
         description="Every pipeline that moves a document — what comes in, how it's transformed, where it goes."
         help={{
           title: "What's on this page?",
