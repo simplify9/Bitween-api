@@ -31,10 +31,10 @@ export function ApiGatewayNewPage() {
   return (
     <div>
       <Link
-        to={"/subscriptions?types=api-gateways"}
+        to="/api-gateways"
         className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
       >
-        <ArrowLeft className="size-3.5" /> {"Integrations"}
+        <ArrowLeft className="size-3.5" /> API gateways
       </Link>
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New API gateway</h1>
