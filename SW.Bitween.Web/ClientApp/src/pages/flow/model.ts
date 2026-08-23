@@ -162,6 +162,17 @@ export function buildFlowGraph({
     const from = runBy.get(i.id) ?? standalone(i.id);
     if (from === null) continue;
 
+    // A response is whatever the delivery hands back, so with no delivery there is never
+    // one to route: `XchangeService.RunHandler` returns null without a handler, and both
+    // response paths are gated on that file being non-null. Drawing the edges anyway would
+    // make the map assert a flow the runtime cannot produce — the exact kind of lie it
+    // exists to catch. The integration's own page hides these fields once the delivery is
+    // cleared, which is what lets the pair drift apart unnoticed.
+    if (i.handlerId === null) {
+      warn(from, `${i.name} routes its response but delivers nothing, so no response is ever produced.`);
+      continue;
+    }
+
     if (i.responseMessageTypeName !== null && i.responseMessageTypeName !== "") {
       const to = messageByName.get(i.responseMessageTypeName.toLowerCase());
       if (to) edges.push({ id: `pub:${i.id}`, from, to, kind: "publishes" });

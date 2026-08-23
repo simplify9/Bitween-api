@@ -143,6 +143,12 @@ export interface IntegrationInfo {
   informationTypeId: number;
   workGroupId: number | null;
   retryPolicyId: number | null;
+  /**
+   * Its delivery step. Null means nothing is delivered — and since a response is
+   * whatever the delivery hands back, null here means the two response fields below
+   * can never be reached, however they are set.
+   */
+  handlerId: string | null;
   /** The bus message its delivery response is published as, if any. */
   responseMessageTypeName: string | null;
   /** The integration its delivery response is handed straight to, if any. */
