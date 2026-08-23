@@ -62,16 +62,20 @@ namespace SW.Bitween.Resources.Documents
                 throw new SWValidationException("INVALID_BUS_TYPE_NAME",
                     "Bus message type name cannot contain spaces.");
 
+            // Ignoring case, for the reason spelled out in Create: the routing key is
+            // lower-cased at both ends, so two names differing only in case are one message.
+            var wanted = (model.BusMessageTypeName ?? string.Empty).ToLower();
             var busTypeNameDuplicated = await _dbContext.Set<Document>()
                 .AsNoTracking()
                 .Where(i => i.Id != key)
                 .Where(i => !string.IsNullOrEmpty(i.BusMessageTypeName))
-                .Where(i => i.BusMessageTypeName == model.BusMessageTypeName)
+                .Where(i => i.BusMessageTypeName.ToLower() == wanted)
                 .AnyAsync();
 
             if (busTypeNameDuplicated)
                 throw new SWValidationException("DUPLICATED_BUS_TYPE_NAME",
-                    "Cant use duplicated bus Message type name");
+                    $"Another information type already publishes as '{model.BusMessageTypeName}'. " +
+                    "Names are compared ignoring case, because the bus does.");
 
             if (model.PromotedProperties != null)
             {

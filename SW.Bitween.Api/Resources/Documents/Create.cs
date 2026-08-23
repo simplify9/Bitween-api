@@ -36,12 +36,20 @@ namespace SW.Bitween.Resources.Documents
 
             if (model.BusEnabled && !string.IsNullOrEmpty(model.BusMessageTypeName))
             {
+                // Compared lower-cased, because that is how the bus compares them: both
+                // BasicPublisher and ConsumerDefinition derive the routing key with
+                // ToLower(), so "Foo" and "foo" are one message on the wire. Matching
+                // exactly here let both exist, and then every message published under
+                // either name reached both gateways, silently. ToLower() rather than a
+                // provider-specific collation — this runs on Postgres, MySql and MsSql.
+                var wanted = model.BusMessageTypeName.ToLower();
                 var busTypeNameDuplicated = await _dbContext.Set<Document>()
                     .AsNoTracking()
-                    .AnyAsync(d => d.BusMessageTypeName == model.BusMessageTypeName);
+                    .AnyAsync(d => d.BusMessageTypeName.ToLower() == wanted);
                 if (busTypeNameDuplicated)
                     throw new SWValidationException("DUPLICATED_BUS_TYPE_NAME",
-                        "Cant use duplicated bus Message type name");
+                        $"Another information type already publishes as '{model.BusMessageTypeName}'. " +
+                        "Names are compared ignoring case, because the bus does.");
             }
 
             var entity = new Document(code, model.Name, model.DocumentFormat)
