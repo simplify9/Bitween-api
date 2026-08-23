@@ -120,6 +120,11 @@ namespace SW.Bitween.Resources.Subscriptions
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
+                // Matches the rule Documents enforces on BusMessageTypeName; see Create.
+                RuleFor(i => i.ResponseMessageTypeName)
+                    .Matches("^\\S+$")
+                    .When(i => !string.IsNullOrEmpty(i.ResponseMessageTypeName))
+                    .WithMessage("A bus message name cannot contain spaces.");
 
                 When(i => i.MapperId != null, () =>
                 {

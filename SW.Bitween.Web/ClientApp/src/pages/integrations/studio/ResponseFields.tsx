@@ -140,10 +140,11 @@ function BusMessageField({
         // Publishing is not Bitween's to police — the consumer may be another
         // product entirely — so a name nobody carries is offered right here
         // rather than dead-ending on "nothing matches".
-        freeText={(typed) => ({
-          value: typed,
-          label: `Publish as “${typed}” — a name of your own`,
-        })}
+        freeText={(typed) =>
+          /\s/.test(typed)
+            ? "A bus message name cannot contain spaces — it becomes the routing key."
+            : { value: typed, label: `Publish as “${typed}” — a name of your own` }
+        }
         options={[
           ...known.map((t) => ({
             value: t.busMessageTypeName!,
