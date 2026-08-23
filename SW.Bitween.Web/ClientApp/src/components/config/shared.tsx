@@ -662,27 +662,42 @@ export function LinkListCell({
   label: string;
 }) {
   if (items.length === 0) return <span className="text-ink-400">—</span>;
-  // "1 integrations" reads as a bug, and every label here is a simple plural.
-  const noun = items.length === 1 ? label.replace(/s$/, "") : label;
+
+  // One of something is just that thing. A chip reading "1" would cost the name and
+  // buy a popover with a single row in it.
+  if (items.length === 1) {
+    const only = items[0];
+    return (
+      <Link
+        to={only.href}
+        onClick={(e) => e.stopPropagation()}
+        title={only.name}
+        className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+      >
+        {only.name}
+      </Link>
+    );
+  }
+
   return (
     <span className="flex items-baseline gap-1 text-[13px]">
       <Popover
-        label={items.length === 1 ? `Show 1 ${noun}` : `Show all ${items.length} ${label}`}
+        label={`Show all ${items.length} ${label}`}
         width="w-80"
         button={
-          // A chip rather than a bare digit: a muted number alone in a table cell reads as
-          // data you can't act on, and the list behind it would never be found. The names
-          // come back on hover, and in full when it is opened.
+          // The noun rides along with the count because the column header often can't
+          // supply it — "Used by" alone never says used by *what*. A bare digit also
+          // reads as data you can't act on, so the list behind it would never be found.
           <span
-            className="rounded bg-ink-100 px-1.5 py-0.5 text-[12px] font-medium text-ink-700 tabular-nums"
+            className="rounded bg-ink-100 px-1.5 py-0.5 text-[12px] font-medium text-ink-700"
             title={items.map((s) => s.name).join(", ")}
           >
-            {items.length}
+            <span className="tabular-nums">{items.length}</span> {label}
           </span>
         }
       >
         <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
-          {items.length} {noun}
+          {items.length} {label}
         </p>
         <ul className="border-t border-ink-100 pt-1">
           {items.map((s) => (
