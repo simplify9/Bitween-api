@@ -324,7 +324,7 @@ export function ExchangesPage() {
                       </Can>
                     </td>
                     <td className="py-1.5 pr-3">
-                      <PromotedProps properties={x.promotedProperties} />
+                      <PromotedProps properties={x.promotedProperties} fallbackId={x.id} />
                     </td>
                     <td className="px-3 py-1.5">
                       {/* Status and the relationship markers read as one thought:

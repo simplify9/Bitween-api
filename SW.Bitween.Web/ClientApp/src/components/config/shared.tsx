@@ -142,12 +142,27 @@ export function ExchangeStatusBadge({ status }: { status: ExchangeRef["status"] 
 export function PromotedProps({
   properties,
   max = 3,
+  fallbackId,
 }: {
   properties: Record<string, string> | null;
   max?: number;
+  /**
+   * Shown when the information type promotes nothing, or promotes nothing this
+   * payload carried. A bare em dash left the row with no identity at all — the id
+   * is a poor name but it is the only one left, and it makes the row addressable.
+   * Truncated because the drawer carries it in full, with a copy button.
+   */
+  fallbackId?: string;
 }) {
   const entries = Object.entries(properties ?? {});
-  if (entries.length === 0) return <span className="text-[13px] text-ink-400">—</span>;
+  if (entries.length === 0)
+    return fallbackId ? (
+      <span className="font-mono text-xs text-ink-400" title={fallbackId}>
+        {fallbackId.slice(0, 8)}…
+      </span>
+    ) : (
+      <span className="text-[13px] text-ink-400">—</span>
+    );
   const shown = entries.slice(0, max);
   const rest = entries.length - shown.length;
   return (
@@ -207,11 +222,7 @@ export function ExchangesList({
             title={properties.length > 0 ? `${x.id}\n\n${properties.map(([k, v]) => `${k}=${v}`).join("\n")}` : x.id}
             className="block hover:opacity-70"
           >
-            {properties.length > 0 ? (
-              <PromotedProps properties={x.promotedProperties ?? null} />
-            ) : (
-              <span className="font-mono text-xs text-ink-400">{x.id.slice(0, 8)}…</span>
-            )}
+            <PromotedProps properties={x.promotedProperties ?? null} fallbackId={x.id} />
           </Link>
         );
       },
