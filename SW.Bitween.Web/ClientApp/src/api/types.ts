@@ -771,6 +771,11 @@ export interface ExchangeQuery {
   correlationId?: string;
   /** Substring match against promoted property keys and values. */
   property?: string;
+  /**
+   * Narrows `property` to one promoted key. Set on its own it asks "has this key at
+   * all", which is worth being able to ask.
+   */
+  propertyKey?: string;
   from?: string;
   to?: string;
   offset: number;
