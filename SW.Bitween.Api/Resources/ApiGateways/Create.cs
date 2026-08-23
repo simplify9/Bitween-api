@@ -20,8 +20,7 @@ namespace SW.Bitween.Resources.ApiGateways
         {
             await _requestContext.EnsurePermission(_dbContext, Model.Permissions.ApiGateways.Create);
 
-            if (string.IsNullOrWhiteSpace(model.UrlName))
-                throw new SWException("UrlName is required");
+            GatewayUrlName.Validate(model.UrlName);
 
             var entity = new ApiGateway
             {

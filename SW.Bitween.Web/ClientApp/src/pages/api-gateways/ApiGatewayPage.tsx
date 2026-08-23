@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, type ApiGatewayAttachment } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
+import { finishUrlName, toUrlName } from "../../lib/identifiers";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
@@ -46,7 +47,7 @@ export function ApiGatewayPage() {
   );
 
   const save = useMutation({
-    mutationFn: () => api.updateApiGateway(gatewayId, { name, urlName }),
+    mutationFn: () => api.updateApiGateway(gatewayId, { name, urlName: finishUrlName(urlName) }),
     onSuccess: async () => {
       // Await the detail refetch before re-syncing the draft (avoids stale-data race).
       await queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
@@ -100,7 +101,7 @@ export function ApiGatewayPage() {
                 value={urlName}
                 disabled={!canEdit}
                 className="font-mono"
-                onChange={(e) => setUrlName(e.target.value.toLowerCase())}
+                onChange={(e) => setUrlName(toUrlName(e.target.value))}
               />
             </Field>
             <CopyField value={`/api/Gateway/${urlName}/sync`} label="Synchronous — waits for the result" />

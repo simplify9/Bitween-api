@@ -30,8 +30,7 @@ namespace SW.Bitween.Resources.ApiGateways
             if (entity == null)
                 throw new SWNotFoundException($"ApiGateway with Id {key} not found");
 
-            if (string.IsNullOrWhiteSpace(model.UrlName))
-                throw new SWException("UrlName is required");
+            GatewayUrlName.Validate(model.UrlName);
 
             entity.Name = model.Name;
             entity.UrlName = model.UrlName;
