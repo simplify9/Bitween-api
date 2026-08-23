@@ -38,7 +38,13 @@ namespace SW.Bitween
                 //TODO check if we need to validate here
                 //if (ppValue is null)
                 //  throw new SWValidationException("PROMOTED_PROPERTY_NOT_FOUND", $"The path {pp.Value} is null on the docuemnt");
-                filterResult.Properties.Add(pp.Key, ppValue?.ToLower());
+                // Stored as the payload sent it. It used to be lower-cased here, which was
+                // only ever to pair with the lower-cased term in Xchanges/Search — nothing
+                // matches on this dictionary (match expressions read the payload directly),
+                // so the one thing it changed was what every screen displays: an order for
+                // "Acme Retail" listed as "acme retail". Search now lower-cases the column
+                // instead, which keeps it case-insensitive without rewriting the data.
+                filterResult.Properties.Add(pp.Key, ppValue);
             }
 
             var subs = await _cache.ListSubscriptionsByDocumentAsync(documentId);
