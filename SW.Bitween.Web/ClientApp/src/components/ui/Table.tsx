@@ -102,29 +102,40 @@ export function MiniTable<T>({
   rows,
   rowKey,
   empty,
+  onRowClick,
+  fitWidth = false,
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string | number;
   /** Shown instead of the table when there are no rows. */
   empty: ReactNode;
+  /** Makes the whole row the way in, as on the page-level table. */
+  onRowClick?: (row: T) => void;
+  /**
+   * Honour `truncate` and stay inside the panel instead of growing past it.
+   *
+   * Off by default because most callers are 2–4 column lists in the ~360px
+   * sidebar, where collapsing a column to ellipsis its text gives a row of
+   * "3c8…" — there, growing and scrolling sideways is the better trade. A
+   * wide table in the main column is the opposite case: it has the room, and
+   * what it pushes out of reach is the action buttons on the right, which
+   * nobody thinks to scroll a table sideways to find.
+   */
+  fitWidth?: boolean;
 }) {
   if (rows.length === 0) return <p className="text-sm text-ink-500">{empty}</p>;
 
+  const cell = (c: Column<T>) =>
+    `px-1 ${fitWidth ? widthClass(c) : "whitespace-nowrap"} ${c.align === "right" ? "text-right" : ""} ${c.className ?? ""}`;
+
   return (
-    // Unlike the page-level table, this one does NOT honour `truncate`. These
-    // panels sit in a ~360px sidebar column, where letting a column collapse
-    // so its text can ellipsis leaves a row of "3c8…" and headers spilling
-    // over each other. Full values, natural widths, scroll sideways instead.
     <div className="-mx-1 overflow-x-auto">
-      <table className="w-full min-w-max text-left text-sm">
+      <table className={`w-full ${fitWidth ? "" : "min-w-max"} text-left text-sm`}>
         <thead>
           <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
             {columns.map((c, i) => (
-              <th
-                key={i}
-                className={`px-1 pb-1 whitespace-nowrap ${c.align === "right" ? "text-right" : ""} ${c.className ?? ""}`}
-              >
+              <th key={i} className={`pb-1 ${cell(c)}`}>
                 {c.header}
               </th>
             ))}
@@ -132,12 +143,15 @@ export function MiniTable<T>({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={rowKey(row)} className="border-b border-ink-50 last:border-b-0">
+            <tr
+              key={rowKey(row)}
+              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              className={`border-b border-ink-50 last:border-b-0 ${
+                onRowClick ? "cursor-pointer hover:bg-ink-50/60" : ""
+              }`}
+            >
               {columns.map((c, i) => (
-                <td
-                  key={i}
-                  className={`px-1 py-1.5 whitespace-nowrap ${c.align === "right" ? "text-right" : ""} ${c.className ?? ""}`}
-                >
+                <td key={i} className={`py-1.5 ${cell(c)}`}>
                   {c.cell(row)}
                 </td>
               ))}

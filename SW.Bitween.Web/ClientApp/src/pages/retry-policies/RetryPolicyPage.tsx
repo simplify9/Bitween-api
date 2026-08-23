@@ -337,6 +337,8 @@ export function RetryPolicyPage() {
             <MiniTable
               rows={sortedGroups}
               rowKey={(g) => g.id}
+              fitWidth
+              onRowClick={canEdit ? (g) => setEditingGroup(g) : undefined}
               empty="No groups yet — failures under this policy are never retried."
               columns={[
                 {
@@ -348,7 +350,10 @@ export function RetryPolicyPage() {
                   header: "Group",
                   truncate: true,
                   cell: (g) => (
-                    <span className={`block truncate font-medium text-ink-900 ${g.enabled ? "" : "opacity-60"}`}>
+                    <span
+                      title={g.notes ? `${g.name} — ${g.notes}` : g.name}
+                      className={`block truncate font-medium text-ink-900 ${g.enabled ? "" : "opacity-60"}`}
+                    >
                       {g.name}
                     </span>
                   ),
@@ -365,23 +370,38 @@ export function RetryPolicyPage() {
                 {
                   header: "Applies to",
                   truncate: true,
-                  cell: (g) => (
-                    <span className="block truncate text-[13px] text-ink-600">
-                      {g.appliesTo.map((t) => (t === "Error" ? "errors" : "bad results")).join(" and ")}
-                      {g.matchers.length === 0
-                        ? " — any failure"
-                        : ` matching ${g.matchers.map((m) => matcherSummary(m)).join(" or ")}`}
-                    </span>
-                  ),
+                  cell: (g) => {
+                    // Scope first and short, conditions second: every row in a policy tends to
+                    // share the scope, so leading with "errors matching " spent the column's
+                    // width on the one part that never tells them apart.
+                    const scope =
+                      g.appliesTo.length === 1 && g.appliesTo[0] === "Error"
+                        ? null
+                        : g.appliesTo.map((t) => (t === "Error" ? "Errors" : "Bad results")).join(" + ");
+                    const conditions =
+                      g.matchers.length === 0
+                        ? "any failure"
+                        : g.matchers.map((m) => matcherSummary(m)).join(" or ");
+                    return (
+                      <span
+                        className="block truncate text-[13px] text-ink-600"
+                        title={scope ? `${scope} · ${conditions}` : conditions}
+                      >
+                        {scope && <span className="text-ink-400">{scope} · </span>}
+                        {conditions}
+                      </span>
+                    );
+                  },
                 },
                 {
+                  // Bounded text — two numbers and one of three delay names — so it shrinks to
+                  // fit instead of truncating, leaving the slack to the columns that need it.
                   header: "Budget",
-                  truncate: true,
                   cell: (g) =>
                     g.action === "Allow" && g.budget ? (
-                      <span className="block truncate text-[13px] text-ink-600">
-                        {g.budget.maxAttemptsPerError} tries ({g.budget.maxAttemptsTotal} total),{" "}
-                        {g.budget.delay.type} delay
+                      <span className="text-[13px] text-ink-600">
+                        {g.budget.maxAttemptsPerError} tries ({g.budget.maxAttemptsTotal} total) ·{" "}
+                        {g.budget.delay.type}
                       </span>
                     ) : (
                       <span className="text-ink-400">—</span>
@@ -404,23 +424,11 @@ export function RetryPolicyPage() {
                     ),
                 },
                 {
-                  header: "Notes",
-                  truncate: true,
-                  cell: (g) =>
-                    g.notes ? (
-                      <span className="block truncate text-xs text-ink-400 italic" title={g.notes}>
-                        {g.notes}
-                      </span>
-                    ) : (
-                      <span className="text-ink-400">—</span>
-                    ),
-                },
-                {
                   header: "",
                   align: "right",
                   cell: (g) =>
                     canEdit ? (
-                      <span className="flex justify-end gap-1">
+                      <span className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setEditingGroup(g)}
                           aria-label={`Edit ${g.name}`}
