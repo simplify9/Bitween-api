@@ -58,12 +58,13 @@ export const NAV_GROUPS: NavGroup[] = [
     // pipelines it runs through, then who it's with. A gateway is not an integration.
     label: "Integrations",
     items: [
-      // Gated on the bus alone: bus messages are what carry work *between*
-      // gateways, so without that permission there is no flow left to map.
-      { label: "Flow map", path: "/flow", icon: Network, permissions: ["bus-gateways.view"] },
       { label: "API gateways", path: "/api-gateways", icon: Webhook, permissions: ["api-gateways.view"] },
       { label: "Bus gateways", path: "/bus-gateways", icon: Cable, permissions: ["bus-gateways.view"] },
       { label: "Scheduled jobs", path: "/scheduled-jobs", icon: CalendarClock, permissions: ["subscriptions.view"] },
+      // After the three ways work enters, because it is the picture of how they join up
+      // rather than a fourth kind of them. Gated on the bus alone: bus messages are what
+      // carry work *between* gateways, so without that permission there is no flow to map.
+      { label: "Flow map", path: "/flow", icon: Network, permissions: ["bus-gateways.view"] },
       { label: "All integrations", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
       { label: "Partners", path: "/partners", icon: Handshake, permissions: ["partners.view"] },
     ],
@@ -73,9 +74,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Information types", path: "/information-types", icon: FileText, permissions: ["documents.view"] },
       { label: "Global values", path: "/global-values", icon: SlidersHorizontal, permissions: ["global-values.view"] },
-      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
       { label: "Work groups", path: "/work-groups", icon: Layers, permissions: ["workgroups.view"] },
       { label: "Retry policies", path: "/retry-policies", icon: RotateCcw, permissions: ["retry-policies.view"] },
+      // Directly under retry policies: both are about what happens when something goes
+      // wrong, and a budget-exhausted alert is delivered by a notifier.
+      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
     ],
   },
   {
