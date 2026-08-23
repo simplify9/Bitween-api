@@ -32,6 +32,7 @@ namespace SW.Bitween.Resources.BusGateways
 
             // Name only; the bound document is fixed at creation (routes' subscriptions belong to it).
             entity.Name = model.Name;
+            entity.Inactive = model.Inactive;
 
             await _dbContext.SaveChangesAsync();
             await _cache.BroadcastRevoke();

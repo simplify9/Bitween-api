@@ -34,6 +34,7 @@ namespace SW.Bitween.Resources.ApiGateways
 
             entity.Name = model.Name;
             entity.UrlName = model.UrlName;
+            entity.Inactive = model.Inactive;
 
             await _dbContext.SaveChangesAsync();
             return null;

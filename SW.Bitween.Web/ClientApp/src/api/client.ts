@@ -231,7 +231,10 @@ export interface ApiClient {
   listApiGateways(): Promise<ApiGatewayRow[]>;
   getApiGateway(id: number): Promise<ApiGatewayDetail>;
   createApiGateway(input: { name: string; urlName: string }): Promise<ApiGateway>;
-  updateApiGateway(id: number, changes: { name: string; urlName: string }): Promise<ApiGateway>;
+  updateApiGateway(
+    id: number,
+    changes: { name: string; urlName: string; inactive: boolean },
+  ): Promise<ApiGateway>;
   deleteApiGateway(id: number): Promise<void>;
   attachGatewayPartner(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
   updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
@@ -241,7 +244,7 @@ export interface ApiClient {
   listBusGateways(): Promise<BusGatewayRow[]>;
   getBusGateway(id: number): Promise<BusGatewayDetail>;
   createBusGateway(input: { name: string; informationTypeId: number }): Promise<BusGateway>;
-  updateBusGateway(id: number, changes: { name: string }): Promise<BusGateway>;
+  updateBusGateway(id: number, changes: { name: string; inactive: boolean }): Promise<BusGateway>;
   deleteBusGateway(id: number): Promise<void>;
   addBusRoute(
     id: number,

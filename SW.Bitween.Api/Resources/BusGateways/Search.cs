@@ -35,6 +35,7 @@ namespace SW.Bitween.Resources.BusGateways
                             Id = gateway.Id,
                             Name = gateway.Name,
                             DocumentId = gateway.DocumentId,
+                            Inactive = gateway.Inactive,
                             DocumentName = documents.Where(d => d.Id == gateway.DocumentId)
                                 .Select(d => d.Name).FirstOrDefault(),
                             RoutesCount = gateway.Routes.Count

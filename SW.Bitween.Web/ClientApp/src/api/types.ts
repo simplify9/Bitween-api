@@ -632,6 +632,8 @@ export interface ApiGateway {
   id: number;
   name: string;
   urlName: string;
+  /** Off but kept, with its attachments. Partners calling it get a 503. */
+  inactive: boolean;
   createdOn: string;
 }
 export interface ApiGatewayRow extends ApiGateway {
@@ -657,6 +659,8 @@ export interface BusGateway {
   id: number;
   name: string;
   informationTypeId: number;
+  /** Off but kept, with its routes. The message stops being offered to them. */
+  inactive: boolean;
   createdOn: string;
 }
 export interface BusGatewayRow extends BusGateway {

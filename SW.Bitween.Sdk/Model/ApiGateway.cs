@@ -7,6 +7,9 @@ namespace SW.Bitween.Model
     {
         public string Name { get; set; }
         public string UrlName { get; set; }
+
+        /// <summary>Off but kept, with its partner attachments. Calls to it are refused.</summary>
+        public bool Inactive { get; set; }
     }
 
     public class ApiGatewayRow : ApiGatewayUpdate

@@ -25,7 +25,8 @@ namespace SW.Bitween.Resources.ApiGateways
             var entity = new ApiGateway
             {
                 Name = model.Name,
-                UrlName = model.UrlName
+                UrlName = model.UrlName,
+                Inactive = model.Inactive
             };
 
             _dbContext.Add(entity);

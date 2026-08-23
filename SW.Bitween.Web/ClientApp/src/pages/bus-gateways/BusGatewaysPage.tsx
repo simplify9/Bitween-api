@@ -104,7 +104,17 @@ export function BusGatewaysPage() {
             {
               header: "Gateway",
               truncate: true,
-              cell: (g) => <span className="block truncate font-medium text-ink-900">{g.name}</span>,
+              cell: (g) => (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className={`truncate font-medium ${g.inactive ? "text-ink-400" : "text-ink-900"}`}>
+                    {g.name}
+                  </span>
+                  {/* Beside the name, not in the Health column: health reports on what the
+                      gateway feeds, and a deactivated one feeds nothing, so it would read
+                      as healthy. */}
+                  {g.inactive && <Badge tone="warn">Off</Badge>}
+                </span>
+              ),
             },
             {
               header: "Listens for",

@@ -32,7 +32,8 @@ namespace SW.Bitween.Resources.BusGateways
             var entity = new BusGateway
             {
                 Name = model.Name,
-                DocumentId = model.DocumentId
+                DocumentId = model.DocumentId,
+                Inactive = model.Inactive
             };
 
             _dbContext.Add(entity);

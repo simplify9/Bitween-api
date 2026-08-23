@@ -71,8 +71,11 @@ public class InMemoryBitweenCache : IInfolinkCache
             cachedBusGateways = _cache.Get<BusGateway[]>(nameof(BusGateway));
         }
 
+        // A deactivated gateway offers no routes, which is the whole of what deactivating
+        // one means on the bus side: the message still publishes, this gateway just stops
+        // being one of the places it lands.
         return cachedBusGateways
-            .Where(g => g.DocumentId == documentId)
+            .Where(g => g.DocumentId == documentId && !g.Inactive)
             .SelectMany(g => g.Routes ?? Enumerable.Empty<BusGatewayRoute>())
             .ToArray();
     }

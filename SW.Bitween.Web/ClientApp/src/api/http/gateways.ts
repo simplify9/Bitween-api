@@ -29,6 +29,7 @@ interface RawApiGateway {
   name: string;
   urlName: string;
   partnersCount: number | null;
+  inactive: boolean | null;
   // Search's list projection includes this too (backend change made alongside
   // this batch) — but keep it optional since Create's bare POST response has none.
   partners: RawApiGatewayPartner[] | null;
@@ -47,6 +48,7 @@ interface RawBusGateway {
   documentId: number;
   documentName: string | null;
   routesCount: number | null;
+  inactive: boolean | null;
   routes: RawBusGatewayRoute[] | null;
 }
 
@@ -61,6 +63,7 @@ const toApiGatewayRow = (raw: RawApiGateway): ApiGatewayRow => ({
   id: raw.id,
   name: raw.name,
   urlName: raw.urlName,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   partnerCount: raw.partnersCount ?? raw.partners?.length ?? 0,
   attachments: (raw.partners ?? []).map(toApiGatewayAttachment),
@@ -70,6 +73,7 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
   id: raw.id,
   name: raw.name,
   urlName: raw.urlName,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   attachments: (raw.partners ?? []).map(toApiGatewayAttachment),
 });
@@ -87,6 +91,7 @@ const toBusGatewayRow = (raw: RawBusGateway): BusGatewayRow => ({
   id: raw.id,
   name: raw.name,
   informationTypeId: raw.documentId,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   informationTypeCode: raw.documentName ?? "UNKNOWN",
   routeCount: raw.routesCount ?? raw.routes?.length ?? 0,
@@ -97,6 +102,7 @@ const toBusGatewayDetail = (raw: RawBusGateway): BusGatewayDetail => ({
   id: raw.id,
   name: raw.name,
   informationTypeId: raw.documentId,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   informationTypeCode: raw.documentName ?? "UNKNOWN",
   informationTypeName: raw.documentName ?? "Unknown",
@@ -116,13 +122,22 @@ export const gatewayMethods = {
   },
 
   async createApiGateway({ name, urlName }: { name: string; urlName: string }): Promise<ApiGateway> {
-    const id = await post<number>("/apigateways", { name, urlName });
-    return { id, name, urlName, createdOn: "" };
+    const id = await post<number>("/apigateways", { name, urlName, inactive: false });
+    return { id, name, urlName, inactive: false, createdOn: "" };
   },
 
-  async updateApiGateway(id: number, changes: { name: string; urlName: string }): Promise<ApiGateway> {
-    await post(`/apigateways/${id}`, { name: changes.name, urlName: changes.urlName });
-    return { id, name: changes.name, urlName: changes.urlName, createdOn: "" };
+  async updateApiGateway(
+    id: number,
+    changes: { name: string; urlName: string; inactive: boolean },
+  ): Promise<ApiGateway> {
+    // Update replaces the record, so every field it accepts has to be sent back —
+    // omitting `inactive` would quietly reactivate a paused gateway on a rename.
+    await post(`/apigateways/${id}`, {
+      name: changes.name,
+      urlName: changes.urlName,
+      inactive: changes.inactive,
+    });
+    return { id, ...changes, createdOn: "" };
   },
 
   async deleteApiGateway(id: number): Promise<void> {
@@ -164,17 +179,34 @@ export const gatewayMethods = {
     name: string;
     informationTypeId: number;
   }): Promise<BusGateway> {
-    const id = await post<number>("/busgateways", { name, documentId: informationTypeId });
-    return { id, name, informationTypeId, createdOn: "" };
+    const id = await post<number>("/busgateways", {
+      name,
+      documentId: informationTypeId,
+      inactive: false,
+    });
+    return { id, name, informationTypeId, inactive: false, createdOn: "" };
   },
 
-  async updateBusGateway(id: number, changes: { name: string }): Promise<BusGateway> {
+  async updateBusGateway(
+    id: number,
+    changes: { name: string; inactive: boolean },
+  ): Promise<BusGateway> {
     // The bound information type is fixed at creation — Update.cs silently
     // ignores documentId — but the request DTO still requires a value, so
     // fetch the current one to round-trip it rather than sending a bogus 0.
     const current = await get<RawBusGateway>(`/busgateways/${id}`);
-    await post(`/busgateways/${id}`, { name: changes.name, documentId: current.documentId });
-    return { id, name: changes.name, informationTypeId: current.documentId, createdOn: "" };
+    await post(`/busgateways/${id}`, {
+      name: changes.name,
+      documentId: current.documentId,
+      inactive: changes.inactive,
+    });
+    return {
+      id,
+      name: changes.name,
+      informationTypeId: current.documentId,
+      inactive: changes.inactive,
+      createdOn: "",
+    };
   },
 
   async deleteBusGateway(id: number): Promise<void> {

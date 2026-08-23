@@ -7,6 +7,9 @@ namespace SW.Bitween.Model
     {
         public string Name { get; set; }
         public int DocumentId { get; set; }
+
+        /// <summary>Off but kept, with its routes. Messages stop reaching them.</summary>
+        public bool Inactive { get; set; }
     }
 
     public class BusGatewayUpdate : BusGatewayCreate

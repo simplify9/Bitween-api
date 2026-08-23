@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
+import { Pause, PanelLeftClose, PanelLeftOpen, Play, Trash2 } from "lucide-react";
 import { api, type BusGatewayDetail, type IntegrationDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
@@ -107,6 +107,7 @@ export function BusGatewayPage() {
   const [partnerDialog, setPartnerDialog] = useState<number | null | undefined>(undefined);
   const [removingRoute, setRemovingRoute] = useState<number | null>(null);
   const [deletingGateway, setDeletingGateway] = useState(false);
+  const [confirmingActive, setConfirmingActive] = useState(false);
   /** A move the user asked for that would drop unsaved edits. */
   const [guarded, setGuarded] = useState<null | { what: string; go: () => void }>(null);
 
@@ -280,7 +281,10 @@ export function BusGatewayPage() {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (nameDirty && name !== null) await api.updateBusGateway(gatewayId, { name });
+      // `inactive` is round-tripped, not edited here: Update replaces the record, so
+      // omitting it would reactivate a deactivated gateway on a rename.
+      if (nameDirty && name !== null)
+        await api.updateBusGateway(gatewayId, { name, inactive: g.inactive });
       // The integration first: if the route write then fails, what was saved is
       // the part that stands on its own.
       if (edit && intIsDirty) await api.updateIntegration(edit.integrationId, edit.draft);
@@ -449,6 +453,7 @@ export function BusGatewayPage() {
             placeholder="Gateway name"
           />
         </h1>
+        {g.inactive && <Badge tone="warn">Deactivated</Badge>}
         {/* The information type, its bus message name, and whether it is even on the
             bus. This was a canvas node, but it is a property of the gateway, not of
             any one route — repeating it on every route's diagram said otherwise. */}
@@ -494,6 +499,20 @@ export function BusGatewayPage() {
         {canEdit && typeof selection === "number" && (
           <Button size="sm" onClick={() => setRemovingRoute(selection)}>
             <Trash2 className="size-3.5" /> Remove route
+          </Button>
+        )}
+        {canEdit && (
+          <Button
+            size="sm"
+            onClick={() => setConfirmingActive(true)}
+            title={
+              g.inactive
+                ? "Start offering this gateway's messages to its routes again."
+                : "Stop messages reaching its routes, without deleting them."
+            }
+          >
+            {g.inactive ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+            {g.inactive ? "Activate" : "Deactivate"}
           </Button>
         )}
         <Can permission="bus-gateways.delete">
@@ -664,6 +683,24 @@ export function BusGatewayPage() {
             setQuery({ route: fresh.routes[0] ? String(fresh.routes[0].id) : null, hop: null });
           }}
           onClose={() => setRemovingRoute(null)}
+        />
+      )}
+
+      {confirmingActive && (
+        <ConfirmDialog
+          title={g.inactive ? `Activate ${g.name}?` : `Deactivate ${g.name}?`}
+          body={
+            g.inactive
+              ? `${g.informationTypeName} messages reach its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"} again. Anything published while it was off is gone — the message was offered and this gateway wasn't listening.`
+              : `${g.informationTypeName} messages stop reaching its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"}. Other gateways bound to the same message are unaffected, and the routes themselves are kept.`
+          }
+          confirmLabel={g.inactive ? "Activate" : "Deactivate"}
+          onConfirm={async () => {
+            await api.updateBusGateway(gatewayId, { name: g.name, inactive: !g.inactive });
+            await queryClient.invalidateQueries({ queryKey: ["bus-gateway", gatewayId] });
+            void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
+          }}
+          onClose={() => setConfirmingActive(false)}
         />
       )}
 

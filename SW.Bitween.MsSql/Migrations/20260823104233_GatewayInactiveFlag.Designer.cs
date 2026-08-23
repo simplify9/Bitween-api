@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Bitween.MsSql;
 
@@ -11,9 +12,11 @@ using SW.Bitween.MsSql;
 namespace SW.Bitween.MsSql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    partial class BitweenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260823104233_GatewayInactiveFlag")]
+    partial class GatewayInactiveFlag
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
