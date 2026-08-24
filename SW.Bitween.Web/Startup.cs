@@ -27,6 +27,7 @@ using SW.Bitween.Domain;
 using SW.Bitween.Resources.Accounts;
 using SW.Bitween.Services;
 using SW.CqApi.AuthOptions;
+using SW.Logger.Console;
 using SW.Logger.ElasticSerach;
 using Azure.Identity;
 using Microsoft.Data.SqlClient;
@@ -81,6 +82,11 @@ namespace SW.Bitween.Web
 
             services.AddScoped<SubscriptionSchedulerService>();
             services.AddHostedService<SchedulerSeedService>();
+
+            services.AddSWConsoleLogger(options =>
+            {
+                options.ApplicationName = bitweenOptions.QueuePrefix;
+            });
 
             services.AddBus(config =>
             {
@@ -387,6 +393,7 @@ namespace SW.Bitween.Web
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            app.UseSWConsoleLogger();
             app.UseForwardedHeaders();
 
             app.Use(async (context, next) =>
@@ -440,7 +447,7 @@ namespace SW.Bitween.Web
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseHttpAsRequestContext();
-            app.UseRequestContextLogEnricher();
+            SW.Logger.ElasticSerach.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
 
             app.UseSwaggerUI(c => { c.SwaggerEndpoint("/api/swagger.json", "Bitween Api"); });
 
