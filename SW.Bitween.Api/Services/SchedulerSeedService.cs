@@ -24,8 +24,15 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
         var scheduleRepo   = scope.ServiceProvider.GetRequiredService<IScheduleRepository>();
         var options        = scope.ServiceProvider.GetRequiredService<BitweenOptions>();
 
-        await scheduleRepo.Schedule<RetryJob>(options.RetryJobCron);
-        await scheduleRepo.Schedule<ReceiveAttemptCleanupJob>(options.ReceiveAttemptCleanupCron);
+        // Two Quartz job-store writes back to back can race Npgsql's connection-pool cleanup:
+        // the second call grabs a connection still left in an aborted-transaction state from
+        // the first, failing with "25P02: current transaction is aborted" while obtaining its
+        // row lock. A fixed delay between the two calls was tried and proved unreliable (still
+        // reproduced on a fresh DB with the delay in place) — retrying the specific lock failure
+        // is correct instead, since it naturally waits however long is actually needed rather
+        // than guessing, and still fails loudly if the lock truly can't be obtained after 3 tries.
+        await ScheduleWithRetry(() => scheduleRepo.Schedule<RetryJob>(options.RetryJobCron), nameof(RetryJob), stoppingToken);
+        await ScheduleWithRetry(() => scheduleRepo.Schedule<ReceiveAttemptCleanupJob>(options.ReceiveAttemptCleanupCron), nameof(ReceiveAttemptCleanupJob), stoppingToken);
 
         var subscriptions = await dbContext.Set<Subscription>()
             .Where(s =>
@@ -46,6 +53,26 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
             {
                 logger.LogError(ex,
                     "Failed to seed Quartz schedule for subscription {Id}", sub.Id);
+            }
+        }
+    }
+
+    private async Task ScheduleWithRetry(Func<Task> schedule, string jobName, CancellationToken ct)
+    {
+        const int maxAttempts = 3;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                await schedule();
+                return;
+            }
+            catch (Quartz.Impl.AdoJobStore.LockException) when (attempt < maxAttempts)
+            {
+                logger.LogWarning(
+                    "Transient lock error seeding {Job} (attempt {Attempt}/{Max}) — retrying",
+                    jobName, attempt, maxAttempts);
+                await Task.Delay(200 * attempt, ct);
             }
         }
     }
