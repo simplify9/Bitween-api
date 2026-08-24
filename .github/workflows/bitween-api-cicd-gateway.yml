@@ -48,7 +48,12 @@ jobs:
       # pipeline semver, e.g. 8.1.x — was 8.0.<run_number> in the old job).
       nuget-projects: 'SW.Bitween.Sdk/SW.Bitween.Sdk.csproj'
       run-tests: 'true'
-      test-projects: 'SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj'
+      # Integration tests run against real Postgres/RabbitMQ/MailHog via
+      # Testcontainers — self-contained, no extra CI services needed, since
+      # ubuntu-latest already has a Docker daemon available.
+      test-projects: |
+        SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
+        SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
 
       # 2) Deploy to playground via Gateway API
       deploy: true
