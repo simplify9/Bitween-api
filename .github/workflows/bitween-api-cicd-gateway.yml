@@ -62,7 +62,10 @@ jobs:
       deploy-namespace: 'playground'
       routing-mode: 'gateway-api'
       gateway-hostnames: 'app-dev.bitween.io'
-      gateway-paths: '/api,/swagger'        # adapted from the old ingress paths
+      # '/' serves the admin SPA out of this image's wwwroot, so the root has to route
+      # here too — previously only /api and /swagger did, leaving the root on the retired
+      # legacy Bitween-UI deployment and making every deploy look like the UI never changed.
+      gateway-paths: '/,/api,/swagger'
       # app-dev.bitween.io is not *.sf9.io, so the deploy auto-onboards a
       # dedicated listener + cert-manager Certificate on the parent gateway
       # (public-gateway · s9-dev-edge · cilium · letsencrypt-production-gateway).
