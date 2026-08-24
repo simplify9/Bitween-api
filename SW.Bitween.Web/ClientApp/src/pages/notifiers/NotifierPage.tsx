@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Search } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
-import { useSessionCan } from "../../auth/guards";
-import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Can, useSessionCan } from "../../auth/guards";
+import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
+import { ConfirmDialog } from "../../components/ui/overlays";
 import { MiniTable } from "../../components/ui/Table";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
@@ -67,6 +68,7 @@ export function NotifierPage() {
   const { id = "" } = useParams();
   const notifierId = Number(id);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const canEdit = useSessionCan("notifiers.edit");
 
   const notifier = useQuery({
@@ -80,6 +82,7 @@ export function NotifierPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [watchSearch, setWatchSearch] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!loaded && notifier.data) {
@@ -101,6 +104,7 @@ export function NotifierPage() {
       // Await the detail refetch before re-syncing the draft (avoids stale-data race).
       await queryClient.invalidateQueries({ queryKey: ["notifier", notifierId] });
       void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifiers-search"] });
       setLoaded(false);
     },
   });
@@ -167,6 +171,12 @@ export function NotifierPage() {
             )}
           </h1>
         </div>
+
+        <Can permission="notifiers.delete">
+          <Button variant="danger" onClick={() => setDeleting(true)}>
+            Delete
+          </Button>
+        </Can>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -328,6 +338,27 @@ export function NotifierPage() {
           error={save.error?.message}
           onSave={() => save.mutate()}
           onDiscard={() => setLoaded(false)}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete this notifier?"
+          body={
+            <>
+              <strong className="font-medium text-ink-800">{n.name}</strong> will be gone for good,
+              along with the list of integrations it watches. The notifications it already sent are
+              kept.
+            </>
+          }
+          confirmLabel="Delete notifier"
+          onConfirm={async () => {
+            await api.deleteNotifier(notifierId);
+            void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifiers-search"] });
+            navigate("/notifiers");
+          }}
+          onClose={() => setDeleting(false)}
         />
       )}
     </div>
