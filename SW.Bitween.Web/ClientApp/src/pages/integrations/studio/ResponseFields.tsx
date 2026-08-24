@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api, type IntegrationType } from "../../../api";
@@ -14,6 +15,9 @@ import { busMessageNameProblem } from "../../../lib/busMessageName";
  * Shared by the studio pages and both create pages so the node means the same
  * thing wherever it appears — the create rails would otherwise be one node
  * shorter than the edit rail, which defeats reusing the pipeline at all.
+ *
+ * There is one way to pass a response on: publish it on the bus. Feeding it
+ * straight into a named integration is retired — see {@link FedIntoNotice}.
  */
 export function ResponseFields({
   handlerId,
@@ -33,7 +37,7 @@ export function ResponseFields({
     responseMessageTypeName?: string | null;
   }) => void;
   disabled: boolean;
-  /** Integrations the response can be fed into (excluding this one). */
+  /** Only used to name an already-saved target; nothing here can choose from them. */
   candidates: { id: number; name: string; type: IntegrationType }[];
   idPrefix?: string;
 }) {
@@ -44,44 +48,75 @@ export function ResponseFields({
       </p>
     );
 
-  // A bus gateway's routes are chosen by the message that runs them. Feeding a response
-  // straight into one runs that single route with the bus skipped — nothing published, no
-  // matching, no filter, and none of the other routes bound to the same message — which
-  // looks like publishing and isn't. The API refuses it; this keeps it out of reach.
-  // An already-saved one stays listed so opening this panel can't quietly blank it.
-  const offered = candidates.filter((x) => x.type !== "BusGateway" || x.id === responseIntegrationId);
-  const busRouteChosen = candidates.some(
-    (x) => x.id === responseIntegrationId && x.type === "BusGateway",
-  );
-
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field
-        label="Feed the response into"
-        htmlFor={`${idPrefix}-into`}
-        hint="Hands the delivery response straight to another integration, off the bus."
-      >
-        <SearchSelect
-          id={`${idPrefix}-into`}
-          value={responseIntegrationId === null ? "" : String(responseIntegrationId)}
+    <div className="space-y-4">
+      {responseIntegrationId !== null && (
+        <FedIntoNotice
+          name={candidates.find((x) => x.id === responseIntegrationId)?.name ?? null}
+          id={responseIntegrationId}
           disabled={disabled}
-          onChange={(v) => onChange({ responseIntegrationId: v === "" ? null : Number(v) })}
-          clearLabel="Nothing — responses are only recorded"
-          options={offered.map((x) => ({ value: String(x.id), label: x.name }))}
+          onClear={() => onChange({ responseIntegrationId: null })}
         />
-        {busRouteChosen && (
-          <p className="mt-1 text-[13px] text-danger-700">
-            That is a bus gateway route, which saving will refuse — it would run on its own with
-            the bus skipped. Publish on the bus below instead, and its gateway picks it up.
-          </p>
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <BusMessageField
+          value={responseMessageTypeName}
+          disabled={disabled}
+          idPrefix={idPrefix}
+          onChange={(responseMessageTypeName) => onChange({ responseMessageTypeName })}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * An already-saved "feed the response into this integration", shown so it can be seen
+ * and undone — and offered nowhere else, because nothing new should acquire one.
+ *
+ * It hands the response to exactly one integration with the bus skipped: nothing is
+ * published, no filter is consulted, and nothing else bound to the same information
+ * type hears it. Publishing does all of that and is the reason the bus is here, so the
+ * field is kept only for configuration that already depends on it. Retired rather than
+ * dropped, because silently ignoring a saved value would change what a live integration
+ * does without anyone being told.
+ */
+function FedIntoNotice({
+  name,
+  id,
+  disabled,
+  onClear,
+}: {
+  name: string | null;
+  id: number;
+  disabled: boolean;
+  onClear: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[13px] text-ink-800">
+          Feeds the response straight into{" "}
+          <Link to={`/subscriptions/${id}`} className="font-medium text-crimson-700 hover:underline">
+            {name ?? `integration ${id}`}
+          </Link>
+          .
+        </p>
+        {!disabled && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-[13px] font-medium text-crimson-700 hover:underline"
+          >
+            Stop feeding it there
+          </button>
         )}
-      </Field>
-      <BusMessageField
-        value={responseMessageTypeName}
-        disabled={disabled}
-        idPrefix={idPrefix}
-        onChange={(responseMessageTypeName) => onChange({ responseMessageTypeName })}
-      />
+      </div>
+      <p className="mt-1 text-[12px] text-ink-500">
+        An old setting, kept so it can be cleared — it can't be set again. The bus is skipped, so
+        nothing is published and no other route bound to that information type hears it. Publish on
+        the bus below instead.
+      </p>
     </div>
   );
 }
