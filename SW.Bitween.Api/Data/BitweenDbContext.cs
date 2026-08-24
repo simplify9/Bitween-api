@@ -18,7 +18,11 @@ namespace SW.Bitween
         private readonly RequestContext requestContext;
         private readonly IPublish publish;
 
-        protected readonly DateTime defaultCreatedOn = DateTime.Parse("1/1/2022");
+        // Parsed as Unspecified kind, so the .ToUniversalTime() calls at every use site below used
+        // to convert using whatever timezone the current machine happened to be in — deterministic
+        // on any one developer's machine, but different on every other machine/CI runner, which
+        // permanently disagreed with whichever machine last regenerated the migration snapshot.
+        protected readonly DateTime defaultCreatedOn = DateTime.SpecifyKind(DateTime.Parse("1/1/2022"), DateTimeKind.Utc);
 
         // Mtm@dmin!2
         protected readonly string defaultPasswordHash =
