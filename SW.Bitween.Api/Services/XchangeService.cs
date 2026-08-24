@@ -126,6 +126,18 @@ public class XchangeService :
         // this null — resolve it here so {{globals.…}} always gets a chance to translate,
         // instead of silently no-op'ing for whichever caller forgot to load it.
         globalAdapterValuesSets ??= await _BitweenCache.ListGlobalAdapterValuesSetsAsync();
+
+        // And the same for the partner, for the same reason. Only a caller that learned the
+        // partner from somewhere other than the subscription — a bus gateway route, a partner
+        // calling an API gateway — has one to hand in; everyone else left it null and the
+        // subscription's own partner went unused, so every {{partner.…}} in its adapters was
+        // written out literally and the handler ran against the template. This is the value
+        // the Xchange is attributed to either way (see PartnerId below), so filling from it
+        // adds a resolution that was missing rather than changing whose exchange it is.
+        gatewayPartner ??= subscription.PartnerId.HasValue
+            ? await _dbContext.FindAsync<Partner>(subscription.PartnerId.Value)
+            : null;
+
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
             globalAdapterValuesSets);
         await AddFile(xchange.Id, XchangeFileType.Input, file);

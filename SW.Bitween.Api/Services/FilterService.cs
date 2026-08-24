@@ -51,9 +51,31 @@ namespace SW.Bitween
 
             var matches = subs.Where(sub =>
             {
-                // Bus-gateway subscriptions only run via their gateway routes (with the route's
-                // filter and optional partner), never through the normal auto-match flow.
-                if (sub.Type == SubscriptionType.BusGateway)
+                // An integration with an entry point of its own is never started by a document
+                // merely arriving on its information type — it is started through that entry
+                // point, which is what decides it should run at all:
+                //
+                //   BusGateway     — its gateway's routes (route filter + optional partner)
+                //   Receiving      — its schedule, via ReceivingJob
+                //   GatewayApiCall — a partner calling the gateway it is attached to
+                //   ApiCall        — its own partner posting to Xchanges/Update, which runs the
+                //                    subscription belonging to the caller (legacy GatewayApiCall)
+                //
+                // All four are started by name, through SubmitSubscriptionXchange. Auto-matching
+                // them as well ran them a second time, on traffic addressed to nobody: a scheduled
+                // job publishing the very message type it is bound to fed itself forever, and an
+                // ApiCall integration belonging to one partner ran on another partner's message.
+                // Both stayed hidden only while those handlers happened to be unreachable. The
+                // second run also arrived without the partner the entry point would have passed,
+                // so every {{partner.…}} in its adapters stayed a literal token.
+                //
+                // Internal keeps matching. Reacting to a document of its type arriving is the
+                // whole definition of the type — it has no other trigger. Aggregation is driven
+                // by AggregationJob.
+                if (sub.Type is SubscriptionType.BusGateway
+                    or SubscriptionType.Receiving
+                    or SubscriptionType.GatewayApiCall
+                    or SubscriptionType.ApiCall)
                     return false;
 
                 var exp = sub.BackwardCompatibleMatchExpression(doc);
