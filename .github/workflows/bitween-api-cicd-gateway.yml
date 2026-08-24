@@ -21,13 +21,13 @@ permissions:
 
 jobs:
   build-publish-deploy:
-    # Mirrors the old deploy-release gate: only the r8.0 release line (or manual).
-    if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r8.0') || github.event_name == 'workflow_dispatch' }}
+    # Mirrors the old deploy-release gate: only the r10.0 release line (or manual).
+    if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r10.0') || github.event_name == 'workflow_dispatch' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
     with:
-      major-version: '8'
-      minor-version: '1'
-      dotnet-version: '8.0.x'
+      major-version: '10'
+      minor-version: '0'
+      dotnet-version: '10.0.x'
 
       dockerfile-path: './Dockerfile'
       docker-context: '.'
