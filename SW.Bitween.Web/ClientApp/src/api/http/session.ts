@@ -27,6 +27,8 @@ const buildSession = (profile: Profile): Session => {
     email: profile.email,
     roleIds: (profile.roles ?? []).map((r) => String(r.id)),
     status: profile.disabled ? "disabled" : "active",
+    // Always null here: you cannot be signed in and locked out at the same time.
+    lockedUntil: null,
     microsoftLinked: false,
     createdOn: profile.createdOn,
   };

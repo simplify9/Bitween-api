@@ -45,6 +45,12 @@ export interface FaceInput {
   fault?: StageFace["fault"];
   /** Names for the "feed the response into" target. */
   integrationNames?: { id: number; name: string }[];
+  /**
+   * Set while the integration is being defined and nothing is saved yet. A delivery-less
+   * integration that already exists is a legal thing that records and stops; one being
+   * created here cannot be saved without a delivery, so the node has to say so.
+   */
+  unsaved?: boolean;
 }
 
 /**
@@ -55,7 +61,7 @@ export interface FaceInput {
  * while editing is how the two drift apart.
  */
 export function faceOf(stageId: StageId, input: FaceInput): StageFace {
-  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, integrationNames } = input;
+  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, integrationNames, unsaved } = input;
   const dirty = saved ? stageDirty(stageId, d, saved) : false;
 
   switch (stageId) {
@@ -113,16 +119,16 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
         state: d.mapperId ? "set" : "none",
       };
     case "delivery":
-      // "none", not "missing": an integration that records the document and
-      // stops is a legal configuration. The create page requires a handler
-      // anyway, but it says so at the Create button rather than by calling a
-      // saved integration broken.
+      // "none", not "missing", once it exists: an integration that records the document
+      // and stops is a legal configuration, and calling a saved one broken would be
+      // wrong. While it is still being defined the save is blocked on this, so it is
+      // genuinely missing and the node says which node to go to.
       return {
         id: stageId,
         dirty,
-        title: labelOf(catalogs.handlers, d.handlerId) ?? "Stops here",
+        title: labelOf(catalogs.handlers, d.handlerId) ?? (unsaved ? "Needed" : "Stops here"),
         detail: locationHint(d.handlerProperties),
-        state: d.handlerId ? "set" : "none",
+        state: d.handlerId ? "set" : unsaved ? "missing" : "none",
       };
     case "response":
       if (!d.handlerId) return { id: stageId, dirty, title: "Nothing delivered", state: "none" };

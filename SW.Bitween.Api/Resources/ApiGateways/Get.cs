@@ -38,6 +38,7 @@ namespace SW.Bitween.Resources.ApiGateways
                 Id = gateway.Id,
                 Name = gateway.Name,
                 UrlName = gateway.UrlName,
+                Inactive = gateway.Inactive,
                 PartnersCount = gateway.Partners.Count,
                 Partners = gateway.Partners.Select(p => new ApiGatewayPartnerDto
                 {

@@ -85,7 +85,8 @@ namespace SW.Bitween.Resources.Xchanges
                             // pre-migration xchanges have it null even when their subscription carries
                             // a direct PartnerId — fall back to that for those legacy rows.
                             PartnerId = xchange.PartnerId ?? subscriber.PartnerId,
-                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null
+                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null,
+                            RetryBlockedReason = result.RetryBlockedReason
                         };
 
             var condition = searchyRequest.Conditions.FirstOrDefault();
@@ -150,7 +151,11 @@ namespace SW.Bitween.Resources.Xchanges
                 {
                     var value = propertyFilter.Value.ToString()!.ToLower();
 
-                    query = query.Where(i => i.PromotedPropertiesRaw.Contains(value));
+                    // Both sides lower-cased at query time. Promoted values keep the case the
+                    // payload had (see FilterService), so the column has to be folded here for
+                    // the search to stay case-insensitive. No index is lost: a Contains is a
+                    // leading-wildcard LIKE, which the b-tree on this column could never serve.
+                    query = query.Where(i => i.PromotedPropertiesRaw.ToLower().Contains(value));
                     condition.Filters.Remove(propertyFilter);
                 }
             }

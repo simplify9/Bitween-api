@@ -8,34 +8,58 @@ import {
   type IntegrationRow,
   type IntegrationRun,
   type IntegrationType,
+  type InformationTypeRow,
+  type Paged,
+  type PartnerRow,
+  type ReceiveAttemptRow,
+  type ReceiveOutcome,
   type Schedule,
   type ScheduleHealth,
 } from "../types";
 import { schedulesSummary } from "../../lib/schedules";
 import { documentMethods } from "./documents";
-import { exchangeMethods } from "./exchanges";
+import { deriveStatus, exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { partnerMethods } from "./partners";
 import { scanReferenceTokens } from "./references";
 import { get, post, request } from "./request";
+import { buildListQuery, SEARCHY_RULE, SEARCHY_SORT } from "./searchQuery";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
+import {
+  toKvArray,
+  toRawSchedules,
+  type RawKeyAndValue,
+  type RawSchedule,
+} from "./subscriptionBody";
 
 // ——— backend shapes (camelCase over the wire) ———
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
 }
-interface RawKeyAndValue {
-  key: string;
-  value: string;
+
+interface RawReceiveAttemptExchange {
+  id: string;
+  status: boolean | null;
+  responseBad: boolean | null;
+  promotedProperties: Record<string, string> | null;
 }
-interface RawSchedule {
-  recurrence: Schedule["recurrence"];
-  days: number;
-  hours: number;
-  minutes: number;
-  backwards: boolean;
+interface RawReceiveAttempt {
+  id: number;
+  startedOn: string;
+  finishedOn: string;
+  // Enums may arrive as the numeric value or the name, depending on the endpoint.
+  outcome: number | string;
+  errorMessage: string | null;
+  exchanges: RawReceiveAttemptExchange[];
 }
+const RECEIVE_OUTCOME_BY_NUM: Record<number, ReceiveOutcome> = {
+  0: "Failed",
+  1: "NoNewData",
+  2: "Received",
+};
+const toReceiveOutcome = (o: number | string): ReceiveOutcome =>
+  typeof o === "number" ? (RECEIVE_OUTCOME_BY_NUM[o] ?? "Failed") : (o as ReceiveOutcome);
 
 interface RawSubscription {
   id?: number;
@@ -99,19 +123,9 @@ const toIntegrationType = (t: number | string): IntegrationType =>
 // stored data that never had the key — leaving the Save bar up after an undo.
 const toRecord = (kvs: RawKeyAndValue[] | null): Record<string, string> =>
   Object.fromEntries((kvs ?? []).filter((kv) => kv.value !== "").map((kv) => [kv.key, kv.value]));
-const toKvArray = (record: Record<string, string>): RawKeyAndValue[] =>
-  Object.entries(record).map(([key, value]) => ({ key, value }));
 
 const toSchedules = (raw: RawSchedule[] | null): Schedule[] =>
   (raw ?? []).map((s) => ({
-    recurrence: s.recurrence,
-    days: s.days,
-    hours: s.hours,
-    minutes: s.minutes,
-    backwards: s.backwards,
-  }));
-const toRawSchedules = (schedules: Schedule[]): RawSchedule[] =>
-  schedules.map((s) => ({
     recurrence: s.recurrence,
     days: s.days,
     hours: s.hours,
@@ -235,6 +249,41 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
   });
 }
 
+function toIntegrationRow(
+  raw: RawSubscription,
+  infoTypeById: Map<number, InformationTypeRow>,
+  partnerById: Map<number, PartnerRow>,
+): IntegrationRow {
+  const type = toIntegrationType(raw.type);
+  const infoType = infoTypeById.get(raw.documentId);
+  const partner = raw.partnerId !== null ? partnerById.get(raw.partnerId) : undefined;
+  const schedules = toSchedules(raw.schedules);
+  return {
+    id: raw.id!,
+    name: raw.name,
+    type,
+    informationTypeId: raw.documentId,
+    informationTypeCode: infoType?.code ?? infoType?.name ?? "",
+    // Gateway-derived partners (GatewayApiCall/BusGateway) land in Batch 3.
+    partners: partner ? [{ id: partner.id, name: partner.name }] : [],
+    enabled: !raw.inactive,
+    paused: raw.pausedOn !== null,
+    isRunning: raw.isRunning ?? false,
+    consecutiveFailures: raw.consecutiveFailures ?? 0,
+    lastException: raw.lastException ?? null,
+    // Search.cs can't select Schedules in this joined query without
+    // breaking SQL translation (Postgres date_part type mismatch), so
+    // schedules is always empty here — showing "No schedule" would be
+    // actively wrong for a job that has one. Leave it unset instead.
+    scheduleSummary:
+      schedules.length > 0 && (type === "Receiving" || type === "Aggregation")
+        ? schedulesSummary(schedules)
+        : undefined,
+    nextReceiveOn: raw.receiveOn ?? null,
+    createdOn: "",
+  };
+}
+
 export const integrationMethods = {
   async listIntegrations(): Promise<IntegrationInfo[]> {
     const rows = await fetchAllRaw();
@@ -246,6 +295,7 @@ export const integrationMethods = {
       informationTypeId: raw.documentId,
       workGroupId: raw.workGroupId ?? null,
       retryPolicyId: raw.retryPolicyId ?? null,
+      handlerId: raw.handlerId ?? null,
       responseMessageTypeName: raw.responseMessageTypeName ?? null,
       responseIntegrationId: raw.responseSubscriptionId ?? null,
       // No backend endpoint indexes reference tokens, but the search rows carry
@@ -269,37 +319,41 @@ export const integrationMethods = {
     ]);
     const infoTypeById = new Map(infoTypes.map((t) => [t.id, t]));
     const partnerById = new Map(partners.map((p) => [p.id, p]));
+    return rows.map((raw) => toIntegrationRow(raw, infoTypeById, partnerById));
+  },
 
-    return rows.map((raw) => {
-      const type = toIntegrationType(raw.type);
-      const infoType = infoTypeById.get(raw.documentId);
-      const partner = raw.partnerId !== null ? partnerById.get(raw.partnerId) : undefined;
-      const schedules = toSchedules(raw.schedules);
-      return {
-        id: raw.id!,
-        name: raw.name,
-        type,
-        informationTypeId: raw.documentId,
-        informationTypeCode: infoType?.code ?? infoType?.name ?? "",
-        // Gateway-derived partners (GatewayApiCall/BusGateway) land in Batch 3.
-        partners: partner ? [{ id: partner.id, name: partner.name }] : [],
-        enabled: !raw.inactive,
-        paused: raw.pausedOn !== null,
-        isRunning: raw.isRunning ?? false,
-        consecutiveFailures: raw.consecutiveFailures ?? 0,
-        lastException: raw.lastException ?? null,
-        // Search.cs can't select Schedules in this joined query without
-        // breaking SQL translation (Postgres date_part type mismatch), so
-        // schedules is always empty here — showing "No schedule" would be
-        // actively wrong for a job that has one. Leave it unset instead.
-        scheduleSummary:
-          schedules.length > 0 && (type === "Receiving" || type === "Aggregation")
-            ? schedulesSummary(schedules)
-            : undefined,
-        nextReceiveOn: raw.receiveOn ?? null,
-        createdOn: "",
-      };
+  async searchIntegrationRows(query: {
+    search: string;
+    type: IntegrationType | null;
+    informationTypeId?: number | null;
+    partnerId?: number | null;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<IntegrationRow>> {
+    const qs = buildListQuery({
+      filters: [
+        ["Name", SEARCHY_RULE.contains, query.search.trim()],
+        ["Type", SEARCHY_RULE.equalsTo, query.type ?? ""],
+        ["DocumentId", SEARCHY_RULE.equalsTo, query.informationTypeId ?? ""],
+        ["PartnerId", SEARCHY_RULE.equalsTo, query.partnerId ?? ""],
+        ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
+      ],
+      sort: ["Name", SEARCHY_SORT.asc],
+      offset: query.offset,
+      limit: query.limit,
     });
+    const [res, infoTypes, partners] = await Promise.all([
+      get<SearchyResponse<RawSubscription>>(`/subscriptions?${qs}`),
+      documentMethods.listInformationTypes(),
+      partnerMethods.listPartners(),
+    ]);
+    const infoTypeById = new Map(infoTypes.map((t) => [t.id, t]));
+    const partnerById = new Map(partners.map((p) => [p.id, p]));
+    return {
+      total: res.totalCount,
+      result: (res.result ?? []).map((raw) => toIntegrationRow(raw, infoTypeById, partnerById)),
+    };
   },
 
   async getIntegration(id: number): Promise<IntegrationDetail> {
@@ -349,6 +403,8 @@ export const integrationMethods = {
     type: IntegrationType;
     name: string;
     informationTypeId: number;
+    /** Required by the types that carry their own partner — Internal and ApiCall. */
+    partnerId?: number | null;
     receiverId?: string | null;
     receiverProperties?: Record<string, string>;
     validatorId?: string | null;
@@ -370,7 +426,7 @@ export const integrationMethods = {
       name: input.name,
       documentId: input.informationTypeId,
       type: input.type,
-      partnerId: null,
+      partnerId: input.partnerId ?? null,
       aggregationForId: null,
       receiverId: input.receiverId ?? null,
       receiverProperties: toKvArray(input.receiverProperties ?? {}),
@@ -416,6 +472,34 @@ export const integrationMethods = {
 
   listIntegrationRuns(id: number, limit = 20): Promise<IntegrationRun[]> {
     return get<IntegrationRun[]>(`/subscriptions/runs?subscriptionId=${id}&limit=${limit}`);
+  },
+
+  async searchReceiveAttempts(
+    subscriptionId: number,
+    query: { outcome: ReceiveOutcome | null; offset: number; limit: number },
+  ): Promise<Paged<ReceiveAttemptRow>> {
+    const params = new URLSearchParams({
+      subscriptionId: String(subscriptionId),
+      offset: String(query.offset),
+      limit: String(query.limit),
+    });
+    if (query.outcome) params.set("outcome", query.outcome);
+    const res = await get<SearchyResponse<RawReceiveAttempt>>(`/subscriptions/receiveattempts?${params.toString()}`);
+    return {
+      total: res.totalCount,
+      result: (res.result ?? []).map((a) => ({
+        id: a.id,
+        startedOn: a.startedOn,
+        finishedOn: a.finishedOn,
+        outcome: toReceiveOutcome(a.outcome),
+        errorMessage: a.errorMessage,
+        exchanges: a.exchanges.map((x) => ({
+          id: x.id,
+          status: deriveStatus(x),
+          promotedProperties: x.promotedProperties,
+        })),
+      })),
+    };
   },
 
   async listLastRuns(): Promise<IntegrationLastRun[]> {

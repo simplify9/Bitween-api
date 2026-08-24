@@ -32,6 +32,7 @@ namespace SW.Bitween.Resources.Accounts
 
             if (request.Lookup)
             {
+                // id -> display name only; needed across the app (e.g. audit trails)
                 return await query.OrderBy(i => i.DisplayName)
                     .ToDictionaryAsync(i => i.Id, i => i.DisplayName);
             }
@@ -48,7 +49,8 @@ namespace SW.Bitween.Resources.Accounts
                     Name = a.DisplayName,
                     Id = a.Id,
                     Disabled = a.Disabled,
-                    Role = a.Role.ToString()
+                    Role = a.Role.ToString(),
+                    LockoutEnd = a.LockoutEnd
                 })
                 .ToListAsync();
 

@@ -32,7 +32,9 @@ public class Search(
         // until the cache's own TTL expires whenever that broadcast doesn't
         // land. GlobalAdapterValuesSets and RetryPolicies already read the DB
         // directly for the same reason.
-        var workGroups = await dbContext.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
+        var workGroups = await dbContext.Set<WorkGroup>().AsNoTracking()
+            .Where(w => request.Name == null || w.Name.Contains(request.Name))
+            .ToArrayAsync();
         var consumerCounts = Array.Empty<ConsumerCount>();
 
         try

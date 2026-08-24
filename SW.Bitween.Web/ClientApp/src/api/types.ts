@@ -38,6 +38,12 @@ export interface User {
   email: string;
   roleIds: string[];
   status: UserStatus;
+  /**
+   * Set while the account is locked out after repeated failed sign-ins. Orthogonal to
+   * `status`: a lockout is automatic and expires on its own, where disabling is an
+   * admin decision that does not. Null once it has passed.
+   */
+  lockedUntil: string | null;
   /** Whether a Microsoft account is linked for SSO. */
   microsoftLinked: boolean;
   createdOn: string;
@@ -137,6 +143,12 @@ export interface IntegrationInfo {
   informationTypeId: number;
   workGroupId: number | null;
   retryPolicyId: number | null;
+  /**
+   * Its delivery step. Null means nothing is delivered — and since a response is
+   * whatever the delivery hands back, null here means the two response fields below
+   * can never be reached, however they are set.
+   */
+  handlerId: string | null;
   /** The bus message its delivery response is published as, if any. */
   responseMessageTypeName: string | null;
   /** The integration its delivery response is handed straight to, if any. */
@@ -245,6 +257,26 @@ export type RetryDelay =
   | { type: "linear"; initialSeconds: number; incrementSeconds: number }
   | { type: "exponential"; initialSeconds: number; multiplier: number; maxSeconds: number };
 
+/**
+ * Whether a level of the alert hierarchy names its own destination or defers upward.
+ *
+ * Resolved most-specific-first per integration and group: the pair's own override, then
+ * the group, then the policy. A level that sends **replaces** the one above rather than
+ * merging with it, so whichever level wins has to carry the handler and every property
+ * it needs.
+ */
+export type RetryAlertMode = "Inherit" | "Send" | "Silent";
+
+/** Which level of that hierarchy decided, so a wrong destination can be traced to its source. */
+export type RetryAlertLevel = "SubscriptionGroup" | "Group" | "Policy";
+
+/** A destination for budget-exhausted alerts, as configured at one level. */
+export interface RetryAlertConfig {
+  alertMode: RetryAlertMode;
+  alertHandlerId: string | null;
+  alertHandlerProperties: Record<string, string>;
+}
+
 export interface RetryGroup {
   id: string;
   name: string;
@@ -257,6 +289,10 @@ export interface RetryGroup {
   action: "Allow" | "Block";
   budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number; delay: RetryDelay };
   notes?: string;
+  /** Where this group's budget-exhausted alert goes, for every integration using the policy. */
+  alertMode: RetryAlertMode;
+  alertHandlerId: string | null;
+  alertHandlerProperties: Record<string, string>;
 }
 
 export interface RetryPolicy {
@@ -264,6 +300,9 @@ export interface RetryPolicy {
   name: string;
   groups: RetryGroup[];
   createdOn: string;
+  /** The policy-wide alert destination, inherited by every group that doesn't name its own. */
+  alertHandlerId: string | null;
+  alertHandlerProperties: Record<string, string>;
 }
 export interface RetryPolicyListRow {
   id: number;
@@ -275,6 +314,74 @@ export interface RetryPolicyListRow {
 }
 export interface RetryPolicyDetail extends RetryPolicy {
   integrations: IntegrationSetupRef[];
+}
+
+/**
+ * What became of a budget-exhausted alert.
+ *
+ * `claimedOn` is when the alert was raised — all the counter itself records. Whether it then
+ * reached anyone is a separate fact that can fail, so the two are reported apart: a page showing
+ * only the claim tells the reader someone was notified when nobody was.
+ */
+export interface RetryAlertOutcome {
+  claimedOn: string;
+  /** Null when the alert was claimed but no delivery attempt was ever recorded. */
+  delivered: boolean | null;
+  /** Why delivery failed, when it did. */
+  error: string | null;
+}
+
+/**
+ * The whole state of one integration-and-group pair: how much of the group's budget that
+ * integration has spent, and where the pair's budget-exhausted alert would go.
+ *
+ * Budgets are counted per pair — a shared policy gives every integration its own separate total
+ * — so there is no such thing as "this policy's usage". Any single figure on a policy or a group
+ * would be an aggregate matching nothing anyone can act on, which is why the pair is also what
+ * resetting and overriding both address.
+ */
+export interface RetryUsageRow {
+  integrationId: number;
+  integrationName: string;
+  groupId: string;
+  groupName: string;
+  used: number;
+  total: number;
+  /** Spent out: this integration gets no further automatic retries from this group. */
+  exhausted: boolean;
+  /** Null when the pair has never failed — also how you know there is no counter to reset. */
+  lastAttemptOn: string | null;
+  /** Where the alert actually goes, or null when nothing sends for this pair. */
+  resolvedHandlerId: string | null;
+  resolvedHandlerProperties: Record<string, string>;
+  resolvedFrom: RetryAlertLevel | null;
+  /** Which level deliberately switched the alert off — a decision, as against an oversight. */
+  silencedAt: RetryAlertLevel | null;
+  /** This pair's own override; `Inherit` when it has none. */
+  override: RetryAlertConfig;
+  alert: RetryAlertOutcome | null;
+}
+
+/** One failure a group caught — what a usage row spent its budget on. */
+export interface RetryAttempt {
+  exchangeId: string;
+  /** How deep the retry chain was, 0 being the original delivery. Null for older failures. */
+  attemptNumber: number | null;
+  failedOn: string;
+  error: string;
+  /** True while another attempt is still scheduled: the one thing here that is not history. */
+  retryPending: boolean;
+  /** Why no further attempt was scheduled, when the policy refused one. */
+  blockedReason: string | null;
+}
+
+export interface RetryAttempts {
+  /**
+   * Every failure this group has caught for this integration. Failures outlive the counter,
+   * which is reset, so this is not the counter's value.
+   */
+  total: number;
+  attempts: RetryAttempt[];
 }
 
 export interface RetryTestAttempt {
@@ -321,6 +428,30 @@ export interface NotifierDetail extends Notifier {
  * Backend Subscription.Type. Aggregation exists in data but is deferred in
  * this UI; Internal and ApiCall are legacy — shown and editable, never created.
  */
+/**
+ * The editable fields of an integration being defined inline, while whatever points
+ * at it is being made. Mirrors the studio's own draft — deliberately, so the canvas
+ * can hand its draft straight to the client.
+ */
+export interface InlineIntegrationDraft {
+  name: string;
+  enabled: boolean;
+  workGroupId: number | null;
+  retryPolicyId: number | null;
+  receiverId: string | null;
+  receiverProperties: Record<string, string>;
+  validatorId: string | null;
+  validatorProperties: Record<string, string>;
+  mapperId: string | null;
+  mapperProperties: Record<string, string>;
+  handlerId: string | null;
+  handlerProperties: Record<string, string>;
+  matchExpression: MatchGroup | null;
+  schedules: Schedule[];
+  responseIntegrationId: number | null;
+  responseMessageTypeName: string | null;
+}
+
 export type IntegrationType =
   | "Receiving"
   | "GatewayApiCall"
@@ -459,6 +590,26 @@ export interface IntegrationLastRun extends IntegrationRun {
   recentSucceeded: number;
 }
 
+/** One poll of a Receiving integration's own receive step — independent of the scheduler's
+ * run history, which only knows whether the method threw (it never does; failures here are
+ * caught and reported this way instead). */
+export type ReceiveOutcome = "Failed" | "NoNewData" | "Received";
+
+export interface ReceiveAttemptExchange {
+  id: string;
+  status: ExchangeStatus;
+  promotedProperties: Record<string, string> | null;
+}
+
+export interface ReceiveAttemptRow {
+  id: number;
+  startedOn: string;
+  finishedOn: string;
+  outcome: ReceiveOutcome;
+  errorMessage: string | null;
+  exchanges: ReceiveAttemptExchange[];
+}
+
 /**
  * Whether a scheduled integration will actually fire, straight from the scheduler.
  * Everything here can disagree with what the integration's own record says, and
@@ -525,6 +676,8 @@ export interface ApiGateway {
   id: number;
   name: string;
   urlName: string;
+  /** Off but kept, with its attachments. Partners calling it get a 503. */
+  inactive: boolean;
   createdOn: string;
 }
 export interface ApiGatewayRow extends ApiGateway {
@@ -550,6 +703,8 @@ export interface BusGateway {
   id: number;
   name: string;
   informationTypeId: number;
+  /** Off but kept, with its routes. The message stops being offered to them. */
+  inactive: boolean;
   createdOn: string;
 }
 export interface BusGatewayRow extends BusGateway {
@@ -664,6 +819,11 @@ export interface ExchangeQuery {
   correlationId?: string;
   /** Substring match against promoted property keys and values. */
   property?: string;
+  /**
+   * Narrows `property` to one promoted key. Set on its own it asks "has this key at
+   * all", which is worth being able to ask.
+   */
+  propertyKey?: string;
   from?: string;
   to?: string;
   offset: number;

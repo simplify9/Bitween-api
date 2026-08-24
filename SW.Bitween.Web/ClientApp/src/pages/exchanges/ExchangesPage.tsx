@@ -25,7 +25,7 @@ const REFRESH_OPTIONS = [
 ];
 
 /** Everything except paging counts as "a filter" for the Clear affordance. */
-const FILTER_KEYS = ["status", "integrationId", "partnerId", "informationTypeId", "ids", "correlationId", "property", "from", "to"] as const;
+const FILTER_KEYS = ["status", "integrationId", "partnerId", "informationTypeId", "ids", "correlationId", "propertyKey", "property", "from", "to"] as const;
 
 const readQuery = (sp: URLSearchParams): ExchangeQuery => ({
   status: (sp.get("status") as ExchangeStatus | null) ?? undefined,
@@ -34,6 +34,7 @@ const readQuery = (sp: URLSearchParams): ExchangeQuery => ({
   informationTypeId: sp.get("informationTypeId") ? Number(sp.get("informationTypeId")) : undefined,
   ids: sp.get("ids") ?? undefined,
   correlationId: sp.get("correlationId") ?? undefined,
+  propertyKey: sp.get("propertyKey") ?? undefined,
   property: sp.get("property") ?? undefined,
   from: sp.get("from") ? new Date(sp.get("from")! + "T00:00:00").toISOString() : undefined,
   to: sp.get("to") ? new Date(sp.get("to")! + "T23:59:59").toISOString() : undefined,
@@ -62,6 +63,25 @@ export function ExchangesPage() {
   const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() }).data ?? [];
   const infoTypes =
     useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
+
+  /**
+   * Every promoted key any information type declares, with the types that declare it.
+   * Read off the list already fetched for the information-type filter, so offering the
+   * keys costs nothing — and picking from real names beats remembering how one was spelled.
+   */
+  const propertyKeyOptions = useMemo(() => {
+    const owners = new Map<string, string[]>();
+    for (const t of infoTypes)
+      for (const p of t.promotedProperties ?? []) {
+        const carriers = owners.get(p.key) ?? [];
+        const name = t.code ?? t.name;
+        if (!carriers.includes(name)) carriers.push(name);
+        owners.set(p.key, carriers);
+      }
+    return [...owners.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, carriers]) => ({ value: key, label: key, hint: carriers.join(", ") }));
+  }, [infoTypes]);
 
   /** Set (or drop) one URL param; changing any filter resets paging. */
   const setParam = (key: string, value: string | null, resetOffset = true) => {
@@ -216,10 +236,20 @@ export function ExchangesPage() {
           }
           onKeyDown={(e) => e.key === "Enter" && setParam("correlationId", e.currentTarget.value || null)}
         />
+        <div className="w-44">
+          <SearchSelect
+            aria-label="Filter by promoted property key"
+            size="sm"
+            value={query.propertyKey ?? ""}
+            clearLabel="Any property"
+            options={propertyKeyOptions}
+            onChange={(v) => setParam("propertyKey", v || null)}
+          />
+        </div>
         <TextInput
           aria-label="Filter by promoted property"
           className="!h-8 text-[13px]"
-          placeholder="Property (key or value)"
+          placeholder={query.propertyKey ? `${query.propertyKey} is…` : "Any property value"}
           defaultValue={query.property ?? ""}
           key={`prop-${query.property ?? ""}`}
           onBlur={(e) => e.target.value !== (query.property ?? "") && setParam("property", e.target.value || null)}
@@ -324,7 +354,7 @@ export function ExchangesPage() {
                       </Can>
                     </td>
                     <td className="py-1.5 pr-3">
-                      <PromotedProps properties={x.promotedProperties} />
+                      <PromotedProps properties={x.promotedProperties} fallbackId={x.id} />
                     </td>
                     <td className="px-3 py-1.5">
                       {/* Status and the relationship markers read as one thought:

@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
+import { Pause, PanelLeftClose, PanelLeftOpen, Play, Trash2 } from "lucide-react";
 import { api, type BusGatewayDetail, type IntegrationDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { useIntegrationRowsById, useIntegrationsCache } from "../../components/config/shared";
-import { draftOf } from "../integrations/studio/model";
+import { EMPTY_INTEGRATION, NEW_INTEGRATION_ID, draftOf } from "../integrations/studio/model";
+import { adapterIncomplete } from "../integrations/studio/faces";
 import { Canvas, type Hop } from "./studio/Canvas";
 import {
   DeliveryBody,
@@ -21,8 +22,8 @@ import {
   TransformationBody,
 } from "./studio/Inspector";
 import { PartnerDialog } from "../../components/config/PartnerDialog";
-import { NewIntegrationDialog } from "./studio/QuickCreate";
 import { RouteList, type Selection } from "./studio/RouteList";
+import { BackLink } from "../../components/ui/BackLink";
 import {
   BUS_NODES,
   NEW_ROUTE,
@@ -70,7 +71,6 @@ export function BusGatewayPage() {
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("bus-gateways.edit");
   const canEditIntegration = useSessionCan("subscriptions.edit");
-  const canCreateIntegration = useSessionCan("subscriptions.create");
   const [params, setParams] = useSearchParams();
 
   const gateway = useQuery({
@@ -101,11 +101,11 @@ export function BusGatewayPage() {
   const [edit, setEdit] = useState<IntegrationEdit | null>(null);
   const [collapsedInspector, setCollapsedInspector] = useState(false);
   const [listOpen, setListOpen] = useState(() => localStorage.getItem(LIST_KEY) !== "0");
-  const [creating, setCreating] = useState<null | "route-integration" | "response-integration">(null);
   /** undefined = closed, null = creating, number = editing that partner's values. */
   const [partnerDialog, setPartnerDialog] = useState<number | null | undefined>(undefined);
   const [removingRoute, setRemovingRoute] = useState<number | null>(null);
   const [deletingGateway, setDeletingGateway] = useState(false);
+  const [confirmingActive, setConfirmingActive] = useState(false);
   /** A move the user asked for that would drop unsaved edits. */
   const [guarded, setGuarded] = useState<null | { what: string; go: () => void }>(null);
 
@@ -162,7 +162,8 @@ export function BusGatewayPage() {
   const q0 = useQuery({
     queryKey: ["integration", id0],
     queryFn: () => api.getIntegration(id0!),
-    enabled: id0 !== null,
+    // The integration being defined here has no server side to fetch yet.
+    enabled: id0 !== null && id0 !== NEW_INTEGRATION_ID,
   });
   const d0 = useHopDraft(edit, id0, q0.data);
   const id1 = d0?.responseIntegrationId ?? null;
@@ -198,6 +199,16 @@ export function BusGatewayPage() {
       return;
     }
     if (edit?.integrationId === active.id) return;
+    if (active.id === NEW_INTEGRATION_ID) {
+      // Blank, and `saved` blank too: every field the user fills counts as a change,
+      // so the save bar names them the same way it does for an existing integration.
+      setEdit({
+        integrationId: NEW_INTEGRATION_ID,
+        draft: structuredClone(EMPTY_INTEGRATION),
+        saved: structuredClone(EMPTY_INTEGRATION),
+      });
+      return;
+    }
     if (!activeData || activeData.id !== active.id) return;
     const seeded = draftOf(activeData);
     setEdit({ integrationId: active.id, draft: seeded, saved: structuredClone(seeded) });
@@ -279,22 +290,39 @@ export function BusGatewayPage() {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (nameDirty && name !== null) await api.updateBusGateway(gatewayId, { name });
-      // The integration first: if the route write then fails, what was saved is
-      // the part that stands on its own.
-      if (edit && intIsDirty) await api.updateIntegration(edit.integrationId, edit.draft);
+      // `inactive` is round-tripped, not edited here: Update replaces the record, so
+      // omitting it would reactivate a deactivated gateway on a rename.
+      if (nameDirty && name !== null)
+        await api.updateBusGateway(gatewayId, { name, inactive: g.inactive });
+      // An integration being defined here is not written on its own: it goes with the
+      // route, in the one call the endpoint commits as a single transaction, so a
+      // failure can't leave an integration nothing points at.
+      const definingIntegration = routeEdit?.draft.integrationId === NEW_INTEGRATION_ID;
+      const integrationDraft = edit?.draft;
+
+      // Otherwise the integration first: if the route write then fails, what was saved
+      // is the part that stands on its own.
+      if (edit && intIsDirty && !definingIntegration)
+        await api.updateIntegration(edit.integrationId, integrationDraft!);
+
       if (routeEdit && (isNewRoute || routeIsDirty)) {
-        const input = {
-          integrationId: routeEdit.draft.integrationId!,
-          partnerId: routeEdit.draft.partner === "none" ? null : routeEdit.draft.partner,
-          matchExpression: routeEdit.draft.matchExpression,
-        };
+        const partnerId = routeEdit.draft.partner === "none" ? null : routeEdit.draft.partner;
         if (isNewRoute) {
           const before = new Set((g?.routes ?? []).map((r) => r.id));
-          await api.addBusRoute(gatewayId, input);
+          await api.addBusRoute(gatewayId, {
+            ...(definingIntegration
+              ? { newIntegration: integrationDraft! }
+              : { integrationId: routeEdit.draft.integrationId! }),
+            partnerId,
+            matchExpression: routeEdit.draft.matchExpression,
+          });
           return before;
         }
-        await api.updateBusRoute(gatewayId, routeEdit.routeId as number, input);
+        await api.updateBusRoute(gatewayId, routeEdit.routeId as number, {
+          integrationId: routeEdit.draft.integrationId!,
+          partnerId,
+          matchExpression: routeEdit.draft.matchExpression,
+        });
       }
       return null;
     },
@@ -305,10 +333,12 @@ export function BusGatewayPage() {
         queryKey: ["bus-gateway", gatewayId],
         queryFn: () => api.getBusGateway(gatewayId),
       });
-      if (edit) await queryClient.invalidateQueries({ queryKey: ["integration", edit.integrationId] });
+      if (edit && edit.integrationId !== NEW_INTEGRATION_ID)
+        await queryClient.invalidateQueries({ queryKey: ["integration", edit.integrationId] });
       void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
       void queryClient.invalidateQueries({ queryKey: ["integrations"] });
       void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
       setRouteEdit(null);
       setEdit(null);
       setName(fresh.name);
@@ -337,7 +367,10 @@ export function BusGatewayPage() {
 
   const hops: Hop[] = chain.map((h) => ({
     integrationId: h.id,
-    name: h.draft?.name ?? h.data?.name ?? `#${h.id}`,
+    name:
+      h.draft?.name?.trim() ||
+      h.data?.name ||
+      (h.id === NEW_INTEGRATION_ID ? "New integration" : `#${h.id}`),
     draft: h.draft,
     saved: edit?.integrationId === h.id ? edit.saved : h.draft,
     row: rowsById.get(h.id),
@@ -346,6 +379,22 @@ export function BusGatewayPage() {
         ? busDestination(h.draft.responseMessageTypeName, informationTypes.data, allGateways.data ?? [])
         : null,
   }));
+
+  // What still blocks a save, said the way the modal used to say it at its Create
+  // button. The rule outlives the modal: an integration defined here cannot be saved
+  // half-made, and the server refuses it too.
+  const missing = [
+    ...(routeEdit?.draft.integrationId === NEW_INTEGRATION_ID && edit
+      ? [
+          edit.draft.name.trim().length < 2 && "a name",
+          !edit.draft.handlerId && "a delivery",
+          adapterIncomplete(catalogs.handlers, edit.draft.handlerId, edit.draft.handlerProperties) &&
+            "its required delivery fields",
+        ]
+      : isNewRoute && routeEdit?.draft.integrationId === null
+        ? ["an integration"]
+        : []),
+  ].filter((m): m is string => typeof m === "string");
 
   const nodeIsDirty = node
     ? OWNER[node] === "route"
@@ -367,7 +416,14 @@ export function BusGatewayPage() {
             disabled={!canEdit}
             onNewPartner={() => setPartnerDialog(null)}
             onEditPartner={(id) => setPartnerDialog(id)}
-            onNewIntegration={() => setCreating("route-integration")}
+            onNewIntegration={() => {
+              // No modal: the route draft points at the integration being defined, and the
+              // canvas draws it like any other. Straight to its own node, where the name is.
+              setRouteEdit((r) =>
+                r ? { ...r, draft: { ...r.draft, integrationId: NEW_INTEGRATION_ID } } : r,
+              );
+              setQuery({ node: "integration" });
+            }}
           />
         )
       );
@@ -375,7 +431,7 @@ export function BusGatewayPage() {
       return (
         <p className="text-sm text-ink-500">
           {routeEdit?.draft.integrationId === null
-            ? "Pick the integration this route runs first — this step belongs to it."
+            ? "Pick the integration this route runs, or define one — this step belongs to it."
             : "Loading the integration…"}
         </p>
       );
@@ -394,6 +450,7 @@ export function BusGatewayPage() {
                 : null
             }
             lastException={activeData?.lastException ?? null}
+            autoFocusName={edit.integrationId === NEW_INTEGRATION_ID}
           />
         );
       case "transformation":
@@ -402,7 +459,11 @@ export function BusGatewayPage() {
             draft={edit.draft}
             onChange={onChange}
             disabled={!canEditIntegration}
-            mapperEditorHref={`/subscriptions/${edit.integrationId}/mapper`}
+            mapperEditorHref={
+              edit.integrationId === NEW_INTEGRATION_ID
+                ? null
+                : `/subscriptions/${edit.integrationId}/mapper`
+            }
           />
         );
       case "delivery":
@@ -414,8 +475,6 @@ export function BusGatewayPage() {
             onChange={onChange}
             disabled={!canEditIntegration}
             candidates={(allIntegrations.data ?? []).filter((x) => x.id !== edit.integrationId)}
-            onNewIntegration={() => setCreating("response-integration")}
-            canCreate={canCreateIntegration}
           />
         );
     }
@@ -425,13 +484,7 @@ export function BusGatewayPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       {/* ——— toolbar ——— */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-ink-200 bg-white px-4 py-2.5">
-        <Link
-          to="/bus-gateways"
-          title="Back to bus gateways"
-          className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-        >
-          <ArrowLeft className="size-3.5" /> Bus gateways
-        </Link>
+        <BackLink to="/bus-gateways" label="Bus gateways" className="shrink-0" />
         <span className="h-5 w-px shrink-0 bg-ink-200" aria-hidden />
         <button
           type="button"
@@ -454,6 +507,7 @@ export function BusGatewayPage() {
             placeholder="Gateway name"
           />
         </h1>
+        {g.inactive && <Badge tone="warn">Deactivated</Badge>}
         {/* The information type, its bus message name, and whether it is even on the
             bus. This was a canvas node, but it is a property of the gateway, not of
             any one route — repeating it on every route's diagram said otherwise. */}
@@ -499,6 +553,20 @@ export function BusGatewayPage() {
         {canEdit && typeof selection === "number" && (
           <Button size="sm" onClick={() => setRemovingRoute(selection)}>
             <Trash2 className="size-3.5" /> Remove route
+          </Button>
+        )}
+        {canEdit && (
+          <Button
+            size="sm"
+            onClick={() => setConfirmingActive(true)}
+            title={
+              g.inactive
+                ? "Start offering this gateway's messages to its routes again."
+                : "Stop messages reaching its routes, without deleting them."
+            }
+          >
+            {g.inactive ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+            {g.inactive ? "Activate" : "Deactivate"}
           </Button>
         )}
         <Can permission="bus-gateways.delete">
@@ -578,7 +646,15 @@ export function BusGatewayPage() {
                 <p className="truncate text-[13px] font-medium text-ink-800">
                   Unsaved: {dirtyLabels.join(", ")}
                 </p>
-                <FormError>{save.error?.message}</FormError>
+                {missing.length > 0 ? (
+                  <p className="truncate text-[13px] text-ink-500">
+                    Still needs {missing.slice(0, -1).join(", ")}
+                    {missing.length > 1 ? " and " : ""}
+                    {missing.at(-1)}.
+                  </p>
+                ) : (
+                  <FormError>{save.error?.message}</FormError>
+                )}
               </div>
               <div className="flex shrink-0 gap-2">
                 <Button size="sm" onClick={discard}>
@@ -588,7 +664,7 @@ export function BusGatewayPage() {
                   size="sm"
                   variant="primary"
                   busy={save.isPending}
-                  disabled={isNewRoute && routeEdit?.draft.integrationId === null}
+                  disabled={missing.length > 0}
                   onClick={() => save.mutate()}
                 >
                   {isNewRoute ? "Create route" : "Save changes"}
@@ -607,18 +683,6 @@ export function BusGatewayPage() {
           onSaved={(partnerId) =>
             setRouteEdit((r) => (r ? { ...r, draft: { ...r.draft, partner: partnerId } } : r))
           }
-        />
-      )}
-      {(creating === "route-integration" || creating === "response-integration") && (
-        <NewIntegrationDialog
-          informationTypeId={g.informationTypeId}
-          informationTypeCode={g.informationTypeCode}
-          onClose={() => setCreating(null)}
-          onCreated={(newId) => {
-            if (creating === "route-integration")
-              setRouteEdit((r) => (r ? { ...r, draft: { ...r.draft, integrationId: newId } } : r));
-            else setEdit((e) => (e ? { ...e, draft: { ...e.draft, responseIntegrationId: newId } } : e));
-          }}
         />
       )}
 
@@ -669,6 +733,24 @@ export function BusGatewayPage() {
             setQuery({ route: fresh.routes[0] ? String(fresh.routes[0].id) : null, hop: null });
           }}
           onClose={() => setRemovingRoute(null)}
+        />
+      )}
+
+      {confirmingActive && (
+        <ConfirmDialog
+          title={g.inactive ? `Activate ${g.name}?` : `Deactivate ${g.name}?`}
+          body={
+            g.inactive
+              ? `${g.informationTypeName} messages reach its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"} again. Anything published while it was off is gone — the message was offered and this gateway wasn't listening.`
+              : `${g.informationTypeName} messages stop reaching its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"}. Other gateways bound to the same message are unaffected, and the routes themselves are kept.`
+          }
+          confirmLabel={g.inactive ? "Activate" : "Deactivate"}
+          onConfirm={async () => {
+            await api.updateBusGateway(gatewayId, { name: g.name, inactive: !g.inactive });
+            await queryClient.invalidateQueries({ queryKey: ["bus-gateway", gatewayId] });
+            void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
+          }}
+          onClose={() => setConfirmingActive(false)}
         />
       )}
 

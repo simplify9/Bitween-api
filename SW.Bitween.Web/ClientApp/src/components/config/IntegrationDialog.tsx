@@ -63,6 +63,7 @@ export function IntegrationDialog({
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: ["integrations"] });
       void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
       onCreated(created.id);
       onClose();
     },

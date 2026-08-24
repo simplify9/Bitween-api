@@ -60,12 +60,12 @@ public static class Permissions
         public const string Delete = "global-values.delete";
     }
 
-    /// <summary>No delete: notifiers have no delete endpoint, so there is nothing to guard.</summary>
     public static class Notifiers
     {
         public const string View = "notifiers.view";
         public const string Create = "notifiers.create";
         public const string Edit = "notifiers.edit";
+        public const string Delete = "notifiers.delete";
     }
 
     public static class ApiGateways
@@ -208,7 +208,8 @@ public static class PermissionCatalog
         Area("notifiers", "Notifiers", "Integrations", "Alerts sent when exchanges fail or succeed.",
             (View, "Browse notifiers and their delivery history."),
             (Create, "Create notifiers."),
-            (Edit, "Change notifiers.")),
+            (Edit, "Change notifiers."),
+            (Delete, "Remove notifiers.")),
 
         Area("api-gateways", "API gateways", "Integrations", "HTTP entry points partners call into.",
             (View, "Browse API gateways and attached partners."),

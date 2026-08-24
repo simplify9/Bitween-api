@@ -36,10 +36,16 @@ namespace SW.Bitween.Resources.BusGateways
             if (route == null)
                 throw new SWNotFoundException($"Route with Id {model.RouteId} not found in gateway {gatewayId}");
 
-            await AddRoute.ValidateSubscription(_dbContext, model.SubscriptionId, gateway.DocumentId);
+            // Repointing an existing route always names an integration that already exists;
+            // defining one inline is only for the route being created.
+            if (!model.SubscriptionId.HasValue)
+                throw new SWValidationException(GatewayLinkTarget.NeitherGiven,
+                    "Pick the integration this route runs.");
+
+            await AddRoute.ValidateSubscription(_dbContext, model.SubscriptionId.Value, gateway.DocumentId);
             await AddRoute.ValidatePartner(_dbContext, model.PartnerId);
 
-            route.SubscriptionId = model.SubscriptionId;
+            route.SubscriptionId = model.SubscriptionId.Value;
             route.PartnerId = model.PartnerId;
             route.MatchExpression = model.MatchExpression;
 

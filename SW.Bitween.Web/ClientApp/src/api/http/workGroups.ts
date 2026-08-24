@@ -5,6 +5,7 @@ import {
   type WorkGroup,
   type WorkGroupDetail,
   type WorkGroupRow,
+  type Paged,
 } from "../types";
 import { get, getEnrichment, post } from "./request";
 
@@ -70,9 +71,26 @@ const toWorkGroup = (w: RawWorkGroup): WorkGroup => ({
   createdOn: "",
 });
 
+// The backend's own default kicks in only when the caller omits the param
+// entirely (`request.Limit ??= 20`), so passing an explicit, generously large
+// one is how "everything" is asked for — there is no separate "unbounded"
+// value the way the shared Searchy endpoints have with size=0.
+const EVERYTHING = 1_000_000;
+
 async function fetchRows(): Promise<RawWorkGroup[]> {
-  const res = await get<SearchyResponse<RawWorkGroup>>("/workgroups");
+  const res = await get<SearchyResponse<RawWorkGroup>>(`/workgroups?offset=0&limit=${EVERYTHING}`);
   return res.result ?? [];
+}
+
+async function fetchPagedRows(query: {
+  search: string;
+  offset: number;
+  limit: number;
+}): Promise<{ rows: RawWorkGroup[]; total: number }> {
+  const params = new URLSearchParams({ offset: String(query.offset), limit: String(query.limit) });
+  if (query.search.trim()) params.set("name", query.search.trim());
+  const res = await get<SearchyResponse<RawWorkGroup>>(`/workgroups?${params.toString()}`);
+  return { rows: res.result ?? [], total: res.totalCount };
 }
 
 export const workGroupMethods = {
@@ -91,6 +109,30 @@ export const workGroupMethods = {
       usedByCount: countByWorkGroup.get(w.id) ?? 0,
       consumerCount: w.processorNodeCount ?? 0,
     }));
+  },
+
+  async searchWorkGroups(query: {
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<WorkGroupRow>> {
+    const [{ rows, total }, subs] = await Promise.all([
+      fetchPagedRows(query),
+      getEnrichment<SearchyResponse<{ workGroupId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
+    ]);
+    const countByWorkGroup = new Map<number, number>();
+    for (const s of subs.result ?? []) {
+      if (s.workGroupId == null) continue;
+      countByWorkGroup.set(s.workGroupId, (countByWorkGroup.get(s.workGroupId) ?? 0) + 1);
+    }
+    return {
+      total,
+      result: rows.map((w) => ({
+        ...toWorkGroup(w),
+        usedByCount: countByWorkGroup.get(w.id) ?? 0,
+        consumerCount: w.processorNodeCount ?? 0,
+      })),
+    };
   },
 
   async getWorkGroup(id: number): Promise<WorkGroupDetail> {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpRight, Trash2 } from "lucide-react";
+import { ArrowUpRight, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -14,6 +14,7 @@ import {
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { SetupList } from "../../components/config/shared";
 import { LiveQueueStats } from "./LiveQueueStats";
+import { BackLink } from "../../components/ui/BackLink";
 
 /**
  * This group's slice of the live RabbitMQ picture — the same numbers the
@@ -73,6 +74,7 @@ export function WorkGroupPage() {
       // Await the detail refetch before re-syncing the draft (avoids stale-data race).
       await queryClient.invalidateQueries({ queryKey: ["work-group", groupId] });
       void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
       setLoaded(false);
     },
   });
@@ -91,12 +93,7 @@ export function WorkGroupPage() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/work-groups"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Work groups
-      </Link>
+      <BackLink to="/work-groups" label="Work groups" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -150,6 +147,7 @@ export function WorkGroupPage() {
           onConfirm={async () => {
             await api.deleteWorkGroup(groupId);
             void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
             navigate("/work-groups");
           }}
           onClose={() => setDeleting(false)}

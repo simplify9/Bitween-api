@@ -5,10 +5,12 @@ import type { IntegrationRow } from "../../../api";
 import { PanZoomCanvas } from "../../../components/ui/PanZoomCanvas";
 import { Connector, StageNode, type StageFace } from "../../integrations/studio/StageRail";
 import { faceOf, type AdapterCatalogs } from "../../integrations/studio/faces";
+import { NEW_INTEGRATION_ID } from "../../integrations/studio/model";
 import {
   BUS_NODES,
   HEALTH_DOT,
   HEALTH_LABEL,
+  HEALTH_TITLE,
   nodeDirty,
   routeHealth,
   type BusDestination,
@@ -251,6 +253,7 @@ function ExpandedHop({
   integrationNames: { id: number; name: string }[];
 }) {
   const health = routeHealth(hop.row);
+  const isNew = hop.integrationId === NEW_INTEGRATION_ID;
   const headerDirty = hop.draft && hop.saved ? nodeDirty("integration", hop.draft, hop.saved) : false;
 
   if (!hop.draft)
@@ -275,8 +278,8 @@ function ExpandedHop({
         }`}
       >
         <Workflow className="size-4 shrink-0 text-ink-500" aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink-900" title={hop.draft.name}>
-          {hop.draft.name}
+        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink-900" title={hop.name}>
+          {hop.draft.name.trim() || hop.name}
         </span>
         {headerDirty && (
           <span className="size-2 shrink-0 rounded-full bg-warn-700" title="Unsaved changes" />
@@ -286,11 +289,14 @@ function ExpandedHop({
             Disabled
           </span>
         )}
-        <span
-          className={`size-1.5 shrink-0 rounded-full ${HEALTH_DOT[health]}`}
-          title={HEALTH_LABEL[health]}
-          aria-label={HEALTH_LABEL[health]}
-        />
+        {/* Nothing has run yet, so there is no health to report. */}
+        {!isNew && (
+          <span
+            className={`size-1.5 shrink-0 rounded-full ${HEALTH_DOT[health]}`}
+            title={HEALTH_TITLE[health]}
+            aria-label={HEALTH_LABEL[health]}
+          />
+        )}
       </button>
 
       <div className="flex items-stretch">
@@ -304,6 +310,7 @@ function ExpandedHop({
                 saved: hop.saved ?? undefined,
                 catalogs,
                 integrationNames,
+                unsaved: isNew,
               })}
               label={BUS_NODES[node].label}
               icon={BUS_NODES[node].icon}
@@ -348,7 +355,7 @@ function CollapsedHop({ hop, label, onOpen }: { hop: Hop; label: string; onOpen:
         </span>
         <span
           className={`size-1.5 shrink-0 rounded-full ${HEALTH_DOT[health]}`}
-          title={HEALTH_LABEL[health]}
+          title={HEALTH_TITLE[health]}
           aria-label={HEALTH_LABEL[health]}
         />
       </div>

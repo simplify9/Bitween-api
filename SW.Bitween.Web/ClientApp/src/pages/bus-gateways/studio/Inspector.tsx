@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-import { api } from "../../../api";
+import { api, type IntegrationType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Badge } from "../../../components/ui/basics";
 import { Field, TextInput } from "../../../components/ui/forms";
@@ -10,7 +10,12 @@ import { AdapterConfig } from "../../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../../components/config/MatchExpressionEditor";
 import { HealthBadge } from "../../../components/config/shared";
 import { ResponseFields } from "../../integrations/studio/ResponseFields";
-import { BUS_NODES, type BusNodeId, type IntegrationDraft, type RouteDraft } from "./model";
+import {
+  BUS_NODES,
+  type BusNodeId,
+  type IntegrationDraft,
+  type RouteDraft,
+} from "./model";
 
 /**
  * The configuration surface: one node's form, docked under the canvas.
@@ -208,12 +213,15 @@ export function IntegrationBody({
   disabled,
   health,
   lastException,
+  /** Set while the integration is being defined here — the name is the first thing asked. */
+  autoFocusName = false,
 }: {
   draft: IntegrationDraft;
   onChange: (patch: Partial<IntegrationDraft>) => void;
   disabled: boolean;
   health: { isRunning: boolean; consecutiveFailures: number } | null;
   lastException: string | null;
+  autoFocusName?: boolean;
 }) {
   const workGroups = useQuery({
     queryKey: ["work-groups"],
@@ -230,6 +238,8 @@ export function IntegrationBody({
             id="bs-int-name"
             value={draft.name}
             disabled={disabled}
+            autoFocus={autoFocusName}
+            placeholder="e.g. Coral orders to SAP"
             onChange={(e) => onChange({ name: e.target.value })}
           />
         </Field>
@@ -290,7 +300,7 @@ export function TransformationBody({
   draft: IntegrationDraft;
   onChange: (patch: Partial<IntegrationDraft>) => void;
   disabled: boolean;
-  mapperEditorHref?: string;
+  mapperEditorHref?: string | null;
 }) {
   return (
     <AdapterConfig
@@ -331,15 +341,11 @@ export function ResponseBody({
   onChange,
   disabled,
   candidates,
-  onNewIntegration,
-  canCreate,
 }: {
   draft: IntegrationDraft;
   onChange: (patch: Partial<IntegrationDraft>) => void;
   disabled: boolean;
-  candidates: { id: number; name: string }[];
-  onNewIntegration: () => void;
-  canCreate: boolean;
+  candidates: { id: number; name: string; type: IntegrationType }[];
 }) {
   return (
     <div className="space-y-3">
@@ -352,13 +358,10 @@ export function ResponseBody({
         candidates={candidates}
         idPrefix="bs-resp"
       />
-      {draft.handlerId !== null && canCreate && !disabled && (
-        <PanelLinks onCreate={onNewIntegration} createLabel="New integration to feed it into" />
-      )}
       {draft.handlerId !== null && (
         <p className="text-[12px] text-ink-500">
-          Both can be set. A bus message is a fan-out — every route bound to that message's information
-          type picks it up, on this gateway and any other.
+          A bus message is a fan-out — every route bound to that message's information type picks
+          it up, on this gateway and any other.
         </p>
       )}
     </div>

@@ -34,6 +34,8 @@ namespace SW.Bitween.Model
         public bool? RunOnFailedResult { get; set; }
         public string HandlerId { get; set; }
         public bool? Inactive { get; set; }
+        /// <summary>So the list page can show a watched-integration count without a per-row detail fetch.</summary>
+        public int[] RunOnSubscriptions { get; set; }
     }
 
    

@@ -35,13 +35,15 @@ public class XchangeService :
     private readonly ILogger _logger;
     private readonly IInfolinkCache _BitweenCache;
     private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
+    private readonly AdapterInvoker _adapterInvoker;
 
     public XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbContext,
         FilterService filterService,
         ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
         IPublish publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
-        NativeAdapterDiscoveryService nativeAdapterDiscovery)
+        NativeAdapterDiscoveryService nativeAdapterDiscovery, AdapterInvoker adapterInvoker)
     {
+        _adapterInvoker = adapterInvoker;
         _BitweenSettings = BitweenSettings;
         _dbContext = dbContext;
         _filterService = filterService;
@@ -85,20 +87,22 @@ public class XchangeService :
         await _dbContext.SaveChangesAsync();
     }
 
-    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup, Dictionary<string, int> groupAttemptCounts = null)
+    public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup,
+        bool manualRetry = false)
     {
-        var newXchange = new Xchange(xchange, file, workGroup, groupAttemptCounts);
+        var newXchange = new Xchange(xchange, file, workGroup, manualRetry);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
 
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
-        string[] references = null, Dictionary<string, int> groupAttemptCounts = null)
+        string[] references = null, Dictionary<string, int> groupAttemptCounts = null, bool manualRetry = false)
     {
         var partnerId = xchange.PartnerId ?? subscription.PartnerId;
         var partner = partnerId.HasValue ? await _dbContext.FindAsync<Partner>(partnerId.Value) : null;
         var globalAdapterValuesSets = await _BitweenCache.ListGlobalAdapterValuesSetsAsync();
-        var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets, groupAttemptCounts);
+        var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets,
+            groupAttemptCounts, manualRetry);
         await AddFile(newXchange.Id, XchangeFileType.Input, file);
         _dbContext.Add(newXchange);
     }
@@ -122,6 +126,18 @@ public class XchangeService :
         // this null — resolve it here so {{globals.…}} always gets a chance to translate,
         // instead of silently no-op'ing for whichever caller forgot to load it.
         globalAdapterValuesSets ??= await _BitweenCache.ListGlobalAdapterValuesSetsAsync();
+
+        // And the same for the partner, for the same reason. Only a caller that learned the
+        // partner from somewhere other than the subscription — a bus gateway route, a partner
+        // calling an API gateway — has one to hand in; everyone else left it null and the
+        // subscription's own partner went unused, so every {{partner.…}} in its adapters was
+        // written out literally and the handler ran against the template. This is the value
+        // the Xchange is attributed to either way (see PartnerId below), so filling from it
+        // adds a resolution that was missing rather than changing whose exchange it is.
+        gatewayPartner ??= subscription.PartnerId.HasValue
+            ? await _dbContext.FindAsync<Partner>(subscription.PartnerId.Value)
+            : null;
+
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
             globalAdapterValuesSets);
         await AddFile(xchange.Id, XchangeFileType.Input, file);
@@ -149,15 +165,50 @@ public class XchangeService :
             .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
         if (subscription == null)
         {
+            // Recorded on the result like the unreadable-input case below, rather than only dropping
+            // the schedule: the exchange is still there for someone to look at, so leaving it with no
+            // reason means the retry simply stopped happening with nothing to explain it.
             _dbContext.Remove(delayedRetry);
+
+            var orphaned = await _dbContext.FindAsync<XchangeResult>(xchange.Id);
+            orphaned?.SetRetryBlocked(
+                "The scheduled retry was dropped: the subscription it belonged to no longer exists.");
             return false;
         }
 
-        var inputFileData = await GetFile(xchange.Id, XchangeFileType.Input);
-        var inputFile = new XchangeFile(inputFileData, xchange.InputName);
-        await CreateXchange(subscription, xchange, inputFile, groupAttemptCounts: delayedRetry.GroupAttemptCounts);
+        var inputFile = await ReadInputFile(xchange);
+        if (inputFile == null)
+        {
+            // The input is what a retry re-sends, so without it there is nothing to retry with. Handled
+            // like a missing subscription — drop the schedule and move on — but recorded on the result
+            // as well, because unlike a deleted subscription this needs someone to look into it.
+            _dbContext.Remove(delayedRetry);
+
+            var result = await _dbContext.FindAsync<XchangeResult>(xchange.Id);
+            result?.SetRetryBlocked("The scheduled retry was dropped: the input file could not be read.");
+            return false;
+        }
+
+        await CreateXchange(subscription, xchange, inputFile);
         _dbContext.Remove(delayedRetry);
         return true;
+    }
+
+    /// <summary>
+    /// The original input, or <c>null</c> when it cannot be read — deleted from storage, expired by a
+    /// lifecycle rule, or storage itself unavailable.
+    /// </summary>
+    private async Task<XchangeFile> ReadInputFile(Xchange xchange)
+    {
+        try
+        {
+            return new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "The input file of xchange {XchangeId} could not be read.", xchange.Id);
+            return null;
+        }
     }
 
     private Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
@@ -426,23 +477,100 @@ public class XchangeService :
                 await CreateXchangesForHits(xchange, result, inputFile);
             }
 
-            _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id));
+            var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
+                responseXchange?.Id);
+            _dbContext.Add(xchangeResult);
             if (responseFile?.BadData == true)
-                await TryScheduleAutoRetry(xchange, XchangeResultType.BadResult, responseFile.Data);
+                await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
+                    xchangeResult);
+            else
+                await TryClearingRetryBudgetAfterSuccess(xchange);
             await _dbContext.SaveChangesAsync();
         }
         catch (Exception ex)
         {
-            _dbContext.Add(new XchangeResult(xchange.Id, workGroup, outputFile, responseFile, responseXchange?.Id,
-                ex.ToString()));
-            await TryScheduleAutoRetry(xchange, XchangeResultType.Error, ex.ToString());
+            var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
+                responseXchange?.Id, ex.ToString());
+            _dbContext.Add(xchangeResult);
+            await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await _dbContext.SaveChangesAsync();
         }
     }
 
-    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content)
+    /// <summary>
+    /// Evaluates the retry policy without ever costing the caller its failure record.
+    /// </summary>
+    /// <remarks>
+    /// Scheduling runs before the <see cref="XchangeResult"/> is saved and touches the database
+    /// several times. Letting it throw would replace the original exception with its own and abort
+    /// the save, so the failure would vanish from the UI entirely and only reappear as a silent
+    /// redelivery. Losing the retry is recoverable; losing the record of what went wrong is not.
+    /// </remarks>
+    private async Task TrySchedulingWithoutLosingTheResult(Xchange xchange, XchangeResultType resultType,
+        string content, XchangeResult xchangeResult)
+    {
+        try
+        {
+            await TryScheduleAutoRetry(xchange, resultType, content, xchangeResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Auto-retry evaluation failed for xchange {XchangeId}; the failure result is still recorded.",
+                xchange.Id);
+        }
+    }
+
+    /// <summary>
+    /// Gives the subscription its retry budget back after a success, without ever costing the caller
+    /// its successful result.
+    /// </summary>
+    /// <remarks>
+    /// Guarded for the same reason scheduling is, and with more at stake: this runs after the handler
+    /// has already delivered, so letting it throw would abort the save of a result whose side effects
+    /// have happened, and the redelivery would repeat them. A budget left spent is a nuisance somebody
+    /// can undo by hand; a duplicated delivery cannot be undone at all.
+    /// </remarks>
+    private async Task TryClearingRetryBudgetAfterSuccess(Xchange xchange)
     {
         if (xchange.SubscriptionId == null) return;
+
+        try
+        {
+            // The exchange's own start time is the watermark: anything charged after this run began
+            // belongs to a failure this success knows nothing about, and is left where it is.
+            await new RetryGroupBudget(_dbContext, _serviceProvider, xchange.SubscriptionId.Value)
+                .ReleaseExhaustedBudgets(xchange.StartedOn);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Retry budget of subscription {SubscriptionId} could not be cleared after a success; " +
+                "it may still refuse retries until it is reset.", xchange.SubscriptionId.Value);
+        }
+    }
+
+    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content,
+        XchangeResult xchangeResult)
+    {
+        if (xchange.SubscriptionId == null) return;
+
+        // A person asked for this attempt, so the policy stays out of it. Otherwise pressing Retry
+        // spends a slot of the group's shared total — the budget meant for unattended retries — and
+        // can be what finally exhausts it and raises the alert. Recorded rather than skipped
+        // silently, so the absence of a follow-up attempt has a visible reason.
+        if (xchange.ManualRetry)
+        {
+            xchangeResult.SetRetryBlocked(
+                "This attempt was started by hand, so the retry policy left it alone and its budget is untouched.");
+            return;
+        }
+
+        // DelayedRetry.Id is xchange.Id, so an existing row means this failure was already
+        // evaluated and already spent a slot of the group's total budget. Re-evaluating it
+        // (e.g. on an at-least-once redelivery) would both violate the PK on Add and spend a
+        // second slot for the same failure.
+        var alreadyScheduled = await _dbContext.Set<DelayedRetry>().FindAsync(xchange.Id);
+        if (alreadyScheduled != null) return;
 
         var subscription = await _dbContext.Set<Subscription>()
             .Include(s => s.RetryPolicy)
@@ -451,35 +579,37 @@ public class XchangeService :
         IRetryPolicy policy = subscription?.CustomRetryPolicy ?? (IRetryPolicy)subscription?.RetryPolicy;
         if (policy?.Groups == null || policy.Groups.Count == 0) return;
 
-        var evaluator = new RetryPolicyEvaluator(policy);
-        evaluator.RestoreGroupAttemptCounts(xchange.GroupAttemptCounts == null
-            ? new Dictionary<string, int>()
-            : new Dictionary<string, int>(xchange.GroupAttemptCounts));
+        var evaluator = new RetryPolicyEvaluator(policy,
+            new RetryGroupBudget(_dbContext, _serviceProvider, xchange.SubscriptionId.Value));
 
         var attemptIndex = await CountRetryChainDepth(xchange);
-        var decision = evaluator.Evaluate(resultType, content, attemptIndex);
+        var decision = await evaluator.Evaluate(resultType, content, attemptIndex);
+
+        // Which group owned this failure, so the group's retries can later be listed without
+        // re-deriving the match, and how deep the chain already was without walking it again.
+        if (decision.MatchedGroup is not null)
+            xchangeResult.SetRetryEvaluation(decision.MatchedGroup.Id, attemptIndex);
 
         if (decision.ShouldRetry)
-        {
-            // Guard against duplicate scheduling (e.g. an at-least-once redelivery
-            // reprocessing the same xchange) — DelayedRetry.Id is xchange.Id, so a
-            // blind Add would violate the PK and fail the whole SaveChangesAsync.
-            var existing = await _dbContext.Set<DelayedRetry>().FindAsync(xchange.Id);
-            if (existing != null)
+            _dbContext.Add(new DelayedRetry
             {
-                existing.On = DateTime.UtcNow + decision.Delay;
-                existing.GroupAttemptCounts = evaluator.GetGroupAttemptCounts();
-            }
-            else
-            {
-                _dbContext.Add(new DelayedRetry
-                {
-                    Id = xchange.Id,
-                    On = DateTime.UtcNow + decision.Delay,
-                    GroupAttemptCounts = evaluator.GetGroupAttemptCounts()
-                });
-            }
-        }
+                Id = xchange.Id,
+                On = DateTime.UtcNow + decision.Delay
+            });
+        else
+            // A policy applied but refused. Recorded so an exhausted budget is distinguishable
+            // from an error no group was ever configured to catch.
+            xchangeResult.SetRetryBlocked(decision.Reason);
+
+        // Raised on the result rather than published here, so the alert only reaches the bus once
+        // this failure is committed. Its own event type means its own queue and its own consumer,
+        // keeping a slow alert handler away from the ordinary notifier path.
+        if (decision.BudgetJustExhausted)
+            xchangeResult.RaiseBudgetExhausted(
+                xchange.SubscriptionId.Value,
+                decision.MatchedGroup!.Id,
+                decision.MatchedGroup.Name,
+                decision.MatchedGroup.Budget!.MaxAttemptsTotal);
     }
 
     private async Task<int> CountRetryChainDepth(Xchange xchange)
@@ -614,20 +744,8 @@ public class XchangeService :
 
         try
         {
-            // Check if it's a native adapter
-            if (notifier.HandlerId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                var handler = _nativeAdapterDiscovery.GetNativeHandler(notifier.HandlerId, handlerProperties);
-                await handler.Handle(new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
-            }
-            else
-            {
-                // Use serverless for external adapters
-                var serverless = _serviceProvider.GetRequiredService<IServerlessService>();
-                await serverless.StartAsync(notifier.HandlerId, correlationId, handlerProperties);
-                await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkHandler.Handle),
-                    new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
-            }
+            await _adapterInvoker.Handle(notifier.HandlerId, handlerProperties, correlationId,
+                new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id));
 
             _dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name));
         }

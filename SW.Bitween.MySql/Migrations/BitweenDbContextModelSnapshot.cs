@@ -55,6 +55,12 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<byte>("EmailProvider")
                         .HasColumnType("tinyint unsigned");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("tinyint unsigned");
 
@@ -89,6 +95,7 @@ namespace SW.Bitween.MySql.Migrations
                             DisplayName = "Admin",
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
+                            FailedLoginCount = 0,
                             LoginMethods = (byte)2,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0
@@ -212,9 +219,6 @@ namespace SW.Bitween.MySql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("longtext");
-
                     b.Property<DateTime>("On")
                         .HasColumnType("datetime(6)");
 
@@ -336,6 +340,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("longtext");
 
@@ -408,6 +415,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("longtext");
@@ -589,6 +599,86 @@ namespace SW.Bitween.MySql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<string>("ExchangeIds")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("FinishedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId", "StartedOn");
+
+                    b.ToTable("ReceiveAttempts", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryAlertOverride", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("longtext");
+
+                    b.Property<byte>("AlertMode")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("SubscriptionId", "GroupId");
+
+                    b.ToTable("RetryAlertOverrides", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryGroupUsage", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("AttemptsUsed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExhaustedNotifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("LastAttemptOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("SubscriptionId", "GroupId");
+
+                    b.ToTable("RetryGroupUsages", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -596,6 +686,14 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("longtext");
@@ -883,9 +981,6 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("longtext");
-
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -911,6 +1006,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<int>("InputSize")
                         .HasColumnType("int");
+
+                    b.Property<bool>("ManualRetry")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -1015,7 +1113,7 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<DateTime>("FinishedOn")
                         .HasColumnType("datetime(6)");
 
-                    b.Property<int>("NotifierId")
+                    b.Property<int?>("NotifierId")
                         .HasColumnType("int");
 
                     b.Property<string>("NotifierName")
@@ -1066,6 +1164,9 @@ namespace SW.Bitween.MySql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<int?>("AttemptNumber")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("longtext");
 
@@ -1115,10 +1216,19 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("ResponseXchangeId")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("RetryBlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<Guid?>("RetryGroupId")
+                        .HasColumnType("char(36)");
+
                     b.Property<bool>("Success")
                         .HasColumnType("tinyint(1)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RetryGroupId");
 
                     b.ToTable("XchangeResults", (string)null);
                 });

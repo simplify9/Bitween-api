@@ -60,7 +60,7 @@ interface RawDelayedRetryRow {
  * *response* (the handler delivered but the receiver answered with an error)
  * is distinct from an outright failure.
  */
-const deriveStatus = (raw: Pick<RawXchangeRow, "status" | "responseBad">): ExchangeStatus =>
+export const deriveStatus = (raw: Pick<RawXchangeRow, "status" | "responseBad">): ExchangeStatus =>
   raw.status === null ? "processing" : !raw.status ? "failed" : raw.responseBad ? "badResponse" : "success";
 
 const STATUS_FILTER: Record<ExchangeStatus, number> = {
@@ -134,7 +134,13 @@ function buildExchangeQuery(query: ExchangeQuery): string {
     params.append("filter", `Id:4:text|${ids.join("|")}`);
   }
   if (query.correlationId?.trim()) params.append("filter", `CorrelationId:1:${query.correlationId.trim()}`);
-  if (query.property?.trim()) params.append("filter", `PromotedPropertiesRaw:4:${query.property.trim()}`);
+  // PromotedPropertiesRaw is stored as "key:value,key:value", so prefixing the key turns
+  // the same substring match into a scoped one — no schema or endpoint change needed.
+  // Typing "merchant:Acme" into the value box has therefore always worked; the picker
+  // just makes it something you can find.
+  const propertyValue = query.property?.trim() ?? "";
+  const propertyTerm = query.propertyKey ? `${query.propertyKey}:${propertyValue}` : propertyValue;
+  if (propertyTerm) params.append("filter", `PromotedPropertiesRaw:4:${propertyTerm}`);
   if (query.from) params.append("filter", `StartedOn:6:${query.from}`);
   if (query.to) params.append("filter", `StartedOn:8:${query.to}`);
   params.set("page", String(Math.floor(query.offset / query.limit)));

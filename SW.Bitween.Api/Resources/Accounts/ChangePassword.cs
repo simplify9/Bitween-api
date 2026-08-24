@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
@@ -36,5 +37,13 @@ public class ChangePassword : ICommandHandler<ChangePasswordModel, object>
         await _dbContext.SaveChangesAsync();
 
         return null;
+    }
+
+    private class Validate : AbstractValidator<ChangePasswordModel>
+    {
+        public Validate()
+        {
+            RuleFor(i => i.NewPassword).Password();
+        }
     }
 }

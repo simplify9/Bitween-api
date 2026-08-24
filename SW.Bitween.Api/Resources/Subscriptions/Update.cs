@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
@@ -7,6 +8,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using SW.Bitween.Resources.RetryPolicies;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -37,6 +39,14 @@ namespace SW.Bitween.Resources.Subscriptions
 
             // Name and the runtime-state fields, which only an update may set.
             _dbContext.Entry(entity).SetProperties(model);
+
+            if (model.CustomRetryPolicy == null && model.RetryPolicyId != null &&
+                !await _dbContext.Set<RetryPolicy>().AnyAsync(p => p.Id == model.RetryPolicyId))
+                throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
+                    $"Retry policy {model.RetryPolicyId} was not found.");
+
+            if (model.CustomRetryPolicy != null)
+                RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
 
             // Everything a person configures, through the same code the create handler runs.
             await SubscriptionConfigurationApplier.Apply(_dbContext, entity, model);
@@ -110,6 +120,11 @@ namespace SW.Bitween.Resources.Subscriptions
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
+                // Matches the rule Documents enforces on BusMessageTypeName; see Create.
+                RuleFor(i => i.ResponseMessageTypeName)
+                    .Matches("^\\S+$")
+                    .When(i => !string.IsNullOrEmpty(i.ResponseMessageTypeName))
+                    .WithMessage("A bus message name cannot contain spaces.");
 
                 When(i => i.MapperId != null, () =>
                 {
@@ -139,6 +154,15 @@ namespace SW.Bitween.Resources.Subscriptions
                         if (subscription != null && responseSubId.Value == subscription.Id)
                             context.AddFailure(nameof(SubscriptionUpdate.ResponseSubscriptionId), "ResponseSubscriptionId cannot be the same as the current subscription.");
                     });
+                });
+
+                // Outside the handler check above: a response destination that can never work is
+                // wrong whether or not this same request also sets a handler.
+                RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, ct) =>
+                {
+                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId);
+                    if (failure != null)
+                        context.AddFailure(nameof(SubscriptionUpdate.ResponseSubscriptionId), failure);
                 });
 
                 RuleFor(i => i).CustomAsync(async (model, context, ct) =>

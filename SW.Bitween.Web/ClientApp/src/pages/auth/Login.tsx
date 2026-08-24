@@ -73,7 +73,7 @@ export function LoginPage() {
             <TextInput
               id="login-email"
               type="email"
-              autoComplete="email"
+              autoComplete="off"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -83,7 +83,7 @@ export function LoginPage() {
           <Field label="Password" htmlFor="login-password">
             <PasswordInput
               id="login-password"
-              autoComplete="current-password"
+              autoComplete="off"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}

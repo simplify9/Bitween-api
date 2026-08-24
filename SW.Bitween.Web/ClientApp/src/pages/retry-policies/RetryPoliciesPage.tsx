@@ -1,6 +1,6 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, RotateCcw, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
@@ -8,6 +8,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
 
@@ -54,30 +55,36 @@ function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+const PAGE_SIZE = 25;
+
 export function RetryPoliciesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const creating = searchParams.get("new") === "1";
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const policies = useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies() });
+  const policies = useQuery({
+    queryKey: ["retry-policies-search", q, offset],
+    queryFn: () => api.searchRetryPolicies({ search: q, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   const integrations = useIntegrationsCache().data ?? [];
 
-  const setParam = (key: string, value: string | null) =>
+  const setParam = (key: string, value: string | null, resetOffset = key === "q") =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: key === "q" },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (policies.data ?? []).filter((p) => !needle || p.name.toLowerCase().includes(needle));
-  }, [policies.data, q]);
+  const rows = policies.data?.result ?? [];
+  const total = policies.data?.total ?? 0;
 
   return (
     <div>
@@ -123,16 +130,24 @@ export function RetryPoliciesPage() {
 
       {policies.isPending ? (
         <LoadingBlock label="Loading retry policies…" />
-      ) : filtered.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState icon={<RotateCcw />} title={q ? "No policies match" : "No retry policies yet"}>
           {q ? "Try a different search." : "Create a policy to control what happens after failures."}
         </EmptyState>
       ) : (
         <Table
-          rows={filtered}
+          rows={rows}
           rowKey={(p) => p.id}
           minWidth="min-w-130"
           onRowClick={(p) => navigate(`/retry-policies/${p.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             { header: "Policy", cell: (p) => <span className="font-medium text-ink-900">{p.name}</span> },
             {

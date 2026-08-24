@@ -1,39 +1,46 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Handshake, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, usePartnerIntegrations } from "../../components/config/shared";
+
+const PAGE_SIZE = 25;
 
 export function PartnersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
+  const partners = useQuery({
+    queryKey: ["partners-search", q, offset],
+    queryFn: () => api.searchPartners({ search: q, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   const partnerIntegrations = usePartnerIntegrations();
 
-  const setParam = (key: string, value: string | null) =>
+  const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: key === "q" },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (partners.data ?? []).filter((p) => !needle || p.name.toLowerCase().includes(needle));
-  }, [partners.data, q]);
+  const rows = partners.data?.result ?? [];
+  const total = partners.data?.total ?? 0;
 
   return (
     <div>
@@ -63,23 +70,35 @@ export function PartnersPage() {
 
       {partners.isPending ? (
         <LoadingBlock label="Loading partners…" />
-      ) : filtered.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState icon={<Handshake />} title={q ? "No partners match" : "No partners yet"}>
           {q ? "Try a different search." : "Create the first partner you exchange data with."}
         </EmptyState>
       ) : (
         <Table
-          rows={filtered}
+          rows={rows}
           rowKey={(p) => p.id}
           minWidth="min-w-200"
           onRowClick={(p) => navigate(`/partners/${p.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             {
               header: "Partner",
               cell: (p) => (
                 <span className="flex items-center gap-2 font-medium text-ink-900">
                   {p.name}
-                  {p.isSystem && <Badge tone="ink">Built-in</Badge>}
+                  {p.isSystem && (
+                    <Badge tone="ink" title="A system-provided partner used internally — it can't be edited or deleted.">
+                      Built-in
+                    </Badge>
+                  )}
                 </span>
               ),
             },

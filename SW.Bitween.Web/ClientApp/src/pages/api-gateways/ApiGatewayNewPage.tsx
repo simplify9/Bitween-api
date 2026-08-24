@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { api } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
-import { suggestSlug } from "../../lib/identifiers";
+import { finishUrlName, suggestSlug, toUrlName } from "../../lib/identifiers";
+import { BackLink } from "../../components/ui/BackLink";
 
 export function ApiGatewayNewPage() {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ export function ApiGatewayNewPage() {
   const [urlTouched, setUrlTouched] = useState(false);
 
   const create = useMutation({
-    mutationFn: () => api.createApiGateway({ name, urlName }),
+    mutationFn: () => api.createApiGateway({ name, urlName: finishUrlName(urlName) }),
     onSuccess: (gateway) => {
       void queryClient.invalidateQueries({ queryKey: ["api-gateways"] });
       const base = `/api-gateways/${gateway.id}`;
@@ -30,12 +30,7 @@ export function ApiGatewayNewPage() {
 
   return (
     <div>
-      <Link
-        to={"/subscriptions?types=api-gateways"}
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> {"Integrations"}
-      </Link>
+      <BackLink to="/api-gateways" label="API gateways" />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New API gateway</h1>
       <p className="mt-1 text-sm text-ink-500">
@@ -68,7 +63,7 @@ export function ApiGatewayNewPage() {
             className="font-mono"
             onChange={(e) => {
               setUrlTouched(true);
-              setUrlName(e.target.value.toLowerCase());
+              setUrlName(toUrlName(e.target.value));
             }}
             placeholder="orders"
           />

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import type { BusGatewayRoute, IntegrationRow } from "../../../api";
-import { HEALTH_DOT, HEALTH_LABEL, conditionText, routeHealth, type RouteDraft } from "./model";
+import { HEALTH_DOT, HEALTH_LABEL, HEALTH_TITLE, conditionText, routeHealth, type RouteDraft } from "./model";
 
 export type Selection = number | "new" | null;
 
@@ -154,7 +154,7 @@ function Row({
       <span className="flex items-center gap-1.5">
         <span
           className={`size-1.5 shrink-0 rounded-full ${HEALTH_DOT[health]}`}
-          title={HEALTH_LABEL[health]}
+          title={HEALTH_TITLE[health]}
           aria-label={HEALTH_LABEL[health]}
         />
         <span

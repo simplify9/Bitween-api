@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/ui/KeyValueEditor";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
+import { BackLink } from "../../components/ui/BackLink";
 import {
   INTEGRATION_TYPE_LABELS,
   IntegrationMiniList,
@@ -70,12 +71,7 @@ export function GlobalValueSetPage() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/global-values"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Global values
-      </Link>
+      <BackLink to="/global-values" label="Global values" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>

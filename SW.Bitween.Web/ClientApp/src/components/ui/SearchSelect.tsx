@@ -29,6 +29,7 @@ export function SearchSelect({
   size = "md",
   id,
   "aria-label": ariaLabel,
+  freeText,
 }: {
   /** "" = nothing selected. */
   value: string;
@@ -41,6 +42,16 @@ export function SearchSelect({
   size?: "sm" | "md";
   id?: string;
   "aria-label"?: string;
+  /**
+   * Accept a typed value the options don't carry, offered as the last row.
+   * For fields where the known list is a convenience rather than the rule —
+   * without it, typing a name nothing matches dead-ends on "Nothing matches",
+   * and the way out is a link elsewhere on the page that reads as unrelated.
+   *
+   * Return a string instead of an option to refuse this particular value and
+   * say why, rather than offering a row that only fails on save.
+   */
+  freeText?: (query: string) => SearchSelectOption | string;
 }) {
   const [query, setQuery] = useState("");
 
@@ -58,6 +69,12 @@ export function SearchSelect({
   }, [all, query]);
 
   const selected = all.find((o) => o.value === value);
+
+  // The typed value as its own choice: an option to accept it, a string saying why it
+  // can't be, or null when there is nothing to offer.
+  const typed = query.trim();
+  const offered =
+    freeText && typed !== "" && !all.some((o) => o.label === typed) ? freeText(typed) : null;
 
   return (
     <Combobox
@@ -108,7 +125,22 @@ export function SearchSelect({
             )}
           </ComboboxOption>
         ))}
-        {filtered.length === 0 && (
+        {offered !== null && typeof offered !== "string" && (
+          <ComboboxOption
+            value={query.trim()}
+            className="group flex cursor-pointer items-center gap-2 border-t border-ink-100 px-3 py-1.5 first:border-t-0 data-focus:bg-ink-50"
+          >
+            {offered.render ?? (
+              <span className="min-w-0 flex-1 truncate text-sm text-ink-800">{offered.label}</span>
+            )}
+          </ComboboxOption>
+        )}
+        {typeof offered === "string" && (
+          <div className="border-t border-ink-100 px-3 py-2 text-sm text-danger-700 first:border-t-0">
+            {offered}
+          </div>
+        )}
+        {filtered.length === 0 && offered === null && (
           <div className="px-3 py-2 text-sm text-ink-400">Nothing matches “{query}”.</div>
         )}
       </ComboboxOptions>

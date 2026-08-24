@@ -8,10 +8,14 @@ import type {
   BusGatewayDetail,
   BusGatewayRoute,
   BusGatewayRow,
+  InlineIntegrationDraft,
   MatchGroup,
+  Paged,
 } from "../types";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
+import { inlineIntegrationBody } from "./subscriptionBody";
 import { get, post, request } from "./request";
+import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 // ——— backend shapes (camelCase over the wire) ———
 interface SearchyResponse<T> {
@@ -29,6 +33,7 @@ interface RawApiGateway {
   name: string;
   urlName: string;
   partnersCount: number | null;
+  inactive: boolean | null;
   // Search's list projection includes this too (backend change made alongside
   // this batch) — but keep it optional since Create's bare POST response has none.
   partners: RawApiGatewayPartner[] | null;
@@ -47,6 +52,7 @@ interface RawBusGateway {
   documentId: number;
   documentName: string | null;
   routesCount: number | null;
+  inactive: boolean | null;
   routes: RawBusGatewayRoute[] | null;
 }
 
@@ -61,6 +67,7 @@ const toApiGatewayRow = (raw: RawApiGateway): ApiGatewayRow => ({
   id: raw.id,
   name: raw.name,
   urlName: raw.urlName,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   partnerCount: raw.partnersCount ?? raw.partners?.length ?? 0,
   attachments: (raw.partners ?? []).map(toApiGatewayAttachment),
@@ -70,6 +77,7 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
   id: raw.id,
   name: raw.name,
   urlName: raw.urlName,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   attachments: (raw.partners ?? []).map(toApiGatewayAttachment),
 });
@@ -87,6 +95,7 @@ const toBusGatewayRow = (raw: RawBusGateway): BusGatewayRow => ({
   id: raw.id,
   name: raw.name,
   informationTypeId: raw.documentId,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   informationTypeCode: raw.documentName ?? "UNKNOWN",
   routeCount: raw.routesCount ?? raw.routes?.length ?? 0,
@@ -97,11 +106,27 @@ const toBusGatewayDetail = (raw: RawBusGateway): BusGatewayDetail => ({
   id: raw.id,
   name: raw.name,
   informationTypeId: raw.documentId,
+  inactive: raw.inactive ?? false,
   createdOn: "",
   informationTypeCode: raw.documentName ?? "UNKNOWN",
   informationTypeName: raw.documentName ?? "Unknown",
   routes: (raw.routes ?? []).map(toBusGatewayRoute),
 });
+
+/** The attachment always points at an integration that already exists — a new one is
+ * created on its own page first, not inline here (unlike a bus gateway route, which
+ * still creates one in the same transaction — see `AddBusRouteInput`). */
+export type AttachPartnerInput = { partnerId: number; integrationId: number };
+
+/**
+ * A route points at an integration that already exists, or defines one. Exactly one,
+ * which the endpoint enforces — the union makes that unrepresentable rather than
+ * merely wrong.
+ */
+export type AddBusRouteInput = {
+  partnerId: number | null;
+  matchExpression: MatchGroup | null;
+} & ({ integrationId: number } | { newIntegration: InlineIntegrationDraft });
 
 export const gatewayMethods = {
   // ——— API gateways ———
@@ -111,26 +136,65 @@ export const gatewayMethods = {
     return (res.result ?? []).map(toApiGatewayRow);
   },
 
+  async searchApiGateways(query: { search: string; offset: number; limit: number }): Promise<Paged<ApiGatewayRow>> {
+    const qs = buildListQuery({
+      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const res = await get<SearchyResponse<RawApiGateway>>(`/apigateways?${qs}`);
+    return { total: res.totalCount, result: (res.result ?? []).map(toApiGatewayRow) };
+  },
+
   async getApiGateway(id: number): Promise<ApiGatewayDetail> {
     return toApiGatewayDetail(await get<RawApiGateway>(`/apigateways/${id}`));
   },
 
-  async createApiGateway({ name, urlName }: { name: string; urlName: string }): Promise<ApiGateway> {
-    const id = await post<number>("/apigateways", { name, urlName });
-    return { id, name, urlName, createdOn: "" };
+  /** Paged, searched view of one gateway's attachments, for the gateway page's own
+   * table — `getApiGateway` keeps returning the full list, still needed by the
+   * attach-partner picker's exclude list. */
+  async searchGatewayAttachments(
+    apiGatewayId: number,
+    query: { search: string; offset: number; limit: number },
+  ): Promise<Paged<ApiGatewayAttachment>> {
+    const params = new URLSearchParams({
+      apiGatewayId: String(apiGatewayId),
+      offset: String(query.offset),
+      limit: String(query.limit),
+    });
+    if (query.search.trim()) params.set("search", query.search.trim());
+    const res = await get<SearchyResponse<RawApiGatewayPartner>>(`/apigateways/attachments?${params.toString()}`);
+    return { total: res.totalCount, result: (res.result ?? []).map(toApiGatewayAttachment) };
   },
 
-  async updateApiGateway(id: number, changes: { name: string; urlName: string }): Promise<ApiGateway> {
-    await post(`/apigateways/${id}`, { name: changes.name, urlName: changes.urlName });
-    return { id, name: changes.name, urlName: changes.urlName, createdOn: "" };
+  async createApiGateway({ name, urlName }: { name: string; urlName: string }): Promise<ApiGateway> {
+    const id = await post<number>("/apigateways", { name, urlName, inactive: false });
+    return { id, name, urlName, inactive: false, createdOn: "" };
+  },
+
+  async updateApiGateway(
+    id: number,
+    changes: { name: string; urlName: string; inactive: boolean },
+  ): Promise<ApiGateway> {
+    // Update replaces the record, so every field it accepts has to be sent back —
+    // omitting `inactive` would quietly reactivate a paused gateway on a rename.
+    await post(`/apigateways/${id}`, {
+      name: changes.name,
+      urlName: changes.urlName,
+      inactive: changes.inactive,
+    });
+    return { id, ...changes, createdOn: "" };
   },
 
   async deleteApiGateway(id: number): Promise<void> {
     await request(`/apigateways/${id}`, { method: "DELETE" });
   },
 
-  async attachGatewayPartner(id: number, input: { partnerId: number; integrationId: number }): Promise<void> {
-    await post(`/apigateways/${id}/addpartner`, { partnerId: input.partnerId, subscriptionId: input.integrationId });
+  async attachGatewayPartner(id: number, input: AttachPartnerInput): Promise<void> {
+    await post(`/apigateways/${id}/addpartner`, {
+      partnerId: input.partnerId,
+      subscriptionId: input.integrationId,
+    });
   },
 
   async updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void> {
@@ -153,6 +217,26 @@ export const gatewayMethods = {
     return (res.result ?? []).map(toBusGatewayRow);
   },
 
+  async searchBusGateways(query: {
+    search: string;
+    informationTypeId?: number | null;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<BusGatewayRow>> {
+    const qs = buildListQuery({
+      filters: [
+        ["Name", SEARCHY_RULE.contains, query.search.trim()],
+        ["DocumentId", SEARCHY_RULE.equalsTo, query.informationTypeId ?? ""],
+        ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
+      ],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const res = await get<SearchyResponse<RawBusGateway>>(`/busgateways?${qs}`);
+    return { total: res.totalCount, result: (res.result ?? []).map(toBusGatewayRow) };
+  },
+
   async getBusGateway(id: number): Promise<BusGatewayDetail> {
     return toBusGatewayDetail(await get<RawBusGateway>(`/busgateways/${id}`));
   },
@@ -164,29 +248,47 @@ export const gatewayMethods = {
     name: string;
     informationTypeId: number;
   }): Promise<BusGateway> {
-    const id = await post<number>("/busgateways", { name, documentId: informationTypeId });
-    return { id, name, informationTypeId, createdOn: "" };
+    const id = await post<number>("/busgateways", {
+      name,
+      documentId: informationTypeId,
+      inactive: false,
+    });
+    return { id, name, informationTypeId, inactive: false, createdOn: "" };
   },
 
-  async updateBusGateway(id: number, changes: { name: string }): Promise<BusGateway> {
+  async updateBusGateway(
+    id: number,
+    changes: { name: string; inactive: boolean },
+  ): Promise<BusGateway> {
     // The bound information type is fixed at creation — Update.cs silently
     // ignores documentId — but the request DTO still requires a value, so
     // fetch the current one to round-trip it rather than sending a bogus 0.
     const current = await get<RawBusGateway>(`/busgateways/${id}`);
-    await post(`/busgateways/${id}`, { name: changes.name, documentId: current.documentId });
-    return { id, name: changes.name, informationTypeId: current.documentId, createdOn: "" };
+    await post(`/busgateways/${id}`, {
+      name: changes.name,
+      documentId: current.documentId,
+      inactive: changes.inactive,
+    });
+    return {
+      id,
+      name: changes.name,
+      informationTypeId: current.documentId,
+      inactive: changes.inactive,
+      createdOn: "",
+    };
   },
 
   async deleteBusGateway(id: number): Promise<void> {
     await request(`/busgateways/${id}`, { method: "DELETE" });
   },
 
-  async addBusRoute(
-    id: number,
-    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
-  ): Promise<void> {
+  async addBusRoute(id: number, input: AddBusRouteInput): Promise<void> {
     await post(`/busgateways/${id}/addroute`, {
-      subscriptionId: input.integrationId,
+      // Exactly one of the two, which is what the endpoint enforces. An integration
+      // defined here is created in the same transaction as the route.
+      ...("newIntegration" in input
+        ? { newIntegration: inlineIntegrationBody(input.newIntegration) }
+        : { subscriptionId: input.integrationId }),
       partnerId: input.partnerId,
       matchExpression: toRawMatchExpression(input.matchExpression),
     });

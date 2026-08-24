@@ -193,3 +193,12 @@ export const HEALTH_DOT: Record<RouteHealth, string> = {
   paused: "bg-warn-400",
   unknown: "bg-ink-200",
 };
+
+/** What each dot means, for hovering — `HEALTH_LABEL` alone is a single word with no context. */
+export const HEALTH_TITLE: Record<RouteHealth, string> = {
+  ok: "Healthy — enabled, unpaused, and its last run succeeded.",
+  failing: "Enabled and unpaused, but its recent runs ended in errors.",
+  disabled: "Turned off — this route's integration won't run, even if the filter matches.",
+  paused: "Held without being disabled — matches still route here, but nothing runs until unpaused.",
+  unknown: "No integration data available for this route yet.",
+};

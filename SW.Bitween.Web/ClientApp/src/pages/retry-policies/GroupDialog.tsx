@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import type { RetryDelay, RetryGroup, RetryMatcher, RetryResultType } from "../../api";
+import type { RetryAlertConfig, RetryDelay, RetryGroup, RetryMatcher, RetryResultType } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { AlertRouting } from "./AlertRouting";
 
 const DEFAULT_MATCHER: RetryMatcher = { type: "contains", value: "", caseSensitive: false };
 
@@ -153,10 +154,13 @@ export function GroupDialog({
   initial,
   onSubmit,
   onClose,
+  policyAlertHandlerId,
 }: {
   initial?: RetryGroup;
   onSubmit: (group: RetryGroup) => void;
   onClose: () => void;
+  /** The policy default this group inherits when it doesn't route its own alert. */
+  policyAlertHandlerId: string | null;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [priority, setPriority] = useState(initial?.priority ?? 10);
@@ -168,6 +172,11 @@ export function GroupDialog({
     initial?.budget ?? { maxAttemptsPerError: 3, maxAttemptsTotal: 10, delay: defaultDelayFor("exponential") },
   );
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [alert, setAlert] = useState<RetryAlertConfig>({
+    alertMode: initial?.alertMode ?? "Inherit",
+    alertHandlerId: initial?.alertHandlerId ?? null,
+    alertHandlerProperties: initial?.alertHandlerProperties ?? {},
+  });
   const [error, setError] = useState("");
 
   const toggleAppliesTo = (t: RetryResultType) =>
@@ -186,6 +195,14 @@ export function GroupDialog({
     e.preventDefault();
     if (!name.trim()) return setError("Give the group a name.");
     if (appliesTo.length === 0) return setError("Pick at least one failure kind it applies to.");
+    // The server refuses a group with no conditions, so catching it here saves a round trip
+    // that would otherwise fail only once the whole page was saved. Groups stored without any
+    // — from before the rule existed — still match every failure, which is why the table can
+    // describe one that way while this refuses to make another.
+    if (matchers.length === 0)
+      return setError("Add at least one condition — a group with none is rejected when you save.");
+    if (alert.alertMode === "Send" && !alert.alertHandlerId)
+      return setError("Pick how the budget-exhausted alert is delivered, or choose Inherit.");
     onSubmit({
       id: initial?.id ?? crypto.randomUUID(),
       name: name.trim(),
@@ -196,6 +213,11 @@ export function GroupDialog({
       action,
       budget: action === "Allow" ? budget : undefined,
       notes: notes.trim() || undefined,
+      // A group that blocks can never spend a budget, so it can never exhaust one and never
+      // alert. Saving routing for it would leave a setting on screen that cannot ever fire.
+      ...(action === "Allow"
+        ? alert
+        : { alertMode: "Inherit" as const, alertHandlerId: null, alertHandlerProperties: {} }),
     });
     onClose();
   };
@@ -236,7 +258,7 @@ export function GroupDialog({
 
         <fieldset>
           <legend className="mb-1.5 block text-[13px] font-medium text-ink-700">
-            Conditions <span className="font-normal text-ink-500">— any may match; none means every failure</span>
+            Conditions <span className="font-normal text-ink-500">— any one may match; at least one is needed</span>
           </legend>
           <div className="space-y-2">
             {matchers.map((m, i) => (
@@ -268,7 +290,11 @@ export function GroupDialog({
         {action === "Allow" && (
           <div className="space-y-3 rounded-xl bg-ink-50 p-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Max attempts per error" htmlFor="rg-per">
+              <Field
+                label="Retries per message"
+                htmlFor="rg-per"
+                hint="How often one failed message is tried again."
+              >
                 <TextInput
                   id="rg-per"
                   type="number"
@@ -277,7 +303,11 @@ export function GroupDialog({
                   onChange={(e) => setBudget({ ...budget, maxAttemptsPerError: Number(e.target.value) })}
                 />
               </Field>
-              <Field label="Max attempts total" htmlFor="rg-total">
+              <Field
+                label="Total budget"
+                htmlFor="rg-total"
+                hint="Shared by every message this group catches, per integration. When it runs out the group stops retrying until the budget is reset — or the integration succeeds."
+              >
                 <TextInput
                   id="rg-total"
                   type="number"
@@ -330,6 +360,27 @@ export function GroupDialog({
               )}
             </div>
           </div>
+        )}
+
+        {action === "Allow" && (
+          <fieldset>
+            <legend className="mb-1.5 block text-[13px] font-medium text-ink-700">
+              When the budget runs out
+            </legend>
+            <AlertRouting
+              value={alert}
+              onChange={setAlert}
+              inherited={
+                policyAlertHandlerId ? (
+                  <>
+                    Sends through the policy default, <code className="font-mono">{policyAlertHandlerId}</code>.
+                  </>
+                ) : (
+                  "The policy sends no alert, so nothing is sent — unless a single integration overrides it."
+                )
+              }
+            />
+          </fieldset>
         )}
 
         <Field label="Notes" htmlFor="rg-notes" hint="Optional — why this group exists.">

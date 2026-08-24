@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, KeyRound, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
+import { Check, KeyRound, LockOpen, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSession } from "../../auth/SessionContext";
@@ -9,7 +9,7 @@ import { CopyField } from "../../components/ui/CopyField";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { formatDate, timeAgo } from "../../lib/dates";
+import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
 import { statusBadge } from "./MembersTab";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -58,6 +58,11 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
     mutationFn: (disabled: boolean) => api.setUserDisabled(userId, disabled),
     onSuccess: invalidate,
   });
+  const unlock = useMutation({
+    mutationFn: () => api.unlockUser(userId),
+    onSuccess: invalidate,
+  });
+
   const setPassword = useMutation({
     mutationFn: (password: string) => api.setUserPassword(userId, password),
     onSuccess: (_result, password) => {
@@ -91,7 +96,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               {isSelf && <Badge tone="crimson">You</Badge>}
             </div>
             <p className="truncate font-mono text-[13px] text-ink-500">{u.email}</p>
-            <div className="mt-1.5">{statusBadge(u.status)}</div>
+            <div className="mt-1.5">{statusBadge(u.status, u.lockedUntil)}</div>
           </div>
         </div>
 
@@ -194,6 +199,18 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   </p>
                   <FormError>{setPassword.error?.message}</FormError>
                 </form>
+              )}
+              {editable && u.lockedUntil && (
+                <div>
+                  <Button size="sm" busy={unlock.isPending} onClick={() => unlock.mutate()}>
+                    <LockOpen className="size-3.5" /> Unlock account
+                  </Button>
+                  <p className="mt-1 text-[13px] text-ink-500">
+                    Locked after repeated failed sign-ins, for another {timeUntil(u.lockedUntil)}.
+                    Unlocking clears it now.
+                  </p>
+                  <FormError>{unlock.error?.message}</FormError>
+                </div>
               )}
               {editable && (
                 <div>

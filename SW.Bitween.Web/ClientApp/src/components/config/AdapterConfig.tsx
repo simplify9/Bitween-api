@@ -420,7 +420,8 @@ export function AdapterConfig({
   /** What "no adapter" means here, e.g. "None — payload passes through unchanged". */
   noneLabel?: string;
   /** When the native JSON mapper is selected, where its visual editor lives. */
-  mapperEditorHref?: string;
+  /** Null while the integration is still a draft — there is no page to open yet. */
+  mapperEditorHref?: string | null;
 }) {
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
@@ -503,16 +504,22 @@ export function AdapterConfig({
         </div>
       </div>
       {adapter && adapter.props.length > 0 && (
-        <div className="space-y-4">
+        /*
+          Two columns are decided by how wide *this* box is, not how wide the window is.
+          A `sm:` breakpoint reads the viewport, so a 360px side panel on a 2000px screen
+          still got two columns, and every email address wrapped onto three lines. The
+          container query asks the box instead, so a narrow one simply stacks.
+        */
+        <div className="@container space-y-4">
           {requiredProps.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2">{requiredProps.map(renderProp)}</div>
+            <div className="grid gap-4 @lg:grid-cols-2">{requiredProps.map(renderProp)}</div>
           )}
           {optionalProps.length > 0 && (
             <div className="border-t border-ink-100 pt-4">
               <p className="mb-2.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
                 Optional · {optionalProps.length} field{optionalProps.length === 1 ? "" : "s"}
               </p>
-              <div className="grid gap-4 sm:grid-cols-2">{optionalProps.map(renderProp)}</div>
+              <div className="grid gap-4 @lg:grid-cols-2">{optionalProps.map(renderProp)}</div>
             </div>
           )}
         </div>

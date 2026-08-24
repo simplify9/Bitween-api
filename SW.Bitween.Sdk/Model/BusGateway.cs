@@ -7,6 +7,9 @@ namespace SW.Bitween.Model
     {
         public string Name { get; set; }
         public int DocumentId { get; set; }
+
+        /// <summary>Off but kept, with its routes. Messages stop reaching them.</summary>
+        public bool Inactive { get; set; }
     }
 
     public class BusGatewayUpdate : BusGatewayCreate
@@ -33,7 +36,14 @@ namespace SW.Bitween.Model
 
     public class BusGatewayRouteCreate
     {
-        public int SubscriptionId { get; set; }
+        /// <summary>An integration that already exists. Exactly one of this and
+        /// <see cref="NewIntegration"/> is given.</summary>
+        public int? SubscriptionId { get; set; }
+
+        /// <summary>Define the integration here instead of creating it first. It is created
+        /// carrying the gateway's own information type, in the same transaction as the route.</summary>
+        public InlineIntegrationCreate NewIntegration { get; set; }
+
         public int? PartnerId { get; set; }
         public IPropertyMatchSpecification MatchExpression { get; set; }
     }
@@ -41,6 +51,13 @@ namespace SW.Bitween.Model
     public class BusGatewayRouteUpdate : BusGatewayRouteCreate
     {
         public int RouteId { get; set; }
+    }
+
+    /// <summary>Shared by the two gateway kinds: which integration a link points at.</summary>
+    public static class GatewayLinkTarget
+    {
+        public const string BothGiven = "INTEGRATION_AMBIGUOUS";
+        public const string NeitherGiven = "INTEGRATION_REQUIRED";
     }
 
     public class RemoveRouteRequest

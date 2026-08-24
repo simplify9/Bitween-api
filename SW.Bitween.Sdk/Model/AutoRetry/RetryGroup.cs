@@ -59,6 +59,22 @@ public class RetryGroup
 
     /// <summary>Optional free-text notes visible in the management UI.</summary>
     public string? Notes { get; init; }
+
+    /// <summary>
+    /// Whether this group defines its own destination for budget-exhausted alerts, suppresses the
+    /// policy's, or defers to it. Defaults to <see cref="RetryAlertMode.Inherit"/> so groups saved
+    /// before alerts existed keep using the policy's setting.
+    /// </summary>
+    public RetryAlertMode AlertMode { get; init; } = RetryAlertMode.Inherit;
+
+    /// <summary>
+    /// Adapter that delivers this group's alert. Required when <see cref="AlertMode"/> is
+    /// <see cref="RetryAlertMode.Send"/>, ignored otherwise.
+    /// </summary>
+    public string? AlertHandlerId { get; init; }
+
+    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
+    public Dictionary<string, string>? AlertHandlerProperties { get; init; }
 }
 
 /// <summary>
@@ -73,8 +89,11 @@ public class RetryBudget
     public int MaxAttemptsPerError { get; init; }
 
     /// <summary>
-    /// Hard ceiling on the total number of group-level retries across all messages in the
-    /// current processing window. Prevents a burst of failures from hammering the downstream.
+    /// Hard ceiling on the total number of group-level retries across all messages, counted per
+    /// subscription so one shared policy does not let a single noisy subscription spend everyone's
+    /// allowance. Prevents a burst of failures from hammering the downstream. It is not a rate over a
+    /// rolling window: the count only falls once it has been reached — the subscription's next success
+    /// then lifts it — or when somebody resets it by hand.
     /// </summary>
     public int MaxAttemptsTotal { get; init; }
 

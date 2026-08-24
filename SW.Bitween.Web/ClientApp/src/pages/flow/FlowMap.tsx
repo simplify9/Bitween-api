@@ -106,6 +106,15 @@ function NodeCard({
   // Everything the card had to truncate, in full — the code and the detail line
   // are exactly what gets cut at 216px.
   const summary = [`${label}: ${node.title}`, node.code, node.detail].filter(Boolean).join(" · ");
+  // The loop icon and the warning dot are otherwise unexplained to a mouse user —
+  // only a screen reader gets their `aria-label`, since a card can be hovered
+  // anywhere and this is the one title the browser will show either way.
+  const extra = [
+    onLoop && "on a loop — a message from here eventually feeds back into itself",
+    node.warning,
+  ]
+    .filter(Boolean)
+    .join(" — ");
   const border = onLoop
     ? "border-danger-300 bg-danger-50"
     : node.warning
@@ -117,7 +126,7 @@ function NodeCard({
   return (
     <Link
       to={node.href}
-      title={node.warning ? `${summary} — ${node.warning}` : summary}
+      title={extra ? `${summary} — ${extra}` : summary}
       style={{ left: node.x, top: node.y, width: NODE_W, height: NODE_H }}
       className={`absolute flex flex-col justify-center overflow-hidden rounded-xl border px-3.5 py-3 shadow-sm transition-shadow hover:shadow-md ${border}`}
     >

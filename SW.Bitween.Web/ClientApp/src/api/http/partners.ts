@@ -1,9 +1,10 @@
 import type { ApiClient } from "../client";
-import { ApiRequestError, type Partner, type PartnerDetail, type PartnerRow } from "../types";
+import { ApiRequestError, type Paged, type Partner, type PartnerDetail, type PartnerRow } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { matchSummary } from "../../lib/match";
 import { get, post, request } from "./request";
+import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 // The built-in SYSTEM partner (Partner.SystemId) can't be renamed or deleted.
 const SYSTEM_PARTNER_ID = 1;
@@ -75,6 +76,28 @@ export const partnerMethods = {
       credentialCount: p.keys,
       usedByCount: p.subscriptionsCount,
     }));
+  },
+
+  async searchPartners(query: { search: string; offset: number; limit: number }): Promise<Paged<PartnerRow>> {
+    const qs = buildListQuery({
+      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const res = await get<SearchyResponse<RawPartnerRow>>(`/partners?${qs}`);
+    return {
+      total: res.totalCount,
+      result: (res.result ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        adapterProperties: {},
+        propertyKeys: p.propertyKeys ?? [],
+        isSystem: p.id === SYSTEM_PARTNER_ID,
+        createdOn: "",
+        credentialCount: p.keys,
+        usedByCount: p.subscriptionsCount,
+      })),
+    };
   },
 
   /** Light single-field fetch for the mapper editor's test-partner selector — avoids getPartner's gateway/exchange lookups. */

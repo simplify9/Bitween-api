@@ -31,7 +31,18 @@ namespace SW.Bitween.Resources.DelayedRetries
                 throw new SWValidationException("NOT_FOUND", "No auto-retry is currently scheduled for this exchange.");
 
             if (!await _xchangeService.ExecuteDelayedRetry(delayedRetry))
-                throw new SWValidationException("NOT_FOUND", "The original exchange or its subscription no longer exists.");
+            {
+                await _dbContext.SaveChangesAsync();
+
+                // Every other refusal writes its reason onto the exchange, so the message sends the
+                // caller there instead of listing them. A missing exchange is the one case with
+                // nowhere to write it, and pointing at something that is gone explains nothing.
+                var exchangeExists = await _dbContext.Set<Xchange>().AnyAsync(x => x.Id == key);
+
+                throw new SWValidationException("CANNOT_RETRY", exchangeExists
+                    ? "This retry could not be carried out. The exchange it belongs to says why."
+                    : "This retry could not be carried out: the exchange it belonged to no longer exists.");
+            }
 
             await _dbContext.SaveChangesAsync();
             return null;

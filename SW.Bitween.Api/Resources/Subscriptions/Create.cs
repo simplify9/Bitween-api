@@ -89,8 +89,24 @@ namespace SW.Bitween.Resources.Subscriptions
 
         private class Validate : AbstractValidator<SubscriptionCreate>
         {
-            public Validate(AdapterRequirements adapterRequirements)
+            public Validate(BitweenDbContext dbContext, AdapterRequirements adapterRequirements)
             {
+                // Same rule Documents enforces on BusMessageTypeName. Publishing to a name no
+                // information type carries is legitimate — the consumer may be another product —
+                // but it still becomes a RabbitMQ routing key, and a name with a space in it
+                // could never be answered by an information type anyway.
+                RuleFor(i => i.ResponseMessageTypeName)
+                    .Matches("^\\S+$")
+                    .When(i => !string.IsNullOrEmpty(i.ResponseMessageTypeName))
+                    .WithMessage("A bus message name cannot contain spaces.");
+
+                RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, _) =>
+                {
+                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId);
+                    if (failure != null)
+                        context.AddFailure(nameof(SubscriptionCreate.ResponseSubscriptionId), failure);
+                });
+
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.DocumentId).NotEmpty().When(i => i.Type != SubscriptionType.Aggregation);
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);

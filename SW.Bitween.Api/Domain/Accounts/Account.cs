@@ -28,6 +28,24 @@ namespace SW.Bitween.Domain.Accounts
 
         public string Password { get; set; }
 
+        public int FailedLoginCount { get; private set; }
+        public DateTime? LockoutEnd { get; private set; }
+
+        public bool IsLockedOut(DateTime nowUtc) => LockoutEnd.HasValue && LockoutEnd.Value > nowUtc;
+
+        public void RegisterSuccessfulLogin()
+        {
+            FailedLoginCount = 0;
+            LockoutEnd = null;
+        }
+
+        // Admin action: clear a lockout before it expires.
+        public void Unlock()
+        {
+            FailedLoginCount = 0;
+            LockoutEnd = null;
+        }
+
 
         public bool AddEmailLoginMethod(string email, string password)
         {

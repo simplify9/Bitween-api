@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { CodeBadge, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { ExchangesList, SetupList, TrailTable } from "../../components/config/shared";
+import { BackLink } from "../../components/ui/BackLink";
 import {
   InformationTypeFields,
   informationTypeChanges,
@@ -70,12 +71,7 @@ export function InformationTypePage() {
 
   return (
     <div className="pb-24">
-      <Link
-        to="/information-types"
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> Information types
-      </Link>
+      <BackLink to="/information-types" label="Information types" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -94,12 +90,7 @@ export function InformationTypePage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           {draft && (
-            <InformationTypeFields
-              draft={draft}
-              onChange={setDraft}
-              canEdit={canEdit}
-              typeId={typeId}
-            />
+            <InformationTypeFields draft={draft} onChange={setDraft} canEdit={canEdit} />
           )}
         </div>
 

@@ -8,6 +8,7 @@ using SW.Bitween.NativeAdapters.RebexFtpUploadHandler;
 using SW.Bitween.NativeAdapters.RebexPop3Receiver;
 using SW.Bitween.NativeAdapters.S3Receiver;
 using SW.Bitween.NativeAdapters.S3UploadHandler;
+using SW.Bitween.NativeAdapters.SmtpHandler;
 
 namespace SW.Bitween.NativeAdapters;
 
@@ -47,6 +48,9 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativePop3Receiver>();
         serviceCollection.AddScoped<INativeAdapter, NativePop3Receiver>();
+
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
+        serviceCollection.AddScoped<INativeAdapter, NativeSmtpHandler>();
 
         serviceCollection.AddScoped<INativeInfolinkHandler, NativeS3UploadHandler>();
         serviceCollection.AddScoped<INativeAdapter, NativeS3UploadHandler>();

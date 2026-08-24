@@ -61,12 +61,19 @@ public class AccountModel
     public bool Disabled { get; set; }
     public DateTime CreatedOn { get; set; }
     public List<AccountRoleSummary> Roles { get; set; } = [];
+
+    // Non-null and in the future => the account is currently locked out.
+    public DateTime? LockoutEnd { get; set; }
 }
 
 /// <summary>The signed-in account, plus everything the UI needs to decide what to show.</summary>
 public class ProfileModel : AccountModel
 {
     public List<string> Permissions { get; set; } = [];
+}
+
+public class UnlockAccountModel
+{
 }
 
 public class ChangePasswordModel

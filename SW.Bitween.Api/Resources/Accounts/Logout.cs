@@ -40,6 +40,9 @@ namespace SW.Bitween.Resources.Accounts
                 httpContext.Response.Cookies.Delete("refresh_token");
             }
 
+            // Tell the browser to wipe cookies, cache and storage for this origin on logout.
+            httpContext?.Response.Headers.Append("Clear-Site-Data", "\"cache\", \"cookies\", \"storage\"");
+
             return new { };
         }
     }

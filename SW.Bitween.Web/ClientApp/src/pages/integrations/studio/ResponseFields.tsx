@@ -1,11 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { api } from "../../../api";
+import { api, type IntegrationType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
-import { Field, TextInput } from "../../../components/ui/forms";
+import { Field } from "../../../components/ui/forms";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { InformationTypeDialog } from "../../../components/config/InformationTypeDialog";
+import { busMessageNameProblem } from "../../../lib/busMessageName";
 
 /**
  * The Response stage's body: what happens to whatever the delivery hands back.
@@ -13,6 +15,9 @@ import { InformationTypeDialog } from "../../../components/config/InformationTyp
  * Shared by the studio pages and both create pages so the node means the same
  * thing wherever it appears — the create rails would otherwise be one node
  * shorter than the edit rail, which defeats reusing the pipeline at all.
+ *
+ * There is one way to pass a response on: publish it on the bus. Feeding it
+ * straight into a named integration is retired — see {@link FedIntoNotice}.
  */
 export function ResponseFields({
   handlerId,
@@ -32,8 +37,8 @@ export function ResponseFields({
     responseMessageTypeName?: string | null;
   }) => void;
   disabled: boolean;
-  /** Integrations the response can be fed into (excluding this one). */
-  candidates: { id: number; name: string }[];
+  /** Only used to name an already-saved target; nothing here can choose from them. */
+  candidates: { id: number; name: string; type: IntegrationType }[];
   idPrefix?: string;
 }) {
   if (handlerId === null)
@@ -44,27 +49,74 @@ export function ResponseFields({
     );
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Field
-        label="Feed the response into"
-        htmlFor={`${idPrefix}-into`}
-        hint="Chains the delivery response into another integration."
-      >
-        <SearchSelect
-          id={`${idPrefix}-into`}
-          value={responseIntegrationId === null ? "" : String(responseIntegrationId)}
+    <div className="space-y-4">
+      {responseIntegrationId !== null && (
+        <FedIntoNotice
+          name={candidates.find((x) => x.id === responseIntegrationId)?.name ?? null}
+          id={responseIntegrationId}
           disabled={disabled}
-          onChange={(v) => onChange({ responseIntegrationId: v === "" ? null : Number(v) })}
-          clearLabel="Nothing — responses are only recorded"
-          options={candidates.map((x) => ({ value: String(x.id), label: x.name }))}
+          onClear={() => onChange({ responseIntegrationId: null })}
         />
-      </Field>
-      <BusMessageField
-        value={responseMessageTypeName}
-        disabled={disabled}
-        idPrefix={idPrefix}
-        onChange={(responseMessageTypeName) => onChange({ responseMessageTypeName })}
-      />
+      )}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <BusMessageField
+          value={responseMessageTypeName}
+          disabled={disabled}
+          idPrefix={idPrefix}
+          onChange={(responseMessageTypeName) => onChange({ responseMessageTypeName })}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * An already-saved "feed the response into this integration", shown so it can be seen
+ * and undone — and offered nowhere else, because nothing new should acquire one.
+ *
+ * It hands the response to exactly one integration with the bus skipped: nothing is
+ * published, no filter is consulted, and nothing else bound to the same information
+ * type hears it. Publishing does all of that and is the reason the bus is here, so the
+ * field is kept only for configuration that already depends on it. Retired rather than
+ * dropped, because silently ignoring a saved value would change what a live integration
+ * does without anyone being told.
+ */
+function FedIntoNotice({
+  name,
+  id,
+  disabled,
+  onClear,
+}: {
+  name: string | null;
+  id: number;
+  disabled: boolean;
+  onClear: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[13px] text-ink-800">
+          Feeds the response straight into{" "}
+          <Link to={`/subscriptions/${id}`} className="font-medium text-crimson-700 hover:underline">
+            {name ?? `integration ${id}`}
+          </Link>
+          .
+        </p>
+        {!disabled && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-[13px] font-medium text-crimson-700 hover:underline"
+          >
+            Stop feeding it there
+          </button>
+        )}
+      </div>
+      <p className="mt-1 text-[12px] text-ink-500">
+        An old setting, kept so it can be cleared — it can't be set again. The bus is skipped, so
+        nothing is published and no other route bound to that information type hears it. Publish on
+        the bus below instead.
+      </p>
     </div>
   );
 }
@@ -78,9 +130,11 @@ export function ResponseFields({
  * nobody at all, silently. Listing the real names makes the working answers the
  * easy ones, and offers to create the type when it doesn't exist yet.
  *
- * Free text is still reachable, because publishing is not Bitween's to police:
- * something outside the product may be the consumer. It is just no longer the
- * default, and an unrecognised name says so out loud.
+ * A name of your own is still reachable, because publishing is not Bitween's to
+ * police: something outside the product may be the consumer. It is offered as the
+ * last row of the same dropdown rather than behind a separate mode — the mode used
+ * to be seeded from `unknown`, which is derived from a query that has not resolved
+ * on first render, so it latched on for every value including the valid ones.
  */
 function BusMessageField({
   value,
@@ -103,37 +157,9 @@ function BusMessageField({
 
   const known = (informationTypes.data ?? []).filter((t) => t.busEnabled && t.busMessageTypeName);
   const matched = known.find((t) => t.busMessageTypeName?.toLowerCase() === (value ?? "").toLowerCase());
-  // A saved value nobody carries: kept as an option so opening this panel can
-  // never silently drop what is already configured.
-  const unknown = value !== null && value !== "" && !matched;
-  const [freeText, setFreeText] = useState(unknown);
-
-  if (freeText)
-    return (
-      <Field
-        label="Publish the response on the bus as"
-        htmlFor={`${idPrefix}-bus`}
-        hint="A name of your own. Nothing in Bitween listens for it unless an information type carries it."
-      >
-        <TextInput
-          id={`${idPrefix}-bus`}
-          value={value ?? ""}
-          disabled={disabled}
-          placeholder="e.g. order-confirmation"
-          className="font-mono"
-          onChange={(e) => onChange(e.target.value || null)}
-        />
-        {!disabled && (
-          <button
-            type="button"
-            onClick={() => setFreeText(false)}
-            className="mt-1 text-[13px] font-medium text-crimson-700 hover:underline"
-          >
-            Pick a known message instead
-          </button>
-        )}
-      </Field>
-    );
+  // A saved value nobody carries. Only meaningful once the types have actually arrived —
+  // while the query is pending `known` is empty, so every value looks unknown.
+  const unknown = !informationTypes.isPending && value !== null && value !== "" && !matched;
 
   return (
     <Field
@@ -143,16 +169,28 @@ function BusMessageField({
     >
       <SearchSelect
         id={`${idPrefix}-bus`}
-        value={matched?.busMessageTypeName ?? ""}
+        value={matched?.busMessageTypeName ?? value ?? ""}
         disabled={disabled || informationTypes.isPending}
         onChange={(v) => onChange(v === "" ? null : v)}
         clearLabel="Nothing — keep responses off the bus"
-        options={known.map((t) => ({
-          value: t.busMessageTypeName!,
-          label: t.busMessageTypeName!,
-          code: t.code,
-          hint: t.name,
-        }))}
+        // Publishing is not Bitween's to police — the consumer may be another
+        // product entirely — so a name nobody carries is offered right here
+        // rather than dead-ending on "nothing matches".
+        freeText={(typed) =>
+          busMessageNameProblem(typed) ??
+          { value: typed, label: `Publish as “${typed}” — a name of your own` }
+        }
+        options={[
+          ...known.map((t) => ({
+            value: t.busMessageTypeName!,
+            label: t.busMessageTypeName!,
+            code: t.code,
+            hint: t.name,
+          })),
+          // A saved or just-accepted name no information type carries. Listed so the
+          // field can display it, and marked so it doesn't read as a working choice.
+          ...(unknown ? [{ value: value!, label: value!, hint: "not an information type" }] : []),
+        ]}
       />
       {!disabled && (
         <div className="mt-1 flex flex-wrap items-center gap-3">
@@ -165,13 +203,7 @@ function BusMessageField({
               <Plus className="size-3" /> New information type
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setFreeText(true)}
-            className="text-[13px] font-medium text-crimson-700 hover:underline"
-          >
-            Use a name of your own
-          </button>
+
         </div>
       )}
       {creating && (

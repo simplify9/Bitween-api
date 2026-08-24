@@ -1,11 +1,11 @@
 import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { api, type InformationTypeRow } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { InfoTypePicker } from "../../components/config/pickers";
+import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the form body uses. */
 function useDraft<T extends object>(initial: T) {
@@ -48,12 +48,7 @@ export function BusGatewayNewPage() {
 
   return (
     <div>
-      <Link
-        to={"/subscriptions?types=bus-gateways"}
-        className="mb-4 inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800"
-      >
-        <ArrowLeft className="size-3.5" /> {"Integrations"}
-      </Link>
+      <BackLink to="/bus-gateways" label="Bus gateways" />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New bus gateway</h1>
       <p className="mt-1 text-sm text-ink-500">

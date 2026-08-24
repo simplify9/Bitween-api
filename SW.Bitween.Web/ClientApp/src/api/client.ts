@@ -1,7 +1,9 @@
+import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   AdapterInfo,
   AdapterKind,
   ApiGateway,
+  ApiGatewayAttachment,
   ApiGatewayDetail,
   ApiGatewayRow,
   BusGateway,
@@ -14,7 +16,6 @@ import type {
   GlobalValuesSetRow,
   InformationType,
   InformationTypeDetail,
-  InformationTypeFormat,
   InformationTypeRow,
   Integration,
   IntegrationDetail,
@@ -33,10 +34,15 @@ import type {
   PermissionArea,
   PermissionKey,
   QueueHealthSnapshot,
+  ReceiveAttemptRow,
+  ReceiveOutcome,
   RetryGroup,
+  RetryAlertConfig,
+  RetryAttempts,
   RetryPolicy,
   RetryPolicyDetail,
   RetryPolicyListRow,
+  RetryUsageRow,
   RetryResultType,
   RetryTestAttempt,
   Role,
@@ -86,6 +92,8 @@ export interface ApiClient {
   /** Stands in for a self-service reset, which would need mail Bitween doesn't have. */
   setUserPassword(id: string, password: string): Promise<void>;
   updateUserRoles(id: string, roleIds: string[]): Promise<User>;
+  /** Clears a failed-sign-in lockout early, rather than waiting it out. */
+  unlockUser(id: string): Promise<User>;
   setUserDisabled(id: string, disabled: boolean): Promise<User>;
   deleteUser(id: string): Promise<void>;
 
@@ -103,6 +111,7 @@ export interface ApiClient {
 
   // — partners —
   listPartners(): Promise<PartnerRow[]>;
+  searchPartners(query: { search: string; offset: number; limit: number }): Promise<Paged<PartnerRow>>;
   getPartner(id: number): Promise<PartnerDetail>;
   /** Light fetch used by the mapper editor's test-partner selector. */
   getPartnerAdapterProperties(id: number): Promise<Record<string, string>>;
@@ -118,14 +127,16 @@ export interface ApiClient {
 
   // — information types —
   listInformationTypes(): Promise<InformationTypeRow[]>;
+  searchInformationTypes(query: {
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<InformationTypeRow>>;
   getInformationType(id: number): Promise<InformationTypeDetail>;
-  createInformationType(input: {
-    name: string;
-    code: string;
-    format: InformationTypeFormat;
-    busEnabled?: boolean;
-    busMessageTypeName?: string;
-  }): Promise<InformationType>;
+  /** Same payload as update: a new type arrives complete, promoted properties included. */
+  createInformationType(
+    input: Omit<InformationType, "id" | "createdOn">,
+  ): Promise<InformationType>;
   updateInformationType(
     id: number,
     changes: Omit<InformationType, "id" | "createdOn">,
@@ -151,12 +162,23 @@ export interface ApiClient {
 
   // — integrations —
   listIntegrationRows(): Promise<IntegrationRow[]>;
+  searchIntegrationRows(query: {
+    search: string;
+    type: IntegrationType | null;
+    informationTypeId?: number | null;
+    partnerId?: number | null;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<IntegrationRow>>;
   getIntegration(id: number): Promise<IntegrationDetail>;
-  /** Only Receiving / GatewayApiCall / BusGateway — always from a create page. */
+  /** One call, one transaction: the integration exists as asked for, or not at all. */
   createIntegration(input: {
     type: IntegrationType;
     name: string;
     informationTypeId: number;
+    /** Required by the types that carry their own partner — Internal and ApiCall. */
+    partnerId?: number | null;
     receiverId?: string | null;
     receiverProperties?: Record<string, string>;
     validatorId?: string | null;
@@ -201,6 +223,10 @@ export interface ApiClient {
   receiveNow(id: number): Promise<Integration>;
   /** Run history for one scheduled integration, newest first. Empty for unscheduled types. */
   listIntegrationRuns(id: number, limit?: number): Promise<IntegrationRun[]>;
+  searchReceiveAttempts(
+    subscriptionId: number,
+    query: { outcome: ReceiveOutcome | null; offset: number; limit: number },
+  ): Promise<Paged<ReceiveAttemptRow>>;
   /** Newest run of every scheduled integration — one request for a whole list. */
   listLastRuns(): Promise<IntegrationLastRun[]>;
   /** Will these schedules actually fire? Asks the scheduler, not the integration record. */
@@ -209,6 +235,7 @@ export interface ApiClient {
 
   // — work groups —
   listWorkGroups(): Promise<WorkGroupRow[]>;
+  searchWorkGroups(query: { search: string; offset: number; limit: number }): Promise<Paged<WorkGroupRow>>;
   getWorkGroup(id: number): Promise<WorkGroupDetail>;
   createWorkGroup(input: {
     name: string;
@@ -224,24 +251,38 @@ export interface ApiClient {
 
   // — API gateways —
   listApiGateways(): Promise<ApiGatewayRow[]>;
+  searchApiGateways(query: { search: string; offset: number; limit: number }): Promise<Paged<ApiGatewayRow>>;
   getApiGateway(id: number): Promise<ApiGatewayDetail>;
+  searchGatewayAttachments(
+    apiGatewayId: number,
+    query: { search: string; offset: number; limit: number },
+  ): Promise<Paged<ApiGatewayAttachment>>;
   createApiGateway(input: { name: string; urlName: string }): Promise<ApiGateway>;
-  updateApiGateway(id: number, changes: { name: string; urlName: string }): Promise<ApiGateway>;
+  updateApiGateway(
+    id: number,
+    changes: { name: string; urlName: string; inactive: boolean },
+  ): Promise<ApiGateway>;
   deleteApiGateway(id: number): Promise<void>;
-  attachGatewayPartner(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
+  /** The integration is either an existing id or defined inline; the endpoint commits both as one. */
+  attachGatewayPartner(id: number, input: AttachPartnerInput): Promise<void>;
   updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
   removeGatewayAttachment(id: number, partnerId: number): Promise<void>;
 
   // — bus gateways —
   listBusGateways(): Promise<BusGatewayRow[]>;
+  searchBusGateways(query: {
+    search: string;
+    informationTypeId?: number | null;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<BusGatewayRow>>;
   getBusGateway(id: number): Promise<BusGatewayDetail>;
   createBusGateway(input: { name: string; informationTypeId: number }): Promise<BusGateway>;
-  updateBusGateway(id: number, changes: { name: string }): Promise<BusGateway>;
+  updateBusGateway(id: number, changes: { name: string; inactive: boolean }): Promise<BusGateway>;
   deleteBusGateway(id: number): Promise<void>;
-  addBusRoute(
-    id: number,
-    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
-  ): Promise<void>;
+  /** The integration is either an existing id or defined inline; the endpoint commits both as one. */
+  addBusRoute(id: number, input: AddBusRouteInput): Promise<void>;
   updateBusRoute(
     id: number,
     routeId: number,
@@ -251,9 +292,22 @@ export interface ApiClient {
 
   // — retry policies —
   listRetryPolicies(): Promise<RetryPolicyListRow[]>;
+  searchRetryPolicies(query: {
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<RetryPolicyListRow>>;
   getRetryPolicy(id: number): Promise<RetryPolicyDetail>;
   createRetryPolicy(input: { name: string }): Promise<RetryPolicy>;
-  updateRetryPolicy(id: number, changes: { name: string; groups: RetryGroup[] }): Promise<RetryPolicy>;
+  updateRetryPolicy(
+    id: number,
+    changes: {
+      name: string;
+      groups: RetryGroup[];
+      alertHandlerId: string | null;
+      alertHandlerProperties: Record<string, string>;
+    },
+  ): Promise<RetryPolicy>;
   deleteRetryPolicy(id: number): Promise<void>;
   /** Dry-runs draft groups against a simulated failure over N attempts. */
   testRetryPolicy(input: {
@@ -263,6 +317,26 @@ export interface ApiClient {
     attempts: number;
   }): Promise<RetryTestAttempt[]>;
 
+  /** Spent budget and alert routing for every integration-and-group pair under this policy. */
+  getRetryUsage(policyId: number): Promise<RetryUsageRow[]>;
+  /**
+   * The same report for one integration, which is the only way to reach one whose policy is an
+   * inline `CustomRetryPolicy` — those carry no policy id for the policy-scoped report to address,
+   * yet still spend budget and can sit stopped with no counter anyone can see.
+   */
+  getIntegrationRetryUsage(integrationId: number): Promise<RetryUsageRow[]>;
+  /** The failures one group caught for one integration — what its spent budget went on. */
+  getRetryAttempts(policyId: number, pair: { integrationId: number; groupId: string }): Promise<RetryAttempts>;
+  /** Hands a spent budget back so the group retries again. Omit a field to reset across it. */
+  resetRetryUsage(policyId: number, pair?: { integrationId?: number; groupId?: string }): Promise<void>;
+  /** Reset by integration, for the inline-policy case the policy-scoped reset cannot reach. */
+  resetIntegrationRetryUsage(integrationId: number, groupId?: string): Promise<void>;
+  /** Sets, changes or clears where one pair's alert goes — the most specific level. */
+  saveRetryAlertOverride(
+    policyId: number,
+    input: { integrationId: number; groupId: string } & RetryAlertConfig,
+  ): Promise<void>;
+
   // — settings —
   listSettings(): Promise<SettingRow[]>;
   /** `value: null` resets the setting back to its default. */
@@ -271,10 +345,11 @@ export interface ApiClient {
   // — notifiers —
   // No backend delete/test-send endpoint exists yet (BACKEND_WIRING_PLAN.md G8) — hidden in the UI.
   // Channel choices come from listAdapters("handler") — same catalog as any other handler slot.
-  listNotifiers(): Promise<Notifier[]>;
+  searchNotifiers(query: { search: string; offset: number; limit: number }): Promise<Paged<Notifier>>;
   getNotifier(id: number): Promise<NotifierDetail>;
   createNotifier(input: { name: string }): Promise<Notifier>;
   updateNotifier(id: number, changes: Omit<Notifier, "id" | "createdOn">): Promise<Notifier>;
+  deleteNotifier(id: number): Promise<void>;
 
   // — exchanges —
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;

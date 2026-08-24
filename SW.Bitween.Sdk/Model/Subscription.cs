@@ -85,6 +85,45 @@ namespace SW.Bitween.Model
     }
 
     /// <summary>
+    /// One execution of a Receiving subscription's own receive step, recorded directly by
+    /// <c>ReceivingJob</c> — independent of the scheduler's own run history, which only knows
+    /// whether <c>Execute()</c> threw (it never does; the receive step's own failures are caught
+    /// and reported here instead, alongside the successes and no-op checks history never covers).
+    /// </summary>
+    public enum ReceiveOutcome
+    {
+        Failed = 0,
+        NoNewData = 1,
+        Received = 2,
+    }
+
+    public class ReceiveAttemptExchangeRef
+    {
+        public string Id { get; set; }
+        public bool? Status { get; set; }
+        public bool? ResponseBad { get; set; }
+        public IDictionary<string, string> PromotedProperties { get; set; }
+    }
+
+    public class ReceiveAttemptModel
+    {
+        public int Id { get; set; }
+        public DateTime StartedOn { get; set; }
+        public DateTime FinishedOn { get; set; }
+        public ReceiveOutcome Outcome { get; set; }
+        public string ErrorMessage { get; set; }
+        public ICollection<ReceiveAttemptExchangeRef> Exchanges { get; set; }
+    }
+
+    public class SearchReceiveAttemptsModel
+    {
+        public int SubscriptionId { get; set; }
+        public ReceiveOutcome? Outcome { get; set; }
+        public int? Offset { get; set; }
+        public int? Limit { get; set; }
+    }
+
+    /// <summary>
     /// Whether a scheduled subscription will actually fire — read from the scheduler
     /// itself, not from what Bitween thinks it configured. The two can disagree, and
     /// when they do it is silent: the UI shows a healthy job that never runs.
@@ -163,6 +202,20 @@ namespace SW.Bitween.Model
     /// <see cref="SubscriptionCreateUpdateBase"/> and <see cref="Type"/> is optional — a caller
     /// that sends only those still gets the empty, inactive subscription it always did.
     /// </summary>
+    /// <summary>
+    /// An integration defined while it is being wired up, so the integration and the thing
+    /// that points at it land in one transaction instead of two calls that can half-succeed.
+    /// <para>
+    /// Deriving from <see cref="SubscriptionConfiguration"/> is the point: the whole pipeline
+    /// is applied by the same code an ordinary create uses. The type is always the gateway's.
+    /// <c>DocumentId</c> is ignored for a bus gateway, which is bound to one information type and
+    /// imposes it; an API gateway is not bound to one, so there it is required.
+    /// </para>
+    /// </summary>
+    public class InlineIntegrationCreate : SubscriptionConfiguration
+    {
+    }
+
     public class SubscriptionCreate : SubscriptionConfiguration
     {
         public SubscriptionType Type { get; set; }
