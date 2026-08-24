@@ -13,7 +13,7 @@ variables:
   - name: imageName
     value: 'bitween'
   - name: version
-    value: $[format('8.0.{0}', counter('8.0', 0))]
+    value: $[format('10.0.{0}', counter('10.0', 0))]
 
 jobs:
 
@@ -22,10 +22,10 @@ jobs:
     steps:
 
       - task: UseDotNet@2
-        displayName: 'Use .NET Core sdk 8.0.x'
+        displayName: 'Use .NET Core sdk 10.0.x'
         inputs:
           packageType: sdk
-          version: 8.0.x
+          version: 10.0.x
           installationPath: $(Agent.ToolsDirectory)/dotnet
 
       - task: DotNetCoreCLI@2
