@@ -8,10 +8,12 @@ import type {
   BusGatewayDetail,
   BusGatewayRoute,
   BusGatewayRow,
+  InlineIntegrationDraft,
   MatchGroup,
   Paged,
 } from "../types";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
+import { inlineIntegrationBody } from "./subscriptionBody";
 import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
@@ -111,6 +113,21 @@ const toBusGatewayDetail = (raw: RawBusGateway): BusGatewayDetail => ({
   routes: (raw.routes ?? []).map(toBusGatewayRoute),
 });
 
+/** The attachment always points at an integration that already exists — a new one is
+ * created on its own page first, not inline here (unlike a bus gateway route, which
+ * still creates one in the same transaction — see `AddBusRouteInput`). */
+export type AttachPartnerInput = { partnerId: number; integrationId: number };
+
+/**
+ * A route points at an integration that already exists, or defines one. Exactly one,
+ * which the endpoint enforces — the union makes that unrepresentable rather than
+ * merely wrong.
+ */
+export type AddBusRouteInput = {
+  partnerId: number | null;
+  matchExpression: MatchGroup | null;
+} & ({ integrationId: number } | { newIntegration: InlineIntegrationDraft });
+
 export const gatewayMethods = {
   // ——— API gateways ———
 
@@ -173,8 +190,11 @@ export const gatewayMethods = {
     await request(`/apigateways/${id}`, { method: "DELETE" });
   },
 
-  async attachGatewayPartner(id: number, input: { partnerId: number; integrationId: number }): Promise<void> {
-    await post(`/apigateways/${id}/addpartner`, { partnerId: input.partnerId, subscriptionId: input.integrationId });
+  async attachGatewayPartner(id: number, input: AttachPartnerInput): Promise<void> {
+    await post(`/apigateways/${id}/addpartner`, {
+      partnerId: input.partnerId,
+      subscriptionId: input.integrationId,
+    });
   },
 
   async updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void> {
@@ -262,12 +282,13 @@ export const gatewayMethods = {
     await request(`/busgateways/${id}`, { method: "DELETE" });
   },
 
-  async addBusRoute(
-    id: number,
-    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
-  ): Promise<void> {
+  async addBusRoute(id: number, input: AddBusRouteInput): Promise<void> {
     await post(`/busgateways/${id}/addroute`, {
-      subscriptionId: input.integrationId,
+      // Exactly one of the two, which is what the endpoint enforces. An integration
+      // defined here is created in the same transaction as the route.
+      ...("newIntegration" in input
+        ? { newIntegration: inlineIntegrationBody(input.newIntegration) }
+        : { subscriptionId: input.integrationId }),
       partnerId: input.partnerId,
       matchExpression: toRawMatchExpression(input.matchExpression),
     });

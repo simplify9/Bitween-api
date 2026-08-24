@@ -428,6 +428,30 @@ export interface NotifierDetail extends Notifier {
  * Backend Subscription.Type. Aggregation exists in data but is deferred in
  * this UI; Internal and ApiCall are legacy — shown and editable, never created.
  */
+/**
+ * The editable fields of an integration being defined inline, while whatever points
+ * at it is being made. Mirrors the studio's own draft — deliberately, so the canvas
+ * can hand its draft straight to the client.
+ */
+export interface InlineIntegrationDraft {
+  name: string;
+  enabled: boolean;
+  workGroupId: number | null;
+  retryPolicyId: number | null;
+  receiverId: string | null;
+  receiverProperties: Record<string, string>;
+  validatorId: string | null;
+  validatorProperties: Record<string, string>;
+  mapperId: string | null;
+  mapperProperties: Record<string, string>;
+  handlerId: string | null;
+  handlerProperties: Record<string, string>;
+  matchExpression: MatchGroup | null;
+  schedules: Schedule[];
+  responseIntegrationId: number | null;
+  responseMessageTypeName: string | null;
+}
+
 export type IntegrationType =
   | "Receiving"
   | "GatewayApiCall"

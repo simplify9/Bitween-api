@@ -163,6 +163,20 @@ namespace SW.Bitween.Model
     /// <see cref="SubscriptionCreateUpdateBase"/> and <see cref="Type"/> is optional — a caller
     /// that sends only those still gets the empty, inactive subscription it always did.
     /// </summary>
+    /// <summary>
+    /// An integration defined while it is being wired up, so the integration and the thing
+    /// that points at it land in one transaction instead of two calls that can half-succeed.
+    /// <para>
+    /// Deriving from <see cref="SubscriptionConfiguration"/> is the point: the whole pipeline
+    /// is applied by the same code an ordinary create uses. The type is always the gateway's.
+    /// <c>DocumentId</c> is ignored for a bus gateway, which is bound to one information type and
+    /// imposes it; an API gateway is not bound to one, so there it is required.
+    /// </para>
+    /// </summary>
+    public class InlineIntegrationCreate : SubscriptionConfiguration
+    {
+    }
+
     public class SubscriptionCreate : SubscriptionConfiguration
     {
         public SubscriptionType Type { get; set; }

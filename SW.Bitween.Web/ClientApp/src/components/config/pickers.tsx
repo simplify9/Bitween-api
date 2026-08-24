@@ -132,6 +132,11 @@ export function IntegrationPicker({
   value,
   onChange,
   id,
+  /**
+   * Given, "New integration" defines one where the caller stands instead of opening a
+   * dialog — the caller renders its fields and saves it with whatever points at it.
+   */
+  onDefineHere,
 }: {
   type: "GatewayApiCall" | "BusGateway";
   /** Bus routes only run integrations carrying the gateway's own information type. */
@@ -139,6 +144,7 @@ export function IntegrationPicker({
   value: number | null;
   onChange: (id: number) => void;
   id?: string;
+  onDefineHere?: () => void;
 }) {
   const integrations = useIntegrationsCache();
   const infoTypes = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() });
@@ -169,7 +175,17 @@ export function IntegrationPicker({
       <PickerLinks
         view={value !== null ? `/subscriptions/${value}` : undefined}
         createLabel="New integration"
-        actions={canCreate ? [{ label: "New integration", icon: true, onAct: () => setCreating(true) }] : []}
+        actions={
+          canCreate
+            ? [
+                {
+                  label: "New integration",
+                  icon: true,
+                  onAct: () => (onDefineHere ? onDefineHere() : setCreating(true)),
+                },
+              ]
+            : []
+        }
       />
       {creating && (
         <IntegrationDialog

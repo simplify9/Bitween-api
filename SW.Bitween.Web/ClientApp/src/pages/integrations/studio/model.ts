@@ -42,6 +42,40 @@ export const draftOf = (d: IntegrationDetail): Draft => ({
 });
 
 /**
+ * An integration being defined on a gateway's canvas, before it exists.
+ *
+ * The route already worked this way — see `NEW_ROUTE` — and an integration is the
+ * same problem one level down: asking for it in a modal hides the diagram the
+ * answers are about. It lives in the studio's state until one save writes it and
+ * the thing pointing at it together.
+ */
+export const EMPTY_INTEGRATION: Draft = {
+  name: "",
+  enabled: true,
+  workGroupId: null,
+  retryPolicyId: null,
+  receiverId: null,
+  receiverProperties: {},
+  validatorId: null,
+  validatorProperties: {},
+  mapperId: null,
+  mapperProperties: {},
+  handlerId: null,
+  handlerProperties: {},
+  matchExpression: null,
+  schedules: [],
+  responseIntegrationId: null,
+  responseMessageTypeName: null,
+};
+
+/**
+ * Stands in for "the integration being defined right here" wherever an id is
+ * expected. Negative so it can never collide with a real one, and never sent to
+ * the server: the save swaps it for the inline payload the gateway endpoints take.
+ */
+export const NEW_INTEGRATION_ID = -1;
+
+/**
  * Which draft fields each stage owns — only so a card can carry an unsaved dot.
  * Name, enabled, work group and retry policy belong to no stage; they live on
  * the header and the overview, and the save bar covers them.

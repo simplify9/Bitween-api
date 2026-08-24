@@ -34,7 +34,14 @@ namespace SW.Bitween.Model
     public class ApiGatewayPartnerCreate
     {
         public int PartnerId { get; set; }
-        public int SubscriptionId { get; set; }
+
+        /// <summary>An integration that already exists. Exactly one of this and
+        /// <see cref="NewIntegration"/> is given.</summary>
+        public int? SubscriptionId { get; set; }
+
+        /// <summary>Define the integration here instead of creating it first. It is created as a
+        /// GatewayApiCall in the same transaction as the attachment.</summary>
+        public InlineIntegrationCreate NewIntegration { get; set; }
     }
 
     public class SearchApiGatewayAttachmentsModel

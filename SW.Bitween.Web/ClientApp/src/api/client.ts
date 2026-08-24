@@ -1,3 +1,4 @@
+import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   AdapterInfo,
   AdapterKind,
@@ -262,7 +263,8 @@ export interface ApiClient {
     changes: { name: string; urlName: string; inactive: boolean },
   ): Promise<ApiGateway>;
   deleteApiGateway(id: number): Promise<void>;
-  attachGatewayPartner(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
+  /** The integration is either an existing id or defined inline; the endpoint commits both as one. */
+  attachGatewayPartner(id: number, input: AttachPartnerInput): Promise<void>;
   updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
   removeGatewayAttachment(id: number, partnerId: number): Promise<void>;
 
@@ -279,10 +281,8 @@ export interface ApiClient {
   createBusGateway(input: { name: string; informationTypeId: number }): Promise<BusGateway>;
   updateBusGateway(id: number, changes: { name: string; inactive: boolean }): Promise<BusGateway>;
   deleteBusGateway(id: number): Promise<void>;
-  addBusRoute(
-    id: number,
-    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
-  ): Promise<void>;
+  /** The integration is either an existing id or defined inline; the endpoint commits both as one. */
+  addBusRoute(id: number, input: AddBusRouteInput): Promise<void>;
   updateBusRoute(
     id: number,
     routeId: number,

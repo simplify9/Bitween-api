@@ -17,6 +17,7 @@ import { ApiGatewayNewPage } from "./pages/api-gateways/ApiGatewayNewPage";
 import { ApiGatewaysPage } from "./pages/api-gateways/ApiGatewaysPage";
 import { ApiGatewayPage } from "./pages/api-gateways/ApiGatewayPage";
 import { AttachPartnerPage } from "./pages/api-gateways/AttachPartnerPage";
+import { NewGatewayIntegrationPage } from "./pages/api-gateways/NewGatewayIntegrationPage";
 import { EditAttachmentPage } from "./pages/api-gateways/EditAttachmentPage";
 import { BusGatewayNewPage } from "./pages/bus-gateways/BusGatewayNewPage";
 import { BusGatewayPage } from "./pages/bus-gateways/BusGatewayPage";
@@ -235,6 +236,14 @@ export const router = createBrowserRouter([
             element: (
               <RequirePermission permission="api-gateways.edit">
                 <AttachPartnerPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "api-gateways/:id/attach/new-integration",
+            element: (
+              <RequirePermission permission="subscriptions.create">
+                <NewGatewayIntegrationPage />
               </RequirePermission>
             ),
           },
