@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Fixtures;
@@ -24,10 +26,16 @@ public class RetryPolicyTests
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
+    private static AdapterSecretProperties Secrets(AsyncServiceScope scope) =>
+        scope.ServiceProvider.GetRequiredService<AdapterSecretProperties>();
+
+    private static RetryUsageReport Report(AsyncServiceScope scope) =>
+        scope.ServiceProvider.GetRequiredService<RetryUsageReport>();
+
     private static (Create create, Get get, Update update, Delete delete)
-        Handlers(BitweenDbContext db, RequestContext ctx) => (
+        Handlers(BitweenDbContext db, RequestContext ctx, AdapterSecretProperties secrets) => (
             new Create(db, ctx),
-            new Get(db),
+            new Get(db, ctx, secrets),
             new Update(db, ctx),
             new Delete(db, ctx));
 
@@ -59,8 +67,8 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, get, _, _) = Handlers(db, ctx);
+        var ctx = scope.Superuser();
+        var (create, get, _, _) = Handlers(db, ctx, Secrets(scope));
 
         var id = (int)await create.Handle(SimplePolicy("Round-trip Policy"));
 
@@ -77,8 +85,8 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, _) = Handlers(db, ctx);
+        var ctx = scope.Superuser();
+        var (create, _, _, _) = Handlers(db, ctx, Secrets(scope));
 
         var policy = new RetryPolicyCreate
         {
@@ -129,8 +137,8 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, update, _) = Handlers(db, ctx);
+        var ctx = scope.Superuser();
+        var (create, _, update, _) = Handlers(db, ctx, Secrets(scope));
 
         var id = (int)await create.Handle(SimplePolicy("Before Update"));
 
@@ -168,8 +176,8 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, delete) = Handlers(db, ctx);
+        var ctx = scope.Superuser();
+        var (create, _, _, delete) = Handlers(db, ctx, Secrets(scope));
 
         var id = (int)await create.Handle(SimplePolicy("Deletable Policy"));
 
@@ -186,8 +194,8 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, delete) = Handlers(db, ctx);
+        var ctx = scope.Superuser();
+        var (create, _, _, delete) = Handlers(db, ctx, Secrets(scope));
 
         var doc = new Document(7001, "Delete Guard Doc");
         db.Set<Document>().Add(doc);
@@ -238,8 +246,8 @@ public class RetryPolicyTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var (create, _, _, _) = Handlers(db, ctx);
+        var ctx = scope.Superuser();
+        var (create, _, _, _) = Handlers(db, ctx, Secrets(scope));
 
         var doc = new Document(7002, "Sub FK Doc");
         db.Set<Document>().Add(doc);
@@ -333,14 +341,420 @@ public class RetryPolicyTests
         Assert.Null(reloaded.RetryPolicyId);
     }
 
+    // ─── Shared group total (MaxAttemptsTotal) ──────────────────────────────────
+
+    [Fact]
+    public async Task Group_total_is_shared_across_separate_messages_of_the_same_integration()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7005, "Shared Total Doc");
+        db.Set<Document>().Add(doc);
+        var sub = new Subscription("Shared Total Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 3,
+                MaxAttemptsTotal = 10,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 5_000 }
+            }
+        };
+        var policy = new CustomRetryPolicy { Groups = [group] };
+
+        // Reproduces the reported bug: four failing messages, each retried up to its own
+        // per-message cap of 3, under a shared total of 10 — 12 retries before the fix.
+        var allowed = 0;
+        for (var message = 0; message < 4; message++)
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            // A fresh evaluator and store per failure, exactly as XchangeService builds them.
+            var evaluator = new RetryPolicyEvaluator(policy, new RetryGroupBudget(db, scope.ServiceProvider, sub.Id));
+            var decision = await evaluator.Evaluate(XchangeResultType.Error, "timeout", attempt);
+            if (decision.ShouldRetry) allowed++;
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(10, allowed);
+
+        var usage = await db.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id && u.GroupId == group.Id);
+        Assert.Equal(10, usage.AttemptsUsed);
+    }
+
+    [Fact]
+    public async Task Group_total_is_tracked_per_integration_not_per_policy()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7006, "Per Integration Doc");
+        db.Set<Document>().Add(doc);
+        var subA = new Subscription("Per Integration Sub A", doc.Id);
+        var subB = new Subscription("Per Integration Sub B", doc.Id);
+        db.Set<Subscription>().AddRange(subA, subB);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 10,
+                MaxAttemptsTotal = 1,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 5_000 }
+            }
+        };
+        var policy = new CustomRetryPolicy { Groups = [group] };
+
+        // Each integration gets its own single attempt, so one integration exhausting a
+        // shared policy template cannot starve the others.
+        Assert.True(await Allow(subA.Id));
+        Assert.True(await Allow(subB.Id));
+        Assert.False(await Allow(subA.Id));
+        Assert.False(await Allow(subB.Id));
+        return;
+
+        async Task<bool> Allow(int subscriptionId)
+        {
+            var evaluator = new RetryPolicyEvaluator(policy, new RetryGroupBudget(db, scope.ServiceProvider, subscriptionId));
+            var decision = await evaluator.Evaluate(XchangeResultType.Error, "timeout", 0);
+            await db.SaveChangesAsync();
+            return decision.ShouldRetry;
+        }
+    }
+
+    [Fact]
+    public async Task Concurrent_claims_never_exceed_the_group_total()
+    {
+        await using var setup = _fixture.CreateScope();
+        var setupDb = setup.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7010, "Concurrent Budget Doc");
+        setupDb.Set<Document>().Add(doc);
+        var sub = new Subscription("Concurrent Budget Sub", doc.Id);
+        setupDb.Set<Subscription>().Add(sub);
+        await setupDb.SaveChangesAsync();
+
+        var groupId = Guid.NewGuid();
+        const int cap = 5;
+        const int racers = 16;
+
+        // Bitween runs several instances, so simultaneous failures of the same integration and
+        // group are normal. Each racer gets its own scope and context, mimicking separate
+        // instances: a read-then-write would let several observe the same free slot at once.
+        var tasks = Enumerable.Range(0, racers).Select(async _ =>
+        {
+            await using var scope = _fixture.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            return await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, cap);
+        });
+
+        var claims = await Task.WhenAll(tasks);
+        var granted = claims.Count(claim => claim.Granted);
+
+        Assert.Equal(cap, granted);
+
+        var usage = await setupDb.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id && u.GroupId == groupId);
+        Assert.Equal(cap, usage.AttemptsUsed);
+    }
+
+    // ─── Usage reporting and reset ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task Usage_reports_spent_budget_and_reset_clears_it()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7007, "Usage Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var policyId = (int)await new Create(db, ctx).Handle(SimplePolicy("Usage Policy"));
+        var saved = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+        var groupId = saved.Groups[0].Id;
+
+        var sub = new Subscription("Usage Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        // Spend the whole budget (SimplePolicy allows 10 in total).
+        var budget = new RetryGroupBudget(db, scope.ServiceProvider, sub.Id);
+        for (var i = 0; i < 10; i++) await budget.TryConsume(groupId, 10);
+        await db.SaveChangesAsync();
+
+        var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope)).Handle(policyId, new RetryPolicyUsageRequest());
+        var row = Assert.Single(rows);
+        Assert.Equal(sub.Id, row.SubscriptionId);
+        Assert.Equal("Usage Sub", row.SubscriptionName);
+        Assert.Equal("Timeout", row.GroupName);
+        Assert.Equal(10, row.AttemptsUsed);
+        Assert.True(row.Exhausted);
+
+        await new ResetUsage(db, ctx).Handle(policyId, new RetryPolicyResetUsage
+        {
+            SubscriptionId = sub.Id,
+            GroupId = groupId
+        });
+
+        // The pair keeps its row — every subscription-and-group pair gets one so an alert override
+        // stays configurable before the first failure — but with nothing spent against the ceiling.
+        var afterReset = Assert.Single(
+            (List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope)).Handle(policyId, new RetryPolicyUsageRequest()));
+        Assert.Equal(0, afterReset.AttemptsUsed);
+        Assert.False(afterReset.Exhausted);
+        Assert.Null(afterReset.LastAttemptOn);
+
+        // And the group can retry again.
+        Assert.True((await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, 10)).Granted);
+    }
+
+    [Fact]
+    public async Task Usage_lists_never_failed_pairs_and_skips_groups_that_cannot_exhaust()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7011, "Never Failed Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var model = SimplePolicy("Never Failed Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+
+        // A Block group carries no budget, and the evaluator refuses before it ever claims one, so
+        // it can never exhaust and never alert. Reporting it would invite configuring an alert that
+        // cannot fire.
+        model.Groups.Add(new RetryGroup
+        {
+            Name = "Never retry",
+            Priority = 20,
+            Action = RetryAction.Block,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "fatal" }]
+        });
+
+        var policyId = (int)await new Create(db, ctx).Handle(model);
+
+        var sub = new Subscription("Never Failed Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope))
+            .Handle(policyId, new RetryPolicyUsageRequest());
+
+        // One row, not two: the pair is reported even though nothing has ever failed — otherwise its
+        // alert override would be unreachable until after the first failure — while the Block group
+        // is left out entirely.
+        var row = Assert.Single(rows);
+        Assert.Equal("Timeout", row.GroupName);
+        Assert.Equal(0, row.AttemptsUsed);
+        Assert.Equal(10, row.MaxAttemptsTotal);
+        Assert.False(row.Exhausted);
+        Assert.Null(row.LastAttemptOn);
+        Assert.Equal("NativeSmtpHandler", row.ResolvedHandlerId);
+        Assert.Equal(RetryAlertLevel.Policy, row.ResolvedFrom);
+    }
+
+    [Fact]
+    public async Task Reset_does_not_touch_counters_of_another_policy()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7008, "Reset Scope Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var mineId = (int)await new Create(db, ctx).Handle(SimplePolicy("Reset Scope Mine"));
+        var otherId = (int)await new Create(db, ctx).Handle(SimplePolicy("Reset Scope Other"));
+        var otherGroupId = (await db.Set<RetryPolicy>().AsNoTracking()
+            .SingleAsync(p => p.Id == otherId)).Groups[0].Id;
+
+        var otherSub = new Subscription("Reset Scope Other Sub", doc.Id);
+        db.Set<Subscription>().Add(otherSub);
+        await db.SaveChangesAsync();
+        otherSub.SetRetryPolicy(otherId, null);
+        await db.SaveChangesAsync();
+
+        await new RetryGroupBudget(db, scope.ServiceProvider, otherSub.Id).TryConsume(otherGroupId, 10);
+        await db.SaveChangesAsync();
+
+        // Resetting everything under one policy must leave the other policy's counters alone.
+        await new ResetUsage(db, ctx).Handle(mineId, new RetryPolicyResetUsage());
+
+        // A row now exists for every pair whether or not it has failed, so assert the spent counter
+        // itself survived — row count alone would pass even if the reset had wrongly cleared it.
+        var otherRow = Assert.Single(
+            (List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope)).Handle(otherId, new RetryPolicyUsageRequest()));
+        Assert.Equal(1, otherRow.AttemptsUsed);
+    }
+
+    [Fact]
+    public async Task Removing_a_group_clears_its_spent_budget()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7009, "Removed Group Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var policyId = (int)await new Create(db, ctx).Handle(SimplePolicy("Removed Group Policy"));
+        var saved = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+        var groupId = saved.Groups[0].Id;
+
+        var sub = new Subscription("Removed Group Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, 10);
+        await db.SaveChangesAsync();
+        Assert.True(await db.Set<RetryGroupUsage>().AnyAsync(u => u.GroupId == groupId));
+
+        // Dropping the group must take its counter with it, or the row is stranded where
+        // neither the usage report nor reset can reach it.
+        await new Update(db, ctx).Handle(policyId, new RetryPolicyUpdate
+        {
+            Name = "Removed Group Policy",
+            Groups = []
+        });
+
+        Assert.False(await db.Set<RetryGroupUsage>().AnyAsync(u => u.GroupId == groupId));
+    }
+
+    // ─── Attempts drill-down ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Attempts_lists_only_this_pairs_stamped_failures_pending_first()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7012, "Attempts Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var policyId = (int)await new Create(db, ctx).Handle(SimplePolicy("Attempts Policy"));
+        var groupId = (await db.Set<RetryPolicy>().AsNoTracking()
+            .SingleAsync(p => p.Id == policyId)).Groups[0].Id;
+
+        var sub = new Subscription("Attempts Sub", doc.Id);
+        var otherSub = new Subscription("Attempts Other Sub", doc.Id);
+        db.Set<Subscription>().AddRange(sub, otherSub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        otherSub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        // Still being worked on: a scheduled retry is outstanding for it.
+        var pending = new Xchange(sub, new XchangeFile("{}"));
+        var pendingResult = new XchangeResult(pending.Id, null, null, exception: "first timeout");
+        pendingResult.SetRetryEvaluation(groupId, 0);
+
+        // Given up on, and the reason recorded.
+        var stopped = new Xchange(sub, new XchangeFile("{}"));
+        var stoppedResult = new XchangeResult(stopped.Id, null, null, exception: "second timeout");
+        stoppedResult.SetRetryEvaluation(groupId, 1);
+        stoppedResult.SetRetryBlocked("Group 'Timeout' has used all 10 of its total attempts");
+
+        // Carries no group: this is what every failure recorded before the group was stamped onto
+        // results looks like, and it has no pair to be listed under.
+        var unstamped = new Xchange(sub, new XchangeFile("{}"));
+        var unstampedResult = new XchangeResult(unstamped.Id, null, null, exception: "older timeout");
+
+        // Same policy and same group, different subscription — a row of its own, not this one's.
+        var otherPair = new Xchange(otherSub, new XchangeFile("{}"));
+        var otherPairResult = new XchangeResult(otherPair.Id, null, null, exception: "someone else's timeout");
+        otherPairResult.SetRetryEvaluation(groupId, 0);
+
+        db.Set<Xchange>().AddRange(pending, stopped, unstamped, otherPair);
+        db.Set<XchangeResult>().AddRange(pendingResult, stoppedResult, unstampedResult, otherPairResult);
+        db.Set<DelayedRetry>().Add(new DelayedRetry { Id = pending.Id, On = DateTime.UtcNow.AddMinutes(5) });
+        await db.SaveChangesAsync();
+
+        var result = (RetryGroupAttempts)await new Attempts(db, ctx).Handle(policyId,
+            new RetryGroupAttemptsRequest { SubscriptionId = sub.Id, GroupId = groupId });
+
+        // Two, not four: the unstamped failure and the other subscription's are both out.
+        Assert.Equal(2, result.Total);
+        Assert.Equal(2, result.Attempts.Count);
+
+        // Pending leads, so a long history of finished failures can never push the one still moving
+        // out of a capped list.
+        Assert.Equal(pending.Id, result.Attempts[0].XchangeId);
+        Assert.True(result.Attempts[0].RetryPending);
+        Assert.Equal(0, result.Attempts[0].AttemptNumber);
+        Assert.Equal("first timeout", result.Attempts[0].Exception);
+        Assert.Null(result.Attempts[0].RetryBlockedReason);
+
+        Assert.Equal(stopped.Id, result.Attempts[1].XchangeId);
+        Assert.False(result.Attempts[1].RetryPending);
+        Assert.Equal(1, result.Attempts[1].AttemptNumber);
+        Assert.Contains("used all 10", result.Attempts[1].RetryBlockedReason);
+    }
+
+    [Fact]
+    public async Task Attempts_rejects_a_subscription_that_does_not_use_the_policy()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7013, "Attempts Scope Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var mineId = (int)await new Create(db, ctx).Handle(SimplePolicy("Attempts Scope Mine"));
+        var theirsId = (int)await new Create(db, ctx).Handle(SimplePolicy("Attempts Scope Theirs"));
+        var theirGroupId = (await db.Set<RetryPolicy>().AsNoTracking()
+            .SingleAsync(p => p.Id == theirsId)).Groups[0].Id;
+
+        var theirSub = new Subscription("Attempts Scope Their Sub", doc.Id);
+        db.Set<Subscription>().Add(theirSub);
+        await db.SaveChangesAsync();
+        theirSub.SetRetryPolicy(theirsId, null);
+        await db.SaveChangesAsync();
+
+        // Asking one policy for another policy's subscription must fail rather than quietly answer:
+        // the route key is what the caller was authorised against.
+        await Assert.ThrowsAsync<SWNotFoundException>(() => new Attempts(db, ctx).Handle(mineId,
+            new RetryGroupAttemptsRequest { SubscriptionId = theirSub.Id, GroupId = theirGroupId }));
+    }
+
     // ─── Test / dry-run endpoint ────────────────────────────────────────────────
 
     [Fact]
     public async Task Test_simulates_consecutive_attempts_and_stops_once_blocked()
     {
         await using var scope = _fixture.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var handler = new Resources.RetryPolicies.Test(ctx);
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+        var handler = new Resources.RetryPolicies.Test(db, ctx);
 
         var request = new TestRetryPolicyRequest
         {
@@ -369,8 +783,9 @@ public class RetryPolicyTests
     public async Task Test_rejects_success_result_type()
     {
         await using var scope = _fixture.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var handler = new Resources.RetryPolicies.Test(ctx);
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+        var handler = new Resources.RetryPolicies.Test(db, ctx);
 
         var request = new TestRetryPolicyRequest
         {
@@ -386,8 +801,9 @@ public class RetryPolicyTests
     public async Task Test_reports_no_match_when_no_group_applies()
     {
         await using var scope = _fixture.CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();
-        var handler = new Resources.RetryPolicies.Test(ctx);
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+        var handler = new Resources.RetryPolicies.Test(db, ctx);
 
         var request = new TestRetryPolicyRequest
         {
@@ -404,4 +820,687 @@ public class RetryPolicyTests
         Assert.Null(response.Attempts[0].MatchedGroupName);
     }
 
+    // ─── Exhaustion alert claim ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Exhausting_a_budget_claims_the_alert_exactly_once()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7101, "Alert Claim Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var sub = new Subscription("Alert Claim Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        var groupId = Guid.NewGuid();
+        var budget = new RetryGroupBudget(db, scope.ServiceProvider, sub.Id);
+
+        // Spending the budget never alerts — nothing has been refused yet.
+        for (var i = 0; i < 3; i++)
+        {
+            var spending = await budget.TryConsume(groupId, 3);
+            Assert.True(spending.Granted);
+            Assert.False(spending.JustExhausted);
+        }
+
+        // The first refusal owns the alert.
+        var first = await budget.TryConsume(groupId, 3);
+        Assert.False(first.Granted);
+        Assert.True(first.JustExhausted);
+
+        // Every refusal after it stays quiet, however many failures arrive.
+        var second = await budget.TryConsume(groupId, 3);
+        Assert.False(second.Granted);
+        Assert.False(second.JustExhausted);
+
+        var usage = await db.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id && u.GroupId == groupId);
+        Assert.NotNull(usage.ExhaustedNotifiedOn);
+    }
+
+    [Fact]
+    public async Task Concurrent_refusals_claim_the_alert_only_once()
+    {
+        await using var setupScope = _fixture.CreateScope();
+        var setupDb = setupScope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7102, "Alert Race Doc");
+        setupDb.Set<Document>().Add(doc);
+        await setupDb.SaveChangesAsync();
+
+        var sub = new Subscription("Alert Race Sub", doc.Id);
+        setupDb.Set<Subscription>().Add(sub);
+        await setupDb.SaveChangesAsync();
+
+        var groupId = Guid.NewGuid();
+
+        // Spends the only attempt, so every racer below meets an empty budget. Asserted, or a
+        // failure here would surface as a confusing claim count further down.
+        var setupClaim = await new RetryGroupBudget(setupDb, setupScope.ServiceProvider, sub.Id)
+            .TryConsume(groupId, 1);
+        Assert.True(setupClaim.Granted);
+
+        // Several instances can discover the empty budget in the same instant; a read-then-write
+        // would let each of them decide it was the first and send its own email.
+        var tasks = Enumerable.Range(0, 12).Select(async _ =>
+        {
+            await using var scope = _fixture.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            return await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, 1);
+        });
+
+        var claims = await Task.WhenAll(tasks);
+
+        Assert.Equal(1, claims.Count(c => c.JustExhausted));
+        Assert.DoesNotContain(claims, c => c.Granted);
+    }
+
+    [Fact]
+    public async Task Resetting_usage_re_arms_the_exhaustion_alert()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7103, "Alert Rearm Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var policyId = (int)await new Create(db, ctx).Handle(SimplePolicy("Alert Rearm Policy"));
+        var saved = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+        var groupId = saved.Groups[0].Id;
+
+        var sub = new Subscription("Alert Rearm Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        var budget = new RetryGroupBudget(db, scope.ServiceProvider, sub.Id);
+        for (var i = 0; i < 10; i++) await budget.TryConsume(groupId, 10);
+        Assert.True((await budget.TryConsume(groupId, 10)).JustExhausted);
+
+        await new ResetUsage(db, ctx).Handle(policyId, new RetryPolicyResetUsage
+        {
+            SubscriptionId = sub.Id,
+            GroupId = groupId
+        });
+
+        // Reset deletes the row, so the budget and its alert come back together.
+        for (var i = 0; i < 10; i++) await budget.TryConsume(groupId, 10);
+        Assert.True((await budget.TryConsume(groupId, 10)).JustExhausted);
+    }
+
+    // ─── Alert config validation ───────────────────────────────────────────────
+
+    [Fact]
+    public async Task Cannot_save_a_group_that_sends_its_own_alert_without_a_handler()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var model = SimplePolicy("Alert Validation Policy");
+        model.Groups =
+        [
+            new RetryGroup
+            {
+                Name = model.Groups[0].Name,
+                Priority = model.Groups[0].Priority,
+                AppliesTo = model.Groups[0].AppliesTo,
+                Matchers = model.Groups[0].Matchers,
+                Budget = model.Groups[0].Budget,
+                AlertMode = RetryAlertMode.Send
+            }
+        ];
+
+        await Assert.ThrowsAsync<SWValidationException>(() => new Create(db, ctx).Handle(model));
+    }
+
+    // ─── Reaching an inline policy's counters ────────────────────────────────────
+
+    [Fact]
+    public async Task An_inline_policy_budget_can_be_reported_and_reset_by_subscription()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7015, "Inline Policy Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var sub = new Subscription("Inline Policy Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        // Carried on the subscription itself, so there is no policy id anywhere to ask about it.
+        var inline = new CustomRetryPolicy { Groups = SimplePolicy("unused").Groups };
+        sub.SetRetryPolicy(null, inline);
+        await db.SaveChangesAsync();
+
+        var groupId = inline.Groups[0].Id;
+
+        // Spends the whole shared budget, which is what stops this subscription retrying at all.
+        for (var i = 0; i < 10; i++)
+            await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id).TryConsume(groupId, 10);
+        await db.SaveChangesAsync();
+
+        var row = Assert.Single((List<RetryGroupUsageRow>)await new Resources.Subscriptions.RetryUsage(
+            db, ctx, Report(scope)).Handle(sub.Id, new RetryPolicyUsageRequest()));
+
+        Assert.Equal(10, row.AttemptsUsed);
+        Assert.True(row.Exhausted);
+
+        // An inline policy has no row to hold a policy-level alert, so nothing resolves from there —
+        // and that has to read as "nothing configured" rather than as a level being consulted.
+        Assert.Null(row.ResolvedHandlerId);
+        Assert.Null(row.ResolvedFrom);
+
+        // The point of the whole endpoint: before this, no reset could reach these counters, so the
+        // subscription stayed stopped for good.
+        await new Resources.Subscriptions.ResetRetryUsage(db, ctx)
+            .Handle(sub.Id, new SubscriptionRetryResetUsage());
+
+        var afterReset = Assert.Single((List<RetryGroupUsageRow>)await new Resources.Subscriptions.RetryUsage(
+            db, ctx, Report(scope)).Handle(sub.Id, new RetryPolicyUsageRequest()));
+        Assert.Equal(0, afterReset.AttemptsUsed);
+        Assert.False(afterReset.Exhausted);
+
+        // And it stays scoped to this subscription: a policy-scoped report must still not see it,
+        // which is precisely why the subscription-scoped one had to exist.
+        Assert.False(await db.Set<RetryGroupUsage>().AnyAsync(u => u.SubscriptionId == sub.Id));
+    }
+
+    // ─── Allow with no budget ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Allow_without_a_budget_is_rejected_on_save()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        RetryPolicyCreate PolicyWithBudgetlessGroup(string name, RetryAction action) => new()
+        {
+            Name = name,
+            Groups =
+            [
+                new RetryGroup
+                {
+                    Name = "No budget",
+                    Priority = 10,
+                    Action = action,
+                    AppliesTo = [XchangeResultType.Error],
+                    Matchers = [new ContainsMatcher { Value = "timeout" }]
+                }
+            ]
+        };
+
+        // Nothing to work from — no caps, no delay — so the evaluator could only ever refuse it, and
+        // refusing quietly reads as retries being broken. Rejected where it is configured instead.
+        await Assert.ThrowsAsync<SWValidationException>(
+            () => new Create(db, ctx).Handle(PolicyWithBudgetlessGroup("Budgetless Allow", RetryAction.Allow)));
+
+        // Block is the shape that legitimately has no budget, and it must still save.
+        await new Create(db, ctx).Handle(PolicyWithBudgetlessGroup("Budgetless Block", RetryAction.Block));
+    }
+
+    // ─── Alert secrets ──────────────────────────────────────────────────────────
+
+    // What the browser is shown in place of a secret. Spelled out rather than taken from the
+    // constant: the UI has its own copy of this string, and the two have to stay the same.
+    private const string Sentinel = "__private__";
+
+    private static Dictionary<string, string> SmtpProperties(string password, bool useTls) => new()
+    {
+        ["Host"] = "localhost",
+        ["Port"] = "1025",
+        ["UseTls"] = useTls ? "true" : "false",
+        ["Password"] = password,
+        ["From"] = "bitween-alerts@example.com",
+        ["To"] = "ops@example.com",
+        ["Subject"] = "Retries stopped",
+        ["Body"] = "Budget spent."
+    };
+
+    [Fact]
+    public async Task An_alert_password_is_masked_on_read_and_survives_being_saved_back()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var model = SimplePolicy("Masked Alert Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+        model.AlertHandlerProperties = SmtpProperties("hunter2", useTls: true);
+
+        var policyId = (int)await new Create(db, ctx).Handle(model);
+
+        var loaded = (RetryPolicyUpdate)await new Get(db, ctx, Secrets(scope)).Handle(policyId);
+
+        // The password never leaves the server; everything that is not a secret still does, or the
+        // form would have nothing to show.
+        Assert.Equal(Sentinel, loaded.AlertHandlerProperties["Password"]);
+        Assert.Equal("localhost", loaded.AlertHandlerProperties["Host"]);
+        Assert.Equal("Retries stopped", loaded.AlertHandlerProperties["Subject"]);
+
+        // Exactly what the page does when someone edits the subject and saves: the password comes
+        // back as the mask, and must not be stored as one.
+        loaded.AlertHandlerProperties["Subject"] = "Retries stopped for real";
+        await new Update(db, ctx).Handle(policyId, new RetryPolicyUpdate
+        {
+            Name = loaded.Name,
+            Groups = loaded.Groups,
+            AlertHandlerId = loaded.AlertHandlerId,
+            AlertHandlerProperties = loaded.AlertHandlerProperties
+        });
+
+        var stored = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+        Assert.Equal("hunter2", stored.AlertHandlerProperties["Password"]);
+        Assert.Equal("Retries stopped for real", stored.AlertHandlerProperties["Subject"]);
+    }
+
+    [Fact]
+    public async Task Overriding_an_inherited_alert_keeps_the_password_it_was_only_shown_masked()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var doc = new Document(7014, "Copied Secret Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var model = SimplePolicy("Copied Secret Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+        model.AlertHandlerProperties = SmtpProperties("hunter2", useTls: true);
+        var policyId = (int)await new Create(db, ctx).Handle(model);
+
+        var groupId = (await db.Set<RetryPolicy>().AsNoTracking()
+            .SingleAsync(p => p.Id == policyId)).Groups[0].Id;
+
+        var sub = new Subscription("Copied Secret Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policyId, null);
+        await db.SaveChangesAsync();
+
+        var row = Assert.Single((List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope))
+            .Handle(policyId, new RetryPolicyUsageRequest()));
+        Assert.Equal(Sentinel, row.ResolvedHandlerProperties["Password"]);
+
+        // The page offers "start from what this currently sends", so the masked value is what comes
+        // back — and there is no override row yet to restore it from. It has to be recovered from the
+        // level the caller was shown it at, or the new override would send with no password at all.
+        await new SaveAlertOverride(db, ctx, Secrets(scope)).Handle(policyId, new RetryAlertOverrideSave
+        {
+            SubscriptionId = sub.Id,
+            GroupId = groupId,
+            AlertMode = RetryAlertMode.Send,
+            AlertHandlerId = "NativeSmtpHandler",
+            AlertHandlerProperties = row.ResolvedHandlerProperties
+        });
+
+        var stored = await db.Set<RetryAlertOverride>().AsNoTracking()
+            .SingleAsync(o => o.SubscriptionId == sub.Id && o.GroupId == groupId);
+        Assert.Equal("hunter2", stored.AlertHandlerProperties["Password"]);
+        Assert.Equal("ops@example.com", stored.AlertHandlerProperties["To"]);
+    }
+
+    [Fact]
+    public async Task A_mail_alert_with_a_password_and_no_encryption_is_rejected_on_save()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var model = SimplePolicy("Cleartext Alert Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+        model.AlertHandlerProperties = SmtpProperties("hunter2", useTls: false);
+
+        // Caught on save, where the person configuring it is looking — the handler refuses this at
+        // send time too, but by then the only trace is a missing alert.
+        await Assert.ThrowsAsync<SWValidationException>(() => new Create(db, ctx).Handle(model));
+
+        // Encryption off is fine on its own; it is only the password that must not travel in clear.
+        model.AlertHandlerProperties = SmtpProperties("", useTls: false);
+        await new Create(db, ctx).Handle(model);
+    }
+
+    [Fact]
+    public async Task Policy_alert_handler_round_trips()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ctx = scope.Superuser();
+
+        var model = SimplePolicy("Alert Handler Policy");
+        model.AlertHandlerId = "NativeSmtpHandler";
+        model.AlertHandlerProperties = new Dictionary<string, string> { ["to"] = "ops@example.com" };
+
+        var policyId = (int)await new Create(db, ctx).Handle(model);
+        var loaded = (RetryPolicyUpdate)await new Get(db, ctx, Secrets(scope)).Handle(policyId);
+
+        Assert.Equal("NativeSmtpHandler", loaded.AlertHandlerId);
+        Assert.Equal("ops@example.com", loaded.AlertHandlerProperties["to"]);
+    }
+
+    // ─── Manual retries and the shared budget ─────────────────────────────────
+
+    /// <summary>
+    /// A person pressing Retry must not spend the budget set aside for unattended retries.
+    /// </summary>
+    /// <remarks>
+    /// Both attempts in this test are children of the same failed exchange, fail the same way against
+    /// the same group, and differ only in who asked for them. Without that pairing the test could pass
+    /// simply because nothing was ever evaluated.
+    /// </remarks>
+    [Fact]
+    public async Task A_retry_started_by_hand_is_left_alone_by_the_policy()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+
+        const string failure = "manual retry budget probe failed";
+
+        var doc = new Document(7031, "Manual Retry Doc");
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+
+        var groupId = Guid.NewGuid();
+        var policy = new RetryPolicy
+        {
+            Name = "Manual Retry Policy " + Guid.NewGuid().ToString("N")[..6],
+            Groups =
+            [
+                new RetryGroup
+                {
+                    Id = groupId,
+                    Name = "Probe",
+                    Priority = 10,
+                    AppliesTo = [XchangeResultType.Error],
+                    Matchers = [new ContainsMatcher { Value = failure }],
+                    Budget = new RetryBudget
+                    {
+                        MaxAttemptsPerError = 3,
+                        MaxAttemptsTotal = 5,
+                        DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 }
+                    }
+                }
+            ]
+        };
+        db.Set<RetryPolicy>().Add(policy);
+        await db.SaveChangesAsync();
+
+        // A handler that fails on demand, so the failure text is chosen here rather than inherited
+        // from whatever the environment happens to throw, and the matcher above can be exact.
+        var sub = new Subscription("Manual Retry Sub", doc.Id);
+        sub.HandlerId = "sw.bitween.sampleconfigurableadapter";
+        sub.SetDictionaries(
+            new Dictionary<string, string> { ["SimulateError"] = "true", ["ErrorMessage"] = failure },
+            null, null, null, null);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+        sub.SetRetryPolicy(policy.Id, null);
+        await db.SaveChangesAsync();
+
+
+        // The document cache is a warm singleton shared by the whole collection, and production
+        // clears it over the bus whenever a document changes. Cleared here for the same reason: a
+        // document created after the cache warmed is invisible to the filter step, which then fails
+        // on its own before any handler runs.
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+
+        var original = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+
+        // One of each, exactly as their callers build them: the endpoint behind the Retry button, and
+        // RetryJob working through a due DelayedRetry.
+        await xs.CreateXchange(sub, original, new XchangeFile("{}"), manualRetry: true);
+        await xs.CreateXchange(sub, original, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+
+        var children = await db.Set<Xchange>().AsNoTracking()
+            .Where(x => x.RetryFor == original.Id).ToListAsync();
+        var byHand = Assert.Single(children, x => x.ManualRetry);
+        var byPolicy = Assert.Single(children, x => !x.ManualRetry);
+
+        await Run(byHand.Id);
+        await Run(byPolicy.Id);
+
+        var handResult = await db.Set<XchangeResult>().AsNoTracking().SingleAsync(r => r.Id == byHand.Id);
+        var policyResult = await db.Set<XchangeResult>().AsNoTracking().SingleAsync(r => r.Id == byPolicy.Id);
+
+        // Both genuinely failed, and failed the way the group is written for, so the policy had
+        // something to match in either case.
+        Assert.False(handResult.Success);
+        Assert.False(policyResult.Success);
+        Assert.Contains(failure, handResult.Exception);
+        Assert.Contains(failure, policyResult.Exception);
+
+        Assert.Null(handResult.RetryGroupId);
+        Assert.Contains("by hand", handResult.RetryBlockedReason);
+        Assert.False(await db.Set<DelayedRetry>().AsNoTracking().AnyAsync(r => r.Id == byHand.Id));
+
+        // The control: the same failure, evaluated, charged for and scheduled.
+        Assert.Equal(groupId, policyResult.RetryGroupId);
+        Assert.True(await db.Set<DelayedRetry>().AsNoTracking().AnyAsync(r => r.Id == byPolicy.Id));
+
+        var usage = await db.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id && u.GroupId == groupId);
+        Assert.Equal(1, usage.AttemptsUsed);
+
+        // Runs the exchange through the same entry point the bus calls, so the guard is exercised
+        // where it actually sits rather than through a seam opened up for the test.
+        async Task Run(string xchangeId)
+        {
+            await using var runScope = _fixture.CreateScope();
+            await runScope.ServiceProvider.GetRequiredService<XchangeService>()
+                .Process("XchangeCreated", JsonConvert.SerializeObject(new { Id = xchangeId }));
+        }
+    }
+
+    // ─── Recovery ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// A success is what tells Bitween the downstream is back, so it is what gives the budget back.
+    /// </summary>
+    /// <remarks>
+    /// Nothing else can: an exhausted group schedules no more retries, so no retry will ever succeed
+    /// to report the recovery. Only ordinary traffic getting through can, which is what this drives.
+    /// </remarks>
+    [Fact]
+    public async Task A_success_gives_the_group_its_spent_budget_back()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+
+        var doc = new Document(7032, "Recovery Doc");
+        db.Set<Document>().Add(doc);
+        var sub = new Subscription("Recovery Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 2,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 }
+            }
+        };
+        // Attached to the subscription, not just handed to the evaluator: releasing a budget reads the
+        // group's cap back from the policy the subscription actually holds, because a total that is
+        // only partly spent must be left alone.
+        sub.SetRetryPolicy(null, new CustomRetryPolicy { Groups = [group] });
+        await db.SaveChangesAsync();
+
+        async Task<RetryDecision> Fail() =>
+            await new RetryPolicyEvaluator(sub.CustomRetryPolicy,
+                    new RetryGroupBudget(db, scope.ServiceProvider, sub.Id))
+                .Evaluate(XchangeResultType.Error, "System.TimeoutException: timeout", 0);
+
+        Assert.True((await Fail()).ShouldRetry);
+        Assert.True((await Fail()).ShouldRetry);
+
+        var exhausted = await Fail();
+        Assert.False(exhausted.ShouldRetry);
+        Assert.True(exhausted.BudgetJustExhausted);
+
+
+        // The document cache is a warm singleton shared by the whole collection, and production
+        // clears it over the bus whenever a document changes. Cleared here for the same reason: a
+        // document created after the cache warmed is invisible to the filter step, which then fails
+        // on its own before any handler runs.
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+
+        // The subscription has no handler, so this exchange simply succeeds — an ordinary message
+        // getting through after the outage, which is the only evidence of recovery there is.
+        var recovered = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+
+        await using (var runScope = _fixture.CreateScope())
+            await runScope.ServiceProvider.GetRequiredService<XchangeService>()
+                .Process("XchangeCreated", JsonConvert.SerializeObject(new { Id = recovered.Id }));
+
+        var result = await db.Set<XchangeResult>().AsNoTracking().SingleAsync(r => r.Id == recovered.Id);
+        Assert.True(result.Success);
+
+        Assert.Empty(await db.Set<RetryGroupUsage>().AsNoTracking()
+            .Where(u => u.SubscriptionId == sub.Id).ToListAsync());
+
+        // Retrying works again, and because the row is gone the next exhaustion alerts afresh.
+        var afterRecovery = await Fail();
+        Assert.True(afterRecovery.ShouldRetry);
+    }
+
+    /// <summary>
+    /// A total that is only partly spent is not credited back by an ordinary success.
+    /// </summary>
+    /// <remarks>
+    /// The cap is there for a downstream that fails some messages and succeeds others. Handing the
+    /// total back on every success would mean exactly that downstream never reaches its cap, so the
+    /// release is deliberately limited to a budget that has actually run out.
+    /// </remarks>
+    [Fact]
+    public async Task A_partly_spent_budget_is_left_alone_by_a_success()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+
+        var doc = new Document(7033, "Partly Spent Doc");
+        db.Set<Document>().Add(doc);
+        var sub = new Subscription("Partly Spent Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 4,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 }
+            }
+        };
+        sub.SetRetryPolicy(null, new CustomRetryPolicy { Groups = [group] });
+        await db.SaveChangesAsync();
+
+        // One of four spent, so the group is still allowed to retry and has nothing to recover from.
+        var spend = await new RetryPolicyEvaluator(sub.CustomRetryPolicy,
+                new RetryGroupBudget(db, scope.ServiceProvider, sub.Id))
+            .Evaluate(XchangeResultType.Error, "System.TimeoutException: timeout", 0);
+        Assert.True(spend.ShouldRetry);
+
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+
+        var succeeded = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+
+        await using (var runScope = _fixture.CreateScope())
+            await runScope.ServiceProvider.GetRequiredService<XchangeService>()
+                .Process("XchangeCreated", JsonConvert.SerializeObject(new { Id = succeeded.Id }));
+
+        Assert.True((await db.Set<XchangeResult>().AsNoTracking().SingleAsync(r => r.Id == succeeded.Id)).Success);
+
+        var usage = await db.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id && u.GroupId == group.Id);
+        Assert.Equal(1, usage.AttemptsUsed);
+    }
+
+    /// <summary>
+    /// A slot charged after the success began is not handed back by it.
+    /// </summary>
+    /// <remarks>
+    /// Bitween runs several instances, so a failure can claim a slot while a success is still being
+    /// processed. Releasing that row would give back a slot already spent and let the group retry past
+    /// its total. The row's last attempt is compared against the successful exchange's start, which is
+    /// what this drives directly — the timing is otherwise a race no test could pin down.
+    /// </remarks>
+    [Fact]
+    public async Task A_slot_charged_after_the_success_began_is_not_handed_back()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(7034, "Watermark Doc");
+        db.Set<Document>().Add(doc);
+        var sub = new Subscription("Watermark Sub", doc.Id);
+        db.Set<Subscription>().Add(sub);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 1,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 }
+            }
+        };
+        sub.SetRetryPolicy(null, new CustomRetryPolicy { Groups = [group] });
+        await db.SaveChangesAsync();
+
+        // Exhausted, and charged after the moment the success below claims to have started.
+        db.Set<RetryGroupUsage>().Add(new RetryGroupUsage
+        {
+            SubscriptionId = sub.Id,
+            GroupId = group.Id,
+            AttemptsUsed = 1,
+            LastAttemptOn = DateTime.UtcNow.AddMinutes(5)
+        });
+        await db.SaveChangesAsync();
+
+        var budget = new RetryGroupBudget(db, scope.ServiceProvider, sub.Id);
+
+        Assert.Equal(0, await budget.ReleaseExhaustedBudgets(DateTime.UtcNow));
+        Assert.Equal(1, (await db.Set<RetryGroupUsage>().AsNoTracking()
+            .SingleAsync(u => u.SubscriptionId == sub.Id)).AttemptsUsed);
+
+        // The same budget, released once the success is known to postdate the charge.
+        Assert.Equal(1, await budget.ReleaseExhaustedBudgets(DateTime.UtcNow.AddMinutes(10)));
+        Assert.Empty(await db.Set<RetryGroupUsage>().AsNoTracking()
+            .Where(u => u.SubscriptionId == sub.Id).ToListAsync());
+    }
 }

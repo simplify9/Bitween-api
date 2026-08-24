@@ -22,6 +22,8 @@ namespace SW.Bitween.MsSql.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.HasSequence("DocumentIds");
+
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.Account", b =>
                 {
                     b.Property<int>("Id")
@@ -55,6 +57,12 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<byte>("EmailProvider")
                         .HasColumnType("tinyint");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("datetime2");
+
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("tinyint");
 
@@ -68,11 +76,6 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(500)
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(20)");
 
                     b.Property<int>("Role")
                         .HasColumnType("int");
@@ -95,10 +98,26 @@ namespace SW.Bitween.MsSql.Migrations
                             DisplayName = "Admin",
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
+                            FailedLoginCount = 0,
                             LoginMethods = (byte)2,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
+                {
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("AccountId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AccountRoles", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
@@ -124,15 +143,84 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.Role", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Permissions")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Roles", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Full access to everything, including members, roles and settings.",
+                            IsSystem = true,
+                            Name = "Administrator",
+                            Permissions = "[]"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            IsSystem = true,
+                            Name = "Member",
+                            Permissions = "[]"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Read-only access to integrations, exchanges and configuration.",
+                            IsSystem = true,
+                            Name = "Viewer",
+                            Permissions = "[]"
+                        });
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.DelayedRetry", b =>
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
-
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("On")
                         .HasColumnType("datetime2");
@@ -147,7 +235,11 @@ namespace SW.Bitween.MsSql.Migrations
             modelBuilder.Entity("SW.Bitween.Domain.Document", b =>
                 {
                     b.Property<int>("Id")
-                        .HasColumnType("int");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValueSql("NEXT VALUE FOR [DocumentIds]");
+
+                    SqlServerPropertyBuilderExtensions.UseSequence(b.Property<int>("Id"), "DocumentIds");
 
                     b.Property<bool>("BusEnabled")
                         .HasColumnType("bit");
@@ -156,6 +248,11 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(500)
                         .IsUnicode(false)
                         .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<bool?>("DisregardsUnfilteredMessages")
                         .HasColumnType("bit");
@@ -180,6 +277,10 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("BusMessageTypeName")
                         .IsUnique()
                         .HasFilter("[BusMessageTypeName] IS NOT NULL");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -244,6 +345,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("bit");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
@@ -317,6 +421,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("bit");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("nvarchar(max)");
@@ -498,6 +605,86 @@ namespace SW.Bitween.MsSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("ExchangeIds")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("FinishedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId", "StartedOn");
+
+                    b.ToTable("ReceiveAttempts", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryAlertOverride", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte>("AlertMode")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("SubscriptionId", "GroupId");
+
+                    b.ToTable("RetryAlertOverrides", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryGroupUsage", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptsUsed")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ExhaustedNotifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastAttemptOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SubscriptionId", "GroupId");
+
+                    b.ToTable("RetryGroupUsages", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -505,6 +692,14 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
@@ -529,6 +724,33 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("RetryPolicies", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Setting", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Settings", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>
@@ -766,9 +988,6 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
-                    b.Property<string>("GroupAttemptCounts")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -794,6 +1013,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<int>("InputSize")
                         .HasColumnType("int");
+
+                    b.Property<bool>("ManualRetry")
+                        .HasColumnType("bit");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -898,7 +1120,7 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<DateTime>("FinishedOn")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("NotifierId")
+                    b.Property<int?>("NotifierId")
                         .HasColumnType("int");
 
                     b.Property<string>("NotifierName")
@@ -949,6 +1171,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<int?>("AttemptNumber")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("nvarchar(max)");
 
@@ -998,10 +1223,19 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<string>("ResponseXchangeId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RetryBlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("RetryGroupId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("Success")
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("RetryGroupId");
 
                     b.ToTable("XchangeResults", (string)null);
                 });
@@ -1533,6 +1767,21 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("SchedulerName", "JobName", "JobGroup");
 
                     b.ToTable("QRTZ_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Accounts.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>

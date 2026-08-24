@@ -9,15 +9,13 @@ namespace SW.Bitween
         public BitweenOptions()
         {
             //   AESEncryptionKey = "BitweenS9SecretKey";
-            AdapterPath = "./adapters";
+            AdapterPath = "adapters";
             AdminCredentials = "admin:1234512345";
             DocumentPrefix = "temp30/Bitweendocs";
-            ClientIpHeaderName = "X-Real-IP";
             DatabaseType = "MySql";
             AdminDatabaseName = "defaultdb";
             ServerlessCommandTimeout = 300;
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
-            ReceiversDelayInSeconds = 63;
             StorageProvider = "S3";
             JwtExpiryMinutes = 60;
             BusDefaultQueuePrefetch = 12;
@@ -29,14 +27,17 @@ namespace SW.Bitween
 
         public string DatabaseType { get; set; }
         public string AdminDatabaseName { get; set; }
+
+        /// <summary>
+        /// Cloud-storage key prefix the serverless runner downloads custom adapter packages from
+        /// (<c>{AdapterPath}/{adapterId}</c>). Passed to <c>ServerlessOptions.AdapterRemotePath</c>.
+        /// </summary>
         public string AdapterPath { get; set; }
         public string AdminCredentials { get; set; }
         public string DocumentPrefix { get; set; }
-        public string ClientIpHeaderName { get; set; }
         public int ServerlessCommandTimeout { get; set; }
         public bool AreXChangeFilesPrivate { get; set; } = false;
         public int? ApiCallSubscriptionResponseAcceptedStatusCode { get; set; }
-        public int? ReceiversDelayInSeconds { get; set; }
 
         public string StorageProvider { get; set; }
 
@@ -71,12 +72,22 @@ namespace SW.Bitween
         /// </summary>
         public string AzureManagedIdentityClientId { get; set; }
 
+        /// <summary>
+        /// Passphrase used to encrypt secret settings before they're stored. Environment-only and
+        /// never itself a setting — it's what protects the table, so it can't live in it. Without
+        /// it, secret settings are neither imported nor editable and keep coming from configuration.
+        /// Rotating it makes anything already stored unreadable.
+        /// </summary>
+        public string SettingsEncryptionKey { get; set; }
+
         public string RabbitMqManagementUrl { get; set; }
         public string RabbitMqManagementUsername { get; set; }
         public string RabbitMqManagementPassword { get; set; }
 
         /// <summary>
-        /// License key for the Rebex POP3 library. When not set, the native Rebex POP3 receiver adapter is not registered.
+        /// License key for the Rebex library the native POP3 and FTP adapters are built on. Those
+        /// adapters are always registered, so a key stored in Settings takes effect without a
+        /// restart; while no key is set they're kept out of the adapter pickers instead.
         /// </summary>
         public string RebexLicenseKey { get; set; }
 
@@ -93,5 +104,18 @@ namespace SW.Bitween
         /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
         /// </summary>
         public string RetryJobCron { get; set; } = "0 * * * * ?";
+
+        /// <summary>
+        /// How many days to keep <c>ReceiveAttempt</c> rows before <c>ReceiveAttemptCleanupJob</c>
+        /// deletes them. Matches the scheduler library's own <c>JobExecution</c> retention default.
+        /// </summary>
+        public int ReceiveAttemptRetentionDays { get; set; } = 30;
+
+        /// <summary>
+        /// Quartz cron expression for <c>ReceiveAttemptCleanupJob</c>. Defaults to daily at 3am —
+        /// offset from the scheduler library's own cleanup job (2am) so they don't run at once.
+        /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
+        /// </summary>
+        public string ReceiveAttemptCleanupCron { get; set; } = "0 0 3 * * ?";
     }
 }

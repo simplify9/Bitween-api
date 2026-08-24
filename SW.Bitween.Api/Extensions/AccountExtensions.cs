@@ -78,9 +78,6 @@ namespace SW.Bitween
                 case LoginMethod.EmailAndPassword:
                     claims.Add(new Claim(ClaimTypes.Name, account.Email));
                     break;
-                case LoginMethod.PhoneAndOtp:
-                    claims.Add(new Claim(ClaimTypes.Name, account.Phone));
-                    break;
                 case LoginMethod.ApiKey:
                     claims.Add(new Claim(ClaimTypes.Name, account.Id.ToString()));
                     break;
@@ -91,7 +88,6 @@ namespace SW.Bitween
             }
 
             if (account.Email != null) claims.Add(new Claim(ClaimTypes.Email, account.Email));
-            if (account.Phone != null) claims.Add(new Claim(ClaimTypes.MobilePhone, account.Phone));
 
 
             return new ClaimsIdentity(claims, "Bitween");

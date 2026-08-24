@@ -44,12 +44,18 @@ namespace SW.Bitween.Resources.Xchanges
                     if (subscription == null)
                         throw new SWValidationException("SUBSCRIPTION_NOT_FOUND",
                             "Cant reset properties, subscription doesnt exist anymore");
-                    await _xchangeService.CreateXchange(subscription, xchange, xchangeFile);
+                    await _xchangeService.CreateXchange(subscription, xchange, xchangeFile,
+                        manualRetry: true);
                 }
                 else
                 {
                     
-                    await _xchangeService.CreateXchange(xchange, xchangeFile, subscription.WorkGroup);
+                    // Null when the subscription has since been deleted, which a document-only
+                    // exchange also has from the start. The single-exchange retry has always allowed
+                    // for it; without the same here, one such id in a selection threw and took the
+                    // whole bulk retry down with it.
+                    await _xchangeService.CreateXchange(xchange, xchangeFile, subscription?.WorkGroup,
+                        manualRetry: true);
                 }
             }
 

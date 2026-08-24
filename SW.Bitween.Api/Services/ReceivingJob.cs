@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SW.Bitween.Domain;
+using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using SW.Scheduler;
 using System;
@@ -32,16 +33,40 @@ public class ReceivingJob(
         var isIdle = await runFlagUpdater.MarkAsRunning(rec.Id);
         if (!isIdle) return;
 
+        var startedOn = DateTime.UtcNow;
+        // Populated as files come in, so a mid-loop failure still leaves the ones that
+        // did make it through visible on the attempt record rather than orphaned.
+        var createdExchangeIds = new List<string>();
+
+        // Advances regardless of outcome: the Quartz trigger fires on its own cron no
+        // matter what happens below, so "next run" has to track that, not the receive
+        // step's success — otherwise a receiver that keeps failing freezes ReceiveOn
+        // in the past forever while the job keeps firing on schedule underneath it.
+        // Isolated in its own try: a schedule problem is unrelated to receiving and
+        // must not stop the step below from running.
         try
         {
-            var startupParameters = rec.ReceiverProperties.ToDictionary();
-            await RunReceiver(rec.ReceiverId, startupParameters, rec.Id);
             rec.SetSchedules();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not advance the schedule for subscription {SubscriptionId}", jobParams.SubscriptionId);
+        }
+
+        try
+        {
+            var globals = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
+            var startupParameters = rec.ReceiverProperties.ToDictionary().Fill(null, globals);
+            await RunReceiver(rec.ReceiverId, startupParameters, rec.Id, createdExchangeIds);
             rec.SetHealth();
+            RecordAttempt(rec.Id, startedOn,
+                createdExchangeIds.Count > 0 ? ReceiveOutcome.Received : ReceiveOutcome.NoNewData,
+                null, createdExchangeIds);
         }
         catch (Exception ex)
         {
             rec.SetHealth(ex.ToString());
+            RecordAttempt(rec.Id, startedOn, ReceiveOutcome.Failed, ex.ToString(), createdExchangeIds);
             logger.LogError(ex, "Error processing receiver for subscription {SubscriptionId}", jobParams.SubscriptionId);
         }
         finally
@@ -52,7 +77,24 @@ public class ReceivingJob(
         await dbContext.SaveChangesAsync();
     }
 
-    private async Task RunReceiver(string serverlessId, IDictionary<string, string> startupParameters, int subId)
+    private void RecordAttempt(
+        int subscriptionId, DateTime startedOn, ReceiveOutcome outcome, string errorMessage,
+        List<string> exchangeIds)
+    {
+        dbContext.Add(new ReceiveAttempt
+        {
+            SubscriptionId = subscriptionId,
+            StartedOn = startedOn,
+            FinishedOn = DateTime.UtcNow,
+            Outcome = outcome,
+            ErrorMessage = errorMessage,
+            ExchangeIds = exchangeIds.ToArray(),
+        });
+    }
+
+    private async Task RunReceiver(
+        string serverlessId, IDictionary<string, string> startupParameters, int subId,
+        List<string> createdExchangeIds)
     {
         if (serverlessId.StartsWith(NativeAdapterDiscoveryService.NativePrefix, StringComparison.OrdinalIgnoreCase))
         {
@@ -66,7 +108,7 @@ public class ReceivingJob(
             {
                 var xchangeFile = await receiver.GetFile(file);
                 logger.LogInformation("Submitting received file for subscriber: '{SubId}'.", subId);
-                await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile);
+                createdExchangeIds.Add(await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile));
                 await receiver.DeleteFile(file);
             }
 
@@ -84,7 +126,7 @@ public class ReceivingJob(
             {
                 var xchangeFile = await serverless.InvokeAsync<XchangeFile>(nameof(IInfolinkReceiver.GetFile), file);
                 logger.LogInformation("Submitting received file for subscriber: '{SubId}'.", subId);
-                await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile);
+                createdExchangeIds.Add(await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile));
                 await serverless.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);
             }
 

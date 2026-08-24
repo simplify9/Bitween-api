@@ -2,7 +2,6 @@
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Partners
 {
@@ -19,9 +18,13 @@ namespace SW.Bitween.Resources.Partners
 
         public async Task<object> Handle(PartnerCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Partners.Create);
 
             var entity = new Partner(model.Name);
+            // Same field the update handler writes, applied in the same transaction as
+            // the insert, so a partner is never created half-configured.
+            if (model.AdapterProperties != null)
+                entity.AdapterProperties = model.AdapterProperties;
             _dbContext.Add(entity);
             await _dbContext.SaveChangesAsync();
             return entity.Id;

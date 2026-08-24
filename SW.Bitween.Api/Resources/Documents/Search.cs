@@ -14,19 +14,27 @@ namespace SW.Bitween.Resources.Documents
     public class Search : ISearchyHandler
     {
         private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
 
-        public Search(BitweenDbContext dbContext)
+        public Search(BitweenDbContext dbContext, RequestContext requestContext)
         {
             this.dbContext = dbContext;
+            this.requestContext = requestContext;
         }
 
         async public Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
+            // Lookup returns only id/name pairs, which pickers across the app rely on;
+            // the full list is the data, so that's what the view permission covers.
+            if (!lookup)
+                await requestContext.EnsurePermission(dbContext, Model.Permissions.Documents.View);
+
             var query = from document in dbContext.Set<Document>()
 
                         select new DocumentRow
                         {
                             Id = document.Id,
+                            Code = document.Code,
                             Name = document.Name,
                             BusMessageTypeName = document.BusMessageTypeName,
                             BusEnabled = document.BusEnabled,

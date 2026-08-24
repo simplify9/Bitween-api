@@ -34,11 +34,12 @@ namespace SW.Bitween.Resources.Xchanges
                 if (subscription == null)
                     throw new SWValidationException("SUBSCRIPTION_NOT_FOUND",
                         "Cant reset properties, subscription doesnt exist anymore");
-                await xchangeService.CreateXchange(subscription, xchange, xchangeFile);
+                await xchangeService.CreateXchange(subscription, xchange, xchangeFile, manualRetry: true);
             }
             else
             {
-                await xchangeService.CreateXchange(xchange,xchangeFile,subscription?.WorkGroup );
+                await xchangeService.CreateXchange(xchange, xchangeFile, subscription?.WorkGroup,
+                    manualRetry: true);
             }
             
             

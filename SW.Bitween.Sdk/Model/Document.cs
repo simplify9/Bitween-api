@@ -14,9 +14,18 @@ namespace SW.Bitween.Model
 
     public class DocumentCreate : IName
     {
-        public int Id { get; set; }
+        public string Code { get; set; }
         public DocumentFormat DocumentFormat { get; set; }
         public string Name { get; set; }
+        public bool BusEnabled { get; set; }
+        public string BusMessageTypeName { get; set; }
+        public int DuplicateInterval { get; set; }
+
+        public bool DisregardsUnfilteredMessages { get; set; }
+
+        /// <summary>Carried on create too, so a new type arrives complete rather than
+        /// needing a second save before it can be filtered on.</summary>
+        public ICollection<KeyAndValue> PromotedProperties { get; set; }
     }
 
     public class SearchDocumentTrailModel
@@ -33,13 +42,7 @@ namespace SW.Bitween.Model
 
     public class DocumentUpdate : DocumentCreate
     {
-        public bool BusEnabled { get; set; }
-        public string BusMessageTypeName { get; set; }
-        public int DuplicateInterval { get; set; }
-
-        public bool DisregardsUnfilteredMessages { get; set; }
-
-        public ICollection<KeyAndValue> PromotedProperties { get; set; }
+        public int Id { get; set; }
     }
 
     public class DocumentRow : DocumentUpdate

@@ -15,11 +15,13 @@ namespace SW.Bitween.Resources.Subscriptions
     public class Search : ISearchyHandler
     {
         private readonly BitweenDbContext _dbContext;
+        private readonly RequestContext _requestContext;
         private readonly List<string> _edgeCaseProperties;
 
-        public Search(BitweenDbContext dbContext)
+        public Search(BitweenDbContext dbContext, RequestContext requestContext)
         {
             _dbContext = dbContext;
+            _requestContext = requestContext;
 
             _edgeCaseProperties = new List<string>
             {
@@ -32,6 +34,11 @@ namespace SW.Bitween.Resources.Subscriptions
 
         public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
+            // Lookup returns only id/name pairs, which pickers across the app rely on;
+            // the full list is the data, so that's what the view permission covers.
+            if (!lookup)
+                await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.View);
+
             var query = from subscriber in _dbContext.Set<Subscription>()
                 join document in _dbContext.Set<Document>() on subscriber.DocumentId equals document.Id
                 select new SubscriptionSearch
@@ -51,6 +58,9 @@ namespace SW.Bitween.Resources.Subscriptions
                     ReceiveOn = subscriber.ReceiveOn,
                     PausedOn = subscriber.PausedOn,
                     IsRunning = subscriber.IsRunning,
+                    ConsecutiveFailures = subscriber.ConsecutiveFailures,
+                    LastException = subscriber.LastException,
+                    RetryPolicyId = subscriber.RetryPolicyId,
                     MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),
                     HandlerProperties = subscriber.HandlerProperties.ToKeyAndValueCollection(),
                     ReceiverProperties = subscriber.ReceiverProperties.ToKeyAndValueCollection(),
@@ -62,9 +72,9 @@ namespace SW.Bitween.Resources.Subscriptions
                     WorkGroupId =  subscriber.WorkGroupId,
                     CategoryDescription = subscriber.Category.Description,
                     CategoryCode = subscriber.Category.Code,
-                    RetryPolicyId = subscriber.RetryPolicyId,
                     CustomRetryPolicy = subscriber.CustomRetryPolicy,
-
+                    ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
+                    ResponseMessageTypeName = subscriber.ResponseMessageTypeName,
                 };
 
             query = query.AsNoTracking().AsQueryable();

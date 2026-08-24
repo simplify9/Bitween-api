@@ -26,6 +26,8 @@ public class WorkGroupModel
     public double? NotifierIncomingRate { get; set; }
     public long? NotifierProcessingCount { get; set; }
     public long? NotifierQueueCount { get; set; }
+    /// <summary>Live count of active RabbitMQ consumer instances for this group's queue.</summary>
+    public long? ProcessorNodeCount { get; set; }
 }
 
 public class CreateWorkGroupModel
@@ -39,6 +41,7 @@ public class SearchWorkGroupModel
 {
     public int? Limit { get; set; }
     public int? Offset { get; set; }
+    public string Name { get; set; }
 }
 
 public class UpdateWorkGroupModel : CreateWorkGroupModel

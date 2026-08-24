@@ -5,7 +5,6 @@ using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using SW.Bitween.Domain.Accounts;
 using System.Text.RegularExpressions;
 
 namespace SW.Bitween.Resources.Documents
@@ -29,62 +28,69 @@ namespace SW.Bitween.Resources.Documents
 
         public async Task<object> Handle(int key, DocumentUpdate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Documents.Edit);
 
             var entity = await _dbContext.FindAsync<Document>(key);
 
+            if (string.IsNullOrWhiteSpace(model.Name))
+                throw new SWValidationException("INVALID_NAME", "Give the information type a name.");
+
+            // Ignoring case, as Create does: two types whose names differ only in case
+            // are indistinguishable in every list that shows them.
+            var wantedName = model.Name.ToLower();
+            var nameDuplicated = await _dbContext.Set<Document>()
+                .AsNoTracking()
+                .Where(i => i.Id != key)
+                .AnyAsync(i => i.Name.ToLower() == wantedName);
+            if (nameDuplicated)
+                throw new SWValidationException("NAME_TAKEN", "An information type with this name already exists.");
+
+            var code = string.IsNullOrWhiteSpace(model.Code) ? null : model.Code;
+
+            if (code != null && !Regex.IsMatch(code, "^[A-Z][A-Z0-9_]{1,49}$"))
+                throw new SWValidationException("INVALID_CODE",
+                    "Codes are upper-case letters, digits and underscores (2-50 chars).");
+
+            if (code != null)
+            {
+                var codeDuplicated = await _dbContext.Set<Document>()
+                    .AsNoTracking()
+                    .Where(i => i.Id != key)
+                    .AnyAsync(i => i.Code == code);
+                if (codeDuplicated)
+                    throw new SWValidationException("CODE_TAKEN", "This code is already in use.");
+            }
+
+            if (!string.IsNullOrEmpty(model.BusMessageTypeName) && Regex.IsMatch(model.BusMessageTypeName, @"\s"))
+                throw new SWValidationException("INVALID_BUS_TYPE_NAME",
+                    "Bus message type name cannot contain spaces.");
+
+            // Ignoring case, for the reason spelled out in Create: the routing key is
+            // lower-cased at both ends, so two names differing only in case are one message.
+            var wanted = (model.BusMessageTypeName ?? string.Empty).ToLower();
             var busTypeNameDuplicated = await _dbContext.Set<Document>()
                 .AsNoTracking()
                 .Where(i => i.Id != key)
                 .Where(i => !string.IsNullOrEmpty(i.BusMessageTypeName))
-                .Where(i => i.BusMessageTypeName == model.BusMessageTypeName)
+                .Where(i => i.BusMessageTypeName.ToLower() == wanted)
                 .AnyAsync();
 
             if (busTypeNameDuplicated)
                 throw new SWValidationException("DUPLICATED_BUS_TYPE_NAME",
-                    "Cant use duplicated bus Message type name");
+                    $"Another information type already publishes as '{model.BusMessageTypeName}'. " +
+                    "Names are compared ignoring case, because the bus does.");
 
-            if (model.PromotedProperties != null)
-            {
-                foreach (var pp in model.PromotedProperties)
-                {
-                    if (string.IsNullOrWhiteSpace(pp.Key))
-                        throw new SWValidationException("INVALID_PROMOTED_PROPERTY_KEY",
-                            "Promoted property key cannot be null or empty.");
-
-                    if (string.IsNullOrWhiteSpace(pp.Value))
-                        throw new SWValidationException("INVALID_PROMOTED_PROPERTY_VALUE",
-                            $"Promoted property '{pp.Key}' must have a non-empty path value.");
-
-                    if (model.DocumentFormat == DocumentFormat.Json)
-                    {
-                        // Must be a JSONPath: starts with '$' or a simple dot-separated identifier path
-                        var trimmed = pp.Value.Trim();
-                        if (!trimmed.StartsWith("$") && !Regex.IsMatch(trimmed, @"^[a-zA-Z_][a-zA-Z0-9_]*(?:(\.[a-zA-Z_][a-zA-Z0-9_]*)|(\[[0-9]+\]))*$"))
-                            throw new SWValidationException("INVALID_PROMOTED_PROPERTY_PATH",
-                                $"Promoted property '{pp.Key}' has an invalid JSON path: '{pp.Value}'. Expected a JSONPath expression (e.g. '$.field.subField') or dot-notation path.");
-                    }
-                    else if (model.DocumentFormat == DocumentFormat.Xml)
-                    {
-                        // Basic XPath sanity: must start with '/' or '//' or be a valid element path
-                        var trimmed = pp.Value.Trim();
-                        if (!trimmed.StartsWith("/") && !Regex.IsMatch(trimmed, @"^[a-zA-Z_][a-zA-Z0-9_/\[\]@.:*-]*$"))
-                            throw new SWValidationException("INVALID_PROMOTED_PROPERTY_PATH",
-                                $"Promoted property '{pp.Key}' has an invalid XML path: '{pp.Value}'. Expected an XPath expression (e.g. '/root/element').");
-                    }
-                }
-
-                var duplicateKey = model.PromotedProperties
-                    .GroupBy(pp => pp.Key, System.StringComparer.OrdinalIgnoreCase)
-                    .FirstOrDefault(g => g.Count() > 1)?.Key;
-
-                if (duplicateKey != null)
-                    throw new SWValidationException("DUPLICATE_PROMOTED_PROPERTY_KEY",
-                        $"Promoted property key '{duplicateKey}' appears more than once.");
-            }
+            PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
 
             var trail = new DocumentTrail(DocumentTrailCode.Updated, entity);
-            entity.SetDictionaries(model.PromotedProperties.ToDictionary());
+            // An absent list means none, the same as it does for retry policy groups.
+            // Left implicit it threw ArgumentNullException — a 500 for a request the
+            // API had simply never decided the meaning of.
+            entity.SetDictionaries((model.PromotedProperties ?? []).ToDictionary());
+            // Name/Code have private setters — SetProperties only writes public-setter
+            // properties, so it silently no-ops on these two (verified empirically).
+            entity.SetName(model.Name);
+            entity.SetCode(code);
             _dbContext.Entry(entity).SetProperties(model);
 
             trail.SetAfter(entity);

@@ -22,7 +22,7 @@ namespace SW.Bitween.Resources.Xchanges
         public async Task<object> Handle(CreateXchange request)
         {
 
-            var xchangeFile = new XchangeFile(request.Data);
+            var xchangeFile = new XchangeFile(request.Data, "manual.json");
             if (request.Option == CreateXchangeOption.DocumentId)
             {
                 var document = await _dbc.Set<Document>().FirstOrDefaultAsync(d => d.Id == request.DocumentId);

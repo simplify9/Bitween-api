@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SW.Bitween.Model;
 
@@ -10,47 +10,18 @@ namespace SW.Bitween.Model;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <strong>Stateful per processing window.</strong>  The evaluator accumulates
-/// per-group attempt totals in <c>_groupAttemptCounts</c>.  For a single in-process
-/// window (e.g. a running <c>RetryJob</c> batch) one instance handles all messages.
+/// <strong>Two independent caps.</strong>  <see cref="RetryBudget.MaxAttemptsPerError"/> is
+/// per message and is derived from the caller's <c>attemptIndexForThisMessage</c>, while
+/// <see cref="RetryBudget.MaxAttemptsTotal"/> is shared by every message hitting the group and
+/// is owned by the injected <see cref="IRetryGroupBudget"/>.  The evaluator itself keeps no
+/// counters, so a fresh instance per failure enforces both caps correctly.
 /// </para>
 /// <para>
-/// <strong>Cross-invocation persistence.</strong>  When a retry is scheduled the
-/// current counts are saved to <see cref="GetGroupAttemptCounts"/> and stored on
-/// the <c>DelayedRetry</c> entity (and on the new <c>Xchange</c> so that a later
-/// failure of the retry itself can pick up where the budgets left off).  On the next
-/// evaluation call <see cref="RestoreGroupAttemptCounts"/> before <see cref="Evaluate"/>.
-/// </para>
-/// <para>
-/// <strong>Not thread-safe.</strong>  Each goroutine/task should use its own instance.
+/// <strong>Not thread-safe.</strong>  Each task should use its own instance.
 /// </para>
 /// </remarks>
-public class RetryPolicyEvaluator(IRetryPolicy policy)
+public class RetryPolicyEvaluator(IRetryPolicy policy, IRetryGroupBudget groupBudget)
 {
-    private readonly Dictionary<Guid, int> _groupAttemptCounts = new();
-
-    /// <summary>
-    /// Restores previously persisted group-level attempt counts, allowing budgets
-    /// to continue from where they left off across separate process invocations.
-    /// </summary>
-    /// <param name="counts">
-    /// The dictionary returned by <see cref="GetGroupAttemptCounts"/> from a prior evaluation.
-    /// String keys are parsed back to <see cref="Guid"/> — invalid entries are silently ignored.
-    /// </param>
-    public void RestoreGroupAttemptCounts(Dictionary<string, int> counts)
-    {
-        foreach (var kv in counts)
-            if (Guid.TryParse(kv.Key, out var guid))
-                _groupAttemptCounts[guid] = kv.Value;
-    }
-
-    /// <summary>
-    /// Returns the current group-level attempt counts as a string-keyed dictionary
-    /// suitable for JSON serialisation and storage on <c>DelayedRetry</c> / <c>Xchange</c>.
-    /// </summary>
-    public Dictionary<string, int> GetGroupAttemptCounts() =>
-        _groupAttemptCounts.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value);
-
     /// <summary>
     /// Evaluates the policy and returns a retry decision for the failed xchange.
     /// </summary>
@@ -69,7 +40,7 @@ public class RetryPolicyEvaluator(IRetryPolicy policy)
     /// <returns>
     /// A <see cref="RetryDecision"/> indicating whether to retry and, if so, how long to wait.
     /// </returns>
-    public RetryDecision Evaluate(
+    public async Task<RetryDecision> Evaluate(
         XchangeResultType resultType,
         string content,
         int attemptIndexForThisMessage)
@@ -83,23 +54,32 @@ public class RetryPolicyEvaluator(IRetryPolicy policy)
             return RetryDecision.Block("No matching group (default block)");
 
         if (group.Action == RetryAction.Block)
-            return RetryDecision.Block($"Group '{group.Name}' explicitly blocks this error");
+            return RetryDecision.Block($"Group '{group.Name}' explicitly blocks this error", group);
 
-        var budget = group.Budget!;
+        // A group that allows retries without saying how many is refused rather than trusted: the
+        // dereference used to throw here, and because the caller logs and swallows that, retries just
+        // stopped happening with no reason recorded anywhere. Validation keeps new policies out of this
+        // state; this is for the ones already saved in it.
+        if (group.Budget is null)
+            return RetryDecision.Block(
+                $"Group '{group.Name}' allows retries but has no budget, so none can be scheduled", group);
+
+        var budget = group.Budget;
 
         if (attemptIndexForThisMessage >= budget.MaxAttemptsPerError)
             return RetryDecision.Block(
-                $"Per-message cap reached ({budget.MaxAttemptsPerError}) in group '{group.Name}'");
+                $"Per-message cap reached ({budget.MaxAttemptsPerError}) in group '{group.Name}'", group);
 
-        var totalUsed = _groupAttemptCounts.GetValueOrDefault(group.Id, 0);
-        if (totalUsed >= budget.MaxAttemptsTotal)
+        // Claimed last so a message already stopped by its own per-message cap doesn't
+        // eat a slot out of the shared total.
+        var claim = await groupBudget.TryConsume(group.Id, budget.MaxAttemptsTotal);
+        if (!claim.Granted)
             return RetryDecision.Block(
-                $"Group total cap reached ({budget.MaxAttemptsTotal}) for group '{group.Name}'");
-
-        _groupAttemptCounts[group.Id] = totalUsed + 1;
+                $"Group total cap reached ({budget.MaxAttemptsTotal}) for group '{group.Name}'", group,
+                claim.JustExhausted);
 
         var delay = budget.DelayStrategy.GetDelay(attemptIndexForThisMessage);
-        return RetryDecision.Allow(delay, group.Name);
+        return RetryDecision.Allow(delay, group);
     }
 
     private RetryGroup? FindMatchingGroup(XchangeResultType resultType, string content)
@@ -108,7 +88,11 @@ public class RetryPolicyEvaluator(IRetryPolicy policy)
                      .Where(g => g.Enabled && g.AppliesTo.Contains(resultType))
                      .OrderBy(g => g.Priority))
         {
-            var compatibleMatchers = group.Matchers.Where(m => m.ResultType == resultType);
+            // No conditions configured at all means "match every applicable failure".
+            if (group.Matchers.Count == 0)
+                return group;
+
+            var compatibleMatchers = group.Matchers.Where(m => m.Supports(resultType));
             if (compatibleMatchers.Any(m => m.IsMatch(content)))
                 return group;
         }
@@ -130,22 +114,44 @@ public class RetryDecision
     /// <summary>Human-readable explanation of the decision, useful for audit/debug logs.</summary>
     public string Reason { get; private init; } = "";
 
-    /// <summary>Name of the <see cref="RetryGroup"/> that matched, or <c>null</c> when blocked.</summary>
-    public string? MatchedGroupName { get; private init; }
+    /// <summary>
+    /// The group that matched this failure, or <c>null</c> when none did. Set on blocked
+    /// decisions too — internal callers (attempt tracking, exhaustion alerts) need to know which
+    /// group refused a failure, not only which group allowed one.
+    /// </summary>
+    public RetryGroup? MatchedGroup { get; private init; }
+
+    /// <summary>
+    /// Name of the <see cref="RetryGroup"/> that allowed a retry, or <c>null</c> when blocked —
+    /// including when a group matched but refused. A refusal by a matched group and a failure no
+    /// group was ever configured to catch should look the same to a caller that only cares whether
+    /// something is retrying, which is what <see cref="MatchedGroup"/> is for instead.
+    /// </summary>
+    public string? MatchedGroupName => ShouldRetry ? MatchedGroup?.Name : null;
+
+    /// <summary>
+    /// <c>true</c> when this decision was the one that found the group's shared total spent for
+    /// the first time, meaning the caller owes an exhaustion alert. Never <c>true</c> twice for
+    /// the same subscription and group until the budget is reset.
+    /// </summary>
+    public bool BudgetJustExhausted { get; private init; }
 
     /// <summary>Creates an Allow decision — a retry will be scheduled after <paramref name="delay"/>.</summary>
-    public static RetryDecision Allow(TimeSpan delay, string groupName) => new()
+    public static RetryDecision Allow(TimeSpan delay, RetryGroup group) => new()
     {
         ShouldRetry = true,
         Delay = delay,
-        MatchedGroupName = groupName,
-        Reason = $"Allowed by group '{groupName}'"
+        MatchedGroup = group,
+        Reason = $"Allowed by group '{group.Name}'"
     };
 
     /// <summary>Creates a Block decision — no retry will be scheduled.</summary>
-    public static RetryDecision Block(string reason) => new()
+    public static RetryDecision Block(string reason, RetryGroup? group = null,
+        bool budgetJustExhausted = false) => new()
     {
         ShouldRetry = false,
-        Reason = reason
+        Reason = reason,
+        MatchedGroup = group,
+        BudgetJustExhausted = budgetJustExhausted
     };
 }

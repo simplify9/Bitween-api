@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.Partners
 {
@@ -23,7 +22,7 @@ namespace SW.Bitween.Resources.Partners
 
         public async Task<object> Handle(int key)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Partners.Delete);
 
             if (key == Partner.SystemId)
                 throw new SWException("System partner can not be deleted.");

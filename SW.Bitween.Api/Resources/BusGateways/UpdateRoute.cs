@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
@@ -23,7 +22,7 @@ namespace SW.Bitween.Resources.BusGateways
 
         public async Task<object> Handle(int gatewayId, BusGatewayRouteUpdate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.BusGateways.Edit);
 
             var gateway = await _dbContext.Set<BusGateway>()
                 .FirstOrDefaultAsync(bg => bg.Id == gatewayId);
@@ -37,10 +36,16 @@ namespace SW.Bitween.Resources.BusGateways
             if (route == null)
                 throw new SWNotFoundException($"Route with Id {model.RouteId} not found in gateway {gatewayId}");
 
-            await AddRoute.ValidateSubscription(_dbContext, model.SubscriptionId, gateway.DocumentId);
+            // Repointing an existing route always names an integration that already exists;
+            // defining one inline is only for the route being created.
+            if (!model.SubscriptionId.HasValue)
+                throw new SWValidationException(GatewayLinkTarget.NeitherGiven,
+                    "Pick the integration this route runs.");
+
+            await AddRoute.ValidateSubscription(_dbContext, model.SubscriptionId.Value, gateway.DocumentId);
             await AddRoute.ValidatePartner(_dbContext, model.PartnerId);
 
-            route.SubscriptionId = model.SubscriptionId;
+            route.SubscriptionId = model.SubscriptionId.Value;
             route.PartnerId = model.PartnerId;
             route.MatchExpression = model.MatchExpression;
 

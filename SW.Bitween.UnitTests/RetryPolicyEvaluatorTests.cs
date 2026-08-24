@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SW.Bitween.Model;
 
@@ -57,9 +58,39 @@ public class RetryPolicyEvaluatorTests
             }
         };
 
+    // Each call gets its own budget, so tests that don't care about the shared total
+    // stay isolated from each other.
+    private static RetryPolicyEvaluator Evaluator(IRetryPolicy policy) =>
+        new RetryPolicyEvaluator(policy, new InMemoryRetryGroupBudget());
+
     private sealed class TestPolicy(RetryGroup[] groups) : IRetryPolicy
     {
         public List<RetryGroup> Groups { get; } = new List<RetryGroup>(groups);
+    }
+
+    // ─── Allow with no budget ───────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task AllowWithoutBudget_IsRefusedWithAReason()
+    {
+        // Only reachable for a policy saved before validation rejected this shape. It used to throw,
+        // and the caller logs and swallows the throw, so retries stopped happening and nothing said why.
+        var group = new RetryGroup
+        {
+            Name = "No budget",
+            Priority = 10,
+            Enabled = true,
+            AppliesTo = [XchangeResultType.Error],
+            Action = RetryAction.Allow,
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = null
+        };
+
+        var decision = await Evaluator(PolicyWith(group)).Evaluate(XchangeResultType.Error, "timeout", 0);
+
+        Assert.IsFalse(decision.ShouldRetry);
+        StringAssert.Contains(decision.Reason, "no budget");
+        Assert.AreEqual("No budget", decision.MatchedGroup?.Name);
     }
 
     // ─── ContainsMatcher ────────────────────────────────────────────────────────
@@ -218,85 +249,149 @@ public class RetryPolicyEvaluatorTests
     // ─── Evaluator: basic routing ────────────────────────────────────────────────
 
     [TestMethod]
-    public void Evaluator_MatchingGroup_AllowsRetry()
+    public async Task Evaluator_MatchingGroup_AllowsRetry()
     {
         var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "timeout" }));
-        var ev = new RetryPolicyEvaluator(policy);
-        var decision = ev.Evaluate(XchangeResultType.Error, "Connection timeout", 0);
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "Connection timeout", 0);
         Assert.IsTrue(decision.ShouldRetry);
         Assert.AreEqual("transient", decision.MatchedGroupName);
     }
 
     [TestMethod]
-    public void Evaluator_NoMatchingGroup_Blocks()
+    public async Task Evaluator_NoMatchingGroup_Blocks()
     {
         var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "timeout" }));
-        var ev = new RetryPolicyEvaluator(policy);
-        var decision = ev.Evaluate(XchangeResultType.Error, "Disk full", 0);
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "Disk full", 0);
         Assert.IsFalse(decision.ShouldRetry);
     }
 
     [TestMethod]
-    public void Evaluator_WrongResultType_GroupSkipped()
+    public async Task Evaluator_WrongResultType_GroupSkipped()
     {
         var policy = PolicyWith(BadResultGroup("bad", new JsonPathMatcher { Path = "$.retryable", Op = JsonPathOp.Exists }));
-        var ev = new RetryPolicyEvaluator(policy);
+        var ev = Evaluator(policy);
         // Group is for BadResult only — must be skipped for Error
-        var decision = ev.Evaluate(XchangeResultType.Error, "some exception", 0);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "some exception", 0);
         Assert.IsFalse(decision.ShouldRetry);
+    }
+
+    [TestMethod]
+    public async Task Evaluator_ContainsMatcher_MatchesBadResultBody()
+    {
+        var policy = PolicyWith(BadResultGroup("bad", new ContainsMatcher { Value = "INSUFFICIENT_STOCK" }));
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.BadResult, "{\"code\":\"INSUFFICIENT_STOCK\"}", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+        Assert.AreEqual("bad", decision.MatchedGroupName);
+    }
+
+    [TestMethod]
+    public async Task Evaluator_ContainsMatcher_MatchesNonJsonBadResultBody()
+    {
+        // A 4xx body need not be JSON — text matchers are the only way to reach these.
+        var policy = PolicyWith(BadResultGroup("bad", new ContainsMatcher { Value = "rate limit" }));
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.BadResult, "<html><body>Rate limit exceeded</body></html>", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+    }
+
+    [TestMethod]
+    public async Task Evaluator_RegexMatcher_MatchesBadResultBody()
+    {
+        var policy = PolicyWith(BadResultGroup("bad", new RegexMatcher { Pattern = @"""status"":\s*""FAILED""" }));
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.BadResult, "{\"status\": \"FAILED\"}", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+    }
+
+    [TestMethod]
+    public async Task Evaluator_ExceptionTypeMatcher_SkippedForBadResult()
+    {
+        // Exception type names are meaningless against a response body — stays Error-only.
+        var policy = PolicyWith(BadResultGroup("bad", new ExceptionTypeMatcher { Value = "System.TimeoutException" }));
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.BadResult, "System.TimeoutException in body", 0);
+        Assert.IsFalse(decision.ShouldRetry);
+    }
+
+    [TestMethod]
+    public async Task Evaluator_EmptyMatchers_MatchesEveryApplicableFailure()
+    {
+        var group = new RetryGroup
+        {
+            Name = "catch-all",
+            Priority = 10,
+            Enabled = true,
+            AppliesTo = [XchangeResultType.Error],
+            Action = RetryAction.Allow,
+            Matchers = [],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 100,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
+            }
+        };
+        var policy = PolicyWith(group);
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "anything at all", 0);
+        Assert.IsTrue(decision.ShouldRetry);
+        Assert.AreEqual("catch-all", decision.MatchedGroupName);
     }
 
     // ─── Evaluator: priority ordering ───────────────────────────────────────────
 
     [TestMethod]
-    public void Evaluator_LowerPriorityEvaluatedFirst()
+    public async Task Evaluator_LowerPriorityEvaluatedFirst()
     {
         var g1 = ErrorGroup("low-num", new ContainsMatcher { Value = "error" }, priority: 1);
         var g2 = ErrorGroup("high-num", new ContainsMatcher { Value = "error" }, priority: 20);
         var policy = PolicyWith(g2, g1); // intentionally reversed in array
-        var ev = new RetryPolicyEvaluator(policy);
-        var decision = ev.Evaluate(XchangeResultType.Error, "error occurred", 0);
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "error occurred", 0);
         Assert.AreEqual("low-num", decision.MatchedGroupName);
     }
 
     [TestMethod]
-    public void Evaluator_OnlyMatchingGroupFires()
+    public async Task Evaluator_OnlyMatchingGroupFires()
     {
         var g1 = ErrorGroup("timeouts", new ContainsMatcher { Value = "timeout" }, priority: 1);
         var g2 = ErrorGroup("disk", new ContainsMatcher { Value = "disk" }, priority: 20);
         var policy = PolicyWith(g1, g2);
-        var ev = new RetryPolicyEvaluator(policy);
-        var decision = ev.Evaluate(XchangeResultType.Error, "disk full", 0);
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "disk full", 0);
         Assert.AreEqual("disk", decision.MatchedGroupName);
     }
 
     // ─── Evaluator: budget — MaxAttemptsPerError ─────────────────────────────────
 
     [TestMethod]
-    public void Evaluator_MaxAttemptsPerError_BlocksAfterCap()
+    public async Task Evaluator_MaxAttemptsPerError_BlocksAfterCap()
     {
         var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" }, maxPerError: 2));
-        var ev = new RetryPolicyEvaluator(policy);
+        var ev = Evaluator(policy);
 
-        Assert.IsTrue(ev.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry);
-        Assert.IsTrue(ev.Evaluate(XchangeResultType.Error, "err", 1).ShouldRetry);
-        Assert.IsFalse(ev.Evaluate(XchangeResultType.Error, "err", 2).ShouldRetry); // cap = 2
+        Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 1)).ShouldRetry);
+        Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 2)).ShouldRetry); // cap = 2
     }
 
     // ─── Evaluator: budget — MaxAttemptsTotal ────────────────────────────────────
 
     [TestMethod]
-    public void Evaluator_MaxAttemptsTotal_BlocksAfterGroupCap()
+    public async Task Evaluator_MaxAttemptsTotal_BlocksAfterGroupCap()
     {
         var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" },
             maxPerError: 100, maxTotal: 3));
-        var ev = new RetryPolicyEvaluator(policy);
+        var ev = Evaluator(policy);
 
         // Three different "messages" (attempt index 0 each time) exhaust the group total
-        Assert.IsTrue(ev.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry);
-        Assert.IsTrue(ev.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry);
-        Assert.IsTrue(ev.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry);
-        Assert.IsFalse(ev.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry); // exceeded total=3
+        Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry); // exceeded total=3
     }
 
     // ─── Evaluator: delay strategies ─────────────────────────────────────────────
@@ -330,67 +425,74 @@ public class RetryPolicyEvaluatorTests
     }
 
     [TestMethod]
-    public void Evaluator_DelayFromStrategy_ReturnsCorrectValue()
+    public async Task Evaluator_DelayFromStrategy_ReturnsCorrectValue()
     {
         var policy = PolicyWith(ErrorGroup("transient",
             new ContainsMatcher { Value = "err" },
             delay: new FixedDelayStrategy { DelayMs = 3000 }));
-        var ev = new RetryPolicyEvaluator(policy);
-        var decision = ev.Evaluate(XchangeResultType.Error, "err", 0);
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "err", 0);
         Assert.AreEqual(TimeSpan.FromMilliseconds(3000), decision.Delay);
     }
 
-    // ─── Evaluator: GroupAttemptCounts persistence ───────────────────────────────
+    // ─── Evaluator: the total cap is shared, not per message ─────────────────────
 
     [TestMethod]
-    public void GroupAttemptCounts_RestoredAcrossEvaluators_ContinuesBudget()
+    public async Task Evaluator_MaxAttemptsTotal_SharedAcrossSeparateMessages()
     {
+        // The bug this covers: one evaluator per failed xchange, each starting from zero, so
+        // four failing messages × 3 per-message attempts produced 12 retries under a total of 10.
         var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" },
-            maxPerError: 100, maxTotal: 2));
+            maxPerError: 3, maxTotal: 4));
+        var budget = new InMemoryRetryGroupBudget();
 
-        var ev1 = new RetryPolicyEvaluator(policy);
-        Assert.IsTrue(ev1.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry); // group count = 1
-        var counts = ev1.GetGroupAttemptCounts();
+        var allowed = 0;
+        for (var message = 0; message < 4; message++)
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            // A fresh evaluator per failure, exactly as XchangeService builds one.
+            var ev = new RetryPolicyEvaluator(policy, budget);
+            if ((await ev.Evaluate(XchangeResultType.Error, "err", attempt)).ShouldRetry) allowed++;
+        }
 
-        // Simulate the next evaluator instance restoring saved state
-        var ev2 = new RetryPolicyEvaluator(policy);
-        ev2.RestoreGroupAttemptCounts(counts); // group count restored to 1
-        Assert.IsTrue(ev2.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry); // group count = 2
-        var counts2 = ev2.GetGroupAttemptCounts();
-
-        var ev3 = new RetryPolicyEvaluator(policy);
-        ev3.RestoreGroupAttemptCounts(counts2); // group count restored to 2
-        Assert.IsFalse(ev3.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry); // exceeded total=2
+        Assert.AreEqual(4, allowed);
     }
 
     [TestMethod]
-    public void GroupAttemptCounts_WithoutRestore_BudgetResetsToZero()
+    public async Task Evaluator_MaxAttemptsTotal_SeparateBudgetsDoNotShare()
     {
+        // Two integrations pointed at the same policy template get independent totals.
         var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" },
             maxPerError: 100, maxTotal: 1));
 
-        var ev1 = new RetryPolicyEvaluator(policy);
-        Assert.IsTrue(ev1.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry); // exhausted
-
-        // Fresh evaluator without restore — budget starts from 0 again
-        var ev2 = new RetryPolicyEvaluator(policy);
-        Assert.IsTrue(ev2.Evaluate(XchangeResultType.Error, "err", 0).ShouldRetry);
+        Assert.IsTrue((await Evaluator(policy).Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        Assert.IsTrue((await Evaluator(policy).Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
     }
 
     [TestMethod]
-    public void GetGroupAttemptCounts_ReturnsNonEmptyAfterMatch()
+    public async Task Evaluator_PerMessageCapBlocked_DoesNotSpendSharedTotal()
     {
-        var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" }));
-        var ev = new RetryPolicyEvaluator(policy);
-        ev.Evaluate(XchangeResultType.Error, "err", 0);
-        var counts = ev.GetGroupAttemptCounts();
-        Assert.IsTrue(counts.Count > 0);
+        var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" },
+            maxPerError: 1, maxTotal: 2));
+        var budget = new InMemoryRetryGroupBudget();
+
+        // Attempt index 1 is past the per-message cap, so it must not claim a slot.
+        Assert.IsFalse((await new RetryPolicyEvaluator(policy, budget)
+            .Evaluate(XchangeResultType.Error, "err", 1)).ShouldRetry);
+
+        // Both slots of the total are therefore still there.
+        Assert.IsTrue((await new RetryPolicyEvaluator(policy, budget)
+            .Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        Assert.IsTrue((await new RetryPolicyEvaluator(policy, budget)
+            .Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        Assert.IsFalse((await new RetryPolicyEvaluator(policy, budget)
+            .Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
     }
 
     // ─── Evaluator: Block action ─────────────────────────────────────────────────
 
     [TestMethod]
-    public void Evaluator_BlockAction_NeverRetries()
+    public async Task Evaluator_BlockAction_NeverRetries()
     {
         var blockGroup = new RetryGroup
         {
@@ -403,8 +505,8 @@ public class RetryPolicyEvaluatorTests
             Budget = null
         };
         var policy = PolicyWith(blockGroup);
-        var ev = new RetryPolicyEvaluator(policy);
-        var decision = ev.Evaluate(XchangeResultType.Error, "fatal: cannot recover", 0);
+        var ev = Evaluator(policy);
+        var decision = await ev.Evaluate(XchangeResultType.Error, "fatal: cannot recover", 0);
         Assert.IsFalse(decision.ShouldRetry);
     }
 }

@@ -66,6 +66,14 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("email_provider");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_login_count");
+
+                    b.Property<DateTime?>("LockoutEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lockout_end");
+
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("smallint")
                         .HasColumnName("login_methods");
@@ -83,12 +91,6 @@ namespace SW.Bitween.PgSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("password");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(20)
-                        .IsUnicode(false)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("phone");
 
                     b.Property<int>("Role")
                         .HasColumnType("integer")
@@ -113,10 +115,30 @@ namespace SW.Bitween.PgSql.Migrations
                             DisplayName = "Admin",
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
+                            FailedLoginCount = 0,
                             LoginMethods = (byte)2,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
+                {
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("AccountId", "RoleId")
+                        .HasName("pk_account_roles");
+
+                    b.HasIndex("RoleId")
+                        .HasDatabaseName("ix_account_roles_role_id");
+
+                    b.ToTable("AccountRoles", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
@@ -148,16 +170,95 @@ namespace SW.Bitween.PgSql.Migrations
                     b.ToTable("RefreshTokens", "infolink");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.Role", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_system");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Permissions")
+                        .HasColumnType("text")
+                        .HasColumnName("permissions");
+
+                    b.HasKey("Id")
+                        .HasName("pk_roles");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_roles_name");
+
+                    b.ToTable("Roles", "infolink");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Full access to everything, including members, roles and settings.",
+                            IsSystem = true,
+                            Name = "Administrator",
+                            Permissions = "[]"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            IsSystem = true,
+                            Name = "Member",
+                            Permissions = "[]"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Read-only access to integrations, exchanges and configuration.",
+                            IsSystem = true,
+                            Name = "Viewer",
+                            Permissions = "[]"
+                        });
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.DelayedRetry", b =>
                 {
                     b.Property<string>("Id")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("id");
-
-                    b.Property<Dictionary<string, int>>("GroupAttemptCounts")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("group_attempt_counts");
 
                     b.Property<DateTime>("On")
                         .HasColumnType("timestamp with time zone")
@@ -175,8 +276,11 @@ namespace SW.Bitween.PgSql.Migrations
             modelBuilder.Entity("SW.Bitween.Domain.Document", b =>
                 {
                     b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("BusEnabled")
                         .HasColumnType("boolean")
@@ -186,6 +290,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("bus_message_type_name");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
 
                     b.Property<bool?>("DisregardsUnfilteredMessages")
                         .HasColumnType("boolean")
@@ -215,6 +324,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("BusMessageTypeName")
                         .IsUnique()
                         .HasDatabaseName("ix_document_bus_message_type_name");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_document_code");
 
                     b.HasIndex("Name")
                         .IsUnique()
@@ -292,6 +405,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_on");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("inactive");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("text")
@@ -385,6 +502,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("integer")
                         .HasColumnName("document_id");
+
+                    b.Property<bool>("Inactive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("inactive");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("text")
@@ -606,6 +727,105 @@ namespace SW.Bitween.PgSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("error_message");
+
+                    b.Property<string[]>("ExchangeIds")
+                        .HasColumnType("text[]")
+                        .HasColumnName("exchange_ids");
+
+                    b.Property<DateTime>("FinishedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_on");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer")
+                        .HasColumnName("outcome");
+
+                    b.Property<DateTime>("StartedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_on");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_receive_attempt");
+
+                    b.HasIndex("SubscriptionId", "StartedOn")
+                        .HasDatabaseName("ix_receive_attempt_subscription_id_started_on");
+
+                    b.ToTable("receive_attempt", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryAlertOverride", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("alert_handler_id");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("text")
+                        .HasColumnName("alert_handler_properties");
+
+                    b.Property<byte>("AlertMode")
+                        .HasColumnType("smallint")
+                        .HasColumnName("alert_mode");
+
+                    b.HasKey("SubscriptionId", "GroupId")
+                        .HasName("pk_retry_alert_override");
+
+                    b.ToTable("retry_alert_override", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.RetryGroupUsage", b =>
+                {
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<int>("AttemptsUsed")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts_used");
+
+                    b.Property<DateTime?>("ExhaustedNotifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("exhausted_notified_on");
+
+                    b.Property<DateTime>("LastAttemptOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_on");
+
+                    b.HasKey("SubscriptionId", "GroupId")
+                        .HasName("pk_retry_group_usage");
+
+                    b.ToTable("retry_group_usage", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.RetryPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -614,6 +834,15 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AlertHandlerId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("alert_handler_id");
+
+                    b.Property<string>("AlertHandlerProperties")
+                        .HasColumnType("text")
+                        .HasColumnName("alert_handler_properties");
 
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text")
@@ -645,6 +874,40 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasName("pk_retry_policy");
 
                     b.ToTable("retry_policy", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Setting", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text")
+                        .HasColumnName("value");
+
+                    b.HasKey("Id")
+                        .HasName("pk_settings");
+
+                    b.ToTable("Settings", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>
@@ -941,10 +1204,6 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("document_id");
 
-                    b.Property<Dictionary<string, int>>("GroupAttemptCounts")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("group_attempt_counts");
-
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -973,6 +1232,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<int>("InputSize")
                         .HasColumnType("integer")
                         .HasColumnName("input_size");
+
+                    b.Property<bool>("ManualRetry")
+                        .HasColumnType("boolean")
+                        .HasColumnName("manual_retry");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -1097,7 +1360,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished_on");
 
-                    b.Property<int>("NotifierId")
+                    b.Property<int?>("NotifierId")
                         .HasColumnType("integer")
                         .HasColumnName("notifier_id");
 
@@ -1155,6 +1418,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("id");
+
+                    b.Property<int?>("AttemptNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_number");
 
                     b.Property<string>("Exception")
                         .HasColumnType("text")
@@ -1214,12 +1481,24 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("text")
                         .HasColumnName("response_xchange_id");
 
+                    b.Property<string>("RetryBlockedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("retry_blocked_reason");
+
+                    b.Property<Guid?>("RetryGroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("retry_group_id");
+
                     b.Property<bool>("Success")
                         .HasColumnType("boolean")
                         .HasColumnName("success");
 
                     b.HasKey("Id")
                         .HasName("pk_xchange_result");
+
+                    b.HasIndex("RetryGroupId")
+                        .HasDatabaseName("ix_xchange_result_retry_group_id");
 
                     b.ToTable("xchange_result", "infolink");
                 });
@@ -1765,6 +2044,23 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasDatabaseName("ix_qrtz_triggers_sched_name_job_name_job_group");
 
                     b.ToTable("qrtz_triggers", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_roles_accounts_account_id");
+
+                    b.HasOne("SW.Bitween.Domain.Accounts.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_roles_roles_role_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>

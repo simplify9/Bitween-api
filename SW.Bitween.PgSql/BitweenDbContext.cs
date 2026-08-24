@@ -41,12 +41,13 @@ namespace SW.Bitween.PgSql
             modelBuilder.Entity<Document>(b =>
             {
                 //b.ToTable("Documents");
-                b.Property(p => p.Id).ValueGeneratedNever();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.Property(p => p.Code).HasMaxLength(50);
                 b.Property(p => p.BusMessageTypeName).HasMaxLength(500);
                 b.Property(p => p.PromotedProperties).StoreAsJson().HasColumnType("jsonb");
                 b.Property(p => p.DisregardsUnfilteredMessages).IsRequired(false);
                 b.HasIndex(p => p.Name).IsUnique();
+                b.HasIndex(p => p.Code).IsUnique();
                 b.HasIndex(p => p.BusMessageTypeName).IsUnique();
 
                 b.HasMany<Subscription>().WithOne().HasForeignKey(p => p.DocumentId).OnDelete(DeleteBehavior.Restrict);
@@ -262,6 +263,10 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.ResponseName).HasMaxLength(200);
                 b.Property(p => p.ResponseContentType).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).HasMaxLength(200);
+                b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
+                b.Property(p => p.RetryGroupId);
+                b.Property(p => p.AttemptNumber);
+                b.HasIndex(p => p.RetryGroupId);
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
@@ -320,7 +325,6 @@ namespace SW.Bitween.PgSql
                 b.HasIndex(p => p.Email).IsUnique();
 
                 b.Property(p => p.Email).IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.Phone).IsUnicode(false).HasMaxLength(20);
                 b.Property(p => p.Password).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.DisplayName).IsRequired().HasMaxLength(200);
 
@@ -339,7 +343,8 @@ namespace SW.Bitween.PgSql
                         CreatedOn = defaultCreatedOn.ToUniversalTime(),
                         Disabled = false,
                         Password = defaultPasswordHash,
-                        Role = AccountRole.Admin
+                        Role = AccountRole.Admin,
+                        FailedLoginCount = 0
                     });
             });
 
@@ -354,11 +359,44 @@ namespace SW.Bitween.PgSql
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
             });
 
+            modelBuilder.Entity<Role>(b =>
+            {
+                b.ToTable("Roles");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => p.Name).IsUnique();
+
+                b.Property(p => p.Name).IsRequired().HasMaxLength(100);
+                b.Property(p => p.Description).HasMaxLength(500);
+                b.Property(p => p.Permissions).StoreAsJson();
+
+                b.HasData(SystemRoleSeed());
+            });
+
+            modelBuilder.Entity<AccountRoleLink>(b =>
+            {
+                b.ToTable("AccountRoles");
+                b.HasKey(p => new { p.AccountId, p.RoleId });
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Role>().WithMany().HasForeignKey(p => p.RoleId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Setting>(b =>
+            {
+                b.ToTable("Settings");
+                b.HasKey(p => p.Id);
+                // Id is the catalog key, e.g. "Theme.PrimaryColor". Value is left unbounded:
+                // it carries anything from a hex color to a license key or a page of blurb.
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
+            });
+
             modelBuilder.Entity<RetryPolicy>(b =>
             {
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                b.Property(p => p.AlertHandlerId).HasMaxLength(200);
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
                 b.Property(p => p.Groups).HasConversion(
                     groups => JsonSerializer.Serialize(groups, _polymorphicOpts),
                     json => JsonSerializer.Deserialize<List<RetryGroup>>(json, _polymorphicOpts)!,
@@ -384,13 +422,29 @@ namespace SW.Bitween.PgSql
             {
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).HasMaxLength(50);
-                b.Property(p => p.GroupAttemptCounts).HasColumnType("jsonb");
                 b.HasIndex(p => p.On);
             });
 
-            modelBuilder.Entity<Xchange>(b =>
+            modelBuilder.Entity<ReceiveAttempt>(b =>
             {
-                b.Property(p => p.GroupAttemptCounts).HasColumnType("jsonb");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => new { p.SubscriptionId, p.StartedOn });
+            });
+
+            modelBuilder.Entity<RetryGroupUsage>(b =>
+            {
+                b.HasKey(p => new { p.SubscriptionId, p.GroupId });
+                b.Property(p => p.AttemptsUsed);
+                b.Property(p => p.LastAttemptOn);
+                b.Property(p => p.ExhaustedNotifiedOn);
+            });
+
+            modelBuilder.Entity<RetryAlertOverride>(b =>
+            {
+                b.HasKey(p => new { p.SubscriptionId, p.GroupId });
+                b.Property(p => p.AlertMode).HasConversion<byte>();
+                b.Property(p => p.AlertHandlerId).HasMaxLength(200);
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
             });
 
             modelBuilder.UseSchedulerPostgreSql(Schema);

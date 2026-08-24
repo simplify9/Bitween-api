@@ -2,7 +2,6 @@ using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 using SW.Bitween.Domain;
@@ -23,7 +22,7 @@ namespace SW.Bitween.Resources.ApiGateways
 
         public async Task<object> Handle(int gatewayId, ApiGatewayPartnerCreate model)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.ApiGateways.Edit);
 
             var gateway = await _dbContext.Set<ApiGateway>()
                 .Include(ag => ag.Partners)
@@ -33,6 +32,12 @@ namespace SW.Bitween.Resources.ApiGateways
                 throw new SWNotFoundException($"ApiGateway with Id {gatewayId} not found");
 
             // Validate subscription exists and is of type GatewayApiCall
+            // Repointing an existing attachment always names an integration that already
+            // exists; defining one inline is only for the attachment being created.
+            if (!model.SubscriptionId.HasValue)
+                throw new SWValidationException(GatewayLinkTarget.NeitherGiven,
+                    "Pick the integration this partner runs.");
+
             var subscription = await _dbContext.Set<Subscription>()
                 .FirstOrDefaultAsync(s => s.Id == model.SubscriptionId);
 
@@ -48,7 +53,7 @@ namespace SW.Bitween.Resources.ApiGateways
             if (partnerLink == null)
                 throw new SWNotFoundException($"Partner with Id {model.PartnerId} not found in gateway {gatewayId}");
 
-            partnerLink.SubscriptionId = model.SubscriptionId;
+            partnerLink.SubscriptionId = model.SubscriptionId.Value;
 
             await _dbContext.SaveChangesAsync();
 

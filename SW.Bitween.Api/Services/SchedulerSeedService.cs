@@ -25,6 +25,7 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
         var options        = scope.ServiceProvider.GetRequiredService<BitweenOptions>();
 
         await scheduleRepo.Schedule<RetryJob>(options.RetryJobCron);
+        await scheduleRepo.Schedule<ReceiveAttemptCleanupJob>(options.ReceiveAttemptCleanupCron);
 
         var subscriptions = await dbContext.Set<Subscription>()
             .Where(s =>

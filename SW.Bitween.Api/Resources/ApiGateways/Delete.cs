@@ -1,8 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain.Gateway;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Resources.ApiGateways
 {
@@ -19,9 +19,21 @@ namespace SW.Bitween.Resources.ApiGateways
 
         public async Task<object> Handle(int key)
         {
-            _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.ApiGateways.Delete);
 
-            await _dbContext.DeleteByKeyAsync<ApiGateway>(key);
+            var gateway = await _dbContext.Set<ApiGateway>()
+                .Include(ag => ag.Partners)
+                .FirstOrDefaultAsync(ag => ag.Id == key);
+
+            if (gateway == null)
+                throw new SWNotFoundException($"ApiGateway with Id {key} not found");
+
+            // Partners are FK-restricted to the gateway; remove them explicitly before the gateway.
+            if (gateway.Partners != null && gateway.Partners.Count > 0)
+                _dbContext.RemoveRange(gateway.Partners);
+
+            _dbContext.Remove(gateway);
+            await _dbContext.SaveChangesAsync();
             return null;
         }
     }

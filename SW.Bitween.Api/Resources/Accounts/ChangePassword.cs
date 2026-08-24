@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
@@ -21,8 +22,8 @@ public class ChangePassword : ICommandHandler<ChangePasswordModel, object>
 
     public async Task<object> Handle(ChangePasswordModel request)
     {
-        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member, AccountRole.Viewer);
-
+        // Self-service: this only ever changes the caller's own password, and the old one has to
+        // be supplied. The guard it replaces listed every role, so it granted nothing.
         var accountId = Convert.ToInt32(_requestContext.GetNameIdentifier());
         var account = await _dbContext.Set<Account>().FindAsync(accountId);
 
@@ -36,5 +37,13 @@ public class ChangePassword : ICommandHandler<ChangePasswordModel, object>
         await _dbContext.SaveChangesAsync();
 
         return null;
+    }
+
+    private class Validate : AbstractValidator<ChangePasswordModel>
+    {
+        public Validate()
+        {
+            RuleFor(i => i.NewPassword).Password();
+        }
     }
 }

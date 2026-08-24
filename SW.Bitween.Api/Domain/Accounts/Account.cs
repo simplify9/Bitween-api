@@ -18,7 +18,6 @@ namespace SW.Bitween.Domain.Accounts
         }
 
         public string Email { get; private set; }
-        public string Phone { get; private set; }
         public string DisplayName { get; set; }
 
         public AccountRole Role { get; private set; }
@@ -28,6 +27,24 @@ namespace SW.Bitween.Domain.Accounts
         public bool Disabled { get; private set; }
 
         public string Password { get; set; }
+
+        public int FailedLoginCount { get; private set; }
+        public DateTime? LockoutEnd { get; private set; }
+
+        public bool IsLockedOut(DateTime nowUtc) => LockoutEnd.HasValue && LockoutEnd.Value > nowUtc;
+
+        public void RegisterSuccessfulLogin()
+        {
+            FailedLoginCount = 0;
+            LockoutEnd = null;
+        }
+
+        // Admin action: clear a lockout before it expires.
+        public void Unlock()
+        {
+            FailedLoginCount = 0;
+            LockoutEnd = null;
+        }
 
 
         public bool AddEmailLoginMethod(string email, string password)
@@ -61,6 +78,26 @@ namespace SW.Bitween.Domain.Accounts
         {
             DisplayName = name;
             Role = role;
+        }
+
+        /// <summary>Self-service details. Deliberately cannot touch <see cref="Role"/>.</summary>
+        public void UpdateProfile(string name)
+        {
+            DisplayName = name;
+        }
+
+        /// <summary>
+        /// Legacy coarse role, kept in step with the account's roles for older API consumers.
+        /// Authorization itself reads the role assignments, not this.
+        /// </summary>
+        public void SetRole(AccountRole role)
+        {
+            Role = role;
+        }
+
+        public void SetDisabled(bool disabled)
+        {
+            Disabled = disabled;
         }
 
         public DateTime CreatedOn { get; set; }

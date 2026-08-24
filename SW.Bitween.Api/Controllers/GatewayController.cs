@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
@@ -56,6 +57,17 @@ public class GatewayController(
         if (apiGatewayPartner == null)
             return Unauthorized();
 
+        // After authorisation on purpose: whether a gateway exists and is switched off is
+        // something only an attached partner should learn — checking it earlier would
+        // answer that for anyone who guessed the url.
+        //
+        // 503 rather than 404 because the url is right and the partner should keep it: a
+        // 404 reads as "wrong address" and sends someone hunting for a new one, where this
+        // is a gateway somebody switched off and will switch back on.
+        if (apiGateway.Inactive)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                $"The '{apiGateway.Name}' gateway is currently deactivated.");
+
         var subscription = await cache.SubscriptionByIdAsync(apiGatewayPartner.SubscriptionId);
 
         if (subscription == null)
@@ -63,7 +75,7 @@ public class GatewayController(
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
-        var xchangeFile = new XchangeFile(json);
+        var xchangeFile = new XchangeFile(json, $"{gatewayApiName}.json");
 
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);

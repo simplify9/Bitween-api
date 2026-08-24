@@ -15,16 +15,23 @@ namespace SW.Bitween.Resources.Xchanges
     public class Search : ISearchyHandler
     {
         private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
         private readonly XchangeService xchangeService;
 
-        public Search(BitweenDbContext dbContext, XchangeService xchangeService)
+        public Search(BitweenDbContext dbContext, XchangeService xchangeService, RequestContext requestContext)
         {
             this.dbContext = dbContext;
+            this.requestContext = requestContext;
             this.xchangeService = xchangeService;
         }
 
         public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
+            // Lookup returns only id/name pairs, which pickers across the app rely on;
+            // the full list is the data, so that's what the view permission covers.
+            if (!lookup)
+                await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View, Model.Permissions.Dashboard.View);
+
             searchyRequest.DatesToUtc();
             await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
 
@@ -72,8 +79,14 @@ namespace SW.Bitween.Resources.Xchanges
                             OutputFileName = result.OutputName,
                             ResponseFileName = result.ResponseName,
                             CorrelationId = xchange.CorrelationId,
-                            PartnerId = subscriber.PartnerId,
-                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null
+                            // xchange.PartnerId is the authoritative source (set at creation from the
+                            // gateway/bus-route partner, or the subscription's own PartnerId as a
+                            // fallback there too) but the column was added later with no backfill, so
+                            // pre-migration xchanges have it null even when their subscription carries
+                            // a direct PartnerId — fall back to that for those legacy rows.
+                            PartnerId = xchange.PartnerId ?? subscriber.PartnerId,
+                            ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null,
+                            RetryBlockedReason = result.RetryBlockedReason
                         };
 
             var condition = searchyRequest.Conditions.FirstOrDefault();
@@ -138,7 +151,11 @@ namespace SW.Bitween.Resources.Xchanges
                 {
                     var value = propertyFilter.Value.ToString()!.ToLower();
 
-                    query = query.Where(i => i.PromotedPropertiesRaw.Contains(value));
+                    // Both sides lower-cased at query time. Promoted values keep the case the
+                    // payload had (see FilterService), so the column has to be folded here for
+                    // the search to stay case-insensitive. No index is lost: a Contains is a
+                    // leading-wildcard LIKE, which the b-tree on this column could never serve.
+                    query = query.Where(i => i.PromotedPropertiesRaw.ToLower().Contains(value));
                     condition.Filters.Remove(propertyFilter);
                 }
             }

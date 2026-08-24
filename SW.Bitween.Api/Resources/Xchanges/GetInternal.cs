@@ -15,14 +15,18 @@ namespace SW.Bitween.Resources.Xchanges
     public class GetInternal : IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
 
-        public GetInternal(BitweenDbContext dbContext)
+        public GetInternal(BitweenDbContext dbContext, RequestContext requestContext)
         {
             this.dbContext = dbContext;
+            this.requestContext = requestContext;
         }
 
         async public Task<object> Handle(int key)
         {
+            await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View);
+
             return await dbContext.Set<Xchange>().AsNoTracking().
                 Search("Id", key).
                 Select( xchange => new XchangeRow

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <PackageId>SimplyWorks.Bitween.Sdk</PackageId>
     <Product>SimplyWorks.Bitween.Sdk</Product>
     <Authors>Simplify9</Authors>

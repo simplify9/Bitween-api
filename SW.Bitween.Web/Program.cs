@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using SW.Bitween.Services;
 using SW.EfCoreExtensions;
 using SW.Logger;
 using SW.Logger.ElasticSerach;
@@ -16,7 +17,10 @@ namespace SW.Bitween.Web
         public static void Main(string[] args)
         {
             //var id = (long)(DateTime.UtcNow.Subtract(new DateTime(2010, 1, 1)).TotalMilliseconds * 1000); 
-            CreateHostBuilder(args).UseSwElasticSearchLogger().Build().MigrateDatabase<BitweenDbContext>().Run();
+            CreateHostBuilder(args).UseSwElasticSearchLogger().Build()
+                .MigrateDatabase<BitweenDbContext>()
+                .ApplyStoredSettings()
+                .Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>

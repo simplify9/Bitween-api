@@ -60,9 +60,10 @@ namespace SW.Bitween.Domain
         }
 
         //retry xchange
-        public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup, IReadOnlyDictionary<string, int> groupAttemptCounts = null) :
+        public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup, bool manualRetry = false) :
             this(xchange.DocumentId, workGroup, file, xchange.References)
         {
+            ManualRetry = manualRetry;
             SubscriptionId = xchange.SubscriptionId;
             PartnerId = xchange.PartnerId;
             MapperId = xchange.MapperId;
@@ -72,23 +73,24 @@ namespace SW.Bitween.Domain
             ResponseSubscriptionId = xchange.ResponseSubscriptionId;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
-            GroupAttemptCounts = groupAttemptCounts == null ? null : new Dictionary<string, int>(groupAttemptCounts);
         }
 
         //retry with reset subscription properties
-        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file, IReadOnlyDictionary<string, int> groupAttemptCounts = null) :
+        public Xchange(Subscription subscription, Xchange xchange, XchangeFile file, Partner gatewayPartner = null,
+            GlobalAdapterValuesSet[] globalAdapterValuesSets = null, IReadOnlyDictionary<string, int> groupAttemptCounts = null,
+            bool manualRetry = false) :
             this(xchange.DocumentId, subscription.WorkGroup, file, xchange.References)
         {
+            ManualRetry = manualRetry;
             SubscriptionId = xchange.SubscriptionId;
             PartnerId = xchange.PartnerId ?? subscription.PartnerId;
             MapperId = subscription.MapperId;
             HandlerId = subscription.HandlerId;
-            MapperProperties = subscription.MapperProperties;
-            HandlerProperties = subscription.HandlerProperties;
+            MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary().Fill(gatewayPartner, globalAdapterValuesSets);
+            HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary().Fill(gatewayPartner, globalAdapterValuesSets);
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
-            GroupAttemptCounts = groupAttemptCounts == null ? null : new Dictionary<string, int>(groupAttemptCounts);
         }
 
         public int? SubscriptionId { get; private set; }
@@ -108,7 +110,14 @@ namespace SW.Bitween.Domain
         public string ResponseMessageTypeName { get; private set; }
 
         public string RetryFor { get; private set; }
+
+        /// <summary>
+        /// <c>true</c> when a person asked for this retry, rather than the retry policy scheduling
+        /// it. The policy leaves these alone, so pressing Retry never spends the group's shared
+        /// budget and never quietly starts an automatic chain behind the person who pressed it.
+        /// </summary>
+        public bool ManualRetry { get; private set; }
+
         public string CorrelationId { get; set; }
-        public IReadOnlyDictionary<string, int> GroupAttemptCounts { get; private set; }
     }
 }

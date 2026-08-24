@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -14,29 +13,33 @@ namespace SW.Bitween.Resources.RetryPolicies;
 [HandlerName("test")]
 public class Test : ICommandHandler<TestRetryPolicyRequest, object>
 {
+    private readonly BitweenDbContext _dbContext;
     private readonly RequestContext _requestContext;
 
-    public Test(RequestContext requestContext)
+    public Test(BitweenDbContext dbContext, RequestContext requestContext)
     {
+        _dbContext = dbContext;
         _requestContext = requestContext;
     }
 
-    public Task<object> Handle(TestRetryPolicyRequest request)
+    public async Task<object> Handle(TestRetryPolicyRequest request)
     {
-        _requestContext.EnsureAccess(AccountRole.Admin, AccountRole.Member);
+        // A pure simulation with no side effects, so viewing a policy is enough to dry-run one.
+        await _requestContext.EnsurePermission(_dbContext, Model.Permissions.RetryPolicies.View);
 
         if (request.ResultType == XchangeResultType.Success)
             throw new SWValidationException("INVALID_RESULT_TYPE",
                 "Choose Error or Bad result — a successful result is never retried.");
 
         var policy = new CustomRetryPolicy { Groups = request.Groups ?? [] };
-        var evaluator = new RetryPolicyEvaluator(policy);
+        // In-memory budget: a dry-run must not spend any real integration's total.
+        var evaluator = new RetryPolicyEvaluator(policy, new InMemoryRetryGroupBudget());
         var attemptsToSimulate = Math.Clamp(request.AttemptsToSimulate, 1, 20);
 
         var attempts = new List<TestRetryAttemptResult>();
         for (var attemptIndex = 0; attemptIndex < attemptsToSimulate; attemptIndex++)
         {
-            var decision = evaluator.Evaluate(request.ResultType, request.Content, attemptIndex);
+            var decision = await evaluator.Evaluate(request.ResultType, request.Content, attemptIndex);
 
             attempts.Add(new TestRetryAttemptResult
             {
@@ -53,6 +56,6 @@ public class Test : ICommandHandler<TestRetryPolicyRequest, object>
             if (!decision.ShouldRetry) break;
         }
 
-        return Task.FromResult<object>(new TestRetryPolicyResponse { Attempts = attempts });
+        return new TestRetryPolicyResponse { Attempts = attempts };
     }
 }

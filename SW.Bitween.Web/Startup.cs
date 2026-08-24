@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -61,11 +62,21 @@ namespace SW.Bitween.Web
             Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
             services.AddSingleton(themeOptions);
             services.AddSingleton(bitweenOptions);
+            // Keeps both option objects in sync with the Settings table, which owns every editable
+            // setting; Program hands configuration over to it at boot. The protector encrypts
+            // secret settings before they're stored.
+            services.AddSingleton<SettingsProtector>();
+            services.AddSingleton<SettingsService>();
             services.AddMemoryCache();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<NativeAdapterDiscoveryService>();
+            services.AddScoped<AdapterSecretProperties>();
+            services.AddScoped<RetryUsageReport>();
+            services.AddScoped<AdapterInvoker>();
             services.AddScoped<XchangeService>();
+            services.AddScoped<Resources.Ops.LaneResolver>();
+            services.AddScoped<AdapterRequirements>();
             services.AddHttpContextAccessor();
 
             services.AddScoped<SubscriptionSchedulerService>();
@@ -136,6 +147,7 @@ namespace SW.Bitween.Web
             services.AddServerless(configure =>
             {
                 configure.CommandTimeout = bitweenOptions.ServerlessCommandTimeout;
+                configure.AdapterRemotePath = bitweenOptions.AdapterPath;
             });
             services.AddScoped<RequestContext>();
 
@@ -337,16 +349,14 @@ namespace SW.Bitween.Web
                                    .AllowAnyMethod()
                                    .AllowCredentials();
                         }
-                        else
-                        {
-                            builder.AllowAnyOrigin();
-                            builder.AllowAnyHeader();
-                            builder.AllowAnyMethod();
-                        }
+                        // When no origins are configured, allow no cross-origin access.
+                        // The SPA is served same-origin, so CORS is only needed for
+                        // split-host / local-dev setups that set CorsOrigins explicitly.
                     });
             });
 
-            services.AddNativeAdapters(bitweenOptions.RebexLicenseKey);
+            // Resolved per adapter instance so a license key saved in Settings applies without a restart.
+            services.AddNativeAdapters(sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey);
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();
@@ -354,9 +364,69 @@ namespace SW.Bitween.Web
         }
 
 
+        /// <summary>
+        /// Enforced. Proven Report-Only first across every page in the admin UI — a wrong
+        /// enforced policy blanks the app, so the order matters. Switch back to
+        /// "Content-Security-Policy-Report-Only" before widening the policy again.
+        /// </summary>
+        private const string ContentSecurityPolicyHeader = "Content-Security-Policy";
+
+        /// <summary>Mirrors the policy the legacy UI enforces at nginx, minus its nginx-only bits.</summary>
+        private const string ContentSecurityPolicy =
+            "default-src 'self'; " +
+            "script-src 'self'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data:; " +
+            "connect-src 'self' https://login.microsoftonline.com; " +
+            "frame-src https://login.microsoftonline.com; " +
+            "font-src 'self' data:; " +
+            "form-action 'self' https://login.microsoftonline.com; " +
+            "frame-ancestors 'none'; " +
+            "base-uri 'self'; " +
+            "object-src 'none'";
+
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseForwardedHeaders();
+
+            app.Use(async (context, next) =>
+            {
+                var headers = context.Response.Headers;
+                headers["X-Frame-Options"] = "DENY";
+                headers["X-Content-Type-Options"] = "nosniff";
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+                headers["X-Permitted-Cross-Domain-Policies"] = "none";
+                headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups";
+
+                // Content-Security-Policy for the admin UI.
+                //
+                // The legacy deployment set this in nginx, which only ever served the SPA.
+                // Here the same host also serves Swagger UI, which needs inline scripts and
+                // styles of its own, so the policy is scoped to everything else — applied
+                // globally it would simply take Swagger down.
+                //
+                // 'unsafe-inline' is present for styles only: the brand colour is applied at
+                // runtime as custom properties. Scripts need no such exemption — the built
+                // index.html carries no inline script, only the module bundle.
+                if (!context.Request.Path.StartsWithSegments("/swagger"))
+                    headers[ContentSecurityPolicyHeader] = ContentSecurityPolicy;
+
+                // Sensitive API responses (JSON) must not be cached by the browser or
+                // intermediaries. Scoped by content type so static assets stay cacheable.
+                context.Response.OnStarting(() =>
+                {
+                    var contentType = context.Response.ContentType;
+                    if (!string.IsNullOrEmpty(contentType) &&
+                        (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase) ||
+                         contentType.Contains("+json", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
+                    }
+                    return Task.CompletedTask;
+                });
+
+                await next();
+            });
 
             if (env.IsDevelopment())
             {
@@ -364,7 +434,7 @@ namespace SW.Bitween.Web
             }
 
             app.UseCors();
-            app.UsePathBase("/bitween");
+            app.UseDefaultFiles();
             app.UseStaticFiles();
             app.UseRouting();
             app.UseAuthentication();
@@ -380,6 +450,9 @@ namespace SW.Bitween.Web
                 endpoints.MapControllers();
                 endpoints.MapHealthChecks("/health");
 
+                // SPA fallback: unmatched, non-file routes get the UI's index.html
+                // so client-side routes (e.g. /team/members) survive refresh.
+                endpoints.MapFallbackToFile("index.html");
             });
         }
     }
