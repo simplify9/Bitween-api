@@ -107,6 +107,7 @@ export function IntegrationPage() {
   const invalidate = () => {
     const detail = queryClient.invalidateQueries({ queryKey: ["integration", integrationId] });
     void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
     void queryClient.invalidateQueries({ queryKey: ["integrations"] });
     return detail;
   };
@@ -449,13 +450,15 @@ export function IntegrationPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and its configuration
-              will be gone for good. Integrations still wired into a gateway can't be deleted.
+              will be gone for good. One a gateway or another integration still points at can't be
+              deleted — it will say which.
             </>
           }
           confirmLabel="Delete integration"
           onConfirm={async () => {
             await api.deleteIntegration(integrationId);
             void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
             void queryClient.invalidateQueries({ queryKey: ["integrations"] });
             navigate("/subscriptions");
           }}
