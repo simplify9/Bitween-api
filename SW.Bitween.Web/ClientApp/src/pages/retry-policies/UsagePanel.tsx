@@ -158,9 +158,9 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
               {timeAgo(a.failedOn)}
             </span>
             {a.retryPending ? (
-              <Badge tone="ok">Retry due</Badge>
+              <Badge tone="ok" title="Within budget — this will be retried automatically.">Retry due</Badge>
             ) : a.blockedReason ? (
-              <Badge tone="warn">Stopped</Badge>
+              <Badge tone="warn" title="Won't retry again — see the reason to the right.">Stopped</Badge>
             ) : null}
             <span className="min-w-0 flex-1 truncate text-ink-600" title={a.error}>
               {a.blockedReason ?? a.error}
@@ -386,7 +386,14 @@ export function UsagePanel({
                         <span className="font-mono text-xs tabular-nums text-ink-700">
                           {r.used} / {r.total}
                         </span>
-                        {r.exhausted && <Badge tone="danger">Exhausted</Badge>}
+                        {r.exhausted && (
+                          <Badge
+                            tone="danger"
+                            title="The retry budget ran out — this won't retry again until it resets."
+                          >
+                            Exhausted
+                          </Badge>
+                        )}
                       </span>
                     </td>
                     <td className="px-3 py-1.5 whitespace-nowrap text-[13px] text-ink-500">

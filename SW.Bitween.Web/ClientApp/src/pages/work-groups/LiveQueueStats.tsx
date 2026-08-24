@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/basics";
+import { queueHealthTitle } from "../../components/config/shared";
 
 function LiveStat({ label, value, tone }: { label: string; value: ReactNode; tone?: "warn" | "danger" }) {
   return (
@@ -39,13 +40,20 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
     <div className="@container space-y-3">
       <div className="flex flex-wrap items-center gap-1.5">
         {consumer.health === "critical" ? (
-          <Badge tone="danger">Critical</Badge>
+          <Badge tone="danger" title={queueHealthTitle("critical")}>Critical</Badge>
         ) : consumer.health === "warning" ? (
-          <Badge tone="warn">Warning</Badge>
+          <Badge tone="warn" title={queueHealthTitle("warning")}>Warning</Badge>
         ) : (
-          <Badge tone="ok">Healthy</Badge>
+          <Badge tone="ok" title={queueHealthTitle("healthy")}>Healthy</Badge>
         )}
-        {consumer.isBackpressured && <Badge tone="warn">Backpressure</Badge>}
+        {consumer.isBackpressured && (
+          <Badge
+            tone="warn"
+            title="Queue depth has passed its configured threshold — messages are arriving faster than they're being consumed."
+          >
+            Backpressure
+          </Badge>
+        )}
         <code className="font-mono text-[11px] text-ink-400">{consumer.queueName}</code>
       </div>
       <dl className="grid grid-cols-3 gap-x-4 gap-y-3 @sm:grid-cols-5 @2xl:grid-cols-9">

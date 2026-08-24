@@ -5,6 +5,7 @@ import { AlertTriangle, OctagonAlert } from "lucide-react";
 import { api, type ConsumerHealth, type QueueLane, type QueueSeverity } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { queueHealthTitle } from "../../components/config/shared";
 import { Panel } from "../../components/ui/Panel";
 import { timeAgo } from "../../lib/dates";
 
@@ -67,9 +68,9 @@ const linkFor = (c: ConsumerHealth): string | null => {
 };
 
 function HealthBadge({ health }: { health: QueueSeverity }) {
-  if (health === "critical") return <Badge tone="danger">Critical</Badge>;
-  if (health === "warning") return <Badge tone="warn">Warning</Badge>;
-  return <Badge tone="ok">Healthy</Badge>;
+  if (health === "critical") return <Badge tone="danger" title={queueHealthTitle("critical")}>Critical</Badge>;
+  if (health === "warning") return <Badge tone="warn" title={queueHealthTitle("warning")}>Warning</Badge>;
+  return <Badge tone="ok" title={queueHealthTitle("healthy")}>Healthy</Badge>;
 }
 
 function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
@@ -254,7 +255,14 @@ export function QueueHealthPage() {
                     <td className="px-3 py-2">
                       <span className="inline-flex items-center gap-1">
                         <HealthBadge health={c.health} />
-                        {c.isBackpressured && <Badge tone="warn">Backpressure</Badge>}
+                        {c.isBackpressured && (
+                          <Badge
+                            tone="warn"
+                            title="Queue depth has passed its configured threshold — messages are arriving faster than they're being consumed."
+                          >
+                            Backpressure
+                          </Badge>
+                        )}
                       </span>
                     </td>
                   </tr>

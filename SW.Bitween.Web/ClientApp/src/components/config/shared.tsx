@@ -8,6 +8,7 @@ import {
   type IntegrationRow,
   type IntegrationSetupRef,
   type IntegrationType,
+  type QueueSeverity,
   type ScheduleHealth,
   type TrailEntry,
 } from "../../api";
@@ -55,8 +56,19 @@ export function IntegrationStatusBadges({
 }) {
   return (
     <span className="inline-flex items-center gap-1">
-      {enabled ? <Badge tone="ok">Active</Badge> : <Badge>Disabled</Badge>}
-      {paused && <Badge tone="warn">Paused</Badge>}
+      {enabled ? (
+        <Badge tone="ok" title="Runs when its trigger fires.">Active</Badge>
+      ) : (
+        <Badge title="Turned off — nothing will run it, even if a trigger fires.">Disabled</Badge>
+      )}
+      {paused && (
+        <Badge
+          tone="warn"
+          title="Held without being disabled — its trigger still fires, but nothing runs until unpaused."
+        >
+          Paused
+        </Badge>
+      )}
     </span>
   );
 }
@@ -121,6 +133,27 @@ export function scheduleFault(
   }
 }
 
+/**
+ * What a lane's severity is actually reporting — the three sources this fans out
+ * to (Work groups, Queue health, the live stats strip) used to each spell out the
+ * same three words with no explanation of what put a lane there.
+ *
+ * Matches `AlertEvaluator` in SW.Bus: critical is no running consumer or a
+ * backlog past its critical threshold; warning is a backlog past its warning
+ * threshold, a queue depth past the backpressure threshold, or messages arriving
+ * with essentially nothing being acknowledged.
+ */
+export function queueHealthTitle(severity: QueueSeverity): string {
+  switch (severity) {
+    case "critical":
+      return "No consumer is running for this lane, or a backlog has passed its critical threshold.";
+    case "warning":
+      return "A backlog, queue depth or the incoming-vs-acknowledged rate has passed its warning threshold.";
+    default:
+      return "No active alerts for this lane.";
+  }
+}
+
 export function HealthBadge({
   isRunning,
   consecutiveFailures,
@@ -130,12 +163,15 @@ export function HealthBadge({
 }) {
   if (consecutiveFailures > 0)
     return (
-      <Badge tone="danger">
+      <Badge
+        tone="danger"
+        title="Runs in a row that ended in an error since the last success — check its retry policy and last exception."
+      >
         {consecutiveFailures} failure{consecutiveFailures === 1 ? "" : "s"}
       </Badge>
     );
-  if (isRunning) return <Badge tone="ok">Running</Badge>;
-  return <Badge>Idle</Badge>;
+  if (isRunning) return <Badge tone="ok" title="Executing right now.">Running</Badge>;
+  return <Badge title="Not executing right now — normal between runs.">Idle</Badge>;
 }
 
 export function ExchangeStatusBadge({
@@ -143,10 +179,23 @@ export function ExchangeStatusBadge({
 }: {
   status: ExchangeRef["status"];
 }) {
-  if (status === "success") return <Badge tone="ok">Success</Badge>;
-  if (status === "failed") return <Badge tone="danger">Failed</Badge>;
-  if (status === "badResponse") return <Badge tone="warn">Bad response</Badge>;
-  return <Badge tone="neutral">Processing</Badge>;
+  if (status === "success") return <Badge tone="ok" title="Delivered without error.">Success</Badge>;
+  if (status === "failed")
+    return (
+      <Badge tone="danger" title="The exchange itself couldn't be processed or delivered.">
+        Failed
+      </Badge>
+    );
+  if (status === "badResponse")
+    return (
+      <Badge
+        tone="warn"
+        title="Delivered fine, but the receiver's own reply reports an error."
+      >
+        Bad response
+      </Badge>
+    );
+  return <Badge tone="neutral" title="Still in progress.">Processing</Badge>;
 }
 
 /**
@@ -492,14 +541,31 @@ export function WiredHealthBadge({
   rows: IntegrationRow[];
   empty: string;
 }) {
-  if (rows.length === 0) return <Badge tone="warn">{empty}</Badge>;
+  if (rows.length === 0) return <Badge tone="warn" title={empty}>{empty}</Badge>;
   const failing = rows.filter((r) => r.consecutiveFailures > 0).length;
-  if (failing > 0) return <Badge tone="danger">{failing} failing</Badge>;
+  if (failing > 0)
+    return (
+      <Badge tone="danger" title="At least one integration behind this gateway has failing runs.">
+        {failing} failing
+      </Badge>
+    );
   const paused = rows.filter((r) => r.paused).length;
-  if (paused > 0) return <Badge tone="warn">{paused} paused</Badge>;
+  if (paused > 0)
+    return (
+      <Badge tone="warn" title="At least one integration behind this gateway is paused.">
+        {paused} paused
+      </Badge>
+    );
   const disabled = rows.filter((r) => !r.enabled).length;
-  if (disabled > 0) return <Badge>{disabled} disabled</Badge>;
-  return <Badge tone="ok">Healthy</Badge>;
+  if (disabled > 0)
+    return (
+      <Badge title="At least one integration behind this gateway is disabled.">{disabled} disabled</Badge>
+    );
+  return (
+    <Badge tone="ok" title="Worst case across everything behind this gateway: none failing, paused or disabled.">
+      Healthy
+    </Badge>
+  );
 }
 
 /**
