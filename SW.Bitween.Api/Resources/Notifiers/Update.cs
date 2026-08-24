@@ -31,7 +31,9 @@ namespace SW.Bitween.Resources.Notifiers
                 request.Inactive,
                 request.RunOnSubscriptions?.Select(r => r.Id)?.ToArray());
 
-            notifier.SetDictionaries(request.HandlerProperties.ToDictionary());
+            // An absent list means none, as it does for a document's promoted properties
+            // and a retry policy's groups. Left implicit it threw ArgumentNullException.
+            notifier.SetDictionaries((request.HandlerProperties ?? []).ToDictionary());
 
 
             await _dbContext.SaveChangesAsync();
