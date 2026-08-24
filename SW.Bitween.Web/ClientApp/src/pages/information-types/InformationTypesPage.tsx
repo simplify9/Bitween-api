@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FileText, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
@@ -8,36 +8,40 @@ import { InformationTypeDialog } from "../../components/config/InformationTypeDi
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { CodeBadge } from "../../components/ui/Panel";
+import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+
+const PAGE_SIZE = 25;
 
 export function InformationTypesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const types = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() });
+  const types = useQuery({
+    queryKey: ["information-types-search", q, offset],
+    queryFn: () => api.searchInformationTypes({ search: q, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   const integrations = useIntegrationsCache().data ?? [];
 
-  const setParam = (key: string, value: string | null) =>
+  const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: key === "q" },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (types.data ?? []).filter(
-      (t) =>
-        !needle || t.name.toLowerCase().includes(needle) || (t.code ?? "").toLowerCase().includes(needle),
-    );
-  }, [types.data, q]);
+  const rows = types.data?.result ?? [];
+  const total = types.data?.total ?? 0;
 
   return (
     <div>
@@ -76,7 +80,7 @@ export function InformationTypesPage() {
           type="search"
           value={q}
           onChange={(e) => setParam("q", e.target.value || null)}
-          placeholder="Search by name or code"
+          placeholder="Search by name"
           aria-label="Search information types"
           className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
         />
@@ -84,16 +88,24 @@ export function InformationTypesPage() {
 
       {types.isPending ? (
         <LoadingBlock label="Loading information types…" />
-      ) : filtered.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState icon={<FileText />} title={q ? "No information types match" : "No information types yet"}>
           {q ? "Try a different search." : "Define the first kind of document your integrations will carry."}
         </EmptyState>
       ) : (
         <Table
-          rows={filtered}
+          rows={rows}
           rowKey={(t) => t.id}
           minWidth="min-w-220"
           onRowClick={(t) => navigate(`/information-types/${t.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             { header: "Code", cell: (t) => <CodeBadge code={t.code} name={t.name} /> },
             { header: "Name", cell: (t) => <span className="font-medium text-ink-900">{t.name}</span> },

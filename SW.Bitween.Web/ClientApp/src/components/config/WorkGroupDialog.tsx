@@ -151,6 +151,7 @@ export function WorkGroupDialog({
     },
     onSuccess: (id) => {
       void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
       void queryClient.invalidateQueries({ queryKey: ["work-group", id] });
       onSaved?.(id);
       onClose();

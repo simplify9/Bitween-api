@@ -5,11 +5,13 @@ import type {
   InformationTypeFormat,
   InformationTypeRow,
   IntegrationType,
+  Paged,
   TrailEntry,
 } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { get, getEnrichment, post, request } from "./request";
+import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -122,6 +124,18 @@ async function fetchDetail(id: number): Promise<InformationTypeDetail> {
   };
 }
 
+/** One wire shape for both create and update, so they cannot drift apart. */
+const documentBody = (t: Omit<InformationType, "id" | "createdOn">) => ({
+  code: t.code?.trim() || undefined,
+  name: t.name,
+  documentFormat: t.format,
+  busEnabled: t.busEnabled,
+  busMessageTypeName: t.busEnabled ? t.busMessageTypeName : undefined,
+  duplicateInterval: t.duplicateIntervalMinutes,
+  disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
+  promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
+});
+
 export const documentMethods = {
   async listInformationTypes(): Promise<InformationTypeRow[]> {
     const [res, subs] = await Promise.all([
@@ -134,22 +148,35 @@ export const documentMethods = {
     return (res.result ?? []).map((d) => ({ ...toInformationType(d), usedByCount: countByDocument.get(d.id) ?? 0 }));
   },
 
+  async searchInformationTypes(query: {
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<InformationTypeRow>> {
+    const qs = buildListQuery({
+      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const [res, subs] = await Promise.all([
+      get<SearchyResponse<RawDocument>>(`/documents?${qs}`),
+      getEnrichment<SearchyResponse<{ documentId: number }>>("/subscriptions", { result: [], totalCount: 0 }),
+    ]);
+    const countByDocument = new Map<number, number>();
+    for (const s of subs.result ?? [])
+      countByDocument.set(s.documentId, (countByDocument.get(s.documentId) ?? 0) + 1);
+    return {
+      total: res.totalCount,
+      result: (res.result ?? []).map((d) => ({ ...toInformationType(d), usedByCount: countByDocument.get(d.id) ?? 0 })),
+    };
+  },
+
   getInformationType: fetchDetail,
 
-  async createInformationType(input: {
-    name: string;
-    code?: string;
-    format: InformationTypeFormat;
-    busEnabled?: boolean;
-    busMessageTypeName?: string;
-  }): Promise<InformationType> {
-    const id = await post<number>("/documents", {
-      code: input.code?.trim() || undefined,
-      name: input.name,
-      documentFormat: input.format,
-      busEnabled: input.busEnabled ?? false,
-      busMessageTypeName: input.busEnabled ? input.busMessageTypeName : undefined,
-    });
+  async createInformationType(
+    input: Omit<InformationType, "id" | "createdOn">,
+  ): Promise<InformationType> {
+    const id = await post<number>("/documents", documentBody(input));
     return fetchDetail(id);
   },
 
@@ -157,17 +184,7 @@ export const documentMethods = {
     id: number,
     changes: Omit<InformationType, "id" | "createdOn">,
   ): Promise<InformationType> {
-    await post(`/documents/${id}`, {
-      id,
-      code: changes.code?.trim() || undefined,
-      name: changes.name,
-      documentFormat: changes.format,
-      busEnabled: changes.busEnabled,
-      busMessageTypeName: changes.busEnabled ? changes.busMessageTypeName : undefined,
-      duplicateInterval: changes.duplicateIntervalMinutes,
-      disregardsUnfilteredMessages: changes.disregardsUnfilteredMessages,
-      promotedProperties: changes.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
-    });
+    await post(`/documents/${id}`, { id, ...documentBody(changes) });
     return fetchDetail(id);
   },
 

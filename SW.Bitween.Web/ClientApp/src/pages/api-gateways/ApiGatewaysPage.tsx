@@ -1,11 +1,11 @@
-import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Search, Webhook } from "lucide-react";
 import { api, type IntegrationRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import {
   LinkListCell,
@@ -18,31 +18,35 @@ import {
  * gateway entity, not per pipeline: the pipelines behind it are reached through
  * the attachment that names them.
  */
+const PAGE_SIZE = 25;
+
 export function ApiGatewaysPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const gateways = useQuery({ queryKey: ["api-gateways"], queryFn: () => api.listApiGateways() });
+  const gateways = useQuery({
+    queryKey: ["api-gateways-search", q, offset],
+    queryFn: () => api.searchApiGateways({ search: q, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   const integrationsById = useIntegrationRowsById();
 
-  const setQ = (value: string) =>
+  const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (value) next.set("q", value);
-        else next.delete("q");
+        if (value) next.set(key, value);
+        else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: true },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (gateways.data ?? []).filter(
-      (g) => !needle || g.name.toLowerCase().includes(needle) || g.urlName.toLowerCase().includes(needle),
-    );
-  }, [gateways.data, q]);
+  const rows = gateways.data?.result ?? [];
+  const total = gateways.data?.total ?? 0;
 
   return (
     <div>
@@ -63,7 +67,7 @@ export function ApiGatewaysPage() {
         <input
           type="search"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => setParam("q", e.target.value || null)}
           placeholder="Search gateways"
           aria-label="Search API gateways"
           className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
@@ -72,16 +76,24 @@ export function ApiGatewaysPage() {
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading API gateways…" />
-      ) : filtered.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState icon={<Webhook />} title={q ? "No gateways match" : "No API gateways yet"}>
           {q ? "Try a different search." : "Create a gateway to give partners a URL to push documents to."}
         </EmptyState>
       ) : (
         <Table
-          rows={filtered}
+          rows={rows}
           rowKey={(g) => g.id}
           minWidth="min-w-200"
           onRowClick={(g) => navigate(`/api-gateways/${g.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             {
               header: "Gateway",

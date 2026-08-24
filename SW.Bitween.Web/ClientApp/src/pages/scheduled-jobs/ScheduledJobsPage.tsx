@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, DownloadCloud, Plus, Search } from "lucide-react";
 import { api, type IntegrationRow, type ScheduleHealth } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import {
   HealthBadge,
@@ -26,6 +27,7 @@ function ReceiveNowButton({ job }: { job: IntegrationRow }) {
     mutationFn: () => api.receiveNow(job.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
       void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
     },
   });
@@ -81,14 +83,21 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
  * Last run comes from the scheduler's own execution history (kept ~30 days);
  * next run is Bitween's own `ReceiveOn`.
  */
+const PAGE_SIZE = 25;
+
 export function ScheduledJobsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canOperate = useSessionCan("subscriptions.operate");
   const canSeeInfoTypes = useSessionCan("documents.view");
 
-  const rows = useQuery({ queryKey: ["integration-rows"], queryFn: () => api.listIntegrationRows() });
+  const rows = useQuery({
+    queryKey: ["integration-rows-search", "Receiving", q, offset],
+    queryFn: () => api.searchIntegrationRows({ search: q, type: "Receiving", offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   // The list rows don't carry work group or retry policy; the integrations
   // cache does, and every page already holds it.
   const setups = useIntegrationsCache().data ?? [];
@@ -102,28 +111,20 @@ export function ScheduledJobsPage() {
     useQuery({ queryKey: ["schedule-health"], queryFn: () => api.listScheduleHealth() }).data ?? [];
   const healthById = useMemo(() => new Map(health.map((h) => [h.integrationId, h])), [health]);
 
-  const setQ = (value: string) =>
+  const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (value) next.set("q", value);
-        else next.delete("q");
+        if (value) next.set(key, value);
+        else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: true },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (rows.data ?? [])
-      .filter((r) => r.type === "Receiving")
-      .filter(
-        (r) =>
-          !needle ||
-          r.name.toLowerCase().includes(needle) ||
-          r.informationTypeCode.toLowerCase().includes(needle),
-      );
-  }, [rows.data, q]);
+  const filtered = rows.data?.result ?? [];
+  const total = rows.data?.total ?? 0;
 
   return (
     <div>
@@ -144,7 +145,7 @@ export function ScheduledJobsPage() {
         <input
           type="search"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => setParam("q", e.target.value || null)}
           placeholder="Search jobs"
           aria-label="Search scheduled jobs"
           className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
@@ -163,6 +164,14 @@ export function ScheduledJobsPage() {
           rowKey={(r) => r.id}
           minWidth="min-w-270"
           onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             {
               header: "Job",

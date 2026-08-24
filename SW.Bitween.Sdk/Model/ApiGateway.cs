@@ -36,5 +36,13 @@ namespace SW.Bitween.Model
         public int PartnerId { get; set; }
         public int SubscriptionId { get; set; }
     }
+
+    public class SearchApiGatewayAttachmentsModel
+    {
+        public int ApiGatewayId { get; set; }
+        public string Search { get; set; }
+        public int? Offset { get; set; }
+        public int? Limit { get; set; }
+    }
 }
 

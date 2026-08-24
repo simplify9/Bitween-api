@@ -35,7 +35,8 @@ namespace SW.Bitween.Resources.Notifiers
                     RunOnBadResult = notifier.RunOnBadResult,
                     RunOnFailedResult = notifier.RunOnFailedResult,
                     RunOnSuccessfulResult = notifier.RunOnSuccessfulResult,
-                    Inactive = notifier.Inactive
+                    Inactive = notifier.Inactive,
+                    RunOnSubscriptions = notifier.RunOnSubscriptions
                 };
 
             query = query.AsNoTracking();

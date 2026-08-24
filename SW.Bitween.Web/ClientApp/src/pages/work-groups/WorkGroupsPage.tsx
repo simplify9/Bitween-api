@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Layers, Plus, Search } from "lucide-react";
@@ -7,8 +7,9 @@ import { Can, useSessionCan } from "../../auth/guards";
 import { WorkGroupDialog } from "../../components/config/WorkGroupDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Pagination } from "../../components/ui/Pagination";
 import { Table, type Column } from "../../components/ui/Table";
-import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+import { UsedByCell, queueHealthTitle, useIntegrationsCache } from "../../components/config/shared";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
@@ -28,11 +29,11 @@ function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGrou
         const c = consumerFor(g);
         if (!c) return <span className="text-ink-400">—</span>;
         return c.health === "critical" ? (
-          <Badge tone="danger">Critical</Badge>
+          <Badge tone="danger" title={queueHealthTitle("critical")}>Critical</Badge>
         ) : c.health === "warning" ? (
-          <Badge tone="warn">Warning</Badge>
+          <Badge tone="warn" title={queueHealthTitle("warning")}>Warning</Badge>
         ) : (
-          <Badge tone="ok">Healthy</Badge>
+          <Badge tone="ok" title={queueHealthTitle("healthy")}>Healthy</Badge>
         );
       },
     },
@@ -46,14 +47,21 @@ function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGrou
   ];
 }
 
+const PAGE_SIZE = 25;
+
 export function WorkGroupsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canMonitor = useSessionCan("monitoring.view");
 
-  const groups = useQuery({ queryKey: ["work-groups"], queryFn: () => api.listWorkGroups() });
+  const groups = useQuery({
+    queryKey: ["work-groups-search", q, offset],
+    queryFn: () => api.searchWorkGroups({ search: q, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   const integrations = useIntegrationsCache().data ?? [];
   const live = useQuery({
     queryKey: ["queue-health"],
@@ -63,23 +71,20 @@ export function WorkGroupsPage() {
     enabled: canMonitor,
   });
 
-  const setParam = (key: string, value: string | null) =>
+  const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: true },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (groups.data ?? []).filter(
-      (g) => !needle || g.name.toLowerCase().includes(needle) || g.busMessageName.toLowerCase().includes(needle),
-    );
-  }, [groups.data, q]);
+  const filtered = groups.data?.result ?? [];
+  const total = groups.data?.total ?? 0;
 
   return (
     <div>
@@ -133,6 +138,14 @@ export function WorkGroupsPage() {
           rowKey={(g) => g.id}
           minWidth="min-w-220"
           onRowClick={(g) => navigate(`/work-groups/${g.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             { header: "Name", cell: (g) => <span className="font-medium text-ink-900">{g.name}</span> },
             {

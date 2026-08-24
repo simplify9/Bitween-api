@@ -2,6 +2,7 @@ import type {
   AdapterInfo,
   AdapterKind,
   ApiGateway,
+  ApiGatewayAttachment,
   ApiGatewayDetail,
   ApiGatewayRow,
   BusGateway,
@@ -14,7 +15,6 @@ import type {
   GlobalValuesSetRow,
   InformationType,
   InformationTypeDetail,
-  InformationTypeFormat,
   InformationTypeRow,
   Integration,
   IntegrationDetail,
@@ -33,6 +33,8 @@ import type {
   PermissionArea,
   PermissionKey,
   QueueHealthSnapshot,
+  ReceiveAttemptRow,
+  ReceiveOutcome,
   RetryGroup,
   RetryAlertConfig,
   RetryAttempts,
@@ -108,6 +110,7 @@ export interface ApiClient {
 
   // — partners —
   listPartners(): Promise<PartnerRow[]>;
+  searchPartners(query: { search: string; offset: number; limit: number }): Promise<Paged<PartnerRow>>;
   getPartner(id: number): Promise<PartnerDetail>;
   /** Light fetch used by the mapper editor's test-partner selector. */
   getPartnerAdapterProperties(id: number): Promise<Record<string, string>>;
@@ -123,14 +126,16 @@ export interface ApiClient {
 
   // — information types —
   listInformationTypes(): Promise<InformationTypeRow[]>;
+  searchInformationTypes(query: {
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<InformationTypeRow>>;
   getInformationType(id: number): Promise<InformationTypeDetail>;
-  createInformationType(input: {
-    name: string;
-    code: string;
-    format: InformationTypeFormat;
-    busEnabled?: boolean;
-    busMessageTypeName?: string;
-  }): Promise<InformationType>;
+  /** Same payload as update: a new type arrives complete, promoted properties included. */
+  createInformationType(
+    input: Omit<InformationType, "id" | "createdOn">,
+  ): Promise<InformationType>;
   updateInformationType(
     id: number,
     changes: Omit<InformationType, "id" | "createdOn">,
@@ -156,12 +161,23 @@ export interface ApiClient {
 
   // — integrations —
   listIntegrationRows(): Promise<IntegrationRow[]>;
+  searchIntegrationRows(query: {
+    search: string;
+    type: IntegrationType | null;
+    informationTypeId?: number | null;
+    partnerId?: number | null;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<IntegrationRow>>;
   getIntegration(id: number): Promise<IntegrationDetail>;
-  /** Only Receiving / GatewayApiCall / BusGateway — always from a create page. */
+  /** One call, one transaction: the integration exists as asked for, or not at all. */
   createIntegration(input: {
     type: IntegrationType;
     name: string;
     informationTypeId: number;
+    /** Required by the types that carry their own partner — Internal and ApiCall. */
+    partnerId?: number | null;
     receiverId?: string | null;
     receiverProperties?: Record<string, string>;
     validatorId?: string | null;
@@ -206,6 +222,10 @@ export interface ApiClient {
   receiveNow(id: number): Promise<Integration>;
   /** Run history for one scheduled integration, newest first. Empty for unscheduled types. */
   listIntegrationRuns(id: number, limit?: number): Promise<IntegrationRun[]>;
+  searchReceiveAttempts(
+    subscriptionId: number,
+    query: { outcome: ReceiveOutcome | null; offset: number; limit: number },
+  ): Promise<Paged<ReceiveAttemptRow>>;
   /** Newest run of every scheduled integration — one request for a whole list. */
   listLastRuns(): Promise<IntegrationLastRun[]>;
   /** Will these schedules actually fire? Asks the scheduler, not the integration record. */
@@ -214,6 +234,7 @@ export interface ApiClient {
 
   // — work groups —
   listWorkGroups(): Promise<WorkGroupRow[]>;
+  searchWorkGroups(query: { search: string; offset: number; limit: number }): Promise<Paged<WorkGroupRow>>;
   getWorkGroup(id: number): Promise<WorkGroupDetail>;
   createWorkGroup(input: {
     name: string;
@@ -229,7 +250,12 @@ export interface ApiClient {
 
   // — API gateways —
   listApiGateways(): Promise<ApiGatewayRow[]>;
+  searchApiGateways(query: { search: string; offset: number; limit: number }): Promise<Paged<ApiGatewayRow>>;
   getApiGateway(id: number): Promise<ApiGatewayDetail>;
+  searchGatewayAttachments(
+    apiGatewayId: number,
+    query: { search: string; offset: number; limit: number },
+  ): Promise<Paged<ApiGatewayAttachment>>;
   createApiGateway(input: { name: string; urlName: string }): Promise<ApiGateway>;
   updateApiGateway(
     id: number,
@@ -242,6 +268,13 @@ export interface ApiClient {
 
   // — bus gateways —
   listBusGateways(): Promise<BusGatewayRow[]>;
+  searchBusGateways(query: {
+    search: string;
+    informationTypeId?: number | null;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<BusGatewayRow>>;
   getBusGateway(id: number): Promise<BusGatewayDetail>;
   createBusGateway(input: { name: string; informationTypeId: number }): Promise<BusGateway>;
   updateBusGateway(id: number, changes: { name: string; inactive: boolean }): Promise<BusGateway>;
@@ -259,6 +292,11 @@ export interface ApiClient {
 
   // — retry policies —
   listRetryPolicies(): Promise<RetryPolicyListRow[]>;
+  searchRetryPolicies(query: {
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<RetryPolicyListRow>>;
   getRetryPolicy(id: number): Promise<RetryPolicyDetail>;
   createRetryPolicy(input: { name: string }): Promise<RetryPolicy>;
   updateRetryPolicy(
@@ -307,10 +345,11 @@ export interface ApiClient {
   // — notifiers —
   // No backend delete/test-send endpoint exists yet (BACKEND_WIRING_PLAN.md G8) — hidden in the UI.
   // Channel choices come from listAdapters("handler") — same catalog as any other handler slot.
-  listNotifiers(): Promise<Notifier[]>;
+  searchNotifiers(query: { search: string; offset: number; limit: number }): Promise<Paged<Notifier>>;
   getNotifier(id: number): Promise<NotifierDetail>;
   createNotifier(input: { name: string }): Promise<Notifier>;
   updateNotifier(id: number, changes: Omit<Notifier, "id" | "createdOn">): Promise<Notifier>;
+  deleteNotifier(id: number): Promise<void>;
 
   // — exchanges —
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;

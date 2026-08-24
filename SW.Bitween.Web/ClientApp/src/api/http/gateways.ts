@@ -9,9 +9,11 @@ import type {
   BusGatewayRoute,
   BusGatewayRow,
   MatchGroup,
+  Paged,
 } from "../types";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
 import { get, post, request } from "./request";
+import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 // ——— backend shapes (camelCase over the wire) ———
 interface SearchyResponse<T> {
@@ -117,8 +119,35 @@ export const gatewayMethods = {
     return (res.result ?? []).map(toApiGatewayRow);
   },
 
+  async searchApiGateways(query: { search: string; offset: number; limit: number }): Promise<Paged<ApiGatewayRow>> {
+    const qs = buildListQuery({
+      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const res = await get<SearchyResponse<RawApiGateway>>(`/apigateways?${qs}`);
+    return { total: res.totalCount, result: (res.result ?? []).map(toApiGatewayRow) };
+  },
+
   async getApiGateway(id: number): Promise<ApiGatewayDetail> {
     return toApiGatewayDetail(await get<RawApiGateway>(`/apigateways/${id}`));
+  },
+
+  /** Paged, searched view of one gateway's attachments, for the gateway page's own
+   * table — `getApiGateway` keeps returning the full list, still needed by the
+   * attach-partner picker's exclude list. */
+  async searchGatewayAttachments(
+    apiGatewayId: number,
+    query: { search: string; offset: number; limit: number },
+  ): Promise<Paged<ApiGatewayAttachment>> {
+    const params = new URLSearchParams({
+      apiGatewayId: String(apiGatewayId),
+      offset: String(query.offset),
+      limit: String(query.limit),
+    });
+    if (query.search.trim()) params.set("search", query.search.trim());
+    const res = await get<SearchyResponse<RawApiGatewayPartner>>(`/apigateways/attachments?${params.toString()}`);
+    return { total: res.totalCount, result: (res.result ?? []).map(toApiGatewayAttachment) };
   },
 
   async createApiGateway({ name, urlName }: { name: string; urlName: string }): Promise<ApiGateway> {
@@ -166,6 +195,26 @@ export const gatewayMethods = {
   async listBusGateways(): Promise<BusGatewayRow[]> {
     const res = await get<SearchyResponse<RawBusGateway>>("/busgateways");
     return (res.result ?? []).map(toBusGatewayRow);
+  },
+
+  async searchBusGateways(query: {
+    search: string;
+    informationTypeId?: number | null;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<BusGatewayRow>> {
+    const qs = buildListQuery({
+      filters: [
+        ["Name", SEARCHY_RULE.contains, query.search.trim()],
+        ["DocumentId", SEARCHY_RULE.equalsTo, query.informationTypeId ?? ""],
+        ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
+      ],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const res = await get<SearchyResponse<RawBusGateway>>(`/busgateways?${qs}`);
+    return { total: res.totalCount, result: (res.result ?? []).map(toBusGatewayRow) };
   },
 
   async getBusGateway(id: number): Promise<BusGatewayDetail> {

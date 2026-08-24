@@ -51,6 +51,7 @@ export function EditAttachmentPage() {
     onSuccess: () => {
       clear();
       void queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
+      void queryClient.invalidateQueries({ queryKey: ["api-gateway-attachments-search"] });
       void queryClient.invalidateQueries({ queryKey: ["integrations"] });
       navigate(`/api-gateways/${gatewayId}`);
     },

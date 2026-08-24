@@ -13,8 +13,10 @@ import {
   type RetryResultType,
   type RetryTestAttempt,
   type RetryUsageRow,
+  type Paged,
 } from "../types";
 import { get, getEnrichment, post, request } from "./request";
+import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -242,6 +244,37 @@ export const retryPolicyMethods = {
       createdOn: "",
       usedByCount: countByRetryPolicy.get(p.id) ?? 0,
     }));
+  },
+
+  async searchRetryPolicies(query: {
+    search: string;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<RetryPolicyListRow>> {
+    const qs = buildListQuery({
+      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const [res, subs] = await Promise.all([
+      get<SearchyResponse<RawRetryPolicyRow>>(`/retrypolicies?${qs}`),
+      getEnrichment<SearchyResponse<{ retryPolicyId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
+    ]);
+    const countByRetryPolicy = new Map<number, number>();
+    for (const s of subs.result ?? []) {
+      if (s.retryPolicyId == null) continue;
+      countByRetryPolicy.set(s.retryPolicyId, (countByRetryPolicy.get(s.retryPolicyId) ?? 0) + 1);
+    }
+    return {
+      total: res.totalCount,
+      result: (res.result ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        groupCount: p.groupCount,
+        createdOn: "",
+        usedByCount: countByRetryPolicy.get(p.id) ?? 0,
+      })),
+    };
   },
 
   getRetryPolicy: fetchDetail,

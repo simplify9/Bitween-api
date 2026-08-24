@@ -1,11 +1,13 @@
-import { useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, Workflow } from "lucide-react";
 import { api, type IntegrationRow, type IntegrationType } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Pagination } from "../../components/ui/Pagination";
+import { SearchSelect } from "../../components/ui/SearchSelect";
+import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import {
   HealthBadge,
@@ -15,6 +17,12 @@ import {
   TypeBadge,
   useGatewayPartners,
 } from "../../components/config/shared";
+
+const STATUS_OPTIONS = [
+  { value: "", label: "Any status" },
+  { value: "false", label: "Active" },
+  { value: "true", label: "Disabled" },
+];
 
 /** Filter order: what you'll have most of first, legacy last. */
 const TYPE_ORDER: IntegrationType[] = [
@@ -36,15 +44,39 @@ const TYPE_ORDER: IntegrationType[] = [
  * Scheduled jobs, deliberately: here for the complete picture, there for the
  * schedule-specific columns.
  */
+const PAGE_SIZE = 25;
+
 export function IntegrationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const type = searchParams.get("type") as IntegrationType | null;
+  const informationTypeId = searchParams.get("informationTypeId")
+    ? Number(searchParams.get("informationTypeId"))
+    : null;
+  const partnerId = searchParams.get("partnerId") ? Number(searchParams.get("partnerId")) : null;
+  const inactiveParam = searchParams.get("inactive");
+  const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canSeeInfoTypes = useSessionCan("documents.view");
 
-  const rows = useQuery({ queryKey: ["integration-rows"], queryFn: () => api.listIntegrationRows() });
+  const rows = useQuery({
+    queryKey: ["integration-rows-search", q, type, informationTypeId, partnerId, inactive, offset],
+    queryFn: () =>
+      api.searchIntegrationRows({
+        search: q,
+        type,
+        informationTypeId,
+        partnerId,
+        inactive,
+        offset,
+        limit: PAGE_SIZE,
+      }),
+    placeholderData: keepPreviousData,
+  });
   const gatewayPartners = useGatewayPartners();
+  const infoTypes = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
+  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() }).data ?? [];
 
   /** Its own partner (legacy types) plus any reached through a gateway. */
   const partnersFor = (r: IntegrationRow) => {
@@ -53,35 +85,20 @@ export function IntegrationsPage() {
     return [...own, ...viaGateway];
   };
 
-  const setParam = (key: string, value: string | null) =>
+  const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: key === "q" },
     );
 
-  // Only offer a type you actually have — an empty filter teaches nothing.
-  const presentTypes = useMemo(() => {
-    const present = new Set((rows.data ?? []).map((r) => r.type));
-    return TYPE_ORDER.filter((t) => present.has(t));
-  }, [rows.data]);
-
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (rows.data ?? [])
-      .filter((r) => !type || r.type === type)
-      .filter(
-        (r) =>
-          !needle ||
-          r.name.toLowerCase().includes(needle) ||
-          r.informationTypeCode.toLowerCase().includes(needle),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [rows.data, type, q]);
+  const filtered = rows.data?.result ?? [];
+  const total = rows.data?.total ?? 0;
 
   return (
     <div>
@@ -123,7 +140,7 @@ export function IntegrationsPage() {
         >
           All
         </button>
-        {presentTypes.map((t) => (
+        {TYPE_ORDER.map((t) => (
           <button
             key={t}
             onClick={() => setParam("type", type === t ? null : t)}
@@ -150,11 +167,40 @@ export function IntegrationsPage() {
         </div>
       </div>
 
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <SearchSelect
+          aria-label="Filter by information type"
+          size="sm"
+          clearLabel="Any information type"
+          value={informationTypeId?.toString() ?? ""}
+          onChange={(v) => setParam("informationTypeId", v || null)}
+          options={infoTypes.map((t) => ({ value: String(t.id), label: t.name, code: t.code }))}
+        />
+        <SearchSelect
+          aria-label="Filter by partner"
+          size="sm"
+          clearLabel="Any partner"
+          value={partnerId?.toString() ?? ""}
+          onChange={(v) => setParam("partnerId", v || null)}
+          options={partners.map((p) => ({ value: String(p.id), label: p.name }))}
+        />
+        <Select
+          aria-label="Filter by status"
+          className="!h-8 text-[13px]"
+          value={inactiveParam ?? ""}
+          onChange={(e) => setParam("inactive", e.target.value || null)}
+          options={STATUS_OPTIONS}
+        />
+      </div>
+
       {rows.isPending ? (
         <LoadingBlock label="Loading integrations…" />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Workflow />} title={q || type ? "Nothing matches" : "No integrations yet"}>
-          {q || type
+        <EmptyState
+          icon={<Workflow />}
+          title={q || type || informationTypeId || partnerId || inactive !== null ? "Nothing matches" : "No integrations yet"}
+        >
+          {q || type || informationTypeId || partnerId || inactive !== null
             ? "Try a different search or filter."
             : "Create an integration to start moving documents."}
         </EmptyState>
@@ -164,6 +210,14 @@ export function IntegrationsPage() {
           rowKey={(r) => r.id}
           minWidth="min-w-220"
           onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             {
               header: "Integration",

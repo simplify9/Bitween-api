@@ -1,11 +1,14 @@
 import { useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Cable, Network, Plus, Search } from "lucide-react";
 import { api, type BusGatewayRow, type IntegrationRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Select } from "../../components/ui/forms";
+import { Pagination } from "../../components/ui/Pagination";
+import { SearchSelect } from "../../components/ui/SearchSelect";
 import { Table } from "../../components/ui/Table";
 import {
   LinkListCell,
@@ -18,13 +21,31 @@ import { matchSummary } from "../../lib/match";
  * Bus gateways — messages picked off the bus. A gateway listens for one
  * information type; its routes decide which integration handles which message.
  */
+const PAGE_SIZE = 25;
+
+const STATUS_OPTIONS = [
+  { value: "", label: "Any status" },
+  { value: "false", label: "Active" },
+  { value: "true", label: "Deactivated" },
+];
+
 export function BusGatewaysPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
+  const informationTypeId = searchParams.get("informationTypeId")
+    ? Number(searchParams.get("informationTypeId"))
+    : null;
+  const inactiveParam = searchParams.get("inactive");
+  const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canSeeInfoTypes = useSessionCan("documents.view");
 
-  const gateways = useQuery({ queryKey: ["bus-gateways"], queryFn: () => api.listBusGateways() });
+  const gateways = useQuery({
+    queryKey: ["bus-gateways-search", q, informationTypeId, inactive, offset],
+    queryFn: () => api.searchBusGateways({ search: q, informationTypeId, inactive, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   const integrationsById = useIntegrationRowsById();
   const infoTypes =
     useQuery({
@@ -34,26 +55,20 @@ export function BusGatewaysPage() {
     }).data ?? [];
   const infoTypeById = useMemo(() => new Map(infoTypes.map((t) => [t.id, t])), [infoTypes]);
 
-  const setQ = (value: string) =>
+  const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (value) next.set("q", value);
-        else next.delete("q");
+        if (value) next.set(key, value);
+        else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: true },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (gateways.data ?? []).filter(
-      (g) =>
-        !needle ||
-        g.name.toLowerCase().includes(needle) ||
-        g.informationTypeCode.toLowerCase().includes(needle),
-    );
-  }, [gateways.data, q]);
+  const rows = gateways.data?.result ?? [];
+  const total = gateways.data?.total ?? 0;
 
   return (
     <div>
@@ -76,30 +91,66 @@ export function BusGatewaysPage() {
         }
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search gateways"
-          aria-label="Search bus gateways"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-        />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setParam("q", e.target.value || null)}
+            placeholder="Search gateways"
+            aria-label="Search bus gateways"
+            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+          />
+        </div>
+        {canSeeInfoTypes && (
+          <div className="w-56">
+            <SearchSelect
+              aria-label="Filter by information type"
+              size="sm"
+              clearLabel="Any information type"
+              value={informationTypeId?.toString() ?? ""}
+              onChange={(v) => setParam("informationTypeId", v || null)}
+              options={infoTypes.map((t) => ({ value: String(t.id), label: t.name, code: t.code }))}
+            />
+          </div>
+        )}
+        <div className="w-40">
+          <Select
+            aria-label="Filter by status"
+            className="!h-8 text-[13px]"
+            value={inactiveParam ?? ""}
+            onChange={(e) => setParam("inactive", e.target.value || null)}
+            options={STATUS_OPTIONS}
+          />
+        </div>
       </div>
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading bus gateways…" />
-      ) : filtered.length === 0 ? (
-        <EmptyState icon={<Cable />} title={q ? "No gateways match" : "No bus gateways yet"}>
-          {q ? "Try a different search." : "Create a gateway to start handling messages from the bus."}
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={<Cable />}
+          title={q || informationTypeId || inactive !== null ? "No gateways match" : "No bus gateways yet"}
+        >
+          {q || informationTypeId || inactive !== null
+            ? "Try a different search or filter."
+            : "Create a gateway to start handling messages from the bus."}
         </EmptyState>
       ) : (
         <Table
-          rows={filtered}
+          rows={rows}
           rowKey={(g) => g.id}
           minWidth="min-w-200"
           onRowClick={(g) => navigate(`/bus-gateways/${g.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             {
               header: "Gateway",

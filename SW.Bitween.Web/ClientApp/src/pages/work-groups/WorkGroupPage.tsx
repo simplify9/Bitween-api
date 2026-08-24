@@ -74,6 +74,7 @@ export function WorkGroupPage() {
       // Await the detail refetch before re-syncing the draft (avoids stale-data race).
       await queryClient.invalidateQueries({ queryKey: ["work-group", groupId] });
       void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
       setLoaded(false);
     },
   });
@@ -146,6 +147,7 @@ export function WorkGroupPage() {
           onConfirm={async () => {
             await api.deleteWorkGroup(groupId);
             void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
             navigate("/work-groups");
           }}
           onClose={() => setDeleting(false)}

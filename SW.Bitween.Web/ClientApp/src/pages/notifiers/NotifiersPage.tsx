@@ -1,6 +1,6 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
@@ -9,6 +9,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 
 function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
@@ -20,6 +21,7 @@ function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
     mutationFn: () => api.createNotifier({ name }),
     onSuccess: (notifier) => {
       void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifiers-search"] });
       navigate(`/notifiers/${notifier.id}`);
     },
   });
@@ -58,30 +60,36 @@ function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+const PAGE_SIZE = 25;
+
 export function NotifiersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const creating = searchParams.get("new") === "1";
+  const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const notifiers = useQuery({ queryKey: ["notifiers"], queryFn: () => api.listNotifiers() });
+  const notifiers = useQuery({
+    queryKey: ["notifiers-search", q, offset],
+    queryFn: () => api.searchNotifiers({ search: q, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+  });
   const channels = useAdapterCatalog("handler");
 
-  const setParam = (key: string, value: string | null) =>
+  const setParam = (key: string, value: string | null, resetOffset = key === "q") =>
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
         if (value) next.set(key, value);
         else next.delete(key);
+        if (resetOffset) next.delete("offset");
         return next;
       },
       { replace: key === "q" },
     );
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return (notifiers.data ?? []).filter((n) => !needle || n.name.toLowerCase().includes(needle));
-  }, [notifiers.data, q]);
+  const filtered = notifiers.data?.result ?? [];
+  const total = notifiers.data?.total ?? 0;
 
   const channelLabel = (id: string) => channels.data?.find((c) => c.id === id)?.label ?? id;
 
@@ -138,12 +146,23 @@ export function NotifiersPage() {
           rows={filtered}
           rowKey={(n) => n.id}
           onRowClick={(n) => navigate(`/notifiers/${n.id}`)}
+          footer={
+            <Pagination
+              offset={offset}
+              limit={PAGE_SIZE}
+              total={total}
+              onOffsetChange={(o) => setParam("offset", String(o), false)}
+            />
+          }
           columns={[
             { header: "Notifier", cell: (n) => <span className="font-medium text-ink-900">{n.name}</span> },
             {
               header: "Sends when",
               cell: (n) => (
-                <span className="flex flex-wrap gap-1">
+                <span
+                  className="flex flex-wrap gap-1"
+                  title="Any combination of outcomes can be set — these are all the ones this notifier sends on, not a single state."
+                >
                   {n.onFailed && <Badge tone="danger">Failed</Badge>}
                   {n.onBadResult && <Badge tone="warn">Bad result</Badge>}
                   {n.onSuccess && <Badge tone="ok">Success</Badge>}

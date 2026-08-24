@@ -1,6 +1,7 @@
 import type { ApiClient } from "../client";
-import { ApiRequestError, type NotificationEntry, type Notifier, type NotifierDetail } from "../types";
-import { get, post } from "./request";
+import { ApiRequestError, type NotificationEntry, type Notifier, type NotifierDetail, type Paged } from "../types";
+import { get, post, request } from "./request";
+import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -20,6 +21,17 @@ interface RawNotifier {
   runOnBadResult: boolean;
   runOnFailedResult: boolean;
   runOnSubscriptions: { id: number; name: string | null }[] | null;
+}
+/** Shape of a search-endpoint row — lighter than `RawNotifier`, no adapter properties. */
+interface RawNotifierRow {
+  id: number;
+  name: string;
+  inactive: boolean | null;
+  handlerId: string | null;
+  runOnSuccessfulResult: boolean | null;
+  runOnBadResult: boolean | null;
+  runOnFailedResult: boolean | null;
+  runOnSubscriptions: number[] | null;
 }
 interface RawNotification {
   xchangeId: string;
@@ -68,9 +80,28 @@ async function fetchDetail(id: number): Promise<NotifierDetail> {
 }
 
 export const notifierMethods = {
-  async listNotifiers(): Promise<Notifier[]> {
-    const res = await get<SearchyResponse<{ id: number }>>("/notifiers");
-    return Promise.all((res.result ?? []).map((r) => fetchDetail(r.id)));
+  async searchNotifiers(query: { search: string; offset: number; limit: number }): Promise<Paged<Notifier>> {
+    const qs = buildListQuery({
+      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      offset: query.offset,
+      limit: query.limit,
+    });
+    const res = await get<SearchyResponse<RawNotifierRow>>(`/notifiers?${qs}`);
+    return {
+      total: res.totalCount,
+      result: (res.result ?? []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        enabled: !r.inactive,
+        onFailed: !!r.runOnFailedResult,
+        onBadResult: !!r.runOnBadResult,
+        onSuccess: !!r.runOnSuccessfulResult,
+        channelId: r.handlerId ?? "",
+        channelProperties: {},
+        integrationIds: r.runOnSubscriptions ?? [],
+        createdOn: "",
+      })),
+    };
   },
 
   getNotifier: fetchDetail,
@@ -103,5 +134,9 @@ export const notifierMethods = {
       runOnSubscriptions: changes.integrationIds.map((subscriptionId) => ({ id: subscriptionId })),
     });
     return { id, createdOn: "", ...changes };
+  },
+
+  async deleteNotifier(id: number): Promise<void> {
+    await request(`/notifiers/${id}`, { method: "DELETE" });
   },
 } satisfies Partial<ApiClient>;
