@@ -80,8 +80,6 @@ export function InformationTypeFields({
   draft,
   onChange,
   canEdit,
-  /** null while it doesn't exist yet — promoted properties arrive with the first save. */
-  typeId,
   /** The flow that opened this needs the type on the bus, so the choice is made for it. */
   busRequired = false,
   idPrefix = "it",
@@ -89,7 +87,6 @@ export function InformationTypeFields({
   draft: InformationTypeDraft;
   onChange: (draft: InformationTypeDraft) => void;
   canEdit: boolean;
-  typeId: number | null;
   busRequired?: boolean;
   idPrefix?: string;
 }) {
@@ -204,23 +201,16 @@ export function InformationTypeFields({
           draft.format === "Json" ? "JSON path" : "XML path"
         } — routes and filters match on them.`}
       >
-        {typeId === null ? (
-          <p className="text-[13px] text-ink-500">
-            Added once the type exists. Create it and this section opens right here — you won't be
-            sent anywhere.
-          </p>
-        ) : (
-          <KeyValueEditor
-            rows={draft.promotedProperties}
-            onChange={(promotedProperties) => set("promotedProperties", promotedProperties)}
-            keyLabel="Friendly name"
-            valueLabel={draft.format === "Xml" ? "XML path" : "JSON path"}
-            keyPlaceholder="OrderNumber"
-            valuePlaceholder={draft.format === "Xml" ? "//Order/Number" : "$.order.id"}
-            editable={canEdit}
-            emptyText="No promoted properties — routes can only match on the whole payload."
-          />
-        )}
+        <KeyValueEditor
+          rows={draft.promotedProperties}
+          onChange={(promotedProperties) => set("promotedProperties", promotedProperties)}
+          keyLabel="Friendly name"
+          valueLabel={draft.format === "Xml" ? "XML path" : "JSON path"}
+          keyPlaceholder="OrderNumber"
+          valuePlaceholder={draft.format === "Xml" ? "//Order/Number" : "$.order.id"}
+          editable={canEdit}
+          emptyText="No promoted properties — routes can only match on the whole payload."
+        />
       </Panel>
     </div>
   );

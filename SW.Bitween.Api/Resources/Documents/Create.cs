@@ -29,6 +29,14 @@ namespace SW.Bitween.Resources.Documents
         {
             await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Documents.Create);
 
+            // Same check Update makes, and compared the same way. Without it two types
+            // could be created under one name, and then neither could be saved again —
+            // Update refuses the name it already has. Ignoring case, because a list
+            // holding both "Invoice" and "invoice" reads as a mistake, not a choice.
+            var wantedName = (model.Name ?? string.Empty).ToLower();
+            if (await _dbContext.Set<Document>().AsNoTracking().AnyAsync(d => d.Name.ToLower() == wantedName))
+                throw new SWValidationException("NAME_TAKEN", "An information type with this name already exists.");
+
             var code = string.IsNullOrWhiteSpace(model.Code) ? null : model.Code;
 
             if (code != null && await _dbContext.Set<Document>().AsNoTracking().AnyAsync(d => d.Code == code))
@@ -52,11 +60,20 @@ namespace SW.Bitween.Resources.Documents
                         "Names are compared ignoring case, because the bus does.");
             }
 
+            PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
+
             var entity = new Document(code, model.Name, model.DocumentFormat)
             {
                 BusEnabled = model.BusEnabled,
                 BusMessageTypeName = model.BusEnabled ? model.BusMessageTypeName : null,
+                DuplicateInterval = model.DuplicateInterval,
+                DisregardsUnfilteredMessages = model.DisregardsUnfilteredMessages,
             };
+            if (model.PromotedProperties != null)
+                entity.SetDictionaries(model.PromotedProperties.ToDictionary());
+
+            // After the entity is complete: the trail serialises it in the constructor
+            // when isNew, so anything set later would be missing from the created state.
             var trail = new DocumentTrail(DocumentTrailCode.Created, entity, true);
             _dbContext.Add(trail);
             _dbContext.Add(entity);

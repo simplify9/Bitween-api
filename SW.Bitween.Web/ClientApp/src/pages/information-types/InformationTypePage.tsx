@@ -90,12 +90,7 @@ export function InformationTypePage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           {draft && (
-            <InformationTypeFields
-              draft={draft}
-              onChange={setDraft}
-              canEdit={canEdit}
-              typeId={typeId}
-            />
+            <InformationTypeFields draft={draft} onChange={setDraft} canEdit={canEdit} />
           )}
         </div>
 
