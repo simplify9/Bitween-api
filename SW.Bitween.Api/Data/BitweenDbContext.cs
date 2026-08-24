@@ -242,6 +242,15 @@ namespace SW.Bitween
                 b.HasIndex(p => p.On);
             });
 
+            modelBuilder.Entity<ReceiveAttempt>(b =>
+            {
+                b.ToTable("ReceiveAttempts");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.ErrorMessage).HasMaxLength(4000);
+                b.Property(p => p.ExchangeIds).IsSeparatorDelimited();
+                b.HasIndex(p => new { p.SubscriptionId, p.StartedOn });
+            });
+
             modelBuilder.Entity<RetryGroupUsage>(b =>
             {
                 b.ToTable("RetryGroupUsages");

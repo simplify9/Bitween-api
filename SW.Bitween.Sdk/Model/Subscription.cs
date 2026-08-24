@@ -85,6 +85,45 @@ namespace SW.Bitween.Model
     }
 
     /// <summary>
+    /// One execution of a Receiving subscription's own receive step, recorded directly by
+    /// <c>ReceivingJob</c> — independent of the scheduler's own run history, which only knows
+    /// whether <c>Execute()</c> threw (it never does; the receive step's own failures are caught
+    /// and reported here instead, alongside the successes and no-op checks history never covers).
+    /// </summary>
+    public enum ReceiveOutcome
+    {
+        Failed = 0,
+        NoNewData = 1,
+        Received = 2,
+    }
+
+    public class ReceiveAttemptExchangeRef
+    {
+        public string Id { get; set; }
+        public bool? Status { get; set; }
+        public bool? ResponseBad { get; set; }
+        public IDictionary<string, string> PromotedProperties { get; set; }
+    }
+
+    public class ReceiveAttemptModel
+    {
+        public int Id { get; set; }
+        public DateTime StartedOn { get; set; }
+        public DateTime FinishedOn { get; set; }
+        public ReceiveOutcome Outcome { get; set; }
+        public string ErrorMessage { get; set; }
+        public ICollection<ReceiveAttemptExchangeRef> Exchanges { get; set; }
+    }
+
+    public class SearchReceiveAttemptsModel
+    {
+        public int SubscriptionId { get; set; }
+        public ReceiveOutcome? Outcome { get; set; }
+        public int? Offset { get; set; }
+        public int? Limit { get; set; }
+    }
+
+    /// <summary>
     /// Whether a scheduled subscription will actually fire — read from the scheduler
     /// itself, not from what Bitween thinks it configured. The two can disagree, and
     /// when they do it is silent: the UI shows a healthy job that never runs.

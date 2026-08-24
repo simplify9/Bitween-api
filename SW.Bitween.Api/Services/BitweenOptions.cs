@@ -104,5 +104,18 @@ namespace SW.Bitween
         /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
         /// </summary>
         public string RetryJobCron { get; set; } = "0 * * * * ?";
+
+        /// <summary>
+        /// How many days to keep <c>ReceiveAttempt</c> rows before <c>ReceiveAttemptCleanupJob</c>
+        /// deletes them. Matches the scheduler library's own <c>JobExecution</c> retention default.
+        /// </summary>
+        public int ReceiveAttemptRetentionDays { get; set; } = 30;
+
+        /// <summary>
+        /// Quartz cron expression for <c>ReceiveAttemptCleanupJob</c>. Defaults to daily at 3am —
+        /// offset from the scheduler library's own cleanup job (2am) so they don't run at once.
+        /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
+        /// </summary>
+        public string ReceiveAttemptCleanupCron { get; set; } = "0 0 3 * * ?";
     }
 }

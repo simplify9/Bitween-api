@@ -10,6 +10,7 @@ import { Panel } from "../../../components/ui/Panel";
 import { ExchangesList, HealthBadge, TrailTable } from "../../../components/config/shared";
 import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
 import { formatDate, formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../../lib/dates";
+import { ReceiveAttemptsPanel } from "./ReceiveAttemptsPanel";
 import { RetryBudget } from "./RetryBudget";
 import type { Draft, EntryPoint } from "./model";
 
@@ -174,11 +175,34 @@ export function Overview({
     staleTime: Infinity,
   });
   const retryPolicies = useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies() });
+  // Receiving gets its own attempt history (ReceiveAttemptsPanel) instead — the scheduler's
+  // run history there is Quartz vocabulary an operator has no reason to know, and it always
+  // reports success even when the receive step itself failed (see ReceivingJob).
+  const receiving = s.type === "Receiving";
   const runs = useQuery({
     queryKey: ["integration-runs", s.id],
     queryFn: () => api.listIntegrationRuns(s.id, 20),
-    enabled: scheduled,
+    enabled: scheduled && !receiving,
   });
+  // Just for the "Last run" fact above — ReceiveAttemptsPanel fetches its own page.
+  const latestAttempt = useQuery({
+    queryKey: ["receive-attempts", s.id, null, 0, 1],
+    queryFn: () => api.searchReceiveAttempts(s.id, { outcome: null, offset: 0, limit: 1 }),
+    enabled: receiving,
+  });
+  const lastReceiveRun: IntegrationRun | undefined = ((): IntegrationRun | undefined => {
+    const a = latestAttempt.data?.result[0];
+    if (!a) return undefined;
+    return {
+      startedOn: a.startedOn,
+      endedOn: a.finishedOn,
+      durationMs: new Date(a.finishedOn).getTime() - new Date(a.startedOn).getTime(),
+      success: a.outcome !== "Failed",
+      error: a.errorMessage,
+      node: "",
+      manual: false,
+    };
+  })();
   const paused = s.pausedOn !== null;
   /** undefined = closed, null = creating, number = editing that group. */
   const [groupDialog, setGroupDialog] = useState<number | null | undefined>(undefined);
@@ -196,7 +220,7 @@ export function Overview({
           <>
             <Fact label="Next run">{s.nextReceiveOn ? timeUntil(s.nextReceiveOn) : "—"}</Fact>
             <Fact label="Last run">
-              <LastRunFact run={runs.data?.[0]} />
+              <LastRunFact run={receiving ? lastReceiveRun : runs.data?.[0]} />
             </Fact>
           </>
         )}
@@ -271,7 +295,9 @@ export function Overview({
           on resume.
         </p>
       )}
-      {s.lastException && (
+      {/* Receiving gets this per-attempt instead, in ReceiveAttemptsPanel below — showing
+          it again here duplicated the same error twice on one page. */}
+      {s.lastException && !receiving && (
         <pre className="max-h-40 overflow-auto rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
           {s.lastException}
         </pre>
@@ -285,9 +311,15 @@ export function Overview({
         />
       )}
 
+      {receiving && (
+        <Can permission="exchanges.view">
+          <ReceiveAttemptsPanel subscriptionId={s.id} />
+        </Can>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="min-w-0 space-y-5">
-          {scheduled && (
+          {scheduled && !receiving && (
             <Panel title="Recent runs" description="From the scheduler's own history, kept about 30 days.">
               <RunsTable runs={runs.data ?? []} pending={runs.isPending} />
             </Panel>
@@ -301,11 +333,13 @@ export function Overview({
         </div>
 
         <div className="min-w-0 space-y-5">
-          <Can permission="exchanges.view">
-            <Panel title="Recent exchanges" description="Latest traffic through this integration.">
-              <ExchangesList items={s.recentExchanges} hide={["type", "partner"]} />
-            </Panel>
-          </Can>
+          {!receiving && (
+            <Can permission="exchanges.view">
+              <Panel title="Recent exchanges" description="Latest traffic through this integration.">
+                <ExchangesList items={s.recentExchanges} hide={["type", "partner"]} />
+              </Panel>
+            </Can>
+          )}
 
           {s.watchingNotifiers.length > 0 && (
             <Panel title="Watched by" description="Notifiers alerting on this integration's outcomes.">

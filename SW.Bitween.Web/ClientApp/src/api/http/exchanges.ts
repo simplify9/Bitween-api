@@ -60,7 +60,7 @@ interface RawDelayedRetryRow {
  * *response* (the handler delivered but the receiver answered with an error)
  * is distinct from an outright failure.
  */
-const deriveStatus = (raw: Pick<RawXchangeRow, "status" | "responseBad">): ExchangeStatus =>
+export const deriveStatus = (raw: Pick<RawXchangeRow, "status" | "responseBad">): ExchangeStatus =>
   raw.status === null ? "processing" : !raw.status ? "failed" : raw.responseBad ? "badResponse" : "success";
 
 const STATUS_FILTER: Record<ExchangeStatus, number> = {

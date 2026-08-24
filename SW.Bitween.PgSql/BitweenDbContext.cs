@@ -425,6 +425,12 @@ namespace SW.Bitween.PgSql
                 b.HasIndex(p => p.On);
             });
 
+            modelBuilder.Entity<ReceiveAttempt>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => new { p.SubscriptionId, p.StartedOn });
+            });
+
             modelBuilder.Entity<RetryGroupUsage>(b =>
             {
                 b.HasKey(p => new { p.SubscriptionId, p.GroupId });

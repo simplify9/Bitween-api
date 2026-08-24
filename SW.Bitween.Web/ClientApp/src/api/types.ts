@@ -590,6 +590,26 @@ export interface IntegrationLastRun extends IntegrationRun {
   recentSucceeded: number;
 }
 
+/** One poll of a Receiving integration's own receive step — independent of the scheduler's
+ * run history, which only knows whether the method threw (it never does; failures here are
+ * caught and reported this way instead). */
+export type ReceiveOutcome = "Failed" | "NoNewData" | "Received";
+
+export interface ReceiveAttemptExchange {
+  id: string;
+  status: ExchangeStatus;
+  promotedProperties: Record<string, string> | null;
+}
+
+export interface ReceiveAttemptRow {
+  id: number;
+  startedOn: string;
+  finishedOn: string;
+  outcome: ReceiveOutcome;
+  errorMessage: string | null;
+  exchanges: ReceiveAttemptExchange[];
+}
+
 /**
  * Whether a scheduled integration will actually fire, straight from the scheduler.
  * Everything here can disagree with what the integration's own record says, and
