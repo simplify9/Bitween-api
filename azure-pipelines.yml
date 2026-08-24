@@ -64,7 +64,7 @@ jobs:
 
   - job: build
     displayName: Build, push image and chart and deploy to playground
-    condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r8.0')
+    condition: eq(variables['Build.SourceBranch'], 'refs/heads/releases/r10.0')
     steps:
 
       - task: VersionDotNetCoreAssemblies@2
