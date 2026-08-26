@@ -76,7 +76,11 @@ namespace SW.Bitween.Resources.Accounts
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.Email).NotEmpty();
                 RuleFor(i => i.Password).Password().When(_ => !bitweenOptions.DisableEmailPasswordLogin);
-                RuleFor(i => i.Role).NotNull();
+                // The handler prefers explicit role ids and only falls back to the legacy coarse
+                // Role, so demanding Role unconditionally rejected the payload the UI actually
+                // sends — adding a member failed outright. Still required when no ids were sent,
+                // which is what keeps an account from being created with no roles at all.
+                RuleFor(i => i.Role).NotNull().When(i => i.RoleIds is not { Count: > 0 });
             }
         }
     }
