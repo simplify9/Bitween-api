@@ -177,6 +177,13 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                       </Button>
                       <FormError>{unlock.error?.message}</FormError>
                     </div>
+                  ) : u.status === "disabled" ? (
+                    <div className="space-y-2 rounded-md border border-warn-400 bg-warn-100 p-2.5">
+                      <p className="text-[13px] text-warn-700">
+                        They still can't sign in. The account is disabled, and a new password
+                        doesn't change that — re-enable it below to let them back in.
+                      </p>
+                    </div>
                   ) : (
                     <p className="text-[13px] text-ink-600">They can sign in with it now.</p>
                   )}
@@ -214,7 +221,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   <FormError>{setPassword.error?.message}</FormError>
                 </form>
               )}
-              {editable && u.lockedUntil && (
+              {editable && !issuedPassword && u.lockedUntil && (
                 <div>
                   <Button size="sm" busy={unlock.isPending} onClick={() => unlock.mutate()}>
                     <LockOpen className="size-3.5" /> Unlock account
