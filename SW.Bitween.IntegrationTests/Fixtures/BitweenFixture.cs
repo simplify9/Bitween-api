@@ -13,10 +13,13 @@ using SW.Bitween.IntegrationTests.Adapters;
 using SW.Bitween.NativeAdapters;
 using SW.Bitween.NativeAdapters.SmtpHandler;
 using SW.Bitween.PgSql;
+using SW.Bitween.Services;
 using SW.Bus;
 using SW.CloudFiles.Extensions;
+using SW.HttpExtensions;
 using SW.CloudFiles.LocalTests;
 using SW.PrimitiveTypes;
+using SW.Scheduler;
 using SW.Serverless;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -31,6 +34,14 @@ namespace SW.Bitween.IntegrationTests.Fixtures;
 /// MailHog container, applies EF migrations, installs serverless adapters to local cloud storage,
 /// and builds a fully wired service provider.
 /// </summary>
+/// <remarks>
+/// Every test in the collection shares this one database, so entities must not be given hand-picked
+/// primary keys. Documents used to be created with literal ids chosen to be "high enough" to miss
+/// the seeded rows, which worked only for as long as no two test files happened to pick the same
+/// number — and when they eventually did, the pair passed in isolation and failed together, which
+/// reads as a broken test rather than a collision. Let the database assign ids: for a document that
+/// is <c>new Document(null, name, format)</c>, the constructor that exists for exactly this.
+/// </remarks>
 public sealed class BitweenFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder().Build();
@@ -74,6 +85,11 @@ public sealed class BitweenFixture : IAsyncLifetime
                 .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:RabbitMQ"] = _rabbitMq.GetConnectionString(),
+                    // Signing material for the tokens the login handler issues. Test-only values —
+                    // the key just has to be long enough for the algorithm to accept it.
+                    ["Token:Key"] = "integration-test-signing-key-not-used-anywhere-else-0123456789",
+                    ["Token:Issuer"] = "bitween-tests",
+                    ["Token:Audience"] = "bitween-tests",
                 }))
                 .ConfigureServices((ctx, services) =>
                 {
@@ -83,7 +99,21 @@ public sealed class BitweenFixture : IAsyncLifetime
                         StorageProvider = "LocalTests",
                         DatabaseType = "PgSql",
                         BusDefaultQueuePrefetch = 10,
+                        AdminCredentials = "configured-admin:configured-password",
+                        JwtExpiryMinutes = 30,
+                        // A passphrase has to exist or secret settings refuse to be stored at
+                        // all, which would make the encryption path untestable.
+                        SettingsEncryptionKey = "integration-test-settings-passphrase",
                     });
+
+                    services.AddSingleton(new ThemeOptions());
+                    services.AddSingleton<SettingsProtector>();
+                    services.AddSingleton<SettingsService>();
+
+                    // The login handler writes its refresh token to a response cookie, so it needs
+                    // an HttpContext to exist. Nothing else in these tests goes through HTTP.
+                    services.AddHttpContextAccessor();
+                    services.AddJwtTokenParameters();
 
                     services.AddMemoryCache();
                     services.AddScoped<RequestContext>();
@@ -120,8 +150,14 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();
 
+                    // See RecordingScheduleRepository: the create/update handlers need a scheduler
+                    // to construct, and a real Quartz store would fire background jobs mid-test.
+                    services.AddSingleton<IScheduleRepository, RecordingScheduleRepository>();
+                    services.AddScoped<SubscriptionSchedulerService>();
+
                     services.AddSingleton<FilterService>();
                     services.AddScoped<NativeAdapterDiscoveryService>();
+                    services.AddScoped<AdapterRequirements>();
                     services.AddScoped<AdapterSecretProperties>();
                     services.AddScoped<RetryUsageReport>();
                     services.AddScoped<AdapterInvoker>();

@@ -13,18 +13,25 @@ namespace SW.Bitween.Resources.Adapters
         private readonly ServerlessOptions _serverlessOptions;
         private readonly ICloudFilesService _cloudFilesService;
         private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
+        private readonly BitweenDbContext _dbContext;
+        private readonly RequestContext _requestContext;
 
         public SearchVersioned(ServerlessOptions serverlessOptions, ICloudFilesService cloudFilesService,
-            NativeAdapterDiscoveryService nativeAdapterDiscovery)
+            NativeAdapterDiscoveryService nativeAdapterDiscovery, BitweenDbContext dbContext,
+            RequestContext requestContext)
         {
             _serverlessOptions = serverlessOptions;
             _cloudFilesService = cloudFilesService;
             _nativeAdapterDiscovery = nativeAdapterDiscovery;
+            _dbContext = dbContext;
+            _requestContext = requestContext;
         }
 
 
         public async Task<object> Handle(AdapterSearchRequest request)
         {
+            await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.View);
+
             var index = _serverlessOptions.AdapterRemotePath.Length + 1;
 
             // Get native adapters first (they don't have versions)

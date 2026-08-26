@@ -31,8 +31,9 @@ public class AggregationTests
         var cache = _fixture.App.Services.GetRequiredService<IInfolinkCache>();
 
         // Source subscription whose Xchanges will be aggregated
-        var sourceDoc = new Document(6003, "Agg Source Doc");
+        var sourceDoc = new Document(null, "Agg Source Doc", DocumentFormat.Json);
         db.Set<Document>().Add(sourceDoc);
+        await db.SaveChangesAsync();
         var sourceSub = new Subscription("Agg Source", sourceDoc.Id);
         sourceSub.Inactive = false;
         db.Set<Subscription>().Add(sourceSub);
@@ -83,8 +84,9 @@ public class AggregationTests
         var job = scope.ServiceProvider.GetRequiredService<AggregationJob>();
         var cache = _fixture.App.Services.GetRequiredService<IInfolinkCache>();
 
-        var sourceDoc = new Document(6004, "Agg Source Doc 2");
+        var sourceDoc = new Document(null, "Agg Source Doc 2", DocumentFormat.Json);
         db.Set<Document>().Add(sourceDoc);
+        await db.SaveChangesAsync();
         var sourceSub = new Subscription("Agg Source 2", sourceDoc.Id);
         sourceSub.Inactive = false;
         db.Set<Subscription>().Add(sourceSub);
@@ -137,8 +139,9 @@ public class AggregationTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var job = scope.ServiceProvider.GetRequiredService<AggregationJob>();
 
-        var sourceDoc = new Document(6005, "Inactive Agg Source Doc");
+        var sourceDoc = new Document(null, "Inactive Agg Source Doc", DocumentFormat.Json);
         db.Set<Document>().Add(sourceDoc);
+        await db.SaveChangesAsync();
         var sourceSub = new Subscription("Inactive Agg Source", sourceDoc.Id);
         sourceSub.Inactive = false;
         db.Set<Subscription>().Add(sourceSub);

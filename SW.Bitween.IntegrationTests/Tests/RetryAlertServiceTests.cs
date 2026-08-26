@@ -76,7 +76,7 @@ public class RetryAlertServiceTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var alertService = scope.ServiceProvider.GetRequiredService<RetryAlertService>();
 
-        var doc = new Document(7201, "MailHog Alert Doc");
+        var doc = new Document(null, "MailHog Alert Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -195,7 +195,7 @@ public class RetryAlertServiceTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var alertService = scope.ServiceProvider.GetRequiredService<RetryAlertService>();
 
-        var doc = new Document(7202, "Failed Send Doc");
+        var doc = new Document(null, "Failed Send Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 

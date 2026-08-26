@@ -17,7 +17,7 @@ namespace SW.Bitween.MsSql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.23")
+                .HasAnnotation("ProductVersion", "9.0.19")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -92,7 +92,7 @@ namespace SW.Bitween.MsSql.Migrations
                         new
                         {
                             Id = 9999,
-                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Deleted = false,
                             Disabled = false,
                             DisplayName = "Admin",
@@ -189,7 +189,7 @@ namespace SW.Bitween.MsSql.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Full access to everything, including members, roles and settings.",
                             IsSystem = true,
                             Name = "Administrator",
@@ -198,7 +198,7 @@ namespace SW.Bitween.MsSql.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Runs and configures integrations. Can't manage members, roles or settings.",
                             IsSystem = true,
                             Name = "Member",
@@ -207,7 +207,7 @@ namespace SW.Bitween.MsSql.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedOn = new DateTime(2021, 12, 31, 22, 0, 0, 0, DateTimeKind.Utc),
+                            CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Read-only access to integrations, exchanges and configuration.",
                             IsSystem = true,
                             Name = "Viewer",

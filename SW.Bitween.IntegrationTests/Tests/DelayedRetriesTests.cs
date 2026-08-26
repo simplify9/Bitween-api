@@ -29,9 +29,9 @@ public class DelayedRetriesTests
     };
 
     private async Task<(Document doc, Subscription sub, Xchange xchange)> CreateSubscriptionWithXchange(
-        BitweenDbContext db, XchangeService xs, int docId, string name)
+        BitweenDbContext db, XchangeService xs, string name)
     {
-        var doc = new Document(docId, name);
+        var doc = new Document(null, name, DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -54,7 +54,7 @@ public class DelayedRetriesTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, 9001, "Retry Guard Doc");
+        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, "Retry Guard Doc");
 
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchange.Id, On = DateTime.UtcNow.AddMinutes(5) });
         await db.SaveChangesAsync();
@@ -71,7 +71,7 @@ public class DelayedRetriesTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, 9002, "Retry OK Doc");
+        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, "Retry OK Doc");
 
         var retry = new SW.Bitween.Resources.Xchanges.Retry(db, xs);
         await retry.Handle(xchange.Id, new XchangeRetry { Reset = false });
@@ -87,8 +87,8 @@ public class DelayedRetriesTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
-        var (_, _, xchangeScheduled) = await CreateSubscriptionWithXchange(db, xs, 9003, "Bulk Scheduled Doc");
-        var (_, _, xchangeFree) = await CreateSubscriptionWithXchange(db, xs, 9004, "Bulk Free Doc");
+        var (_, _, xchangeScheduled) = await CreateSubscriptionWithXchange(db, xs, "Bulk Scheduled Doc");
+        var (_, _, xchangeFree) = await CreateSubscriptionWithXchange(db, xs, "Bulk Free Doc");
 
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchangeScheduled.Id, On = DateTime.UtcNow.AddMinutes(5) });
         await db.SaveChangesAsync();
@@ -115,7 +115,7 @@ public class DelayedRetriesTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-        var (doc, sub, xchange) = await CreateSubscriptionWithXchange(db, xs, 9005, "Search Row Doc");
+        var (doc, sub, xchange) = await CreateSubscriptionWithXchange(db, xs, "Search Row Doc");
 
         var scheduledOn = DateTime.UtcNow.AddMinutes(10);
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchange.Id, On = scheduledOn });
@@ -142,7 +142,7 @@ public class DelayedRetriesTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var ctx = scope.Superuser();
-        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, 9006, "Run Now Doc");
+        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, "Run Now Doc");
 
         // Scheduled an hour from now — RunNow must still execute it immediately.
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchange.Id, On = DateTime.UtcNow.AddHours(1) });
@@ -180,7 +180,7 @@ public class DelayedRetriesTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, 9007, "Xchange Search Scheduled Doc");
+        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, "Xchange Search Scheduled Doc");
 
         var scheduledOn = DateTime.UtcNow.AddMinutes(15);
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchange.Id, On = scheduledOn });
@@ -201,7 +201,7 @@ public class DelayedRetriesTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
-        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, 9008, "Xchange Search Unscheduled Doc");
+        var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, "Xchange Search Unscheduled Doc");
 
         var search = new SW.Bitween.Resources.Xchanges.Search(db, xs, scope.Superuser());
         var response = (SearchyResponse<XchangeRow>)await search.Handle(EmptySearch());

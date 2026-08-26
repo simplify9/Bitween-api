@@ -43,7 +43,7 @@ public class PartnerTokenTests
         db.Set<Partner>().Add(partner);
         await db.SaveChangesAsync();
 
-        var doc = new Document(6101, "Partner Token Doc");
+        var doc = new Document(null, "Partner Token Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -85,7 +85,7 @@ public class PartnerTokenTests
         db.Set<Partner>().AddRange(own, routed);
         await db.SaveChangesAsync();
 
-        var doc = new Document(6102, "Partner Token Doc 2");
+        var doc = new Document(null, "Partner Token Doc 2", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -117,7 +117,7 @@ public class PartnerTokenTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xchangeService = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
-        var doc = new Document(6103, "Partner Token Doc 3");
+        var doc = new Document(null, "Partner Token Doc 3", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
