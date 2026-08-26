@@ -13,6 +13,7 @@ using SW.Bitween.IntegrationTests.Adapters;
 using SW.Bitween.NativeAdapters;
 using SW.Bitween.NativeAdapters.SmtpHandler;
 using SW.Bitween.PgSql;
+using SW.Bitween.Services;
 using SW.Bus;
 using SW.CloudFiles.Extensions;
 using SW.HttpExtensions;
@@ -100,7 +101,14 @@ public sealed class BitweenFixture : IAsyncLifetime
                         BusDefaultQueuePrefetch = 10,
                         AdminCredentials = "configured-admin:configured-password",
                         JwtExpiryMinutes = 30,
+                        // A passphrase has to exist or secret settings refuse to be stored at
+                        // all, which would make the encryption path untestable.
+                        SettingsEncryptionKey = "integration-test-settings-passphrase",
                     });
+
+                    services.AddSingleton(new ThemeOptions());
+                    services.AddSingleton<SettingsProtector>();
+                    services.AddSingleton<SettingsService>();
 
                     // The login handler writes its refresh token to a response cookie, so it needs
                     // an HttpContext to exist. Nothing else in these tests goes through HTTP.
