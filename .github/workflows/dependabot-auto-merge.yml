@@ -22,7 +22,7 @@ name: Dependabot Auto-Merge
 
 on:
   pull_request_target:
-    branches: [releases/r8.0, develop]
+    branches: [releases/r10.0, develop]
 
 permissions:
   pull-requests: write
