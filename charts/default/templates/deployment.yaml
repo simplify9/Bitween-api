@@ -269,7 +269,7 @@ spec:
             - name: {{ $key }}
               valueFrom:
                 secretKeyRef:
-                  name: {{ template "project.fullname" . }}
+                  name: {{ template "project.fullname" $root }}
                   key: {{ $key }}
 
             {{- end }}
