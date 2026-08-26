@@ -22,7 +22,7 @@ run-name: vuln-check-${{ github.event.pull_request.number }}
 
 on:
   pull_request_target:
-    branches: [releases/r8.0, develop]
+    branches: [releases/r10.0, develop]
 
 # critical-vuln-gate.yml's own job requests these two scopes -- a caller can
 # only narrow permissions for a nested reusable-workflow job, never widen
