@@ -185,16 +185,7 @@ public class NotifierTests
         var id = await Create(Unique("Guarded notifier"));
 
         await using var scope = _fixture.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var viewer = new Domain.Accounts.Account("Viewer", Unique("notifier-viewer") + "@test.local",
-            "hash", Domain.Accounts.AccountRole.Viewer);
-        db.Set<Domain.Accounts.Account>().Add(viewer);
-        await db.SaveChangesAsync();
-        db.Set<Domain.Accounts.AccountRoleLink>()
-            .Add(new Domain.Accounts.AccountRoleLink(viewer.Id, Domain.Accounts.Role.ViewerId));
-        await db.SaveChangesAsync();
-
-        scope.As(viewer.Id);
+        await scope.AsNewViewer(Unique("notifier-viewer"));
 
         var create = ActivatorUtilities.CreateInstance<Resources.Notifiers.Create>(scope.ServiceProvider);
         await Assert.ThrowsAsync<SWUnauthorizedException>(() =>

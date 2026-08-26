@@ -229,17 +229,7 @@ public class SubscriptionLifecycleTests
         var id = await CreateSubscription(Unique("Guarded"), documentId, partnerId);
 
         await using var scope = _fixture.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-
-        var viewer = new Domain.Accounts.Account("Viewer", Unique("sub-viewer") + "@test.local",
-            "hash", Domain.Accounts.AccountRole.Viewer);
-        db.Set<Domain.Accounts.Account>().Add(viewer);
-        await db.SaveChangesAsync();
-        db.Set<Domain.Accounts.AccountRoleLink>()
-            .Add(new Domain.Accounts.AccountRoleLink(viewer.Id, Domain.Accounts.Role.ViewerId));
-        await db.SaveChangesAsync();
-
-        scope.As(viewer.Id);
+        await scope.AsNewViewer(Unique("sub-viewer"));
 
         var create = ActivatorUtilities.CreateInstance<Resources.Subscriptions.Create>(scope.ServiceProvider);
         await Assert.ThrowsAsync<SWUnauthorizedException>(() => create.Handle(new SubscriptionCreate
