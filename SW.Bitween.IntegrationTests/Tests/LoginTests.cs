@@ -55,7 +55,10 @@ public class LoginTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var account = new Account("Login Test", email, SecurePasswordHasher.Hash(password), AccountRole.Member);
+        // A null password is the real state of an invited account and of a Microsoft-only
+        // instance: the row exists purely to be matched by address, with nothing to verify against.
+        var account = new Account("Login Test", email,
+            password is null ? null : SecurePasswordHasher.Hash(password), AccountRole.Member);
         if (disabled) account.SetDisabled(true);
         db.Set<Account>().Add(account);
         await db.SaveChangesAsync();
@@ -127,13 +130,24 @@ public class LoginTests
     }
 
     [Fact]
-    public async Task A_username_with_no_password_is_refused()
+    public async Task An_account_that_has_no_password_cannot_be_signed_into()
     {
-        await CreateAccount("nopassword@test.local");
+        await CreateAccount("nopassword@test.local", password: null);
 
-        // Without the explicit guard for this, an empty password skips verification entirely and
-        // the caller is handed a token for any account whose address they can guess.
+        // The account an invitation creates, before the invitee has set anything. With nothing
+        // stored to compare against, a verification that treats "no password" as "matches" hands
+        // a token to anyone who can guess the address.
         await Assert.ThrowsAsync<SWException>(() => Login("nopassword@test.local", ""));
+        await Assert.ThrowsAsync<SWException>(() => Login("nopassword@test.local", "anything"));
+    }
+
+    [Fact]
+    public async Task An_empty_password_is_refused_for_an_account_that_has_one()
+    {
+        await CreateAccount("emptyattempt@test.local");
+
+        // The other half: submitting nothing must be a failed attempt, not a skipped check.
+        await Assert.ThrowsAsync<SWException>(() => Login("emptyattempt@test.local", ""));
     }
 
     [Fact]

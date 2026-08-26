@@ -141,7 +141,12 @@ namespace SW.Bitween.Resources.Accounts
                         $"Please try again in {minutes} minute{(minutes == 1 ? "" : "s")}.");
                 }
 
+                // An account can have no stored password at all — that is how one created while
+                // Microsoft-only sign-in was on looks, and that setting can be turned back off.
+                // Verify dereferences the stored hash, so without this the attempt is a 500 from
+                // an unauthenticated endpoint instead of an ordinary failed sign-in.
                 if (request.Password == null ||
+                    string.IsNullOrEmpty(account.Password) ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
                 {
                     // Atomic DB-side update so concurrent wrong-password attempts can't read the
