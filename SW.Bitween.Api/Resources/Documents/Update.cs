@@ -91,6 +91,12 @@ namespace SW.Bitween.Resources.Documents
             // properties, so it silently no-ops on these two (verified empirically).
             entity.SetName(model.Name);
             entity.SetCode(code);
+            // The route key is what identifies the type; the body carries an Id too, and
+            // SetProperties copies it straight onto the tracked entity. A caller that omits it
+            // sends 0, which EF rejects as an attempt to change a primary key — a 500 for a
+            // request that was perfectly well formed. Normalising it here makes the copy a no-op
+            // whatever the body said.
+            model.Id = key;
             _dbContext.Entry(entity).SetProperties(model);
 
             trail.SetAfter(entity);
