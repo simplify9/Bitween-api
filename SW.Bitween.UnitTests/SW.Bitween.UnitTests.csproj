@@ -24,6 +24,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SW.Bitween.Api\SW.Bitween.Api.csproj" />
+    <!-- All three providers, so MigrationDriftTests can check every one of them. A provider
+         left out here is a provider whose migration drift nobody notices until it crashes on
+         startup in whichever environment happens to use it. -->
+    <ProjectReference Include="..\SW.Bitween.PgSql\SW.Bitween.PgSql.csproj" />
+    <ProjectReference Include="..\SW.Bitween.MsSql\SW.Bitween.MsSql.csproj" />
+    <ProjectReference Include="..\SW.Bitween.MySql\SW.Bitween.MySql.csproj" />
   </ItemGroup>
 
   <ItemGroup>
