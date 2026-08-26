@@ -15,6 +15,7 @@ using SW.Bitween.NativeAdapters.SmtpHandler;
 using SW.Bitween.PgSql;
 using SW.Bus;
 using SW.CloudFiles.Extensions;
+using SW.HttpExtensions;
 using SW.CloudFiles.LocalTests;
 using SW.PrimitiveTypes;
 using SW.Serverless;
@@ -74,6 +75,11 @@ public sealed class BitweenFixture : IAsyncLifetime
                 .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:RabbitMQ"] = _rabbitMq.GetConnectionString(),
+                    // Signing material for the tokens the login handler issues. Test-only values —
+                    // the key just has to be long enough for the algorithm to accept it.
+                    ["Token:Key"] = "integration-test-signing-key-not-used-anywhere-else-0123456789",
+                    ["Token:Issuer"] = "bitween-tests",
+                    ["Token:Audience"] = "bitween-tests",
                 }))
                 .ConfigureServices((ctx, services) =>
                 {
@@ -83,7 +89,14 @@ public sealed class BitweenFixture : IAsyncLifetime
                         StorageProvider = "LocalTests",
                         DatabaseType = "PgSql",
                         BusDefaultQueuePrefetch = 10,
+                        AdminCredentials = "configured-admin:configured-password",
+                        JwtExpiryMinutes = 30,
                     });
+
+                    // The login handler writes its refresh token to a response cookie, so it needs
+                    // an HttpContext to exist. Nothing else in these tests goes through HTTP.
+                    services.AddHttpContextAccessor();
+                    services.AddJwtTokenParameters();
 
                     services.AddMemoryCache();
                     services.AddScoped<RequestContext>();
