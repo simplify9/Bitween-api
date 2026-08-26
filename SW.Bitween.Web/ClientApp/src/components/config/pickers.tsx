@@ -6,9 +6,9 @@ import { api, type InformationTypeRow } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { SearchSelect } from "../ui/SearchSelect";
 import { InformationTypeDialog } from "./InformationTypeDialog";
-import { IntegrationDialog } from "./IntegrationDialog";
+import { SubscriptionDialog } from "./SubscriptionDialog";
 import { PartnerDialog } from "./PartnerDialog";
-import { useIntegrationsCache } from "./shared";
+import { useSubscriptionsCache } from "./shared";
 
 /*
  * Pick-one controls used inside flows. Creating or amending the thing you are
@@ -123,35 +123,35 @@ export function InfoTypePicker({
 }
 
 /**
- * Pick-one GatewayApiCall/BusGateway integration behind an entry point (an API
+ * Pick-one GatewayApiCall/BusGateway subscription behind an entry point (an API
  * gateway attachment or a bus gateway route). Creating one opens a dialog.
  */
-export function IntegrationPicker({
+export function SubscriptionPicker({
   type,
   informationTypeId,
   value,
   onChange,
   id,
   /**
-   * Given, "New integration" defines one where the caller stands instead of opening a
+   * Given, "New subscription" defines one where the caller stands instead of opening a
    * dialog — the caller renders its fields and saves it with whatever points at it.
    */
   onDefineHere,
 }: {
   type: "GatewayApiCall" | "BusGateway";
-  /** Bus routes only run integrations carrying the gateway's own information type. */
+  /** Bus routes only run subscriptions carrying the gateway's own information type. */
   informationTypeId?: number;
   value: number | null;
   onChange: (id: number) => void;
   id?: string;
   onDefineHere?: () => void;
 }) {
-  const integrations = useIntegrationsCache();
+  const subscriptions = useSubscriptionsCache();
   const infoTypes = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() });
   const canCreate = useSessionCan("subscriptions.create");
   const [creating, setCreating] = useState(false);
 
-  const candidates = (integrations.data ?? []).filter(
+  const candidates = (subscriptions.data ?? []).filter(
     (s) => s.type === type && (informationTypeId === undefined || s.informationTypeId === informationTypeId),
   );
 
@@ -159,27 +159,27 @@ export function IntegrationPicker({
     <div>
       <SearchSelect
         id={id}
-        aria-label="Integration"
+        aria-label="Subscription"
         value={value === null ? "" : String(value)}
-        disabled={integrations.isPending}
+        disabled={subscriptions.isPending}
         onChange={(v) => v !== "" && onChange(Number(v))}
-        placeholder="Pick an integration…"
+        placeholder="Pick a subscription…"
         options={candidates.map((s) => ({
           value: String(s.id),
           label: s.name,
           hint: `Carries ${infoTypes.data?.find((t) => t.id === s.informationTypeId)?.code ?? "…"}`,
         }))}
       />
-      {/* An integration keeps a "View": its page holds run history and traffic that
+      {/* A subscription keeps a "View": its page holds run history and traffic that
           no dialog is going to show, and going there is the user's own choice. */}
       <PickerLinks
         view={value !== null ? `/subscriptions/${value}` : undefined}
-        createLabel="New integration"
+        createLabel="New subscription"
         actions={
           canCreate
             ? [
                 {
-                  label: "New integration",
+                  label: "New subscription",
                   icon: true,
                   onAct: () => (onDefineHere ? onDefineHere() : setCreating(true)),
                 },
@@ -188,7 +188,7 @@ export function IntegrationPicker({
         }
       />
       {creating && (
-        <IntegrationDialog
+        <SubscriptionDialog
           type={type}
           {...(informationTypeId !== undefined ? { informationTypeId } : {})}
           onClose={() => setCreating(false)}

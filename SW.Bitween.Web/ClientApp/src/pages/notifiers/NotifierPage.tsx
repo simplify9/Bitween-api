@@ -11,7 +11,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { MiniTable } from "../../components/ui/Table";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 import { timeAgo } from "../../lib/dates";
 import { BackLink } from "../../components/ui/BackLink";
 
@@ -77,7 +77,7 @@ export function NotifierPage() {
     retry: false,
   });
   const channels = useAdapterCatalog("handler");
-  const integrations = useIntegrationsCache();
+  const subscriptions = useSubscriptionsCache();
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -124,21 +124,21 @@ export function NotifierPage() {
     setDraft((d) => (d ? { ...d, [key]: value } : d));
 
   const channel = channels.data?.find((c) => c.id === draft?.channelId);
-  const watchesNothing = draft !== null && draft.integrationIds.length === 0;
+  const watchesNothing = draft !== null && draft.subscriptionIds.length === 0;
 
   const needle = watchSearch.trim().toLowerCase();
-  const filteredIntegrations = (integrations.data ?? []).filter(
+  const filteredSubscriptions = (subscriptions.data ?? []).filter(
     (s) => !needle || s.name.toLowerCase().includes(needle),
   );
 
-  const toggleIntegration = (setupId: number, include: boolean) =>
+  const toggleSubscription = (setupId: number, include: boolean) =>
     setDraft((d) =>
       d
         ? {
             ...d,
-            integrationIds: include
-              ? [...d.integrationIds, setupId]
-              : d.integrationIds.filter((x) => x !== setupId),
+            subscriptionIds: include
+              ? [...d.subscriptionIds, setupId]
+              : d.subscriptionIds.filter((x) => x !== setupId),
           }
         : d,
     );
@@ -267,15 +267,15 @@ export function NotifierPage() {
         </div>
 
         <div className="min-w-0 space-y-5">
-          <Panel title="Watches" description="The integrations this notifier fires for.">
-            {integrations.isPending || !draft ? (
-              <LoadingBlock label="Loading integrations…" />
+          <Panel title="Watches" description="The subscriptions this notifier fires for.">
+            {subscriptions.isPending || !draft ? (
+              <LoadingBlock label="Loading subscriptions…" />
             ) : (
               <div className="space-y-3">
                 {watchesNothing && (
                   <p className="rounded-lg bg-warn-100 px-3 py-2 text-[13px] text-warn-700">
                     This notifier watches nothing, so it never sends anything. Pick at least one
-                    integration.
+                    subscription.
                   </p>
                 )}
                 <div className="relative">
@@ -284,20 +284,20 @@ export function NotifierPage() {
                     type="search"
                     value={watchSearch}
                     onChange={(e) => setWatchSearch(e.target.value)}
-                    placeholder="Search integrations"
-                    aria-label="Search integrations"
+                    placeholder="Search subscriptions"
+                    aria-label="Search subscriptions"
                     className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
                   />
                 </div>
                 <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
-                  {filteredIntegrations.map((s) => (
+                  {filteredSubscriptions.map((s) => (
                     <li key={s.id} className="flex items-center gap-1">
                       <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-sm">
                         <input
                           type="checkbox"
-                          checked={draft.integrationIds.includes(s.id)}
+                          checked={draft.subscriptionIds.includes(s.id)}
                           disabled={!canEdit}
-                          onChange={(e) => toggleIntegration(s.id, e.target.checked)}
+                          onChange={(e) => toggleSubscription(s.id, e.target.checked)}
                           className="size-4 shrink-0 cursor-pointer rounded accent-crimson-600"
                         />
                         <span className="min-w-0 flex-1 truncate font-medium text-ink-800">
@@ -315,8 +315,8 @@ export function NotifierPage() {
                       </Link>
                     </li>
                   ))}
-                  {filteredIntegrations.length === 0 && (
-                    <li className="px-1 py-2 text-sm text-ink-400">No integrations match.</li>
+                  {filteredSubscriptions.length === 0 && (
+                    <li className="px-1 py-2 text-sm text-ink-400">No subscriptions match.</li>
                   )}
                 </ul>
               </div>
@@ -347,7 +347,7 @@ export function NotifierPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{n.name}</strong> will be gone for good,
-              along with the list of integrations it watches. The notifications it already sent are
+              along with the list of subscriptions it watches. The notifications it already sent are
               kept.
             </>
           }

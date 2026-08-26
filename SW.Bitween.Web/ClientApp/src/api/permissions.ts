@@ -40,7 +40,7 @@ export const groupsIn = (areas: PermissionArea[]): string[] => [
   ...new Set(areas.map((area) => area.group)),
 ];
 
-/** "Integrations · Edit" for a key, falling back to the raw key for anything unrecognised. */
+/** "Subscriptions · Edit" for a key, falling back to the raw key for anything unrecognised. */
 export const labelIn = (areas: PermissionArea[], key: PermissionKey): string => {
   const [areaId, actionId] = key.split(".");
   const area = areas.find((a) => a.id === areaId);

@@ -2,21 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pause, PanelLeftClose, PanelLeftOpen, Play, Trash2 } from "lucide-react";
-import { api, type BusGatewayDetail, type IntegrationDetail } from "../../api";
+import { api, type BusGatewayDetail, type SubscriptionDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
-import { useIntegrationRowsById, useIntegrationsCache } from "../../components/config/shared";
-import { EMPTY_INTEGRATION, NEW_INTEGRATION_ID, draftOf } from "../integrations/studio/model";
-import { adapterIncomplete } from "../integrations/studio/faces";
+import { useSubscriptionRowsById, useSubscriptionsCache } from "../../components/config/shared";
+import { EMPTY_SUBSCRIPTION, NEW_SUBSCRIPTION_ID, draftOf } from "../subscriptions/studio/model";
+import { adapterIncomplete } from "../subscriptions/studio/faces";
 import { Canvas, type Hop } from "./studio/Canvas";
 import {
   DeliveryBody,
   Inspector,
-  IntegrationBody,
+  SubscriptionBody,
   ResponseBody,
   RouteBody,
   TransformationBody,
@@ -34,7 +34,7 @@ import {
   routeDraftOf,
   routeFace,
   type BusNodeId,
-  type IntegrationDraft,
+  type SubscriptionDraft,
   type RouteDraft,
 } from "./studio/model";
 
@@ -47,10 +47,10 @@ interface RouteEdit {
   /** null while the route is being added — nothing to compare to yet. */
   saved: RouteDraft | null;
 }
-interface IntegrationEdit {
-  integrationId: number;
-  draft: IntegrationDraft;
-  saved: IntegrationDraft;
+interface SubscriptionEdit {
+  subscriptionId: number;
+  draft: SubscriptionDraft;
+  saved: SubscriptionDraft;
 }
 
 /**
@@ -59,9 +59,9 @@ interface IntegrationEdit {
  * A route is three answers — what it matches, whose values it runs with, and what
  * it runs — and the thing an operator actually needs to see is the fourth: what
  * happens after that. The table could show the first three and nothing else, so
- * every question past "which integration" meant leaving the page. Here the whole
+ * every question past "which subscription" meant leaving the page. Here the whole
  * path is one diagram and every part of it is editable in place: the route, the
- * integration behind it, its delivery, its response, and whoever picks that
+ * subscription behind it, its delivery, its response, and whoever picks that
  * response up.
  */
 export function BusGatewayPage() {
@@ -70,7 +70,7 @@ export function BusGatewayPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("bus-gateways.edit");
-  const canEditIntegration = useSessionCan("subscriptions.edit");
+  const canEditSubscription = useSessionCan("subscriptions.edit");
   const [params, setParams] = useSearchParams();
 
   const gateway = useQuery({
@@ -87,8 +87,8 @@ export function BusGatewayPage() {
   // Every gateway, because a response on the bus wakes routes on all of them.
   const allGateways = useQuery({ queryKey: ["bus-gateways"], queryFn: () => api.listBusGateways() });
   const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
-  const rowsById = useIntegrationRowsById();
-  const allIntegrations = useIntegrationsCache();
+  const rowsById = useSubscriptionRowsById();
+  const allSubscriptions = useSubscriptionsCache();
   const catalogs = {
     receivers: useAdapterCatalog("receiver"),
     validators: useAdapterCatalog("validator"),
@@ -98,7 +98,7 @@ export function BusGatewayPage() {
 
   const [name, setName] = useState<string | null>(null);
   const [routeEdit, setRouteEdit] = useState<RouteEdit | null>(null);
-  const [edit, setEdit] = useState<IntegrationEdit | null>(null);
+  const [edit, setEdit] = useState<SubscriptionEdit | null>(null);
   const [collapsedInspector, setCollapsedInspector] = useState(false);
   const [listOpen, setListOpen] = useState(() => localStorage.getItem(LIST_KEY) !== "0");
   /** undefined = closed, null = creating, number = editing that partner's values. */
@@ -158,25 +158,25 @@ export function BusGatewayPage() {
 
   // ——— the response chain, up to three hops ———
 
-  const id0 = routeEdit?.draft.integrationId ?? null;
+  const id0 = routeEdit?.draft.subscriptionId ?? null;
   const q0 = useQuery({
-    queryKey: ["integration", id0],
-    queryFn: () => api.getIntegration(id0!),
-    // The integration being defined here has no server side to fetch yet.
-    enabled: id0 !== null && id0 !== NEW_INTEGRATION_ID,
+    queryKey: ["subscription", id0],
+    queryFn: () => api.getSubscription(id0!),
+    // The subscription being defined here has no server side to fetch yet.
+    enabled: id0 !== null && id0 !== NEW_SUBSCRIPTION_ID,
   });
   const d0 = useHopDraft(edit, id0, q0.data);
-  const id1 = d0?.responseIntegrationId ?? null;
+  const id1 = d0?.responseSubscriptionId ?? null;
   const q1 = useQuery({
-    queryKey: ["integration", id1],
-    queryFn: () => api.getIntegration(id1!),
+    queryKey: ["subscription", id1],
+    queryFn: () => api.getSubscription(id1!),
     enabled: id1 !== null,
   });
   const d1 = useHopDraft(edit, id1, q1.data);
-  const id2 = d1?.responseIntegrationId ?? null;
+  const id2 = d1?.responseSubscriptionId ?? null;
   const q2 = useQuery({
-    queryKey: ["integration", id2],
-    queryFn: () => api.getIntegration(id2!),
+    queryKey: ["subscription", id2],
+    queryFn: () => api.getSubscription(id2!),
     enabled: id2 !== null,
   });
   const d2 = useHopDraft(edit, id2, q2.data);
@@ -185,33 +185,33 @@ export function BusGatewayPage() {
     { id: id0, draft: d0, data: q0.data },
     { id: id1, draft: d1, data: q1.data },
     { id: id2, draft: d2, data: q2.data },
-  ].filter((h): h is { id: number; draft: IntegrationDraft | null; data: typeof q0.data } => h.id !== null);
+  ].filter((h): h is { id: number; draft: SubscriptionDraft | null; data: typeof q0.data } => h.id !== null);
 
   const activeIndex = Math.min(activeHop, Math.max(0, chain.length - 1));
   const active = chain[activeIndex];
   const activeData = active?.data;
 
-  // Seed the editable hop. Keyed on the integration id, so switching hop or route
-  // re-seeds and a draft can never be applied to the wrong integration.
+  // Seed the editable hop. Keyed on the subscription id, so switching hop or route
+  // re-seeds and a draft can never be applied to the wrong subscription.
   useEffect(() => {
     if (!active?.id) {
       if (edit) setEdit(null);
       return;
     }
-    if (edit?.integrationId === active.id) return;
-    if (active.id === NEW_INTEGRATION_ID) {
+    if (edit?.subscriptionId === active.id) return;
+    if (active.id === NEW_SUBSCRIPTION_ID) {
       // Blank, and `saved` blank too: every field the user fills counts as a change,
-      // so the save bar names them the same way it does for an existing integration.
+      // so the save bar names them the same way it does for an existing subscription.
       setEdit({
-        integrationId: NEW_INTEGRATION_ID,
-        draft: structuredClone(EMPTY_INTEGRATION),
-        saved: structuredClone(EMPTY_INTEGRATION),
+        subscriptionId: NEW_SUBSCRIPTION_ID,
+        draft: structuredClone(EMPTY_SUBSCRIPTION),
+        saved: structuredClone(EMPTY_SUBSCRIPTION),
       });
       return;
     }
     if (!activeData || activeData.id !== active.id) return;
     const seeded = draftOf(activeData);
-    setEdit({ integrationId: active.id, draft: seeded, saved: structuredClone(seeded) });
+    setEdit({ subscriptionId: active.id, draft: seeded, saved: structuredClone(seeded) });
   }, [active?.id, activeData, edit]);
 
   // ——— what's unsaved ———
@@ -232,17 +232,17 @@ export function BusGatewayPage() {
           JSON.stringify(routeEdit.draft.matchExpression) !==
             JSON.stringify(routeEdit.saved.matchExpression) && "filter",
           routeEdit.draft.partner !== routeEdit.saved.partner && "partner",
-          routeEdit.draft.integrationId !== routeEdit.saved.integrationId && "integration",
+          routeEdit.draft.subscriptionId !== routeEdit.saved.subscriptionId && "subscription",
         ].filter((x): x is string => typeof x === "string"));
-  const integrationChanges = edit
+  const subscriptionChanges = edit
     ? (Object.keys(BUS_NODES) as BusNodeId[])
-        .filter((n) => OWNER[n] === "integration" && nodeDirty(n, edit.draft, edit.saved))
+        .filter((n) => OWNER[n] === "subscription" && nodeDirty(n, edit.draft, edit.saved))
         .map((n) => BUS_NODES[n].label.toLowerCase())
     : [];
   const dirtyLabels = [
     nameDirty && "the gateway name",
     isNewRoute ? "a new route" : routeIsDirty && `the route (${routeChanges.join(", ")})`,
-    intIsDirty && `${edit ? edit.draft.name : "the integration"} (${integrationChanges.join(", ")})`,
+    intIsDirty && `${edit ? edit.draft.name : "the subscription"} (${subscriptionChanges.join(", ")})`,
   ].filter((x): x is string => typeof x === "string");
 
   const discard = () => {
@@ -263,13 +263,13 @@ export function BusGatewayPage() {
     });
 
   const selectHop = (index: number) =>
-    guard("this integration", () => {
+    guard("this subscription", () => {
       setEdit(null);
       setQuery({ hop: String(index) });
     });
 
   // Escape closes the open node, but only when it holds nothing unsaved — the
-  // same rule the integration studio applies to its stages.
+  // same rule the subscription studio applies to its stages.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || !node) return;
@@ -278,7 +278,7 @@ export function BusGatewayPage() {
       const el = document.activeElement;
       if (el instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
       if (OWNER[node] === "route" && (routeIsDirty || isNewRoute)) return;
-      if (OWNER[node] === "integration" && edit && nodeDirty(node, edit.draft, edit.saved)) return;
+      if (OWNER[node] === "subscription" && edit && nodeDirty(node, edit.draft, edit.saved)) return;
       setQuery({ node: null });
     };
     window.addEventListener("keydown", onKey);
@@ -294,32 +294,32 @@ export function BusGatewayPage() {
       // omitting it would reactivate a deactivated gateway on a rename.
       if (nameDirty && name !== null)
         await api.updateBusGateway(gatewayId, { name, inactive: g.inactive });
-      // An integration being defined here is not written on its own: it goes with the
+      // A subscription being defined here is not written on its own: it goes with the
       // route, in the one call the endpoint commits as a single transaction, so a
-      // failure can't leave an integration nothing points at.
-      const definingIntegration = routeEdit?.draft.integrationId === NEW_INTEGRATION_ID;
-      const integrationDraft = edit?.draft;
+      // failure can't leave a subscription nothing points at.
+      const definingSubscription = routeEdit?.draft.subscriptionId === NEW_SUBSCRIPTION_ID;
+      const subscriptionDraft = edit?.draft;
 
-      // Otherwise the integration first: if the route write then fails, what was saved
+      // Otherwise the subscription first: if the route write then fails, what was saved
       // is the part that stands on its own.
-      if (edit && intIsDirty && !definingIntegration)
-        await api.updateIntegration(edit.integrationId, integrationDraft!);
+      if (edit && intIsDirty && !definingSubscription)
+        await api.updateSubscription(edit.subscriptionId, subscriptionDraft!);
 
       if (routeEdit && (isNewRoute || routeIsDirty)) {
         const partnerId = routeEdit.draft.partner === "none" ? null : routeEdit.draft.partner;
         if (isNewRoute) {
           const before = new Set((g?.routes ?? []).map((r) => r.id));
           await api.addBusRoute(gatewayId, {
-            ...(definingIntegration
-              ? { newIntegration: integrationDraft! }
-              : { integrationId: routeEdit.draft.integrationId! }),
+            ...(definingSubscription
+              ? { newSubscription: subscriptionDraft! }
+              : { subscriptionId: routeEdit.draft.subscriptionId! }),
             partnerId,
             matchExpression: routeEdit.draft.matchExpression,
           });
           return before;
         }
         await api.updateBusRoute(gatewayId, routeEdit.routeId as number, {
-          integrationId: routeEdit.draft.integrationId!,
+          subscriptionId: routeEdit.draft.subscriptionId!,
           partnerId,
           matchExpression: routeEdit.draft.matchExpression,
         });
@@ -333,12 +333,12 @@ export function BusGatewayPage() {
         queryKey: ["bus-gateway", gatewayId],
         queryFn: () => api.getBusGateway(gatewayId),
       });
-      if (edit && edit.integrationId !== NEW_INTEGRATION_ID)
-        await queryClient.invalidateQueries({ queryKey: ["integration", edit.integrationId] });
+      if (edit && edit.subscriptionId !== NEW_SUBSCRIPTION_ID)
+        await queryClient.invalidateQueries({ queryKey: ["subscription", edit.subscriptionId] });
       void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
-      void queryClient.invalidateQueries({ queryKey: ["integrations"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
       setRouteEdit(null);
       setEdit(null);
       setName(fresh.name);
@@ -366,13 +366,13 @@ export function BusGatewayPage() {
       : undefined;
 
   const hops: Hop[] = chain.map((h) => ({
-    integrationId: h.id,
+    subscriptionId: h.id,
     name:
       h.draft?.name?.trim() ||
       h.data?.name ||
-      (h.id === NEW_INTEGRATION_ID ? "New integration" : `#${h.id}`),
+      (h.id === NEW_SUBSCRIPTION_ID ? "New subscription" : `#${h.id}`),
     draft: h.draft,
-    saved: edit?.integrationId === h.id ? edit.saved : h.draft,
+    saved: edit?.subscriptionId === h.id ? edit.saved : h.draft,
     row: rowsById.get(h.id),
     destination:
       h.draft?.responseMessageTypeName && informationTypes.data
@@ -381,25 +381,25 @@ export function BusGatewayPage() {
   }));
 
   // What still blocks a save, said the way the modal used to say it at its Create
-  // button. The rule outlives the modal: an integration defined here cannot be saved
+  // button. The rule outlives the modal: a subscription defined here cannot be saved
   // half-made, and the server refuses it too.
   const missing = [
-    ...(routeEdit?.draft.integrationId === NEW_INTEGRATION_ID && edit
+    ...(routeEdit?.draft.subscriptionId === NEW_SUBSCRIPTION_ID && edit
       ? [
           edit.draft.name.trim().length < 2 && "a name",
           !edit.draft.handlerId && "a delivery",
           adapterIncomplete(catalogs.handlers, edit.draft.handlerId, edit.draft.handlerProperties) &&
             "its required delivery fields",
         ]
-      : isNewRoute && routeEdit?.draft.integrationId === null
-        ? ["an integration"]
+      : isNewRoute && routeEdit?.draft.subscriptionId === null
+        ? ["a subscription"]
         : []),
   ].filter((m): m is string => typeof m === "string");
 
   const nodeIsDirty = node
     ? OWNER[node] === "route"
       ? routeIsDirty || isNewRoute
-      : OWNER[node] === "integration" && !!edit && nodeDirty(node, edit.draft, edit.saved)
+      : OWNER[node] === "subscription" && !!edit && nodeDirty(node, edit.draft, edit.saved)
     : false;
 
   const renderNode = () => {
@@ -416,13 +416,13 @@ export function BusGatewayPage() {
             disabled={!canEdit}
             onNewPartner={() => setPartnerDialog(null)}
             onEditPartner={(id) => setPartnerDialog(id)}
-            onNewIntegration={() => {
-              // No modal: the route draft points at the integration being defined, and the
+            onNewSubscription={() => {
+              // No modal: the route draft points at the subscription being defined, and the
               // canvas draws it like any other. Straight to its own node, where the name is.
               setRouteEdit((r) =>
-                r ? { ...r, draft: { ...r.draft, integrationId: NEW_INTEGRATION_ID } } : r,
+                r ? { ...r, draft: { ...r.draft, subscriptionId: NEW_SUBSCRIPTION_ID } } : r,
               );
-              setQuery({ node: "integration" });
+              setQuery({ node: "subscription" });
             }}
           />
         )
@@ -430,27 +430,27 @@ export function BusGatewayPage() {
     if (!edit)
       return (
         <p className="text-sm text-ink-500">
-          {routeEdit?.draft.integrationId === null
-            ? "Pick the integration this route runs, or define one — this step belongs to it."
-            : "Loading the integration…"}
+          {routeEdit?.draft.subscriptionId === null
+            ? "Pick the subscription this route runs, or define one — this step belongs to it."
+            : "Loading the subscription…"}
         </p>
       );
-    const onChange = (patch: Partial<IntegrationDraft>) =>
+    const onChange = (patch: Partial<SubscriptionDraft>) =>
       setEdit((e) => (e ? { ...e, draft: { ...e.draft, ...patch } } : e));
     switch (node) {
-      case "integration":
+      case "subscription":
         return (
-          <IntegrationBody
+          <SubscriptionBody
             draft={edit.draft}
             onChange={onChange}
-            disabled={!canEditIntegration}
+            disabled={!canEditSubscription}
             health={
               activeData
                 ? { isRunning: activeData.isRunning, consecutiveFailures: activeData.consecutiveFailures }
                 : null
             }
             lastException={activeData?.lastException ?? null}
-            autoFocusName={edit.integrationId === NEW_INTEGRATION_ID}
+            autoFocusName={edit.subscriptionId === NEW_SUBSCRIPTION_ID}
           />
         );
       case "transformation":
@@ -458,23 +458,23 @@ export function BusGatewayPage() {
           <TransformationBody
             draft={edit.draft}
             onChange={onChange}
-            disabled={!canEditIntegration}
+            disabled={!canEditSubscription}
             mapperEditorHref={
-              edit.integrationId === NEW_INTEGRATION_ID
+              edit.subscriptionId === NEW_SUBSCRIPTION_ID
                 ? null
-                : `/subscriptions/${edit.integrationId}/mapper`
+                : `/subscriptions/${edit.subscriptionId}/mapper`
             }
           />
         );
       case "delivery":
-        return <DeliveryBody draft={edit.draft} onChange={onChange} disabled={!canEditIntegration} />;
+        return <DeliveryBody draft={edit.draft} onChange={onChange} disabled={!canEditSubscription} />;
       case "response":
         return (
           <ResponseBody
             draft={edit.draft}
             onChange={onChange}
-            disabled={!canEditIntegration}
-            candidates={(allIntegrations.data ?? []).filter((x) => x.id !== edit.integrationId)}
+            disabled={!canEditSubscription}
+            candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== edit.subscriptionId)}
           />
         );
     }
@@ -541,7 +541,7 @@ export function BusGatewayPage() {
               onChange={(v) => v !== "" && select(Number(v))}
               options={g.routes.map((r) => ({
                 value: String(r.id),
-                label: r.integrationName || `#${r.integrationId}`,
+                label: r.subscriptionName || `#${r.subscriptionId}`,
                 code: r.partnerName ?? undefined,
                 hint: r.partnerName ?? "Any partner",
               }))}
@@ -618,13 +618,13 @@ export function BusGatewayPage() {
               selectedNode={node}
               onSelectNode={(next) => setQuery({ node: next })}
               catalogs={catalogs}
-              integrationNames={allIntegrations.data ?? []}
+              subscriptionNames={allSubscriptions.data ?? []}
               onOpenListener={(l) =>
                 l.gatewayId === gatewayId
                   ? select(l.routeId)
                   : guard("this route", () => navigate(`/bus-gateways/${l.gatewayId}?route=${l.routeId}`))
               }
-              routeChosen={routeEdit.draft.integrationId !== null}
+              routeChosen={routeEdit.draft.subscriptionId !== null}
               gutterRem={listOpen ? 21 : 0}
               resetKey={`${selection}`}
             />
@@ -640,7 +640,7 @@ export function BusGatewayPage() {
             {renderNode()}
           </Inspector>
 
-          {dirty && (canEdit || canEditIntegration) && (
+          {dirty && (canEdit || canEditSubscription) && (
             <div className="flex shrink-0 items-center justify-between gap-3 border-t border-ink-200 bg-ink-50 px-4 py-2.5">
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium text-ink-800">
@@ -714,9 +714,9 @@ export function BusGatewayPage() {
             <>
               Messages matching it stop reaching{" "}
               <strong className="font-medium text-ink-800">
-                {g.routes.find((r) => r.id === removingRoute)?.integrationName}
+                {g.routes.find((r) => r.id === removingRoute)?.subscriptionName}
               </strong>
-              . The integration itself is kept.
+              . The subscription itself is kept.
             </>
           }
           confirmLabel="Remove route"
@@ -727,7 +727,7 @@ export function BusGatewayPage() {
               queryFn: () => api.getBusGateway(gatewayId),
             });
             void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
-            void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
             setRouteEdit(null);
             setEdit(null);
             setQuery({ route: fresh.routes[0] ? String(fresh.routes[0].id) : null, hop: null });
@@ -760,14 +760,14 @@ export function BusGatewayPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{g.name}</strong> stops listening and all its
-              routes are removed. The integrations behind them are kept.
+              routes are removed. The subscriptions behind them are kept.
             </>
           }
           confirmLabel="Delete gateway"
           onConfirm={async () => {
             await api.deleteBusGateway(gatewayId);
             void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
-            void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
             navigate("/bus-gateways");
           }}
           onClose={() => setDeletingGateway(false)}
@@ -782,18 +782,18 @@ export function BusGatewayPage() {
  * saved record otherwise. Taking the draft is what makes picking a response
  * target grow the chain on the canvas before anything is saved.
  *
- * Matched on the integration's own id rather than on which hop is active — a
+ * Matched on the subscription's own id rather than on which hop is active — a
  * stale `?hop=` in the URL would otherwise leave the edited node reading from
  * saved data while the draft went nowhere.
  */
 function useHopDraft(
-  edit: IntegrationEdit | null,
-  integrationId: number | null,
-  data: IntegrationDetail | undefined,
-): IntegrationDraft | null {
+  edit: SubscriptionEdit | null,
+  subscriptionId: number | null,
+  data: SubscriptionDetail | undefined,
+): SubscriptionDraft | null {
   return useMemo(() => {
-    if (integrationId === null) return null;
-    if (edit?.integrationId === integrationId) return edit.draft;
-    return data && data.id === integrationId ? draftOf(data) : null;
-  }, [edit, integrationId, data]);
+    if (subscriptionId === null) return null;
+    if (edit?.subscriptionId === subscriptionId) return edit.draft;
+    return data && data.id === subscriptionId ? draftOf(data) : null;
+  }, [edit, subscriptionId, data]);
 }

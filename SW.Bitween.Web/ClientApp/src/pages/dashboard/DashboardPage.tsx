@@ -62,7 +62,7 @@ export function DashboardPage() {
   const delta = data.today.total - data.yesterdayTotal;
   const maxDay = Math.max(1, ...data.trafficByDay.map((d) => d.success + d.failed));
   const needsAttention =
-    data.attention.failingIntegrations.length + data.attention.pausedIntegrations.length;
+    data.attention.failingSubscriptions.length + data.attention.pausedSubscriptions.length;
 
   return (
     <div>
@@ -211,12 +211,12 @@ export function DashboardPage() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <XchangeId id={f.id} />
                     <StatusBadge status={f.status} />
-                    {f.integrationName && (
+                    {f.subscriptionName && (
                       <Link
-                        to={`/subscriptions/${f.integrationId}`}
+                        to={`/subscriptions/${f.subscriptionId}`}
                         className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                       >
-                        {f.integrationName}
+                        {f.subscriptionName}
                       </Link>
                     )}
                     <span className="ml-auto text-xs text-ink-400">{timeAgo(f.on)}</span>
@@ -238,13 +238,13 @@ export function DashboardPage() {
           </Link>
         </Panel>
 
-        {/* — integration health — */}
-        <Panel title="Integration health" description="Integrations that aren't running clean.">
+        {/* — subscription health — */}
+        <Panel title="Subscription health" description="Subscriptions that aren't running clean.">
           {needsAttention === 0 ? (
-            <EmptyState title="All integrations healthy">No failures piling up, nothing paused.</EmptyState>
+            <EmptyState title="All subscriptions healthy">No failures piling up, nothing paused.</EmptyState>
           ) : (
             <ul className="space-y-2">
-              {data.attention.failingIntegrations.map((s) => (
+              {data.attention.failingSubscriptions.map((s) => (
                 <li key={`f-${s.id}`} className="flex items-center gap-2.5 text-sm">
                   <Link
                     to={`/subscriptions/${s.id}`}
@@ -257,7 +257,7 @@ export function DashboardPage() {
                   </Badge>
                 </li>
               ))}
-              {data.attention.pausedIntegrations.map((s) => (
+              {data.attention.pausedSubscriptions.map((s) => (
                 <li key={`p-${s.id}`} className="flex items-center gap-2.5 text-sm">
                   <Link
                     to={`/subscriptions/${s.id}`}
@@ -273,8 +273,8 @@ export function DashboardPage() {
         </Panel>
       </div>
 
-      {/* — busiest integrations — */}
-      <Panel title="Busiest integrations" description="Traffic share over the last 7 days.">
+      {/* — busiest subscriptions — */}
+      <Panel title="Busiest subscriptions" description="Traffic share over the last 7 days.">
         {data.busiest.length === 0 ? (
           <EmptyState title="No traffic yet">Once exchanges flow, the busiest pipelines rank here.</EmptyState>
         ) : (

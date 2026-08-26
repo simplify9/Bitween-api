@@ -1,7 +1,7 @@
 import type { ApiClient } from "../client";
 import {
   ApiRequestError,
-  type IntegrationType,
+  type SubscriptionType,
   type RetryAlertConfig,
   type RetryAlertLevel,
   type RetryAttempts,
@@ -39,7 +39,7 @@ interface RawSubscriptionRef {
   type: number | string;
 }
 
-const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
+const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
   1: "Internal",
   2: "ApiCall",
   4: "Receiving",
@@ -47,7 +47,7 @@ const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
   16: "GatewayApiCall",
   32: "BusGateway",
 };
-const INTEGRATION_TYPES: IntegrationType[] = [
+const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Receiving",
   "GatewayApiCall",
   "BusGateway",
@@ -56,9 +56,9 @@ const INTEGRATION_TYPES: IntegrationType[] = [
   "Aggregation",
 ];
 /** Enums may arrive as the numeric value or the name in any case. */
-const toIntegrationType = (t: number | string): IntegrationType => {
+const toSubscriptionType = (t: number | string): SubscriptionType => {
   if (typeof t === "number") return SUB_TYPE_BY_NUM[t] ?? "Internal";
-  return INTEGRATION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
+  return SUBSCRIPTION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
 };
 
 async function fetchSubscriptionsByRetryPolicy(retryPolicyId: number): Promise<RawSubscriptionRef[]> {
@@ -167,7 +167,7 @@ async function fetchDetail(id: number): Promise<RetryPolicyDetail> {
     createdOn: "",
     alertHandlerId: r.alertHandlerId ?? null,
     alertHandlerProperties: r.alertHandlerProperties ?? {},
-    integrations: subs.map((s) => ({ id: s.id, name: s.name, type: toIntegrationType(s.type) })),
+    subscriptions: subs.map((s) => ({ id: s.id, name: s.name, type: toSubscriptionType(s.type) })),
   };
 }
 
@@ -193,8 +193,8 @@ interface RawUsageRow {
 }
 
 const toUsageRow = (r: RawUsageRow): RetryUsageRow => ({
-  integrationId: r.subscriptionId,
-  integrationName: r.subscriptionName,
+  subscriptionId: r.subscriptionId,
+  subscriptionName: r.subscriptionName,
   groupId: r.groupId,
   groupName: r.groupName,
   used: r.attemptsUsed,
@@ -310,18 +310,18 @@ export const retryPolicyMethods = {
     return (rows ?? []).map(toUsageRow);
   },
 
-  async getIntegrationRetryUsage(integrationId: number): Promise<RetryUsageRow[]> {
-    const rows = await post<RawUsageRow[]>(`/subscriptions/${integrationId}/retryusage`, {});
+  async getSubscriptionRetryUsage(subscriptionId: number): Promise<RetryUsageRow[]> {
+    const rows = await post<RawUsageRow[]>(`/subscriptions/${subscriptionId}/retryusage`, {});
     return (rows ?? []).map(toUsageRow);
   },
 
   async getRetryAttempts(
     policyId: number,
-    pair: { integrationId: number; groupId: string },
+    pair: { subscriptionId: number; groupId: string },
   ): Promise<RetryAttempts> {
     const res = await post<{ total: number; attempts: RawAttempt[] }>(
       `/retrypolicies/${policyId}/attempts`,
-      { subscriptionId: pair.integrationId, groupId: pair.groupId },
+      { subscriptionId: pair.subscriptionId, groupId: pair.groupId },
     );
     return {
       total: res?.total ?? 0,
@@ -336,23 +336,23 @@ export const retryPolicyMethods = {
     };
   },
 
-  async resetRetryUsage(policyId: number, pair?: { integrationId?: number; groupId?: string }): Promise<void> {
+  async resetRetryUsage(policyId: number, pair?: { subscriptionId?: number; groupId?: string }): Promise<void> {
     await post(`/retrypolicies/${policyId}/resetusage`, {
-      subscriptionId: pair?.integrationId ?? null,
+      subscriptionId: pair?.subscriptionId ?? null,
       groupId: pair?.groupId ?? null,
     });
   },
 
-  async resetIntegrationRetryUsage(integrationId: number, groupId?: string): Promise<void> {
-    await post(`/subscriptions/${integrationId}/resetretryusage`, { groupId: groupId ?? null });
+  async resetSubscriptionRetryUsage(subscriptionId: number, groupId?: string): Promise<void> {
+    await post(`/subscriptions/${subscriptionId}/resetretryusage`, { groupId: groupId ?? null });
   },
 
   async saveRetryAlertOverride(
     policyId: number,
-    input: { integrationId: number; groupId: string } & RetryAlertConfig,
+    input: { subscriptionId: number; groupId: string } & RetryAlertConfig,
   ): Promise<void> {
     await post(`/retrypolicies/${policyId}/savealertoverride`, {
-      subscriptionId: input.integrationId,
+      subscriptionId: input.subscriptionId,
       groupId: input.groupId,
       alertMode: input.alertMode,
       alertHandlerId: input.alertHandlerId,

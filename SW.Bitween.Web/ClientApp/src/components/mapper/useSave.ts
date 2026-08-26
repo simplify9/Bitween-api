@@ -41,11 +41,11 @@ export function useSave(subscriptionId: number): UseSaveResult {
   } = useMappingEditorState();
   const saveMapper = useMutation({
     mutationFn: (props: KeyValuePair[]) =>
-      api.updateIntegration(subscriptionId, {
+      api.updateSubscription(subscriptionId, {
         mapperId: NATIVE_JSON_MAPPER_ID,
         mapperProperties: kvpsToRecord(props),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["integration", subscriptionId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subscription", subscriptionId] }),
   });
   const isSaving = saveMapper.isPending;
   const [saveSuccess, setSaveSuccess] = useState(false);

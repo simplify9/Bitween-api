@@ -8,13 +8,13 @@ import { Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { InfoTypePicker } from "../../components/config/pickers";
-import { useIntegrationsCache } from "../../components/config/shared";
-import { STAGES, stagesFor, type StageId } from "../integrations/studio/stages";
-import { StageRail } from "../integrations/studio/StageRail";
-import { EntryPointsTable } from "../integrations/studio/Overview";
-import { adapterIncomplete, faceOf } from "../integrations/studio/faces";
-import { ResponseFields } from "../integrations/studio/ResponseFields";
-import type { Draft as StudioDraft } from "../integrations/studio/model";
+import { useSubscriptionsCache } from "../../components/config/shared";
+import { STAGES, stagesFor, type StageId } from "../subscriptions/studio/stages";
+import { StageRail } from "../subscriptions/studio/StageRail";
+import { EntryPointsTable } from "../subscriptions/studio/Overview";
+import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
+import { ResponseFields } from "../subscriptions/studio/ResponseFields";
+import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
@@ -33,7 +33,7 @@ type Draft = Pick<
   | "mapperProperties"
   | "handlerId"
   | "handlerProperties"
-  | "responseIntegrationId"
+  | "responseSubscriptionId"
   | "responseMessageTypeName"
 > & { informationTypeId: number | null };
 
@@ -46,24 +46,24 @@ const EMPTY: Draft = {
   mapperProperties: {},
   handlerId: null,
   handlerProperties: {},
-  responseIntegrationId: null,
+  responseSubscriptionId: null,
   responseMessageTypeName: null,
 };
 
 const STAGES_HERE = stagesFor("GatewayApiCall");
 
 /**
- * Creating the integration a partner attachment points at.
+ * Creating the subscription a partner attachment points at.
  *
  * A dialog here used to ask only for a name, a type and a delivery — the least an
- * attachment can't exist without. That made it a worse copy of the integration's
+ * attachment can't exist without. That made it a worse copy of the subscription's
  * own page for anyone who wanted more. This is that same page's pipeline instead,
- * routed rather than saved-then-configured: nothing points at the integration
+ * routed rather than saved-then-configured: nothing points at the subscription
  * until the attachment page does, so there is nothing to leave half-wired if you
  * stop after creating it, and the return trip lands you back there with it
  * already picked.
  */
-export function NewGatewayIntegrationPage() {
+export function NewGatewaySubscriptionPage() {
   const { id = "" } = useParams();
   const gatewayId = Number(id);
   const [searchParams] = useSearchParams();
@@ -77,7 +77,7 @@ export function NewGatewayIntegrationPage() {
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });
-  const allIntegrations = useIntegrationsCache();
+  const allSubscriptions = useSubscriptionsCache();
   const validators = useAdapterCatalog("validator");
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
@@ -94,7 +94,7 @@ export function NewGatewayIntegrationPage() {
 
   const create = useMutation({
     mutationFn: () =>
-      api.createIntegration({
+      api.createSubscription({
         type: "GatewayApiCall",
         name: draft.name.trim(),
         informationTypeId: draft.informationTypeId!,
@@ -104,16 +104,16 @@ export function NewGatewayIntegrationPage() {
         mapperProperties: draft.mapperProperties,
         handlerId: draft.handlerId,
         handlerProperties: draft.handlerProperties,
-        responseIntegrationId: draft.responseIntegrationId,
+        responseSubscriptionId: draft.responseSubscriptionId,
         responseMessageTypeName: draft.responseMessageTypeName,
         // Safe to enable: it waits for an attachment, which is what you are in
         // the middle of making.
         enabled: true,
       }),
     onSuccess: (created) => {
-      void queryClient.invalidateQueries({ queryKey: ["integrations"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
       backToAttach({ picked: String(created.id) });
     },
   });
@@ -148,10 +148,10 @@ export function NewGatewayIntegrationPage() {
       type: "GatewayApiCall",
       draft: studioDraft,
       catalogs: { receivers: { data: undefined }, validators, mappers, handlers },
-      integrationNames: allIntegrations.data,
+      subscriptionNames: allSubscriptions.data,
     });
-    // Nothing can be wired up before the integration exists, so the "missing"
-    // reading faceOf gives a saved-but-unattached integration would just be
+    // Nothing can be wired up before the subscription exists, so the "missing"
+    // reading faceOf gives a saved-but-unattached subscription would just be
     // noise here — dashed and flat instead, like every other node this page
     // can't offer real configuration for.
     return stageId === "trigger" ? { ...face, readOnly: true, state: "none" as const } : face;
@@ -202,7 +202,7 @@ export function NewGatewayIntegrationPage() {
             />
             {draft.mapperId === "NativeJSONMapper" && (
               <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-500">
-                The visual mapping editor opens from the integration's own page, once it exists.
+                The visual mapping editor opens from the subscription's own page, once it exists.
               </p>
             )}
           </Panel>
@@ -225,11 +225,11 @@ export function NewGatewayIntegrationPage() {
           <Panel title={label} description={description}>
             <ResponseFields
               handlerId={draft.handlerId}
-              responseIntegrationId={draft.responseIntegrationId}
+              responseSubscriptionId={draft.responseSubscriptionId}
               responseMessageTypeName={draft.responseMessageTypeName}
               onChange={update}
               disabled={false}
-              candidates={allIntegrations.data ?? []}
+              candidates={allSubscriptions.data ?? []}
               idPrefix="ngi-resp"
             />
           </Panel>
@@ -244,7 +244,7 @@ export function NewGatewayIntegrationPage() {
       <BackLink to={`/api-gateways/${gatewayId}/attach`} label="Attaching a partner" />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
-        New integration for {g.name}
+        New subscription for {g.name}
       </h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
         Set up as much of it as you'd like — the rest is still here, on its own page, once it exists.
@@ -266,7 +266,7 @@ export function NewGatewayIntegrationPage() {
           <Field
             label="Carries"
             htmlFor="ngi-type"
-            hint="An API gateway isn't tied to one, so this integration names it."
+            hint="An API gateway isn't tied to one, so this subscription names it."
           >
             <InfoTypePicker
               id="ngi-type"
@@ -309,7 +309,7 @@ export function NewGatewayIntegrationPage() {
           disabled={missing.length > 0}
           onClick={() => create.mutate()}
         >
-          Create integration
+          Create subscription
         </Button>
       </div>
       <FormError>{create.error?.message}</FormError>

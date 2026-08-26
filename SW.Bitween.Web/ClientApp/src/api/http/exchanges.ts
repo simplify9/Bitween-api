@@ -73,8 +73,8 @@ const STATUS_FILTER: Record<ExchangeStatus, number> = {
 const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>): ExchangeRow => ({
   id: raw.id,
   status: deriveStatus(raw),
-  integrationId: raw.subscriptionId,
-  integrationName: raw.subscriptionName,
+  subscriptionId: raw.subscriptionId,
+  subscriptionName: raw.subscriptionName,
   informationTypeId: raw.documentId,
   informationTypeCode: raw.documentName,
   partnerId: raw.partnerId,
@@ -103,8 +103,8 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
 const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
   id: raw.id,
   on: raw.on,
-  integrationId: raw.subscriptionId,
-  integrationName: raw.subscriptionName,
+  subscriptionId: raw.subscriptionId,
+  subscriptionName: raw.subscriptionName,
   informationTypeId: raw.documentId,
   informationTypeCode: raw.documentName,
   exception: raw.exception,
@@ -126,7 +126,7 @@ const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
 function buildExchangeQuery(query: ExchangeQuery): string {
   const params = new URLSearchParams();
   if (query.status) params.append("filter", `StatusFilter:1:${STATUS_FILTER[query.status]}`);
-  if (query.integrationId !== undefined) params.append("filter", `SubscriptionId:1:${query.integrationId}`);
+  if (query.subscriptionId !== undefined) params.append("filter", `SubscriptionId:1:${query.subscriptionId}`);
   if (query.partnerId !== undefined) params.append("filter", `PartnerId:1:${query.partnerId}`);
   if (query.informationTypeId !== undefined) params.append("filter", `DocumentId:1:${query.informationTypeId}`);
   if (query.ids?.trim()) {
@@ -150,7 +150,7 @@ function buildExchangeQuery(query: ExchangeQuery): string {
 
 function buildScheduledRetryQuery(query: ScheduledRetryQuery): string {
   const params = new URLSearchParams();
-  if (query.integrationId !== undefined) params.append("filter", `SubscriptionId:1:${query.integrationId}`);
+  if (query.subscriptionId !== undefined) params.append("filter", `SubscriptionId:1:${query.subscriptionId}`);
   if (query.informationTypeId !== undefined) params.append("filter", `DocumentId:1:${query.informationTypeId}`);
   if (query.exception?.trim()) params.append("filter", `Exception:4:${query.exception.trim()}`);
   if (query.from) params.append("filter", `On:6:${query.from}`);
@@ -206,23 +206,23 @@ export const exchangeMethods = {
   },
 
   async createExchange(input: {
-    target: "integration" | "informationType";
-    integrationId?: number;
+    target: "subscription" | "informationType";
+    subscriptionId?: number;
     informationTypeId?: number;
     data: string;
   }): Promise<{ id: string }> {
     const filter =
-      input.target === "integration"
-        ? `SubscriptionId:1:${input.integrationId}`
+      input.target === "subscription"
+        ? `SubscriptionId:1:${input.subscriptionId}`
         : `DocumentId:1:${input.informationTypeId}`;
     await post("/xchanges", {
-      option: input.target === "integration" ? "SubscriberId" : "DocumentId",
-      subscriberId: input.target === "integration" ? input.integrationId : null,
+      option: input.target === "subscription" ? "SubscriberId" : "DocumentId",
+      subscriberId: input.target === "subscription" ? input.subscriptionId : null,
       documentId: input.target === "informationType" ? input.informationTypeId : null,
       data: input.data,
     });
     // Create.cs returns null too — look up the exchange it just created. When
-    // addressed at an information type, every matching integration gets its
+    // addressed at an information type, every matching subscription gets its
     // own exchange; we can only link to one, so take the newest.
     const res = await get<SearchyResponse<RawXchangeRow>>(
       `/xchanges?filter=${encodeURIComponent(filter)}&sort=StartedOn:2&size=1`,

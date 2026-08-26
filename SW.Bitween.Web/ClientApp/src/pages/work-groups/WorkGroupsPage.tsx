@@ -9,7 +9,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table, type Column } from "../../components/ui/Table";
-import { UsedByCell, queueHealthTitle, useIntegrationsCache } from "../../components/config/shared";
+import { UsedByCell, queueHealthTitle, useSubscriptionsCache } from "../../components/config/shared";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
@@ -62,7 +62,7 @@ export function WorkGroupsPage() {
     queryFn: () => api.searchWorkGroups({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
   const live = useQuery({
     queryKey: ["queue-health"],
     queryFn: () => api.getQueueHealth(),
@@ -90,13 +90,13 @@ export function WorkGroupsPage() {
     <div>
       <PageHeader
         title="Work groups"
-        description="Give a set of integrations their own queue, priority and prefetch, separate from the default lane."
+        description="Give a set of subscriptions their own queue, priority and prefetch, separate from the default lane."
         help={{
           title: "How work groups work",
           body: (
             <>
               <p>
-                Every integration runs in the default (ungrouped) lane unless assigned to a work
+                Every subscription runs in the default (ungrouped) lane unless assigned to a work
                 group. Groups get their own RabbitMQ queue — <strong>prefetch</strong> controls how
                 many messages a consumer pulls at once, <strong>priority</strong> decides which
                 group's queue is drained first when several are busy.
@@ -130,7 +130,7 @@ export function WorkGroupsPage() {
         <LoadingBlock label="Loading work groups…" />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Layers />} title={q ? "No work groups match" : "No work groups yet"}>
-          {q ? "Try a different search." : "Create one to give a set of integrations their own queue."}
+          {q ? "Try a different search." : "Create one to give a set of subscriptions their own queue."}
         </EmptyState>
       ) : (
         <Table
@@ -155,7 +155,7 @@ export function WorkGroupsPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (g) => <UsedByCell items={integrations.filter((s) => s.workGroupId === g.id)} />,
+              cell: (g) => <UsedByCell items={subscriptions.filter((s) => s.workGroupId === g.id)} />,
             },
             ...(canMonitor ? liveColumns(live.data) : []),
             {

@@ -10,7 +10,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
 
 const PAGE_SIZE = 25;
 
@@ -26,7 +26,7 @@ export function InformationTypesPage() {
     queryFn: () => api.searchInformationTypes({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
@@ -90,7 +90,7 @@ export function InformationTypesPage() {
         <LoadingBlock label="Loading information types…" />
       ) : rows.length === 0 ? (
         <EmptyState icon={<FileText />} title={q ? "No information types match" : "No information types yet"}>
-          {q ? "Try a different search." : "Define the first kind of document your integrations will carry."}
+          {q ? "Try a different search." : "Define the first kind of document your subscriptions will carry."}
         </EmptyState>
       ) : (
         <Table
@@ -147,7 +147,7 @@ export function InformationTypesPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (t) => <UsedByCell items={integrations.filter((s) => s.informationTypeId === t.id)} />,
+              cell: (t) => <UsedByCell items={subscriptions.filter((s) => s.informationTypeId === t.id)} />,
             },
           ]}
         />

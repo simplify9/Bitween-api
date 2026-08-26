@@ -9,7 +9,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import type { IntegrationType } from "../../../api";
+import type { SubscriptionType } from "../../../api";
 
 export type StageId =
   | "trigger"
@@ -30,14 +30,14 @@ export type StageId =
  * on decoration would make a healthy pipeline look like a traffic light.
  */
 export const STAGES: Record<StageId, { label: string; description: string; icon: LucideIcon }> = {
-  trigger: { label: "Trigger", description: "What sets this integration off.", icon: Zap },
+  trigger: { label: "Trigger", description: "What sets this subscription off.", icon: Zap },
   source: { label: "Source", description: "Where documents are pulled from.", icon: Download },
   schedule: {
     label: "Schedule",
     description: "When the source is checked for new documents.",
     icon: Clock,
   },
-  aggregation: { label: "Aggregation", description: "What this integration collects.", icon: Layers },
+  aggregation: { label: "Aggregation", description: "What this subscription collects.", icon: Layers },
   validation: {
     label: "Validation",
     description: "Rejects bad documents before they enter the pipeline.",
@@ -71,7 +71,7 @@ export const STAGES: Record<StageId, { label: string; description: string; icon:
  *   always done; aggregation configuration is still a placeholder pending its own
  *   pass, so its one card says so rather than pretending to be editable.
  */
-export function stagesFor(type: IntegrationType): StageId[] {
+export function stagesFor(type: SubscriptionType): StageId[] {
   switch (type) {
     case "Receiving":
       return ["source", "schedule", "transformation", "delivery", "response"];

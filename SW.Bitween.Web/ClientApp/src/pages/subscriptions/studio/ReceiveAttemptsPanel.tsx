@@ -106,7 +106,7 @@ function AttemptExchanges({ exchanges }: { exchanges: ReceiveAttemptRow["exchang
 }
 
 /**
- * Every time a Receiving integration checked for new data — replaces the old pairing of
+ * Every time a Receiving subscription checked for new data — replaces the old pairing of
  * the scheduler's own run history (Quartz vocabulary an operator has no reason to know,
  * and which always reports success even when the receive step itself failed) next to a
  * capped 8-row exchange glance. One row per run regardless of what it found, so a poll
@@ -132,7 +132,7 @@ export function ReceiveAttemptsPanel({ subscriptionId }: { subscriptionId: numbe
         <div>
           <h2 className="text-[15px] font-semibold text-ink-900">Runs</h2>
           <p className="mt-0.5 text-[13px] text-ink-500">
-            Every time this integration checked for new data — what it found, and what happened to it.
+            Every time this subscription checked for new data — what it found, and what happened to it.
           </p>
         </div>
         <div className="w-44 shrink-0">
@@ -155,7 +155,7 @@ export function ReceiveAttemptsPanel({ subscriptionId }: { subscriptionId: numbe
         <EmptyState title={outcome ? "Nothing matches" : "No checks recorded yet"}>
           {outcome
             ? "Try a different filter."
-            : "This integration hasn't checked for new data since this history started being kept."}
+            : "This subscription hasn't checked for new data since this history started being kept."}
         </EmptyState>
       ) : (
         <Table

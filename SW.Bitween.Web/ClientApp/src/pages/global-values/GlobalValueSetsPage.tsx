@@ -9,7 +9,7 @@ import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
 import { suggestSlug } from "../../lib/identifiers";
 
 function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
@@ -84,7 +84,7 @@ export function GlobalValueSetsPage() {
   const creating = searchParams.get("new") === "1";
 
   const sets = useQuery({ queryKey: ["value-sets"], queryFn: () => api.listValueSets() });
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -108,7 +108,7 @@ export function GlobalValueSetsPage() {
     <div>
       <PageHeader
         title="Global values"
-        description="Shared value sets any adapter can reference — change an endpoint here once instead of in every integration."
+        description="Shared value sets any adapter can reference — change an endpoint here once instead of in every subscription."
         actions={
           <Can permission="global-values.create">
             <Button variant="primary" onClick={() => setParam("new", "1")}>
@@ -153,7 +153,7 @@ export function GlobalValueSetsPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (s) => <UsedByCell items={integrations.filter((i) => referencesGlobal(i, s.id))} />,
+              cell: (s) => <UsedByCell items={subscriptions.filter((i) => referencesGlobal(i, s.id))} />,
             },
           ]}
         />

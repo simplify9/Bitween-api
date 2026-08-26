@@ -1,4 +1,4 @@
-import type { AdapterInfo, IntegrationType } from "../../../api";
+import type { AdapterInfo, SubscriptionType } from "../../../api";
 import { schedulesSummary } from "../../../lib/schedules";
 import { formatDateTime } from "../../../lib/dates";
 import type { StageFace } from "./StageRail";
@@ -33,7 +33,7 @@ export interface AdapterCatalogs {
 }
 
 export interface FaceInput {
-  type: IntegrationType;
+  type: SubscriptionType;
   draft: Draft;
   catalogs: AdapterCatalogs;
   /** Absent while creating — nothing is saved yet, so no node is "unsaved". */
@@ -44,10 +44,10 @@ export interface FaceInput {
   /** Only ever set on the Schedule node — see `StageFace.fault`. */
   fault?: StageFace["fault"];
   /** Names for the "feed the response into" target. */
-  integrationNames?: { id: number; name: string }[];
+  subscriptionNames?: { id: number; name: string }[];
   /**
-   * Set while the integration is being defined and nothing is saved yet. A delivery-less
-   * integration that already exists is a legal thing that records and stops; one being
+   * Set while the subscription is being defined and nothing is saved yet. A delivery-less
+   * subscription that already exists is a legal thing that records and stops; one being
    * created here cannot be saved without a delivery, so the node has to say so.
    */
   unsaved?: boolean;
@@ -61,7 +61,7 @@ export interface FaceInput {
  * while editing is how the two drift apart.
  */
 export function faceOf(stageId: StageId, input: FaceInput): StageFace {
-  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, integrationNames, unsaved } = input;
+  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, subscriptionNames, unsaved } = input;
   const dirty = saved ? stageDirty(stageId, d, saved) : false;
 
   switch (stageId) {
@@ -119,7 +119,7 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
         state: d.mapperId ? "set" : "none",
       };
     case "delivery":
-      // "none", not "missing", once it exists: an integration that records the document
+      // "none", not "missing", once it exists: a subscription that records the document
       // and stops is a legal configuration, and calling a saved one broken would be
       // wrong. While it is still being defined the save is blocked on this, so it is
       // genuinely missing and the node says which node to go to.
@@ -132,13 +132,13 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
       };
     case "response":
       if (!d.handlerId) return { id: stageId, dirty, title: "Nothing delivered", state: "none" };
-      if (d.responseIntegrationId !== null)
+      if (d.responseSubscriptionId !== null)
         return {
           id: stageId,
           dirty,
           title:
-            integrationNames?.find((x) => x.id === d.responseIntegrationId)?.name ?? "Fed onward",
-          detail: "chained to another integration",
+            subscriptionNames?.find((x) => x.id === d.responseSubscriptionId)?.name ?? "Fed onward",
+          detail: "chained to another subscription",
           state: "set",
         };
       if (d.responseMessageTypeName)

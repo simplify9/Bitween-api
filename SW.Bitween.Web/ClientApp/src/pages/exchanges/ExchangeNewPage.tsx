@@ -6,28 +6,28 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 
 /**
  * Manually inject a payload — useful for testing a pipeline without waiting
- * for real traffic. Addressed either at one integration, or at an
- * information type (every matching integration picks it up).
+ * for real traffic. Addressed either at one subscription, or at an
+ * information type (every matching subscription picks it up).
  */
 export function ExchangeNewPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const target = searchParams.get("target") === "informationType" ? "informationType" : "integration";
-  const setTarget = (t: "integration" | "informationType") => {
+  const target = searchParams.get("target") === "informationType" ? "informationType" : "subscription";
+  const setTarget = (t: "subscription" | "informationType") => {
     const next = new URLSearchParams(searchParams);
     next.set("target", t);
     setSearchParams(next, { replace: true });
   };
-  const [integrationId, setIntegrationId] = useState("");
+  const [subscriptionId, setSubscriptionId] = useState("");
   const [informationTypeId, setInformationTypeId] = useState("");
   const [data, setData] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
   const infoTypes =
     useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
 
@@ -35,7 +35,7 @@ export function ExchangeNewPage() {
     mutationFn: () =>
       api.createExchange({
         target,
-        integrationId: integrationId ? Number(integrationId) : undefined,
+        subscriptionId: subscriptionId ? Number(subscriptionId) : undefined,
         informationTypeId: informationTypeId ? Number(informationTypeId) : undefined,
         data,
       }),
@@ -46,7 +46,7 @@ export function ExchangeNewPage() {
 
   const submit = () => {
     setError(null);
-    if (target === "integration" && !integrationId) return setError("Pick the integration to run.");
+    if (target === "subscription" && !subscriptionId) return setError("Pick the subscription to run.");
     if (target === "informationType" && !informationTypeId)
       return setError("Pick the information type to send.");
     if (!data.trim()) return setError("Paste the payload the exchange should carry.");
@@ -64,7 +64,7 @@ export function ExchangeNewPage() {
         <div className="flex gap-2">
           {(
             [
-              { id: "integration", label: "Send to an integration" },
+              { id: "subscription", label: "Send to a subscription" },
               { id: "informationType", label: "Send as an information type" },
             ] as const
           ).map((t) => (
@@ -83,22 +83,22 @@ export function ExchangeNewPage() {
           ))}
         </div>
 
-        {target === "integration" ? (
+        {target === "subscription" ? (
           <Field
-            label="Integration"
+            label="Subscription"
             hint="The pipeline that will process this payload."
           >
             <SearchSelect
-              value={integrationId}
-              onChange={setIntegrationId}
-              placeholder="Pick an integration…"
-              options={integrations.map((i) => ({ value: String(i.id), label: i.name }))}
+              value={subscriptionId}
+              onChange={setSubscriptionId}
+              placeholder="Pick a subscription…"
+              options={subscriptions.map((i) => ({ value: String(i.id), label: i.name }))}
             />
           </Field>
         ) : (
           <Field
             label="Information type"
-            hint="Every integration listening for this type picks the payload up."
+            hint="Every subscription listening for this type picks the payload up."
           >
             <SearchSelect
               value={informationTypeId}

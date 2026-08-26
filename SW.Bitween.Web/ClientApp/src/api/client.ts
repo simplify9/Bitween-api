@@ -17,13 +17,13 @@ import type {
   InformationType,
   InformationTypeDetail,
   InformationTypeRow,
-  Integration,
-  IntegrationDetail,
-  IntegrationInfo,
-  IntegrationLastRun,
-  IntegrationRow,
-  IntegrationRun,
-  IntegrationType,
+  Subscription,
+  SubscriptionDetail,
+  SubscriptionInfo,
+  SubscriptionLastRun,
+  SubscriptionRow,
+  SubscriptionRun,
+  SubscriptionType,
   MatchGroup,
   Notifier,
   NotifierDetail,
@@ -157,24 +157,24 @@ export interface ApiClient {
   ): Promise<GlobalValuesSetRow>;
   deleteValueSet(id: string): Promise<void>;
 
-  // — integrations (light summaries; cache aggressively) —
-  listIntegrations(): Promise<IntegrationInfo[]>;
+  // — subscriptions (light summaries; cache aggressively) —
+  listSubscriptions(): Promise<SubscriptionInfo[]>;
 
-  // — integrations —
-  listIntegrationRows(): Promise<IntegrationRow[]>;
-  searchIntegrationRows(query: {
+  // — subscriptions —
+  listSubscriptionRows(): Promise<SubscriptionRow[]>;
+  searchSubscriptionRows(query: {
     search: string;
-    type: IntegrationType | null;
+    type: SubscriptionType | null;
     informationTypeId?: number | null;
     partnerId?: number | null;
     inactive?: boolean | null;
     offset: number;
     limit: number;
-  }): Promise<Paged<IntegrationRow>>;
-  getIntegration(id: number): Promise<IntegrationDetail>;
-  /** One call, one transaction: the integration exists as asked for, or not at all. */
-  createIntegration(input: {
-    type: IntegrationType;
+  }): Promise<Paged<SubscriptionRow>>;
+  getSubscription(id: number): Promise<SubscriptionDetail>;
+  /** One call, one transaction: the subscription exists as asked for, or not at all. */
+  createSubscription(input: {
+    type: SubscriptionType;
     name: string;
     informationTypeId: number;
     /** Required by the types that carry their own partner — Internal and ApiCall. */
@@ -189,15 +189,15 @@ export interface ApiClient {
     handlerProperties?: Record<string, string>;
     schedules?: Schedule[];
     retryPolicyId?: number | null;
-    responseIntegrationId?: number | null;
+    responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
     enabled?: boolean;
-  }): Promise<Integration>;
-  updateIntegration(
+  }): Promise<Subscription>;
+  updateSubscription(
     id: number,
     changes: Partial<
       Pick<
-        Integration,
+        Subscription,
         | "name"
         | "enabled"
         | "workGroupId"
@@ -212,24 +212,24 @@ export interface ApiClient {
         | "handlerProperties"
         | "matchExpression"
         | "schedules"
-        | "responseIntegrationId"
+        | "responseSubscriptionId"
         | "responseMessageTypeName"
       >
     >,
-  ): Promise<Integration>;
-  deleteIntegration(id: number): Promise<void>;
-  /** Toggles paused: paused integrations accept work but hold it. */
-  pauseIntegration(id: number): Promise<Integration>;
-  receiveNow(id: number): Promise<Integration>;
-  /** Run history for one scheduled integration, newest first. Empty for unscheduled types. */
-  listIntegrationRuns(id: number, limit?: number): Promise<IntegrationRun[]>;
+  ): Promise<Subscription>;
+  deleteSubscription(id: number): Promise<void>;
+  /** Toggles paused: paused subscriptions accept work but hold it. */
+  pauseSubscription(id: number): Promise<Subscription>;
+  receiveNow(id: number): Promise<Subscription>;
+  /** Run history for one scheduled subscription, newest first. Empty for unscheduled types. */
+  listSubscriptionRuns(id: number, limit?: number): Promise<SubscriptionRun[]>;
   searchReceiveAttempts(
     subscriptionId: number,
     query: { outcome: ReceiveOutcome | null; offset: number; limit: number },
   ): Promise<Paged<ReceiveAttemptRow>>;
-  /** Newest run of every scheduled integration — one request for a whole list. */
-  listLastRuns(): Promise<IntegrationLastRun[]>;
-  /** Will these schedules actually fire? Asks the scheduler, not the integration record. */
+  /** Newest run of every scheduled subscription — one request for a whole list. */
+  listLastRuns(): Promise<SubscriptionLastRun[]>;
+  /** Will these schedules actually fire? Asks the scheduler, not the subscription record. */
   listScheduleHealth(): Promise<ScheduleHealth[]>;
   listAdapters(kind: AdapterKind): Promise<AdapterInfo[]>;
 
@@ -263,9 +263,9 @@ export interface ApiClient {
     changes: { name: string; urlName: string; inactive: boolean },
   ): Promise<ApiGateway>;
   deleteApiGateway(id: number): Promise<void>;
-  /** The integration is either an existing id or defined inline; the endpoint commits both as one. */
+  /** The subscription is either an existing id or defined inline; the endpoint commits both as one. */
   attachGatewayPartner(id: number, input: AttachPartnerInput): Promise<void>;
-  updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void>;
+  updateGatewayAttachment(id: number, input: { partnerId: number; subscriptionId: number }): Promise<void>;
   removeGatewayAttachment(id: number, partnerId: number): Promise<void>;
 
   // — bus gateways —
@@ -281,12 +281,12 @@ export interface ApiClient {
   createBusGateway(input: { name: string; informationTypeId: number }): Promise<BusGateway>;
   updateBusGateway(id: number, changes: { name: string; inactive: boolean }): Promise<BusGateway>;
   deleteBusGateway(id: number): Promise<void>;
-  /** The integration is either an existing id or defined inline; the endpoint commits both as one. */
+  /** The subscription is either an existing id or defined inline; the endpoint commits both as one. */
   addBusRoute(id: number, input: AddBusRouteInput): Promise<void>;
   updateBusRoute(
     id: number,
     routeId: number,
-    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
+    input: { subscriptionId: number; partnerId: number | null; matchExpression: MatchGroup | null },
   ): Promise<void>;
   removeBusRoute(id: number, routeId: number): Promise<void>;
 
@@ -317,24 +317,24 @@ export interface ApiClient {
     attempts: number;
   }): Promise<RetryTestAttempt[]>;
 
-  /** Spent budget and alert routing for every integration-and-group pair under this policy. */
+  /** Spent budget and alert routing for every subscription-and-group pair under this policy. */
   getRetryUsage(policyId: number): Promise<RetryUsageRow[]>;
   /**
-   * The same report for one integration, which is the only way to reach one whose policy is an
+   * The same report for one subscription, which is the only way to reach one whose policy is an
    * inline `CustomRetryPolicy` — those carry no policy id for the policy-scoped report to address,
    * yet still spend budget and can sit stopped with no counter anyone can see.
    */
-  getIntegrationRetryUsage(integrationId: number): Promise<RetryUsageRow[]>;
-  /** The failures one group caught for one integration — what its spent budget went on. */
-  getRetryAttempts(policyId: number, pair: { integrationId: number; groupId: string }): Promise<RetryAttempts>;
+  getSubscriptionRetryUsage(subscriptionId: number): Promise<RetryUsageRow[]>;
+  /** The failures one group caught for one subscription — what its spent budget went on. */
+  getRetryAttempts(policyId: number, pair: { subscriptionId: number; groupId: string }): Promise<RetryAttempts>;
   /** Hands a spent budget back so the group retries again. Omit a field to reset across it. */
-  resetRetryUsage(policyId: number, pair?: { integrationId?: number; groupId?: string }): Promise<void>;
-  /** Reset by integration, for the inline-policy case the policy-scoped reset cannot reach. */
-  resetIntegrationRetryUsage(integrationId: number, groupId?: string): Promise<void>;
+  resetRetryUsage(policyId: number, pair?: { subscriptionId?: number; groupId?: string }): Promise<void>;
+  /** Reset by subscription, for the inline-policy case the policy-scoped reset cannot reach. */
+  resetSubscriptionRetryUsage(subscriptionId: number, groupId?: string): Promise<void>;
   /** Sets, changes or clears where one pair's alert goes — the most specific level. */
   saveRetryAlertOverride(
     policyId: number,
-    input: { integrationId: number; groupId: string } & RetryAlertConfig,
+    input: { subscriptionId: number; groupId: string } & RetryAlertConfig,
   ): Promise<void>;
 
   // — settings —
@@ -357,17 +357,17 @@ export interface ApiClient {
   getExchangeDocument(key: string): Promise<string>;
   /**
    * Re-runs an exchange from its input file. `reset` re-resolves adapter
-   * properties from the integration's current configuration instead of the
+   * properties from the subscription's current configuration instead of the
    * values captured when the exchange first ran. Fails with
    * AUTO_RETRY_SCHEDULED when an auto-retry is already pending.
    */
   retryExchange(id: string, opts: { reset: boolean }): Promise<{ id: string }>;
   /** Retries many; exchanges with a pending auto-retry are skipped, not failed. */
   bulkRetryExchanges(ids: string[], opts: { reset: boolean }): Promise<{ retried: number; skipped: number }>;
-  /** Manually injects a payload, addressed at an integration or an information type. */
+  /** Manually injects a payload, addressed at a subscription or an information type. */
   createExchange(input: {
-    target: "integration" | "informationType";
-    integrationId?: number;
+    target: "subscription" | "informationType";
+    subscriptionId?: number;
     informationTypeId?: number;
     data: string;
   }): Promise<{ id: string }>;

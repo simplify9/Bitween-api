@@ -91,19 +91,19 @@ test("lookup mode stays readable, because pickers across the app depend on it", 
 });
 
 test("a page still loads when the area behind its Used by count is refused", async ({ page }) => {
-  const roleName = `PW No Integrations ${Date.now()}`;
+  const roleName = `PW No Subscriptions ${Date.now()}`;
   await signInAsAdmin(page);
   await createRole(page, {
     name: roleName,
     permissions: [{ area: "Information types", action: "View" }],
   });
-  const email = await addMember(page, { name: "No Integrations", roles: [roleName] });
+  const email = await addMember(page, { name: "No Subscriptions", roles: [roleName] });
 
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);
 
-  // The information types list counts how many integrations use each type, which needs the
-  // integrations list this role can't read. The count is what's expendable, not the page.
+  // The information types list counts how many subscriptions use each type, which needs the
+  // subscriptions list this role can't read. The count is what's expendable, not the page.
   await page.goto("information-types");
   await expect(page.getByText("You don't have access to this page")).toHaveCount(0);
   await expect(page.getByRole("table")).toBeVisible();

@@ -11,9 +11,9 @@ import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { BackLink } from "../../components/ui/BackLink";
 import {
-  INTEGRATION_TYPE_LABELS,
-  IntegrationMiniList,
-  useIntegrationsCache,
+  SUBSCRIPTION_TYPE_LABELS,
+  SubscriptionMiniList,
+  useSubscriptionsCache,
 } from "../../components/config/shared";
 
 export function GlobalValueSetPage() {
@@ -27,7 +27,7 @@ export function GlobalValueSetPage() {
     queryFn: () => api.getValueSet(id),
     retry: false,
   });
-  const integrations = useIntegrationsCache();
+  const subscriptions = useSubscriptionsCache();
 
   const [name, setName] = useState("");
   const [rows, setRows] = useState<KvRow[] | null>(null);
@@ -107,13 +107,13 @@ export function GlobalValueSetPage() {
               emptyText="No values yet."
               rowDetails={(row) => {
                 if (!row.key.trim()) return null;
-                const users = (integrations.data ?? []).filter((setup) =>
+                const users = (subscriptions.data ?? []).filter((setup) =>
                   referencesGlobal(setup, id, row.key.trim()),
                 );
                 return (
-                  <IntegrationMiniList
+                  <SubscriptionMiniList
                     items={users}
-                    emptyText="Not referenced by any integration — safe to change or remove."
+                    emptyText="Not referenced by any subscription — safe to change or remove."
                   />
                 );
               }}
@@ -124,28 +124,28 @@ export function GlobalValueSetPage() {
         <div className="min-w-0">
           <Panel
             title="Used by"
-            description="Integrations whose adapters reference this set."
+            description="Subscriptions whose adapters reference this set."
           >
             <MiniTable
               rows={s.usedBy}
-              rowKey={(u) => u.integrationSetup.id}
+              rowKey={(u) => u.subscriptionSetup.id}
               empty="Not referenced anywhere yet — safe to delete."
               columns={[
                 {
-                  header: "Integration",
+                  header: "Subscription",
                   truncate: true,
                   cell: (u) => (
                     <Link
-                      to={`/subscriptions/${u.integrationSetup.id}`}
+                      to={`/subscriptions/${u.subscriptionSetup.id}`}
                       className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                     >
-                      {u.integrationSetup.name}
+                      {u.subscriptionSetup.name}
                     </Link>
                   ),
                 },
                 {
                   header: "Type",
-                  cell: (u) => <Badge>{INTEGRATION_TYPE_LABELS[u.integrationSetup.type]}</Badge>,
+                  cell: (u) => <Badge>{SUBSCRIPTION_TYPE_LABELS[u.subscriptionSetup.type]}</Badge>,
                 },
                 {
                   header: "References",
@@ -180,7 +180,7 @@ export function GlobalValueSetPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and all its values will
-              be gone for good. Sets still referenced by integrations can't be deleted.
+              be gone for good. Sets still referenced by subscriptions can't be deleted.
             </>
           }
           confirmLabel="Delete value set"

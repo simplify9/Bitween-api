@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ChevronDown, RotateCcw } from "lucide-react";
 import { api } from "../../api";
 import { useSessionCan } from "../../auth/guards";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 import { EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { FlowLegend, FlowMap } from "./FlowMap";
 import { buildFlowGraph } from "./model";
@@ -25,7 +25,7 @@ export function FlowPage() {
   const canSeeApi = useSessionCan("api-gateways.view");
   const canSeeBus = useSessionCan("bus-gateways.view");
 
-  const integrations = useIntegrationsCache();
+  const subscriptions = useSubscriptionsCache();
   const informationTypes = useQuery({
     queryKey: ["information-types"],
     queryFn: () => api.listInformationTypes(),
@@ -47,9 +47,9 @@ export function FlowPage() {
         apiGateways: apiGateways.data ?? [],
         busGateways: busGateways.data ?? [],
         informationTypes: informationTypes.data ?? [],
-        integrations: integrations.data ?? [],
+        subscriptions: subscriptions.data ?? [],
       }),
-    [apiGateways.data, busGateways.data, informationTypes.data, integrations.data],
+    [apiGateways.data, busGateways.data, informationTypes.data, subscriptions.data],
   );
 
   // Laid out here rather than inside the map: the page's own loop banner needs to
@@ -57,7 +57,7 @@ export function FlowPage() {
   const layout = useMemo(() => layoutFlow(graph), [graph]);
 
   const pending =
-    integrations.isPending ||
+    subscriptions.isPending ||
     informationTypes.isPending ||
     (canSeeApi && apiGateways.isPending) ||
     (canSeeBus && busGateways.isPending);

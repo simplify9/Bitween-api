@@ -37,7 +37,7 @@ function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
         <Field
           label="Name"
           htmlFor="nn-name"
-          hint="Triggers, channel and watched integrations are set on the notifier's page."
+          hint="Triggers, channel and watched subscriptions are set on the notifier's page."
         >
           <TextInput
             id="nn-name"
@@ -97,18 +97,18 @@ export function NotifiersPage() {
     <div>
       <PageHeader
         title="Notifiers"
-        description="Alerts sent to your team when watched integrations fail — or succeed."
+        description="Alerts sent to your team when watched subscriptions fail — or succeed."
         help={{
           title: "How notifiers work",
           body: (
             <>
               <p>
-                A notifier <strong>watches</strong> a set of integrations. Whenever one of them
+                A notifier <strong>watches</strong> a set of subscriptions. Whenever one of them
                 finishes an exchange with an outcome the notifier cares about — failed, bad result
                 or success — a notification goes out through its channel (email, Teams, …).
               </p>
               <p>
-                A notifier that watches no integrations never sends anything. Every delivery
+                A notifier that watches no subscriptions never sends anything. Every delivery
                 attempt is recorded on the notifier's page.
               </p>
             </>
@@ -139,7 +139,7 @@ export function NotifiersPage() {
         <LoadingBlock label="Loading notifiers…" />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<BellRing />} title={q ? "No notifiers match" : "No notifiers yet"}>
-          {q ? "Try a different search." : "Create a notifier to get alerted when integrations fail."}
+          {q ? "Try a different search." : "Create a notifier to get alerted when subscriptions fail."}
         </EmptyState>
       ) : (
         <Table
@@ -174,9 +174,9 @@ export function NotifiersPage() {
             {
               header: "Watches",
               cell: (n) =>
-                n.integrationIds.length > 0 ? (
+                n.subscriptionIds.length > 0 ? (
                   <span className="text-ink-600">
-                    {n.integrationIds.length} integration{n.integrationIds.length === 1 ? "" : "s"}
+                    {n.subscriptionIds.length} subscription{n.subscriptionIds.length === 1 ? "" : "s"}
                   </span>
                 ) : (
                   <span className="text-warn-700">Nothing — never fires</span>

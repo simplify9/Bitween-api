@@ -8,24 +8,24 @@ import { ConfirmDialog } from "../../../components/ui/overlays";
 import { timeAgo } from "../../../lib/dates";
 
 /**
- * This integration's own retry budgets, asked for from its side rather than its policy's.
+ * This subscription's own retry budgets, asked for from its side rather than its policy's.
  *
- * Two reasons it is not enough to read this on the retry policy page. An integration can carry
+ * Two reasons it is not enough to read this on the retry policy page. A subscription can carry
  * rules inline instead of a shared policy — those have no policy id, so no policy page reaches
  * their counters, and one could sit stopped for good with nothing on screen able to say why or
  * hand it back. And even with a shared policy, "why has this stopped retrying?" gets asked
- * here, where the integration is, not on a page listing every integration that shares its rules.
+ * here, where the subscription is, not on a page listing every subscription that shares its rules.
  *
- * Silent until it has something to report: an integration that has never failed does not need
+ * Silent until it has something to report: a subscription that has never failed does not need
  * to be told it has spent none of its budget.
  */
-export function RetryBudget({ integrationId, canEdit }: { integrationId: number; canEdit: boolean }) {
+export function RetryBudget({ subscriptionId, canEdit }: { subscriptionId: number; canEdit: boolean }) {
   const queryClient = useQueryClient();
   const [resetting, setResetting] = useState(false);
 
   const usage = useQuery({
-    queryKey: ["retry-usage", "integration", integrationId],
-    queryFn: () => api.getIntegrationRetryUsage(integrationId),
+    queryKey: ["retry-usage", "subscription", subscriptionId],
+    queryFn: () => api.getSubscriptionRetryUsage(subscriptionId),
   });
 
   const rows = (usage.data ?? []).filter((r) => r.used > 0);
@@ -51,7 +51,7 @@ export function RetryBudget({ integrationId, canEdit }: { integrationId: number;
               <strong className="font-medium">Retries have stopped.</strong>{" "}
               {stopped.map((r) => r.groupName).join(", ")} used up{" "}
               {stopped.length === 1 ? "its budget" : "their budgets"} — failures are no longer
-              retried automatically until the budget is reset, or this integration succeeds again.
+              retried automatically until the budget is reset, or this subscription succeeds again.
             </>
           ) : (
             <>
@@ -66,7 +66,7 @@ export function RetryBudget({ integrationId, canEdit }: { integrationId: number;
             <span className="text-[13px]">Nobody was alerted.</span>
           )}
           <Link
-            to={`/exchanges?integrationId=${integrationId}&status=failed`}
+            to={`/exchanges?subscriptionId=${subscriptionId}&status=failed`}
             className="font-medium text-crimson-700 hover:underline"
           >
             See failures
@@ -81,7 +81,7 @@ export function RetryBudget({ integrationId, canEdit }: { integrationId: number;
 
       {resetting && (
         <ConfirmDialog
-          title="Reset this integration's retry budgets?"
+          title="Reset this subscription's retry budgets?"
           body={
             <>
               Retries resume immediately for {stopped.map((r) => r.groupName).join(", ")}. If
@@ -90,8 +90,8 @@ export function RetryBudget({ integrationId, canEdit }: { integrationId: number;
           }
           confirmLabel="Reset budgets"
           onConfirm={async () => {
-            // No group id: every group of this integration, which is what the banner reports on.
-            await api.resetIntegrationRetryUsage(integrationId);
+            // No group id: every group of this subscription, which is what the banner reports on.
+            await api.resetSubscriptionRetryUsage(subscriptionId);
             await queryClient.invalidateQueries({ queryKey: ["retry-usage"] });
           }}
           onClose={() => setResetting(false)}

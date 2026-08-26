@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   api,
   type ExchangeRef,
-  type IntegrationInfo,
-  type IntegrationRow,
-  type IntegrationSetupRef,
-  type IntegrationType,
+  type SubscriptionInfo,
+  type SubscriptionRow,
+  type SubscriptionSetupRef,
+  type SubscriptionType,
   type QueueSeverity,
   type ScheduleHealth,
   type TrailEntry,
@@ -19,13 +19,13 @@ import { MiniTable, type Column } from "../ui/Table";
 import { formatDate, timeAgo } from "../../lib/dates";
 
 /**
- * Display names for integration types; Internal and ApiCall are legacy.
+ * Display names for subscription types; Internal and ApiCall are legacy.
  *
  * `Receiving` reads "Scheduled job", not the backend's "Receiver" — it is the
  * same thing the sidebar and its own page call a scheduled job, and one entity
  * with two names in the same screen is just a puzzle for the reader.
  */
-export const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
+export const SUBSCRIPTION_TYPE_LABELS: Record<SubscriptionType, string> = {
   Receiving: "Scheduled job",
   GatewayApiCall: "API gateway",
   BusGateway: "Bus gateway",
@@ -34,20 +34,20 @@ export const INTEGRATION_TYPE_LABELS: Record<IntegrationType, string> = {
   Aggregation: "Aggregation",
 };
 
-export const isLegacyType = (type: IntegrationType) =>
+export const isLegacyType = (type: SubscriptionType) =>
   type === "Internal" || type === "ApiCall";
 
-export function TypeBadge({ type }: { type: IntegrationType }) {
+export function TypeBadge({ type }: { type: SubscriptionType }) {
   return (
     <span className="inline-flex items-center gap-1">
-      <Badge>{INTEGRATION_TYPE_LABELS[type]}</Badge>
+      <Badge>{SUBSCRIPTION_TYPE_LABELS[type]}</Badge>
       {isLegacyType(type) && <Badge tone="warn">Legacy</Badge>}
     </span>
   );
 }
 
-/** Enabled/paused pair — an integration can be both enabled and paused. */
-export function IntegrationStatusBadges({
+/** Enabled/paused pair — a subscription can be both enabled and paused. */
+export function SubscriptionStatusBadges({
   enabled,
   paused,
 }: {
@@ -75,7 +75,7 @@ export function IntegrationStatusBadges({
 
 /**
  * A fault the scheduler itself reports, which contradicts whatever the
- * integration's own badges say — "Active" with no trigger behind it is still a
+ * subscription's own badges say — "Active" with no trigger behind it is still a
  * job that never runs. Shared by the scheduled-jobs table and the pipeline rail
  * so the two can't drift apart.
  */
@@ -112,7 +112,7 @@ export function scheduleFault(
         label: "Trigger paused",
         tone: "warn",
         title:
-          "Paused inside the scheduler — this is not the integration's own pause.",
+          "Paused inside the scheduler — this is not the subscription's own pause.",
       };
     case "Blocked":
       return {
@@ -250,7 +250,7 @@ export function PromotedProps({
 }
 
 /**
- * Recent exchanges for one partner / information type / integration.
+ * Recent exchanges for one partner / information type / subscription.
  *
  * Leads with the promoted properties, because they are the only column that says
  * what the exchange *was*. The id led before and answered the question nobody
@@ -350,16 +350,16 @@ export function ExchangesList({
   );
 }
 
-/** Integrations referencing this entity, each linking to its page. */
-export function SetupList({ items }: { items: IntegrationSetupRef[] }) {
+/** Subscriptions referencing this entity, each linking to its page. */
+export function SetupList({ items }: { items: SubscriptionSetupRef[] }) {
   return (
     <MiniTable
       rows={items}
       rowKey={(s) => s.id}
-      empty="Not used by any integration."
+      empty="Not used by any subscription."
       columns={[
         {
-          header: "Integration",
+          header: "Subscription",
           truncate: true,
           cell: (s) => (
             <Link
@@ -381,28 +381,28 @@ export function SetupList({ items }: { items: IntegrationSetupRef[] }) {
 }
 
 /**
- * All integrations, cached hard — pages use it to answer "who uses this
+ * All subscriptions, cached hard — pages use it to answer "who uses this
  * property/value/policy?" without extra requests.
  */
-export function useIntegrationsCache() {
+export function useSubscriptionsCache() {
   return useQuery({
-    queryKey: ["integrations"],
-    queryFn: () => api.listIntegrations(),
+    queryKey: ["subscriptions"],
+    queryFn: () => api.listSubscriptions(),
     staleTime: Infinity,
   });
 }
 
 /**
- * Which integrations each partner is reached through, keyed by partner id.
+ * Which subscriptions each partner is reached through, keyed by partner id.
  *
  * A subscription's own `partnerId` only covers the legacy types. Everything
  * modern links a partner through a **gateway** — an API-gateway attachment or a
  * bus route — so those have to be folded in or a partner that is plainly in use
  * shows up as unused. Both gateway lists are the same cache entries the
- * Integrations page fills, and each is gated on its own view permission.
+ * Subscriptions page fills, and each is gated on its own view permission.
  */
-export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
-  const integrations = useIntegrationsCache().data ?? [];
+export function usePartnerSubscriptions(): Map<number, SubscriptionInfo[]> {
+  const subscriptions = useSubscriptionsCache().data ?? [];
   const canSeeApi = useSessionCan("api-gateways.view");
   const canSeeBus = useSessionCan("bus-gateways.view");
   const apiGateways =
@@ -419,11 +419,11 @@ export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
     }).data ?? [];
 
   return useMemo(() => {
-    const byId = new Map(integrations.map((s) => [s.id, s]));
-    const out = new Map<number, IntegrationInfo[]>();
-    const add = (partnerId: number | null, integrationId: number) => {
+    const byId = new Map(subscriptions.map((s) => [s.id, s]));
+    const out = new Map<number, SubscriptionInfo[]>();
+    const add = (partnerId: number | null, subscriptionId: number) => {
       if (partnerId === null) return;
-      const setup = byId.get(integrationId);
+      const setup = byId.get(subscriptionId);
       if (!setup) return;
       const list = out.get(partnerId) ?? [];
       if (!list.some((x) => x.id === setup.id)) {
@@ -431,22 +431,22 @@ export function usePartnerIntegrations(): Map<number, IntegrationInfo[]> {
         out.set(partnerId, list);
       }
     };
-    for (const s of integrations)
+    for (const s of subscriptions)
       for (const pid of s.partnerIds) add(pid, s.id);
     for (const g of apiGateways)
-      for (const a of g.attachments) add(a.partnerId, a.integrationId);
+      for (const a of g.attachments) add(a.partnerId, a.subscriptionId);
     for (const g of busGateways)
-      for (const r of g.routes) add(r.partnerId, r.integrationId);
+      for (const r of g.routes) add(r.partnerId, r.subscriptionId);
     return out;
-  }, [integrations, apiGateways, busGateways]);
+  }, [subscriptions, apiGateways, busGateways]);
 }
 
 /**
- * The same wiring as `usePartnerIntegrations`, read the other way: partners
- * reached through a gateway, keyed by *integration* id.
+ * The same wiring as `usePartnerSubscriptions`, read the other way: partners
+ * reached through a gateway, keyed by *subscription* id.
  *
- * `IntegrationRow.partners` only carries a subscription's own `partnerId`, which
- * the modern types never have — without this, every gateway-fed integration
+ * `SubscriptionRow.partners` only carries a subscription's own `partnerId`, which
+ * the modern types never have — without this, every gateway-fed subscription
  * shows a dash where its partner should be.
  */
 export function useGatewayPartners(): Map<
@@ -471,33 +471,33 @@ export function useGatewayPartners(): Map<
   return useMemo(() => {
     const out = new Map<number, { id: number; name: string }[]>();
     const add = (
-      integrationId: number,
+      subscriptionId: number,
       partnerId: number | null,
       partnerName: string | null,
     ) => {
       if (partnerId === null || partnerName === null) return;
-      const list = out.get(integrationId) ?? [];
+      const list = out.get(subscriptionId) ?? [];
       if (!list.some((p) => p.id === partnerId)) {
         list.push({ id: partnerId, name: partnerName });
-        out.set(integrationId, list);
+        out.set(subscriptionId, list);
       }
     };
     for (const g of apiGateways)
       for (const a of g.attachments)
-        add(a.integrationId, a.partnerId, a.partnerName);
+        add(a.subscriptionId, a.partnerId, a.partnerName);
     for (const g of busGateways)
       for (const r of g.routes)
-        add(r.integrationId, r.partnerId, r.partnerName);
+        add(r.subscriptionId, r.partnerId, r.partnerName);
     return out;
   }, [apiGateways, busGateways]);
 }
 
-/** Live status for every integration, keyed by id — shared by the gateway pages. */
-export function useIntegrationRowsById(): Map<number, IntegrationRow> {
+/** Live status for every subscription, keyed by id — shared by the gateway pages. */
+export function useSubscriptionRowsById(): Map<number, SubscriptionRow> {
   const rows =
     useQuery({
-      queryKey: ["integration-rows"],
-      queryFn: () => api.listIntegrationRows(),
+      queryKey: ["subscription-rows"],
+      queryFn: () => api.listSubscriptionRows(),
     }).data ?? [];
   return useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 }
@@ -538,28 +538,28 @@ export function WiredHealthBadge({
   rows,
   empty,
 }: {
-  rows: IntegrationRow[];
+  rows: SubscriptionRow[];
   empty: string;
 }) {
   if (rows.length === 0) return <Badge tone="warn" title={empty}>{empty}</Badge>;
   const failing = rows.filter((r) => r.consecutiveFailures > 0).length;
   if (failing > 0)
     return (
-      <Badge tone="danger" title="At least one integration behind this gateway has failing runs.">
+      <Badge tone="danger" title="At least one subscription behind this gateway has failing runs.">
         {failing} failing
       </Badge>
     );
   const paused = rows.filter((r) => r.paused).length;
   if (paused > 0)
     return (
-      <Badge tone="warn" title="At least one integration behind this gateway is paused.">
+      <Badge tone="warn" title="At least one subscription behind this gateway is paused.">
         {paused} paused
       </Badge>
     );
   const disabled = rows.filter((r) => !r.enabled).length;
   if (disabled > 0)
     return (
-      <Badge title="At least one integration behind this gateway is disabled.">{disabled} disabled</Badge>
+      <Badge title="At least one subscription behind this gateway is disabled.">{disabled} disabled</Badge>
     );
   return (
     <Badge tone="ok" title="Worst case across everything behind this gateway: none failing, paused or disabled.">
@@ -572,21 +572,21 @@ export function WiredHealthBadge({
  * The columns describing the pipeline behind one gateway attachment or route.
  *
  * These tables are the only 1:1 place in the gateway story — one row is exactly
- * one partner and one integration — so this is where its configuration can be
+ * one partner and one subscription — so this is where its configuration can be
  * stated in separate columns without the reader having to guess which value
  * pairs with which. The parent list can't do it: two parallel lists in a row
  * lose their pairing, which is why the gateway tables carry only aggregates.
  *
- * Everything here comes from caches the app already holds, keyed by integration
+ * Everything here comes from caches the app already holds, keyed by subscription
  * id; the gateway endpoints know none of it.
  */
-export function useWiredIntegrationColumns<T>(
-  integrationIdOf: (row: T) => number,
+export function useWiredSubscriptionColumns<T>(
+  subscriptionIdOf: (row: T) => number,
   /** Off where the parent already fixes it — a bus gateway listens for one type. */
   { informationType = true }: { informationType?: boolean } = {},
 ): Column<T>[] {
-  const rowsById = useIntegrationRowsById();
-  const setups = useIntegrationsCache().data ?? [];
+  const rowsById = useSubscriptionRowsById();
+  const setups = useSubscriptionsCache().data ?? [];
   const setupById = useMemo(
     () => new Map(setups.map((s) => [s.id, s])),
     [setups],
@@ -601,7 +601,7 @@ export function useWiredIntegrationColumns<T>(
     columns.push({
       header: "Information type",
       cell: (row) => {
-        const r = rowsById.get(integrationIdOf(row));
+        const r = rowsById.get(subscriptionIdOf(row));
         if (!r) return <span className="text-ink-400">—</span>;
         return canSeeInfoTypes ? (
           <Link
@@ -622,11 +622,11 @@ export function useWiredIntegrationColumns<T>(
     {
       header: "Work group",
       cell: (row) => {
-        const id = setupById.get(integrationIdOf(row))?.workGroupId ?? null;
+        const id = setupById.get(subscriptionIdOf(row))?.workGroupId ?? null;
         // "Ungrouped", not "Default": a null WorkGroupId isn't the absence of a
         // lane, it's `WorkGroup.None` — a real shared queue (`0Ungrouped`) that
-        // every ungrouped integration competes in. Matches the wording the
-        // integration page's work-group picker already uses.
+        // every ungrouped subscription competes in. Matches the wording the
+        // subscription page's work-group picker already uses.
         if (id === null)
           return <span className="text-[13px] text-ink-400">Ungrouped</span>;
         const name = workGroupNames.get(id);
@@ -645,7 +645,7 @@ export function useWiredIntegrationColumns<T>(
     {
       header: "Retry policy",
       cell: (row) => {
-        const id = setupById.get(integrationIdOf(row))?.retryPolicyId ?? null;
+        const id = setupById.get(subscriptionIdOf(row))?.retryPolicyId ?? null;
         if (id === null)
           return <span className="text-[13px] text-ink-400">None</span>;
         const name = retryPolicyNames.get(id);
@@ -664,11 +664,11 @@ export function useWiredIntegrationColumns<T>(
     {
       header: "Status",
       cell: (row) => {
-        const r = rowsById.get(integrationIdOf(row));
+        const r = rowsById.get(subscriptionIdOf(row));
         if (!r) return <span className="text-ink-400">—</span>;
         return (
           <span className="inline-flex items-center gap-1">
-            <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
+            <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
             <HealthBadge
               isRunning={r.isRunning}
               consecutiveFailures={r.consecutiveFailures}
@@ -683,7 +683,7 @@ export function useWiredIntegrationColumns<T>(
       // unbounded stack trace would push everything else out of the panel.
       className: "max-w-48 overflow-hidden",
       cell: (row) => {
-        const message = rowsById.get(integrationIdOf(row))?.lastException;
+        const message = rowsById.get(subscriptionIdOf(row))?.lastException;
         return message ? (
           <span
             className="block truncate font-mono text-[11px] text-danger-700"
@@ -724,7 +724,7 @@ export function LinkListCell({
   label,
 }: {
   items: CellLink[];
-  /** Plural noun for the popover heading, e.g. "integrations". */
+  /** Plural noun for the popover heading, e.g. "subscriptions". */
   label: string;
 }) {
   if (items.length === 0) return <span className="text-ink-400">—</span>;
@@ -785,16 +785,16 @@ export function LinkListCell({
   );
 }
 
-/** `LinkListCell` for the commonest case: the integrations using something. */
-export function UsedByCell({ items }: { items: IntegrationInfo[] }) {
+/** `LinkListCell` for the commonest case: the subscriptions using something. */
+export function UsedByCell({ items }: { items: SubscriptionInfo[] }) {
   return (
     <LinkListCell
-      label="integrations"
+      label="subscriptions"
       items={items.map((s) => ({
         key: s.id,
         name: s.name,
         href: `/subscriptions/${s.id}`,
-        note: <Badge>{INTEGRATION_TYPE_LABELS[s.type]}</Badge>,
+        note: <Badge>{SUBSCRIPTION_TYPE_LABELS[s.type]}</Badge>,
       }))}
     />
   );
@@ -842,12 +842,12 @@ export function TrailTable({ entries }: { entries: TrailEntry[] }) {
   );
 }
 
-/** Integrations referencing one particular key or value, with their type. */
-export function IntegrationMiniList({
+/** Subscriptions referencing one particular key or value, with their type. */
+export function SubscriptionMiniList({
   items,
   emptyText,
 }: {
-  items: IntegrationInfo[];
+  items: SubscriptionInfo[];
   emptyText: string;
 }) {
   return (
@@ -857,7 +857,7 @@ export function IntegrationMiniList({
       empty={emptyText}
       columns={[
         {
-          header: "Integration",
+          header: "Subscription",
           truncate: true,
           cell: (s) => (
             <Link
@@ -871,7 +871,7 @@ export function IntegrationMiniList({
         {
           header: "Type",
           align: "right",
-          cell: (s) => <Badge>{INTEGRATION_TYPE_LABELS[s.type]}</Badge>,
+          cell: (s) => <Badge>{SUBSCRIPTION_TYPE_LABELS[s.type]}</Badge>,
         },
       ]}
     />
