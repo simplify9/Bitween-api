@@ -13,15 +13,22 @@ namespace SW.Bitween.Resources.Adapters
     {
         private readonly IServerlessService serverless;
         private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
+        private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
 
-        public GetProperties(IServerlessService serverless, NativeAdapterDiscoveryService nativeAdapterDiscovery)
+        public GetProperties(IServerlessService serverless, NativeAdapterDiscoveryService nativeAdapterDiscovery,
+            BitweenDbContext dbContext, RequestContext requestContext)
         {
             this.serverless = serverless;
             _nativeAdapterDiscovery = nativeAdapterDiscovery;
+            this.dbContext = dbContext;
+            this.requestContext = requestContext;
         }
 
         async public Task<object> Handle(string key)
         {
+            await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+
             var decodedKey = Uri.UnescapeDataString(key);
             
             // Check if it's a native adapter

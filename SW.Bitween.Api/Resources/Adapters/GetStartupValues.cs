@@ -13,17 +13,24 @@ namespace SW.Bitween.Resources.Adapters
     {
         private readonly IServerlessService serverless;
         private readonly NativeAdapterDiscoveryService _nativeAdapterDiscovery;
+        private readonly BitweenDbContext dbContext;
+        private readonly RequestContext requestContext;
 
-        public GetStartupValues(IServerlessService serverless, NativeAdapterDiscoveryService nativeAdapterDiscovery)
+        public GetStartupValues(IServerlessService serverless, NativeAdapterDiscoveryService nativeAdapterDiscovery,
+            BitweenDbContext dbContext, RequestContext requestContext)
         {
             this.serverless = serverless;
             _nativeAdapterDiscovery = nativeAdapterDiscovery;
+            this.dbContext = dbContext;
+            this.requestContext = requestContext;
         }
 
-        
+
 
         public async Task<IDictionary<string, StartupValue>> Handle(string key)
         {
+            await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+
             var decodedKey = Uri.UnescapeDataString(key);
 
             IDictionary<string, StartupValue> startupValues = new Dictionary<string, StartupValue>();
