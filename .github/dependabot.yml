@@ -1,11 +1,11 @@
 # Dependabot config for .NET / NuGet API repos.
-# releases/r8.0 is replaced by the rollout script with `develop` (if the
+# releases/r10.0 is replaced by the rollout script with `develop` (if the
 # repo has that branch) or the repo's actual default branch otherwise.
 version: 2
 updates:
   - package-ecosystem: "nuget"
     directory: "/"
-    target-branch: "releases/r8.0"
+    target-branch: "releases/r10.0"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -28,7 +28,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/"
-    target-branch: "releases/r8.0"
+    target-branch: "releases/r10.0"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -46,7 +46,7 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "releases/r8.0"
+    target-branch: "releases/r10.0"
     schedule:
       interval: "weekly"
       day: "monday"
