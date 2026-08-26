@@ -39,8 +39,11 @@
 
   --color-canvas: #faf8f7;
 
+  --color-ok-800: #145c39;
   --color-ok-600: #1a7f4e;
+  --color-ok-200: #b8e6ce;
   --color-ok-100: #d9f2e5;
+  --color-ok-50: #f0faf5;
   /*
     Warn reads YELLOW, not brown. The old pair was a tan fill (#fbeed0) with an
     olive text (#92600a), and since a badge takes its perceived colour from the
@@ -53,6 +56,7 @@
   */
   --color-warn-700: #a16207;
   --color-warn-400: #eab308;
+  --color-warn-300: #f5d949;
   --color-warn-100: #fef7c3;
 
   /*
