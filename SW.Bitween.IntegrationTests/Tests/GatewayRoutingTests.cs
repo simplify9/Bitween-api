@@ -43,7 +43,7 @@ public class GatewayRoutingTests
     /// </summary>
     private static async Task<int> OrdersDocument(BitweenDbContext db, string name)
     {
-        var doc = new Document(0, Unique(name), DocumentFormat.Json);
+        var doc = new Document(null, Unique(name), DocumentFormat.Json);
         doc.SetDictionaries(new Dictionary<string, string>
         {
             ["country"] = "country",

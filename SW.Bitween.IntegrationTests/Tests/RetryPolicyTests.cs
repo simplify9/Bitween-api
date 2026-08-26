@@ -197,8 +197,9 @@ public class RetryPolicyTests
         var ctx = scope.Superuser();
         var (create, _, _, delete) = Handlers(db, ctx, Secrets(scope));
 
-        var doc = new Document(7001, "Delete Guard Doc");
+        var doc = new Document(null, "Delete Guard Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Delete Guard Sub", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
@@ -249,8 +250,9 @@ public class RetryPolicyTests
         var ctx = scope.Superuser();
         var (create, _, _, _) = Handlers(db, ctx, Secrets(scope));
 
-        var doc = new Document(7002, "Sub FK Doc");
+        var doc = new Document(null, "Sub FK Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Sub with Policy", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
@@ -277,8 +279,9 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7003, "Sub Custom Policy Doc");
+        var doc = new Document(null, "Sub Custom Policy Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Sub with Custom Policy", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
@@ -320,8 +323,9 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7004, "Sub SetNull Doc");
+        var doc = new Document(null, "Sub SetNull Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Sub SetNull Test", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
@@ -349,8 +353,9 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7005, "Shared Total Doc");
+        var doc = new Document(null, "Shared Total Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Shared Total Sub", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
@@ -396,8 +401,9 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7006, "Per Integration Doc");
+        var doc = new Document(null, "Per Integration Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var subA = new Subscription("Per Integration Sub A", doc.Id);
         var subB = new Subscription("Per Integration Sub B", doc.Id);
         db.Set<Subscription>().AddRange(subA, subB);
@@ -441,8 +447,9 @@ public class RetryPolicyTests
         await using var setup = _fixture.CreateScope();
         var setupDb = setup.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7010, "Concurrent Budget Doc");
+        var doc = new Document(null, "Concurrent Budget Doc", DocumentFormat.Json);
         setupDb.Set<Document>().Add(doc);
+        await setupDb.SaveChangesAsync();
         var sub = new Subscription("Concurrent Budget Sub", doc.Id);
         setupDb.Set<Subscription>().Add(sub);
         await setupDb.SaveChangesAsync();
@@ -480,7 +487,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7007, "Usage Doc");
+        var doc = new Document(null, "Usage Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -532,7 +539,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7011, "Never Failed Doc");
+        var doc = new Document(null, "Never Failed Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -582,7 +589,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7008, "Reset Scope Doc");
+        var doc = new Document(null, "Reset Scope Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -617,7 +624,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7009, "Removed Group Doc");
+        var doc = new Document(null, "Removed Group Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -655,7 +662,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7012, "Attempts Doc");
+        var doc = new Document(null, "Attempts Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -725,7 +732,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7013, "Attempts Scope Doc");
+        var doc = new Document(null, "Attempts Scope Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -828,7 +835,7 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7101, "Alert Claim Doc");
+        var doc = new Document(null, "Alert Claim Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -868,7 +875,7 @@ public class RetryPolicyTests
         await using var setupScope = _fixture.CreateScope();
         var setupDb = setupScope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7102, "Alert Race Doc");
+        var doc = new Document(null, "Alert Race Doc", DocumentFormat.Json);
         setupDb.Set<Document>().Add(doc);
         await setupDb.SaveChangesAsync();
 
@@ -906,7 +913,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7103, "Alert Rearm Doc");
+        var doc = new Document(null, "Alert Rearm Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -970,7 +977,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7015, "Inline Policy Doc");
+        var doc = new Document(null, "Inline Policy Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -1112,7 +1119,7 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var ctx = scope.Superuser();
 
-        var doc = new Document(7014, "Copied Secret Doc");
+        var doc = new Document(null, "Copied Secret Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -1209,7 +1216,7 @@ public class RetryPolicyTests
 
         const string failure = "manual retry budget probe failed";
 
-        var doc = new Document(7031, "Manual Retry Doc");
+        var doc = new Document(null, "Manual Retry Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -1322,8 +1329,9 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
-        var doc = new Document(7032, "Recovery Doc");
+        var doc = new Document(null, "Recovery Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Recovery Sub", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
@@ -1401,8 +1409,9 @@ public class RetryPolicyTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
-        var doc = new Document(7033, "Partly Spent Doc");
+        var doc = new Document(null, "Partly Spent Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Partly Spent Sub", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();
@@ -1460,8 +1469,9 @@ public class RetryPolicyTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var doc = new Document(7034, "Watermark Doc");
+        var doc = new Document(null, "Watermark Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
         var sub = new Subscription("Watermark Sub", doc.Id);
         db.Set<Subscription>().Add(sub);
         await db.SaveChangesAsync();

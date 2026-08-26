@@ -29,8 +29,9 @@ public class ReceivingTests
         var job = scope.ServiceProvider.GetRequiredService<ReceivingJob>();
         var cache = _fixture.App.Services.GetRequiredService<IInfolinkCache>();
 
-        var document = new Document(6001, "Receiving Test Doc");
+        var document = new Document(null, "Receiving Test Doc", DocumentFormat.Json);
         db.Set<Document>().Add(document);
+        await db.SaveChangesAsync();
 
         // NativeTestReceiver is matched by class name, which starts with "Native" (case-insensitive "native" prefix)
         var subscription = new Subscription("Receive Test", document.Id);
@@ -57,8 +58,9 @@ public class ReceivingTests
         var job = scope.ServiceProvider.GetRequiredService<ReceivingJob>();
         var cache = _fixture.App.Services.GetRequiredService<IInfolinkCache>();
 
-        var document = new Document(6006, "Receiving Attempt Doc");
+        var document = new Document(null, "Receiving Attempt Doc", DocumentFormat.Json);
         db.Set<Document>().Add(document);
+        await db.SaveChangesAsync();
 
         var subscription = new Subscription("Receive Attempt Test", document.Id);
         subscription.ReceiverId = nameof(NativeTestReceiver);
@@ -93,8 +95,9 @@ public class ReceivingTests
         var job = scope.ServiceProvider.GetRequiredService<ReceivingJob>();
         var cache = _fixture.App.Services.GetRequiredService<IInfolinkCache>();
 
-        var document = new Document(6007, "Receiving Failure Doc");
+        var document = new Document(null, "Receiving Failure Doc", DocumentFormat.Json);
         db.Set<Document>().Add(document);
+        await db.SaveChangesAsync();
 
         var subscription = new Subscription("Receive Failure Test", document.Id);
         subscription.ReceiverId = nameof(NativeFailingTestReceiver);
@@ -121,8 +124,9 @@ public class ReceivingTests
         var job = scope.ServiceProvider.GetRequiredService<ReceivingJob>();
         var cache = _fixture.App.Services.GetRequiredService<IInfolinkCache>();
 
-        var document = new Document(6008, "Receiving Empty Doc");
+        var document = new Document(null, "Receiving Empty Doc", DocumentFormat.Json);
         db.Set<Document>().Add(document);
+        await db.SaveChangesAsync();
 
         var subscription = new Subscription("Receive Empty Test", document.Id);
         subscription.ReceiverId = nameof(NativeEmptyTestReceiver);
@@ -148,8 +152,9 @@ public class ReceivingTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var job = scope.ServiceProvider.GetRequiredService<ReceivingJob>();
 
-        var document = new Document(6002, "Inactive Receiving Doc");
+        var document = new Document(null, "Inactive Receiving Doc", DocumentFormat.Json);
         db.Set<Document>().Add(document);
+        await db.SaveChangesAsync();
 
         var subscription = new Subscription("Inactive Receiver", document.Id);
         subscription.ReceiverId = nameof(NativeTestReceiver);

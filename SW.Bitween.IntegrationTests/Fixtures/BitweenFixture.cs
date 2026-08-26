@@ -33,6 +33,14 @@ namespace SW.Bitween.IntegrationTests.Fixtures;
 /// MailHog container, applies EF migrations, installs serverless adapters to local cloud storage,
 /// and builds a fully wired service provider.
 /// </summary>
+/// <remarks>
+/// Every test in the collection shares this one database, so entities must not be given hand-picked
+/// primary keys. Documents used to be created with literal ids chosen to be "high enough" to miss
+/// the seeded rows, which worked only for as long as no two test files happened to pick the same
+/// number — and when they eventually did, the pair passed in isolation and failed together, which
+/// reads as a broken test rather than a collision. Let the database assign ids: for a document that
+/// is <c>new Document(null, name, format)</c>, the constructor that exists for exactly this.
+/// </remarks>
 public sealed class BitweenFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder().Build();

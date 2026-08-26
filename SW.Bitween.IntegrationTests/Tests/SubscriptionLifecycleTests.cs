@@ -43,7 +43,7 @@ public class SubscriptionLifecycleTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var document = new Document(0, Unique("Lifecycle doc"));
+        var document = new Document(null, Unique("Lifecycle doc"), DocumentFormat.Json);
         db.Set<Document>().Add(document);
         var partner = new Partner(Unique("Lifecycle partner"));
         db.Set<Partner>().Add(partner);

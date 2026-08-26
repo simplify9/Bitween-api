@@ -59,7 +59,7 @@ public class ApiGatewayTests
 
         var partner = new Partner(Unique("Gateway partner"));
         db.Set<Partner>().Add(partner);
-        var document = new Document(0, Unique("Gateway doc"));
+        var document = new Document(null, Unique("Gateway doc"), DocumentFormat.Json);
         db.Set<Document>().Add(document);
         await db.SaveChangesAsync();
 

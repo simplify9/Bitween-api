@@ -82,7 +82,7 @@ public class RetryJobTests
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
         // Create an Xchange with no subscription (SubscriptionId remains null)
-        var doc = new Document(8003, "RetryJob Orphan Sub Doc");
+        var doc = new Document(null, "RetryJob Orphan Sub Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -124,7 +124,7 @@ public class RetryJobTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
-        var doc = new Document(8010, "RetryJob Missing Input Doc");
+        var doc = new Document(null, "RetryJob Missing Input Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -191,7 +191,7 @@ public class RetryJobTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
-        var doc = new Document(8012, "BulkRetry No Sub Doc");
+        var doc = new Document(null, "BulkRetry No Sub Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -226,7 +226,7 @@ public class RetryJobTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
-        var doc = new Document(8001, "RetryJob Due Doc");
+        var doc = new Document(null, "RetryJob Due Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
@@ -268,12 +268,11 @@ public class RetryJobTests
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
         // Create 3 subscriptions / xchanges
-        var docs = new[] { 8005, 8006, 8007 };
         var originalIds = new string[3];
 
         for (var i = 0; i < 3; i++)
         {
-            var doc = new Document(docs[i], $"RetryJob Batch Doc {i}");
+            var doc = new Document(null, $"RetryJob Batch Doc {i}", DocumentFormat.Json);
             db.Set<Document>().Add(doc);
             await db.SaveChangesAsync();
 

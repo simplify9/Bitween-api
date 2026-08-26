@@ -29,12 +29,11 @@ public class EntityTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        // Use high IDs to avoid PK conflicts with seeded data (AggregationDocumentId = 10001)
-        var document = new Document(5001, "Integration Test Doc");
+        var document = new Document(null, "Integration Test Doc", DocumentFormat.Json);
         db.Set<Document>().Add(document);
         await db.SaveChangesAsync();
 
-        var loaded = await db.Set<Document>().FirstOrDefaultAsync(d => d.Id == 5001);
+        var loaded = await db.Set<Document>().FirstOrDefaultAsync(d => d.Id == document.Id);
 
         Assert.NotNull(loaded);
         Assert.Equal("Integration Test Doc", loaded.Name);
@@ -66,7 +65,7 @@ public class EntityTests
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
         // Create a document for the subscription to reference
-        var document = new Document(5002, "Sub Test Doc");
+        var document = new Document(null, "Sub Test Doc", DocumentFormat.Json);
         db.Set<Document>().Add(document);
         await db.SaveChangesAsync();
 

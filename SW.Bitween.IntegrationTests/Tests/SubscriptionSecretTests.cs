@@ -44,7 +44,7 @@ public class SubscriptionSecretTests
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        var document = new Document(0, Unique("Secret doc"));
+        var document = new Document(null, Unique("Secret doc"), DocumentFormat.Json);
         db.Set<Document>().Add(document);
         var partner = new Partner(Unique("Secret partner"));
         db.Set<Partner>().Add(partner);

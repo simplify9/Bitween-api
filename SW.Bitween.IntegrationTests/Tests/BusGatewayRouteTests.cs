@@ -39,7 +39,7 @@ public class BusGatewayRouteTests
     {
         await using var scope = _fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var document = new Document(0, Unique("Bus doc"));
+        var document = new Document(null, Unique("Bus doc"), DocumentFormat.Json);
         db.Set<Document>().Add(document);
         await db.SaveChangesAsync();
         return document.Id;
