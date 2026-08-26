@@ -18,6 +18,7 @@ using SW.CloudFiles.Extensions;
 using SW.HttpExtensions;
 using SW.CloudFiles.LocalTests;
 using SW.PrimitiveTypes;
+using SW.Scheduler;
 using SW.Serverless;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -132,6 +133,11 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddSingleton<INativeInfolinkReceiver, NativeEmptyTestReceiver>();
                     services.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();
+
+                    // See RecordingScheduleRepository: the create/update handlers need a scheduler
+                    // to construct, and a real Quartz store would fire background jobs mid-test.
+                    services.AddSingleton<IScheduleRepository, RecordingScheduleRepository>();
+                    services.AddScoped<SubscriptionSchedulerService>();
 
                     services.AddSingleton<FilterService>();
                     services.AddScoped<NativeAdapterDiscoveryService>();
