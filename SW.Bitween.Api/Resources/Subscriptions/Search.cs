@@ -56,6 +56,11 @@ namespace SW.Bitween.Resources.Subscriptions
                     AggregationForId = subscriber.AggregationForId,
                     Temporary = subscriber.Temporary,
                     ReceiveOn = subscriber.ReceiveOn,
+                    // The next-fire time of the other scheduled type. Left out, an aggregation
+                    // row had no next run to show at all — ReceiveOn is only ever set for
+                    // Receiving, and the list page reads one field for both.
+                    AggregateOn = subscriber.AggregateOn,
+                    AggregationTarget = subscriber.AggregationTarget,
                     PausedOn = subscriber.PausedOn,
                     IsRunning = subscriber.IsRunning,
                     ConsecutiveFailures = subscriber.ConsecutiveFailures,

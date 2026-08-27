@@ -195,6 +195,17 @@ namespace SW.Bitween.Model
 
         public int? RetryPolicyId { get; set; }
         public CustomRetryPolicy CustomRetryPolicy { get; set; }
+
+        /// <summary>
+        /// Aggregation only: which file of each collected exchange the roll-up links to.
+        /// <para>
+        /// Here rather than on <see cref="SubscriptionUpdate"/>, where it used to live, because
+        /// it is a choice a person makes and not runtime state. On update alone it reached the
+        /// entity through the generic property copy, so create could not set it and every
+        /// aggregation started on <see cref="XchangeFileType.Input"/> whatever was wanted.
+        /// </para>
+        /// </summary>
+        public XchangeFileType AggregationTarget { get; set; }
     }
 
     /// <summary>
@@ -244,7 +255,6 @@ namespace SW.Bitween.Model
         public DateTime? AggregateOn { get; set; }
         public int ConsecutiveFailures { get; set; }
         public string LastException { get; set; }
-        public XchangeFileType AggregationTarget { get; set; }
         public DateTime? PausedOn { get; set; }
         public string CategoryCode { get; set; }
         public string CategoryDescription { get; set; }
