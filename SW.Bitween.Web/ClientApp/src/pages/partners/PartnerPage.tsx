@@ -8,7 +8,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
-import { ExchangesList, SetupList, usePartnerIntegrations } from "../../components/config/shared";
+import { ExchangesList, SetupList, usePartnerSubscriptions } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
 import {
   PartnerFields,
@@ -30,9 +30,9 @@ export function PartnerPage() {
     queryFn: () => api.getPartner(partnerId),
     retry: false,
   });
-  // Keyed by partner so gateway-linked integrations are included, not just the
+  // Keyed by partner so gateway-linked subscriptions are included, not just the
   // legacy ones that carry their own partnerId.
-  const partnerIntegrations = usePartnerIntegrations();
+  const partnerSubscriptions = usePartnerSubscriptions();
 
   const [draft, setDraft] = useState<PartnerDraft | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -139,10 +139,10 @@ export function PartnerPage() {
         <div className="min-w-0 space-y-5">
           <Panel title="Used by" description="Everything that references this partner.">
             <div className="space-y-4">
-              {/* Not p.integrationSetups: Partners/Get returns only the partner's
+              {/* Not p.subscriptionSetups: Partners/Get returns only the partner's
                   own subscriptions, so a partner reached through a gateway read
-                  "Not used by any integration" while the row below listed the route. */}
-              <SetupList items={partnerIntegrations.get(partnerId) ?? []} />
+                  "Not used by any subscription" while the row below listed the route. */}
+              <SetupList items={partnerSubscriptions.get(partnerId) ?? []} />
               {gatewayUses.length > 0 && (
                 <div className="border-t border-ink-100 pt-3">
                   <MiniTable

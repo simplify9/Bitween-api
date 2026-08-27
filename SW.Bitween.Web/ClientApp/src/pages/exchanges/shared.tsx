@@ -140,7 +140,7 @@ export function RetryDialog({
         </p>
         <Checkbox
           label="Re-resolve adapter properties"
-          description="Use the integration's current configuration instead of the values captured when the exchange first ran."
+          description="Use the subscription's current configuration instead of the values captured when the exchange first ran."
           checked={reset}
           onChange={(e) => setReset(e.target.checked)}
         />

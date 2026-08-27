@@ -10,7 +10,7 @@ import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
 
 function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -69,7 +69,7 @@ export function RetryPoliciesPage() {
     queryFn: () => api.searchRetryPolicies({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
 
   const setParam = (key: string, value: string | null, resetOffset = key === "q") =>
     setSearchParams(
@@ -101,7 +101,7 @@ export function RetryPoliciesPage() {
                 budget, or block retries entirely. If nothing matches, the exchange isn't retried.
               </p>
               <p>
-                Assign a policy to an integration to activate it. You can dry-run any policy against
+                Assign a policy to a subscription to activate it. You can dry-run any policy against
                 a sample error right on its page.
               </p>
             </>
@@ -158,7 +158,7 @@ export function RetryPoliciesPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (p) => <UsedByCell items={integrations.filter((s) => s.retryPolicyId === p.id)} />,
+              cell: (p) => <UsedByCell items={subscriptions.filter((s) => s.retryPolicyId === p.id)} />,
             },
           ]}
         />

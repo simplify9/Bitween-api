@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
  * These were all fixed `Link`s to a list page, which is only right when the list is
  * where you came from. `subscriptions/:id` is reached from Scheduled jobs, Exchanges,
  * an API gateway's page, the retry usage panel and three places on the dashboard — and
- * from every one of them "← Integrations" landed you somewhere you had never been.
+ * from every one of them "← Subscriptions" landed you somewhere you had never been.
  *
  * So it steps back when there is somewhere to step back to, and falls back to `to` when
  * there isn't: a pasted link, a new tab, a refresh. The label follows the behaviour

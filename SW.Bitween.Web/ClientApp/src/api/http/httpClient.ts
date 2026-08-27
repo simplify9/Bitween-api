@@ -6,7 +6,7 @@ import { documentMethods } from "./documents";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { globalValuesMethods } from "./globalValues";
-import { integrationMethods } from "./integrations";
+import { subscriptionMethods } from "./subscriptions";
 import { mapperMethods } from "./mappers";
 import { notifierMethods } from "./notifiers";
 import { partnerMethods } from "./partners";
@@ -30,7 +30,7 @@ const wired: Partial<ApiClient> = {
   ...globalValuesMethods,
   ...workGroupMethods,
   ...retryPolicyMethods,
-  ...integrationMethods,
+  ...subscriptionMethods,
   ...adapterMethods,
   ...gatewayMethods,
   ...exchangeMethods,

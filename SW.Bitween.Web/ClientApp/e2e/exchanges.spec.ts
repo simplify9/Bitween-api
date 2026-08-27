@@ -44,9 +44,9 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Retry" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15000 });
 
-  // Manually create an exchange addressed at an integration.
+  // Manually create an exchange addressed at a subscription.
   await page.goto("exchanges/new");
-  await page.getByRole("combobox", { name: "Pick an integration…" }).click();
+  await page.getByRole("combobox", { name: "Pick a subscription…" }).click();
   await page.getByRole("option", { name: "s3 test sub" }).click();
   // Dismiss the dropdown panel via an outside click (it sits above the panel's
   // anchor point, so it can't itself be covered) rather than Escape, which

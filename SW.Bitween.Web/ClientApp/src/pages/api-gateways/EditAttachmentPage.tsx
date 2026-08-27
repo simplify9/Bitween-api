@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { IntegrationPicker } from "../../components/config/pickers";
+import { SubscriptionPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
@@ -16,7 +16,7 @@ function useDraft<T extends object>(initial: T) {
 
 
 interface Draft {
-  integrationId: number | null;
+  subscriptionId: number | null;
 }
 
 /** Routed edit page for one gateway attachment — reached from the gateway's own page. */
@@ -34,25 +34,25 @@ export function EditAttachmentPage() {
   });
   const attachment = gateway.data?.attachments.find((a) => a.partnerId === pid);
 
-  const [draft, update, clear] = useDraft<Draft>({ integrationId: null },
+  const [draft, update, clear] = useDraft<Draft>({ subscriptionId: null },
   );
 
   // seed from the current attachment once it loads (skipped if a detour already picked something)
   useEffect(() => {
-    if (draft.integrationId === null && attachment) {
-      update({ integrationId: attachment.integrationId });
+    if (draft.subscriptionId === null && attachment) {
+      update({ subscriptionId: attachment.subscriptionId });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attachment]);
 
 
   const save = useMutation({
-    mutationFn: () => api.updateGatewayAttachment(gatewayId, { partnerId: pid, integrationId: draft.integrationId! }),
+    mutationFn: () => api.updateGatewayAttachment(gatewayId, { partnerId: pid, subscriptionId: draft.subscriptionId! }),
     onSuccess: () => {
       clear();
       void queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
       void queryClient.invalidateQueries({ queryKey: ["api-gateway-attachments-search"] });
-      void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
       navigate(`/api-gateways/${gatewayId}`);
     },
   });
@@ -74,17 +74,17 @@ export function EditAttachmentPage() {
       <BackLink to={`/api-gateways/${gatewayId}`} label={g.name} />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
-        Integration for {attachment.partnerName}
+        Subscription for {attachment.partnerName}
       </h1>
       <p className="mt-1 text-sm text-ink-500">
         What runs when {attachment.partnerName} calls {g.name}.
       </p>
 
       <div className="mt-6 max-w-2xl space-y-4 rounded-xl border border-ink-200 bg-white p-5">
-        <IntegrationPicker
+        <SubscriptionPicker
           type="GatewayApiCall"
-          value={draft.integrationId}
-          onChange={(integrationId) => update({ integrationId })}
+          value={draft.subscriptionId}
+          onChange={(subscriptionId) => update({ subscriptionId })}
         />
         <FormError>{save.error?.message}</FormError>
         <div className="flex justify-end gap-2 border-t border-ink-100 pt-4">
@@ -92,7 +92,7 @@ export function EditAttachmentPage() {
           <Button
             variant="primary"
             busy={save.isPending}
-            disabled={draft.integrationId === null}
+            disabled={draft.subscriptionId === null}
             onClick={() => save.mutate()}
           >
             Save

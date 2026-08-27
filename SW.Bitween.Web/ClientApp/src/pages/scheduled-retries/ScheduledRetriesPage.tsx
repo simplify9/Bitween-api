@@ -11,14 +11,14 @@ import { TextInput } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 import { formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { PromotedProps } from "../../components/config/shared";
 
 const PAGE_SIZE = 25;
 
 const readQuery = (sp: URLSearchParams): ScheduledRetryQuery => ({
-  integrationId: sp.get("integrationId") ? Number(sp.get("integrationId")) : undefined,
+  subscriptionId: sp.get("subscriptionId") ? Number(sp.get("subscriptionId")) : undefined,
   informationTypeId: sp.get("informationTypeId") ? Number(sp.get("informationTypeId")) : undefined,
   exception: sp.get("exception") ?? undefined,
   offset: sp.get("offset") ? Number(sp.get("offset")) : 0,
@@ -43,7 +43,7 @@ export function ScheduledRetriesPage() {
     placeholderData: keepPreviousData,
   });
 
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
   const infoTypes =
     useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
 
@@ -55,7 +55,7 @@ export function ScheduledRetriesPage() {
     setSearchParams(next, { replace: true });
   };
 
-  const activeFilterCount = ["integrationId", "informationTypeId", "exception"].filter((k) =>
+  const activeFilterCount = ["subscriptionId", "informationTypeId", "exception"].filter((k) =>
     searchParams.has(k),
   ).length;
 
@@ -79,7 +79,7 @@ export function ScheduledRetriesPage() {
           title: "How scheduled retries work",
           body: (
             <>
-              When an exchange fails, its integration's{" "}
+              When an exchange fails, its subscription's{" "}
               <Link to="/retry-policies" className="font-medium text-crimson-700 hover:underline">
                 retry policy
               </Link>{" "}
@@ -93,12 +93,12 @@ export function ScheduledRetriesPage() {
       {/* — filters — */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         <SearchSelect
-          aria-label="Filter by integration"
+          aria-label="Filter by subscription"
           size="sm"
-          clearLabel="Any integration"
-          value={query.integrationId?.toString() ?? ""}
-          onChange={(v) => setParam("integrationId", v || null)}
-          options={integrations.map((i) => ({ value: String(i.id), label: i.name }))}
+          clearLabel="Any subscription"
+          value={query.subscriptionId?.toString() ?? ""}
+          onChange={(v) => setParam("subscriptionId", v || null)}
+          options={subscriptions.map((i) => ({ value: String(i.id), label: i.name }))}
         />
         <SearchSelect
           aria-label="Filter by information type"
@@ -170,14 +170,14 @@ export function ScheduledRetriesPage() {
               ),
             },
             {
-              header: "Integration",
+              header: "Subscription",
               cell: (r) =>
-                r.integrationName ? (
+                r.subscriptionName ? (
                   <Link
-                    to={`/subscriptions/${r.integrationId}`}
+                    to={`/subscriptions/${r.subscriptionId}`}
                     className="text-[13px] font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                   >
-                    {r.integrationName}
+                    {r.subscriptionName}
                   </Link>
                 ) : (
                   <span className="text-ink-400">—</span>
@@ -190,7 +190,7 @@ export function ScheduledRetriesPage() {
             },
             {
               // The policy is what decided the "Runs" time, so it's the one thing the
-              // exception alone can't explain. This is the integration's policy as it
+              // exception alone can't explain. This is the subscription's policy as it
               // stands now — editing a policy doesn't reschedule retries it already queued.
               header: "Scheduled by",
               truncate: true,
@@ -206,13 +206,13 @@ export function ScheduledRetriesPage() {
                   ) : (
                     <span className="block truncate text-[13px] font-medium text-ink-700">{r.retryPolicyName}</span>
                   )
-                ) : r.integrationId !== null ? (
+                ) : r.subscriptionId !== null ? (
                   <Link
-                    to={`/subscriptions/${r.integrationId}`}
-                    title="The retry policy set on its integration"
+                    to={`/subscriptions/${r.subscriptionId}`}
+                    title="The retry policy set on its subscription"
                     className="block truncate text-[13px] text-crimson-700 hover:underline"
                   >
-                    policy on {r.integrationName ?? "its integration"}
+                    policy on {r.subscriptionName ?? "its subscription"}
                   </Link>
                 ) : (
                   <span className="text-[13px] text-ink-400">Policy since removed</span>

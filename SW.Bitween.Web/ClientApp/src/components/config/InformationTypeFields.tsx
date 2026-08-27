@@ -109,7 +109,7 @@ export function InformationTypeFields({
           <Field
             label="Code"
             htmlFor={`${idPrefix}-code`}
-            hint="Optional. Renaming it changes how it appears everywhere; existing integrations keep working."
+            hint="Optional. Renaming it changes how it appears everywhere; existing subscriptions keep working."
           >
             <TextInput
               id={`${idPrefix}-code`}

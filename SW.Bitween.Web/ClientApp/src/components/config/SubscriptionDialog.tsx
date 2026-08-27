@@ -1,32 +1,32 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { api, type IntegrationType } from "../../api";
+import { api, type SubscriptionType } from "../../api";
 import { Button, FormError } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
 import { Dialog } from "../ui/overlays";
 import { CodeBadge } from "../ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "./AdapterConfig";
 import { InfoTypePicker } from "./pickers";
-import { adapterIncomplete } from "../../pages/integrations/studio/faces";
+import { adapterIncomplete } from "../../pages/subscriptions/studio/faces";
 
 /**
- * A new gateway-backed integration, asked down to what it cannot run without: a
+ * A new gateway-backed subscription, asked down to what it cannot run without: a
  * name, the information type it carries, and somewhere to deliver.
  *
  * Deliberately not the whole pipeline. Transformation, validation and response are
- * nodes on the integration's own studio the moment it exists, and reproducing the
+ * nodes on the subscription's own studio the moment it exists, and reproducing the
  * rail inside a modal would be a worse copy of a surface that already works. The
  * dialog closes on create and hands the id back, so the picker that opened it
- * selects the new integration and you carry on.
+ * selects the new subscription and you carry on.
  */
-export function IntegrationDialog({
+export function SubscriptionDialog({
   type,
   informationTypeId,
   onClose,
   onCreated,
 }: {
-  type: Extract<IntegrationType, "GatewayApiCall" | "BusGateway">;
+  type: Extract<SubscriptionType, "GatewayApiCall" | "BusGateway">;
   /** Fixed by the caller (a bus gateway's own type); otherwise it is asked for. */
   informationTypeId?: number;
   onClose: () => void;
@@ -49,7 +49,7 @@ export function IntegrationDialog({
 
   const create = useMutation({
     mutationFn: () =>
-      api.createIntegration({
+      api.createSubscription({
         type,
         name: name.trim(),
         informationTypeId: pickedTypeId!,
@@ -61,9 +61,9 @@ export function IntegrationDialog({
         enabled: true,
       }),
     onSuccess: (created) => {
-      void queryClient.invalidateQueries({ queryKey: ["integrations"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
       onCreated(created.id);
       onClose();
     },
@@ -77,7 +77,7 @@ export function IntegrationDialog({
   ].filter((m): m is string => typeof m === "string");
 
   return (
-    <Dialog title="New integration" onClose={onClose} wide>
+    <Dialog title="New subscription" onClose={onClose} wide>
       <div className="space-y-4">
         <p className="text-[13px] text-ink-500">
           {type === "GatewayApiCall"
@@ -103,7 +103,7 @@ export function IntegrationDialog({
               </p>
             </Field>
           ) : (
-            <Field label="Carries" htmlFor="nid-type" hint="The information type this integration processes.">
+            <Field label="Carries" htmlFor="nid-type" hint="The information type this subscription processes.">
               <InfoTypePicker id="nid-type" value={pickedTypeId} onChange={setPickedTypeId} />
             </Field>
           )}
@@ -139,7 +139,7 @@ export function IntegrationDialog({
             disabled={missing.length > 0}
             onClick={() => create.mutate()}
           >
-            Create integration
+            Create subscription
           </Button>
         </div>
       </div>

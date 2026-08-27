@@ -97,7 +97,7 @@ export function InformationTypePage() {
         <div className="min-w-0 space-y-5">
           <Panel title="Used by" description="Everything that carries or routes this type.">
             <div className="space-y-4">
-              <SetupList items={t.integrationSetups} />
+              <SetupList items={t.subscriptionSetups} />
               {t.busGateways.length > 0 && (
                 <div className="border-t border-ink-100 pt-3">
                   <MiniTable
@@ -151,7 +151,7 @@ export function InformationTypePage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{t.code ?? t.name}</strong> and its promoted
-              properties will be gone for good. Types still used by integrations can't be deleted.
+              properties will be gone for good. Types still used by subscriptions can't be deleted.
             </>
           }
           confirmLabel="Delete information type"

@@ -17,7 +17,7 @@ import { ApiGatewayNewPage } from "./pages/api-gateways/ApiGatewayNewPage";
 import { ApiGatewaysPage } from "./pages/api-gateways/ApiGatewaysPage";
 import { ApiGatewayPage } from "./pages/api-gateways/ApiGatewayPage";
 import { AttachPartnerPage } from "./pages/api-gateways/AttachPartnerPage";
-import { NewGatewayIntegrationPage } from "./pages/api-gateways/NewGatewayIntegrationPage";
+import { NewGatewaySubscriptionPage } from "./pages/api-gateways/NewGatewaySubscriptionPage";
 import { EditAttachmentPage } from "./pages/api-gateways/EditAttachmentPage";
 import { BusGatewayNewPage } from "./pages/bus-gateways/BusGatewayNewPage";
 import { BusGatewayPage } from "./pages/bus-gateways/BusGatewayPage";
@@ -27,8 +27,8 @@ import { GlobalValueSetPage } from "./pages/global-values/GlobalValueSetPage";
 import { GlobalValueSetsPage } from "./pages/global-values/GlobalValueSetsPage";
 import { InformationTypePage } from "./pages/information-types/InformationTypePage";
 import { InformationTypesPage } from "./pages/information-types/InformationTypesPage";
-import { IntegrationPage } from "./pages/integrations/IntegrationPage";
-import { IntegrationsPage } from "./pages/integrations/IntegrationsPage";
+import { SubscriptionPage } from "./pages/subscriptions/SubscriptionPage";
+import { SubscriptionsPage } from "./pages/subscriptions/SubscriptionsPage";
 import { NotifierPage } from "./pages/notifiers/NotifierPage";
 import { NotifiersPage } from "./pages/notifiers/NotifiersPage";
 import { PartnerPage } from "./pages/partners/PartnerPage";
@@ -163,7 +163,7 @@ export const router = createBrowserRouter([
             path: "subscriptions",
             element: (
               <RequirePermission permission="subscriptions.view">
-                <IntegrationsPage />
+                <SubscriptionsPage />
               </RequirePermission>
             ),
           },
@@ -171,7 +171,7 @@ export const router = createBrowserRouter([
             path: "subscriptions/:id",
             element: (
               <RequirePermission permission="subscriptions.view">
-                <IntegrationPage />
+                <SubscriptionPage />
               </RequirePermission>
             ),
           },
@@ -240,10 +240,10 @@ export const router = createBrowserRouter([
             ),
           },
           {
-            path: "api-gateways/:id/attach/new-integration",
+            path: "api-gateways/:id/attach/new-subscription",
             element: (
               <RequirePermission permission="subscriptions.create">
-                <NewGatewayIntegrationPage />
+                <NewGatewaySubscriptionPage />
               </RequirePermission>
             ),
           },

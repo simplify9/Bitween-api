@@ -10,7 +10,7 @@ import { KeyValueEditor, toRecord, toRows, type KvRow } from "../ui/KeyValueEdit
 import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { Panel } from "../ui/Panel";
 import { MiniTable } from "../ui/Table";
-import { IntegrationMiniList, usePartnerIntegrations } from "./shared";
+import { SubscriptionMiniList, usePartnerSubscriptions } from "./shared";
 
 /**
  * Everything about a partner that can be *edited*, as one component.
@@ -66,7 +66,7 @@ export function PartnerFields({
   showName?: boolean;
 }) {
   const queryClient = useQueryClient();
-  const partnerIntegrations = usePartnerIntegrations();
+  const partnerSubscriptions = usePartnerSubscriptions();
   const [addingKey, setAddingKey] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
 
@@ -78,7 +78,7 @@ export function PartnerFields({
     },
   });
 
-  const users = partnerId === null ? [] : (partnerIntegrations.get(partnerId) ?? []);
+  const users = partnerId === null ? [] : (partnerSubscriptions.get(partnerId) ?? []);
 
   return (
     <div className="space-y-5">
@@ -113,9 +113,9 @@ export function PartnerFields({
           rowDetails={(row) => {
             if (!row.key.trim() || partnerId === null) return null;
             return (
-              <IntegrationMiniList
+              <SubscriptionMiniList
                 items={users.filter((s) => referencesPartnerProp(s, row.key.trim()))}
-                emptyText="Not referenced by any integration — safe to change or remove."
+                emptyText="Not referenced by any subscription — safe to change or remove."
               />
             );
           }}

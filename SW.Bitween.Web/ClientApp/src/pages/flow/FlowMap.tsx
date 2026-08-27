@@ -9,7 +9,7 @@ const KINDS: Record<FlowNodeKind, { label: string; icon: LucideIcon }> = {
   busGateway: { label: "Bus gateway", icon: Radio },
   apiGateway: { label: "API gateway", icon: Globe },
   job: { label: "Scheduled job", icon: Clock },
-  integration: { label: "Integration", icon: Workflow },
+  subscription: { label: "Subscription", icon: Workflow },
 };
 
 /**

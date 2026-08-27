@@ -1,4 +1,4 @@
-import type { ApiGatewayRow, BusGatewayRow, InformationTypeRow, IntegrationInfo } from "../../api";
+import type { ApiGatewayRow, BusGatewayRow, InformationTypeRow, SubscriptionInfo } from "../../api";
 
 /**
  * The bus topology as a graph.
@@ -17,7 +17,7 @@ import type { ApiGatewayRow, BusGatewayRow, InformationTypeRow, IntegrationInfo 
  * response published to nobody at all.
  */
 
-export type FlowNodeKind = "apiGateway" | "busGateway" | "job" | "integration" | "message";
+export type FlowNodeKind = "apiGateway" | "busGateway" | "job" | "subscription" | "message";
 
 export interface FlowNode {
   id: string;
@@ -47,7 +47,7 @@ export interface FlowEdge {
 export interface FlowGraph {
   nodes: FlowNode[];
   edges: FlowEdge[];
-  /** Integrations with no place on the map: no gateway runs them, no response leaves them. */
+  /** Subscriptions with no place on the map: no gateway runs them, no response leaves them. */
   omitted: number;
 }
 
@@ -60,12 +60,12 @@ export function buildFlowGraph({
   apiGateways,
   busGateways,
   informationTypes,
-  integrations,
+  subscriptions,
 }: {
   apiGateways: ApiGatewayRow[];
   busGateways: BusGatewayRow[];
   informationTypes: InformationTypeRow[];
-  integrations: IntegrationInfo[];
+  subscriptions: SubscriptionInfo[];
 }): FlowGraph {
   const nodes = new Map<string, FlowNode>();
   const edges: FlowEdge[] = [];
@@ -74,10 +74,10 @@ export function buildFlowGraph({
     if (node) node.warning = node.warning ? `${node.warning} ${text}` : text;
   };
 
-  const integrationById = new Map(integrations.map((i) => [i.id, i]));
+  const subscriptionById = new Map(subscriptions.map((i) => [i.id, i]));
   const typeById = new Map(informationTypes.map((t) => [t.id, t]));
 
-  /** Which node runs an integration. A route or an attachment is drawn as its gateway. */
+  /** Which node runs a subscription. A route or an attachment is drawn as its gateway. */
   const runBy = new Map<number, string>();
 
   // ——— Gateways always appear, even with nothing attached: an idle gateway is a
@@ -92,7 +92,7 @@ export function buildFlowGraph({
       href: `/api-gateways/${g.id}`,
       ...(g.attachments.length === 0 ? { warning: "No partner is attached, so nothing can post to it." } : {}),
     });
-    for (const a of g.attachments) runBy.set(a.integrationId, `apigw:${g.id}`);
+    for (const a of g.attachments) runBy.set(a.subscriptionId, `apigw:${g.id}`);
   }
 
   for (const g of busGateways) {
@@ -109,7 +109,7 @@ export function buildFlowGraph({
       href: `/bus-gateways/${g.id}`,
       ...(g.routes.length === 0 ? { warning: "It has no routes, so every message it receives is dropped." } : {}),
     });
-    for (const r of g.routes) runBy.set(r.integrationId, `busgw:${g.id}`);
+    for (const r of g.routes) runBy.set(r.subscriptionId, `busgw:${g.id}`);
   }
 
   // ——— Every bus-enabled information type is a message node. Listed even when
@@ -139,11 +139,11 @@ export function buildFlowGraph({
     else warn(`busgw:${g.id}`, `Its information type is not on the bus, so no message can reach it.`);
   }
 
-  /** A node for an integration no gateway runs — reached only through a response. */
+  /** A node for a subscription no gateway runs — reached only through a response. */
   const standalone = (id: number): string | null => {
-    const i = integrationById.get(id);
+    const i = subscriptionById.get(id);
     if (!i) return null;
-    const kind: FlowNodeKind = JOB_TYPES.has(i.type) ? "job" : "integration";
+    const kind: FlowNodeKind = JOB_TYPES.has(i.type) ? "job" : "subscription";
     const nodeId = `${kind === "job" ? "job" : "int"}:${id}`;
     if (!nodes.has(nodeId))
       nodes.set(nodeId, {
@@ -157,8 +157,8 @@ export function buildFlowGraph({
     return nodeId;
   };
 
-  for (const i of integrations) {
-    if (i.responseMessageTypeName === null && i.responseIntegrationId === null) continue;
+  for (const i of subscriptions) {
+    if (i.responseMessageTypeName === null && i.responseSubscriptionId === null) continue;
     const from = runBy.get(i.id) ?? standalone(i.id);
     if (from === null) continue;
 
@@ -166,7 +166,7 @@ export function buildFlowGraph({
     // one to route: `XchangeService.RunHandler` returns null without a handler, and both
     // response paths are gated on that file being non-null. Drawing the edges anyway would
     // make the map assert a flow the runtime cannot produce — the exact kind of lie it
-    // exists to catch. The integration's own page hides these fields once the delivery is
+    // exists to catch. The subscription's own page hides these fields once the delivery is
     // cleared, which is what lets the pair drift apart unnoticed.
     if (i.handlerId === null) {
       warn(from, `${i.name} routes its response but delivers nothing, so no response is ever produced.`);
@@ -181,8 +181,8 @@ export function buildFlowGraph({
       else warn(from, `${i.name} publishes “${i.responseMessageTypeName}”, which no information type carries.`);
     }
 
-    if (i.responseIntegrationId !== null) {
-      const to = runBy.get(i.responseIntegrationId) ?? standalone(i.responseIntegrationId);
+    if (i.responseSubscriptionId !== null) {
+      const to = runBy.get(i.responseSubscriptionId) ?? standalone(i.responseSubscriptionId);
       // Same node on both ends means one of a gateway's routes hands off to another
       // of its own — real, but a loop drawn onto itself; its studio shows the chain.
       if (to !== null && to !== from) edges.push({ id: `hand:${i.id}`, from, to, kind: "handsOff" });
@@ -196,7 +196,7 @@ export function buildFlowGraph({
     if (node.kind === "message" && !hasListener.has(node.id))
       node.warning = "No gateway listens for this, so anything published under it is dropped.";
 
-  const omitted = integrations.filter(
+  const omitted = subscriptions.filter(
     (i) => !runBy.has(i.id) && !nodes.has(`int:${i.id}`) && !nodes.has(`job:${i.id}`),
   ).length;
 

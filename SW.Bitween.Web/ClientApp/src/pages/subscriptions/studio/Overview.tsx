@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { api, type IntegrationDetail, type IntegrationRun } from "../../../api";
+import { api, type SubscriptionDetail, type SubscriptionRun } from "../../../api";
 import { Can } from "../../../auth/guards";
 import { Badge, LoadingBlock } from "../../../components/ui/basics";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
@@ -14,7 +14,7 @@ import { ReceiveAttemptsPanel } from "./ReceiveAttemptsPanel";
 import { RetryBudget } from "./RetryBudget";
 import type { Draft, EntryPoint } from "./model";
 
-/** Who can feed this integration. Shared with the Trigger stage, which is the same question. */
+/** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
 export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
   return (
     <MiniTable
@@ -69,7 +69,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function LastRunFact({ run }: { run: IntegrationRun | undefined }) {
+function LastRunFact({ run }: { run: SubscriptionRun | undefined }) {
   if (!run) return <span className="text-ink-400">Never</span>;
   return (
     <span className="flex items-center gap-1.5" title={formatDateTime(run.startedOn)}>
@@ -88,7 +88,7 @@ function LastRunFact({ run }: { run: IntegrationRun | undefined }) {
   );
 }
 
-function RunsTable({ runs, pending }: { runs: IntegrationRun[]; pending: boolean }) {
+function RunsTable({ runs, pending }: { runs: SubscriptionRun[]; pending: boolean }) {
   if (pending) return <LoadingBlock label="Loading runs…" />;
   return (
     <MiniTable
@@ -145,7 +145,7 @@ function RunsTable({ runs, pending }: { runs: IntegrationRun[]; pending: boolean
 }
 
 /**
- * The page with no stage selected: everything about this integration that isn't
+ * The page with no stage selected: everything about this subscription that isn't
  * a step in its pipeline, compressed so it and the pipeline share one screen.
  *
  * The facts an operator triages on are a single strip; the two histories sit
@@ -160,7 +160,7 @@ export function Overview({
   entryPoints,
   scheduled,
 }: {
-  s: IntegrationDetail;
+  s: SubscriptionDetail;
   draft: Draft;
   set: <K extends keyof Draft>(key: K, value: Draft[K]) => void;
   canEdit: boolean;
@@ -180,8 +180,8 @@ export function Overview({
   // reports success even when the receive step itself failed (see ReceivingJob).
   const receiving = s.type === "Receiving";
   const runs = useQuery({
-    queryKey: ["integration-runs", s.id],
-    queryFn: () => api.listIntegrationRuns(s.id, 20),
+    queryKey: ["subscription-runs", s.id],
+    queryFn: () => api.listSubscriptionRuns(s.id, 20),
     enabled: scheduled && !receiving,
   });
   // Just for the "Last run" fact above — ReceiveAttemptsPanel fetches its own page.
@@ -190,7 +190,7 @@ export function Overview({
     queryFn: () => api.searchReceiveAttempts(s.id, { outcome: null, offset: 0, limit: 1 }),
     enabled: receiving,
   });
-  const lastReceiveRun: IntegrationRun | undefined = ((): IntegrationRun | undefined => {
+  const lastReceiveRun: SubscriptionRun | undefined = ((): SubscriptionRun | undefined => {
     const a = latestAttempt.data?.result[0];
     if (!a) return undefined;
     return {
@@ -287,7 +287,7 @@ export function Overview({
         </Fact>
       </div>
 
-      <RetryBudget integrationId={s.id} canEdit={canEdit} />
+      <RetryBudget subscriptionId={s.id} canEdit={canEdit} />
 
       {paused && (
         <p className="rounded-xl bg-warn-100 px-4 py-2.5 text-[13px] text-warn-700">
@@ -335,18 +335,18 @@ export function Overview({
         <div className="min-w-0 space-y-5">
           {!receiving && (
             <Can permission="exchanges.view">
-              <Panel title="Recent exchanges" description="Latest traffic through this integration.">
+              <Panel title="Recent exchanges" description="Latest traffic through this subscription.">
                 <ExchangesList items={s.recentExchanges} hide={["type", "partner"]} />
               </Panel>
             </Can>
           )}
 
           {s.watchingNotifiers.length > 0 && (
-            <Panel title="Watched by" description="Notifiers alerting on this integration's outcomes.">
+            <Panel title="Watched by" description="Notifiers alerting on this subscription's outcomes.">
               <MiniTable
                 rows={s.watchingNotifiers}
                 rowKey={(n) => n.id}
-                empty="Nothing watches this integration."
+                empty="Nothing watches this subscription."
                 columns={[
                   {
                     header: "Notifier",

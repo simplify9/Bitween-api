@@ -306,7 +306,7 @@ export function GroupDialog({
               <Field
                 label="Total budget"
                 htmlFor="rg-total"
-                hint="Shared by every message this group catches, per integration. When it runs out the group stops retrying until the budget is reset — or the integration succeeds."
+                hint="Shared by every message this group catches, per subscription. When it runs out the group stops retrying until the budget is reset — or the subscription succeeds."
               >
                 <TextInput
                   id="rg-total"
@@ -376,7 +376,7 @@ export function GroupDialog({
                     Sends through the policy default, <code className="font-mono">{policyAlertHandlerId}</code>.
                   </>
                 ) : (
-                  "The policy sends no alert, so nothing is sent — unless a single integration overrides it."
+                  "The policy sends no alert, so nothing is sent — unless a single subscription overrides it."
                 )
               }
             />

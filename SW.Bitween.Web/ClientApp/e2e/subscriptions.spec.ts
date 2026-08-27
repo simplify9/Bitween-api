@@ -44,12 +44,12 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
 
   // Pause / resume.
   await page.getByRole("button", { name: "Pause" }).click();
-  await page.getByRole("dialog", { name: "Pause this integration?" }).getByRole("button", { name: "Pause" }).click();
+  await page.getByRole("dialog", { name: "Pause this subscription?" }).getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Resume" }).click();
-  await page.getByRole("dialog", { name: "Resume this integration?" }).getByRole("button", { name: "Resume" }).click();
+  await page.getByRole("dialog", { name: "Resume this subscription?" }).getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
 
@@ -73,7 +73,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await row.getByRole("button", { name: `Open ${name}` }).click();
   await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
   await page.getByRole("button", { name: "Delete" }).click();
-  await page.getByRole("button", { name: "Delete integration" }).click();
+  await page.getByRole("button", { name: "Delete subscription" }).click();
   await expect(page).toHaveURL(/\/subscriptions$/);
   await expect(page.getByText(name)).toHaveCount(0);
 });

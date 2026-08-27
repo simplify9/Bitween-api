@@ -9,7 +9,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, usePartnerIntegrations } from "../../components/config/shared";
+import { UsedByCell, usePartnerSubscriptions } from "../../components/config/shared";
 
 const PAGE_SIZE = 25;
 
@@ -25,7 +25,7 @@ export function PartnersPage() {
     queryFn: () => api.searchPartners({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  const partnerIntegrations = usePartnerIntegrations();
+  const partnerSubscriptions = usePartnerSubscriptions();
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
@@ -127,7 +127,7 @@ export function PartnersPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (p) => <UsedByCell items={partnerIntegrations.get(p.id) ?? []} />,
+              cell: (p) => <UsedByCell items={partnerSubscriptions.get(p.id) ?? []} />,
             },
           ]}
         />

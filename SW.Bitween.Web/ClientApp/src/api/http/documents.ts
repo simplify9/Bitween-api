@@ -4,7 +4,7 @@ import type {
   InformationTypeDetail,
   InformationTypeFormat,
   InformationTypeRow,
-  IntegrationType,
+  SubscriptionType,
   Paged,
   TrailEntry,
 } from "../types";
@@ -43,7 +43,7 @@ interface RawTrailEntry {
   createdBy: string;
 }
 
-const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
+const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
   1: "Internal",
   2: "ApiCall",
   4: "Receiving",
@@ -51,7 +51,7 @@ const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
   16: "GatewayApiCall",
   32: "BusGateway",
 };
-const INTEGRATION_TYPES: IntegrationType[] = [
+const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Receiving",
   "GatewayApiCall",
   "BusGateway",
@@ -60,9 +60,9 @@ const INTEGRATION_TYPES: IntegrationType[] = [
   "Aggregation",
 ];
 /** Enums may arrive as the numeric value or the name in any case. */
-const toIntegrationType = (t: number | string): IntegrationType => {
+const toSubscriptionType = (t: number | string): SubscriptionType => {
   if (typeof t === "number") return SUB_TYPE_BY_NUM[t] ?? "Internal";
-  return INTEGRATION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
+  return SUBSCRIPTION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
 };
 
 async function fetchSubscriptionsByDocument(documentId: number): Promise<RawSubscriptionRef[]> {
@@ -108,7 +108,7 @@ async function fetchDetail(id: number): Promise<InformationTypeDetail> {
   ]);
   return {
     ...toInformationType(d),
-    integrationSetups: subs.map((s) => ({ id: s.id, name: s.name, type: toIntegrationType(s.type) })),
+    subscriptionSetups: subs.map((s) => ({ id: s.id, name: s.name, type: toSubscriptionType(s.type) })),
     busGateways: busGateways
       .filter((g) => g.informationTypeId === id)
       .map((g) => ({ gatewayId: g.id, gatewayName: g.name })),

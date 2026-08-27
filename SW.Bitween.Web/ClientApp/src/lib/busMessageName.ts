@@ -2,7 +2,7 @@
  * The one rule for a bus message name, and the one way of saying it.
  *
  * Two fields name the same thing — an information type's `busMessageTypeName` and an
- * integration's `responseMessageTypeName` — and they had drifted: one silently deleted
+ * subscription's `responseMessageTypeName` — and they had drifted: one silently deleted
  * spaces as you typed, the other refused them and said why, and only one mentioned the
  * rule at all. Whatever the rule becomes, both fields read it from here.
  */

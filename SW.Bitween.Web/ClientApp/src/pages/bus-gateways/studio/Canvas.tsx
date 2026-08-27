@@ -1,11 +1,11 @@
 import { Fragment } from "react";
 import { Link } from "react-router";
 import { ArrowUpRight, Radio, Workflow } from "lucide-react";
-import type { IntegrationRow } from "../../../api";
+import type { SubscriptionRow } from "../../../api";
 import { PanZoomCanvas } from "../../../components/ui/PanZoomCanvas";
-import { Connector, StageNode, type StageFace } from "../../integrations/studio/StageRail";
-import { faceOf, type AdapterCatalogs } from "../../integrations/studio/faces";
-import { NEW_INTEGRATION_ID } from "../../integrations/studio/model";
+import { Connector, StageNode, type StageFace } from "../../subscriptions/studio/StageRail";
+import { faceOf, type AdapterCatalogs } from "../../subscriptions/studio/faces";
+import { NEW_SUBSCRIPTION_ID } from "../../subscriptions/studio/model";
 import {
   BUS_NODES,
   HEALTH_DOT,
@@ -16,21 +16,21 @@ import {
   type BusDestination,
   type BusListener,
   type BusNodeId,
-  type IntegrationDraft,
+  type SubscriptionDraft,
 } from "./model";
 
 /**
- * One integration in the response chain. Only `active` is expanded into editable
+ * One subscription in the response chain. Only `active` is expanded into editable
  * nodes; the rest are summaries — three hops fully expanded is fifteen nodes, and
  * nobody reads fifteen nodes.
  */
 export interface Hop {
-  integrationId: number;
+  subscriptionId: number;
   name: string;
-  /** Present once the integration's detail has loaded. */
-  draft: IntegrationDraft | null;
-  saved: IntegrationDraft | null;
-  row: IntegrationRow | undefined;
+  /** Present once the subscription's detail has loaded. */
+  draft: SubscriptionDraft | null;
+  saved: SubscriptionDraft | null;
+  row: SubscriptionRow | undefined;
   /** Set on the response message this hop publishes, if any. */
   destination: BusDestination | null;
 }
@@ -50,7 +50,7 @@ export function Canvas({
   selectedNode,
   onSelectNode,
   catalogs,
-  integrationNames,
+  subscriptionNames,
   onOpenListener,
   routeChosen,
   /** Room reserved on the left for the floating route panel, in rem. */
@@ -66,9 +66,9 @@ export function Canvas({
   selectedNode: BusNodeId | null;
   onSelectNode: (node: BusNodeId | null) => void;
   catalogs: AdapterCatalogs;
-  integrationNames: { id: number; name: string }[];
+  subscriptionNames: { id: number; name: string }[];
   onOpenListener: (listener: BusListener) => void;
-  /** False while a new route still has no integration — there is no chain to draw yet. */
+  /** False while a new route still has no subscription — there is no chain to draw yet. */
   routeChosen: boolean;
   gutterRem: number;
   resetKey: string;
@@ -100,7 +100,7 @@ export function Canvas({
             <Connector />
             <div className="flex w-64 shrink-0 items-center rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-3.5">
               <p className="text-[13px] text-ink-500">
-                Pick the integration this route runs — it appears here, with its whole pipeline.
+                Pick the subscription this route runs — it appears here, with its whole pipeline.
               </p>
             </div>
           </>
@@ -113,7 +113,7 @@ export function Canvas({
             selectedNode={selectedNode}
             onSelectNode={pick}
             catalogs={catalogs}
-            integrationNames={integrationNames}
+            subscriptionNames={subscriptionNames}
             onOpenListener={onOpenListener}
           />
         )}
@@ -137,9 +137,9 @@ export function Canvas({
  * One hop and everything downstream of it.
  *
  * Recursive, and forked rather than flattened into a single row: a Response can
- * both chain into another integration *and* publish on the bus, and those two are
+ * both chain into another subscription *and* publish on the bus, and those two are
  * siblings. Drawn one after the other, the bus card read as if it fed the chained
- * integration, which is a different — and wrong — story about the data path.
+ * subscription, which is a different — and wrong — story about the data path.
  */
 function HopChain({
   hops,
@@ -149,7 +149,7 @@ function HopChain({
   selectedNode,
   onSelectNode,
   catalogs,
-  integrationNames,
+  subscriptionNames,
   onOpenListener,
 }: {
   hops: Hop[];
@@ -159,7 +159,7 @@ function HopChain({
   selectedNode: BusNodeId | null;
   onSelectNode: (node: BusNodeId) => void;
   catalogs: AdapterCatalogs;
-  integrationNames: { id: number; name: string }[];
+  subscriptionNames: { id: number; name: string }[];
   onOpenListener: (listener: BusListener) => void;
 }) {
   const hop = hops[index];
@@ -167,7 +167,7 @@ function HopChain({
   const hasNext = index + 1 < hops.length;
   // Depth cap: three hops is already more chain than a real gateway has, and a
   // fourth would push the route itself off the screen.
-  const cappedAt = !hasNext && hop.draft?.responseIntegrationId != null;
+  const cappedAt = !hasNext && hop.draft?.responseSubscriptionId != null;
   const forks = hasNext || cappedAt || !!hop.destination;
 
   return (
@@ -179,14 +179,14 @@ function HopChain({
           selectedNode={selectedNode}
           onSelectNode={onSelectNode}
           catalogs={catalogs}
-          integrationNames={integrationNames}
+          subscriptionNames={subscriptionNames}
         />
       ) : (
         <CollapsedHop
           hop={hop}
           // "Then" only ever means downstream of a response. The route's own
-          // integration is not a "then", however it happens to be drawn.
-          label={index === 0 ? BUS_NODES.integration.label : "Then"}
+          // subscription is not a "then", however it happens to be drawn.
+          label={index === 0 ? BUS_NODES.subscription.label : "Then"}
           onOpen={() => onSelectHop(index)}
         />
       )}
@@ -203,7 +203,7 @@ function HopChain({
                 selectedNode={selectedNode}
                 onSelectNode={onSelectNode}
                 catalogs={catalogs}
-                integrationNames={integrationNames}
+                subscriptionNames={subscriptionNames}
                 onOpenListener={onOpenListener}
               />
             </div>
@@ -212,12 +212,12 @@ function HopChain({
             <div className="flex items-stretch">
               <Connector />
               <Link
-                to={`/subscriptions/${hop.draft!.responseIntegrationId}`}
+                to={`/subscriptions/${hop.draft!.responseSubscriptionId}`}
                 className="flex w-52 shrink-0 flex-col justify-center rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-3.5 hover:border-ink-400"
               >
                 <span className="text-[13px] font-medium text-ink-700">The chain continues</span>
                 <span className="mt-1 inline-flex items-center gap-1 text-[12px] text-crimson-700">
-                  Open the next integration <ArrowUpRight className="size-3" />
+                  Open the next subscription <ArrowUpRight className="size-3" />
                 </span>
               </Link>
             </div>
@@ -238,23 +238,23 @@ function HopChain({
   );
 }
 
-/** The active integration: its own pipeline, editable, inside one labelled frame. */
+/** The active subscription: its own pipeline, editable, inside one labelled frame. */
 function ExpandedHop({
   hop,
   selectedNode,
   onSelectNode,
   catalogs,
-  integrationNames,
+  subscriptionNames,
 }: {
   hop: Hop;
   selectedNode: BusNodeId | null;
   onSelectNode: (node: BusNodeId) => void;
   catalogs: AdapterCatalogs;
-  integrationNames: { id: number; name: string }[];
+  subscriptionNames: { id: number; name: string }[];
 }) {
   const health = routeHealth(hop.row);
-  const isNew = hop.integrationId === NEW_INTEGRATION_ID;
-  const headerDirty = hop.draft && hop.saved ? nodeDirty("integration", hop.draft, hop.saved) : false;
+  const isNew = hop.subscriptionId === NEW_SUBSCRIPTION_ID;
+  const headerDirty = hop.draft && hop.saved ? nodeDirty("subscription", hop.draft, hop.saved) : false;
 
   if (!hop.draft)
     return (
@@ -263,7 +263,7 @@ function ExpandedHop({
       </div>
     );
 
-  // Typed as the integration studio's own stage ids: these three nodes *are* its
+  // Typed as the subscription studio's own stage ids: these three nodes *are* its
   // stages, and `faceOf` is what describes them.
   const stages = ["transformation", "delivery", "response"] as const;
 
@@ -271,10 +271,10 @@ function ExpandedHop({
     <div className="shrink-0 rounded-2xl border-2 border-ink-200 bg-white/70 p-3">
       <button
         type="button"
-        onClick={() => onSelectNode("integration")}
-        aria-current={selectedNode === "integration" ? "true" : undefined}
+        onClick={() => onSelectNode("subscription")}
+        aria-current={selectedNode === "subscription" ? "true" : undefined}
         className={`mb-3 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left ${
-          selectedNode === "integration" ? "bg-crimson-50 ring-2 ring-crimson-200" : "hover:bg-ink-50"
+          selectedNode === "subscription" ? "bg-crimson-50 ring-2 ring-crimson-200" : "hover:bg-ink-50"
         }`}
       >
         <Workflow className="size-4 shrink-0 text-ink-500" aria-hidden />
@@ -309,7 +309,7 @@ function ExpandedHop({
                 draft: hop.draft!,
                 saved: hop.saved ?? undefined,
                 catalogs,
-                integrationNames,
+                subscriptionNames,
                 unsaved: isNew,
               })}
               label={BUS_NODES[node].label}
@@ -325,7 +325,7 @@ function ExpandedHop({
   );
 }
 
-/** An integration in the chain, rolled up. Click to make it the editable one. */
+/** A subscription in the chain, rolled up. Click to make it the editable one. */
 function CollapsedHop({ hop, label, onOpen }: { hop: Hop; label: string; onOpen: () => void }) {
   const health = routeHealth(hop.row);
   const d = hop.draft;
@@ -335,7 +335,7 @@ function CollapsedHop({ hop, label, onOpen }: { hop: Hop; label: string; onOpen:
     {
       key: "r",
       label: "Response",
-      set: !!(d && (d.responseIntegrationId !== null || d.responseMessageTypeName)),
+      set: !!(d && (d.responseSubscriptionId !== null || d.responseMessageTypeName)),
     },
   ];
 
@@ -431,7 +431,7 @@ function BusDestinationCard({
                   className="block w-full rounded-lg px-2 py-1 text-left hover:bg-ink-50"
                 >
                   <span className="block truncate text-[12px] font-medium text-ink-800">
-                    {l.integrationName}
+                    {l.subscriptionName}
                   </span>
                   <span className="block truncate text-[11px] text-ink-400" title={l.condition}>
                     {l.gatewayName} · {l.condition}

@@ -3,29 +3,29 @@ import type {
   BusGatewayRoute,
   BusGatewayRow,
   InformationTypeRow,
-  IntegrationRow,
+  SubscriptionRow,
   MatchGroup,
 } from "../../../api";
 import { matchSummary } from "../../../lib/match";
-import type { StageFace } from "../../integrations/studio/StageRail";
-import { STAGES, type StageId } from "../../integrations/studio/stages";
-import { stageDirty, type Draft as IntegrationDraft } from "../../integrations/studio/model";
+import type { StageFace } from "../../subscriptions/studio/StageRail";
+import { STAGES, type StageId } from "../../subscriptions/studio/stages";
+import { stageDirty, type Draft as SubscriptionDraft } from "../../subscriptions/studio/model";
 
-export type { IntegrationDraft };
+export type { SubscriptionDraft };
 
 /**
- * The studio's nodes. Three of them are an integration's own pipeline stages and
- * keep their names from the integration studio, because they are the same thing
- * — a route that opened "Delivery" and an integration page that opened
+ * The studio's nodes. Three of them are a subscription's own pipeline stages and
+ * keep their names from the subscription studio, because they are the same thing
+ * — a route that opened "Delivery" and a subscription page that opened
  * "Delivery" have to be editing the same field.
  *
  * `validation` is absent on purpose: `RunValidator` is only reached from the
  * partner-key API path, so a validator on a bus-gateway subscription is stored
- * and never run. See the note in the integration studio's `stages.ts`.
+ * and never run. See the note in the subscription studio's `stages.ts`.
  */
 export type BusNodeId =
   | "route"
-  | "integration"
+  | "subscription"
   | Extract<StageId, "transformation" | "delivery" | "response">;
 
 export const BUS_NODES: Record<BusNodeId, { label: string; description: string; icon: LucideIcon }> = {
@@ -34,8 +34,8 @@ export const BUS_NODES: Record<BusNodeId, { label: string; description: string; 
     description: "Which of those messages this route picks up, and whose values it runs with.",
     icon: Filter,
   },
-  integration: {
-    label: "Integration",
+  subscription: {
+    label: "Subscription",
     description: "Its name, whether it runs at all, and which lane and retry policy it runs under.",
     icon: Workflow,
   },
@@ -45,29 +45,29 @@ export const BUS_NODES: Record<BusNodeId, { label: string; description: string; 
 };
 
 /** Which record a node writes to — the studio saves the two separately. */
-export const OWNER: Record<BusNodeId, "route" | "integration"> = {
+export const OWNER: Record<BusNodeId, "route" | "subscription"> = {
   route: "route",
-  integration: "integration",
-  transformation: "integration",
-  delivery: "integration",
-  response: "integration",
+  subscription: "subscription",
+  transformation: "subscription",
+  delivery: "subscription",
+  response: "subscription",
 };
 
 /**
- * Which integration fields each node owns, so a node can carry an unsaved dot.
- * The three pipeline nodes defer to the integration studio's own map — one list
+ * Which subscription fields each node owns, so a node can carry an unsaved dot.
+ * The three pipeline nodes defer to the subscription studio's own map — one list
  * per field, wherever the field is edited.
  */
-export const INTEGRATION_NODE_FIELDS: Partial<Record<BusNodeId, (keyof IntegrationDraft)[]>> = {
-  integration: ["name", "enabled", "workGroupId", "retryPolicyId"],
+export const SUBSCRIPTION_NODE_FIELDS: Partial<Record<BusNodeId, (keyof SubscriptionDraft)[]>> = {
+  subscription: ["name", "enabled", "workGroupId", "retryPolicyId"],
 };
 
 export const nodeDirty = (
   node: BusNodeId,
-  draft: IntegrationDraft,
-  saved: IntegrationDraft,
+  draft: SubscriptionDraft,
+  saved: SubscriptionDraft,
 ): boolean => {
-  const own = INTEGRATION_NODE_FIELDS[node];
+  const own = SUBSCRIPTION_NODE_FIELDS[node];
   if (own) return own.some((f) => JSON.stringify(draft[f]) !== JSON.stringify(saved[f]));
   if (node === "transformation" || node === "delivery" || node === "response")
     return stageDirty(node, draft, saved);
@@ -78,13 +78,13 @@ export const nodeDirty = (
 export interface RouteDraft {
   matchExpression: MatchGroup | null;
   partner: number | "none";
-  integrationId: number | null;
+  subscriptionId: number | null;
 }
 
 export const routeDraftOf = (r: BusGatewayRoute): RouteDraft => ({
   matchExpression: structuredClone(r.matchExpression),
   partner: r.partnerId ?? "none",
-  integrationId: r.integrationId,
+  subscriptionId: r.subscriptionId,
 });
 
 /**
@@ -92,7 +92,7 @@ export const routeDraftOf = (r: BusGatewayRoute): RouteDraft => ({
  * what lets the canvas draw it exactly like a real one — a modal asking the same
  * three questions would have hidden the diagram the answers are about.
  */
-export const NEW_ROUTE: RouteDraft = { matchExpression: null, partner: "none", integrationId: null };
+export const NEW_ROUTE: RouteDraft = { matchExpression: null, partner: "none", subscriptionId: null };
 
 export const routeDirty = (draft: RouteDraft, saved: RouteDraft): boolean =>
   JSON.stringify(draft) !== JSON.stringify(saved);
@@ -133,8 +133,8 @@ export interface BusListener {
   gatewayId: number;
   gatewayName: string;
   routeId: number;
-  integrationId: number;
-  integrationName: string;
+  subscriptionId: number;
+  subscriptionName: string;
   condition: string;
 }
 
@@ -159,18 +159,18 @@ export function busDestination(
         gatewayId: g.id,
         gatewayName: g.name,
         routeId: r.id,
-        integrationId: r.integrationId,
-        integrationName: r.integrationName,
+        subscriptionId: r.subscriptionId,
+        subscriptionName: r.subscriptionName,
         condition: conditionText(r.matchExpression),
       })),
     );
   return { informationType, listeners };
 }
 
-/** Health of the integration behind a route, for the list and the rolled-up chain cards. */
+/** Health of the subscription behind a route, for the list and the rolled-up chain cards. */
 export type RouteHealth = "ok" | "failing" | "disabled" | "paused" | "unknown";
 
-export function routeHealth(row: IntegrationRow | undefined): RouteHealth {
+export function routeHealth(row: SubscriptionRow | undefined): RouteHealth {
   if (!row) return "unknown";
   if (!row.enabled) return "disabled";
   if (row.paused) return "paused";
@@ -198,7 +198,7 @@ export const HEALTH_DOT: Record<RouteHealth, string> = {
 export const HEALTH_TITLE: Record<RouteHealth, string> = {
   ok: "Healthy — enabled, unpaused, and its last run succeeded.",
   failing: "Enabled and unpaused, but its recent runs ended in errors.",
-  disabled: "Turned off — this route's integration won't run, even if the filter matches.",
+  disabled: "Turned off — this route's subscription won't run, even if the filter matches.",
   paused: "Held without being disabled — matches still route here, but nothing runs until unpaused.",
-  unknown: "No integration data available for this route yet.",
+  unknown: "No subscription data available for this route yet.",
 };
