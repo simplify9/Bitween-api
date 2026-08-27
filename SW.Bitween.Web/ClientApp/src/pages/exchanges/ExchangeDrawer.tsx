@@ -7,7 +7,7 @@ import { useSessionCan } from "../../auth/guards";
 import { Badge, Button } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { formatDateTime, duration, timeUntil } from "../../lib/dates";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 import { RetryDialog, journeyStages, type JourneyStage } from "./shared";
 
 const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNode }> = {
@@ -60,7 +60,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   // An aggregation's exchange is the roll-up — its payload is the list of links to
   // everything it collected, so it is the one exchange worth offering that drill from.
   const isRollUp =
-    useIntegrationsCache().data?.find((i) => i.id === x.integrationId)?.type === "Aggregation";
+    useSubscriptionsCache().data?.find((i) => i.id === x.subscriptionId)?.type === "Aggregation";
 
   const files: Record<ExchangeDocStage, ExchangeRow["files"]["input"]> = {
     Input: x.files.input,

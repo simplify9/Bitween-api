@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
-import type { BusGatewayRoute, IntegrationRow } from "../../../api";
+import type { BusGatewayRoute, SubscriptionRow } from "../../../api";
 import { HEALTH_DOT, HEALTH_LABEL, HEALTH_TITLE, conditionText, routeHealth, type RouteDraft } from "./model";
 
 export type Selection = number | "new" | null;
@@ -29,7 +29,7 @@ export function RouteList({
   canEdit,
 }: {
   routes: BusGatewayRoute[];
-  rowsById: Map<number, IntegrationRow>;
+  rowsById: Map<number, SubscriptionRow>;
   selected: Selection;
   onSelect: (selection: Selection) => void;
   onAdd: () => void;
@@ -43,11 +43,11 @@ export function RouteList({
 
   const rows = useMemo(() => {
     const decorated = routes.map((r) => {
-      const row = rowsById.get(r.integrationId);
+      const row = rowsById.get(r.subscriptionId);
       return {
         route: r,
         condition: conditionText(r.matchExpression),
-        integrationName: r.integrationName || `#${r.integrationId}`,
+        subscriptionName: r.subscriptionName || `#${r.subscriptionId}`,
         partner: r.partnerName ?? "Any partner",
         health: routeHealth(row),
       };
@@ -55,7 +55,7 @@ export function RouteList({
     const needle = query.trim().toLowerCase();
     if (!needle) return decorated;
     return decorated.filter((d) =>
-      [d.condition, d.integrationName, d.partner].some((f) => f.toLowerCase().includes(needle)),
+      [d.condition, d.subscriptionName, d.partner].some((f) => f.toLowerCase().includes(needle)),
     );
   }, [routes, rowsById, query]);
 
@@ -93,7 +93,7 @@ export function RouteList({
             onSelect={() => onSelect("new")}
             condition={conditionText(pending.matchExpression)}
             partner={pending.partner === "none" ? "Any partner" : "…"}
-            integrationName="New route — not saved"
+            subscriptionName="New route — not saved"
             health="unknown"
             dirty
           />
@@ -106,7 +106,7 @@ export function RouteList({
             onSelect={() => onSelect(d.route.id)}
             condition={d.condition}
             partner={d.partner}
-            integrationName={d.integrationName}
+            subscriptionName={d.subscriptionName}
             health={d.health}
             dirty={dirtyRouteId === d.route.id}
           />
@@ -129,7 +129,7 @@ function Row({
   onSelect,
   condition,
   partner,
-  integrationName,
+  subscriptionName,
   health,
   dirty,
 }: {
@@ -137,7 +137,7 @@ function Row({
   onSelect: () => void;
   condition: string;
   partner: string;
-  integrationName: string;
+  subscriptionName: string;
   health: keyof typeof HEALTH_DOT;
   dirty: boolean;
 }) {
@@ -178,8 +178,8 @@ function Row({
         <span className="shrink-0 text-ink-300" aria-hidden>
           →
         </span>
-        <span className="min-w-0 flex-1 truncate text-ink-600" title={integrationName}>
-          {integrationName}
+        <span className="min-w-0 flex-1 truncate text-ink-600" title={subscriptionName}>
+          {subscriptionName}
         </span>
       </span>
     </button>

@@ -8,12 +8,12 @@ import type {
   BusGatewayDetail,
   BusGatewayRoute,
   BusGatewayRow,
-  InlineIntegrationDraft,
+  InlineSubscriptionDraft,
   MatchGroup,
   Paged,
 } from "../types";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
-import { inlineIntegrationBody } from "./subscriptionBody";
+import { inlineSubscriptionBody } from "./subscriptionBody";
 import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
@@ -59,8 +59,8 @@ interface RawBusGateway {
 const toApiGatewayAttachment = (p: RawApiGatewayPartner): ApiGatewayAttachment => ({
   partnerId: p.partnerId,
   partnerName: p.partnerName,
-  integrationId: p.subscriptionId,
-  integrationName: p.subscriptionName,
+  subscriptionId: p.subscriptionId,
+  subscriptionName: p.subscriptionName,
 });
 
 const toApiGatewayRow = (raw: RawApiGateway): ApiGatewayRow => ({
@@ -84,8 +84,8 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
 
 const toBusGatewayRoute = (r: RawBusGatewayRoute): BusGatewayRoute => ({
   id: r.id,
-  integrationId: r.subscriptionId,
-  integrationName: r.subscriptionName ?? "",
+  subscriptionId: r.subscriptionId,
+  subscriptionName: r.subscriptionName ?? "",
   partnerId: r.partnerId,
   partnerName: r.partnerName,
   matchExpression: toMatchGroup(r.matchExpression),
@@ -113,20 +113,20 @@ const toBusGatewayDetail = (raw: RawBusGateway): BusGatewayDetail => ({
   routes: (raw.routes ?? []).map(toBusGatewayRoute),
 });
 
-/** The attachment always points at an integration that already exists — a new one is
+/** The attachment always points at a subscription that already exists — a new one is
  * created on its own page first, not inline here (unlike a bus gateway route, which
  * still creates one in the same transaction — see `AddBusRouteInput`). */
-export type AttachPartnerInput = { partnerId: number; integrationId: number };
+export type AttachPartnerInput = { partnerId: number; subscriptionId: number };
 
 /**
- * A route points at an integration that already exists, or defines one. Exactly one,
+ * A route points at a subscription that already exists, or defines one. Exactly one,
  * which the endpoint enforces — the union makes that unrepresentable rather than
  * merely wrong.
  */
 export type AddBusRouteInput = {
   partnerId: number | null;
   matchExpression: MatchGroup | null;
-} & ({ integrationId: number } | { newIntegration: InlineIntegrationDraft });
+} & ({ subscriptionId: number } | { newSubscription: InlineSubscriptionDraft });
 
 export const gatewayMethods = {
   // ——— API gateways ———
@@ -201,17 +201,17 @@ export const gatewayMethods = {
   async attachGatewayPartner(id: number, input: AttachPartnerInput): Promise<void> {
     await post(`/apigateways/${id}/addpartner`, {
       partnerId: input.partnerId,
-      subscriptionId: input.integrationId,
+      subscriptionId: input.subscriptionId,
     });
   },
 
-  async updateGatewayAttachment(id: number, input: { partnerId: number; integrationId: number }): Promise<void> {
+  async updateGatewayAttachment(id: number, input: { partnerId: number; subscriptionId: number }): Promise<void> {
     // Not a plain POST to updatepartner: ApiGatewayPartner's PK is the composite
     // (gatewayId, partnerId, subscriptionId), and the backend's UpdatePartner
     // handler tries to mutate subscriptionId in place on a tracked entity — EF
     // Core rejects changes to a key column. Remove-then-add sidesteps it.
     await post(`/apigateways/${id}/removepartner`, { partnerId: input.partnerId });
-    await post(`/apigateways/${id}/addpartner`, { partnerId: input.partnerId, subscriptionId: input.integrationId });
+    await post(`/apigateways/${id}/addpartner`, { partnerId: input.partnerId, subscriptionId: input.subscriptionId });
   },
 
   async removeGatewayAttachment(id: number, partnerId: number): Promise<void> {
@@ -292,11 +292,13 @@ export const gatewayMethods = {
 
   async addBusRoute(id: number, input: AddBusRouteInput): Promise<void> {
     await post(`/busgateways/${id}/addroute`, {
-      // Exactly one of the two, which is what the endpoint enforces. An integration
+      // Exactly one of the two, which is what the endpoint enforces. A subscription
       // defined here is created in the same transaction as the route.
-      ...("newIntegration" in input
-        ? { newIntegration: inlineIntegrationBody(input.newIntegration) }
-        : { subscriptionId: input.integrationId }),
+      // `newIntegration` is the wire name: BusGatewayRouteCreate.NewIntegration still
+      // carries the old wording, so the key sent here cannot follow this UI's rename.
+      ...("newSubscription" in input
+        ? { newIntegration: inlineSubscriptionBody(input.newSubscription) }
+        : { subscriptionId: input.subscriptionId }),
       partnerId: input.partnerId,
       matchExpression: toRawMatchExpression(input.matchExpression),
     });
@@ -305,11 +307,11 @@ export const gatewayMethods = {
   async updateBusRoute(
     id: number,
     routeId: number,
-    input: { integrationId: number; partnerId: number | null; matchExpression: MatchGroup | null },
+    input: { subscriptionId: number; partnerId: number | null; matchExpression: MatchGroup | null },
   ): Promise<void> {
     await post(`/busgateways/${id}/updateroute`, {
       routeId,
-      subscriptionId: input.integrationId,
+      subscriptionId: input.subscriptionId,
       partnerId: input.partnerId,
       matchExpression: toRawMatchExpression(input.matchExpression),
     });

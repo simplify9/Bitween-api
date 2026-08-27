@@ -119,8 +119,8 @@ export function WorkGroupPage() {
           <Can permission="monitoring.view">
             <LiveQueuePanel groupId={groupId} />
           </Can>
-          <Panel title="Used by" description="Integrations assigned to this work group.">
-            <SetupList items={g.integrations} />
+          <Panel title="Used by" description="Subscriptions assigned to this work group.">
+            <SetupList items={g.subscriptions} />
           </Panel>
         </div>
       </div>
@@ -140,7 +140,7 @@ export function WorkGroupPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{g.name}</strong> will be gone for good.
-              Groups still assigned to integrations can't be deleted.
+              Groups still assigned to subscriptions can't be deleted.
             </>
           }
           confirmLabel="Delete work group"

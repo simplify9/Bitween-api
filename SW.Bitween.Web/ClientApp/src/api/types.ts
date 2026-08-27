@@ -91,10 +91,10 @@ export class NotWiredError extends Error {
 // ——— Configuration entities (sub-phase 2) ———
 
 /** Lightweight references for "used by" panels. */
-export interface IntegrationSetupRef {
+export interface SubscriptionSetupRef {
   id: number;
   name: string;
-  type: IntegrationType;
+  type: SubscriptionType;
 }
 export interface ApiGatewayAttachmentRef {
   gatewayId: number;
@@ -125,18 +125,18 @@ export interface ExchangeRef {
 }
 
 /**
- * Lightweight summary of every integration, cached client-side so pages
+ * Lightweight summary of every subscription, cached client-side so pages
  * can answer "who uses this property/value/policy?" without new requests.
  * Derived server-side by scanning adapter property values for tokens.
  */
-export interface IntegrationInfo {
+export interface SubscriptionInfo {
   id: number;
   name: string;
-  type: IntegrationType;
+  type: SubscriptionType;
   /**
-   * The integration's OWN partner, which only the legacy types carry. Partners
+   * The subscription's OWN partner, which only the legacy types carry. Partners
    * linked through a gateway attachment or a bus route are NOT here — the list
-   * endpoint doesn't know about them. Use `usePartnerIntegrations()` when you
+   * endpoint doesn't know about them. Use `usePartnerSubscriptions()` when you
    * need the full picture.
    */
   partnerIds: number[];
@@ -151,8 +151,8 @@ export interface IntegrationInfo {
   handlerId: string | null;
   /** The bus message its delivery response is published as, if any. */
   responseMessageTypeName: string | null;
-  /** The integration its delivery response is handed straight to, if any. */
-  responseIntegrationId: number | null;
+  /** The subscription its delivery response is handed straight to, if any. */
+  responseSubscriptionId: number | null;
   /**
    * Reference tokens found in its adapter properties. Both are matched
    * case-insensitively, as the backend resolver does — compare them with
@@ -219,7 +219,7 @@ export interface InformationTypeRow extends InformationType {
   usedByCount: number;
 }
 export interface InformationTypeDetail extends InformationType {
-  integrationSetups: IntegrationSetupRef[];
+  subscriptionSetups: SubscriptionSetupRef[];
   busGateways: { gatewayId: number; gatewayName: string }[];
   trail: TrailEntry[];
   recentExchanges: ExchangeRef[];
@@ -235,7 +235,7 @@ export interface GlobalValuesSet {
 /** Alias the ported mapper code types its global-set props with. */
 export type GlobalValuesSetRow = GlobalValuesSet;
 export interface ValueSetUsage {
-  integrationSetup: IntegrationSetupRef;
+  subscriptionSetup: SubscriptionSetupRef;
   keys: string[];
 }
 export interface GlobalValuesSetDetail extends GlobalValuesSet {
@@ -260,7 +260,7 @@ export type RetryDelay =
 /**
  * Whether a level of the alert hierarchy names its own destination or defers upward.
  *
- * Resolved most-specific-first per integration and group: the pair's own override, then
+ * Resolved most-specific-first per subscription and group: the pair's own override, then
  * the group, then the policy. A level that sends **replaces** the one above rather than
  * merging with it, so whichever level wins has to carry the handler and every property
  * it needs.
@@ -289,7 +289,7 @@ export interface RetryGroup {
   action: "Allow" | "Block";
   budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number; delay: RetryDelay };
   notes?: string;
-  /** Where this group's budget-exhausted alert goes, for every integration using the policy. */
+  /** Where this group's budget-exhausted alert goes, for every subscription using the policy. */
   alertMode: RetryAlertMode;
   alertHandlerId: string | null;
   alertHandlerProperties: Record<string, string>;
@@ -313,7 +313,7 @@ export interface RetryPolicyListRow {
   usedByCount: number;
 }
 export interface RetryPolicyDetail extends RetryPolicy {
-  integrations: IntegrationSetupRef[];
+  subscriptions: SubscriptionSetupRef[];
 }
 
 /**
@@ -332,22 +332,22 @@ export interface RetryAlertOutcome {
 }
 
 /**
- * The whole state of one integration-and-group pair: how much of the group's budget that
- * integration has spent, and where the pair's budget-exhausted alert would go.
+ * The whole state of one subscription-and-group pair: how much of the group's budget that
+ * subscription has spent, and where the pair's budget-exhausted alert would go.
  *
- * Budgets are counted per pair — a shared policy gives every integration its own separate total
+ * Budgets are counted per pair — a shared policy gives every subscription its own separate total
  * — so there is no such thing as "this policy's usage". Any single figure on a policy or a group
  * would be an aggregate matching nothing anyone can act on, which is why the pair is also what
  * resetting and overriding both address.
  */
 export interface RetryUsageRow {
-  integrationId: number;
-  integrationName: string;
+  subscriptionId: number;
+  subscriptionName: string;
   groupId: string;
   groupName: string;
   used: number;
   total: number;
-  /** Spent out: this integration gets no further automatic retries from this group. */
+  /** Spent out: this subscription gets no further automatic retries from this group. */
   exhausted: boolean;
   /** Null when the pair has never failed — also how you know there is no counter to reset. */
   lastAttemptOn: string | null;
@@ -377,7 +377,7 @@ export interface RetryAttempt {
 
 export interface RetryAttempts {
   /**
-   * Every failure this group has caught for this integration. Failures outlive the counter,
+   * Every failure this group has caught for this subscription. Failures outlive the counter,
    * which is reset, so this is not the counter's value.
    */
   total: number;
@@ -405,8 +405,8 @@ export interface Notifier {
   onSuccess: boolean;
   channelId: string;
   channelProperties: Record<string, string>;
-  /** Integrations this notifier watches; empty = it never fires. */
-  integrationIds: number[];
+  /** Subscriptions this notifier watches; empty = it never fires. */
+  subscriptionIds: number[];
   createdOn: string;
 }
 
@@ -422,7 +422,7 @@ export interface NotifierDetail extends Notifier {
   recentNotifications: NotificationEntry[];
 }
 
-// ——— Integrations (subscriptions) ———
+// ——— Subscriptions (subscriptions) ———
 
 /**
  * Backend Subscription.Type. Internal and ApiCall are legacy — shown and
@@ -435,11 +435,11 @@ export interface NotifierDetail extends Notifier {
  */
 export type AggregationTarget = "Input" | "Output" | "Response";
 /**
- * The editable fields of an integration being defined inline, while whatever points
+ * The editable fields of a subscription being defined inline, while whatever points
  * at it is being made. Mirrors the studio's own draft — deliberately, so the canvas
  * can hand its draft straight to the client.
  */
-export interface InlineIntegrationDraft {
+export interface InlineSubscriptionDraft {
   name: string;
   enabled: boolean;
   workGroupId: number | null;
@@ -454,11 +454,11 @@ export interface InlineIntegrationDraft {
   handlerProperties: Record<string, string>;
   matchExpression: MatchGroup | null;
   schedules: Schedule[];
-  responseIntegrationId: number | null;
+  responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
 }
 
-export type IntegrationType =
+export type SubscriptionType =
   | "Receiving"
   | "GatewayApiCall"
   | "BusGateway"
@@ -517,10 +517,10 @@ export interface Schedule {
   backwards: boolean;
 }
 
-export interface Integration {
+export interface Subscription {
   id: number;
   name: string;
-  type: IntegrationType;
+  type: SubscriptionType;
   informationTypeId: number;
   /** Direct partner — legacy Internal/ApiCall (and Aggregation) only. */
   partnerId: number | null;
@@ -538,12 +538,12 @@ export interface Integration {
   mapperProperties: Record<string, string>;
   handlerId: string | null;
   handlerProperties: Record<string, string>;
-  /** Legacy Internal only: which documents this integration picks up. */
+  /** Legacy Internal only: which documents this subscription picks up. */
   matchExpression: MatchGroup | null;
   /** Receiving (and Aggregation) only. */
   schedules: Schedule[];
-  /** Feed the handler's response into another integration. */
-  responseIntegrationId: number | null;
+  /** Feed the handler's response into another subscription. */
+  responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
   /**
    * Aggregation only: whose exchanges get rolled up. Fixed at creation — the backend
@@ -562,10 +562,10 @@ export interface Integration {
   createdOn: string;
 }
 
-export interface IntegrationRow {
+export interface SubscriptionRow {
   id: number;
   name: string;
-  type: IntegrationType;
+  type: SubscriptionType;
   informationTypeId: number;
   informationTypeCode: string;
   partners: { id: number; name: string }[];
@@ -589,10 +589,10 @@ export interface IntegrationRow {
 }
 
 /**
- * One execution of a scheduled integration, from the scheduler's own history.
+ * One execution of a scheduled subscription, from the scheduler's own history.
  * Kept for `RetentionDays` (~30) — older runs are purged, not archived here.
  */
-export interface IntegrationRun {
+export interface SubscriptionRun {
   startedOn: string;
   endedOn: string | null;
   durationMs: number | null;
@@ -604,14 +604,14 @@ export interface IntegrationRun {
   manual: boolean;
 }
 
-export interface IntegrationLastRun extends IntegrationRun {
-  integrationId: number;
+export interface SubscriptionLastRun extends SubscriptionRun {
+  subscriptionId: number;
   /** Finished runs in the recent window; in-progress runs count as neither pass nor fail. */
   recentTotal: number;
   recentSucceeded: number;
 }
 
-/** One poll of a Receiving integration's own receive step — independent of the scheduler's
+/** One poll of a Receiving subscription's own receive step — independent of the scheduler's
  * run history, which only knows whether the method threw (it never does; failures here are
  * caught and reported this way instead). */
 export type ReceiveOutcome = "Failed" | "NoNewData" | "Received";
@@ -632,12 +632,12 @@ export interface ReceiveAttemptRow {
 }
 
 /**
- * Whether a scheduled integration will actually fire, straight from the scheduler.
- * Everything here can disagree with what the integration's own record says, and
+ * Whether a scheduled subscription will actually fire, straight from the scheduler.
+ * Everything here can disagree with what the subscription's own record says, and
  * when it does the job is silently dead rather than visibly broken.
  */
 export interface ScheduleHealth {
-  integrationId: number;
+  subscriptionId: number;
   scheduleCount: number;
   /** Fewer than `scheduleCount` means a schedule exists that nothing will ever fire. */
   triggerCount: number;
@@ -648,10 +648,10 @@ export interface ScheduleHealth {
   stuck: boolean;
 }
 
-export interface IntegrationDetail extends Integration {
+export interface SubscriptionDetail extends Subscription {
   informationTypeCode: string;
   informationTypeName: string;
-  /** Where this integration is plugged in (entry points). */
+  /** Where this subscription is plugged in (entry points). */
   apiGatewayAttachments: { gatewayId: number; gatewayName: string; urlName: string; partnerId: number; partnerName: string }[];
   busGatewayRoutes: { gatewayId: number; gatewayName: string; partnerId: number | null; partnerName: string | null }[];
   watchingNotifiers: { id: number; name: string }[];
@@ -682,7 +682,7 @@ export interface WorkGroupRow extends WorkGroup {
   consumerCount: number;
 }
 export interface WorkGroupDetail extends WorkGroup {
-  integrations: IntegrationSetupRef[];
+  subscriptions: SubscriptionSetupRef[];
 }
 
 // ——— API gateways ———
@@ -690,8 +690,8 @@ export interface WorkGroupDetail extends WorkGroup {
 export interface ApiGatewayAttachment {
   partnerId: number;
   partnerName: string;
-  integrationId: number;
-  integrationName: string;
+  subscriptionId: number;
+  subscriptionName: string;
 }
 export interface ApiGateway {
   id: number;
@@ -713,8 +713,8 @@ export interface ApiGatewayDetail extends ApiGateway {
 
 export interface BusGatewayRoute {
   id: number;
-  integrationId: number;
-  integrationName: string;
+  subscriptionId: number;
+  subscriptionName: string;
   partnerId: number | null;
   partnerName: string | null;
   /** null = route matches every message of the gateway's type. */
@@ -803,8 +803,8 @@ export interface ExchangeFileRef {
 export interface ExchangeRow {
   id: string;
   status: ExchangeStatus;
-  integrationId: number | null;
-  integrationName: string | null;
+  subscriptionId: number | null;
+  subscriptionName: string | null;
   informationTypeId: number;
   informationTypeCode: string;
   partnerId: number | null;
@@ -821,7 +821,7 @@ export interface ExchangeRow {
   scheduledRetryOn: string | null;
   exception: string | null;
   promotedProperties: Record<string, string> | null;
-  /** True when the integration has no mapper — the Mapped stage is skipped. */
+  /** True when the subscription has no mapper — the Mapped stage is skipped. */
   mapperSkipped: boolean;
   files: {
     input: ExchangeFileRef | null;
@@ -832,7 +832,7 @@ export interface ExchangeRow {
 
 export interface ExchangeQuery {
   status?: ExchangeStatus;
-  integrationId?: number;
+  subscriptionId?: number;
   partnerId?: number;
   informationTypeId?: number;
   /** Comma/pipe/newline separated; matches id, retryFor OR aggregationXchangeId. */
@@ -864,8 +864,8 @@ export interface ScheduledRetryRow {
   id: string;
   /** When the retry job will pick it up. */
   on: string;
-  integrationId: number | null;
-  integrationName: string | null;
+  subscriptionId: number | null;
+  subscriptionName: string | null;
   informationTypeId: number;
   informationTypeCode: string;
   exception: string | null;
@@ -874,8 +874,8 @@ export interface ScheduledRetryRow {
   /** What the exchange carries — how a pending retry identifies itself in a list. */
   promotedProperties: Record<string, string> | null;
   /**
-   * The shared retry policy the integration currently points at. Null when the
-   * policy is defined inline on the integration instead, so the integration — not
+   * The shared retry policy the subscription currently points at. Null when the
+   * policy is defined inline on the subscription instead, so the subscription — not
    * the Retry policies list — is where to go and look.
    */
   retryPolicyId: number | null;
@@ -883,7 +883,7 @@ export interface ScheduledRetryRow {
 }
 
 export interface ScheduledRetryQuery {
-  integrationId?: number;
+  subscriptionId?: number;
   informationTypeId?: number;
   /** Substring match against the exception text. */
   exception?: string;
@@ -1005,19 +1005,19 @@ export interface DashboardData {
   queueAlerts: number;
   /** Last 14 days, oldest first; today is the final entry. */
   trafficByDay: { date: string; success: number; failed: number }[];
-  /** Top integrations by 7-day traffic, busiest first. */
+  /** Top subscriptions by 7-day traffic, busiest first. */
   busiest: { id: number; name: string; count: number; failed: number }[];
   latestFailures: {
     id: string;
     status: ExchangeStatus;
-    integrationId: number | null;
-    integrationName: string | null;
+    subscriptionId: number | null;
+    subscriptionName: string | null;
     informationTypeCode: string;
     on: string;
     exception: string | null;
   }[];
   attention: {
-    failingIntegrations: { id: number; name: string; consecutiveFailures: number }[];
-    pausedIntegrations: { id: number; name: string }[];
+    failingSubscriptions: { id: number; name: string; consecutiveFailures: number }[];
+    pausedSubscriptions: { id: number; name: string }[];
   };
 }

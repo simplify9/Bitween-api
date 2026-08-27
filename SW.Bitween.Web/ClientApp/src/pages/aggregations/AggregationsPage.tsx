@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layers, Play, Plus, Search } from "lucide-react";
-import { api, type IntegrationRow, type ScheduleHealth } from "../../api";
+import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -13,23 +13,23 @@ import { Table } from "../../components/ui/Table";
 import { AGGREGATION_TARGET_LABEL } from "../../components/config/AggregationFields";
 import {
   HealthBadge,
-  IntegrationStatusBadges,
+  SubscriptionStatusBadges,
   LinkListCell,
   scheduleFault,
-  useIntegrationsCache,
+  useSubscriptionsCache,
   useRetryPolicyNames,
   useWorkGroupNames,
 } from "../../components/config/shared";
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
 
-function AggregateNowButton({ job }: { job: IntegrationRow }) {
+function AggregateNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const aggregate = useMutation({
     mutationFn: () => api.aggregateNow(job.id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
       void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
     },
   });
@@ -71,7 +71,7 @@ const STATUS_OPTIONS = [
   { value: "true", label: "Disabled" },
 ];
 
-/** The scheduler disagreeing with the integration's own record — see the scheduled-jobs page. */
+/** The scheduler disagreeing with the subscription's own record — see the scheduled-jobs page. */
 function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
   const fault = scheduleFault(health);
   if (!fault) return null;
@@ -84,7 +84,7 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 
 /**
  * Aggregations — the other scheduled type. On a schedule, one collects another
- * integration's successful exchanges and creates a single exchange whose payload is a
+ * subscription's successful exchanges and creates a single exchange whose payload is a
  * JSON list of links to their files.
  *
  * Its own page rather than a row on Scheduled jobs, because the columns that matter are
@@ -103,23 +103,23 @@ export function AggregationsPage() {
   const canOperate = useSessionCan("subscriptions.operate");
 
   const rows = useQuery({
-    queryKey: ["integration-rows-search", "Aggregation", q, inactive, offset],
+    queryKey: ["subscription-rows-search", "Aggregation", q, inactive, offset],
     queryFn: () =>
-      api.searchIntegrationRows({ search: q, type: "Aggregation", inactive, offset, limit: PAGE_SIZE }),
+      api.searchSubscriptionRows({ search: q, type: "Aggregation", inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  // The list rows don't carry work group or retry policy; the integrations cache does,
-  // and it is also where the source integration's name comes from.
-  const setups = useIntegrationsCache().data ?? [];
+  // The list rows don't carry work group or retry policy; the subscriptions cache does,
+  // and it is also where the source subscription's name comes from.
+  const setups = useSubscriptionsCache().data ?? [];
   const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
   const nameById = useMemo(() => new Map(setups.map((s) => [s.id, s.name])), [setups]);
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
   const lastRuns = useQuery({ queryKey: ["last-runs"], queryFn: () => api.listLastRuns() }).data ?? [];
-  const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.integrationId, r])), [lastRuns]);
+  const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.subscriptionId, r])), [lastRuns]);
   const health =
     useQuery({ queryKey: ["schedule-health"], queryFn: () => api.listScheduleHealth() }).data ?? [];
-  const healthById = useMemo(() => new Map(health.map((h) => [h.integrationId, h])), [health]);
+  const healthById = useMemo(() => new Map(health.map((h) => [h.subscriptionId, h])), [health]);
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
@@ -140,7 +140,7 @@ export function AggregationsPage() {
     <div>
       <PageHeader
         title="Aggregations"
-        description="Collect an integration's exchanges on a schedule into one exchange listing links to their files. The files are not combined — a mapper or delivery does that."
+        description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined — a mapper or delivery does that."
         actions={
           <Can permission="subscriptions.create">
             <Button variant="primary" onClick={() => navigate("/aggregations/new")}>
@@ -179,7 +179,7 @@ export function AggregationsPage() {
         <EmptyState icon={<Layers />} title={q || inactive !== null ? "No aggregations match" : "No aggregations yet"}>
           {q || inactive !== null
             ? "Try a different search or filter."
-            : "Create one here, or open the integration you want summarised and choose “Roll these up”."}
+            : "Create one here, or open the subscription you want summarised and choose “Roll these up”."}
         </EmptyState>
       ) : (
         <Table
@@ -206,7 +206,7 @@ export function AggregationsPage() {
               // The whole point of the row: an aggregation with no source name is one
               // whose source was deleted, and it will never produce anything again.
               header: "Rolls up",
-              headerTitle: "The integration whose successful exchanges this collects. Fixed when the aggregation was created.",
+              headerTitle: "The subscription whose successful exchanges this collects. Fixed when the aggregation was created.",
               truncate: true,
               cell: (r) => {
                 const name = r.aggregationForId === null ? null : nameById.get(r.aggregationForId);
@@ -365,7 +365,7 @@ export function AggregationsPage() {
               cell: (r) => (
                 <span className="inline-flex items-center gap-1">
                   <ScheduleFault health={healthById.get(r.id)} />
-                  <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
+                  <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
                   <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
                 </span>
               ),

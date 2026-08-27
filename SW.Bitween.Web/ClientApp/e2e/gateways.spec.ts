@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
   await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
 });
 
-test("API gateway: create, attach partner, create integration detour, edit attachment, detach, delete", async ({
+test("API gateway: create, attach partner, create subscription detour, edit attachment, detach, delete", async ({
   page,
 }) => {
   const name = `Playwright API GW ${Date.now()}`;
@@ -22,38 +22,38 @@ test("API gateway: create, attach partner, create integration detour, edit attac
   await expect(page).toHaveURL(/\/api-gateways\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
 
-  // Attach a partner, detouring to create the required GatewayApiCall integration inline.
+  // Attach a partner, detouring to create the required GatewayApiCall subscription inline.
   await page.getByRole("button", { name: "Attach partner" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach$/);
 
   await page.getByRole("button", { name: "acme" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 
-  const integrationName = `Playwright GW Integration ${Date.now()}`;
-  await page.getByRole("link", { name: "New integration" }).click();
+  const subscriptionName = `Playwright GW Subscription ${Date.now()}`;
+  await page.getByRole("link", { name: "New subscription" }).click();
   await expect(page).toHaveURL(/\/subscriptions\/new\?type=GatewayApiCall/);
-  await page.fill("#ni-name", integrationName);
+  await page.fill("#ni-name", subscriptionName);
   await page.getByRole("button", { name: "test doc" }).click();
   await page.getByLabel("handler adapter").click();
   await page.getByRole("option", { name: "NativeHttpHandler" }).click();
   await expect(page.getByRole("listbox")).toHaveCount(0, { timeout: 10000 });
   await page.locator("#prop-Url").fill("https://example.com/sink");
-  await page.getByRole("button", { name: "Create integration" }).click();
+  await page.getByRole("button", { name: "Create subscription" }).click();
 
   // This page itself renders a ReturnBanner with a "Continue" button before
   // the mutation resolves (inherited from the detour link) — wait for the
-  // create to actually land on the new integration's own page first, or the
+  // create to actually land on the new subscription's own page first, or the
   // click races and hits that stale button instead.
   await expect(page).toHaveURL(/\/subscriptions\/\d+\?/);
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach$/);
-  await expect(page.getByText(integrationName)).toBeVisible();
+  await expect(page.getByText(subscriptionName)).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Attach partner" }).click();
 
   await expect(page).toHaveURL(/\/api-gateways\/\d+$/);
   await expect(page.getByText("acme").first()).toBeVisible();
-  await expect(page.getByText(integrationName)).toBeVisible();
+  await expect(page.getByText(subscriptionName)).toBeVisible();
 
   // Edit the attachment — exercises the remove-then-add path (backend's
   // updatepartner can't mutate a composite-key column in place).
@@ -61,7 +61,7 @@ test("API gateway: create, attach partner, create integration detour, edit attac
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attachments\/\d+$/);
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+$/);
-  await expect(page.getByText(integrationName)).toBeVisible();
+  await expect(page.getByText(subscriptionName)).toBeVisible();
 
   // Detach.
   await page.getByRole("button", { name: "Detach acme" }).click();
@@ -80,7 +80,7 @@ test("API gateway: create, attach partner, create integration detour, edit attac
     .getByRole("button", { name: "Delete gateway" })
     .click();
   // ApiGatewayPage navigates to /api-gateways, which the router redirects to
-  // the unified integrations list.
+  // the unified subscriptions list.
   await expect(page).toHaveURL(/\/subscriptions\?types=api-gateways$/);
 });
 
@@ -103,28 +103,28 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
   await page.getByRole("button", { name: "No partner" }).click();
   await page.getByRole("button", { name: "Continue" }).click();
 
-  // Integration step — detour to create the required BusGateway integration.
-  const integrationName = `Playwright Bus Integration ${Date.now()}`;
-  await page.getByRole("link", { name: "New integration" }).click();
+  // Subscription step — detour to create the required BusGateway subscription.
+  const subscriptionName = `Playwright Bus Subscription ${Date.now()}`;
+  await page.getByRole("link", { name: "New subscription" }).click();
   await expect(page).toHaveURL(/\/subscriptions\/new\?type=BusGateway/);
-  await page.fill("#ni-name", integrationName);
+  await page.fill("#ni-name", subscriptionName);
   await page.getByLabel("handler adapter").click();
   await page.getByRole("option", { name: "NativeHttpHandler" }).click();
   await expect(page.getByRole("listbox")).toHaveCount(0, { timeout: 10000 });
   await page.locator("#prop-Url").fill("https://example.com/sink");
-  await page.getByRole("button", { name: "Create integration" }).click();
+  await page.getByRole("button", { name: "Create subscription" }).click();
 
   // Wait for the create to actually land (see the comment in the API gateway
   // test above) before clicking the ReturnBanner's "Continue".
   await expect(page).toHaveURL(/\/subscriptions\/\d+\?/);
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/bus-gateways\/\d+\/add-route$/);
-  await expect(page.getByText(integrationName)).toBeVisible();
+  await expect(page.getByText(subscriptionName)).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Add route" }).click();
 
   await expect(page).toHaveURL(/\/bus-gateways\/\d+$/);
-  await expect(page.getByText(integrationName)).toBeVisible();
+  await expect(page.getByText(subscriptionName)).toBeVisible();
 
   // Edit the route (no-op save exercises the round trip of a null match expression).
   await page.getByRole("button", { name: /Edit route \d+/ }).click();

@@ -10,13 +10,13 @@ import { AdapterConfig, useAdapterCatalog } from "../../components/config/Adapte
 import { AggregationFields } from "../../components/config/AggregationFields";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { PartnerPicker } from "../../components/config/pickers";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 import { api, type AggregationTarget, type Schedule } from "../../api";
-import { STAGES, type StageId } from "../integrations/studio/stages";
-import { StageRail } from "../integrations/studio/StageRail";
-import { adapterIncomplete, faceOf } from "../integrations/studio/faces";
-import { ResponseFields } from "../integrations/studio/ResponseFields";
-import type { Draft as StudioDraft } from "../integrations/studio/model";
+import { STAGES, type StageId } from "../subscriptions/studio/stages";
+import { StageRail } from "../subscriptions/studio/StageRail";
+import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
+import { ResponseFields } from "../subscriptions/studio/ResponseFields";
+import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the other create pages use. */
@@ -38,7 +38,7 @@ type Draft = Pick<
   | "mapperProperties"
   | "handlerId"
   | "handlerProperties"
-  | "responseIntegrationId"
+  | "responseSubscriptionId"
   | "responseMessageTypeName"
 > & {
   aggregationForId: number | null;
@@ -65,7 +65,7 @@ const EMPTY: Draft = {
   mapperProperties: {},
   handlerId: null,
   handlerProperties: {},
-  responseIntegrationId: null,
+  responseSubscriptionId: null,
   responseMessageTypeName: null,
   enable: false,
 };
@@ -75,7 +75,7 @@ const EMPTY: Draft = {
  * page's shape, for the same reason: you learn the rail once, and after Create you land on
  * the page you were already looking at.
  *
- * Arrives with `?source=` when started from the integration being rolled up, in which case
+ * Arrives with `?source=` when started from the subscription being rolled up, in which case
  * the source is fixed and shown rather than picked. Either way it is fixed after creation:
  * the backend's `AggregationForId` has a private setter and the configuration applier skips
  * it, so no update can repoint a live roll-up.
@@ -88,7 +88,7 @@ export function NewAggregationPage() {
 
   const [stage, setStage] = useState<StageId | null>("aggregation");
 
-  const allIntegrations = useIntegrationsCache();
+  const allSubscriptions = useSubscriptionsCache();
   const receivers = useAdapterCatalog("receiver");
   const validators = useAdapterCatalog("validator");
   const mappers = useAdapterCatalog("mapper");
@@ -96,11 +96,11 @@ export function NewAggregationPage() {
 
   const [draft, update] = useDraft<Draft>({ ...EMPTY, aggregationForId: fixedSourceId });
 
-  const source = allIntegrations.data?.find((s) => s.id === draft.aggregationForId) ?? null;
+  const source = allSubscriptions.data?.find((s) => s.id === draft.aggregationForId) ?? null;
 
   // An aggregation may point at another aggregation — the backend does not stop it, and a
   // chain of roll-ups summarising roll-ups is not a shape anyone has asked for.
-  const candidates = (allIntegrations.data ?? []).filter((s) => s.type !== "Aggregation");
+  const candidates = (allSubscriptions.data ?? []).filter((s) => s.type !== "Aggregation");
 
   // The source's own partner where it has one, until the person says otherwise. It is a
   // suggestion rather than an inheritance: a Receiving source usually has no partner at all,
@@ -109,7 +109,7 @@ export function NewAggregationPage() {
 
   const create = useMutation({
     mutationFn: () =>
-      api.createIntegration({
+      api.createSubscription({
         type: "Aggregation",
         name: draft.name.trim(),
         // Ignored for this type — the backend forces the built-in Aggregation Document.
@@ -122,7 +122,7 @@ export function NewAggregationPage() {
         mapperProperties: draft.mapperProperties,
         handlerId: draft.handlerId,
         handlerProperties: draft.handlerProperties,
-        responseIntegrationId: draft.responseIntegrationId,
+        responseSubscriptionId: draft.responseSubscriptionId,
         responseMessageTypeName: draft.responseMessageTypeName,
         enabled: draft.enable,
       }),
@@ -150,7 +150,7 @@ export function NewAggregationPage() {
       type: "Aggregation",
       draft: studioDraft,
       catalogs: { receivers, validators, mappers, handlers },
-      integrationNames: allIntegrations.data,
+      subscriptionNames: allSubscriptions.data,
       aggregationForId: draft.aggregationForId,
       unsaved: true,
     }),
@@ -233,11 +233,11 @@ export function NewAggregationPage() {
           <Panel title={label} description={description}>
             <ResponseFields
               handlerId={draft.handlerId}
-              responseIntegrationId={draft.responseIntegrationId}
+              responseSubscriptionId={draft.responseSubscriptionId}
               responseMessageTypeName={draft.responseMessageTypeName}
               onChange={update}
               disabled={false}
-              candidates={allIntegrations.data ?? []}
+              candidates={allSubscriptions.data ?? []}
               idPrefix="na-resp"
             />
           </Panel>
@@ -253,7 +253,7 @@ export function NewAggregationPage() {
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New aggregation</h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
-        On a schedule, collects another integration's successful exchanges into one exchange
+        On a schedule, collects another subscription's successful exchanges into one exchange
         listing links to their files. It does not combine the files — the transformation or the
         delivery does that.
       </p>
@@ -279,11 +279,11 @@ export function NewAggregationPage() {
             >
               <SearchSelect
                 id="na-source"
-                aria-label="Integration to roll up"
+                aria-label="Subscription to roll up"
                 value={draft.aggregationForId === null ? "" : String(draft.aggregationForId)}
-                disabled={allIntegrations.isPending}
+                disabled={allSubscriptions.isPending}
                 onChange={(v) => v !== "" && update({ aggregationForId: Number(v) })}
-                placeholder="Pick an integration…"
+                placeholder="Pick a subscription…"
                 options={candidates.map((s) => ({ value: String(s.id), label: s.name, hint: s.type }))}
               />
             </Field>

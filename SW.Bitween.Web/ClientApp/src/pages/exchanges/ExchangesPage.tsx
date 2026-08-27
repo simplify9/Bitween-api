@@ -8,7 +8,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Select, TextInput } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 import { timeAgo, timeUntil, duration } from "../../lib/dates";
 import { ExchangeDrawer } from "./ExchangeDrawer";
 import { JourneyStrip, RetryDialog, STATUS_LABELS, StatusBadge } from "./shared";
@@ -25,11 +25,11 @@ const REFRESH_OPTIONS = [
 ];
 
 /** Everything except paging counts as "a filter" for the Clear affordance. */
-const FILTER_KEYS = ["status", "integrationId", "partnerId", "informationTypeId", "ids", "correlationId", "propertyKey", "property", "from", "to"] as const;
+const FILTER_KEYS = ["status", "subscriptionId", "partnerId", "informationTypeId", "ids", "correlationId", "propertyKey", "property", "from", "to"] as const;
 
 const readQuery = (sp: URLSearchParams): ExchangeQuery => ({
   status: (sp.get("status") as ExchangeStatus | null) ?? undefined,
-  integrationId: sp.get("integrationId") ? Number(sp.get("integrationId")) : undefined,
+  subscriptionId: sp.get("subscriptionId") ? Number(sp.get("subscriptionId")) : undefined,
   partnerId: sp.get("partnerId") ? Number(sp.get("partnerId")) : undefined,
   informationTypeId: sp.get("informationTypeId") ? Number(sp.get("informationTypeId")) : undefined,
   ids: sp.get("ids") ?? undefined,
@@ -59,7 +59,7 @@ export function ExchangesPage() {
     placeholderData: keepPreviousData,
   });
 
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
   const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() }).data ?? [];
   const infoTypes =
     useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
@@ -193,12 +193,12 @@ export function ExchangesPage() {
       {/* — filters — */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
         <SearchSelect
-          aria-label="Filter by integration"
+          aria-label="Filter by subscription"
           size="sm"
-          clearLabel="Any integration"
-          value={query.integrationId?.toString() ?? ""}
-          onChange={(v) => setParam("integrationId", v || null)}
-          options={integrations.map((i) => ({ value: String(i.id), label: i.name }))}
+          clearLabel="Any subscription"
+          value={query.subscriptionId?.toString() ?? ""}
+          onChange={(v) => setParam("subscriptionId", v || null)}
+          options={subscriptions.map((i) => ({ value: String(i.id), label: i.name }))}
         />
         <SearchSelect
           aria-label="Filter by partner"
@@ -300,7 +300,7 @@ export function ExchangesPage() {
         <EmptyState title="No exchanges match">
           {activeFilterCount > 0
             ? "Try removing some filters — or widen the date range."
-            : "Traffic will show up here as soon as an integration processes something."}
+            : "Traffic will show up here as soon as a subscription processes something."}
         </EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
@@ -330,7 +330,7 @@ export function ExchangesPage() {
                 <th className="px-3 py-1.5">Journey</th>
                 <th className="px-3 py-1.5">Information type</th>
                 <th className="px-3 py-1.5">Partner</th>
-                <th className="px-3 py-1.5">Integration</th>
+                <th className="px-3 py-1.5">Subscription</th>
                 <th className="px-3 py-1.5">Started</th>
                 <th className="w-8 px-2 py-2.5" />
               </tr>
@@ -401,13 +401,13 @@ export function ExchangesPage() {
                       )}
                     </td>
                     <td className="px-3 py-1.5 text-[13px]">
-                      {x.integrationName ? (
+                      {x.subscriptionName ? (
                         <Link
-                          to={`/subscriptions/${x.integrationId}`}
+                          to={`/subscriptions/${x.subscriptionId}`}
                           onClick={(e) => e.stopPropagation()}
                           className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                         >
-                          {x.integrationName}
+                          {x.subscriptionName}
                         </Link>
                       ) : (
                         <span className="text-ink-400">—</span>

@@ -1,7 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Search, Webhook } from "lucide-react";
-import { api, type IntegrationRow } from "../../api";
+import { api, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -11,7 +11,7 @@ import { Table } from "../../components/ui/Table";
 import {
   LinkListCell,
   WiredHealthBadge,
-  useIntegrationRowsById,
+  useSubscriptionRowsById,
 } from "../../components/config/shared";
 
 /**
@@ -40,7 +40,7 @@ export function ApiGatewaysPage() {
     queryFn: () => api.searchApiGateways({ search: q, inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  const integrationsById = useIntegrationRowsById();
+  const subscriptionsById = useSubscriptionRowsById();
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
@@ -61,7 +61,7 @@ export function ApiGatewaysPage() {
     <div>
       <PageHeader
         title="API gateways"
-        description="URLs partners call to push documents in. Each attached partner is routed to one integration."
+        description="URLs partners call to push documents in. Each attached partner is routed to one subscription."
         actions={
           <Can permission="api-gateways.create">
             <Button variant="primary" onClick={() => navigate("/api-gateways/new")}>
@@ -152,24 +152,24 @@ export function ApiGatewaysPage() {
                     key: a.partnerId,
                     name: a.partnerName,
                     href: `/partners/${a.partnerId}`,
-                    note: <Badge>{a.integrationName}</Badge>,
+                    note: <Badge>{a.subscriptionName}</Badge>,
                   }))}
                 />
               ),
             },
             {
-              // No Integrations or Handles column. Both vary per attachment, and
+              // No Subscriptions or Handles column. Both vary per attachment, and
               // a second list beside Partners can't say which entry pairs with
               // which — that belongs in the gateway's own attachments table,
-              // where a row is exactly one partner and one integration.
+              // where a row is exactly one partner and one subscription.
               // An aggregate has no such problem, so health stays.
               header: "Health",
               cell: (g) => (
                 <WiredHealthBadge
                   empty="No partners"
                   rows={g.attachments
-                    .map((a) => integrationsById.get(a.integrationId))
-                    .filter((r): r is IntegrationRow => Boolean(r))}
+                    .map((a) => subscriptionsById.get(a.subscriptionId))
+                    .filter((r): r is SubscriptionRow => Boolean(r))}
                 />
               ),
             },

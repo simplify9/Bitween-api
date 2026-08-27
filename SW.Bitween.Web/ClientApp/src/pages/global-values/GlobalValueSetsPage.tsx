@@ -4,13 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
 import { Can } from "../../auth/guards";
-import { IntegrationMultiFilter } from "../../components/config/IntegrationMultiFilter";
+import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
 import { suggestSlug } from "../../lib/identifiers";
 
 function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
@@ -78,7 +78,7 @@ function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** ?integrations=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -91,11 +91,11 @@ export function GlobalValueSetsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
-  const integrationIds = parseIds(searchParams.get("integrations"));
+  const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const creating = searchParams.get("new") === "1";
 
   const sets = useQuery({ queryKey: ["value-sets"], queryFn: () => api.listValueSets() });
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(
@@ -110,19 +110,19 @@ export function GlobalValueSetsPage() {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const wantedIntegrations = integrations.filter((i) => integrationIds.includes(i.id));
+    const wantedSubscriptions = subscriptions.filter((i) => subscriptionIds.includes(i.id));
     return (sets.data ?? []).filter((s) => {
       if (needle && !s.name.toLowerCase().includes(needle) && !s.id.includes(needle)) return false;
-      if (integrationIds.length > 0 && !wantedIntegrations.some((i) => referencesGlobal(i, s.id))) return false;
+      if (subscriptionIds.length > 0 && !wantedSubscriptions.some((i) => referencesGlobal(i, s.id))) return false;
       return true;
     });
-  }, [sets.data, q, integrationIds, integrations]);
+  }, [sets.data, q, subscriptionIds, subscriptions]);
 
   return (
     <div>
       <PageHeader
         title="Global values"
-        description="Shared value sets any adapter can reference — change an endpoint here once instead of in every integration."
+        description="Shared value sets any adapter can reference — change an endpoint here once instead of in every subscription."
         actions={
           <Can permission="global-values.create">
             <Button variant="primary" onClick={() => setParam("new", "1")}>
@@ -145,11 +145,11 @@ export function GlobalValueSetsPage() {
           />
         </div>
         <div className="w-60">
-          <IntegrationMultiFilter
-            integrations={integrations}
-            selected={integrationIds}
-            onChange={(ids) => setParam("integrations", ids.length ? ids.join(",") : null)}
-            label="Filter by integration"
+          <SubscriptionMultiFilter
+            subscriptions={subscriptions}
+            selected={subscriptionIds}
+            onChange={(ids) => setParam("subscriptions", ids.length ? ids.join(",") : null)}
+            label="Filter by subscription"
           />
         </div>
       </div>
@@ -159,9 +159,9 @@ export function GlobalValueSetsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<SlidersHorizontal />}
-          title={q || integrationIds.length > 0 ? "No value sets match" : "No value sets yet"}
+          title={q || subscriptionIds.length > 0 ? "No value sets match" : "No value sets yet"}
         >
-          {q || integrationIds.length > 0
+          {q || subscriptionIds.length > 0
             ? "Try a different search or filter."
             : "Create a set of shared values your adapters can reference."}
         </EmptyState>
@@ -182,7 +182,7 @@ export function GlobalValueSetsPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (s) => <UsedByCell items={integrations.filter((i) => referencesGlobal(i, s.id))} />,
+              cell: (s) => <UsedByCell items={subscriptions.filter((i) => referencesGlobal(i, s.id))} />,
             },
           ]}
         />

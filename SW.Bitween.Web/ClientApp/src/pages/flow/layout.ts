@@ -44,7 +44,7 @@ const KIND_ORDER: Record<FlowNodeKind, number> = {
   busGateway: 1,
   apiGateway: 2,
   job: 3,
-  integration: 4,
+  subscription: 4,
 };
 
 /**

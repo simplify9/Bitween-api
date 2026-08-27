@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Cable, Network, Plus, Search } from "lucide-react";
-import { api, type BusGatewayRow, type IntegrationRow } from "../../api";
+import { api, type BusGatewayRow, type SubscriptionRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -13,13 +13,13 @@ import { Table } from "../../components/ui/Table";
 import {
   LinkListCell,
   WiredHealthBadge,
-  useIntegrationRowsById,
+  useSubscriptionRowsById,
 } from "../../components/config/shared";
 import { matchSummary } from "../../lib/match";
 
 /**
  * Bus gateways — messages picked off the bus. A gateway listens for one
- * information type; its routes decide which integration handles which message.
+ * information type; its routes decide which subscription handles which message.
  */
 const PAGE_SIZE = 25;
 
@@ -46,7 +46,7 @@ export function BusGatewaysPage() {
     queryFn: () => api.searchBusGateways({ search: q, informationTypeId, inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  const integrationsById = useIntegrationRowsById();
+  const subscriptionsById = useSubscriptionRowsById();
   const infoTypes =
     useQuery({
       queryKey: ["information-types"],
@@ -74,7 +74,7 @@ export function BusGatewaysPage() {
     <div>
       <PageHeader
         title="Bus gateways"
-        description="Listeners that pick messages off the bus and route them to an integration."
+        description="Listeners that pick messages off the bus and route them to a subscription."
         actions={
           <>
             {/* Offered here because this is where someone asking "what feeds what?"
@@ -235,11 +235,11 @@ export function BusGatewaysPage() {
               truncate: true,
               cell: (g) => (
                 <LinkListCell
-                  label="integrations"
+                  label="subscriptions"
                   items={g.routes.map((r) => ({
                     key: r.id,
-                    name: r.integrationName,
-                    href: `/subscriptions/${r.integrationId}`,
+                    name: r.subscriptionName,
+                    href: `/subscriptions/${r.subscriptionId}`,
                     note: <Badge>{matchSummary(r.matchExpression)}</Badge>,
                   }))}
                 />
@@ -261,8 +261,8 @@ export function BusGatewaysPage() {
                   <WiredHealthBadge
                     empty="No routes"
                     rows={g.routes
-                      .map((r) => integrationsById.get(r.integrationId))
-                      .filter((r): r is IntegrationRow => Boolean(r))}
+                      .map((r) => subscriptionsById.get(r.subscriptionId))
+                      .filter((r): r is SubscriptionRow => Boolean(r))}
                   />
                 );
               },

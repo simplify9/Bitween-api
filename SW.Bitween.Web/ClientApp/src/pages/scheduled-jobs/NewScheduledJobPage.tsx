@@ -8,13 +8,13 @@ import { Panel } from "../../components/ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { InfoTypePicker } from "../../components/config/pickers";
-import { useIntegrationsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/shared";
 import { api } from "../../api";
-import { STAGES, type StageId } from "../integrations/studio/stages";
-import { StageRail } from "../integrations/studio/StageRail";
-import { adapterIncomplete, faceOf } from "../integrations/studio/faces";
-import { ResponseFields } from "../integrations/studio/ResponseFields";
-import type { Draft as StudioDraft } from "../integrations/studio/model";
+import { STAGES, type StageId } from "../subscriptions/studio/stages";
+import { StageRail } from "../subscriptions/studio/StageRail";
+import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
+import { ResponseFields } from "../subscriptions/studio/ResponseFields";
+import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
@@ -39,7 +39,7 @@ type Draft = Pick<
   | "mapperProperties"
   | "handlerId"
   | "handlerProperties"
-  | "responseIntegrationId"
+  | "responseSubscriptionId"
   | "responseMessageTypeName"
 > & {
   informationTypeId: number | null;
@@ -58,7 +58,7 @@ const EMPTY: Draft = {
   mapperProperties: {},
   handlerId: null,
   handlerProperties: {},
-  responseIntegrationId: null,
+  responseSubscriptionId: null,
   responseMessageTypeName: null,
   enable: true,
 };
@@ -76,7 +76,7 @@ export function NewScheduledJobPage() {
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<StageId | null>("source");
 
-  const allIntegrations = useIntegrationsCache();
+  const allSubscriptions = useSubscriptionsCache();
   const receivers = useAdapterCatalog("receiver");
   const validators = useAdapterCatalog("validator");
   const mappers = useAdapterCatalog("mapper");
@@ -87,7 +87,7 @@ export function NewScheduledJobPage() {
 
   const create = useMutation({
     mutationFn: () =>
-      api.createIntegration({
+      api.createSubscription({
         type: "Receiving",
         name: draft.name,
         informationTypeId: draft.informationTypeId!,
@@ -98,7 +98,7 @@ export function NewScheduledJobPage() {
         handlerId: draft.handlerId,
         handlerProperties: draft.handlerProperties,
         schedules: draft.schedules,
-        responseIntegrationId: draft.responseIntegrationId,
+        responseSubscriptionId: draft.responseSubscriptionId,
         responseMessageTypeName: draft.responseMessageTypeName,
         enabled: draft.enable,
       }),
@@ -128,7 +128,7 @@ export function NewScheduledJobPage() {
       type: "Receiving",
       draft: studioDraft,
       catalogs: { receivers, validators, mappers, handlers },
-      integrationNames: allIntegrations.data,
+      subscriptionNames: allSubscriptions.data,
     }),
   );
 
@@ -198,11 +198,11 @@ export function NewScheduledJobPage() {
           <Panel title={label} description={description}>
             <ResponseFields
               handlerId={draft.handlerId}
-              responseIntegrationId={draft.responseIntegrationId}
+              responseSubscriptionId={draft.responseSubscriptionId}
               responseMessageTypeName={draft.responseMessageTypeName}
               onChange={update}
               disabled={false}
-              candidates={allIntegrations.data ?? []}
+              candidates={allSubscriptions.data ?? []}
               idPrefix="nj-resp"
             />
           </Panel>

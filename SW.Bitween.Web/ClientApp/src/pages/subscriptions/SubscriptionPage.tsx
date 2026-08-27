@@ -11,7 +11,7 @@ import { AdapterConfig, useAdapterCatalog } from "../../components/config/Adapte
 import { MatchExpressionEditor } from "../../components/config/MatchExpressionEditor";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { AggregationFields } from "../../components/config/AggregationFields";
-import { TypeBadge, scheduleFault, useIntegrationsCache } from "../../components/config/shared";
+import { TypeBadge, scheduleFault, useSubscriptionsCache } from "../../components/config/shared";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { StageRail } from "./studio/StageRail";
 import { faceOf } from "./studio/faces";
@@ -20,9 +20,9 @@ import { ResponseFields } from "./studio/ResponseFields";
 import { draftOf, entryPointsOf, stageDirty, type Draft } from "./studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 
-export function IntegrationPage() {
+export function SubscriptionPage() {
   const { id = "" } = useParams();
-  const integrationId = Number(id);
+  const subscriptionId = Number(id);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("subscriptions.edit");
@@ -30,17 +30,17 @@ export function IntegrationPage() {
   const canCreateWorkGroup = useSessionCan("workgroups.create");
   const [params, setParams] = useSearchParams();
 
-  const integration = useQuery({
-    queryKey: ["integration", integrationId],
-    queryFn: () => api.getIntegration(integrationId),
+  const subscription = useQuery({
+    queryKey: ["subscription", subscriptionId],
+    queryFn: () => api.getSubscription(subscriptionId),
     retry: false,
   });
-  const allIntegrations = useIntegrationsCache();
+  const allSubscriptions = useSubscriptionsCache();
   // promoted properties power the legacy message filter
   const infoType = useQuery({
-    queryKey: ["information-type", integration.data?.informationTypeId],
-    queryFn: () => api.getInformationType(integration.data!.informationTypeId),
-    enabled: integration.data?.type === "Internal",
+    queryKey: ["information-type", subscription.data?.informationTypeId],
+    queryFn: () => api.getInformationType(subscription.data!.informationTypeId),
+    enabled: subscription.data?.type === "Internal",
   });
 
   // Loaded up front rather than per stage: the cards name their adapter, so the
@@ -55,7 +55,7 @@ export function IntegrationPage() {
   const scheduleHealth = useQuery({
     queryKey: ["schedule-health"],
     queryFn: () => api.listScheduleHealth(),
-    enabled: integration.data?.type === "Receiving" || integration.data?.type === "Aggregation",
+    enabled: subscription.data?.type === "Receiving" || subscription.data?.type === "Aggregation",
   });
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -66,17 +66,17 @@ export function IntegrationPage() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    if (!loaded && integration.data) {
-      setDraft(draftOf(integration.data));
+    if (!loaded && subscription.data) {
+      setDraft(draftOf(subscription.data));
       setLoaded(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [integration.data, loaded]);
+  }, [subscription.data, loaded]);
 
   const dirty = useMemo(() => {
-    if (!integration.data || !draft) return false;
-    return JSON.stringify(draft) !== JSON.stringify(draftOf(integration.data));
-  }, [integration.data, draft]);
+    if (!subscription.data || !draft) return false;
+    return JSON.stringify(draft) !== JSON.stringify(draftOf(subscription.data));
+  }, [subscription.data, draft]);
 
   // Escape closes the open stage — but only when it holds nothing unsaved. A
   // config panel that can be dismissed onto a half-finished handler is how you
@@ -88,11 +88,11 @@ export function IntegrationPage() {
       // A dialog on top owns Escape — see `dialogsOpen`.
       if (dialogsOpen()) return;
       const open = params.get("stage") as StageId | null;
-      if (!open || !integration.data || !draft) return;
+      if (!open || !subscription.data || !draft) return;
       // let a combobox or a text field have its own Escape first
       const el = document.activeElement;
       if (el instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
-      if (stageDirty(open, draft, draftOf(integration.data))) return;
+      if (stageDirty(open, draft, draftOf(subscription.data))) return;
       setParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -104,18 +104,18 @@ export function IntegrationPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [params, draft, integration.data, setParams]);
+  }, [params, draft, subscription.data, setParams]);
 
   const invalidate = () => {
-    const detail = queryClient.invalidateQueries({ queryKey: ["integration", integrationId] });
-    void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
-    void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+    const detail = queryClient.invalidateQueries({ queryKey: ["subscription", subscriptionId] });
+    void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
+    void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
     return detail;
   };
 
   const save = useMutation({
-    mutationFn: () => api.updateIntegration(integrationId, draft!),
+    mutationFn: () => api.updateSubscription(subscriptionId, draft!),
     onSuccess: async () => {
       // Await the detail refetch before re-syncing the draft (avoids stale-data race).
       await invalidate();
@@ -124,39 +124,39 @@ export function IntegrationPage() {
   });
 
   const pause = useMutation({
-    mutationFn: () => api.pauseIntegration(integrationId),
+    mutationFn: () => api.pauseSubscription(subscriptionId),
     onSuccess: invalidate,
   });
 
   const aggregate = useMutation({
-    mutationFn: () => api.aggregateNow(integrationId),
+    mutationFn: () => api.aggregateNow(subscriptionId),
     onSuccess: async () => {
       await invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["integration-runs", integrationId] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-runs", subscriptionId] });
       void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
     },
   });
 
   const receive = useMutation({
-    mutationFn: () => api.receiveNow(integrationId),
+    mutationFn: () => api.receiveNow(subscriptionId),
     onSuccess: async () => {
       await invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["integration-runs", integrationId] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-runs", subscriptionId] });
       void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
     },
   });
 
-  if (integration.isPending) return <LoadingBlock label="Loading integration…" />;
-  if (integration.isError)
+  if (subscription.isPending) return <LoadingBlock label="Loading subscription…" />;
+  if (subscription.isError)
     return (
-      <EmptyState title="This integration no longer exists">
+      <EmptyState title="This subscription no longer exists">
         <Link to="/subscriptions" className="font-medium text-crimson-700 hover:underline">
-          Back to integrations
+          Back to subscriptions
         </Link>
       </EmptyState>
     );
 
-  const s = integration.data;
+  const s = subscription.data;
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => (d ? { ...d, [key]: value } : d));
 
@@ -165,7 +165,7 @@ export function IntegrationPage() {
   const isApiCall = s.type === "ApiCall";
   const isAggregation = s.type === "Aggregation";
   const aggregationSource =
-    allIntegrations.data?.find((x) => x.id === s.aggregationForId) ?? null;
+    allSubscriptions.data?.find((x) => x.id === s.aggregationForId) ?? null;
   const paused = s.pausedOn !== null;
   const entryPoints = entryPointsOf(s);
 
@@ -188,7 +188,7 @@ export function IntegrationPage() {
     : "Not wired into any gateway yet — it never runs.";
 
   const saved = draftOf(s);
-  const fault = scheduleFault(scheduleHealth.data?.find((h) => h.integrationId === s.id)) ?? undefined;
+  const fault = scheduleFault(scheduleHealth.data?.find((h) => h.subscriptionId === s.id)) ?? undefined;
 
   const faces = stages.map((id) =>
     faceOf(id, {
@@ -203,7 +203,7 @@ export function IntegrationPage() {
       // and that node could not be edited, so the page reported a broken schedule and
       // offered no way to fix it.
       fault: id === "schedule" ? fault : undefined,
-      integrationNames: allIntegrations.data,
+      subscriptionNames: allSubscriptions.data,
       aggregationForId: s.aggregationForId,
     }),
   );
@@ -217,7 +217,7 @@ export function IntegrationPage() {
           <Panel
             title={label}
             description={
-              isInternal ? "Which documents of this type the integration picks up." : description
+              isInternal ? "Which documents of this type the subscription picks up." : description
             }
           >
             {isInternal ? (
@@ -324,11 +324,11 @@ export function IntegrationPage() {
           <Panel title={label} description={description}>
             <ResponseFields
               handlerId={draft.handlerId}
-              responseIntegrationId={draft.responseIntegrationId}
+              responseSubscriptionId={draft.responseSubscriptionId}
               responseMessageTypeName={draft.responseMessageTypeName}
               onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
               disabled={!canEdit}
-              candidates={(allIntegrations.data ?? []).filter((x) => x.id !== integrationId)}
+              candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== subscriptionId)}
               idPrefix="in-resp"
             />
           </Panel>
@@ -338,7 +338,7 @@ export function IntegrationPage() {
 
   return (
     <div className="pb-24">
-      <BackLink to="/subscriptions" label="Integrations" />
+      <BackLink to="/subscriptions" label="Subscriptions" />
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -347,7 +347,7 @@ export function IntegrationPage() {
               value={draft?.name ?? s.name}
               onChange={(v) => set("name", v)}
               disabled={!canEdit}
-              placeholder="Integration name"
+              placeholder="Subscription name"
             />
             <TypeBadge type={s.type} />
             {draft && (
@@ -355,7 +355,7 @@ export function IntegrationPage() {
                 type="button"
                 disabled={!canEdit}
                 onClick={() => set("enabled", !draft.enabled)}
-                title="Disabled integrations are never scheduled or matched."
+                title="Disabled subscriptions are never scheduled or matched."
                 className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium disabled:cursor-not-allowed ${
                   draft.enabled ? "bg-ok-100 text-ok-600 hover:bg-ok-200/70" : "bg-ink-100 text-ink-700 hover:bg-ink-200"
                 }`}
@@ -406,7 +406,7 @@ export function IntegrationPage() {
               <Can permission="subscriptions.create">
                 <Button
                   onClick={() => navigate(`/aggregations/new?source=${s.id}`)}
-                  title="Create an aggregation that collects this integration's exchanges on a schedule into one summary exchange."
+                  title="Create an aggregation that collects this subscription's exchanges on a schedule into one summary exchange."
                 >
                   <FileStack className="size-4" /> Roll these up
                 </Button>
@@ -473,7 +473,7 @@ export function IntegrationPage() {
 
       {confirmingPause && (
         <ConfirmDialog
-          title={paused ? "Resume this integration?" : "Pause this integration?"}
+          title={paused ? "Resume this subscription?" : "Pause this subscription?"}
           body={
             paused
               ? `${s.name} releases its held exchanges and starts processing again.`
@@ -513,20 +513,20 @@ export function IntegrationPage() {
 
       {deleting && (
         <ConfirmDialog
-          title="Delete this integration?"
+          title="Delete this subscription?"
           body={
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and its configuration
-              will be gone for good. One a gateway or another integration still points at can't be
+              will be gone for good. One a gateway or another subscription still points at can't be
               deleted — it will say which.
             </>
           }
-          confirmLabel="Delete integration"
+          confirmLabel="Delete subscription"
           onConfirm={async () => {
-            await api.deleteIntegration(integrationId);
-            void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
-            void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+            await api.deleteSubscription(subscriptionId);
+            void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
+            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
             navigate("/subscriptions");
           }}
           onClose={() => setDeleting(false)}

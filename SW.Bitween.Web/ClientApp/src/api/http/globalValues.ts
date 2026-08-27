@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { GlobalValuesSet, GlobalValuesSetDetail, GlobalValuesSetRow, IntegrationType, ValueSetUsage } from "../types";
+import type { GlobalValuesSet, GlobalValuesSetDetail, GlobalValuesSetRow, SubscriptionType, ValueSetUsage } from "../types";
 import { referencesGlobal, scanReferenceTokens } from "./references";
 import { get, getEnrichment, post } from "./request";
 
@@ -26,7 +26,7 @@ interface RawSubscriptionForUsage {
   validatorProperties: RawKeyAndValue[] | null;
 }
 
-const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
+const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
   1: "Internal",
   2: "ApiCall",
   4: "Receiving",
@@ -34,7 +34,7 @@ const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
   16: "GatewayApiCall",
   32: "BusGateway",
 };
-const INTEGRATION_TYPES: IntegrationType[] = [
+const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Receiving",
   "GatewayApiCall",
   "BusGateway",
@@ -43,9 +43,9 @@ const INTEGRATION_TYPES: IntegrationType[] = [
   "Aggregation",
 ];
 /** Enums may arrive as the numeric value or the name in any case. */
-const toIntegrationType = (t: number | string): IntegrationType => {
+const toSubscriptionType = (t: number | string): SubscriptionType => {
   if (typeof t === "number") return SUB_TYPE_BY_NUM[t] ?? "Internal";
-  return INTEGRATION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
+  return SUBSCRIPTION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal";
 };
 
 // GlobalAdapterValuesSet has no CreatedOn column on the backend.
@@ -72,7 +72,7 @@ function globalKeysReferencedBy(sub: RawSubscriptionForUsage, setId: string): st
 
 
 export const globalValuesMethods = {
-  // No usage scan here: the list page answers "used by" from the integrations
+  // No usage scan here: the list page answers "used by" from the subscriptions
   // cache it already holds, so a second full /subscriptions fetch would be waste.
   async listValueSets(): Promise<GlobalValuesSetRow[]> {
     const res = await get<SearchyResponse<RawValueSet>>("/globaladaptervaluessets");
@@ -86,7 +86,7 @@ export const globalValuesMethods = {
     ]);
     const usedBy: ValueSetUsage[] = subs
       .map((s) => ({
-        integrationSetup: { id: s.id, name: s.name, type: toIntegrationType(s.type) },
+        subscriptionSetup: { id: s.id, name: s.name, type: toSubscriptionType(s.type) },
         keys: globalKeysReferencedBy(s, id),
       }))
       .filter((u) => u.keys.length > 0);

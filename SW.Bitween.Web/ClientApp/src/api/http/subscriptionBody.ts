@@ -1,12 +1,12 @@
-import type { InlineIntegrationDraft, Schedule } from "../types";
+import type { InlineSubscriptionDraft, Schedule } from "../types";
 import { toRawMatchExpression } from "./matchExpression";
 
 /**
- * The subscription wire shape, in the one place both the integration endpoints and
+ * The subscription wire shape, in the one place both the subscription endpoints and
  * the gateway endpoints can reach.
  *
- * It lives here rather than in `integrations.ts` because `gateways.ts` needs it too,
- * and `integrations.ts` already imports `gateways.ts` — putting it there would make
+ * It lives here rather than in `subscriptions.ts` because `gateways.ts` needs it too,
+ * and `subscriptions.ts` already imports `gateways.ts` — putting it there would make
  * that cycle mutual.
  */
 
@@ -36,11 +36,11 @@ export const toRawSchedules = (schedules: Schedule[]): RawSchedule[] =>
   }));
 
 /**
- * An integration defined on a gateway's canvas, in the shape the gateway endpoints
+ * A subscription defined on a gateway's canvas, in the shape the gateway endpoints
  * take. No `documentId`: a bus gateway imposes its own, and the API-gateway caller
  * adds the one its picker chose.
  */
-export const inlineIntegrationBody = (d: InlineIntegrationDraft) => ({
+export const inlineSubscriptionBody = (d: InlineSubscriptionDraft) => ({
   name: d.name.trim(),
   inactive: !d.enabled,
   workGroupId: d.workGroupId,
@@ -56,6 +56,6 @@ export const inlineIntegrationBody = (d: InlineIntegrationDraft) => ({
   handlerProperties: toKvArray(d.handlerProperties),
   matchExpression: toRawMatchExpression(d.matchExpression),
   schedules: toRawSchedules(d.schedules),
-  responseSubscriptionId: d.responseIntegrationId,
+  responseSubscriptionId: d.responseSubscriptionId,
   responseMessageTypeName: d.responseMessageTypeName,
 });

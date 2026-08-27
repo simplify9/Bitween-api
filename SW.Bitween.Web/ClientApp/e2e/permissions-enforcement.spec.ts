@@ -51,7 +51,7 @@ test("a custom role grants exactly what was ticked, in the nav, by URL, and at t
 
   // 1. The sidebar offers the one page they can see, and nothing else.
   await expect(sidebarLinks(page).filter({ hasText: "Exchanges" })).toBeVisible();
-  for (const hidden of ["Partners", "Integrations", "Work groups", "Team", "Settings"])
+  for (const hidden of ["Partners", "Subscriptions", "Work groups", "Team", "Settings"])
     await expect(sidebarLinks(page).filter({ hasText: hidden })).toHaveCount(0);
 
   // 2. Typing the URL of a page they lack doesn't get them in.
@@ -109,7 +109,7 @@ test("Viewer can read but not write", async ({ page }) => {
   await removeMember(page, email);
 });
 
-test("Member can configure integrations but not manage the team", async ({ page }) => {
+test("Member can configure subscriptions but not manage the team", async ({ page }) => {
   await signInAsAdmin(page);
   const email = await addMember(page, { name: "Regular Member", roles: ["Member"] });
 

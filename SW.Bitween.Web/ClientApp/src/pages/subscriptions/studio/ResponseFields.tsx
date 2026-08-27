@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { api, type IntegrationType } from "../../../api";
+import { api, type SubscriptionType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Field } from "../../../components/ui/forms";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
@@ -17,11 +17,11 @@ import { busMessageNameProblem } from "../../../lib/busMessageName";
  * shorter than the edit rail, which defeats reusing the pipeline at all.
  *
  * There is one way to pass a response on: publish it on the bus. Feeding it
- * straight into a named integration is retired — see {@link FedIntoNotice}.
+ * straight into a named subscription is retired — see {@link FedIntoNotice}.
  */
 export function ResponseFields({
   handlerId,
-  responseIntegrationId,
+  responseSubscriptionId,
   responseMessageTypeName,
   onChange,
   disabled,
@@ -30,15 +30,15 @@ export function ResponseFields({
 }: {
   /** Nothing is delivered without a handler, so there is no response to route. */
   handlerId: string | null;
-  responseIntegrationId: number | null;
+  responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
   onChange: (patch: {
-    responseIntegrationId?: number | null;
+    responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
   }) => void;
   disabled: boolean;
   /** Only used to name an already-saved target; nothing here can choose from them. */
-  candidates: { id: number; name: string; type: IntegrationType }[];
+  candidates: { id: number; name: string; type: SubscriptionType }[];
   idPrefix?: string;
 }) {
   if (handlerId === null)
@@ -50,12 +50,12 @@ export function ResponseFields({
 
   return (
     <div className="space-y-4">
-      {responseIntegrationId !== null && (
+      {responseSubscriptionId !== null && (
         <FedIntoNotice
-          name={candidates.find((x) => x.id === responseIntegrationId)?.name ?? null}
-          id={responseIntegrationId}
+          name={candidates.find((x) => x.id === responseSubscriptionId)?.name ?? null}
+          id={responseSubscriptionId}
           disabled={disabled}
-          onClear={() => onChange({ responseIntegrationId: null })}
+          onClear={() => onChange({ responseSubscriptionId: null })}
         />
       )}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -71,14 +71,14 @@ export function ResponseFields({
 }
 
 /**
- * An already-saved "feed the response into this integration", shown so it can be seen
+ * An already-saved "feed the response into this subscription", shown so it can be seen
  * and undone — and offered nowhere else, because nothing new should acquire one.
  *
- * It hands the response to exactly one integration with the bus skipped: nothing is
+ * It hands the response to exactly one subscription with the bus skipped: nothing is
  * published, no filter is consulted, and nothing else bound to the same information
  * type hears it. Publishing does all of that and is the reason the bus is here, so the
  * field is kept only for configuration that already depends on it. Retired rather than
- * dropped, because silently ignoring a saved value would change what a live integration
+ * dropped, because silently ignoring a saved value would change what a live subscription
  * does without anyone being told.
  */
 function FedIntoNotice({
@@ -98,7 +98,7 @@ function FedIntoNotice({
         <p className="text-[13px] text-ink-800">
           Feeds the response straight into{" "}
           <Link to={`/subscriptions/${id}`} className="font-medium text-crimson-700 hover:underline">
-            {name ?? `integration ${id}`}
+            {name ?? `subscription ${id}`}
           </Link>
           .
         </p>

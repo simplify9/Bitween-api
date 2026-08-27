@@ -1,4 +1,4 @@
-import type { AdapterInfo, IntegrationType } from "../../../api";
+import type { AdapterInfo, SubscriptionType } from "../../../api";
 import { AGGREGATION_TARGET_DETAIL } from "../../../components/config/AggregationFields";
 import { schedulesSummary } from "../../../lib/schedules";
 import { formatDateTime } from "../../../lib/dates";
@@ -35,7 +35,7 @@ export interface AdapterCatalogs {
 }
 
 export interface FaceInput {
-  type: IntegrationType;
+  type: SubscriptionType;
   draft: Draft;
   catalogs: AdapterCatalogs;
   /** Absent while creating — nothing is saved yet, so no node is "unsaved". */
@@ -46,12 +46,12 @@ export interface FaceInput {
   /** Only ever set on the Schedule node — see `StageFace.fault`. */
   fault?: StageFace["fault"];
   /** Names for the "feed the response into" target, and for the aggregation's source. */
-  integrationNames?: { id: number; name: string }[];
+  subscriptionNames?: { id: number; name: string }[];
   /** Aggregation only: whose exchanges it rolls up. Fixed at creation, so not on the draft. */
   aggregationForId?: number | null;
   /**
-   * Set while the integration is being defined and nothing is saved yet. A delivery-less
-   * integration that already exists is a legal thing that records and stops; one being
+   * Set while the subscription is being defined and nothing is saved yet. A delivery-less
+   * subscription that already exists is a legal thing that records and stops; one being
    * created here cannot be saved without a delivery, so the node has to say so.
    */
   unsaved?: boolean;
@@ -65,7 +65,7 @@ export interface FaceInput {
  * while editing is how the two drift apart.
  */
 export function faceOf(stageId: StageId, input: FaceInput): StageFace {
-  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, integrationNames,
+  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, subscriptionNames,
     aggregationForId, unsaved } = input;
   const dirty = saved ? stageDirty(stageId, d, saved) : false;
 
@@ -109,11 +109,11 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
       // The source is what the node is *for*, so it is the title even though the only
       // editable half is which file gets collected — an aggregation without a source is
       // not a thing the backend will create.
-      const source = integrationNames?.find((x) => x.id === aggregationForId)?.name;
+      const source = subscriptionNames?.find((x) => x.id === aggregationForId)?.name;
       return {
         id: stageId,
         dirty,
-        title: source ?? (aggregationForId === null || aggregationForId === undefined ? "No source" : "Deleted integration"),
+        title: source ?? (aggregationForId === null || aggregationForId === undefined ? "No source" : "Deleted subscription"),
         detail: AGGREGATION_TARGET_DETAIL[d.aggregationTarget],
         state: aggregationForId ? "set" : "missing",
         fault,
@@ -136,7 +136,7 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
         state: d.mapperId ? "set" : "none",
       };
     case "delivery":
-      // "none", not "missing", once it exists: an integration that records the document
+      // "none", not "missing", once it exists: a subscription that records the document
       // and stops is a legal configuration, and calling a saved one broken would be
       // wrong. While it is still being defined the save is blocked on this, so it is
       // genuinely missing and the node says which node to go to.
@@ -149,13 +149,13 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
       };
     case "response":
       if (!d.handlerId) return { id: stageId, dirty, title: "Nothing delivered", state: "none" };
-      if (d.responseIntegrationId !== null)
+      if (d.responseSubscriptionId !== null)
         return {
           id: stageId,
           dirty,
           title:
-            integrationNames?.find((x) => x.id === d.responseIntegrationId)?.name ?? "Fed onward",
-          detail: "chained to another integration",
+            subscriptionNames?.find((x) => x.id === d.responseSubscriptionId)?.name ?? "Fed onward",
+          detail: "chained to another subscription",
           state: "set",
         };
       if (d.responseMessageTypeName)

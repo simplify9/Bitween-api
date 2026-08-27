@@ -17,7 +17,7 @@ public class Role : BaseEntity, IAudited
     public const int ViewerId = 3;
 
     /// <summary>The groups the built-in Member and Viewer roles reach; Administration stays admin-only.</summary>
-    private static readonly string[] NonAdminGroups = ["Operate", "Integrations", "Configuration"];
+    private static readonly string[] NonAdminGroups = ["Operate", "Subscriptions", "Configuration"];
 
     private Role()
     {

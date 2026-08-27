@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, DownloadCloud, Plus, Search } from "lucide-react";
-import { api, type IntegrationRow, type ScheduleHealth } from "../../api";
+import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -12,23 +12,23 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import {
   HealthBadge,
-  IntegrationStatusBadges,
+  SubscriptionStatusBadges,
   LinkListCell,
   scheduleFault,
-  useIntegrationsCache,
+  useSubscriptionsCache,
   useRetryPolicyNames,
   useWorkGroupNames,
 } from "../../components/config/shared";
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
 
-function ReceiveNowButton({ job }: { job: IntegrationRow }) {
+function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const receive = useMutation({
     mutationFn: () => api.receiveNow(job.id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["integration-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
+      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
       void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
     },
   });
@@ -62,7 +62,7 @@ function ReceiveNowButton({ job }: { job: IntegrationRow }) {
 }
 
 /**
- * The scheduler disagreeing with the integration's own record. Everything here
+ * The scheduler disagreeing with the subscription's own record. Everything here
  * means the job is not going to run, while Status still reads "Active" — so it
  * outranks the ordinary badges rather than sitting beside them.
  */
@@ -83,8 +83,8 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 }
 
 /**
- * Scheduled jobs — `Receiving` integrations, which pull documents in on a
- * schedule. They also appear on the Integrations page; this page exists for the
+ * Scheduled jobs — `Receiving` subscriptions, which pull documents in on a
+ * schedule. They also appear on the Subscriptions page; this page exists for the
  * columns only a scheduled thing has, and for running one off-schedule.
  *
  * Last run comes from the scheduler's own execution history (kept ~30 days);
@@ -103,23 +103,23 @@ export function ScheduledJobsPage() {
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: ["integration-rows-search", "Receiving", q, inactive, offset],
+    queryKey: ["subscription-rows-search", "Receiving", q, inactive, offset],
     queryFn: () =>
-      api.searchIntegrationRows({ search: q, type: "Receiving", inactive, offset, limit: PAGE_SIZE }),
+      api.searchSubscriptionRows({ search: q, type: "Receiving", inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  // The list rows don't carry work group or retry policy; the integrations
+  // The list rows don't carry work group or retry policy; the subscriptions
   // cache does, and every page already holds it.
-  const setups = useIntegrationsCache().data ?? [];
+  const setups = useSubscriptionsCache().data ?? [];
   const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
   // One request for the whole list rather than one per row.
   const lastRuns = useQuery({ queryKey: ["last-runs"], queryFn: () => api.listLastRuns() }).data ?? [];
-  const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.integrationId, r])), [lastRuns]);
+  const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.subscriptionId, r])), [lastRuns]);
   const health =
     useQuery({ queryKey: ["schedule-health"], queryFn: () => api.listScheduleHealth() }).data ?? [];
-  const healthById = useMemo(() => new Map(health.map((h) => [h.integrationId, h])), [health]);
+  const healthById = useMemo(() => new Map(health.map((h) => [h.subscriptionId, h])), [health]);
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
@@ -140,7 +140,7 @@ export function ScheduledJobsPage() {
     <div>
       <PageHeader
         title="Scheduled jobs"
-        description="Integrations that pull documents in on a schedule — from an FTP folder, a mailbox, an API."
+        description="Subscriptions that pull documents in on a schedule — from an FTP folder, a mailbox, an API."
         actions={
           <Can permission="subscriptions.create">
             <Button variant="primary" onClick={() => navigate("/scheduled-jobs/new")}>
@@ -345,7 +345,7 @@ export function ScheduledJobsPage() {
               cell: (r) => (
                 <span className="inline-flex items-center gap-1">
                   <ScheduleFault health={healthById.get(r.id)} />
-                  <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
+                  <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
                   <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
                 </span>
               ),

@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
-import type { IntegrationInfo } from "../../api";
-import { INTEGRATION_TYPE_LABELS } from "./shared";
+import type { SubscriptionInfo } from "../../api";
+import { SUBSCRIPTION_TYPE_LABELS } from "./shared";
 
 /**
- * Pick any number of integrations, to filter a table down to the rows connected to at
- * least one of them — "which partners does this integration use", read the other way.
+ * Pick any number of subscriptions, to filter a table down to the rows connected to at
+ * least one of them — "which partners does this subscription use", read the other way.
  *
  * Modelled on `ReferenceMenu`'s local popover rather than the portalled `Popover`: a
  * filter row sits above the table, not inside its `overflow-x-auto` wrapper, so nothing
  * clips it and the lighter, in-flow panel is enough.
  */
-export function IntegrationMultiFilter({
-  integrations,
+export function SubscriptionMultiFilter({
+  subscriptions,
   selected,
   onChange,
-  label = "Filter by integration",
+  label = "Filter by subscription",
 }: {
-  integrations: IntegrationInfo[];
+  subscriptions: SubscriptionInfo[];
   selected: number[];
   onChange: (ids: number[]) => void;
   label?: string;
@@ -41,19 +41,19 @@ export function IntegrationMultiFilter({
   }, [open]);
 
   const needle = query.trim().toLowerCase();
-  const matches = integrations.filter((i) => !needle || i.name.toLowerCase().includes(needle));
+  const matches = subscriptions.filter((i) => !needle || i.name.toLowerCase().includes(needle));
   const selectedSet = new Set(selected);
 
   const toggle = (id: number) =>
     onChange(selectedSet.has(id) ? selected.filter((x) => x !== id) : [...selected, id]);
 
-  const selectedNames = integrations.filter((i) => selectedSet.has(i.id)).map((i) => i.name);
+  const selectedNames = subscriptions.filter((i) => selectedSet.has(i.id)).map((i) => i.name);
   const buttonLabel =
     selectedNames.length === 0
-      ? "Any integration"
+      ? "Any subscription"
       : selectedNames.length === 1
         ? selectedNames[0]
-        : `${selectedNames.length} integrations`;
+        : `${selectedNames.length} subscriptions`;
 
   return (
     <div ref={ref} className="relative">
@@ -80,8 +80,8 @@ export function IntegrationMultiFilter({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search integrations"
-              aria-label="Search integrations"
+              placeholder="Search subscriptions"
+              aria-label="Search subscriptions"
               className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
             />
           </div>
@@ -96,7 +96,7 @@ export function IntegrationMultiFilter({
           )}
           <div className="max-h-60 overflow-y-auto">
             {matches.length === 0 ? (
-              <p className="px-2 py-2 text-[13px] text-ink-400">No integrations match.</p>
+              <p className="px-2 py-2 text-[13px] text-ink-400">No subscriptions match.</p>
             ) : (
               matches.map((i) => (
                 <label
@@ -110,7 +110,7 @@ export function IntegrationMultiFilter({
                     className="size-3.5 shrink-0 cursor-pointer rounded accent-crimson-600"
                   />
                   <span className="min-w-0 flex-1 truncate text-ink-800">{i.name}</span>
-                  <span className="shrink-0 text-[11px] text-ink-400">{INTEGRATION_TYPE_LABELS[i.type]}</span>
+                  <span className="shrink-0 text-[11px] text-ink-400">{SUBSCRIPTION_TYPE_LABELS[i.type]}</span>
                 </label>
               ))
             )}

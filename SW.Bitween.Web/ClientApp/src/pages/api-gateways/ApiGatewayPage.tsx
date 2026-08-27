@@ -12,7 +12,7 @@ import { CopyField } from "../../components/ui/CopyField";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { Pagination } from "../../components/ui/Pagination";
-import { useWiredIntegrationColumns } from "../../components/config/shared";
+import { useWiredSubscriptionColumns } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
@@ -24,7 +24,7 @@ export function ApiGatewayPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const canEdit = useSessionCan("api-gateways.edit");
-  const wiredColumns = useWiredIntegrationColumns<ApiGatewayAttachment>((a) => a.integrationId);
+  const wiredColumns = useWiredSubscriptionColumns<ApiGatewayAttachment>((a) => a.subscriptionId);
 
   const gateway = useQuery({
     queryKey: ["api-gateway", gatewayId],
@@ -160,7 +160,7 @@ export function ApiGatewayPage() {
 
         <Panel
           title="Partners"
-          description="Each attached partner calls this gateway with its API key. Partners can share one integration or each run their own."
+          description="Each attached partner calls this gateway with its API key. Partners can share one subscription or each run their own."
           action={
             <Can permission="api-gateways.edit">
               <Button size="sm" variant="primary" onClick={() => navigate(`/api-gateways/${gatewayId}/attach`)}>
@@ -207,10 +207,10 @@ export function ApiGatewayPage() {
                   header: "Runs",
                   cell: (a) => (
                     <Link
-                      to={`/subscriptions/${a.integrationId}`}
+                      to={`/subscriptions/${a.subscriptionId}`}
                       className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                     >
-                      {a.integrationName}
+                      {a.subscriptionName}
                     </Link>
                   ),
                 },
@@ -268,7 +268,7 @@ export function ApiGatewayPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{removing.partnerName}</strong> will get
-              401s from this gateway immediately. The integration itself is kept.
+              401s from this gateway immediately. The subscription itself is kept.
             </>
           }
           confirmLabel="Detach partner"
@@ -276,7 +276,7 @@ export function ApiGatewayPage() {
             await api.removeGatewayAttachment(gatewayId, removing.partnerId);
             void queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
             void queryClient.invalidateQueries({ queryKey: ["api-gateway-attachments-search"] });
-            void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
           }}
           onClose={() => setRemoving(null)}
         />
@@ -310,7 +310,7 @@ export function ApiGatewayPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{g.name}</strong> and its partner
-              attachments will be gone; partners calling it start getting 404s. The integrations
+              attachments will be gone; partners calling it start getting 404s. The subscriptions
               behind it are kept.
             </>
           }
@@ -318,7 +318,7 @@ export function ApiGatewayPage() {
           onConfirm={async () => {
             await api.deleteApiGateway(gatewayId);
             void queryClient.invalidateQueries({ queryKey: ["api-gateways"] });
-            void queryClient.invalidateQueries({ queryKey: ["integrations"] });
+            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
             navigate("/api-gateways");
           }}
           onClose={() => setDeleting(false)}

@@ -1,9 +1,9 @@
-import type { Integration, IntegrationDetail } from "../../../api";
+import type { Subscription, SubscriptionDetail } from "../../../api";
 import type { StageId } from "./stages";
 
-/** The editable slice of an integration. One draft covers the whole rail. */
+/** The editable slice of a subscription. One draft covers the whole rail. */
 export type Draft = Pick<
-  Integration,
+  Subscription,
   | "name"
   | "enabled"
   | "workGroupId"
@@ -18,12 +18,12 @@ export type Draft = Pick<
   | "handlerProperties"
   | "matchExpression"
   | "schedules"
-  | "responseIntegrationId"
+  | "responseSubscriptionId"
   | "responseMessageTypeName"
   | "aggregationTarget"
 >;
 
-export const draftOf = (d: IntegrationDetail): Draft => ({
+export const draftOf = (d: SubscriptionDetail): Draft => ({
   name: d.name,
   enabled: d.enabled,
   workGroupId: d.workGroupId,
@@ -38,20 +38,20 @@ export const draftOf = (d: IntegrationDetail): Draft => ({
   handlerProperties: structuredClone(d.handlerProperties),
   matchExpression: structuredClone(d.matchExpression),
   schedules: structuredClone(d.schedules),
-  responseIntegrationId: d.responseIntegrationId,
+  responseSubscriptionId: d.responseSubscriptionId,
   responseMessageTypeName: d.responseMessageTypeName,
   aggregationTarget: d.aggregationTarget,
 });
 
 /**
- * An integration being defined on a gateway's canvas, before it exists.
+ * A subscription being defined on a gateway's canvas, before it exists.
  *
- * The route already worked this way — see `NEW_ROUTE` — and an integration is the
+ * The route already worked this way — see `NEW_ROUTE` — and a subscription is the
  * same problem one level down: asking for it in a modal hides the diagram the
  * answers are about. It lives in the studio's state until one save writes it and
  * the thing pointing at it together.
  */
-export const EMPTY_INTEGRATION: Draft = {
+export const EMPTY_SUBSCRIPTION: Draft = {
   name: "",
   enabled: true,
   workGroupId: null,
@@ -66,17 +66,17 @@ export const EMPTY_INTEGRATION: Draft = {
   handlerProperties: {},
   matchExpression: null,
   schedules: [],
-  responseIntegrationId: null,
+  responseSubscriptionId: null,
   responseMessageTypeName: null,
   aggregationTarget: "Input",
 };
 
 /**
- * Stands in for "the integration being defined right here" wherever an id is
+ * Stands in for "the subscription being defined right here" wherever an id is
  * expected. Negative so it can never collide with a real one, and never sent to
  * the server: the save swaps it for the inline payload the gateway endpoints take.
  */
-export const NEW_INTEGRATION_ID = -1;
+export const NEW_SUBSCRIPTION_ID = -1;
 
 /**
  * Which draft fields each stage owns — only so a card can carry an unsaved dot.
@@ -91,7 +91,7 @@ const STAGE_FIELDS: Record<StageId, (keyof Draft)[]> = {
   validation: ["validatorId", "validatorProperties"],
   transformation: ["mapperId", "mapperProperties"],
   delivery: ["handlerId", "handlerProperties"],
-  response: ["responseIntegrationId", "responseMessageTypeName"],
+  response: ["responseSubscriptionId", "responseMessageTypeName"],
 };
 
 /** Whether this stage is what's making the save bar show. */
@@ -149,7 +149,7 @@ export interface EntryPoint {
  * Both kinds of entry point in one list — what matters is "who can feed this",
  * not which of the two mechanisms does it.
  */
-export const entryPointsOf = (s: IntegrationDetail): EntryPoint[] => [
+export const entryPointsOf = (s: SubscriptionDetail): EntryPoint[] => [
   ...s.apiGatewayAttachments.map((a) => ({
     key: `ag-${a.gatewayId}-${a.partnerId}`,
     name: a.gatewayName,

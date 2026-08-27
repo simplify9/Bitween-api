@@ -420,7 +420,7 @@ export function AdapterConfig({
   /** What "no adapter" means here, e.g. "None — payload passes through unchanged". */
   noneLabel?: string;
   /** When the native JSON mapper is selected, where its visual editor lives. */
-  /** Null while the integration is still a draft — there is no page to open yet. */
+  /** Null while the subscription is still a draft — there is no page to open yet. */
   mapperEditorHref?: string | null;
 }) {
   const catalog = useAdapterCatalog(kind);

@@ -1,6 +1,6 @@
 import type { ApiClient } from "../client";
 import type { DashboardData, ExchangeStatus } from "../types";
-import { integrationMethods } from "./integrations";
+import { subscriptionMethods } from "./subscriptions";
 import { get } from "./request";
 
 // ——— backend shapes (camelCase over the wire) ———
@@ -40,18 +40,18 @@ export const dashboardMethods = {
     // request, and exact rather than approximated. Bounded to a generous page
     // size for what's a modest-scale ops tool; a very high-volume deployment
     // would need real pagination here.
-    const [xchangeRes, delayedRes, alertsRaw, integrationRows] = await Promise.all([
+    const [xchangeRes, delayedRes, alertsRaw, subscriptionRows] = await Promise.all([
       get<SearchyResponse<RawXchangeForDashboard>>(
         `/xchanges?filter=${encodeURIComponent(`StartedOn:6:${new Date(windowStart).toISOString()}`)}&size=1000&sort=StartedOn:1`,
       ),
       get<SearchyResponse<unknown>>("/delayedretries?size=1"),
       get<RawAlert[]>("/ops/alerts"),
-      integrationMethods.listIntegrationRows(),
+      subscriptionMethods.listSubscriptionRows(),
     ]);
 
     const rows = xchangeRes.result;
     const startedAt = (r: RawXchangeForDashboard) => Date.parse(r.startedOn);
-    const integrationNameById = new Map(integrationRows.map((i) => [i.id, i.name]));
+    const subscriptionNameById = new Map(subscriptionRows.map((i) => [i.id, i.name]));
 
     const todayRows = rows.filter((r) => startedAt(r) >= startOfTodayUtc);
     const yesterdayRows = rows.filter((r) => {
@@ -81,16 +81,16 @@ export const dashboardMethods = {
       };
     });
 
-    const byIntegration = new Map<number, { count: number; failed: number }>();
+    const bySubscription = new Map<number, { count: number; failed: number }>();
     for (const r of week) {
       if (r.subscriptionId === null) continue;
-      const entry = byIntegration.get(r.subscriptionId) ?? { count: 0, failed: 0 };
+      const entry = bySubscription.get(r.subscriptionId) ?? { count: 0, failed: 0 };
       entry.count++;
       if (isBad(r)) entry.failed++;
-      byIntegration.set(r.subscriptionId, entry);
+      bySubscription.set(r.subscriptionId, entry);
     }
-    const busiest = [...byIntegration.entries()]
-      .map(([id, v]) => ({ id, name: integrationNameById.get(id) ?? `#${id}`, ...v }))
+    const busiest = [...bySubscription.entries()]
+      .map(([id, v]) => ({ id, name: subscriptionNameById.get(id) ?? `#${id}`, ...v }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
@@ -101,8 +101,8 @@ export const dashboardMethods = {
       .map((r) => ({
         id: r.id,
         status: toStatus(r),
-        integrationId: r.subscriptionId,
-        integrationName: r.subscriptionId !== null ? (integrationNameById.get(r.subscriptionId) ?? null) : null,
+        subscriptionId: r.subscriptionId,
+        subscriptionName: r.subscriptionId !== null ? (subscriptionNameById.get(r.subscriptionId) ?? null) : null,
         informationTypeCode: r.documentName,
         on: r.startedOn,
         exception: r.exception,
@@ -122,10 +122,10 @@ export const dashboardMethods = {
       busiest,
       latestFailures,
       attention: {
-        failingIntegrations: integrationRows
+        failingSubscriptions: subscriptionRows
           .filter((i) => i.consecutiveFailures > 0)
           .map((i) => ({ id: i.id, name: i.name, consecutiveFailures: i.consecutiveFailures })),
-        pausedIntegrations: integrationRows.filter((i) => i.paused).map((i) => ({ id: i.id, name: i.name })),
+        pausedSubscriptions: subscriptionRows.filter((i) => i.paused).map((i) => ({ id: i.id, name: i.name })),
       },
     };
   },

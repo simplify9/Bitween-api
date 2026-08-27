@@ -2,13 +2,13 @@ import type { ApiClient } from "../client";
 import {
   ApiRequestError,
   type AggregationTarget,
-  type Integration,
-  type IntegrationDetail,
-  type IntegrationInfo,
-  type IntegrationLastRun,
-  type IntegrationRow,
-  type IntegrationRun,
-  type IntegrationType,
+  type Subscription,
+  type SubscriptionDetail,
+  type SubscriptionInfo,
+  type SubscriptionLastRun,
+  type SubscriptionRow,
+  type SubscriptionRun,
+  type SubscriptionType,
   type InformationTypeRow,
   type Paged,
   type PartnerRow,
@@ -97,7 +97,7 @@ interface RawSubscription {
   aggregationTarget?: AggregationTarget;
 }
 
-const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
+const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
   1: "Internal",
   2: "ApiCall",
   4: "Receiving",
@@ -105,7 +105,7 @@ const SUB_TYPE_BY_NUM: Record<number, IntegrationType> = {
   16: "GatewayApiCall",
   32: "BusGateway",
 };
-const INTEGRATION_TYPES: IntegrationType[] = [
+const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Receiving",
   "GatewayApiCall",
   "BusGateway",
@@ -114,10 +114,10 @@ const INTEGRATION_TYPES: IntegrationType[] = [
   "Aggregation",
 ];
 /** Enums serialize as their C# member name string, but guard the numeric case too. */
-const toIntegrationType = (t: number | string): IntegrationType =>
+const toSubscriptionType = (t: number | string): SubscriptionType =>
   typeof t === "number"
     ? (SUB_TYPE_BY_NUM[t] ?? "Internal")
-    : (INTEGRATION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal");
+    : (SUBSCRIPTION_TYPES.find((k) => k.toLowerCase() === t.toLowerCase()) ?? "Internal");
 
 // Empty-valued properties are dropped: an adapter property with no value means
 // "not set", and keeping it would make a freshly-cleared field compare unequal to
@@ -141,11 +141,11 @@ const toSchedules = (raw: RawSchedule[] | null): Schedule[] =>
  */
 const nextRunOf = (raw: RawSubscription): string | null => raw.receiveOn ?? raw.aggregateOn ?? null;
 
-function toIntegration(raw: RawSubscription, idOverride?: number): Integration {
+function toSubscription(raw: RawSubscription, idOverride?: number): Subscription {
   return {
     id: raw.id ?? idOverride!,
     name: raw.name,
-    type: toIntegrationType(raw.type),
+    type: toSubscriptionType(raw.type),
     informationTypeId: raw.documentId,
     partnerId: raw.partnerId,
     enabled: !raw.inactive,
@@ -162,7 +162,7 @@ function toIntegration(raw: RawSubscription, idOverride?: number): Integration {
     handlerProperties: toRecord(raw.handlerProperties),
     matchExpression: toMatchGroup(raw.matchExpression),
     schedules: toSchedules(raw.schedules),
-    responseIntegrationId: raw.responseSubscriptionId ?? null,
+    responseSubscriptionId: raw.responseSubscriptionId ?? null,
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
     aggregationForId: raw.aggregationForId ?? null,
     aggregationTarget: raw.aggregationTarget ?? "Input",
@@ -177,7 +177,7 @@ function toIntegration(raw: RawSubscription, idOverride?: number): Integration {
 
 async function fetchRaw(id: number): Promise<RawSubscription> {
   const raw = await get<RawSubscription | null>(`/subscriptions/${id}`);
-  if (!raw) throw new ApiRequestError("NOT_FOUND", "This integration no longer exists.");
+  if (!raw) throw new ApiRequestError("NOT_FOUND", "This subscription no longer exists.");
   return raw;
 }
 
@@ -188,7 +188,7 @@ async function fetchAllRaw(): Promise<RawSubscription[]> {
 
 type UpdatableFields = Partial<
   Pick<
-    Integration,
+    Subscription,
     | "name"
     | "enabled"
     | "workGroupId"
@@ -203,7 +203,7 @@ type UpdatableFields = Partial<
     | "handlerProperties"
     | "matchExpression"
     | "schedules"
-    | "responseIntegrationId"
+    | "responseSubscriptionId"
     | "responseMessageTypeName"
     | "aggregationTarget"
   >
@@ -246,7 +246,7 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
       changes.matchExpression !== undefined ? toRawMatchExpression(changes.matchExpression) : current.matchExpression,
     schedules: changes.schedules !== undefined ? toRawSchedules(changes.schedules) : (current.schedules ?? []),
     responseSubscriptionId:
-      changes.responseIntegrationId !== undefined ? changes.responseIntegrationId : current.responseSubscriptionId,
+      changes.responseSubscriptionId !== undefined ? changes.responseSubscriptionId : current.responseSubscriptionId,
     responseMessageTypeName:
       changes.responseMessageTypeName !== undefined ? changes.responseMessageTypeName : current.responseMessageTypeName,
     temporary: current.temporary,
@@ -260,12 +260,12 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
   });
 }
 
-function toIntegrationRow(
+function toSubscriptionRow(
   raw: RawSubscription,
   infoTypeById: Map<number, InformationTypeRow>,
   partnerById: Map<number, PartnerRow>,
-): IntegrationRow {
-  const type = toIntegrationType(raw.type);
+): SubscriptionRow {
+  const type = toSubscriptionType(raw.type);
   const infoType = infoTypeById.get(raw.documentId);
   const partner = raw.partnerId !== null ? partnerById.get(raw.partnerId) : undefined;
   const schedules = toSchedules(raw.schedules);
@@ -297,20 +297,20 @@ function toIntegrationRow(
   };
 }
 
-export const integrationMethods = {
-  async listIntegrations(): Promise<IntegrationInfo[]> {
+export const subscriptionMethods = {
+  async listSubscriptions(): Promise<SubscriptionInfo[]> {
     const rows = await fetchAllRaw();
     return rows.map((raw) => ({
       id: raw.id!,
       name: raw.name,
-      type: toIntegrationType(raw.type),
+      type: toSubscriptionType(raw.type),
       partnerIds: raw.partnerId !== null ? [raw.partnerId] : [],
       informationTypeId: raw.documentId,
       workGroupId: raw.workGroupId ?? null,
       retryPolicyId: raw.retryPolicyId ?? null,
       handlerId: raw.handlerId ?? null,
       responseMessageTypeName: raw.responseMessageTypeName ?? null,
-      responseIntegrationId: raw.responseSubscriptionId ?? null,
+      responseSubscriptionId: raw.responseSubscriptionId ?? null,
       // No backend endpoint indexes reference tokens, but the search rows carry
       // every adapter property, so the scan costs nothing extra here.
       ...scanReferenceTokens(
@@ -324,7 +324,7 @@ export const integrationMethods = {
     }));
   },
 
-  async listIntegrationRows(): Promise<IntegrationRow[]> {
+  async listSubscriptionRows(): Promise<SubscriptionRow[]> {
     const [rows, infoTypes, partners] = await Promise.all([
       fetchAllRaw(),
       documentMethods.listInformationTypes(),
@@ -332,18 +332,18 @@ export const integrationMethods = {
     ]);
     const infoTypeById = new Map(infoTypes.map((t) => [t.id, t]));
     const partnerById = new Map(partners.map((p) => [p.id, p]));
-    return rows.map((raw) => toIntegrationRow(raw, infoTypeById, partnerById));
+    return rows.map((raw) => toSubscriptionRow(raw, infoTypeById, partnerById));
   },
 
-  async searchIntegrationRows(query: {
+  async searchSubscriptionRows(query: {
     search: string;
-    type: IntegrationType | null;
+    type: SubscriptionType | null;
     informationTypeId?: number | null;
     partnerId?: number | null;
     inactive?: boolean | null;
     offset: number;
     limit: number;
-  }): Promise<Paged<IntegrationRow>> {
+  }): Promise<Paged<SubscriptionRow>> {
     const qs = buildListQuery({
       filters: [
         ["Name", SEARCHY_RULE.contains, query.search.trim()],
@@ -365,25 +365,25 @@ export const integrationMethods = {
     const partnerById = new Map(partners.map((p) => [p.id, p]));
     return {
       total: res.totalCount,
-      result: (res.result ?? []).map((raw) => toIntegrationRow(raw, infoTypeById, partnerById)),
+      result: (res.result ?? []).map((raw) => toSubscriptionRow(raw, infoTypeById, partnerById)),
     };
   },
 
-  async getIntegration(id: number): Promise<IntegrationDetail> {
+  async getSubscription(id: number): Promise<SubscriptionDetail> {
     const [raw, apiGateways, busGateways, recentExchanges] = await Promise.all([
       fetchRaw(id),
       gatewayMethods.listApiGateways(),
       gatewayMethods.listBusGateways(),
-      exchangeMethods.searchExchanges({ integrationId: id, offset: 0, limit: 8 }),
+      exchangeMethods.searchExchanges({ subscriptionId: id, offset: 0, limit: 8 }),
     ]);
     const infoType = await documentMethods.getInformationType(raw.documentId).catch(() => null);
     return {
-      ...toIntegration(raw, id),
+      ...toSubscription(raw, id),
       informationTypeCode: infoType?.code ?? infoType?.name ?? "",
       informationTypeName: infoType?.name ?? "",
       apiGatewayAttachments: apiGateways.flatMap((g) =>
         g.attachments
-          .filter((a) => a.integrationId === id)
+          .filter((a) => a.subscriptionId === id)
           .map((a) => ({
             gatewayId: g.id,
             gatewayName: g.name,
@@ -394,7 +394,7 @@ export const integrationMethods = {
       ),
       busGatewayRoutes: busGateways.flatMap((g) =>
         g.routes
-          .filter((r) => r.integrationId === id)
+          .filter((r) => r.subscriptionId === id)
           .map((r) => ({ gatewayId: g.id, gatewayName: g.name, partnerId: r.partnerId, partnerName: r.partnerName })),
       ),
       recentExchanges: recentExchanges.result.map((x) => ({
@@ -412,8 +412,8 @@ export const integrationMethods = {
     };
   },
 
-  async createIntegration(input: {
-    type: IntegrationType;
+  async createSubscription(input: {
+    type: SubscriptionType;
     name: string;
     /**
      * Ignored for Aggregation — the backend constructor forces the built-in
@@ -436,10 +436,10 @@ export const integrationMethods = {
     handlerProperties?: Record<string, string>;
     schedules?: Schedule[];
     retryPolicyId?: number | null;
-    responseIntegrationId?: number | null;
+    responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
     enabled?: boolean;
-  }): Promise<Integration> {
+  }): Promise<Subscription> {
     // One call, one transaction. This used to be a POST followed by a PATCH,
     // because create accepted only the name/type/document — and since the POST
     // committed on its own, a rejected PATCH left an empty subscription behind.
@@ -465,40 +465,40 @@ export const integrationMethods = {
       schedules: input.schedules?.length ? toRawSchedules(input.schedules) : undefined,
       retryPolicyId: input.retryPolicyId ?? null,
       customRetryPolicy: null,
-      responseSubscriptionId: input.responseIntegrationId ?? null,
+      responseSubscriptionId: input.responseSubscriptionId ?? null,
       responseMessageTypeName: input.responseMessageTypeName ?? null,
       inactive: !(input.enabled ?? false),
     });
-    return toIntegration(await fetchRaw(id), id);
+    return toSubscription(await fetchRaw(id), id);
   },
 
-  async updateIntegration(id: number, changes: UpdatableFields): Promise<Integration> {
+  async updateSubscription(id: number, changes: UpdatableFields): Promise<Subscription> {
     const current = await fetchRaw(id);
     await applyChanges(id, current, changes);
-    return toIntegration(await fetchRaw(id), id);
+    return toSubscription(await fetchRaw(id), id);
   },
 
-  async deleteIntegration(id: number): Promise<void> {
+  async deleteSubscription(id: number): Promise<void> {
     await request(`/subscriptions/${id}`, { method: "DELETE" });
   },
 
-  async pauseIntegration(id: number): Promise<Integration> {
+  async pauseSubscription(id: number): Promise<Subscription> {
     await post(`/subscriptions/${id}/pause`, {});
-    return toIntegration(await fetchRaw(id), id);
+    return toSubscription(await fetchRaw(id), id);
   },
 
-  async receiveNow(id: number): Promise<Integration> {
+  async receiveNow(id: number): Promise<Subscription> {
     await post(`/subscriptions/${id}/receivenow`, {});
-    return toIntegration(await fetchRaw(id), id);
+    return toSubscription(await fetchRaw(id), id);
   },
 
-  async aggregateNow(id: number): Promise<Integration> {
+  async aggregateNow(id: number): Promise<Subscription> {
     await post(`/subscriptions/${id}/aggregatenow`, {});
-    return toIntegration(await fetchRaw(id), id);
+    return toSubscription(await fetchRaw(id), id);
   },
 
-  listIntegrationRuns(id: number, limit = 20): Promise<IntegrationRun[]> {
-    return get<IntegrationRun[]>(`/subscriptions/runs?subscriptionId=${id}&limit=${limit}`);
+  listSubscriptionRuns(id: number, limit = 20): Promise<SubscriptionRun[]> {
+    return get<SubscriptionRun[]>(`/subscriptions/runs?subscriptionId=${id}&limit=${limit}`);
   },
 
   async searchReceiveAttempts(
@@ -529,19 +529,13 @@ export const integrationMethods = {
     };
   },
 
-  async listLastRuns(): Promise<IntegrationLastRun[]> {
-    const rows =
-      await get<(Omit<IntegrationLastRun, "integrationId"> & { subscriptionId: number })[]>(
-        "/subscriptions/lastruns",
-      );
-    return rows.map(({ subscriptionId, ...run }) => ({ ...run, integrationId: subscriptionId }));
+  // Both of these used to rename the wire's `subscriptionId` onto an `integrationId` field;
+  // now that the field carries the wire's own name, the rows come back already shaped.
+  async listLastRuns(): Promise<SubscriptionLastRun[]> {
+    return get<SubscriptionLastRun[]>("/subscriptions/lastruns");
   },
 
   async listScheduleHealth(): Promise<ScheduleHealth[]> {
-    const rows =
-      await get<(Omit<ScheduleHealth, "integrationId"> & { subscriptionId: number })[]>(
-        "/subscriptions/schedulehealth",
-      );
-    return rows.map(({ subscriptionId, ...health }) => ({ ...health, integrationId: subscriptionId }));
+    return get<ScheduleHealth[]>("/subscriptions/schedulehealth");
   },
 } satisfies Partial<ApiClient>;

@@ -9,7 +9,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import type { IntegrationType } from "../../../api";
+import type { SubscriptionType } from "../../../api";
 
 export type StageId =
   | "trigger"
@@ -30,7 +30,7 @@ export type StageId =
  * on decoration would make a healthy pipeline look like a traffic light.
  */
 export const STAGES: Record<StageId, { label: string; description: string; icon: LucideIcon }> = {
-  trigger: { label: "Trigger", description: "What sets this integration off.", icon: Zap },
+  trigger: { label: "Trigger", description: "What sets this subscription off.", icon: Zap },
   source: { label: "Source", description: "Where documents are pulled from.", icon: Download },
   schedule: {
     label: "Schedule",
@@ -81,7 +81,7 @@ export const STAGES: Record<StageId, { label: string; description: string; icon:
  * schedule was broken and then offer no way to fix it, and the mapper it hid genuinely
  * runs on the roll-up.
  */
-export function stagesFor(type: IntegrationType): StageId[] {
+export function stagesFor(type: SubscriptionType): StageId[] {
   switch (type) {
     case "Receiving":
       return ["source", "schedule", "transformation", "delivery", "response"];

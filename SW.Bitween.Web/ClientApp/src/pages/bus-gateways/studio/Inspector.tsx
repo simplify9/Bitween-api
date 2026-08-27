@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-import { api, type IntegrationType } from "../../../api";
+import { api, type SubscriptionType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Badge } from "../../../components/ui/basics";
 import { Field, TextInput } from "../../../components/ui/forms";
@@ -9,11 +9,11 @@ import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { AdapterConfig } from "../../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../../components/config/MatchExpressionEditor";
 import { HealthBadge } from "../../../components/config/shared";
-import { ResponseFields } from "../../integrations/studio/ResponseFields";
+import { ResponseFields } from "../../subscriptions/studio/ResponseFields";
 import {
   BUS_NODES,
   type BusNodeId,
-  type IntegrationDraft,
+  type SubscriptionDraft,
   type RouteDraft,
 } from "./model";
 
@@ -46,7 +46,7 @@ export function Inspector({
       <div className="shrink-0 border-t border-ink-200 bg-white px-4 py-2.5">
         <p className="text-[13px] text-ink-400">
           Pick a node on the canvas to configure it. Everything about this route — its filter, its
-          partner, and the integration it runs — is edited here.
+          partner, and the subscription it runs — is edited here.
         </p>
       </div>
     );
@@ -107,30 +107,30 @@ export function RouteBody({
   disabled,
   onNewPartner,
   onEditPartner,
-  onNewIntegration,
+  onNewSubscription,
 }: {
   draft: RouteDraft;
   onChange: (patch: Partial<RouteDraft>) => void;
   promotedProperties: { key: string; path: string }[];
-  /** Routes can only run integrations carrying the gateway's own type. */
+  /** Routes can only run subscriptions carrying the gateway's own type. */
   informationTypeId: number;
   informationTypeCode: string;
   disabled: boolean;
   onNewPartner: () => void;
   /** Opens the chosen partner's values here, rather than sending you to its page. */
   onEditPartner: (partnerId: number) => void;
-  onNewIntegration: () => void;
+  onNewSubscription: () => void;
 }) {
   const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
-  const integrations = useQuery({
-    queryKey: ["integrations"],
-    queryFn: () => api.listIntegrations(),
+  const subscriptions = useQuery({
+    queryKey: ["subscriptions"],
+    queryFn: () => api.listSubscriptions(),
     staleTime: Infinity,
   });
   const canCreatePartner = useSessionCan("partners.create");
-  const canCreateIntegration = useSessionCan("subscriptions.create");
+  const canCreateSubscription = useSessionCan("subscriptions.create");
 
-  const candidates = (integrations.data ?? []).filter(
+  const candidates = (subscriptions.data ?? []).filter(
     (s) => s.type === "BusGateway" && s.informationTypeId === informationTypeId,
   );
 
@@ -182,23 +182,23 @@ export function RouteBody({
         </Field>
 
         <Field
-          label="Runs the integration"
-          htmlFor="bs-integration"
-          hint={`Only integrations carrying ${informationTypeCode} can run here.`}
+          label="Runs the subscription"
+          htmlFor="bs-subscription"
+          hint={`Only subscriptions carrying ${informationTypeCode} can run here.`}
         >
           <SearchSelect
-            id="bs-integration"
-            aria-label="Integration"
-            value={draft.integrationId === null ? "" : String(draft.integrationId)}
-            disabled={disabled || integrations.isPending}
-            placeholder="Pick an integration…"
-            onChange={(v) => v !== "" && onChange({ integrationId: Number(v) })}
+            id="bs-subscription"
+            aria-label="Subscription"
+            value={draft.subscriptionId === null ? "" : String(draft.subscriptionId)}
+            disabled={disabled || subscriptions.isPending}
+            placeholder="Pick a subscription…"
+            onChange={(v) => v !== "" && onChange({ subscriptionId: Number(v) })}
             options={candidates.map((s) => ({ value: String(s.id), label: s.name }))}
           />
           <PanelLinks
-            view={draft.integrationId !== null ? `/subscriptions/${draft.integrationId}` : undefined}
-            onCreate={canCreateIntegration && !disabled ? onNewIntegration : undefined}
-            createLabel="New integration"
+            view={draft.subscriptionId !== null ? `/subscriptions/${draft.subscriptionId}` : undefined}
+            onCreate={canCreateSubscription && !disabled ? onNewSubscription : undefined}
+            createLabel="New subscription"
           />
         </Field>
       </div>
@@ -206,18 +206,18 @@ export function RouteBody({
   );
 }
 
-/** Integration-level facts: name, whether it runs, and the lane and policy it runs under. */
-export function IntegrationBody({
+/** Subscription-level facts: name, whether it runs, and the lane and policy it runs under. */
+export function SubscriptionBody({
   draft,
   onChange,
   disabled,
   health,
   lastException,
-  /** Set while the integration is being defined here — the name is the first thing asked. */
+  /** Set while the subscription is being defined here — the name is the first thing asked. */
   autoFocusName = false,
 }: {
-  draft: IntegrationDraft;
-  onChange: (patch: Partial<IntegrationDraft>) => void;
+  draft: SubscriptionDraft;
+  onChange: (patch: Partial<SubscriptionDraft>) => void;
   disabled: boolean;
   health: { isRunning: boolean; consecutiveFailures: number } | null;
   lastException: string | null;
@@ -297,8 +297,8 @@ export function TransformationBody({
   disabled,
   mapperEditorHref,
 }: {
-  draft: IntegrationDraft;
-  onChange: (patch: Partial<IntegrationDraft>) => void;
+  draft: SubscriptionDraft;
+  onChange: (patch: Partial<SubscriptionDraft>) => void;
   disabled: boolean;
   mapperEditorHref?: string | null;
 }) {
@@ -320,8 +320,8 @@ export function DeliveryBody({
   onChange,
   disabled,
 }: {
-  draft: IntegrationDraft;
-  onChange: (patch: Partial<IntegrationDraft>) => void;
+  draft: SubscriptionDraft;
+  onChange: (patch: Partial<SubscriptionDraft>) => void;
   disabled: boolean;
 }) {
   return (
@@ -342,16 +342,16 @@ export function ResponseBody({
   disabled,
   candidates,
 }: {
-  draft: IntegrationDraft;
-  onChange: (patch: Partial<IntegrationDraft>) => void;
+  draft: SubscriptionDraft;
+  onChange: (patch: Partial<SubscriptionDraft>) => void;
   disabled: boolean;
-  candidates: { id: number; name: string; type: IntegrationType }[];
+  candidates: { id: number; name: string; type: SubscriptionType }[];
 }) {
   return (
     <div className="space-y-3">
       <ResponseFields
         handlerId={draft.handlerId}
-        responseIntegrationId={draft.responseIntegrationId}
+        responseSubscriptionId={draft.responseSubscriptionId}
         responseMessageTypeName={draft.responseMessageTypeName}
         onChange={onChange}
         disabled={disabled}

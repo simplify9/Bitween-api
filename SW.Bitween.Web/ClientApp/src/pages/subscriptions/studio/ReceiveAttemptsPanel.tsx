@@ -38,9 +38,9 @@ const WORDING: Record<
   }
 > = {
   receiving: {
-    description: "Every time this integration checked for new data — what it found, and what happened to it.",
+    description: "Every time this subscription checked for new data — what it found, and what happened to it.",
     empty: "No checks recorded yet",
-    emptyHint: "This integration hasn't checked for new data since this history started being kept.",
+    emptyHint: "This subscription hasn't checked for new data since this history started being kept.",
     exchangeHeader: "Exchange",
     exchangeHint: "The exchanges this run created, one per document it received.",
     resultHint: "What the run found when it checked its source.",
@@ -172,7 +172,7 @@ function AttemptExchanges({ exchanges }: { exchanges: ReceiveAttemptRow["exchang
 }
 
 /**
- * Every time a Receiving integration checked for new data — replaces the old pairing of
+ * Every time a Receiving subscription checked for new data — replaces the old pairing of
  * the scheduler's own run history (Quartz vocabulary an operator has no reason to know,
  * and which always reports success even when the receive step itself failed) next to a
  * capped 8-row exchange glance. One row per run regardless of what it found, so a poll

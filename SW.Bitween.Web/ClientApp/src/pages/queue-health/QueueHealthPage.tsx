@@ -27,8 +27,8 @@ const LANES: Record<QueueLane, { label: string; blurb: string; role: string }> =
   },
   Work: {
     label: "Work",
-    blurb: "One per work group. This is where integrations actually run — filter, mapping, delivery.",
-    role: "runs the integrations in this group",
+    blurb: "One per work group. This is where subscriptions actually run — filter, mapping, delivery.",
+    role: "runs the subscriptions in this group",
   },
   Notifications: {
     label: "Notifications",
@@ -42,20 +42,20 @@ const LANES: Record<QueueLane, { label: string; blurb: string; role: string }> =
   },
   Control: {
     label: "Control",
-    blurb: "Bookkeeping. No integration traffic passes through these.",
+    blurb: "Bookkeeping. No subscription traffic passes through these.",
     role: "internal bookkeeping",
   },
 };
 
 /**
- * Ungrouped is a lane, not a group — the one every integration without a work group
+ * Ungrouped is a lane, not a group — the one every subscription without a work group
  * shares — so it doesn't get the group wording.
  */
 const roleOf = (c: ConsumerHealth): string => {
   if (c.title === "Ungrouped") {
     return c.lane === "Notifications"
       ? "checks every notifier against results that belong to no work group"
-      : "runs every integration that has no work group";
+      : "runs every subscription that has no work group";
   }
   return LANES[c.lane].role;
 };

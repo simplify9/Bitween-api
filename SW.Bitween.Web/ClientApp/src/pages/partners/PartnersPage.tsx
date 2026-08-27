@@ -4,17 +4,17 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Handshake, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
-import { IntegrationMultiFilter } from "../../components/config/IntegrationMultiFilter";
+import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useIntegrationsCache, usePartnerIntegrations } from "../../components/config/shared";
+import { UsedByCell, useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/shared";
 
 const PAGE_SIZE = 25;
 
-/** ?integrations=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -28,7 +28,7 @@ export function PartnersPage() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
-  const integrationIds = parseIds(searchParams.get("integrations"));
+  const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
@@ -43,16 +43,16 @@ export function PartnersPage() {
       { replace: key === "q" },
     );
 
-  const partnerIntegrations = usePartnerIntegrations();
-  const integrations = useIntegrationsCache().data ?? [];
+  const partnerSubscriptions = usePartnerSubscriptions();
+  const subscriptions = useSubscriptionsCache().data ?? [];
 
   // The backend's Search endpoint has no "id is in this set" filter, so filtering by
-  // which integrations a partner is wired to can't be pushed down like the name search
-  // can. Every partner is already loaded once for `usePartnerIntegrations` above, so
+  // which subscriptions a partner is wired to can't be pushed down like the name search
+  // can. Every partner is already loaded once for `usePartnerSubscriptions` above, so
   // reusing the same full list here — and paging it client-side — costs nothing extra
   // and stays correct across pages. The plain search case keeps the server-paged path,
   // since that's the one that has to scale.
-  const filtering = integrationIds.length > 0;
+  const filtering = subscriptionIds.length > 0;
 
   const serverSearch = useQuery({
     queryKey: ["partners-search", q, offset],
@@ -69,18 +69,18 @@ export function PartnersPage() {
   const filteredSorted = useMemo(() => {
     if (!filtering) return [];
     const needle = q.trim().toLowerCase();
-    const wanted = new Set(integrationIds);
+    const wanted = new Set(subscriptionIds);
     return (allPartners.data ?? []).filter((p) => {
       if (needle && !p.name.toLowerCase().includes(needle)) return false;
-      const usedBy = partnerIntegrations.get(p.id) ?? [];
+      const usedBy = partnerSubscriptions.get(p.id) ?? [];
       return usedBy.some((i) => wanted.has(i.id));
     });
-  }, [filtering, allPartners.data, partnerIntegrations, q, integrationIds]);
+  }, [filtering, allPartners.data, partnerSubscriptions, q, subscriptionIds]);
 
   const isPending = filtering ? allPartners.isPending : serverSearch.isPending;
   const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
   const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
-  const filtered = q || integrationIds.length > 0;
+  const filtered = q || subscriptionIds.length > 0;
 
   return (
     <div>
@@ -109,11 +109,11 @@ export function PartnersPage() {
           />
         </div>
         <div className="w-60">
-          <IntegrationMultiFilter
-            integrations={integrations}
-            selected={integrationIds}
-            onChange={(ids) => setParam("integrations", ids.length ? ids.join(",") : null)}
-            label="Filter by integration"
+          <SubscriptionMultiFilter
+            subscriptions={subscriptions}
+            selected={subscriptionIds}
+            onChange={(ids) => setParam("subscriptions", ids.length ? ids.join(",") : null)}
+            label="Filter by subscription"
           />
         </div>
       </div>
@@ -177,7 +177,7 @@ export function PartnersPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (p) => <UsedByCell items={partnerIntegrations.get(p.id) ?? []} />,
+              cell: (p) => <UsedByCell items={partnerSubscriptions.get(p.id) ?? []} />,
             },
           ]}
         />

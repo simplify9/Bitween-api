@@ -56,8 +56,9 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     // The overview first, then entry points — how a document gets in — then the
-    // pipelines it runs through, then who it's with. A gateway is not an integration.
-    label: "Integrations",
+    // pipelines it runs through, then who it's with. The heading names the area, not the
+    // entity: a gateway is not itself a subscription.
+    label: "Subscriptions",
     items: [
       { label: "API gateways", path: "/api-gateways", icon: Webhook, permissions: ["api-gateways.view"] },
       { label: "Bus gateways", path: "/bus-gateways", icon: Cable, permissions: ["bus-gateways.view"] },
@@ -69,7 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
       // rather than a fourth kind of them. Gated on the bus alone: bus messages are what
       // carry work *between* gateways, so without that permission there is no flow to map.
       { label: "Flow map", path: "/flow", icon: Network, permissions: ["bus-gateways.view"] },
-      { label: "All integrations", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
+      { label: "All subscriptions", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
       { label: "Partners", path: "/partners", icon: Handshake, permissions: ["partners.view"] },
     ],
   },

@@ -10,7 +10,7 @@ import { suggestSlug } from "../../lib/identifiers";
 /**
  * A work group's editable settings, as one component.
  *
- * Shared by the group's own page and the dialog opened from an integration, so
+ * Shared by the group's own page and the dialog opened from a subscription, so
  * there is one definition of what a work group is. Its live queue stats and
  * used-by list stay on the page.
  */
@@ -115,7 +115,7 @@ export function WorkGroupFields({
 
 const EMPTY: WorkGroupDraft = { name: "", busMessageName: "", prefetch: 10, priority: 5 };
 
-/** A work group, created or edited in place — reached from an integration's lane picker. */
+/** A work group, created or edited in place — reached from a subscription's lane picker. */
 export function WorkGroupDialog({
   groupId,
   onClose,
@@ -172,7 +172,7 @@ export function WorkGroupDialog({
       ) : (
         <div className="space-y-4">
           <p className="text-[13px] text-ink-500">
-            Gives its own queue, priority and prefetch to whatever integrations you assign to it.
+            Gives its own queue, priority and prefetch to whatever subscriptions you assign to it.
           </p>
           <WorkGroupFields draft={draft} onChange={setDraft} canEdit={canEdit} showName idPrefix="wgd" />
           <FormError>{save.error?.message}</FormError>

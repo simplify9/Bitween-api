@@ -5,14 +5,14 @@ import { FileText, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { InformationTypeDialog } from "../../components/config/InformationTypeDialog";
-import { IntegrationMultiFilter } from "../../components/config/IntegrationMultiFilter";
+import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Select } from "../../components/ui/forms";
 import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useIntegrationsCache } from "../../components/config/shared";
+import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
 
 const PAGE_SIZE = 25;
 
@@ -28,7 +28,7 @@ const BUS_OPTIONS = [
   { value: "false", label: "Not on the bus" },
 ];
 
-/** ?integrations=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -45,16 +45,16 @@ export function InformationTypesPage() {
   const format = searchParams.get("format") as "Json" | "Xml" | null;
   const busParam = searchParams.get("bus");
   const busEnabled = busParam === "true" ? true : busParam === "false" ? false : null;
-  const integrationIds = parseIds(searchParams.get("integrations"));
+  const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const integrations = useIntegrationsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? [];
 
   // The backend's Search endpoint has no "id is in this set" filter, so filtering by
-  // which integrations use a type can't be pushed down like name/format/bus can. Falls
+  // which subscriptions use a type can't be pushed down like name/format/bus can. Falls
   // back to the full list, filtered and paged client-side, only while that filter is
   // active — same trade-off as the Partners and Global values pages.
-  const filtering = integrationIds.length > 0;
+  const filtering = subscriptionIds.length > 0;
 
   const serverSearch = useQuery({
     queryKey: ["information-types-search", q, format, busEnabled, offset],
@@ -83,15 +83,15 @@ export function InformationTypesPage() {
   const filteredSorted = useMemo(() => {
     if (!filtering) return [];
     const needle = q.trim().toLowerCase();
-    const wanted = new Set(integrationIds);
+    const wanted = new Set(subscriptionIds);
     return (allTypes.data ?? []).filter((t) => {
       if (needle && !t.name.toLowerCase().includes(needle)) return false;
       if (format && t.format !== format) return false;
       if (busEnabled !== null && t.busEnabled !== busEnabled) return false;
-      const usedBy = integrations.filter((s) => s.informationTypeId === t.id);
+      const usedBy = subscriptions.filter((s) => s.informationTypeId === t.id);
       return usedBy.some((s) => wanted.has(s.id));
     });
-  }, [filtering, allTypes.data, q, format, busEnabled, integrationIds, integrations]);
+  }, [filtering, allTypes.data, q, format, busEnabled, subscriptionIds, subscriptions]);
 
   const isPending = filtering ? allTypes.isPending : serverSearch.isPending;
   const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
@@ -159,11 +159,11 @@ export function InformationTypesPage() {
           />
         </div>
         <div className="w-60">
-          <IntegrationMultiFilter
-            integrations={integrations}
-            selected={integrationIds}
-            onChange={(ids) => setParam("integrations", ids.length ? ids.join(",") : null)}
-            label="Filter by integration"
+          <SubscriptionMultiFilter
+            subscriptions={subscriptions}
+            selected={subscriptionIds}
+            onChange={(ids) => setParam("subscriptions", ids.length ? ids.join(",") : null)}
+            label="Filter by subscription"
           />
         </div>
       </div>
@@ -173,11 +173,11 @@ export function InformationTypesPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<FileText />}
-          title={q || format || busParam || integrationIds.length > 0 ? "No information types match" : "No information types yet"}
+          title={q || format || busParam || subscriptionIds.length > 0 ? "No information types match" : "No information types yet"}
         >
-          {q || format || busParam || integrationIds.length > 0
+          {q || format || busParam || subscriptionIds.length > 0
             ? "Try a different search or filter."
-            : "Define the first kind of document your integrations will carry."}
+            : "Define the first kind of document your subscriptions will carry."}
         </EmptyState>
       ) : (
         <Table
@@ -234,7 +234,7 @@ export function InformationTypesPage() {
             {
               header: "Used by",
               truncate: true,
-              cell: (t) => <UsedByCell items={integrations.filter((s) => s.informationTypeId === t.id)} />,
+              cell: (t) => <UsedByCell items={subscriptions.filter((s) => s.informationTypeId === t.id)} />,
             },
           ]}
         />

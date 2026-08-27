@@ -20,7 +20,7 @@ export interface StageFace {
   dirty: boolean;
   /**
    * A fault we can actually attribute to *this* step. Only the schedule has one
-   * today (the scheduler reports its own trigger state); an integration-level
+   * today (the scheduler reports its own trigger state); a subscription-level
    * failure count is not evidence about which step failed, so it stays on the
    * overview rather than being guessed onto Delivery.
    */

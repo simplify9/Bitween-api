@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BellOff, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
-import { api, type IntegrationSetupRef, type RetryAlertLevel, type RetryUsageRow } from "../../api";
+import { api, type SubscriptionSetupRef, type RetryAlertLevel, type RetryUsageRow } from "../../api";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { Panel } from "../../components/ui/Panel";
@@ -13,8 +13,8 @@ import { AlertRouting } from "./AlertRouting";
  * What each retry budget of this policy has actually spent, and whether anyone was told when
  * one ran out.
  *
- * One row per integration-and-group pair, because that is how a budget is counted: a shared
- * policy gives every integration its own separate total. There is no such thing as "this
+ * One row per subscription-and-group pair, because that is how a budget is counted: a shared
+ * policy gives every subscription its own separate total. There is no such thing as "this
  * policy's usage" — any single figure here would be an aggregate matching nothing anyone can
  * act on — and it is also why resetting and overriding both address one pair.
  *
@@ -23,7 +23,7 @@ import { AlertRouting } from "./AlertRouting";
  */
 
 const LEVEL_WORD: Record<RetryAlertLevel, string> = {
-  SubscriptionGroup: "this integration",
+  SubscriptionGroup: "this subscription",
   Group: "the group",
   Policy: "the policy",
 };
@@ -53,7 +53,7 @@ const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boo
     key: "exhausted",
     label: "Exhausted",
     match: (r) => r.exhausted,
-    blurb: "No longer retried at all until the budget is reset, or the integration succeeds.",
+    blurb: "No longer retried at all until the budget is reset, or the subscription succeeds.",
   },
   {
     key: "silent",
@@ -65,9 +65,9 @@ const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boo
     key: "overridden",
     label: "Overridden",
     match: (r) => r.override.alertMode !== "Inherit",
-    blurb: "Pairs whose alert routing is set on the integration itself, not inherited.",
+    blurb: "Pairs whose alert routing is set on the subscription itself, not inherited.",
   },
-  { key: "all", label: "All", match: () => true, blurb: "Every integration and group using this policy." },
+  { key: "all", label: "All", match: () => true, blurb: "Every subscription and group using this policy." },
 ];
 
 /** Where this pair's alert ends up, said as a destination rather than a mode. */
@@ -120,8 +120,8 @@ function AlertedCell({ row }: { row: RetryUsageRow }) {
 /** The failures a pair spent its budget on, fetched only once the row is opened. */
 function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
   const q = useQuery({
-    queryKey: ["retry-attempts", policyId, row.integrationId, row.groupId],
-    queryFn: () => api.getRetryAttempts(policyId, { integrationId: row.integrationId, groupId: row.groupId }),
+    queryKey: ["retry-attempts", policyId, row.subscriptionId, row.groupId],
+    queryFn: () => api.getRetryAttempts(policyId, { subscriptionId: row.subscriptionId, groupId: row.groupId }),
   });
 
   if (q.isPending) return <LoadingBlock label="Loading failures…" />;
@@ -131,7 +131,7 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
   if (attempts.length === 0)
     return (
       <p className="text-[13px] text-ink-500">
-        No failures recorded against this group for this integration.
+        No failures recorded against this group for this subscription.
       </p>
     );
 
@@ -172,7 +172,7 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
         <p className="text-[13px] text-ink-500">
           Showing the {attempts.length} most recent of {total} failures.{" "}
           <Link
-            to={`/exchanges?integrationId=${row.integrationId}&status=failed`}
+            to={`/exchanges?subscriptionId=${row.subscriptionId}&status=failed`}
             className="font-medium text-crimson-700 hover:underline"
           >
             See them all
@@ -207,7 +207,7 @@ function OverrideDialog({
   });
 
   const save = useMutation({
-    mutationFn: () => api.saveRetryAlertOverride(policyId, { ...value, integrationId: row.integrationId, groupId: row.groupId }),
+    mutationFn: () => api.saveRetryAlertOverride(policyId, { ...value, subscriptionId: row.subscriptionId, groupId: row.groupId }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["retry-usage"] });
       onClose();
@@ -215,10 +215,10 @@ function OverrideDialog({
   });
 
   return (
-    <Dialog title={`${row.integrationName} — ${row.groupName}`} onClose={onClose} wide>
+    <Dialog title={`${row.subscriptionName} — ${row.groupName}`} onClose={onClose} wide>
       <div className="space-y-4">
         <p className="text-[13px] text-ink-500">
-          Where this one integration's alert goes when this group's budget runs out. The most
+          Where this one subscription's alert goes when this group's budget runs out. The most
           specific of the three levels — it wins over both the group and the policy.
         </p>
         <AlertRouting
@@ -256,12 +256,12 @@ function OverrideDialog({
 
 export function UsagePanel({
   policyId,
-  integrations,
+  subscriptions,
   canEdit,
 }: {
   policyId: number;
-  /** Used to explain an empty report — the integrations are still following the policy. */
-  integrations: IntegrationSetupRef[];
+  /** Used to explain an empty report — the subscriptions are still following the policy. */
+  subscriptions: SubscriptionSetupRef[];
   canEdit: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -291,8 +291,8 @@ export function UsagePanel({
         description="What each budget has spent, and whether anyone was told when one ran out."
       >
         <p className="text-sm text-ink-500">
-          {integrations.length === 0
-            ? "No integration uses this policy yet."
+          {subscriptions.length === 0
+            ? "No subscription uses this policy yet."
             : "No group in this policy sets a total budget, so there is nothing to spend and nothing that can run out."}
         </p>
       </Panel>
@@ -345,7 +345,7 @@ export function UsagePanel({
             <thead>
               <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
                 <th className="w-px px-2 py-1.5" />
-                <th className="max-w-0 px-3 py-1.5">Integration</th>
+                <th className="max-w-0 px-3 py-1.5">Subscription</th>
                 <th className="max-w-0 px-3 py-1.5">Group</th>
                 <th className="w-px px-3 py-1.5 whitespace-nowrap">Used</th>
                 <th className="w-px px-3 py-1.5 whitespace-nowrap">Last failure</th>
@@ -356,7 +356,7 @@ export function UsagePanel({
             </thead>
             <tbody>
               {shown.map((r) => {
-                const key = `${r.integrationId}:${r.groupId}`;
+                const key = `${r.subscriptionId}:${r.groupId}`;
                 const isOpen = open === key;
                 return [
                   <tr key={key} className="border-b border-ink-50">
@@ -364,7 +364,7 @@ export function UsagePanel({
                       <button
                         onClick={() => setOpen(isOpen ? null : key)}
                         aria-expanded={isOpen}
-                        aria-label={`Failures for ${r.integrationName} in ${r.groupName}`}
+                        aria-label={`Failures for ${r.subscriptionName} in ${r.groupName}`}
                         className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
                       >
                         {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
@@ -372,10 +372,10 @@ export function UsagePanel({
                     </td>
                     <td className="max-w-0 px-3 py-1.5">
                       <Link
-                        to={`/subscriptions/${r.integrationId}`}
+                        to={`/subscriptions/${r.subscriptionId}`}
                         className="block truncate font-medium text-ink-900 hover:text-crimson-700"
                       >
-                        {r.integrationName}
+                        {r.subscriptionName}
                       </Link>
                     </td>
                     <td className="max-w-0 px-3 py-1.5">
@@ -429,7 +429,7 @@ export function UsagePanel({
                       {/*
                         max-w-0 stops this cell reporting an intrinsic width, the same trick the
                         shared Table uses. Without it a single unwrapped stack trace widened the
-                        whole table, and every column after Integration was pushed out of view —
+                        whole table, and every column after Subscription was pushed out of view —
                         opening one row hid the data in all the others.
                       */}
                       <td colSpan={8} className="max-w-0 px-4 py-3">
@@ -455,12 +455,12 @@ export function UsagePanel({
             resetting === "all" ? (
               <>
                 {spent.length} {spent.length === 1 ? "budget starts" : "budgets start"} again from zero,
-                and {spent.length === 1 ? "its" : "their"} integrations begin retrying immediately. If
+                and {spent.length === 1 ? "its" : "their"} subscriptions begin retrying immediately. If
                 the downstream is still down, they will spend it again.
               </>
             ) : (
               <>
-                <strong className="font-medium text-ink-800">{resetting.integrationName}</strong> starts
+                <strong className="font-medium text-ink-800">{resetting.subscriptionName}</strong> starts
                 again from zero in <strong className="font-medium text-ink-800">{resetting.groupName}</strong>,
                 and retries resume immediately.
               </>
@@ -474,12 +474,12 @@ export function UsagePanel({
             if (resetting === "all")
               await Promise.all(
                 spent.map((r) =>
-                  api.resetRetryUsage(policyId, { integrationId: r.integrationId, groupId: r.groupId }),
+                  api.resetRetryUsage(policyId, { subscriptionId: r.subscriptionId, groupId: r.groupId }),
                 ),
               );
             else
               await api.resetRetryUsage(policyId, {
-                integrationId: resetting.integrationId,
+                subscriptionId: resetting.subscriptionId,
                 groupId: resetting.groupId,
               });
             await invalidate();

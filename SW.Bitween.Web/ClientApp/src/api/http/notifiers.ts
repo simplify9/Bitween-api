@@ -56,7 +56,7 @@ const toNotifier = (r: RawNotifier): Notifier => ({
   onSuccess: r.runOnSuccessfulResult,
   channelId: r.handlerId ?? "",
   channelProperties: toRecord(r.handlerProperties),
-  integrationIds: (r.runOnSubscriptions ?? []).map((s) => s.id),
+  subscriptionIds: (r.runOnSubscriptions ?? []).map((s) => s.id),
   createdOn: "",
 });
 
@@ -98,7 +98,7 @@ export const notifierMethods = {
         onSuccess: !!r.runOnSuccessfulResult,
         channelId: r.handlerId ?? "",
         channelProperties: {},
-        integrationIds: r.runOnSubscriptions ?? [],
+        subscriptionIds: r.runOnSubscriptions ?? [],
         createdOn: "",
       })),
     };
@@ -117,7 +117,7 @@ export const notifierMethods = {
       onSuccess: false,
       channelId: "",
       channelProperties: {},
-      integrationIds: [],
+      subscriptionIds: [],
       createdOn: "",
     };
   },
@@ -131,7 +131,7 @@ export const notifierMethods = {
       handlerId: changes.channelId,
       inactive: !changes.enabled,
       handlerProperties: toKvArray(changes.channelProperties),
-      runOnSubscriptions: changes.integrationIds.map((subscriptionId) => ({ id: subscriptionId })),
+      runOnSubscriptions: changes.subscriptionIds.map((subscriptionId) => ({ id: subscriptionId })),
     });
     return { id, createdOn: "", ...changes };
   },

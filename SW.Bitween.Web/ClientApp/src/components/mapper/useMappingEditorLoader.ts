@@ -12,8 +12,8 @@ import { recordToKvps } from "./data";
 export function useMappingEditorLoader(subscriptionId: number): void {
   const dispatch = useMappingEditorDispatch();
   const { data: subscriptionData } = useQuery({
-    queryKey: ["integration", subscriptionId],
-    queryFn: () => api.getIntegration(subscriptionId),
+    queryKey: ["subscription", subscriptionId],
+    queryFn: () => api.getSubscription(subscriptionId),
     enabled: !!subscriptionId,
   });
   const [, setLoadedForId] = useState<number | null>(null);

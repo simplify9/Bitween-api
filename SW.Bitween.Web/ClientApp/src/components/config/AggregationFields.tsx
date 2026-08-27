@@ -31,7 +31,7 @@ const TARGET_OPTIONS = (Object.keys(AGGREGATION_TARGET_LABEL) as AggregationTarg
  * The two things that make an aggregation what it is: whose exchanges it collects, and
  * which of their files the roll-up links to.
  *
- * Shared by the integration's studio card and the create dialog, so the wording a person
+ * Shared by the subscription's studio card and the create dialog, so the wording a person
  * reads while making one is the wording they read afterwards. The source is display-only
  * here and picked by the caller instead — it is fixed at creation by the backend, whose
  * `AggregationForId` has a private setter and is skipped by the configuration applier.
@@ -43,7 +43,7 @@ export function AggregationFields({
   disabled,
 }: {
   /**
-   * The integration being rolled up. `null` while one is still being chosen; omit it
+   * The subscription being rolled up. `null` while one is still being chosen; omit it
    * entirely when the caller shows the source itself and only the collected-file half
    * is left to ask.
    */

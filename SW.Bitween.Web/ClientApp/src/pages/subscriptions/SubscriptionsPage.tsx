@@ -1,7 +1,7 @@
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, Workflow } from "lucide-react";
-import { api, type IntegrationRow, type IntegrationType } from "../../api";
+import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -11,8 +11,8 @@ import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import {
   HealthBadge,
-  INTEGRATION_TYPE_LABELS,
-  IntegrationStatusBadges,
+  SUBSCRIPTION_TYPE_LABELS,
+  SubscriptionStatusBadges,
   LinkListCell,
   TypeBadge,
   useGatewayPartners,
@@ -25,7 +25,7 @@ const STATUS_OPTIONS = [
 ];
 
 /** Filter order: what you'll have most of first, legacy last. */
-const TYPE_ORDER: IntegrationType[] = [
+const TYPE_ORDER: SubscriptionType[] = [
   "Receiving",
   "GatewayApiCall",
   "BusGateway",
@@ -35,7 +35,7 @@ const TYPE_ORDER: IntegrationType[] = [
 ];
 
 /**
- * Every integration, of every type — the pipelines that move a document from
+ * Every subscription, of every type — the pipelines that move a document from
  * one place to another.
  *
  * Gateways are NOT rows here. A gateway is an entry point, not a pipeline, and
@@ -46,11 +46,11 @@ const TYPE_ORDER: IntegrationType[] = [
  */
 const PAGE_SIZE = 25;
 
-export function IntegrationsPage() {
+export function SubscriptionsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
-  const type = searchParams.get("type") as IntegrationType | null;
+  const type = searchParams.get("type") as SubscriptionType | null;
   const informationTypeId = searchParams.get("informationTypeId")
     ? Number(searchParams.get("informationTypeId"))
     : null;
@@ -61,9 +61,9 @@ export function IntegrationsPage() {
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: ["integration-rows-search", q, type, informationTypeId, partnerId, inactive, offset],
+    queryKey: ["subscription-rows-search", q, type, informationTypeId, partnerId, inactive, offset],
     queryFn: () =>
-      api.searchIntegrationRows({
+      api.searchSubscriptionRows({
         search: q,
         type,
         informationTypeId,
@@ -79,7 +79,7 @@ export function IntegrationsPage() {
   const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() }).data ?? [];
 
   /** Its own partner (legacy types) plus any reached through a gateway. */
-  const partnersFor = (r: IntegrationRow) => {
+  const partnersFor = (r: SubscriptionRow) => {
     const own = r.partners;
     const viaGateway = (gatewayPartners.get(r.id) ?? []).filter((p) => !own.some((o) => o.id === p.id));
     return [...own, ...viaGateway];
@@ -103,23 +103,23 @@ export function IntegrationsPage() {
   return (
     <div>
       <PageHeader
-        title="All integrations"
+        title="All subscriptions"
         description="Every pipeline that moves a document — what comes in, how it's transformed, where it goes."
         help={{
           title: "What's on this page?",
           body: (
             <>
               <p>
-                An integration is one <strong>pipeline</strong>: it receives a document, optionally
+                A subscription is one <strong>pipeline</strong>: it receives a document, optionally
                 maps it, and hands it on. Every type is listed here, including legacy ones.
               </p>
               <p>
                 The <strong>entry points</strong> live on their own pages — API gateways (partners
                 push in), bus gateways (messages off the bus) and scheduled jobs (pulled in on a
-                schedule). A scheduled job is also an integration, so it appears in both places.
+                schedule). A scheduled job is also a subscription, so it appears in both places.
               </p>
               <p>
-                There is nothing to create from here. A gateway integration is created while
+                There is nothing to create from here. A gateway subscription is created while
                 attaching a partner or adding a route, so it is wired up the moment it exists; a
                 scheduled job is created from the Scheduled jobs page.
               </p>
@@ -151,7 +151,7 @@ export function IntegrationsPage() {
                 : "border border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:bg-ink-50"
             }`}
           >
-            {INTEGRATION_TYPE_LABELS[t]}
+            {SUBSCRIPTION_TYPE_LABELS[t]}
           </button>
         ))}
         <div className="relative ml-auto w-full max-w-55 sm:w-auto">
@@ -161,7 +161,7 @@ export function IntegrationsPage() {
             value={q}
             onChange={(e) => setParam("q", e.target.value || null)}
             placeholder="Search"
-            aria-label="Search integrations"
+            aria-label="Search subscriptions"
             className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
           />
         </div>
@@ -194,15 +194,15 @@ export function IntegrationsPage() {
       </div>
 
       {rows.isPending ? (
-        <LoadingBlock label="Loading integrations…" />
+        <LoadingBlock label="Loading subscriptions…" />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Workflow />}
-          title={q || type || informationTypeId || partnerId || inactive !== null ? "Nothing matches" : "No integrations yet"}
+          title={q || type || informationTypeId || partnerId || inactive !== null ? "Nothing matches" : "No subscriptions yet"}
         >
           {q || type || informationTypeId || partnerId || inactive !== null
             ? "Try a different search or filter."
-            : "Create an integration to start moving documents."}
+            : "Create a subscription to start moving documents."}
         </EmptyState>
       ) : (
         <Table
@@ -220,7 +220,7 @@ export function IntegrationsPage() {
           }
           columns={[
             {
-              header: "Integration",
+              header: "Subscription",
               truncate: true,
               cell: (r) => <span className="block truncate font-medium text-ink-900">{r.name}</span>,
             },
@@ -258,7 +258,7 @@ export function IntegrationsPage() {
               header: "Status",
               cell: (r) => (
                 <span className="inline-flex items-center gap-1">
-                  <IntegrationStatusBadges enabled={r.enabled} paused={r.paused} />
+                  <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
                   <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
                 </span>
               ),

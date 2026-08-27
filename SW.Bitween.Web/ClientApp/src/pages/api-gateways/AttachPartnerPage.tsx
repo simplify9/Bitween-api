@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
-import { IntegrationPicker, PartnerPicker } from "../../components/config/pickers";
+import { SubscriptionPicker, PartnerPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
@@ -17,7 +17,7 @@ function useDraft<T extends object>(initial: T) {
 
 interface Draft {
   partnerId: number | null;
-  integrationId: number | null;
+  subscriptionId: number | null;
 }
 
 /**
@@ -25,8 +25,8 @@ interface Draft {
  * they do. Deliberately shaped like `EditAttachmentPage`, its edit twin: two
  * questions on one form, not a guided flow.
  *
- * "New integration" leaves this page rather than opening in place — see
- * `NewGatewayIntegrationPage` — so `?picked=`/`?partnerId=` restore the choices
+ * "New subscription" leaves this page rather than opening in place — see
+ * `NewGatewaySubscriptionPage` — so `?picked=`/`?partnerId=` restore the choices
  * this page had on the way out.
  */
 export function AttachPartnerPage() {
@@ -44,10 +44,10 @@ export function AttachPartnerPage() {
 
   const [draft, update, clear] = useDraft<Draft>({
     partnerId: searchParams.get("partnerId") ? Number(searchParams.get("partnerId")) : null,
-    integrationId: searchParams.get("picked") ? Number(searchParams.get("picked")) : null,
+    subscriptionId: searchParams.get("picked") ? Number(searchParams.get("picked")) : null,
   });
 
-  // Consumed once, on the way back from creating an integration — cleared so a
+  // Consumed once, on the way back from creating a subscription — cleared so a
   // refresh of this page doesn't keep re-seeding the same values.
   useEffect(() => {
     if (searchParams.has("picked") || searchParams.has("partnerId")) setSearchParams({}, { replace: true });
@@ -58,7 +58,7 @@ export function AttachPartnerPage() {
     mutationFn: () =>
       api.attachGatewayPartner(gatewayId, {
         partnerId: draft.partnerId!,
-        integrationId: draft.integrationId!,
+        subscriptionId: draft.subscriptionId!,
       }),
     onSuccess: () => {
       clear();
@@ -80,10 +80,10 @@ export function AttachPartnerPage() {
   const g = gateway.data;
 
   // The same rule the server enforces, said before the button is pressed rather than
-  // after: an integration cannot be attached half-made.
+  // after: a subscription cannot be attached half-made.
   const missing = [
     draft.partnerId === null && "a partner",
-    draft.integrationId === null && "an integration",
+    draft.subscriptionId === null && "a subscription",
   ].filter((m): m is string => typeof m === "string");
 
   return (
@@ -95,7 +95,7 @@ export function AttachPartnerPage() {
       </h1>
       <p className="mt-1 text-sm text-ink-500">
         Who calls in, and what runs when they do. No partner yet, create one right here; no
-        integration yet, its own page opens next and brings you back.
+        subscription yet, its own page opens next and brings you back.
       </p>
 
       <div className="mt-6 max-w-2xl space-y-5 rounded-xl border border-ink-200 bg-white p-5">
@@ -112,15 +112,15 @@ export function AttachPartnerPage() {
           />
         </Field>
 
-        <Field label="Integration" htmlFor="ap-integration" hint="What runs when they call.">
-          <IntegrationPicker
-            id="ap-integration"
+        <Field label="Subscription" htmlFor="ap-subscription" hint="What runs when they call.">
+          <SubscriptionPicker
+            id="ap-subscription"
             type="GatewayApiCall"
-            value={draft.integrationId}
-            onChange={(integrationId) => update({ integrationId })}
+            value={draft.subscriptionId}
+            onChange={(subscriptionId) => update({ subscriptionId })}
             onDefineHere={() =>
               navigate(
-                `/api-gateways/${gatewayId}/attach/new-integration${
+                `/api-gateways/${gatewayId}/attach/new-subscription${
                   draft.partnerId ? `?partnerId=${draft.partnerId}` : ""
                 }`,
               )

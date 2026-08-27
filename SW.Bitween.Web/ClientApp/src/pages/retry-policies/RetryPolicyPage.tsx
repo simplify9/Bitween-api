@@ -123,7 +123,7 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
  * form rather than the most useful one.
  *
  * A dialog makes the three levels consistent too: a group routes its own alert in the group
- * dialog, one integration-and-group pair in the override dialog, and the policy default here.
+ * dialog, one subscription-and-group pair in the override dialog, and the policy default here.
  * All three stage into the same save bar.
  */
 function PolicyAlertCard({
@@ -156,7 +156,7 @@ function PolicyAlertCard({
   return (
     <Panel
       title="Budget-exhausted alert"
-      description="Sent when a group stops retrying. Groups and single integrations can each route their own instead."
+      description="Sent when a group stops retrying. Groups and single subscriptions can each route their own instead."
       action={
         canEdit ? (
           <Button size="sm" onClick={open}>
@@ -177,7 +177,7 @@ function PolicyAlertCard({
       ) : (
         <p className="text-[13px] text-ink-500">
           No alert. Nothing is sent when a budget runs out, unless a group or a single
-          integration routes one itself.
+          subscription routes one itself.
         </p>
       )}
 
@@ -463,7 +463,7 @@ export function RetryPolicyPage() {
       </div>
 
       <div className="mt-5 space-y-5">
-        <UsagePanel policyId={policyId} integrations={p.integrations} canEdit={canEdit} />
+        <UsagePanel policyId={policyId} subscriptions={p.subscriptions} canEdit={canEdit} />
         <TestPanel groups={groups ?? []} />
       </div>
 
@@ -491,7 +491,7 @@ export function RetryPolicyPage() {
           body={
             <>
               <strong className="font-medium text-ink-800">{p.name}</strong> will be gone for good.
-              Policies still assigned to integrations can't be deleted.
+              Policies still assigned to subscriptions can't be deleted.
             </>
           }
           confirmLabel="Delete policy"
