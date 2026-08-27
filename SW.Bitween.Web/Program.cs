@@ -15,8 +15,10 @@ namespace SW.Bitween.Web
     {
         public static void Main(string[] args)
         {
-            //var id = (long)(DateTime.UtcNow.Subtract(new DateTime(2010, 1, 1)).TotalMilliseconds * 1000); 
-            CreateHostBuilder(args).UseSwElasticSearchLogger().Build().MigrateDatabase<BitweenDbContext>().Run();
+            //var id = (long)(DateTime.UtcNow.Subtract(new DateTime(2010, 1, 1)).TotalMilliseconds * 1000);
+            var host = CreateHostBuilder(args).UseSwElasticSearchLogger().Build().MigrateDatabase<BitweenDbContext>();
+            AdminAccountSeeder.EnsureDefaultAdmin(host);
+            host.Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
