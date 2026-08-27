@@ -1,4 +1,5 @@
 import type { AdapterInfo, IntegrationType } from "../../../api";
+import { AGGREGATION_TARGET_DETAIL } from "../../../components/config/AggregationFields";
 import { schedulesSummary } from "../../../lib/schedules";
 import { formatDateTime } from "../../../lib/dates";
 import type { StageFace } from "./StageRail";
@@ -7,6 +8,7 @@ import { locationHint, stageDirty, type Draft, type EntryPoint } from "./model";
 
 const labelOf = (catalog: { data: AdapterInfo[] | undefined }, id: string | null) =>
   catalog.data?.find((a) => a.id === id)?.label ?? id;
+
 
 /**
  * Whether a chosen adapter still has a required property empty.
@@ -43,8 +45,10 @@ export interface FaceInput {
   nextRunOn?: string | null;
   /** Only ever set on the Schedule node — see `StageFace.fault`. */
   fault?: StageFace["fault"];
-  /** Names for the "feed the response into" target. */
+  /** Names for the "feed the response into" target, and for the aggregation's source. */
   integrationNames?: { id: number; name: string }[];
+  /** Aggregation only: whose exchanges it rolls up. Fixed at creation, so not on the draft. */
+  aggregationForId?: number | null;
   /**
    * Set while the integration is being defined and nothing is saved yet. A delivery-less
    * integration that already exists is a legal thing that records and stops; one being
@@ -61,7 +65,8 @@ export interface FaceInput {
  * while editing is how the two drift apart.
  */
 export function faceOf(stageId: StageId, input: FaceInput): StageFace {
-  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, integrationNames, unsaved } = input;
+  const { type, draft: d, catalogs, saved, entryPoints = [], nextRunOn, fault, integrationNames,
+    aggregationForId, unsaved } = input;
   const dirty = saved ? stageDirty(stageId, d, saved) : false;
 
   switch (stageId) {
@@ -100,8 +105,20 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
         state: d.schedules.length ? "set" : "missing",
         fault,
       };
-    case "aggregation":
-      return { id: stageId, dirty, title: "Not editable yet", state: "none", fault };
+    case "aggregation": {
+      // The source is what the node is *for*, so it is the title even though the only
+      // editable half is which file gets collected — an aggregation without a source is
+      // not a thing the backend will create.
+      const source = integrationNames?.find((x) => x.id === aggregationForId)?.name;
+      return {
+        id: stageId,
+        dirty,
+        title: source ?? (aggregationForId === null || aggregationForId === undefined ? "No source" : "Deleted integration"),
+        detail: AGGREGATION_TARGET_DETAIL[d.aggregationTarget],
+        state: aggregationForId ? "set" : "missing",
+        fault,
+      };
+    }
     case "validation":
       return {
         id: stageId,

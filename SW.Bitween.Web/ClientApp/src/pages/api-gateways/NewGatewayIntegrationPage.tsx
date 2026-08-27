@@ -134,6 +134,8 @@ export function NewGatewayIntegrationPage() {
   // set (there is no receiver, schedule or filter on this type) are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Aggregation only, and this page never creates one.
+    aggregationTarget: "Input",
     enabled: true,
     workGroupId: null,
     retryPolicyId: null,

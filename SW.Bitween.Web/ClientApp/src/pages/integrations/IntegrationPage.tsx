@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DownloadCloud, Pause, Play, Trash2, X } from "lucide-react";
+import { DownloadCloud, FileStack, Pause, Play, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
@@ -10,6 +10,7 @@ import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../components/config/MatchExpressionEditor";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
+import { AggregationFields } from "../../components/config/AggregationFields";
 import { TypeBadge, scheduleFault, useIntegrationsCache } from "../../components/config/shared";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { StageRail } from "./studio/StageRail";
@@ -61,6 +62,7 @@ export function IntegrationPage() {
   const [deleting, setDeleting] = useState(false);
   const [confirmingPause, setConfirmingPause] = useState(false);
   const [confirmingReceive, setConfirmingReceive] = useState(false);
+  const [confirmingAggregate, setConfirmingAggregate] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -126,6 +128,15 @@ export function IntegrationPage() {
     onSuccess: invalidate,
   });
 
+  const aggregate = useMutation({
+    mutationFn: () => api.aggregateNow(integrationId),
+    onSuccess: async () => {
+      await invalidate();
+      void queryClient.invalidateQueries({ queryKey: ["integration-runs", integrationId] });
+      void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
+    },
+  });
+
   const receive = useMutation({
     mutationFn: () => api.receiveNow(integrationId),
     onSuccess: async () => {
@@ -153,6 +164,8 @@ export function IntegrationPage() {
   const isInternal = s.type === "Internal";
   const isApiCall = s.type === "ApiCall";
   const isAggregation = s.type === "Aggregation";
+  const aggregationSource =
+    allIntegrations.data?.find((x) => x.id === s.aggregationForId) ?? null;
   const paused = s.pausedOn !== null;
   const entryPoints = entryPointsOf(s);
 
@@ -185,8 +198,13 @@ export function IntegrationPage() {
       catalogs: { receivers, validators, mappers, handlers },
       entryPoints,
       nextRunOn: s.nextReceiveOn,
-      fault: id === "schedule" || id === "aggregation" ? fault : undefined,
+      // The fault belongs to the Schedule node now that aggregations have one. It used
+      // to be pinned to the aggregation node too, which was the only node they had —
+      // and that node could not be edited, so the page reported a broken schedule and
+      // offered no way to fix it.
+      fault: id === "schedule" ? fault : undefined,
       integrationNames: allIntegrations.data,
+      aggregationForId: s.aggregationForId,
     }),
   );
 
@@ -231,7 +249,12 @@ export function IntegrationPage() {
         );
       case "schedule":
         return (
-          <Panel title={label} description={description}>
+          <Panel
+            title={label}
+            description={
+              isAggregation ? "When the source's exchanges are rolled up." : description
+            }
+          >
             <ScheduleEditor
               schedules={draft.schedules}
               onChange={(schedules) => set("schedules", schedules)}
@@ -242,10 +265,12 @@ export function IntegrationPage() {
       case "aggregation":
         return (
           <Panel title={label} description={description}>
-            <p className="text-sm text-ink-500">
-              Aggregation settings aren't editable in the new UI yet — they arrive in a later phase.
-              Everything else on this page works as usual.
-            </p>
+            <AggregationFields
+              source={aggregationSource}
+              target={draft.aggregationTarget}
+              onTargetChange={(aggregationTarget) => set("aggregationTarget", aggregationTarget)}
+              disabled={!canEdit}
+            />
           </Panel>
         );
       case "validation":
@@ -357,6 +382,36 @@ export function IntegrationPage() {
                 <DownloadCloud className="size-4" /> Receive now
               </Button>
             )}
+            {isAggregation && canOperate && (
+              <Button
+                onClick={() => setConfirmingAggregate(true)}
+                // AggregationJob returns immediately for a disabled subscription, so the
+                // button would appear to work and record nothing at all. The list page
+                // already refuses for the same reason; these two must agree.
+                disabled={!s.enabled}
+                title={
+                  s.enabled
+                    ? "Collect everything outstanding immediately and run the delivery, without waiting for the schedule."
+                    : "Enable the aggregation first — a disabled one never runs, even when triggered by hand."
+                }
+              >
+                <Play className="size-4" /> Roll up now
+              </Button>
+            )}
+            {/* Creating the aggregation from here rather than from a type picker: the
+                thing being rolled up is the page you are standing on, so it can never
+                be the wrong one. Not offered on an aggregation — roll-ups of roll-ups
+                are not a shape anyone has asked for, and the picker refuses them too. */}
+            {!isAggregation && (
+              <Can permission="subscriptions.create">
+                <Button
+                  onClick={() => navigate(`/aggregations/new?source=${s.id}`)}
+                  title="Create an aggregation that collects this integration's exchanges on a schedule into one summary exchange."
+                >
+                  <FileStack className="size-4" /> Roll these up
+                </Button>
+              </Can>
+            )}
             {canOperate && (
               <Button
                 onClick={() => setConfirmingPause(true)}
@@ -372,7 +427,7 @@ export function IntegrationPage() {
               </Button>
             </Can>
           </div>
-          <FormError>{receive.error?.message}</FormError>
+          <FormError>{receive.error?.message ?? aggregate.error?.message}</FormError>
         </div>
       </div>
 
@@ -441,6 +496,18 @@ export function IntegrationPage() {
             await receive.mutateAsync();
           }}
           onClose={() => setConfirmingReceive(false)}
+        />
+      )}
+
+      {confirmingAggregate && (
+        <ConfirmDialog
+          title="Roll up now?"
+          body={`${s.name} collects everything outstanding immediately and runs its delivery — outside the regular schedule.`}
+          confirmLabel="Roll up now"
+          onConfirm={async () => {
+            await aggregate.mutateAsync();
+          }}
+          onClose={() => setConfirmingAggregate(false)}
         />
       )}
 

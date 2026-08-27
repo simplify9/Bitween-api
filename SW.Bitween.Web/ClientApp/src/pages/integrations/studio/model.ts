@@ -20,6 +20,7 @@ export type Draft = Pick<
   | "schedules"
   | "responseIntegrationId"
   | "responseMessageTypeName"
+  | "aggregationTarget"
 >;
 
 export const draftOf = (d: IntegrationDetail): Draft => ({
@@ -39,6 +40,7 @@ export const draftOf = (d: IntegrationDetail): Draft => ({
   schedules: structuredClone(d.schedules),
   responseIntegrationId: d.responseIntegrationId,
   responseMessageTypeName: d.responseMessageTypeName,
+  aggregationTarget: d.aggregationTarget,
 });
 
 /**
@@ -66,6 +68,7 @@ export const EMPTY_INTEGRATION: Draft = {
   schedules: [],
   responseIntegrationId: null,
   responseMessageTypeName: null,
+  aggregationTarget: "Input",
 };
 
 /**
@@ -84,7 +87,7 @@ const STAGE_FIELDS: Record<StageId, (keyof Draft)[]> = {
   trigger: ["matchExpression"],
   source: ["receiverId", "receiverProperties"],
   schedule: ["schedules"],
-  aggregation: [],
+  aggregation: ["aggregationTarget"],
   validation: ["validatorId", "validatorProperties"],
   transformation: ["mapperId", "mapperProperties"],
   delivery: ["handlerId", "handlerProperties"],

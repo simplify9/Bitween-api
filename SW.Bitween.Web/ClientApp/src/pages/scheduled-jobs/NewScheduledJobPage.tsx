@@ -113,6 +113,8 @@ export function NewScheduledJobPage() {
   // set yet are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Aggregation only, and this page never creates one.
+    aggregationTarget: "Input",
     enabled: draft.enable,
     workGroupId: null,
     retryPolicyId: null,
