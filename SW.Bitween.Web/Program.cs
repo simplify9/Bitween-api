@@ -41,6 +41,7 @@ namespace SW.Bitween.Web
                 throw;
             }
 
+            AdminAccountSeeder.EnsureDefaultAdmin(host);
             host.ApplyStoredSettings().Run();
         }
 
