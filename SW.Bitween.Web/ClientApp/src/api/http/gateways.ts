@@ -136,9 +136,17 @@ export const gatewayMethods = {
     return (res.result ?? []).map(toApiGatewayRow);
   },
 
-  async searchApiGateways(query: { search: string; offset: number; limit: number }): Promise<Paged<ApiGatewayRow>> {
+  async searchApiGateways(query: {
+    search: string;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<ApiGatewayRow>> {
     const qs = buildListQuery({
-      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      filters: [
+        ["Name", SEARCHY_RULE.contains, query.search.trim()],
+        ["Inactive", SEARCHY_RULE.equalsTo, query.inactive === null || query.inactive === undefined ? "" : String(query.inactive)],
+      ],
       offset: query.offset,
       limit: query.limit,
     });
