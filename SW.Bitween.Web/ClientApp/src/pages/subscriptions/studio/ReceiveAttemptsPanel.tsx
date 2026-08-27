@@ -13,12 +13,67 @@ import { formatDateTime, timeAgo } from "../../../lib/dates";
 
 const PAGE_SIZE = 25;
 
-const OUTCOME_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "All" },
-  { value: "Failed", label: "Couldn't check" },
-  { value: "NoNewData", label: "Nothing new" },
-  { value: "Received", label: "Received data" },
-];
+/**
+ * Both scheduled types write into the same history, so this panel serves both — but a
+ * receiver "checks for new data" and an aggregation "rolls up what its source produced",
+ * and one set of words cannot honestly describe both. The outcomes underneath are the
+ * same three; only what they mean to a person changes.
+ */
+export type AttemptKind = "receiving" | "aggregation";
+
+const WORDING: Record<
+  AttemptKind,
+  {
+    description: string;
+    empty: string;
+    emptyHint: string;
+    exchangeHeader: string;
+    exchangeHint: string;
+    resultHint: string;
+    failed: string;
+    failedHint: string;
+    nothing: string;
+    nothingHint: string;
+    outcomes: { value: string; label: string }[];
+  }
+> = {
+  receiving: {
+    description: "Every time this subscription checked for new data — what it found, and what happened to it.",
+    empty: "No checks recorded yet",
+    emptyHint: "This subscription hasn't checked for new data since this history started being kept.",
+    exchangeHeader: "Exchange",
+    exchangeHint: "The exchanges this run created, one per document it received.",
+    resultHint: "What the run found when it checked its source.",
+    failed: "Couldn't check",
+    failedHint: "The run could not reach or read its source — no documents were received.",
+    nothing: "Nothing new",
+    nothingHint: "Checked for new data — there was nothing to receive this time.",
+    outcomes: [
+      { value: "", label: "All" },
+      { value: "Failed", label: "Couldn't check" },
+      { value: "NoNewData", label: "Nothing new" },
+      { value: "Received", label: "Received data" },
+    ],
+  },
+  aggregation: {
+    description: "Every time this aggregation ran — whether it had anything to collect, and the exchange it produced.",
+    empty: "No runs recorded yet",
+    emptyHint: "This aggregation hasn't run since this history started being kept.",
+    exchangeHeader: "Roll-up",
+    exchangeHint: "The single exchange this run produced. Opening it also lists everything it collected.",
+    resultHint: "Whether the run found anything outstanding to roll up.",
+    failed: "Couldn't run",
+    failedHint: "The run threw before it finished — nothing was rolled up.",
+    nothing: "Nothing to roll up",
+    nothingHint: "Ran, but the source had no new successful exchanges waiting. No exchange is created for an empty period.",
+    outcomes: [
+      { value: "", label: "All" },
+      { value: "Failed", label: "Couldn't run" },
+      { value: "NoNewData", label: "Nothing to roll up" },
+      { value: "Received", label: "Rolled up" },
+    ],
+  },
+};
 
 function CopyErrorButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -69,16 +124,27 @@ function ErrorText({ text }: { text: string }) {
   );
 }
 
-function AttemptResult({ attempt }: { attempt: ReceiveAttemptRow }) {
+function AttemptResult({ attempt, kind }: { attempt: ReceiveAttemptRow; kind: AttemptKind }) {
+  const w = WORDING[kind];
   if (attempt.outcome === "Failed")
     return (
       <span className="flex flex-col gap-0.5">
-        <Badge tone="danger">Couldn't check</Badge>
+        <Badge tone="danger" title={w.failedHint}>
+          {w.failed}
+        </Badge>
         {attempt.errorMessage && <ErrorText text={attempt.errorMessage} />}
       </span>
     );
-  if (attempt.outcome === "NoNewData")
-    return <Badge title="Checked for new data — there was nothing to receive this time.">Nothing new</Badge>;
+  if (attempt.outcome === "NoNewData") return <Badge title={w.nothingHint}>{w.nothing}</Badge>;
+  // No count for an aggregation: the attempt holds the one roll-up it made, not the number
+  // of exchanges that went into it — saying "Rolled up 1" would be a plain lie. The link in
+  // the next column opens the roll-up together with everything it collected.
+  if (kind === "aggregation")
+    return (
+      <span className="text-ink-800" title="Collected everything outstanding into one exchange.">
+        Rolled up
+      </span>
+    );
   return (
     <span className="text-ink-800">
       Received {attempt.exchanges.length} item{attempt.exchanges.length === 1 ? "" : "s"}
@@ -113,7 +179,14 @@ function AttemptExchanges({ exchanges }: { exchanges: ReceiveAttemptRow["exchang
  * that couldn't even connect shows up here just as much as one that produced an exchange —
  * "Exchanges" as a title would undersell the rows that have none.
  */
-export function ReceiveAttemptsPanel({ subscriptionId }: { subscriptionId: number }) {
+export function ReceiveAttemptsPanel({
+  subscriptionId,
+  kind,
+}: {
+  subscriptionId: number;
+  kind: AttemptKind;
+}) {
+  const w = WORDING[kind];
   const [outcome, setOutcome] = useState<ReceiveOutcome | null>(null);
   const [offset, setOffset] = useState(0);
 
@@ -131,9 +204,7 @@ export function ReceiveAttemptsPanel({ subscriptionId }: { subscriptionId: numbe
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold text-ink-900">Runs</h2>
-          <p className="mt-0.5 text-[13px] text-ink-500">
-            Every time this subscription checked for new data — what it found, and what happened to it.
-          </p>
+          <p className="mt-0.5 text-[13px] text-ink-500">{w.description}</p>
         </div>
         <div className="w-44 shrink-0">
           <Select
@@ -144,7 +215,7 @@ export function ReceiveAttemptsPanel({ subscriptionId }: { subscriptionId: numbe
               setOutcome((e.target.value || null) as ReceiveOutcome | null);
               setOffset(0);
             }}
-            options={OUTCOME_OPTIONS}
+            options={w.outcomes}
           />
         </div>
       </div>
@@ -152,10 +223,8 @@ export function ReceiveAttemptsPanel({ subscriptionId }: { subscriptionId: numbe
       {attempts.isPending ? (
         <LoadingBlock label="Loading runs…" />
       ) : rows.length === 0 ? (
-        <EmptyState title={outcome ? "Nothing matches" : "No checks recorded yet"}>
-          {outcome
-            ? "Try a different filter."
-            : "This subscription hasn't checked for new data since this history started being kept."}
+        <EmptyState title={outcome ? "Nothing matches" : w.empty}>
+          {outcome ? "Try a different filter." : w.emptyHint}
         </EmptyState>
       ) : (
         <Table
@@ -168,14 +237,23 @@ export function ReceiveAttemptsPanel({ subscriptionId }: { subscriptionId: numbe
           columns={[
             {
               header: "When",
+              headerTitle: "When the run started. Hover a value for the exact time.",
               cell: (a) => (
                 <span title={formatDateTime(a.startedOn)} className="text-ink-800">
                   {timeAgo(a.startedOn)}
                 </span>
               ),
             },
-            { header: "Result", cell: (a) => <AttemptResult attempt={a} /> },
-            { header: "Exchange", cell: (a) => <AttemptExchanges exchanges={a.exchanges} /> },
+            {
+              header: "Result",
+              headerTitle: w.resultHint,
+              cell: (a) => <AttemptResult attempt={a} kind={kind} />,
+            },
+            {
+              header: w.exchangeHeader,
+              headerTitle: w.exchangeHint,
+              cell: (a) => <AttemptExchanges exchanges={a.exchanges} />,
+            },
           ]}
         />
       )}

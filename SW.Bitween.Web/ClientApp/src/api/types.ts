@@ -425,9 +425,15 @@ export interface NotifierDetail extends Notifier {
 // ——— Subscriptions (subscriptions) ———
 
 /**
- * Backend Subscription.Type. Aggregation exists in data but is deferred in
- * this UI; Internal and ApiCall are legacy — shown and editable, never created.
+ * Backend Subscription.Type. Internal and ApiCall are legacy — shown and
+ * editable, never created.
  */
+
+/**
+ * Which file of each collected exchange an aggregation's roll-up links to: what came
+ * in, what the mapper produced, or what the destination handed back.
+ */
+export type AggregationTarget = "Input" | "Output" | "Response";
 /**
  * The editable fields of a subscription being defined inline, while whatever points
  * at it is being made. Mirrors the studio's own draft — deliberately, so the canvas
@@ -539,7 +545,14 @@ export interface Subscription {
   /** Feed the handler's response into another subscription. */
   responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
+  /**
+   * Aggregation only: whose exchanges get rolled up. Fixed at creation — the backend
+   * property has a private setter and the configuration applier deliberately skips it,
+   * so no update can repoint a live roll-up.
+   */
   aggregationForId: number | null;
+  /** Aggregation only. Meaningless for every other type, where it stays "Input". */
+  aggregationTarget: AggregationTarget;
   // — health (read-only) —
   isRunning: boolean;
   /** Receiving (and Aggregation) only — when the schedule will next fire, not when it last did. */
@@ -562,8 +575,16 @@ export interface SubscriptionRow {
   consecutiveFailures: number;
   lastException: string | null;
   scheduleSummary?: string;
-  /** Receiving (and Aggregation) only — when the schedule will next fire, not when it last did. */
+  /**
+   * Receiving and Aggregation only — when the schedule will next fire, not when it last
+   * did. The two types keep it in different columns on the backend (`ReceiveOn` vs
+   * `AggregateOn`); this is whichever one applies.
+   */
   nextReceiveOn: string | null;
+  /** Aggregation only: whose exchanges it rolls up. */
+  aggregationForId: number | null;
+  /** Aggregation only: which file of each collected exchange the roll-up links to. */
+  aggregationTarget: AggregationTarget;
   createdOn: string;
 }
 

@@ -10,7 +10,7 @@ import { Panel } from "../../../components/ui/Panel";
 import { ExchangesList, HealthBadge, TrailTable } from "../../../components/config/shared";
 import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
 import { formatDate, formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../../lib/dates";
-import { ReceiveAttemptsPanel } from "./ReceiveAttemptsPanel";
+import { ReceiveAttemptsPanel, type AttemptKind } from "./ReceiveAttemptsPanel";
 import { RetryBudget } from "./RetryBudget";
 import type { Draft, EntryPoint } from "./model";
 
@@ -175,20 +175,24 @@ export function Overview({
     staleTime: Infinity,
   });
   const retryPolicies = useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies() });
-  // Receiving gets its own attempt history (ReceiveAttemptsPanel) instead — the scheduler's
-  // run history there is Quartz vocabulary an operator has no reason to know, and it always
-  // reports success even when the receive step itself failed (see ReceivingJob).
+  // Both scheduled types keep their own attempt history and show it in one table
+  // (ReceiveAttemptsPanel) instead of the scheduler's run history beside a separate exchange
+  // list. The scheduler's history is Quartz vocabulary an operator has no reason to know, it
+  // always reports success even when the job's own step failed, and — the reason two tables
+  // were worse than one — nothing joins a run to the exchange it produced.
   const receiving = s.type === "Receiving";
+  const aggregation = s.type === "Aggregation";
+  const attemptKind: AttemptKind | null = receiving ? "receiving" : aggregation ? "aggregation" : null;
   const runs = useQuery({
     queryKey: ["subscription-runs", s.id],
     queryFn: () => api.listSubscriptionRuns(s.id, 20),
-    enabled: scheduled && !receiving,
+    enabled: scheduled && attemptKind === null,
   });
   // Just for the "Last run" fact above — ReceiveAttemptsPanel fetches its own page.
   const latestAttempt = useQuery({
     queryKey: ["receive-attempts", s.id, null, 0, 1],
     queryFn: () => api.searchReceiveAttempts(s.id, { outcome: null, offset: 0, limit: 1 }),
-    enabled: receiving,
+    enabled: attemptKind !== null,
   });
   const lastReceiveRun: SubscriptionRun | undefined = ((): SubscriptionRun | undefined => {
     const a = latestAttempt.data?.result[0];
@@ -220,7 +224,7 @@ export function Overview({
           <>
             <Fact label="Next run">{s.nextReceiveOn ? timeUntil(s.nextReceiveOn) : "—"}</Fact>
             <Fact label="Last run">
-              <LastRunFact run={receiving ? lastReceiveRun : runs.data?.[0]} />
+              <LastRunFact run={attemptKind !== null ? lastReceiveRun : runs.data?.[0]} />
             </Fact>
           </>
         )}
@@ -295,9 +299,9 @@ export function Overview({
           on resume.
         </p>
       )}
-      {/* Receiving gets this per-attempt instead, in ReceiveAttemptsPanel below — showing
-          it again here duplicated the same error twice on one page. */}
-      {s.lastException && !receiving && (
+      {/* The scheduled types get this per-attempt instead, in ReceiveAttemptsPanel below —
+          showing it again here duplicated the same error twice on one page. */}
+      {s.lastException && attemptKind === null && (
         <pre className="max-h-40 overflow-auto rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
           {s.lastException}
         </pre>
@@ -311,15 +315,15 @@ export function Overview({
         />
       )}
 
-      {receiving && (
+      {attemptKind !== null && (
         <Can permission="exchanges.view">
-          <ReceiveAttemptsPanel subscriptionId={s.id} />
+          <ReceiveAttemptsPanel subscriptionId={s.id} kind={attemptKind} />
         </Can>
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="min-w-0 space-y-5">
-          {scheduled && !receiving && (
+          {scheduled && attemptKind === null && (
             <Panel title="Recent runs" description="From the scheduler's own history, kept about 30 days.">
               <RunsTable runs={runs.data ?? []} pending={runs.isPending} />
             </Panel>
@@ -333,7 +337,7 @@ export function Overview({
         </div>
 
         <div className="min-w-0 space-y-5">
-          {!receiving && (
+          {attemptKind === null && (
             <Can permission="exchanges.view">
               <Panel title="Recent exchanges" description="Latest traffic through this subscription.">
                 <ExchangesList items={s.recentExchanges} hide={["type", "partner"]} />

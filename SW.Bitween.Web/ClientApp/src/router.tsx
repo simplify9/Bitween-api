@@ -35,6 +35,8 @@ import { PartnerPage } from "./pages/partners/PartnerPage";
 import { PartnersPage } from "./pages/partners/PartnersPage";
 import { NewScheduledJobPage } from "./pages/scheduled-jobs/NewScheduledJobPage";
 import { ScheduledJobsPage } from "./pages/scheduled-jobs/ScheduledJobsPage";
+import { AggregationsPage } from "./pages/aggregations/AggregationsPage";
+import { NewAggregationPage } from "./pages/aggregations/NewAggregationPage";
 import { RetryPoliciesPage } from "./pages/retry-policies/RetryPoliciesPage";
 import { RetryPolicyPage } from "./pages/retry-policies/RetryPolicyPage";
 import { MembersTab } from "./pages/team/MembersTab";
@@ -212,6 +214,22 @@ export const router = createBrowserRouter([
             element: (
               <RequirePermission permission="subscriptions.view">
                 <ScheduledJobsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "aggregations",
+            element: (
+              <RequirePermission permission="subscriptions.view">
+                <AggregationsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "aggregations/new",
+            element: (
+              <RequirePermission permission="subscriptions.create">
+                <NewAggregationPage />
               </RequirePermission>
             ),
           },

@@ -2,6 +2,7 @@ import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   AdapterInfo,
   AdapterKind,
+  AggregationTarget,
   ApiGateway,
   ApiGatewayAttachment,
   ApiGatewayDetail,
@@ -16,6 +17,7 @@ import type {
   GlobalValuesSetRow,
   InformationType,
   InformationTypeDetail,
+  InformationTypeFormat,
   InformationTypeRow,
   Subscription,
   SubscriptionDetail,
@@ -129,6 +131,8 @@ export interface ApiClient {
   listInformationTypes(): Promise<InformationTypeRow[]>;
   searchInformationTypes(query: {
     search: string;
+    format?: InformationTypeFormat | null;
+    busEnabled?: boolean | null;
     offset: number;
     limit: number;
   }): Promise<Paged<InformationTypeRow>>;
@@ -179,6 +183,10 @@ export interface ApiClient {
     informationTypeId: number;
     /** Required by the types that carry their own partner — Internal and ApiCall. */
     partnerId?: number | null;
+    /** Aggregation only: whose exchanges get rolled up. Required, and fixed once created. */
+    aggregationForId?: number | null;
+    /** Aggregation only: which file of each collected exchange the roll-up links to. */
+    aggregationTarget?: AggregationTarget;
     receiverId?: string | null;
     receiverProperties?: Record<string, string>;
     validatorId?: string | null;
@@ -214,6 +222,7 @@ export interface ApiClient {
         | "schedules"
         | "responseSubscriptionId"
         | "responseMessageTypeName"
+        | "aggregationTarget"
       >
     >,
   ): Promise<Subscription>;
@@ -221,6 +230,8 @@ export interface ApiClient {
   /** Toggles paused: paused subscriptions accept work but hold it. */
   pauseSubscription(id: number): Promise<Subscription>;
   receiveNow(id: number): Promise<Subscription>;
+  /** Runs an aggregation's roll-up now instead of waiting for its schedule. */
+  aggregateNow(id: number): Promise<Subscription>;
   /** Run history for one scheduled subscription, newest first. Empty for unscheduled types. */
   listSubscriptionRuns(id: number, limit?: number): Promise<SubscriptionRun[]>;
   searchReceiveAttempts(
@@ -251,7 +262,12 @@ export interface ApiClient {
 
   // — API gateways —
   listApiGateways(): Promise<ApiGatewayRow[]>;
-  searchApiGateways(query: { search: string; offset: number; limit: number }): Promise<Paged<ApiGatewayRow>>;
+  searchApiGateways(query: {
+    search: string;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<ApiGatewayRow>>;
   getApiGateway(id: number): Promise<ApiGatewayDetail>;
   searchGatewayAttachments(
     apiGatewayId: number,

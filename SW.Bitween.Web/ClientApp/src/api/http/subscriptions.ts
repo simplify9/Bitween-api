@@ -1,6 +1,7 @@
 import type { ApiClient } from "../client";
 import {
   ApiRequestError,
+  type AggregationTarget,
   type Subscription,
   type SubscriptionDetail,
   type SubscriptionInfo,
@@ -93,7 +94,7 @@ interface RawSubscription {
   isRunning: boolean | null;
   consecutiveFailures: number;
   lastException: string | null;
-  aggregationTarget?: string;
+  aggregationTarget?: AggregationTarget;
 }
 
 const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
@@ -133,6 +134,13 @@ const toSchedules = (raw: RawSchedule[] | null): Schedule[] =>
     backwards: s.backwards,
   }));
 
+/**
+ * When the schedule fires next. The two scheduled types keep it in different columns —
+ * `ReceiveOn` for Receiving, `AggregateOn` for Aggregation — and only ever one of them is
+ * set, so taking whichever exists lets every screen read one field.
+ */
+const nextRunOf = (raw: RawSubscription): string | null => raw.receiveOn ?? raw.aggregateOn ?? null;
+
 function toSubscription(raw: RawSubscription, idOverride?: number): Subscription {
   return {
     id: raw.id ?? idOverride!,
@@ -157,8 +165,9 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     responseSubscriptionId: raw.responseSubscriptionId ?? null,
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
     aggregationForId: raw.aggregationForId ?? null,
+    aggregationTarget: raw.aggregationTarget ?? "Input",
     isRunning: raw.isRunning ?? false,
-    nextReceiveOn: raw.receiveOn ?? null,
+    nextReceiveOn: nextRunOf(raw),
     consecutiveFailures: raw.consecutiveFailures ?? 0,
     lastException: raw.lastException ?? null,
     // Subscription has no CreatedOn column on the backend.
@@ -196,14 +205,15 @@ type UpdatableFields = Partial<
     | "schedules"
     | "responseSubscriptionId"
     | "responseMessageTypeName"
+    | "aggregationTarget"
   >
 >;
 
 /**
  * POST /subscriptions/{id} replaces the whole record, and Update.cs's model
  * (SubscriptionUpdate) carries several fields this UI never shows (categoryId,
- * aggregationTarget, temporary, …) — omitting them would silently reset them
- * to their type default. So every write reads the current full record first
+ * temporary, …) — omitting them would silently reset them to their type
+ * default. So every write reads the current full record first
  * and splices `changes` on top of it, mirroring writePartner()'s pattern.
  *
  * Secret adapter property values arrive masked as the literal string
@@ -240,7 +250,8 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
     responseMessageTypeName:
       changes.responseMessageTypeName !== undefined ? changes.responseMessageTypeName : current.responseMessageTypeName,
     temporary: current.temporary,
-    aggregationTarget: current.aggregationTarget,
+    aggregationTarget:
+      changes.aggregationTarget !== undefined ? changes.aggregationTarget : current.aggregationTarget,
     pausedOn: current.pausedOn,
     receiveOn: current.receiveOn,
     aggregateOn: current.aggregateOn,
@@ -279,7 +290,9 @@ function toSubscriptionRow(
       schedules.length > 0 && (type === "Receiving" || type === "Aggregation")
         ? schedulesSummary(schedules)
         : undefined,
-    nextReceiveOn: raw.receiveOn ?? null,
+    nextReceiveOn: nextRunOf(raw),
+    aggregationForId: raw.aggregationForId ?? null,
+    aggregationTarget: raw.aggregationTarget ?? "Input",
     createdOn: "",
   };
 }
@@ -402,9 +415,17 @@ export const subscriptionMethods = {
   async createSubscription(input: {
     type: SubscriptionType;
     name: string;
+    /**
+     * Ignored for Aggregation — the backend constructor forces the built-in
+     * "Aggregation Document" whatever the caller sends, so there is nothing to pick.
+     */
     informationTypeId: number;
-    /** Required by the types that carry their own partner — Internal and ApiCall. */
+    /** Required by the types that carry their own partner — Internal, ApiCall and Aggregation. */
     partnerId?: number | null;
+    /** Aggregation only: whose exchanges get rolled up. Required, and fixed once created. */
+    aggregationForId?: number | null;
+    /** Aggregation only: which file of each collected exchange the roll-up links to. */
+    aggregationTarget?: AggregationTarget;
     receiverId?: string | null;
     receiverProperties?: Record<string, string>;
     validatorId?: string | null;
@@ -427,7 +448,8 @@ export const subscriptionMethods = {
       documentId: input.informationTypeId,
       type: input.type,
       partnerId: input.partnerId ?? null,
-      aggregationForId: null,
+      aggregationForId: input.aggregationForId ?? null,
+      aggregationTarget: input.aggregationTarget ?? "Input",
       receiverId: input.receiverId ?? null,
       receiverProperties: toKvArray(input.receiverProperties ?? {}),
       validatorId: input.validatorId ?? null,
@@ -467,6 +489,11 @@ export const subscriptionMethods = {
 
   async receiveNow(id: number): Promise<Subscription> {
     await post(`/subscriptions/${id}/receivenow`, {});
+    return toSubscription(await fetchRaw(id), id);
+  },
+
+  async aggregateNow(id: number): Promise<Subscription> {
+    await post(`/subscriptions/${id}/aggregatenow`, {});
     return toSubscription(await fetchRaw(id), id);
   },
 

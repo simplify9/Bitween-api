@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
 import { Can } from "../../auth/guards";
+import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
@@ -77,10 +78,20 @@ function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+const parseIds = (raw: string | null): number[] =>
+  raw
+    ? raw
+        .split(",")
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0)
+    : [];
+
 export function GlobalValueSetsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
+  const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const creating = searchParams.get("new") === "1";
 
   const sets = useQuery({ queryKey: ["value-sets"], queryFn: () => api.listValueSets() });
@@ -99,10 +110,13 @@ export function GlobalValueSetsPage() {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return (sets.data ?? []).filter(
-      (s) => !needle || s.name.toLowerCase().includes(needle) || s.id.includes(needle),
-    );
-  }, [sets.data, q]);
+    const wantedSubscriptions = subscriptions.filter((i) => subscriptionIds.includes(i.id));
+    return (sets.data ?? []).filter((s) => {
+      if (needle && !s.name.toLowerCase().includes(needle) && !s.id.includes(needle)) return false;
+      if (subscriptionIds.length > 0 && !wantedSubscriptions.some((i) => referencesGlobal(i, s.id))) return false;
+      return true;
+    });
+  }, [sets.data, q, subscriptionIds, subscriptions]);
 
   return (
     <div>
@@ -118,23 +132,38 @@ export function GlobalValueSetsPage() {
         }
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setParam("q", e.target.value || null)}
-          placeholder="Search value sets"
-          aria-label="Search value sets"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-        />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setParam("q", e.target.value || null)}
+            placeholder="Search value sets"
+            aria-label="Search value sets"
+            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+          />
+        </div>
+        <div className="w-60">
+          <SubscriptionMultiFilter
+            subscriptions={subscriptions}
+            selected={subscriptionIds}
+            onChange={(ids) => setParam("subscriptions", ids.length ? ids.join(",") : null)}
+            label="Filter by subscription"
+          />
+        </div>
       </div>
 
       {sets.isPending ? (
         <LoadingBlock label="Loading value sets…" />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<SlidersHorizontal />} title={q ? "No value sets match" : "No value sets yet"}>
-          {q ? "Try a different search." : "Create a set of shared values your adapters can reference."}
+        <EmptyState
+          icon={<SlidersHorizontal />}
+          title={q || subscriptionIds.length > 0 ? "No value sets match" : "No value sets yet"}
+        >
+          {q || subscriptionIds.length > 0
+            ? "Try a different search or filter."
+            : "Create a set of shared values your adapters can reference."}
         </EmptyState>
       ) : (
         <Table

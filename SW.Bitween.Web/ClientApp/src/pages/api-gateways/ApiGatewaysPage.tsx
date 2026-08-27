@@ -6,6 +6,7 @@ import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
+import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import {
   LinkListCell,
@@ -20,15 +21,23 @@ import {
  */
 const PAGE_SIZE = 25;
 
+const STATUS_OPTIONS = [
+  { value: "", label: "Any status" },
+  { value: "false", label: "Active" },
+  { value: "true", label: "Deactivated" },
+];
+
 export function ApiGatewaysPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
+  const inactiveParam = searchParams.get("inactive");
+  const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
   const gateways = useQuery({
-    queryKey: ["api-gateways-search", q, offset],
-    queryFn: () => api.searchApiGateways({ search: q, offset, limit: PAGE_SIZE }),
+    queryKey: ["api-gateways-search", q, inactive, offset],
+    queryFn: () => api.searchApiGateways({ search: q, inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const subscriptionsById = useSubscriptionRowsById();
@@ -62,23 +71,34 @@ export function ApiGatewaysPage() {
         }
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setParam("q", e.target.value || null)}
-          placeholder="Search gateways"
-          aria-label="Search API gateways"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-        />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setParam("q", e.target.value || null)}
+            placeholder="Search gateways"
+            aria-label="Search API gateways"
+            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+          />
+        </div>
+        <div className="w-40">
+          <Select
+            aria-label="Filter by status"
+            className="!h-8 text-[13px]"
+            value={inactiveParam ?? ""}
+            onChange={(e) => setParam("inactive", e.target.value || null)}
+            options={STATUS_OPTIONS}
+          />
+        </div>
       </div>
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading API gateways…" />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Webhook />} title={q ? "No gateways match" : "No API gateways yet"}>
-          {q ? "Try a different search." : "Create a gateway to give partners a URL to push documents to."}
+        <EmptyState icon={<Webhook />} title={q || inactive !== null ? "No gateways match" : "No API gateways yet"}>
+          {q || inactive !== null ? "Try a different search or filter." : "Create a gateway to give partners a URL to push documents to."}
         </EmptyState>
       ) : (
         <Table

@@ -3,6 +3,14 @@ import type { ReactNode } from "react";
 export interface Column<T> {
   /** Header text. Empty string for action/icon columns. */
   header: string;
+  /**
+   * What the column means, shown on hovering the header.
+   *
+   * Required reading for any header whose value is derived, abbreviated or otherwise not
+   * self-explanatory — "Reliability" reading `3/10` told nobody anything, and the header is
+   * what a person reads before they think to hover a cell. Plain words, not the formula.
+   */
+  headerTitle?: string;
   /** Cell renderer. */
   cell: (row: T) => ReactNode;
   /** Extra classes on both header and cells — width, alignment, wrapping. */
@@ -61,8 +69,10 @@ export function Table<T>({
         <thead>
           <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
             {columns.map((c, i) => (
-              <th key={i} className={cellClass(c)}>
-                {c.header}
+              <th key={i} className={cellClass(c)} title={c.headerTitle}>
+                <span className={c.headerTitle ? "cursor-help decoration-ink-300 decoration-dotted underline-offset-4 hover:underline" : undefined}>
+                  {c.header}
+                </span>
               </th>
             ))}
           </tr>
@@ -135,8 +145,10 @@ export function MiniTable<T>({
         <thead>
           <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
             {columns.map((c, i) => (
-              <th key={i} className={`pb-1 ${cell(c)}`}>
-                {c.header}
+              <th key={i} className={`pb-1 ${cell(c)}`} title={c.headerTitle}>
+                <span className={c.headerTitle ? "cursor-help decoration-ink-300 decoration-dotted underline-offset-4 hover:underline" : undefined}>
+                  {c.header}
+                </span>
               </th>
             ))}
           </tr>

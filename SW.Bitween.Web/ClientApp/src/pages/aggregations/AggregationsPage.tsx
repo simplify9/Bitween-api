@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, DownloadCloud, Plus, Search } from "lucide-react";
+import { Layers, Play, Plus, Search } from "lucide-react";
 import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -10,6 +10,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
+import { AGGREGATION_TARGET_LABEL } from "../../components/config/AggregationFields";
 import {
   HealthBadge,
   SubscriptionStatusBadges,
@@ -21,11 +22,11 @@ import {
 } from "../../components/config/shared";
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
 
-function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
+function AggregateNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
-  const receive = useMutation({
-    mutationFn: () => api.receiveNow(job.id),
+  const aggregate = useMutation({
+    mutationFn: () => api.aggregateNow(job.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
       void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
@@ -38,21 +39,24 @@ function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
       <Button
         size="sm"
         disabled={!job.enabled}
-        title={job.enabled ? "Check the source right now." : "Enable the job first."}
+        title={job.enabled ? "Roll up everything outstanding right now." : "Enable the aggregation first."}
         onClick={(e) => {
           e.stopPropagation();
           setConfirming(true);
         }}
       >
-        <DownloadCloud className="size-3.5" /> Receive now
+        <Play className="size-3.5" /> Roll up now
       </Button>
       {confirming && (
         <ConfirmDialog
-          title="Receive now?"
-          body={`${job.name} checks its source immediately — anything found becomes new exchanges, outside the regular schedule.`}
-          confirmLabel="Receive now"
+          title="Roll up now?"
+          // Not a dry run: the roll-up exchange goes down its own pipeline, so this can
+          // reach a partner. Everything it collects is also marked as collected, so a
+          // later scheduled run will not include it again.
+          body={`${job.name} collects everything outstanding immediately and runs its delivery — outside the regular schedule.`}
+          confirmLabel="Roll up now"
           onConfirm={async () => {
-            await receive.mutateAsync();
+            await aggregate.mutateAsync();
           }}
           onClose={() => setConfirming(false)}
         />
@@ -61,17 +65,13 @@ function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   );
 }
 
-/**
- * The scheduler disagreeing with the subscription's own record. Everything here
- * means the job is not going to run, while Status still reads "Active" — so it
- * outranks the ordinary badges rather than sitting beside them.
- */
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
   { value: "false", label: "Active" },
   { value: "true", label: "Disabled" },
 ];
 
+/** The scheduler disagreeing with the subscription's own record — see the scheduled-jobs page. */
 function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
   const fault = scheduleFault(health);
   if (!fault) return null;
@@ -83,16 +83,17 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 }
 
 /**
- * Scheduled jobs — `Receiving` subscriptions, which pull documents in on a
- * schedule. They also appear on the Subscriptions page; this page exists for the
- * columns only a scheduled thing has, and for running one off-schedule.
+ * Aggregations — the other scheduled type. On a schedule, one collects another
+ * subscription's successful exchanges and creates a single exchange whose payload is a
+ * JSON list of links to their files.
  *
- * Last run comes from the scheduler's own execution history (kept ~30 days);
- * next run is Bitween's own `ReceiveOn`.
+ * Its own page rather than a row on Scheduled jobs, because the columns that matter are
+ * different ones: what it rolls up and which file it collects, in place of the
+ * information type every aggregation shares.
  */
 const PAGE_SIZE = 25;
 
-export function ScheduledJobsPage() {
+export function AggregationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
@@ -100,21 +101,20 @@ export function ScheduledJobsPage() {
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canOperate = useSessionCan("subscriptions.operate");
-  const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: ["subscription-rows-search", "Receiving", q, inactive, offset],
+    queryKey: ["subscription-rows-search", "Aggregation", q, inactive, offset],
     queryFn: () =>
-      api.searchSubscriptionRows({ search: q, type: "Receiving", inactive, offset, limit: PAGE_SIZE }),
+      api.searchSubscriptionRows({ search: q, type: "Aggregation", inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
-  // The list rows don't carry work group or retry policy; the subscriptions
-  // cache does, and every page already holds it.
+  // The list rows don't carry work group or retry policy; the subscriptions cache does,
+  // and it is also where the source subscription's name comes from.
   const setups = useSubscriptionsCache().data ?? [];
   const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
+  const nameById = useMemo(() => new Map(setups.map((s) => [s.id, s.name])), [setups]);
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
-  // One request for the whole list rather than one per row.
   const lastRuns = useQuery({ queryKey: ["last-runs"], queryFn: () => api.listLastRuns() }).data ?? [];
   const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.subscriptionId, r])), [lastRuns]);
   const health =
@@ -139,12 +139,12 @@ export function ScheduledJobsPage() {
   return (
     <div>
       <PageHeader
-        title="Scheduled jobs"
-        description="Subscriptions that pull documents in on a schedule — from an FTP folder, a mailbox, an API."
+        title="Aggregations"
+        description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined — a mapper or delivery does that."
         actions={
           <Can permission="subscriptions.create">
-            <Button variant="primary" onClick={() => navigate("/scheduled-jobs/new")}>
-              <Plus className="size-4" /> New scheduled job
+            <Button variant="primary" onClick={() => navigate("/aggregations/new")}>
+              <Plus className="size-4" /> New aggregation
             </Button>
           </Can>
         }
@@ -157,8 +157,8 @@ export function ScheduledJobsPage() {
             type="search"
             value={q}
             onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search jobs"
-            aria-label="Search scheduled jobs"
+            placeholder="Search aggregations"
+            aria-label="Search aggregations"
             className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
           />
         </div>
@@ -174,10 +174,12 @@ export function ScheduledJobsPage() {
       </div>
 
       {rows.isPending ? (
-        <LoadingBlock label="Loading scheduled jobs…" />
+        <LoadingBlock label="Loading aggregations…" />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<CalendarClock />} title={q || inactive !== null ? "No jobs match" : "No scheduled jobs yet"}>
-          {q || inactive !== null ? "Try a different search or filter." : "Create a job to pull documents in on a schedule."}
+        <EmptyState icon={<Layers />} title={q || inactive !== null ? "No aggregations match" : "No aggregations yet"}>
+          {q || inactive !== null
+            ? "Try a different search or filter."
+            : "Create one here, or open the subscription you want summarised and choose “Roll these up”."}
         </EmptyState>
       ) : (
         <Table
@@ -195,29 +197,47 @@ export function ScheduledJobsPage() {
           }
           columns={[
             {
-              header: "Job",
+              header: "Aggregation",
+              headerTitle: "The roll-up job itself. Open it to configure what it delivers.",
               truncate: true,
               cell: (r) => <span className="block truncate font-medium text-ink-900">{r.name}</span>,
             },
             {
-              header: "Pulls in",
-              cell: (r) =>
-                canSeeInfoTypes ? (
+              // The whole point of the row: an aggregation with no source name is one
+              // whose source was deleted, and it will never produce anything again.
+              header: "Rolls up",
+              headerTitle: "The subscription whose successful exchanges this collects. Fixed when the aggregation was created.",
+              truncate: true,
+              cell: (r) => {
+                const name = r.aggregationForId === null ? null : nameById.get(r.aggregationForId);
+                if (r.aggregationForId === null)
+                  return <span className="text-[13px] text-ink-400">Not set</span>;
+                return name ? (
                   <Link
-                    to={`/information-types/${r.informationTypeId}`}
+                    to={`/subscriptions/${r.aggregationForId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                   >
-                    {r.informationTypeCode}
+                    {name}
                   </Link>
                 ) : (
-                  <code className="font-mono text-xs text-ink-600">{r.informationTypeCode}</code>
-                ),
+                  <span className="text-[13px] text-ink-400">—</span>
+                );
+              },
             },
             {
-              // "Manual" matters here: a job whose only recent run was someone
-              // pressing Receive now looks healthy while its schedule is dead.
+              header: "Collects",
+              headerTitle: "Which file of each collected exchange the roll-up links to. Links only \u2014 the files are not combined.",
+              truncate: true,
+              cell: (r) => (
+                <span className="block truncate text-[13px] text-ink-600">
+                  {AGGREGATION_TARGET_LABEL[r.aggregationTarget]}
+                </span>
+              ),
+            },
+            {
               header: "Last run",
+              headerTitle: "When the roll-up last ran, how long it took, and whether someone triggered it by hand.",
               className: "whitespace-nowrap",
               cell: (r) => {
                 const run = lastRunById.get(r.id);
@@ -249,9 +269,8 @@ export function ScheduledJobsPage() {
               },
             },
             {
-              // A single failure is noise; a job that has been failing half its
-              // runs is the one to look at, and the health badge can't say that.
               header: "Reliability",
+              headerTitle: "How many of the last runs succeeded, from the scheduler\u2019s own history (about 30 days). 3/10 means 3 of the last 10 finished runs worked.",
               className: "whitespace-nowrap",
               cell: (r) => {
                 const run = lastRunById.get(r.id);
@@ -268,11 +287,10 @@ export function ScheduledJobsPage() {
               },
             },
             {
-              // No Schedule column: `Search.cs` can't select Schedules in its
-              // joined query, so `scheduleSummary` is always empty here and the
-              // cell would read "No schedule" for a job that plainly has one.
-              // Next run is real — it's the subscription's own ReceiveOn.
+              // The subscription's own AggregateOn, the aggregation counterpart of the
+              // ReceiveOn the scheduled-jobs page shows.
               header: "Next run",
+              headerTitle: "When the schedule fires next. A dash means no schedule, so it only runs when someone presses Roll up now.",
               className: "whitespace-nowrap",
               cell: (r) =>
                 r.nextReceiveOn ? (
@@ -286,6 +304,7 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Partner",
+              headerTitle: "Who the roll-up exchange belongs to. Not the partners of the exchanges it collected \u2014 one roll-up can cover many.",
               truncate: true,
               cell: (r) => (
                 <LinkListCell
@@ -299,9 +318,8 @@ export function ScheduledJobsPage() {
               ),
             },
             {
-              // Which queue lane it runs in — the difference between a job that
-              // is merely idle and one that is queued behind everything else.
               header: "Work group",
+              headerTitle: "Which queue lane the roll-up runs in \u2014 the difference between idle and queued behind other work.",
               truncate: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
@@ -322,6 +340,7 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Retry policy",
+              headerTitle: "What happens when the roll-up\u2019s delivery fails. None means a failure is recorded and left alone.",
               truncate: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.retryPolicyId ?? null;
@@ -342,6 +361,7 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Status",
+              headerTitle: "Whether it is turned on, holding work, and executing right now. Hover a badge for what it means.",
               cell: (r) => (
                 <span className="inline-flex items-center gap-1">
                   <ScheduleFault health={healthById.get(r.id)} />
@@ -352,6 +372,7 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Last error",
+              headerTitle: "The most recent failure this aggregation recorded. Open the row for the full run history.",
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
@@ -368,7 +389,7 @@ export function ScheduledJobsPage() {
             {
               header: "",
               align: "right",
-              cell: (r) => canOperate && <ReceiveNowButton job={r} />,
+              cell: (r) => canOperate && <AggregateNowButton job={r} />,
             },
           ]}
         />

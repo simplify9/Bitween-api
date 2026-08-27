@@ -37,6 +37,9 @@ internal static class SubscriptionConfigurationApplier
         entity.WorkGroupId = model.WorkGroupId;
         entity.ResponseSubscriptionId = model.ResponseSubscriptionId;
         entity.ResponseMessageTypeName = model.ResponseMessageTypeName;
+        // Meaningless for every other type, where it stays at its default — but harmless
+        // there, and applying it unconditionally is what stops create and update disagreeing.
+        entity.AggregationTarget = model.AggregationTarget;
 
         // Only when the caller said something about them. A Receiving subscription with no
         // schedules is what SetSchedules throws on, and a create that mentions no schedule at

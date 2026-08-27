@@ -37,7 +37,11 @@ export const STAGES: Record<StageId, { label: string; description: string; icon:
     description: "When the source is checked for new documents.",
     icon: Clock,
   },
-  aggregation: { label: "Aggregation", description: "What this subscription collects.", icon: Layers },
+  aggregation: {
+    label: "Rolls up",
+    description: "Whose exchanges this collects, and which of their files it links to.",
+    icon: Layers,
+  },
   validation: {
     label: "Validation",
     description: "Rejects bad documents before they enter the pipeline.",
@@ -67,16 +71,22 @@ export const STAGES: Record<StageId, { label: string; description: string; icon:
  *   subscriptions submit through `FilterService` and never reach it, so a
  *   validator saved here is stored and never executed. Offering the card would be
  *   offering a setting that does nothing.
- * - **No Transformation or Schedule for Aggregation.** Matches what the page has
- *   always done; aggregation configuration is still a placeholder pending its own
- *   pass, so its one card says so rather than pretending to be editable.
+ * - **No Validation for Aggregation.** Same reason: a roll-up exchange is created by
+ *   `AggregationJob` and published on the bus, never through the partner-key API path
+ *   that runs the validator.
+ *
+ * Aggregation gets Schedule and Transformation like any other pipeline. It used to have
+ * neither — a single "Aggregation" node saying it was not editable — while the schedule
+ * fault badge was pinned to that very node. The page would tell you an aggregation's
+ * schedule was broken and then offer no way to fix it, and the mapper it hid genuinely
+ * runs on the roll-up.
  */
 export function stagesFor(type: SubscriptionType): StageId[] {
   switch (type) {
     case "Receiving":
       return ["source", "schedule", "transformation", "delivery", "response"];
     case "Aggregation":
-      return ["aggregation", "delivery", "response"];
+      return ["aggregation", "schedule", "transformation", "delivery", "response"];
     case "BusGateway":
       return ["trigger", "transformation", "delivery", "response"];
     case "GatewayApiCall":
