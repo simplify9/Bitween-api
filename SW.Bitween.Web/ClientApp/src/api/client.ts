@@ -2,6 +2,7 @@ import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   AdapterInfo,
   AdapterKind,
+  AggregationTarget,
   ApiGateway,
   ApiGatewayAttachment,
   ApiGatewayDetail,
@@ -179,6 +180,10 @@ export interface ApiClient {
     informationTypeId: number;
     /** Required by the types that carry their own partner — Internal and ApiCall. */
     partnerId?: number | null;
+    /** Aggregation only: whose exchanges get rolled up. Required, and fixed once created. */
+    aggregationForId?: number | null;
+    /** Aggregation only: which file of each collected exchange the roll-up links to. */
+    aggregationTarget?: AggregationTarget;
     receiverId?: string | null;
     receiverProperties?: Record<string, string>;
     validatorId?: string | null;
@@ -214,6 +219,7 @@ export interface ApiClient {
         | "schedules"
         | "responseIntegrationId"
         | "responseMessageTypeName"
+        | "aggregationTarget"
       >
     >,
   ): Promise<Integration>;
@@ -221,6 +227,8 @@ export interface ApiClient {
   /** Toggles paused: paused integrations accept work but hold it. */
   pauseIntegration(id: number): Promise<Integration>;
   receiveNow(id: number): Promise<Integration>;
+  /** Runs an aggregation's roll-up now instead of waiting for its schedule. */
+  aggregateNow(id: number): Promise<Integration>;
   /** Run history for one scheduled integration, newest first. Empty for unscheduled types. */
   listIntegrationRuns(id: number, limit?: number): Promise<IntegrationRun[]>;
   searchReceiveAttempts(
