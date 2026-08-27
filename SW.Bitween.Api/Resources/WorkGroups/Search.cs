@@ -41,7 +41,7 @@ public class Search(
         {
             consumerCounts = await consumerReader.GetConsumerCount<XchangeService>();
         }
-        catch (Exception ex) when (ex is TaskCanceledException or TimeoutException or System.Net.Http.HttpRequestException)
+        catch (Exception ex)
         {
             logger.LogWarning(ex, "Unable to load RabbitMQ consumer metrics for work groups.");
         }

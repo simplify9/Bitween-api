@@ -6,10 +6,11 @@ import { api, type QueueHealthSnapshot, type WorkGroupRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { WorkGroupDialog } from "../../components/config/WorkGroupDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, InlineNotice, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table, type Column } from "../../components/ui/Table";
 import { UsedByCell, queueHealthTitle, useSubscriptionsCache } from "../../components/config/shared";
+import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
@@ -56,6 +57,7 @@ export function WorkGroupsPage() {
   const q = searchParams.get("q") ?? "";
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canMonitor = useSessionCan("monitoring.view");
+  const rabbitMqConfigured = useRabbitMqManagementConfigured();
 
   const groups = useQuery({
     queryKey: ["work-groups-search", q, offset],
@@ -68,7 +70,7 @@ export function WorkGroupsPage() {
     queryFn: () => api.getQueueHealth(),
     refetchInterval: 5_000,
     placeholderData: keepPreviousData,
-    enabled: canMonitor,
+    enabled: canMonitor && rabbitMqConfigured,
   });
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
@@ -125,6 +127,13 @@ export function WorkGroupsPage() {
           className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
         />
       </div>
+
+      {canMonitor && !rabbitMqConfigured && (
+        <InlineNotice>
+          Live queue stats (Health, Nodes, Queued, …) need RabbitMQ management configured on the
+          backend — those columns will stay blank until then.
+        </InlineNotice>
+      )}
 
       {groups.isPending ? (
         <LoadingBlock label="Loading work groups…" />

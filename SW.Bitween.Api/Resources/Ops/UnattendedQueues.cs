@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using EasyNetQ.Management.Client;
+using EasyNetQ.Management.Client.Model;
 using Microsoft.Extensions.Caching.Memory;
 using SW.Bitween.Domain;
 using SW.Bus;
@@ -62,9 +63,17 @@ public class UnattendedQueues(IBusDashboardDataService dashboardDataService,
         var queues = await memoryCache.GetOrCreateAsync("bitween-all-queues", async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(busOptions.MonitoringCacheSeconds);
-            var client = new ManagementClient(new Uri(busOptions.ManagementUrl),
-                busOptions.ManagementUsername, busOptions.ManagementPassword);
-            return await client.GetQueuesAsync(busOptions.VirtualHost);
+            try
+            {
+                var client = new ManagementClient(new Uri(busOptions.ManagementUrl),
+                    busOptions.ManagementUsername, busOptions.ManagementPassword);
+                return await client.GetQueuesAsync(busOptions.VirtualHost);
+            }
+            catch
+            {
+                // Management API unreachable or misconfigured - degrade to "no data" instead of 500ing.
+                return Array.Empty<Queue>();
+            }
         });
 
         var orphans = queues

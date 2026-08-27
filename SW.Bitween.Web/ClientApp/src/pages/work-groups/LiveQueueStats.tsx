@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/basics";
 import { queueHealthTitle } from "../../components/config/shared";
+import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 
 function LiveStat({ label, value, tone }: { label: string; value: ReactNode; tone?: "warn" | "danger" }) {
   return (
@@ -25,12 +26,22 @@ function LiveStat({ label, value, tone }: { label: string; value: ReactNode; ton
  * these as columns instead, off the same shared query.
  */
 export function LiveQueueStats({ groupId }: { groupId: number }) {
+  const rabbitMqConfigured = useRabbitMqManagementConfigured();
   const { data } = useQuery({
     queryKey: ["queue-health"],
     queryFn: () => api.getQueueHealth(),
     refetchInterval: 5_000,
     placeholderData: keepPreviousData,
+    enabled: rabbitMqConfigured,
   });
+
+  if (!rabbitMqConfigured)
+    return (
+      <p className="text-sm text-ink-500">
+        Live queue stats need RabbitMQ management configured on the backend.
+      </p>
+    );
+
   const consumer = data?.consumers.find((c) => c.workGroupId === groupId);
 
   if (!consumer)
