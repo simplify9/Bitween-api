@@ -7,6 +7,7 @@ import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import {
@@ -65,6 +66,12 @@ function ReceiveNowButton({ job }: { job: IntegrationRow }) {
  * means the job is not going to run, while Status still reads "Active" — so it
  * outranks the ordinary badges rather than sitting beside them.
  */
+const STATUS_OPTIONS = [
+  { value: "", label: "Any status" },
+  { value: "false", label: "Active" },
+  { value: "true", label: "Disabled" },
+];
+
 function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
   const fault = scheduleFault(health);
   if (!fault) return null;
@@ -89,13 +96,16 @@ export function ScheduledJobsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
+  const inactiveParam = searchParams.get("inactive");
+  const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canOperate = useSessionCan("subscriptions.operate");
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: ["integration-rows-search", "Receiving", q, offset],
-    queryFn: () => api.searchIntegrationRows({ search: q, type: "Receiving", offset, limit: PAGE_SIZE }),
+    queryKey: ["integration-rows-search", "Receiving", q, inactive, offset],
+    queryFn: () =>
+      api.searchIntegrationRows({ search: q, type: "Receiving", inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   // The list rows don't carry work group or retry policy; the integrations
@@ -140,23 +150,34 @@ export function ScheduledJobsPage() {
         }
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setParam("q", e.target.value || null)}
-          placeholder="Search jobs"
-          aria-label="Search scheduled jobs"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-        />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setParam("q", e.target.value || null)}
+            placeholder="Search jobs"
+            aria-label="Search scheduled jobs"
+            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+          />
+        </div>
+        <div className="w-40">
+          <Select
+            aria-label="Filter by status"
+            className="!h-8 text-[13px]"
+            value={inactiveParam ?? ""}
+            onChange={(e) => setParam("inactive", e.target.value || null)}
+            options={STATUS_OPTIONS}
+          />
+        </div>
       </div>
 
       {rows.isPending ? (
         <LoadingBlock label="Loading scheduled jobs…" />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<CalendarClock />} title={q ? "No jobs match" : "No scheduled jobs yet"}>
-          {q ? "Try a different search." : "Create a job to pull documents in on a schedule."}
+        <EmptyState icon={<CalendarClock />} title={q || inactive !== null ? "No jobs match" : "No scheduled jobs yet"}>
+          {q || inactive !== null ? "Try a different search or filter." : "Create a job to pull documents in on a schedule."}
         </EmptyState>
       ) : (
         <Table
