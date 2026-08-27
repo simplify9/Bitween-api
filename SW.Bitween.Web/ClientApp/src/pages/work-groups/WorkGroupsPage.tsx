@@ -6,10 +6,11 @@ import { api, type QueueHealthSnapshot, type WorkGroupRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { WorkGroupDialog } from "../../components/config/WorkGroupDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, InlineNotice, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table, type Column } from "../../components/ui/Table";
 import { UsedByCell, queueHealthTitle, useSubscriptionsCache } from "../../components/config/shared";
+import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
@@ -56,6 +57,7 @@ export function WorkGroupsPage() {
   const q = searchParams.get("q") ?? "";
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canMonitor = useSessionCan("monitoring.view");
+  const rabbitMqConfigured = useRabbitMqManagementConfigured();
 
   const groups = useQuery({
     queryKey: ["work-groups-search", q, offset],
@@ -68,7 +70,7 @@ export function WorkGroupsPage() {
     queryFn: () => api.getQueueHealth(),
     refetchInterval: 5_000,
     placeholderData: keepPreviousData,
-    enabled: canMonitor,
+    enabled: canMonitor && rabbitMqConfigured,
   });
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
@@ -126,6 +128,13 @@ export function WorkGroupsPage() {
         />
       </div>
 
+      {canMonitor && !rabbitMqConfigured && (
+        <InlineNotice>
+          Live queue stats (Health, Nodes, Queued, …) need RabbitMQ management configured on the
+          backend — those columns will stay blank until then.
+        </InlineNotice>
+      )}
+
       {groups.isPending ? (
         <LoadingBlock label="Loading work groups…" />
       ) : filtered.length === 0 ? (
@@ -157,7 +166,10 @@ export function WorkGroupsPage() {
               truncate: true,
               cell: (g) => <UsedByCell items={subscriptions.filter((s) => s.workGroupId === g.id)} />,
             },
-            ...(canMonitor ? liveColumns(live.data) : []),
+            // `enabled: false` on the `live` query only stops it refetching — it doesn't clear a
+            // result already cached from before RabbitMQ management was disabled. Pass undefined
+            // explicitly so the columns actually go blank rather than showing stale numbers.
+            ...(canMonitor ? liveColumns(rabbitMqConfigured ? live.data : undefined) : []),
             {
               header: "",
               align: "right",

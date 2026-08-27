@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Panel } from "../../components/ui/Panel";
+import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 import { timeAgo } from "../../lib/dates";
 import { StatusBadge, XchangeId } from "../exchanges/shared";
 
@@ -50,15 +51,29 @@ function StatTile({
  * what needs a human — everything links into the page that can act on it.
  */
 export function DashboardPage() {
-  const { data, isLoading } = useQuery({
+  const rabbitMqConfigured = useRabbitMqManagementConfigured();
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api.getDashboard(),
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,
   });
 
+  if (isError && !data)
+    return (
+      <EmptyState title="Couldn't load the dashboard">
+        Something went wrong fetching dashboard data. It'll keep retrying in the background — try
+        refreshing the page.
+      </EmptyState>
+    );
   if (isLoading || !data) return <LoadingBlock label="Putting the picture together…" />;
 
+  const queueAlerts = rabbitMqConfigured ? data.queueAlerts : null;
+  const queueAlertsSub = !rabbitMqConfigured
+    ? "needs RabbitMQ management configured"
+    : queueAlerts === null
+      ? "unavailable right now"
+      : "live consumer health";
   const delta = data.today.total - data.yesterdayTotal;
   const maxDay = Math.max(1, ...data.trafficByDay.map((d) => d.success + d.failed));
   const needsAttention =
@@ -107,10 +122,10 @@ export function DashboardPage() {
         />
         <StatTile
           label="Queue alerts"
-          value={data.queueAlerts}
-          sub="live consumer health"
+          value={queueAlerts ?? "—"}
+          sub={queueAlertsSub}
           to="/queue-health"
-          accent={data.queueAlerts > 0 ? "warn" : undefined}
+          accent={queueAlerts !== null && queueAlerts > 0 ? "warn" : undefined}
         />
       </div>
 
