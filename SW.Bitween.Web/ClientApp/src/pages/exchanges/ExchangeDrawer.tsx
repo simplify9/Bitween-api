@@ -7,6 +7,7 @@ import { useSessionCan } from "../../auth/guards";
 import { Badge, Button } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { formatDateTime, duration, timeUntil } from "../../lib/dates";
+import { useIntegrationsCache } from "../../components/config/shared";
 import { RetryDialog, journeyStages, type JourneyStage } from "./shared";
 
 const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNode }> = {
@@ -56,6 +57,10 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   const stages = journeyStages(x);
   const canOperate = useSessionCan("exchanges.operate");
   const queryClient = useQueryClient();
+  // An aggregation's exchange is the roll-up — its payload is the list of links to
+  // everything it collected, so it is the one exchange worth offering that drill from.
+  const isRollUp =
+    useIntegrationsCache().data?.find((i) => i.id === x.integrationId)?.type === "Aggregation";
 
   const files: Record<ExchangeDocStage, ExchangeRow["files"]["input"]> = {
     Input: x.files.input,
@@ -220,6 +225,20 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               className="font-mono text-xs text-ink-700 hover:text-crimson-700 hover:underline"
             >
               {x.retryFor}
+            </Link>
+          </MetaItem>
+        )}
+        {isRollUp && (
+          <MetaItem label="Rolled up">
+            {/* The Id filter matches AggregationXchangeId as well as Id, so this one
+                link is already the list of everything collected into this exchange —
+                what was missing was anything saying so from the roll-up's own side. */}
+            <Link
+              to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
+              title="Every exchange rolled up into this one, listed beside it."
+              className="text-[13px] font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+            >
+              The exchanges this collected
             </Link>
           </MetaItem>
         )}
