@@ -27,7 +27,7 @@ function LiveStat({ label, value, tone }: { label: string; value: ReactNode; ton
  */
 export function LiveQueueStats({ groupId }: { groupId: number }) {
   const rabbitMqConfigured = useRabbitMqManagementConfigured();
-  const { data } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: ["queue-health"],
     queryFn: () => api.getQueueHealth(),
     refetchInterval: 5_000,
@@ -41,6 +41,9 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
         Live queue stats need RabbitMQ management configured on the backend.
       </p>
     );
+
+  if (isError && !data)
+    return <p className="text-sm text-ink-500">Couldn't reach RabbitMQ management for live queue stats.</p>;
 
   const consumer = data?.consumers.find((c) => c.workGroupId === groupId);
 

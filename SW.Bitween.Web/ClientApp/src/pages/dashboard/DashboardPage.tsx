@@ -69,6 +69,11 @@ export function DashboardPage() {
   if (isLoading || !data) return <LoadingBlock label="Putting the picture together…" />;
 
   const queueAlerts = rabbitMqConfigured ? data.queueAlerts : null;
+  const queueAlertsSub = !rabbitMqConfigured
+    ? "needs RabbitMQ management configured"
+    : queueAlerts === null
+      ? "unavailable right now"
+      : "live consumer health";
   const delta = data.today.total - data.yesterdayTotal;
   const maxDay = Math.max(1, ...data.trafficByDay.map((d) => d.success + d.failed));
   const needsAttention =
@@ -118,7 +123,7 @@ export function DashboardPage() {
         <StatTile
           label="Queue alerts"
           value={queueAlerts ?? "—"}
-          sub={queueAlerts === null ? "needs RabbitMQ management configured" : "live consumer health"}
+          sub={queueAlertsSub}
           to="/queue-health"
           accent={queueAlerts !== null && queueAlerts > 0 ? "warn" : undefined}
         />

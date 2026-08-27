@@ -166,7 +166,10 @@ export function WorkGroupsPage() {
               truncate: true,
               cell: (g) => <UsedByCell items={subscriptions.filter((s) => s.workGroupId === g.id)} />,
             },
-            ...(canMonitor ? liveColumns(live.data) : []),
+            // `enabled: false` on the `live` query only stops it refetching — it doesn't clear a
+            // result already cached from before RabbitMQ management was disabled. Pass undefined
+            // explicitly so the columns actually go blank rather than showing stale numbers.
+            ...(canMonitor ? liveColumns(rabbitMqConfigured ? live.data : undefined) : []),
             {
               header: "",
               align: "right",

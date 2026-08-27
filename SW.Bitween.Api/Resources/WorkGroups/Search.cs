@@ -41,8 +41,12 @@ public class Search(
         {
             consumerCounts = await consumerReader.GetConsumerCount<XchangeService>();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is TaskCanceledException or TimeoutException or System.Net.Http.HttpRequestException)
         {
+            // The RabbitMQ management API call itself already degrades to empty data on failure
+            // (ConsumerReader.GetConsumerCounts) - this only guards the network-facing edge of
+            // that call. Anything else (e.g. ConsumerDiscovery.Load() throwing) is a real bug and
+            // should surface as a 500, not silently render as "no metrics".
             logger.LogWarning(ex, "Unable to load RabbitMQ consumer metrics for work groups.");
         }
 

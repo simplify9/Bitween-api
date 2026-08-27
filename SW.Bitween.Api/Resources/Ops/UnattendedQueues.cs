@@ -60,21 +60,23 @@ public class UnattendedQueues(IBusDashboardDataService dashboardDataService,
         }
 
         // Cached on the same clock as the bus's own management call, because this page polls.
-        var queues = await memoryCache.GetOrCreateAsync("bitween-all-queues", async entry =>
+        // A failed fetch is deliberately not cached: caching it would report "no queues" for the
+        // rest of the cache window even after the management API recovers.
+        if (!memoryCache.TryGetValue("bitween-all-queues", out IReadOnlyList<Queue> queues))
         {
-            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(busOptions.MonitoringCacheSeconds);
             try
             {
                 var client = new ManagementClient(new Uri(busOptions.ManagementUrl),
                     busOptions.ManagementUsername, busOptions.ManagementPassword);
-                return await client.GetQueuesAsync(busOptions.VirtualHost);
+                queues = await client.GetQueuesAsync(busOptions.VirtualHost);
+                memoryCache.Set("bitween-all-queues", queues, TimeSpan.FromSeconds(busOptions.MonitoringCacheSeconds));
             }
             catch
             {
                 // Management API unreachable or misconfigured - degrade to "no data" instead of 500ing.
-                return Array.Empty<Queue>();
+                queues = Array.Empty<Queue>();
             }
-        });
+        }
 
         var orphans = queues
             .Where(q => q.Name.StartsWith($"{prefix}.", StringComparison.OrdinalIgnoreCase))
