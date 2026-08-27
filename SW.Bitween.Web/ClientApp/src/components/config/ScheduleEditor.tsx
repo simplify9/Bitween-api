@@ -121,7 +121,7 @@ function ScheduleDialog({
   );
 }
 
-/** Controlled list of run schedules for receivers. */
+/** Controlled list of run schedules, for either scheduled type. */
 export function ScheduleEditor({
   schedules,
   onChange,
@@ -137,7 +137,7 @@ export function ScheduleEditor({
     <div>
       {schedules.length === 0 ? (
         <p className="pb-2 text-sm text-ink-500">
-          No schedule yet — this receiver never runs on its own.
+          No schedule yet — this never runs on its own.
         </p>
       ) : (
         <ul className="space-y-1.5">

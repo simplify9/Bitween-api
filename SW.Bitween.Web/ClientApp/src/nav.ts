@@ -6,6 +6,7 @@ import {
   CalendarClock,
   FileText,
   Handshake,
+  FileStack,
   Layers,
   Network,
   RefreshCw,
@@ -61,6 +62,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "API gateways", path: "/api-gateways", icon: Webhook, permissions: ["api-gateways.view"] },
       { label: "Bus gateways", path: "/bus-gateways", icon: Cable, permissions: ["bus-gateways.view"] },
       { label: "Scheduled jobs", path: "/scheduled-jobs", icon: CalendarClock, permissions: ["subscriptions.view"] },
+      // Directly under scheduled jobs: it is the other thing that runs on a schedule,
+      // and it collects what one of these produced.
+      { label: "Aggregations", path: "/aggregations", icon: FileStack, permissions: ["subscriptions.view"] },
       // After the three ways work enters, because it is the picture of how they join up
       // rather than a fourth kind of them. Gated on the bus alone: bus messages are what
       // carry work *between* gateways, so without that permission there is no flow to map.
