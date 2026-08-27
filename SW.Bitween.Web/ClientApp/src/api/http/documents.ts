@@ -150,11 +150,17 @@ export const documentMethods = {
 
   async searchInformationTypes(query: {
     search: string;
+    format?: InformationTypeFormat | null;
+    busEnabled?: boolean | null;
     offset: number;
     limit: number;
   }): Promise<Paged<InformationTypeRow>> {
     const qs = buildListQuery({
-      filters: [["Name", SEARCHY_RULE.contains, query.search.trim()]],
+      filters: [
+        ["Name", SEARCHY_RULE.contains, query.search.trim()],
+        ["DocumentFormat", SEARCHY_RULE.equalsTo, query.format ?? ""],
+        ["BusEnabled", SEARCHY_RULE.equalsTo, query.busEnabled == null ? "" : String(query.busEnabled)],
+      ],
       offset: query.offset,
       limit: query.limit,
     });

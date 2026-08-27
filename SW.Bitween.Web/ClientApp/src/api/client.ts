@@ -17,6 +17,7 @@ import type {
   GlobalValuesSetRow,
   InformationType,
   InformationTypeDetail,
+  InformationTypeFormat,
   InformationTypeRow,
   Integration,
   IntegrationDetail,
@@ -130,6 +131,8 @@ export interface ApiClient {
   listInformationTypes(): Promise<InformationTypeRow[]>;
   searchInformationTypes(query: {
     search: string;
+    format?: InformationTypeFormat | null;
+    busEnabled?: boolean | null;
     offset: number;
     limit: number;
   }): Promise<Paged<InformationTypeRow>>;
@@ -259,7 +262,12 @@ export interface ApiClient {
 
   // — API gateways —
   listApiGateways(): Promise<ApiGatewayRow[]>;
-  searchApiGateways(query: { search: string; offset: number; limit: number }): Promise<Paged<ApiGatewayRow>>;
+  searchApiGateways(query: {
+    search: string;
+    inactive?: boolean | null;
+    offset: number;
+    limit: number;
+  }): Promise<Paged<ApiGatewayRow>>;
   getApiGateway(id: number): Promise<ApiGatewayDetail>;
   searchGatewayAttachments(
     apiGatewayId: number,

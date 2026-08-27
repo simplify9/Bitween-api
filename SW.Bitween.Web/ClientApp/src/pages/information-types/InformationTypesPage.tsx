@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FileText, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { InformationTypeDialog } from "../../components/config/InformationTypeDialog";
+import { IntegrationMultiFilter } from "../../components/config/IntegrationMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Select } from "../../components/ui/forms";
 import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
@@ -14,19 +16,57 @@ import { UsedByCell, useIntegrationsCache } from "../../components/config/shared
 
 const PAGE_SIZE = 25;
 
+const FORMAT_OPTIONS = [
+  { value: "", label: "Any format" },
+  { value: "Json", label: "JSON" },
+  { value: "Xml", label: "XML" },
+];
+
+const BUS_OPTIONS = [
+  { value: "", label: "Any bus status" },
+  { value: "true", label: "On the bus" },
+  { value: "false", label: "Not on the bus" },
+];
+
+/** ?integrations=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+const parseIds = (raw: string | null): number[] =>
+  raw
+    ? raw
+        .split(",")
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0)
+    : [];
+
 export function InformationTypesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
+  const format = searchParams.get("format") as "Json" | "Xml" | null;
+  const busParam = searchParams.get("bus");
+  const busEnabled = busParam === "true" ? true : busParam === "false" ? false : null;
+  const integrationIds = parseIds(searchParams.get("integrations"));
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const types = useQuery({
-    queryKey: ["information-types-search", q, offset],
-    queryFn: () => api.searchInformationTypes({ search: q, offset, limit: PAGE_SIZE }),
-    placeholderData: keepPreviousData,
-  });
   const integrations = useIntegrationsCache().data ?? [];
+
+  // The backend's Search endpoint has no "id is in this set" filter, so filtering by
+  // which integrations use a type can't be pushed down like name/format/bus can. Falls
+  // back to the full list, filtered and paged client-side, only while that filter is
+  // active — same trade-off as the Partners and Global values pages.
+  const filtering = integrationIds.length > 0;
+
+  const serverSearch = useQuery({
+    queryKey: ["information-types-search", q, format, busEnabled, offset],
+    queryFn: () => api.searchInformationTypes({ search: q, format, busEnabled, offset, limit: PAGE_SIZE }),
+    placeholderData: keepPreviousData,
+    enabled: !filtering,
+  });
+  const allTypes = useQuery({
+    queryKey: ["information-types-all"],
+    queryFn: () => api.listInformationTypes(),
+    enabled: filtering,
+  });
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>
     setSearchParams(
@@ -40,8 +80,22 @@ export function InformationTypesPage() {
       { replace: key === "q" },
     );
 
-  const rows = types.data?.result ?? [];
-  const total = types.data?.total ?? 0;
+  const filteredSorted = useMemo(() => {
+    if (!filtering) return [];
+    const needle = q.trim().toLowerCase();
+    const wanted = new Set(integrationIds);
+    return (allTypes.data ?? []).filter((t) => {
+      if (needle && !t.name.toLowerCase().includes(needle)) return false;
+      if (format && t.format !== format) return false;
+      if (busEnabled !== null && t.busEnabled !== busEnabled) return false;
+      const usedBy = integrations.filter((s) => s.informationTypeId === t.id);
+      return usedBy.some((s) => wanted.has(s.id));
+    });
+  }, [filtering, allTypes.data, q, format, busEnabled, integrationIds, integrations]);
+
+  const isPending = filtering ? allTypes.isPending : serverSearch.isPending;
+  const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
+  const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
 
   return (
     <div>
@@ -74,23 +128,56 @@ export function InformationTypesPage() {
         }
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setParam("q", e.target.value || null)}
-          placeholder="Search by name"
-          aria-label="Search information types"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-        />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setParam("q", e.target.value || null)}
+            placeholder="Search by name"
+            aria-label="Search information types"
+            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+          />
+        </div>
+        <div className="w-36">
+          <Select
+            aria-label="Filter by format"
+            className="!h-8 text-[13px]"
+            value={format ?? ""}
+            onChange={(e) => setParam("format", e.target.value || null)}
+            options={FORMAT_OPTIONS}
+          />
+        </div>
+        <div className="w-44">
+          <Select
+            aria-label="Filter by bus status"
+            className="!h-8 text-[13px]"
+            value={busParam ?? ""}
+            onChange={(e) => setParam("bus", e.target.value || null)}
+            options={BUS_OPTIONS}
+          />
+        </div>
+        <div className="w-60">
+          <IntegrationMultiFilter
+            integrations={integrations}
+            selected={integrationIds}
+            onChange={(ids) => setParam("integrations", ids.length ? ids.join(",") : null)}
+            label="Filter by integration"
+          />
+        </div>
       </div>
 
-      {types.isPending ? (
+      {isPending ? (
         <LoadingBlock label="Loading information types…" />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<FileText />} title={q ? "No information types match" : "No information types yet"}>
-          {q ? "Try a different search." : "Define the first kind of document your integrations will carry."}
+        <EmptyState
+          icon={<FileText />}
+          title={q || format || busParam || integrationIds.length > 0 ? "No information types match" : "No information types yet"}
+        >
+          {q || format || busParam || integrationIds.length > 0
+            ? "Try a different search or filter."
+            : "Define the first kind of document your integrations will carry."}
         </EmptyState>
       ) : (
         <Table
