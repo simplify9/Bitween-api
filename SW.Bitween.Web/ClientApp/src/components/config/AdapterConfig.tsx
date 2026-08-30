@@ -6,6 +6,7 @@ import { api, type AdapterInfo, type AdapterKind, type PartnerRow } from "../../
 import { Button } from "../ui/basics";
 import { Field } from "../ui/forms";
 import { SearchSelect } from "../ui/SearchSelect";
+import { keys } from "../../api/queryKeys";
 
 /** What the picker is choosing, named for the band above the fields. */
 const KIND_LABELS: Record<AdapterKind, string> = {
@@ -17,9 +18,8 @@ const KIND_LABELS: Record<AdapterKind, string> = {
 
 export function useAdapterCatalog(kind: AdapterKind) {
   return useQuery({
-    queryKey: ["adapters", kind],
+    queryKey: keys.adapters(kind),
     queryFn: () => api.listAdapters(kind),
-    staleTime: Infinity,
   });
 }
 
@@ -32,8 +32,8 @@ interface ReferenceToken {
 
 /** All insertable reference tokens: every global key + every known partner property. */
 function useReferenceTokens() {
-  const sets = useQuery({ queryKey: ["value-sets"], queryFn: () => api.listValueSets(), staleTime: 60_000 });
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners(), staleTime: 60_000 });
+  const sets = useQuery({ queryKey: keys.valueSets.list, queryFn: () => api.listValueSets() });
+  const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
   const globals: ReferenceToken[] = (sets.data ?? []).flatMap((s) =>
     Object.entries(s.values).map(([key, value]) => ({
       label: `${s.id}.${key}`,
@@ -60,9 +60,8 @@ function useReferenceTokens() {
  */
 function PartnerPropValue({ partnerId, propKey }: { partnerId: number; propKey: string }) {
   const props = useQuery({
-    queryKey: ["partner-adapter-properties", partnerId],
+    queryKey: keys.partners.adapterProperties(partnerId),
     queryFn: () => api.getPartnerAdapterProperties(partnerId),
-    staleTime: 60_000,
   });
   if (props.isPending) return <span className="text-ink-300">loading…</span>;
   const value = props.data?.[propKey];

@@ -6,6 +6,7 @@ import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { finishUrlName, suggestSlug, toUrlName } from "../../lib/identifiers";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 export function ApiGatewayNewPage() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export function ApiGatewayNewPage() {
   const create = useMutation({
     mutationFn: () => api.createApiGateway({ name, urlName: finishUrlName(urlName) }),
     onSuccess: (gateway) => {
-      void queryClient.invalidateQueries({ queryKey: ["api-gateways"] });
+      void queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
       const base = `/api-gateways/${gateway.id}`;
       navigate(base);
     },

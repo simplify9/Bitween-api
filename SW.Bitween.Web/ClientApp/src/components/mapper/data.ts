@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type GlobalValuesSetRow } from "../../api";
 import type { KeyValuePair } from "../../lib/mapping/types";
 import type { ValuesSetMap } from "../../lib/mapping/scribanGenerator";
+import { keys } from "../../api/queryKeys";
 
 /** Boundary adapters: the prototype persists mapperProperties as Record<string,string>,
  *  while the verbatim mapping reducer/generator speak the legacy KeyValuePair[] shape. */
@@ -20,7 +21,7 @@ export const kvpsToRecord = (kvps: KeyValuePair[]): Record<string, string> =>
  * the source of the data.
  */
 export function useGlobalSets(): GlobalValuesSetRow[] {
-  const { data } = useQuery({ queryKey: ["value-sets"], queryFn: () => api.listValueSets() });
+  const { data } = useQuery({ queryKey: keys.valueSets.list, queryFn: () => api.listValueSets() });
   return data ?? [];
 }
 

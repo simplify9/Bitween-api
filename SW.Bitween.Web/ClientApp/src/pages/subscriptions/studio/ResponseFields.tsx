@@ -8,6 +8,7 @@ import { Field } from "../../../components/ui/forms";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { InformationTypeDialog } from "../../../components/config/InformationTypeDialog";
 import { busMessageNameProblem } from "../../../lib/busMessageName";
+import { keys } from "../../../api/queryKeys";
 
 /**
  * The Response stage's body: what happens to whatever the delivery hands back.
@@ -148,9 +149,8 @@ function BusMessageField({
   onChange: (value: string | null) => void;
 }) {
   const informationTypes = useQuery({
-    queryKey: ["information-types"],
+    queryKey: keys.informationTypes.list,
     queryFn: () => api.listInformationTypes(),
-    staleTime: Infinity,
   });
   const canCreate = useSessionCan("documents.create");
   const [creating, setCreating] = useState(false);

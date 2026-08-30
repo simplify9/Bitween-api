@@ -9,6 +9,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { formatDateTime, duration, timeUntil } from "../../lib/dates";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { RetryDialog, journeyStages, type JourneyStage } from "./shared";
+import { keys } from "../../api/queryKeys";
 
 const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNode }> = {
   done: { ring: "border-ok-100", badge: <Badge tone="ok">Done</Badge> },
@@ -78,7 +79,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
     isLoading: activeLoading,
     isError: activeErrored,
   } = useQuery({
-    queryKey: ["exchange-document", activeKey],
+    queryKey: keys.exchanges.document(activeKey),
     queryFn: () => api.getExchangeDocument(activeKey!),
     enabled: activeKey !== null,
   });
@@ -87,7 +88,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [startedId, setStartedId] = useState<string | null>(null);
 
-  const invalidate = () => void queryClient.invalidateQueries({ queryKey: ["exchanges"] });
+  const invalidate = () => void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
 
   const retry = useMutation({
     mutationFn: (reset: boolean) => api.retryExchange(x.id, { reset }),
@@ -108,7 +109,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
     onSuccess: () => {
       setStartedId("scheduled");
       invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["scheduled-retries"] });
+      void queryClient.invalidateQueries({ queryKey: keys.scheduledRetries.all });
     },
   });
 

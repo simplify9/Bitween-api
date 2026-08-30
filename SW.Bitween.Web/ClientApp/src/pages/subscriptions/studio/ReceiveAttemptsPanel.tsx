@@ -10,6 +10,7 @@ import { Table } from "../../../components/ui/Table";
 import { PromotedProps } from "../../../components/config/shared";
 import { StatusBadge } from "../../exchanges/shared";
 import { formatDateTime, timeAgo } from "../../../lib/dates";
+import { keys } from "../../../api/queryKeys";
 
 const PAGE_SIZE = 25;
 
@@ -191,7 +192,7 @@ export function ReceiveAttemptsPanel({
   const [offset, setOffset] = useState(0);
 
   const attempts = useQuery({
-    queryKey: ["receive-attempts", subscriptionId, outcome, offset],
+    queryKey: keys.subscriptions.receiveAttempts(subscriptionId, { outcome, offset }),
     queryFn: () => api.searchReceiveAttempts(subscriptionId, { outcome, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });

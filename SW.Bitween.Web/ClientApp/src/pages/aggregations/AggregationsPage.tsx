@@ -21,6 +21,7 @@ import {
   useWorkGroupNames,
 } from "../../components/config/shared";
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
+import { keys } from "../../api/queryKeys";
 
 function AggregateNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -28,9 +29,7 @@ function AggregateNowButton({ job }: { job: SubscriptionRow }) {
   const aggregate = useMutation({
     mutationFn: () => api.aggregateNow(job.id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
-      void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
     },
   });
 
@@ -103,7 +102,7 @@ export function AggregationsPage() {
   const canOperate = useSessionCan("subscriptions.operate");
 
   const rows = useQuery({
-    queryKey: ["subscription-rows-search", "Aggregation", q, inactive, offset],
+    queryKey: keys.subscriptions.rowsSearch({ type: "Aggregation", q, inactive, offset }),
     queryFn: () =>
       api.searchSubscriptionRows({ search: q, type: "Aggregation", inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
@@ -115,10 +114,10 @@ export function AggregationsPage() {
   const nameById = useMemo(() => new Map(setups.map((s) => [s.id, s.name])), [setups]);
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
-  const lastRuns = useQuery({ queryKey: ["last-runs"], queryFn: () => api.listLastRuns() }).data ?? [];
+  const lastRuns = useQuery({ queryKey: keys.subscriptions.lastRuns, queryFn: () => api.listLastRuns() }).data ?? [];
   const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.subscriptionId, r])), [lastRuns]);
   const health =
-    useQuery({ queryKey: ["schedule-health"], queryFn: () => api.listScheduleHealth() }).data ?? [];
+    useQuery({ queryKey: keys.subscriptions.scheduleHealth, queryFn: () => api.listScheduleHealth() }).data ?? [];
   const healthById = useMemo(() => new Map(health.map((h) => [h.subscriptionId, h])), [health]);
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>

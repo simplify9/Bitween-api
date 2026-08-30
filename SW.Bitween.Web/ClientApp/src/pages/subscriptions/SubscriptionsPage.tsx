@@ -9,6 +9,7 @@ import { Pagination } from "../../components/ui/Pagination";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
+import { keys } from "../../api/queryKeys";
 import {
   HealthBadge,
   SUBSCRIPTION_TYPE_LABELS,
@@ -61,7 +62,7 @@ export function SubscriptionsPage() {
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: ["subscription-rows-search", q, type, informationTypeId, partnerId, inactive, offset],
+    queryKey: keys.subscriptions.rowsSearch({ q, type, informationTypeId, partnerId, inactive, offset }),
     queryFn: () =>
       api.searchSubscriptionRows({
         search: q,
@@ -75,8 +76,8 @@ export function SubscriptionsPage() {
     placeholderData: keepPreviousData,
   });
   const gatewayPartners = useGatewayPartners();
-  const infoTypes = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() }).data ?? [];
+  const infoTypes = useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? [];
+  const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() }).data ?? [];
 
   /** Its own partner (legacy types) plus any reached through a gateway. */
   const partnersFor = (r: SubscriptionRow) => {

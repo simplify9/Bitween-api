@@ -8,6 +8,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { Pagination } from "../../components/ui/Pagination";
 import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
+import { keys } from "../../api/queryKeys";
 import {
   LinkListCell,
   WiredHealthBadge,
@@ -36,7 +37,7 @@ export function ApiGatewaysPage() {
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
   const gateways = useQuery({
-    queryKey: ["api-gateways-search", q, inactive, offset],
+    queryKey: keys.apiGateways.search({ q, inactive, offset }),
     queryFn: () => api.searchApiGateways({ search: q, inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });

@@ -10,6 +10,7 @@ import { CodeBadge, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { ExchangesList, SetupList, TrailTable } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 import {
   InformationTypeFields,
   informationTypeChanges,
@@ -26,7 +27,7 @@ export function InformationTypePage() {
   const canEdit = useSessionCan("documents.edit");
 
   const type = useQuery({
-    queryKey: ["information-type", typeId],
+    queryKey: keys.informationTypes.detail(typeId),
     queryFn: () => api.getInformationType(typeId),
     retry: false,
   });
@@ -50,9 +51,8 @@ export function InformationTypePage() {
   const save = useMutation({
     mutationFn: () => api.updateInformationType(typeId, informationTypeChanges(draft!)),
     onSuccess: async () => {
-      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
-      await queryClient.invalidateQueries({ queryKey: ["information-type", typeId] });
-      void queryClient.invalidateQueries({ queryKey: ["information-types"] });
+      // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
+      await queryClient.invalidateQueries({ queryKey: keys.informationTypes.all });
       setLoaded(false);
     },
   });
@@ -157,7 +157,7 @@ export function InformationTypePage() {
           confirmLabel="Delete information type"
           onConfirm={async () => {
             await api.deleteInformationType(typeId);
-            void queryClient.invalidateQueries({ queryKey: ["information-types"] });
+            void queryClient.invalidateQueries({ queryKey: keys.informationTypes.all });
             navigate("/information-types");
           }}
           onClose={() => setDeleting(false)}

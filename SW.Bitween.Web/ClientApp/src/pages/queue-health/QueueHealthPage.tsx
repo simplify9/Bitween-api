@@ -8,6 +8,7 @@ import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { queueHealthTitle } from "../../components/config/shared";
 import { Panel } from "../../components/ui/Panel";
 import { timeAgo } from "../../lib/dates";
+import { keys } from "../../api/queryKeys";
 
 const POLL_MS = 5_000;
 
@@ -90,7 +91,7 @@ function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?
  */
 export function QueueHealthPage() {
   const { data, isLoading, dataUpdatedAt } = useQuery({
-    queryKey: ["queue-health"],
+    queryKey: keys.queueHealth,
     queryFn: () => api.getQueueHealth(),
     refetchInterval: POLL_MS,
     placeholderData: keepPreviousData,

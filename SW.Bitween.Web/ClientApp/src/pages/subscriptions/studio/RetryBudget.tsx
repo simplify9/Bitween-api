@@ -6,6 +6,7 @@ import { api } from "../../../api";
 import { Button } from "../../../components/ui/basics";
 import { ConfirmDialog } from "../../../components/ui/overlays";
 import { timeAgo } from "../../../lib/dates";
+import { keys } from "../../../api/queryKeys";
 
 /**
  * This subscription's own retry budgets, asked for from its side rather than its policy's.
@@ -24,7 +25,7 @@ export function RetryBudget({ subscriptionId, canEdit }: { subscriptionId: numbe
   const [resetting, setResetting] = useState(false);
 
   const usage = useQuery({
-    queryKey: ["retry-usage", "subscription", subscriptionId],
+    queryKey: keys.retryUsage.forSubscription(subscriptionId),
     queryFn: () => api.getSubscriptionRetryUsage(subscriptionId),
   });
 
@@ -92,7 +93,7 @@ export function RetryBudget({ subscriptionId, canEdit }: { subscriptionId: numbe
           onConfirm={async () => {
             // No group id: every group of this subscription, which is what the banner reports on.
             await api.resetSubscriptionRetryUsage(subscriptionId);
-            await queryClient.invalidateQueries({ queryKey: ["retry-usage"] });
+            await queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
           }}
           onClose={() => setResetting(false)}
         />

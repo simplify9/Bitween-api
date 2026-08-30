@@ -10,6 +10,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { Pagination } from "../../components/ui/Pagination";
 import { Table, type Column } from "../../components/ui/Table";
 import { UsedByCell, queueHealthTitle, useSubscriptionsCache } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
@@ -58,13 +59,13 @@ export function WorkGroupsPage() {
   const canMonitor = useSessionCan("monitoring.view");
 
   const groups = useQuery({
-    queryKey: ["work-groups-search", q, offset],
+    queryKey: keys.workGroups.search({ q, offset }),
     queryFn: () => api.searchWorkGroups({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const subscriptions = useSubscriptionsCache().data ?? [];
   const live = useQuery({
-    queryKey: ["queue-health"],
+    queryKey: keys.queueHealth,
     queryFn: () => api.getQueueHealth(),
     refetchInterval: 5_000,
     placeholderData: keepPreviousData,

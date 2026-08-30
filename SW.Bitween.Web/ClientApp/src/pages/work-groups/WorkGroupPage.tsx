@@ -15,6 +15,7 @@ import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { SetupList } from "../../components/config/shared";
 import { LiveQueueStats } from "./LiveQueueStats";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 /**
  * This group's slice of the live RabbitMQ picture — the same numbers the
@@ -47,7 +48,7 @@ export function WorkGroupPage() {
   const canEdit = useSessionCan("workgroups.edit");
 
   const group = useQuery({
-    queryKey: ["work-group", groupId],
+    queryKey: keys.workGroups.detail(groupId),
     queryFn: () => api.getWorkGroup(groupId),
     retry: false,
   });
@@ -71,10 +72,8 @@ export function WorkGroupPage() {
   const save = useMutation({
     mutationFn: () => api.updateWorkGroup(groupId, draft!),
     onSuccess: async () => {
-      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
-      await queryClient.invalidateQueries({ queryKey: ["work-group", groupId] });
-      void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
-      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
+      // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
+      await queryClient.invalidateQueries({ queryKey: keys.workGroups.all });
       setLoaded(false);
     },
   });
@@ -146,8 +145,7 @@ export function WorkGroupPage() {
           confirmLabel="Delete work group"
           onConfirm={async () => {
             await api.deleteWorkGroup(groupId);
-            void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
-      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
+            void queryClient.invalidateQueries({ queryKey: keys.workGroups.all });
             navigate("/work-groups");
           }}
           onClose={() => setDeleting(false)}

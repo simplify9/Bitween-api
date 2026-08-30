@@ -4,10 +4,11 @@ import { api, ApiRequestError } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, PasswordInput, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { keys } from "../../api/queryKeys";
 
 export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
-  const roles = useQuery({ queryKey: ["roles"], queryFn: () => api.listRoles() });
+  const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -17,8 +18,8 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const create = useMutation({
     mutationFn: () => api.createUser({ displayName, email, password, roleIds }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["users"] });
-      void queryClient.invalidateQueries({ queryKey: ["roles"] });
+      void queryClient.invalidateQueries({ queryKey: keys.users.all });
+      void queryClient.invalidateQueries({ queryKey: keys.roles.all });
       onClose();
     },
   });

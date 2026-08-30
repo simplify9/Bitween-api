@@ -16,6 +16,7 @@ import {
   useSubscriptionRowsById,
 } from "../../components/config/shared";
 import { matchSummary } from "../../lib/match";
+import { keys } from "../../api/queryKeys";
 
 /**
  * Bus gateways — messages picked off the bus. A gateway listens for one
@@ -42,14 +43,14 @@ export function BusGatewaysPage() {
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const gateways = useQuery({
-    queryKey: ["bus-gateways-search", q, informationTypeId, inactive, offset],
+    queryKey: keys.busGateways.search({ q, informationTypeId, inactive, offset }),
     queryFn: () => api.searchBusGateways({ search: q, informationTypeId, inactive, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const subscriptionsById = useSubscriptionRowsById();
   const infoTypes =
     useQuery({
-      queryKey: ["information-types"],
+      queryKey: keys.informationTypes.list,
       queryFn: () => api.listInformationTypes(),
       enabled: canSeeInfoTypes,
     }).data ?? [];

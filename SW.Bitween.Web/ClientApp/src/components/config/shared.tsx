@@ -17,6 +17,7 @@ import { Badge } from "../ui/basics";
 import { Popover } from "../ui/Popover";
 import { MiniTable, type Column } from "../ui/Table";
 import { formatDate, timeAgo } from "../../lib/dates";
+import { keys } from "../../api/queryKeys";
 
 /**
  * Display names for subscription types; Internal and ApiCall are legacy.
@@ -386,9 +387,8 @@ export function SetupList({ items }: { items: SubscriptionSetupRef[] }) {
  */
 export function useSubscriptionsCache() {
   return useQuery({
-    queryKey: ["subscriptions"],
+    queryKey: keys.subscriptions.cache,
     queryFn: () => api.listSubscriptions(),
-    staleTime: Infinity,
   });
 }
 
@@ -407,13 +407,13 @@ export function usePartnerSubscriptions(): Map<number, SubscriptionInfo[]> {
   const canSeeBus = useSessionCan("bus-gateways.view");
   const apiGateways =
     useQuery({
-      queryKey: ["api-gateways"],
+      queryKey: keys.apiGateways.list,
       queryFn: () => api.listApiGateways(),
       enabled: canSeeApi,
     }).data ?? [];
   const busGateways =
     useQuery({
-      queryKey: ["bus-gateways"],
+      queryKey: keys.busGateways.list,
       queryFn: () => api.listBusGateways(),
       enabled: canSeeBus,
     }).data ?? [];
@@ -457,13 +457,13 @@ export function useGatewayPartners(): Map<
   const canSeeBus = useSessionCan("bus-gateways.view");
   const apiGateways =
     useQuery({
-      queryKey: ["api-gateways"],
+      queryKey: keys.apiGateways.list,
       queryFn: () => api.listApiGateways(),
       enabled: canSeeApi,
     }).data ?? [];
   const busGateways =
     useQuery({
-      queryKey: ["bus-gateways"],
+      queryKey: keys.busGateways.list,
       queryFn: () => api.listBusGateways(),
       enabled: canSeeBus,
     }).data ?? [];
@@ -496,7 +496,7 @@ export function useGatewayPartners(): Map<
 export function useSubscriptionRowsById(): Map<number, SubscriptionRow> {
   const rows =
     useQuery({
-      queryKey: ["subscription-rows"],
+      queryKey: keys.subscriptions.rows,
       queryFn: () => api.listSubscriptionRows(),
     }).data ?? [];
   return useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
@@ -507,7 +507,7 @@ export function useWorkGroupNames(): Map<number, string> {
   const canSee = useSessionCan("workgroups.view");
   const groups =
     useQuery({
-      queryKey: ["work-groups"],
+      queryKey: keys.workGroups.list,
       queryFn: () => api.listWorkGroups(),
       enabled: canSee,
     }).data ?? [];
@@ -519,7 +519,7 @@ export function useRetryPolicyNames(): Map<number, string> {
   const canSee = useSessionCan("retry-policies.view");
   const policies =
     useQuery({
-      queryKey: ["retry-policies"],
+      queryKey: keys.retryPolicies.list,
       queryFn: () => api.listRetryPolicies(),
       enabled: canSee,
     }).data ?? [];

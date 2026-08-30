@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from ".";
 import type { ActionId, PermissionArea, PermissionKey } from "./types";
+import { keys } from "./queryKeys";
 
 /**
  * The permission catalog is defined and enforced in the backend (SW.Bitween.Sdk/Model/Permissions.cs)
@@ -26,9 +27,8 @@ export const permissionKey = (areaId: string, actionId: ActionId): PermissionKey
 /** Static per deployment, so it's fetched once and kept. */
 export function usePermissionCatalog() {
   return useQuery({
-    queryKey: ["permission-catalog"],
+    queryKey: keys.permissionCatalog,
     queryFn: () => api.getPermissionCatalog(),
-    staleTime: Infinity,
   });
 }
 

@@ -13,6 +13,7 @@ import { formatDate, formatDateTime, formatDurationMs, timeAgo, timeUntil } from
 import { ReceiveAttemptsPanel, type AttemptKind } from "./ReceiveAttemptsPanel";
 import { RetryBudget } from "./RetryBudget";
 import type { Draft, EntryPoint } from "./model";
+import { keys } from "../../../api/queryKeys";
 
 /** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
 export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
@@ -170,11 +171,10 @@ export function Overview({
   scheduled: boolean;
 }) {
   const workGroups = useQuery({
-    queryKey: ["work-groups"],
+    queryKey: keys.workGroups.list,
     queryFn: () => api.listWorkGroups(),
-    staleTime: Infinity,
   });
-  const retryPolicies = useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies() });
+  const retryPolicies = useQuery({ queryKey: keys.retryPolicies.list, queryFn: () => api.listRetryPolicies() });
   // Both scheduled types keep their own attempt history and show it in one table
   // (ReceiveAttemptsPanel) instead of the scheduler's run history beside a separate exchange
   // list. The scheduler's history is Quartz vocabulary an operator has no reason to know, it
@@ -184,13 +184,13 @@ export function Overview({
   const aggregation = s.type === "Aggregation";
   const attemptKind: AttemptKind | null = receiving ? "receiving" : aggregation ? "aggregation" : null;
   const runs = useQuery({
-    queryKey: ["subscription-runs", s.id],
+    queryKey: keys.subscriptions.runs(s.id),
     queryFn: () => api.listSubscriptionRuns(s.id, 20),
     enabled: scheduled && attemptKind === null,
   });
   // Just for the "Last run" fact above — ReceiveAttemptsPanel fetches its own page.
   const latestAttempt = useQuery({
-    queryKey: ["receive-attempts", s.id, null, 0, 1],
+    queryKey: keys.subscriptions.receiveAttempts(s.id, { outcome: null, offset: 0, limit: 1 }),
     queryFn: () => api.searchReceiveAttempts(s.id, { outcome: null, offset: 0, limit: 1 }),
     enabled: attemptKind !== null,
   });

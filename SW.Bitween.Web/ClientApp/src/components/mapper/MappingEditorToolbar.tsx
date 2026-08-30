@@ -12,6 +12,7 @@ import {
   setSelectedPartner,
 } from "../../lib/mapping/MappingEditorContext";
 import { api } from "../../api";
+import { keys } from "../../api/queryKeys";
 
 // ─── Mode toggle button ───────────────────────────────────────────────────────
 
@@ -59,11 +60,11 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
   const { mode, fieldMappings, arrayMappings, past, future, selectedPartnerId } = useMappingEditorState();
 
   // Sync local dropdown state when selectedPartnerId changes (including reset to null)
-  const { data: partners } = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
+  const { data: partners } = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
   // listPartners() is a light row (no adapterProperties) — fetch the selected partner's
   // properties separately so the "Partner" mode datalist actually has options to suggest.
   const { data: adapterProperties, isFetching: isPartnerFetching } = useQuery({
-    queryKey: ["partner-adapter-properties", selectedPartnerId],
+    queryKey: keys.partners.adapterProperties(selectedPartnerId),
     queryFn: () => api.getPartnerAdapterProperties(selectedPartnerId!),
     enabled: selectedPartnerId != null,
   });

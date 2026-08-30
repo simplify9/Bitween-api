@@ -5,6 +5,7 @@ import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { SubscriptionPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -28,7 +29,7 @@ export function EditAttachmentPage() {
   const queryClient = useQueryClient();
 
   const gateway = useQuery({
-    queryKey: ["api-gateway", gatewayId],
+    queryKey: keys.apiGateways.detail(gatewayId),
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });
@@ -50,9 +51,8 @@ export function EditAttachmentPage() {
     mutationFn: () => api.updateGatewayAttachment(gatewayId, { partnerId: pid, subscriptionId: draft.subscriptionId! }),
     onSuccess: () => {
       clear();
-      void queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
-      void queryClient.invalidateQueries({ queryKey: ["api-gateway-attachments-search"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+      void queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
       navigate(`/api-gateways/${gatewayId}`);
     },
   });

@@ -13,6 +13,7 @@ import { timeAgo, timeUntil, duration } from "../../lib/dates";
 import { ExchangeDrawer } from "./ExchangeDrawer";
 import { JourneyStrip, RetryDialog, STATUS_LABELS, StatusBadge } from "./shared";
 import { PromotedProps } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 const PAGE_SIZE = 25;
 const STATUSES: ExchangeStatus[] = ["processing", "success", "badResponse", "failed"];
@@ -53,16 +54,16 @@ export function ExchangesPage() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, dataUpdatedAt } = useQuery({
-    queryKey: ["exchanges", searchParams.toString()],
+    queryKey: keys.exchanges.search(searchParams.toString()),
     queryFn: () => api.searchExchanges(query),
     refetchInterval: refreshMs || false,
     placeholderData: keepPreviousData,
   });
 
   const subscriptions = useSubscriptionsCache().data ?? [];
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() }).data ?? [];
+  const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() }).data ?? [];
   const infoTypes =
-    useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
+    useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? [];
 
   /**
    * Every promoted key any information type declares, with the types that declare it.
@@ -122,7 +123,7 @@ export function ExchangesPage() {
       setBulkResult(
         `${retried} retr${retried === 1 ? "y" : "ies"} started${skipped > 0 ? `, ${skipped} skipped (auto-retry already scheduled)` : ""}.`,
       );
-      void queryClient.invalidateQueries({ queryKey: ["exchanges"] });
+      void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
     },
   });
 

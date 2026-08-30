@@ -11,6 +11,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 const PAGE_SIZE = 25;
 
@@ -55,13 +56,13 @@ export function PartnersPage() {
   const filtering = subscriptionIds.length > 0;
 
   const serverSearch = useQuery({
-    queryKey: ["partners-search", q, offset],
+    queryKey: keys.partners.search({ q, offset }),
     queryFn: () => api.searchPartners({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
     enabled: !filtering,
   });
   const allPartners = useQuery({
-    queryKey: ["partners-all"],
+    queryKey: keys.partners.list,
     queryFn: () => api.listPartners(),
     enabled: filtering,
   });

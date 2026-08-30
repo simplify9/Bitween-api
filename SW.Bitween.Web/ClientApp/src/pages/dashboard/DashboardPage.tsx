@@ -7,6 +7,7 @@ import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Panel } from "../../components/ui/Panel";
 import { timeAgo } from "../../lib/dates";
 import { StatusBadge, XchangeId } from "../exchanges/shared";
+import { keys } from "../../api/queryKeys";
 
 const CHART_HEIGHT = 140;
 
@@ -51,7 +52,7 @@ function StatTile({
  */
 export function DashboardPage() {
   const { data, isLoading } = useQuery({
-    queryKey: ["dashboard"],
+    queryKey: keys.dashboard,
     queryFn: () => api.getDashboard(),
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,

@@ -3,6 +3,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/basics";
 import { queueHealthTitle } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 function LiveStat({ label, value, tone }: { label: string; value: ReactNode; tone?: "warn" | "danger" }) {
   return (
@@ -26,7 +27,7 @@ function LiveStat({ label, value, tone }: { label: string; value: ReactNode; ton
  */
 export function LiveQueueStats({ groupId }: { groupId: number }) {
   const { data } = useQuery({
-    queryKey: ["queue-health"],
+    queryKey: keys.queueHealth,
     queryFn: () => api.getQueueHealth(),
     refetchInterval: 5_000,
     placeholderData: keepPreviousData,

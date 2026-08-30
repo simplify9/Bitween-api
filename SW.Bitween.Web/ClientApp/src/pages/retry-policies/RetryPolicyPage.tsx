@@ -13,6 +13,7 @@ import { AdapterConfig } from "../../components/config/AdapterConfig";
 import { GroupDialog } from "./GroupDialog";
 import { UsagePanel } from "./UsagePanel";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 const matcherSummary = (m: RetryMatcher): string => {
   switch (m.type) {
@@ -226,7 +227,7 @@ export function RetryPolicyPage() {
   const canEdit = useSessionCan("retry-policies.edit");
 
   const policy = useQuery({
-    queryKey: ["retry-policy", policyId],
+    queryKey: keys.retryPolicies.detail(policyId),
     queryFn: () => api.getRetryPolicy(policyId),
     retry: false,
   });
@@ -268,11 +269,10 @@ export function RetryPolicyPage() {
         alertHandlerProperties: alertProps,
       }),
     onSuccess: async () => {
-      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
-      await queryClient.invalidateQueries({ queryKey: ["retry-policy", policyId] });
-      void queryClient.invalidateQueries({ queryKey: ["retry-policies"] });
+      // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
+      await queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
       // Editing a group can change which budgets exist, so the usage report is stale too.
-      void queryClient.invalidateQueries({ queryKey: ["retry-usage"] });
+      void queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
       setLoaded(false);
     },
   });
@@ -497,7 +497,7 @@ export function RetryPolicyPage() {
           confirmLabel="Delete policy"
           onConfirm={async () => {
             await api.deleteRetryPolicy(policyId);
-            void queryClient.invalidateQueries({ queryKey: ["retry-policies"] });
+            void queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
             navigate("/retry-policies");
           }}
           onClose={() => setDeleting(false)}

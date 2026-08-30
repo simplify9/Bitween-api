@@ -19,6 +19,7 @@ import { EntryPointsTable, Overview } from "./studio/Overview";
 import { ResponseFields } from "./studio/ResponseFields";
 import { draftOf, entryPointsOf, stageDirty, type Draft } from "./studio/model";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 export function SubscriptionPage() {
   const { id = "" } = useParams();
@@ -31,14 +32,14 @@ export function SubscriptionPage() {
   const [params, setParams] = useSearchParams();
 
   const subscription = useQuery({
-    queryKey: ["subscription", subscriptionId],
+    queryKey: keys.subscriptions.detail(subscriptionId),
     queryFn: () => api.getSubscription(subscriptionId),
     retry: false,
   });
   const allSubscriptions = useSubscriptionsCache();
   // promoted properties power the legacy message filter
   const infoType = useQuery({
-    queryKey: ["information-type", subscription.data?.informationTypeId],
+    queryKey: keys.informationTypes.detail(subscription.data?.informationTypeId),
     queryFn: () => api.getInformationType(subscription.data!.informationTypeId),
     enabled: subscription.data?.type === "Internal",
   });
@@ -53,7 +54,7 @@ export function SubscriptionPage() {
   // Shares the scheduled-jobs page's cache entry. The only per-stage fault we
   // can honestly attribute — it comes from the scheduler's own trigger state.
   const scheduleHealth = useQuery({
-    queryKey: ["schedule-health"],
+    queryKey: keys.subscriptions.scheduleHealth,
     queryFn: () => api.listScheduleHealth(),
     enabled: subscription.data?.type === "Receiving" || subscription.data?.type === "Aggregation",
   });
@@ -107,10 +108,8 @@ export function SubscriptionPage() {
   }, [params, draft, subscription.data, setParams]);
 
   const invalidate = () => {
-    const detail = queryClient.invalidateQueries({ queryKey: ["subscription", subscriptionId] });
-    void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
-    void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+    const detail = queryClient.invalidateQueries({ queryKey: keys.subscriptions.detail(subscriptionId) });
+    void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
     return detail;
   };
 
@@ -132,8 +131,8 @@ export function SubscriptionPage() {
     mutationFn: () => api.aggregateNow(subscriptionId),
     onSuccess: async () => {
       await invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["subscription-runs", subscriptionId] });
-      void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.runs(subscriptionId) });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.lastRuns });
     },
   });
 
@@ -141,8 +140,8 @@ export function SubscriptionPage() {
     mutationFn: () => api.receiveNow(subscriptionId),
     onSuccess: async () => {
       await invalidate();
-      void queryClient.invalidateQueries({ queryKey: ["subscription-runs", subscriptionId] });
-      void queryClient.invalidateQueries({ queryKey: ["last-runs"] });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.runs(subscriptionId) });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.lastRuns });
     },
   });
 
@@ -524,9 +523,7 @@ export function SubscriptionPage() {
           confirmLabel="Delete subscription"
           onConfirm={async () => {
             await api.deleteSubscription(subscriptionId);
-            void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
-            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+            void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
             navigate("/subscriptions");
           }}
           onClose={() => setDeleting(false)}

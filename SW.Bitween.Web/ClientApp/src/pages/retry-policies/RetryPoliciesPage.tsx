@@ -11,6 +11,7 @@ import { Dialog } from "../../components/ui/overlays";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
   const create = useMutation({
     mutationFn: () => api.createRetryPolicy({ name }),
     onSuccess: (policy) => {
-      void queryClient.invalidateQueries({ queryKey: ["retry-policies"] });
+      void queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
       navigate(`/retry-policies/${policy.id}`);
     },
   });
@@ -65,7 +66,7 @@ export function RetryPoliciesPage() {
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
   const policies = useQuery({
-    queryKey: ["retry-policies-search", q, offset],
+    queryKey: keys.retryPolicies.search({ q, offset }),
     queryFn: () => api.searchRetryPolicies({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });

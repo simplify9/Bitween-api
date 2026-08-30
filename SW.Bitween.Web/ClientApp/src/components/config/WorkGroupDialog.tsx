@@ -6,6 +6,7 @@ import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
 import { Dialog } from "../ui/overlays";
 import { suggestSlug } from "../../lib/identifiers";
+import { keys } from "../../api/queryKeys";
 
 /**
  * A work group's editable settings, as one component.
@@ -131,7 +132,7 @@ export function WorkGroupDialog({
   const [draft, setDraft] = useState<WorkGroupDraft | null>(groupId === null ? EMPTY : null);
 
   const existing = useQuery({
-    queryKey: ["work-group", groupId],
+    queryKey: keys.workGroups.detail(groupId),
     queryFn: () => api.getWorkGroup(groupId!),
     enabled: groupId !== null,
   });
@@ -150,9 +151,7 @@ export function WorkGroupDialog({
       return created.id;
     },
     onSuccess: (id) => {
-      void queryClient.invalidateQueries({ queryKey: ["work-groups"] });
-      void queryClient.invalidateQueries({ queryKey: ["work-groups-search"] });
-      void queryClient.invalidateQueries({ queryKey: ["work-group", id] });
+      void queryClient.invalidateQueries({ queryKey: keys.workGroups.all });
       onSaved?.(id);
       onClose();
     },

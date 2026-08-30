@@ -6,6 +6,7 @@ import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { InfoTypePicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 /** Local draft state with the patch-and-clear shape the form body uses. */
 function useDraft<T extends object>(initial: T) {
@@ -35,7 +36,7 @@ export function BusGatewayNewPage() {
     mutationFn: () => api.createBusGateway({ name: draft.name, informationTypeId: draft.informationTypeId! }),
     onSuccess: (gateway) => {
       clear();
-      void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
+      void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
       const base = `/bus-gateways/${gateway.id}`;
       navigate(base);
     },

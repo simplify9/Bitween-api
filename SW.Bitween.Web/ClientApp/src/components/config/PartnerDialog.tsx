@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Dialog } from "../ui/overlays";
+import { keys } from "../../api/queryKeys";
 import {
   PartnerFields,
   partnerChanges,
@@ -41,7 +42,7 @@ export function PartnerDialog({
   const [justCreated, setJustCreated] = useState(false);
 
   const existing = useQuery({
-    queryKey: ["partner", id],
+    queryKey: keys.partners.detail(id),
     queryFn: () => api.getPartner(id!),
     enabled: id !== null,
   });
@@ -75,8 +76,7 @@ export function PartnerDialog({
       const creating = id === null;
       setId(savedId);
       onSaved?.(savedId);
-      void queryClient.invalidateQueries({ queryKey: ["partners"] });
-      await queryClient.invalidateQueries({ queryKey: ["partner", savedId] });
+      await queryClient.invalidateQueries({ queryKey: keys.partners.all });
       // Re-seed from the server rather than from the draft, so what the dialog
       // compares against is what was actually stored.
       setDraft(null);

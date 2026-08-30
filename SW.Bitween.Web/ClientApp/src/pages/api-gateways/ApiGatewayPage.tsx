@@ -14,6 +14,7 @@ import { MiniTable } from "../../components/ui/Table";
 import { Pagination } from "../../components/ui/Pagination";
 import { useWiredSubscriptionColumns } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
 
@@ -27,7 +28,7 @@ export function ApiGatewayPage() {
   const wiredColumns = useWiredSubscriptionColumns<ApiGatewayAttachment>((a) => a.subscriptionId);
 
   const gateway = useQuery({
-    queryKey: ["api-gateway", gatewayId],
+    queryKey: keys.apiGateways.detail(gatewayId),
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });
@@ -35,7 +36,7 @@ export function ApiGatewayPage() {
   const attachmentsQuery = searchParams.get("aq") ?? "";
   const attachmentsOffset = searchParams.get("aoffset") ? Number(searchParams.get("aoffset")) : 0;
   const attachments = useQuery({
-    queryKey: ["api-gateway-attachments-search", gatewayId, attachmentsQuery, attachmentsOffset],
+    queryKey: keys.apiGateways.attachments(gatewayId, { q: attachmentsQuery, offset: attachmentsOffset }),
     queryFn: () =>
       api.searchGatewayAttachments(gatewayId, {
         search: attachmentsQuery,
@@ -87,9 +88,8 @@ export function ApiGatewayPage() {
         inactive: gateway.data?.inactive ?? false,
       }),
     onSuccess: async () => {
-      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
-      await queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
-      void queryClient.invalidateQueries({ queryKey: ["api-gateways"] });
+      // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
+      await queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
       setLoaded(false);
     },
   });
@@ -274,9 +274,8 @@ export function ApiGatewayPage() {
           confirmLabel="Detach partner"
           onConfirm={async () => {
             await api.removeGatewayAttachment(gatewayId, removing.partnerId);
-            void queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
-            void queryClient.invalidateQueries({ queryKey: ["api-gateway-attachments-search"] });
-            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+            void queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
+            void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
           }}
           onClose={() => setRemoving(null)}
         />
@@ -297,8 +296,7 @@ export function ApiGatewayPage() {
               urlName: g.urlName,
               inactive: !g.inactive,
             });
-            await queryClient.invalidateQueries({ queryKey: ["api-gateway", gatewayId] });
-            void queryClient.invalidateQueries({ queryKey: ["api-gateways"] });
+            await queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
           }}
           onClose={() => setConfirmingActive(false)}
         />
@@ -317,8 +315,8 @@ export function ApiGatewayPage() {
           confirmLabel="Delete gateway"
           onConfirm={async () => {
             await api.deleteApiGateway(gatewayId);
-            void queryClient.invalidateQueries({ queryKey: ["api-gateways"] });
-            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+            void queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
+            void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
             navigate("/api-gateways");
           }}
           onClose={() => setDeleting(false)}

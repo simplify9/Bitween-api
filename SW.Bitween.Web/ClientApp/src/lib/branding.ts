@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAppConfig } from "../api";
 import { applyColorScale } from "./colorScale";
 import { useSettingsDraft } from "./settingsDraft";
+import { keys } from "../api/queryKeys";
 
 /**
  * The Brand & theme settings, resolved through the unsaved draft so edits
@@ -40,7 +41,7 @@ const catalogKey = (prop: string) => `Theme.${prop[0].toUpperCase()}${prop.slice
 export function useBranding(): Branding {
   // Read through the anonymous config endpoint rather than the settings list: the sign-in page
   // has to brand itself with no session, and this way both sides of the door share one path.
-  const { data } = useQuery({ queryKey: ["appConfig"], queryFn: getAppConfig });
+  const { data } = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
   const draft = useSettingsDraft();
 
   return useMemo(() => {
