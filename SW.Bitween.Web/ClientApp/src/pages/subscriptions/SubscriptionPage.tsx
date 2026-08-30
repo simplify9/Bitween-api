@@ -107,11 +107,11 @@ export function SubscriptionPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [params, draft, subscription.data, setParams]);
 
-  const invalidate = () => {
-    const detail = queryClient.invalidateQueries({ queryKey: keys.subscriptions.detail(subscriptionId) });
-    void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
-    return detail;
-  };
+  // One call, because `all` is a prefix of `detail` and already covers it. Invalidating both
+  // cancelled the detail refetch the first call had just started (invalidateQueries cancels by
+  // default), so the promise awaited below belonged to the cancelled one and could resolve before
+  // the fresh data landed — the very race the await exists to prevent.
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
 
   const save = useMutation({
     mutationFn: () => api.updateSubscription(subscriptionId, draft!),

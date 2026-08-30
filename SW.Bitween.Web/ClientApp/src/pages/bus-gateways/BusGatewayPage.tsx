@@ -333,6 +333,11 @@ export function BusGatewayPage() {
       const fresh = await queryClient.fetchQuery({
         queryKey: keys.busGateways.detail(gatewayId),
         queryFn: () => api.getBusGateway(gatewayId),
+        // This has to be the saved gateway, not the one we already had: fetchQuery honours
+        // staleTime, and this key inherits the five minutes registered for bus gateways, so
+        // without this it returns the copy from before the save — and the new route would be
+        // missing from fresh.routes below.
+        staleTime: 0,
       });
       void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
       // Awaited before the drafts are dropped: re-seeding from stale data would leave the save bar
@@ -724,6 +729,9 @@ export function BusGatewayPage() {
             const fresh = await queryClient.fetchQuery({
               queryKey: keys.busGateways.detail(gatewayId),
               queryFn: () => api.getBusGateway(gatewayId),
+              // As above: the cached copy still lists the route that was just removed, and
+              // fresh.routes[0] below would select it.
+              staleTime: 0,
             });
             void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
             void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });

@@ -134,7 +134,10 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
     .getByRole("button", { name: "Remove route" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("No routes")).toBeVisible();
+  // The route list and the main panel both say this, so name the panel's heading: it shows only
+  // when no route is selected, which is the thing actually worth proving here — that removing
+  // the last route doesn't leave the page still pointing at it.
+  await expect(page.getByRole("heading", { name: /^No routes —/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Delete" }).click();
   await page
