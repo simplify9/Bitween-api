@@ -1,8 +1,11 @@
 using System;
+using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -329,6 +332,39 @@ namespace SW.Bitween.Web
             services.AddScoped<RunFlagUpdater>();
             services.AddControllers();
 
+            // Nothing was compressed before this: the SPA bundle went out at its full ~1 MB, and
+            // JSON list responses grow with the customer's data. Measured on the current bundle,
+            // gzip at Optimal takes it from 1,054 KB to 288 KB for ~15 ms of CPU.
+            //
+            // Gzip only, deliberately. .NET exposes just two useful Brotli levels and neither wins
+            // here: Fastest produces 329 KB (worse than gzip at Optimal) and Optimal produces
+            // 233 KB but costs ~0.9 s of CPU per megabyte, paid again by every cold visitor because
+            // nothing caches the compressed bytes server-side. Browsers prefer Brotli when it's
+            // offered, so registering it at Fastest would actively make the common case worse. The
+            // remaining 54 KB is only worth chasing by pre-compressing at build time.
+            //
+            // The explicit "text/javascript" matters — the static file middleware labels .js files
+            // that way, while the framework's default list only names "application/javascript", so
+            // relying on the defaults would silently skip the single largest response we serve.
+            //
+            // EnableForHttps is deliberate. TLS terminates here in local dev (and may in a
+            // deployment that doesn't front the pod with a proxy), so leaving it off would mean no
+            // compression at all in exactly the place we test it. The BREACH risk it guards against
+            // needs a secret and attacker-controlled text in the same response body; the API returns
+            // neither — auth tokens travel in headers and the Set-Cookie, never in a GET body.
+            services.AddResponseCompression(options =>
+            {
+                options.EnableForHttps = true;
+                options.Providers.Add<GzipCompressionProvider>();
+                options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+                {
+                    "text/javascript",
+                    "image/svg+xml",
+                });
+            });
+            services.Configure<GzipCompressionProviderOptions>(options =>
+                options.Level = CompressionLevel.Optimal);
+
 
             services.AddAuthentication()
                 .AddJwtBearer(configureOptions =>
@@ -395,6 +431,9 @@ namespace SW.Bitween.Web
         {
             app.UseSWConsoleLogger();
             app.UseForwardedHeaders();
+            // Early, so everything downstream — static files, the SPA fallback, every API
+            // response — is compressed on the way out.
+            app.UseResponseCompression();
 
             app.Use(async (context, next) =>
             {
@@ -418,17 +457,37 @@ namespace SW.Bitween.Web
                 if (!context.Request.Path.StartsWithSegments("/swagger"))
                     headers[ContentSecurityPolicyHeader] = ContentSecurityPolicy;
 
-                // Sensitive API responses (JSON) must not be cached by the browser or
-                // intermediaries. Scoped by content type so static assets stay cacheable.
+                // Every Cache-Control decision lives here, in one ordered set of rules, so they
+                // cannot contradict each other. Deferred to OnStarting because the content type
+                // is only known once whatever handled the request has decided what it's sending.
                 context.Response.OnStarting(() =>
                 {
-                    var contentType = context.Response.ContentType;
-                    if (!string.IsNullOrEmpty(contentType) &&
-                        (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase) ||
-                         contentType.Contains("+json", StringComparison.OrdinalIgnoreCase)))
+                    var contentType = context.Response.ContentType ?? "";
+                    var isJson = contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase) ||
+                                 contentType.Contains("+json", StringComparison.OrdinalIgnoreCase);
+
+                    if (isJson)
                     {
+                        // Sensitive API responses must not be cached by the browser or intermediaries.
                         context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate";
                     }
+                    else if (context.Request.Path.StartsWithSegments("/assets"))
+                    {
+                        // Vite content-hashes every filename under /assets, so the bytes behind a
+                        // given URL never change — a new build produces new URLs. Saying so lets a
+                        // returning browser skip the request entirely. Without this header it isn't
+                        // told anything and falls back to guessing a freshness window from the
+                        // file's age, which differs between browsers and shrinks after each deploy.
+                        context.Response.Headers["Cache-Control"] = "public, max-age=31536000, immutable";
+                    }
+                    else if (contentType.Contains("text/html", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // index.html is the one file whose URL survives a deploy, and it carries the
+                        // hashed asset names. It has to be revalidated every time: a heuristically
+                        // cached copy would keep pointing at assets the new build has replaced.
+                        context.Response.Headers["Cache-Control"] = "no-cache";
+                    }
+
                     return Task.CompletedTask;
                 });
 
