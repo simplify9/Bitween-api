@@ -13,6 +13,7 @@ import {
 import { NATIVE_JSON_MAPPER_ID, type ValidationError, type KeyValuePair } from "../../lib/mapping/types";
 import { generateScriban, parseScriban, resolveParentArrayIds } from "../../lib/mapping/scribanGenerator";
 import { kvpsToRecord, useValuesSetMap } from "./data";
+import { keys } from "../../api/queryKeys";
 
 // ─── Return type ──────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export function useSave(subscriptionId: number): UseSaveResult {
         mapperId: NATIVE_JSON_MAPPER_ID,
         mapperProperties: kvpsToRecord(props),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["subscription", subscriptionId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.subscriptions.detail(subscriptionId) }),
   });
   const isSaving = saveMapper.isPending;
   const [saveSuccess, setSaveSuccess] = useState(false);

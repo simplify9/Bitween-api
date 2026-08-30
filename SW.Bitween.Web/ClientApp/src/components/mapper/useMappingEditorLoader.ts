@@ -6,13 +6,14 @@ import {
   loadEditorContext,
 } from "../../lib/mapping/MappingEditorContext";
 import { recordToKvps } from "./data";
+import { keys } from "../../api/queryKeys";
 
 // Handles the two data-loading effects: clear-on-id-change and populate-on-data-arrive.
 // Fully self-contained — callers get no return value.
 export function useMappingEditorLoader(subscriptionId: number): void {
   const dispatch = useMappingEditorDispatch();
   const { data: subscriptionData } = useQuery({
-    queryKey: ["subscription", subscriptionId],
+    queryKey: keys.subscriptions.detail(subscriptionId),
     queryFn: () => api.getSubscription(subscriptionId),
     enabled: !!subscriptionId,
   });

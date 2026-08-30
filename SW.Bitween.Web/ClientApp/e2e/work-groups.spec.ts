@@ -14,13 +14,18 @@ test.beforeEach(async ({ page }) => {
 test("work group create, edit queue settings, list, delete", async ({ page }) => {
   const name = `Playwright Workgroup ${Date.now()}`;
 
-  await page.goto("work-groups/new");
-  await page.fill("#nwg-name", name);
-  await page.getByRole("button", { name: "Create work group" }).click();
+  // Creating happens in a dialog on the list page, not on a page of its own.
+  await page.goto("work-groups");
+  await page.getByRole("button", { name: "New work group" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "New work group" });
+  // `exact` keeps this off "Bus message name", which also contains "Name".
+  await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(name);
+  await dialog.getByRole("button", { name: "Create work group" }).click();
 
   await expect(page).toHaveURL(/\/work-groups\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
-  // Defaults from the new-page form.
+  // Defaults carried over from the create dialog.
   await expect(page.locator("#wg-prefetch")).toHaveValue("10");
   await expect(page.locator("#wg-priority")).toHaveValue("5");
 
@@ -36,9 +41,10 @@ test("work group create, edit queue settings, list, delete", async ({ page }) =>
   await page.goto("work-groups");
   const row = page.getByRole("row", { name: new RegExp(name) });
   await expect(row).toBeVisible();
-  // A brand-new group has no consumers and nothing assigned to it, so both of
-  // those render as an em dash.
-  await expect(row.getByText("—")).toHaveCount(2);
+  // Nothing is assigned to a brand-new group, so "Used by" is an em dash. Its consumer
+  // count is deliberately not asserted: declaring the group's queue makes the running
+  // instance a consumer of it straight away, so "Nodes" is legitimately 1, not blank.
+  await expect(row.getByRole("cell").nth(2)).toHaveText("—");
 
   await row.getByRole("button", { name: `Open ${name}` }).click();
   await expect(page).toHaveURL(/\/work-groups\/\d+$/);

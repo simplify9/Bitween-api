@@ -9,6 +9,7 @@ import { Badge, Button, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
+import { keys } from "../../api/queryKeys";
 
 /** Sections, in the order the backend catalog lists them. */
 const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section))];
@@ -226,7 +227,7 @@ function SettingRowEditor({
 export function SettingsPage() {
   const canEdit = useSessionCan("settings.edit");
   const queryClient = useQueryClient();
-  const { data: rows, isLoading } = useQuery({ queryKey: ["settings"], queryFn: () => api.listSettings() });
+  const { data: rows, isLoading } = useQuery({ queryKey: keys.settings.list, queryFn: () => api.listSettings() });
   const draft = useSettingsDraft();
 
   const [searchParams] = useSearchParams();
@@ -249,11 +250,11 @@ export function SettingsPage() {
     },
     onSuccess: () => {
       settingsDraft.discardAll();
-      void queryClient.invalidateQueries({ queryKey: ["settings"] });
+      void queryClient.invalidateQueries({ queryKey: keys.settings.all });
       // Branding everywhere reads the memoised config payload, so it has to be re-fetched
       // for a saved brand change to stick once the draft preview is dropped.
       resetAppConfig();
-      void queryClient.invalidateQueries({ queryKey: ["appConfig"] });
+      void queryClient.invalidateQueries({ queryKey: keys.appConfig });
     },
   });
 

@@ -14,6 +14,7 @@ import { Table } from "../../components/ui/Table";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { PromotedProps } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 const PAGE_SIZE = 25;
 
@@ -37,7 +38,7 @@ export function ScheduledRetriesPage() {
   const { can } = useSession();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["scheduled-retries", searchParams.toString()],
+    queryKey: keys.scheduledRetries.search(searchParams.toString()),
     queryFn: () => api.searchScheduledRetries(query),
     refetchInterval: 30_000,
     placeholderData: keepPreviousData,
@@ -45,7 +46,7 @@ export function ScheduledRetriesPage() {
 
   const subscriptions = useSubscriptionsCache().data ?? [];
   const infoTypes =
-    useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
+    useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? [];
 
   const setParam = (key: string, value: string | null, resetOffset = true) => {
     const next = new URLSearchParams(searchParams);
@@ -62,8 +63,8 @@ export function ScheduledRetriesPage() {
   const runNow = useMutation({
     mutationFn: (id: string) => api.runScheduledRetryNow(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["scheduled-retries"] });
-      void queryClient.invalidateQueries({ queryKey: ["exchanges"] });
+      void queryClient.invalidateQueries({ queryKey: keys.scheduledRetries.all });
+      void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
     },
   });
 

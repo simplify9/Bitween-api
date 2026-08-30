@@ -11,6 +11,7 @@ import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
+import { keys } from "../../api/queryKeys";
 
 function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -20,8 +21,7 @@ function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
   const create = useMutation({
     mutationFn: () => api.createNotifier({ name }),
     onSuccess: (notifier) => {
-      void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
-      void queryClient.invalidateQueries({ queryKey: ["notifiers-search"] });
+      void queryClient.invalidateQueries({ queryKey: keys.notifiers.all });
       navigate(`/notifiers/${notifier.id}`);
     },
   });
@@ -70,7 +70,7 @@ export function NotifiersPage() {
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
   const notifiers = useQuery({
-    queryKey: ["notifiers-search", q, offset],
+    queryKey: keys.notifiers.search({ q, offset }),
     queryFn: () => api.searchNotifiers({ search: q, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });

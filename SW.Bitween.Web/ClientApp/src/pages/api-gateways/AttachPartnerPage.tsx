@@ -6,6 +6,7 @@ import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui
 import { Field } from "../../components/ui/forms";
 import { SubscriptionPicker, PartnerPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -37,7 +38,7 @@ export function AttachPartnerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const gateway = useQuery({
-    queryKey: ["api-gateway", gatewayId],
+    queryKey: keys.apiGateways.detail(gatewayId),
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });

@@ -15,7 +15,7 @@ import {
   type RetryUsageRow,
   type Paged,
 } from "../types";
-import { get, getEnrichment, post, request } from "./request";
+import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
@@ -26,6 +26,8 @@ interface RawRetryPolicyRow {
   id: number;
   name: string;
   groupCount: number;
+  /** Counted by the backend — see RetryPolicyRow.UsedByCount. */
+  usedByCount: number;
 }
 interface RawRetryPolicy {
   name: string;
@@ -228,21 +230,13 @@ interface RawAttempt {
 
 export const retryPolicyMethods = {
   async listRetryPolicies(): Promise<RetryPolicyListRow[]> {
-    const [res, subs] = await Promise.all([
-      get<SearchyResponse<RawRetryPolicyRow>>("/retrypolicies"),
-      getEnrichment<SearchyResponse<{ retryPolicyId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
-    ]);
-    const countByRetryPolicy = new Map<number, number>();
-    for (const s of subs.result ?? []) {
-      if (s.retryPolicyId == null) continue;
-      countByRetryPolicy.set(s.retryPolicyId, (countByRetryPolicy.get(s.retryPolicyId) ?? 0) + 1);
-    }
+    const res = await get<SearchyResponse<RawRetryPolicyRow>>("/retrypolicies");
     return (res.result ?? []).map((p) => ({
       id: p.id,
       name: p.name,
       groupCount: p.groupCount,
       createdOn: "",
-      usedByCount: countByRetryPolicy.get(p.id) ?? 0,
+      usedByCount: p.usedByCount,
     }));
   },
 
@@ -256,15 +250,7 @@ export const retryPolicyMethods = {
       offset: query.offset,
       limit: query.limit,
     });
-    const [res, subs] = await Promise.all([
-      get<SearchyResponse<RawRetryPolicyRow>>(`/retrypolicies?${qs}`),
-      getEnrichment<SearchyResponse<{ retryPolicyId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
-    ]);
-    const countByRetryPolicy = new Map<number, number>();
-    for (const s of subs.result ?? []) {
-      if (s.retryPolicyId == null) continue;
-      countByRetryPolicy.set(s.retryPolicyId, (countByRetryPolicy.get(s.retryPolicyId) ?? 0) + 1);
-    }
+    const res = await get<SearchyResponse<RawRetryPolicyRow>>(`/retrypolicies?${qs}`);
     return {
       total: res.totalCount,
       result: (res.result ?? []).map((p) => ({
@@ -272,7 +258,7 @@ export const retryPolicyMethods = {
         name: p.name,
         groupCount: p.groupCount,
         createdOn: "",
-        usedByCount: countByRetryPolicy.get(p.id) ?? 0,
+        usedByCount: p.usedByCount,
       })),
     };
   },

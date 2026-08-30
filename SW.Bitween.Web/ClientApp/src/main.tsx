@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router";
 import { NotWiredError } from "./api/types";
+import { applyQueryDefaults } from "./api/queryKeys";
 import { SessionProvider } from "./auth/SessionContext";
 import { router } from "./router";
 import "./index.css";
@@ -18,7 +19,13 @@ if (base !== "/" && !window.location.pathname.startsWith(base.replace(/\/$/, "")
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      // A floor, not the policy: per-entity windows are registered by applyQueryDefaults below and
+      // override this. It only governs a query whose key isn't in the catalog, where the safe
+      // answer is "refetch on mount, but don't do it twice in ten seconds".
       staleTime: 10_000,
+      // Kept long enough that going back to a page you were just on renders from cache instead of
+      // re-fetching. Was the 5-minute default, which is shorter than a train of thought.
+      gcTime: 30 * 60_000,
       refetchOnWindowFocus: false,
       // NotWiredError is permanent (the method will reject every time, with no
       // network round-trip) — retrying it just stalls "Loading…" states for the
@@ -27,6 +34,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+applyQueryDefaults(queryClient);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

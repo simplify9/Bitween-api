@@ -12,6 +12,7 @@ import { Dialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
 import { suggestSlug } from "../../lib/identifiers";
+import { keys } from "../../api/queryKeys";
 
 function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   const create = useMutation({
     mutationFn: () => api.createValueSet({ id: slug, name, values: {} }),
     onSuccess: (set) => {
-      void queryClient.invalidateQueries({ queryKey: ["value-sets"] });
+      void queryClient.invalidateQueries({ queryKey: keys.valueSets.all });
       navigate(`/global-values/${set.id}`);
     },
   });
@@ -94,7 +95,7 @@ export function GlobalValueSetsPage() {
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const creating = searchParams.get("new") === "1";
 
-  const sets = useQuery({ queryKey: ["value-sets"], queryFn: () => api.listValueSets() });
+  const sets = useQuery({ queryKey: keys.valueSets.list, queryFn: () => api.listValueSets() });
   const subscriptions = useSubscriptionsCache().data ?? [];
 
   const setParam = (key: string, value: string | null) =>

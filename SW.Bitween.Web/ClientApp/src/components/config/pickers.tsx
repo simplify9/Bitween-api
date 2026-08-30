@@ -9,6 +9,7 @@ import { InformationTypeDialog } from "./InformationTypeDialog";
 import { SubscriptionDialog } from "./SubscriptionDialog";
 import { PartnerDialog } from "./PartnerDialog";
 import { useSubscriptionsCache } from "./shared";
+import { keys } from "../../api/queryKeys";
 
 /*
  * Pick-one controls used inside flows. Creating or amending the thing you are
@@ -77,7 +78,7 @@ export function InfoTypePicker({
   busRequired?: boolean;
   id?: string;
 }) {
-  const types = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() });
+  const types = useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() });
   const canCreate = useSessionCan("documents.create");
   const canEdit = useSessionCan("documents.edit");
   /** undefined = closed, null = creating, number = editing that type. */
@@ -147,7 +148,7 @@ export function SubscriptionPicker({
   onDefineHere?: () => void;
 }) {
   const subscriptions = useSubscriptionsCache();
-  const infoTypes = useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() });
+  const infoTypes = useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() });
   const canCreate = useSessionCan("subscriptions.create");
   const [creating, setCreating] = useState(false);
 
@@ -222,7 +223,7 @@ export function PartnerPicker({
   excludeIds?: number[];
   id?: string;
 }) {
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
+  const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
   const canCreate = useSessionCan("partners.create");
   const canEdit = useSessionCan("partners.edit");
   /** undefined = closed, null = creating, number = editing that partner. */

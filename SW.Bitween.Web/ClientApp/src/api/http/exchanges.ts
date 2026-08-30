@@ -9,6 +9,7 @@ import type {
 } from "../types";
 import { partnerMethods } from "./partners";
 import { get, post } from "./request";
+import { searchyQueryString } from "./searchQuery";
 
 // ——— backend shapes (camelCase over the wire) ———
 interface SearchyResponse<T> {
@@ -145,7 +146,7 @@ function buildExchangeQuery(query: ExchangeQuery): string {
   if (query.to) params.append("filter", `StartedOn:8:${query.to}`);
   params.set("page", String(Math.floor(query.offset / query.limit)));
   params.set("size", String(query.limit));
-  return params.toString();
+  return searchyQueryString(params);
 }
 
 function buildScheduledRetryQuery(query: ScheduledRetryQuery): string {
@@ -157,7 +158,7 @@ function buildScheduledRetryQuery(query: ScheduledRetryQuery): string {
   if (query.to) params.append("filter", `On:8:${query.to}`);
   params.set("page", String(Math.floor(query.offset / query.limit)));
   params.set("size", String(query.limit));
-  return params.toString();
+  return searchyQueryString(params);
 }
 
 async function partnerNameMap(): Promise<Map<number, string>> {

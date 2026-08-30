@@ -9,6 +9,7 @@ import { CodeBadge } from "../ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "./AdapterConfig";
 import { InfoTypePicker } from "./pickers";
 import { adapterIncomplete } from "../../pages/subscriptions/studio/faces";
+import { keys } from "../../api/queryKeys";
 
 /**
  * A new gateway-backed subscription, asked down to what it cannot run without: a
@@ -35,9 +36,8 @@ export function SubscriptionDialog({
   const queryClient = useQueryClient();
   const handlers = useAdapterCatalog("handler");
   const infoTypes = useQuery({
-    queryKey: ["information-types"],
+    queryKey: keys.informationTypes.list,
     queryFn: () => api.listInformationTypes(),
-    staleTime: Infinity,
   });
 
   const [name, setName] = useState("");
@@ -61,9 +61,7 @@ export function SubscriptionDialog({
         enabled: true,
       }),
     onSuccess: (created) => {
-      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
       onCreated(created.id);
       onClose();
     },

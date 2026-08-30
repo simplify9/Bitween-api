@@ -18,6 +18,8 @@ const ADMINISTRATOR_ROLE_ID = 1;
 
 const TEST_EMAIL = /^pw-.*@example\.test$/;
 const TEST_ROLE = /^PW /;
+/** Everything the suite creates is named this way, so it can be found again and removed. */
+const TEST_NAME = /^Playwright /;
 /** The only settings the suite writes to — see the reset below for why this is a list, not "all". */
 const TEST_SETTINGS = ["Theme.PrimaryColor", "Theme.TabTitle", "Theme.CompanyName"];
 
@@ -80,6 +82,34 @@ export default async function purgeTestData() {
   // would destroy real configuration with no way to get it back.
   for (const key of TEST_SETTINGS)
     await api.delete(`${API}/settings/${encodeURIComponent(key)}`, { headers: auth() });
+
+  // The domain objects the suite creates outlive a failed run too, and they are not harmless
+  // either: enough of them push a newly created row off the first page of a list, and the tests
+  // that look for their own row then fail for a reason that has nothing to do with them.
+  //
+  // Order matters. A gateway holds attachments and routes that reference subscriptions, so the
+  // gateways go first or the subscriptions underneath them refuse to delete.
+  const purge = async (list: string, remove: (id: number) => Promise<unknown>) => {
+    const res = await api.get(`${API}/${list}?size=500&limit=500`, { headers: auth() });
+    if (!res.ok()) return;
+    const rows = ((await res.json()).result ?? []) as { id: number; name: string }[];
+    for (const row of rows.filter((r) => TEST_NAME.test(r.name ?? ""))) {
+      // Best effort: something still referencing a row is not a reason to abandon the rest.
+      try {
+        await remove(row.id);
+      } catch {
+        /* leave it for the next run */
+      }
+    }
+  };
+
+  await purge("apigateways", (id) => api.delete(`${API}/apigateways/${id}`, { headers: auth() }));
+  await purge("busgateways", (id) => api.delete(`${API}/busgateways/${id}`, { headers: auth() }));
+  await purge("subscriptions", (id) => api.delete(`${API}/subscriptions/${id}`, { headers: auth() }));
+  await purge("workgroups", (id) =>
+    api.post(`${API}/workgroups/${id}/delete`, { headers: auth(), data: {} }),
+  );
+  await purge("documents", (id) => api.delete(`${API}/documents/${id}`, { headers: auth() }));
 
   await api.dispose();
 }

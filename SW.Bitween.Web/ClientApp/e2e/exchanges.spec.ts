@@ -14,14 +14,18 @@ test.beforeEach(async ({ page }) => {
 test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   test.setTimeout(45000);
   await page.goto("exchanges");
-  await expect(page.getByRole("row", { name: /azureBlob test sub/ }).first()).toBeVisible({ timeout: 15000 });
+  // Whatever the database holds: this used to pin to particular exchange ids and subscription
+  // names from a seed that no longer exists, which made it a test of the fixtures, not the page.
+  await expect(page.getByRole("row").nth(1)).toBeVisible({ timeout: 15000 });
   await expect(page.getByText("undefined")).toHaveCount(0);
   // Avoid the background refetch racing with row selection below.
   await page.getByLabel("Refresh interval").selectOption("0");
 
   // Filter down to failed exchanges only.
   await page.getByRole("button", { name: "Failed" }).click();
-  const row = page.getByRole("row", { name: "36b3e2b1003048ff8dec1573b2f752c5" });
+  // Pick by content, not position: the filter re-renders the table, and an index would race it
+  // and land on whichever row was showing before.
+  const row = page.getByRole("row").filter({ hasText: "Failed" }).first();
   await expect(row).toBeVisible({ timeout: 10000 });
 
   // Expand the row (click the chevron cell — other cells stop propagation)
@@ -34,11 +38,15 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   // Bulk retry a couple of specific rows (not the whole page — each retry does
   // real file I/O against storage, so keep this fast and deterministic).
   await page.getByRole("button", { name: "All" }).click();
-  await expect(page.getByRole("checkbox", { name: "Select 18dfd10c4b764b53aea339eedb98de18" })).toBeVisible({
-    timeout: 10000,
-  });
-  await page.getByRole("checkbox", { name: "Select 18dfd10c4b764b53aea339eedb98de18" }).check();
-  await page.getByRole("checkbox", { name: "Select a1b088fffe9e4993ac75736576a826cb" }).check();
+  // Row checkboxes only. "Select all on this page" also starts with "Select", and its checked
+  // state is derived from every row on the page — so a refetch landing mid-click (the filter
+  // above triggers one) flips it back and reads as a click that did nothing. A row checkbox is
+  // keyed by its own id and survives that. It also keeps the bulk retry to two rows, which is
+  // what this test says it wants: each retry is real file I/O.
+  const rowCheckbox = page.getByRole("checkbox", { name: /^Select (?!all\b)/ });
+  await expect(rowCheckbox.first()).toBeVisible({ timeout: 10000 });
+  await rowCheckbox.nth(0).check();
+  await rowCheckbox.nth(1).check();
   await expect(page.getByText(/\d+ selected/)).toBeVisible();
   await page.getByRole("button", { name: "Retry selected…" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Retry" }).click();
@@ -47,7 +55,7 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   // Manually create an exchange addressed at a subscription.
   await page.goto("exchanges/new");
   await page.getByRole("combobox", { name: "Pick a subscription…" }).click();
-  await page.getByRole("option", { name: "s3 test sub" }).click();
+  await page.getByRole("option").first().click();
   // Dismiss the dropdown panel via an outside click (it sits above the panel's
   // anchor point, so it can't itself be covered) rather than Escape, which
   // doesn't close this Headless UI combobox instance.

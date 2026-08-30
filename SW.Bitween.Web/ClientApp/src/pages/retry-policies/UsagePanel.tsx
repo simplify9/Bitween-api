@@ -8,6 +8,7 @@ import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { Panel } from "../../components/ui/Panel";
 import { formatDateTime, timeAgo } from "../../lib/dates";
 import { AlertRouting } from "./AlertRouting";
+import { keys } from "../../api/queryKeys";
 
 /**
  * What each retry budget of this policy has actually spent, and whether anyone was told when
@@ -120,7 +121,7 @@ function AlertedCell({ row }: { row: RetryUsageRow }) {
 /** The failures a pair spent its budget on, fetched only once the row is opened. */
 function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
   const q = useQuery({
-    queryKey: ["retry-attempts", policyId, row.subscriptionId, row.groupId],
+    queryKey: keys.retryUsage.attempts(policyId, row.subscriptionId, row.groupId),
     queryFn: () => api.getRetryAttempts(policyId, { subscriptionId: row.subscriptionId, groupId: row.groupId }),
   });
 
@@ -209,7 +210,7 @@ function OverrideDialog({
   const save = useMutation({
     mutationFn: () => api.saveRetryAlertOverride(policyId, { ...value, subscriptionId: row.subscriptionId, groupId: row.groupId }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["retry-usage"] });
+      await queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
       onClose();
     },
   });
@@ -270,9 +271,9 @@ export function UsagePanel({
   const [overriding, setOverriding] = useState<RetryUsageRow | null>(null);
   const [resetting, setResetting] = useState<RetryUsageRow | "all" | null>(null);
 
-  const usage = useQuery({ queryKey: ["retry-usage", policyId], queryFn: () => api.getRetryUsage(policyId) });
+  const usage = useQuery({ queryKey: keys.retryUsage.forPolicy(policyId), queryFn: () => api.getRetryUsage(policyId) });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["retry-usage"] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
 
   if (usage.isPending) return <LoadingBlock label="Loading budget usage…" />;
   if (usage.isError)

@@ -6,8 +6,10 @@ import {
   deleteRole,
   removeMember,
   signIn,
+  openMember,
   signInAsAdmin,
   signOut,
+  startsWith,
 } from "./helpers";
 
 /**
@@ -168,7 +170,14 @@ test("editing a role changes what its members can do, without them signing in ag
 
 test("a member with no roles at all sees nothing and can do nothing", async ({ page }) => {
   await signInAsAdmin(page);
-  const email = await addMember(page, { name: "No Roles", roles: [] });
+  // A member cannot be created without a role — the server refuses an empty one — so the
+  // roleless state is reached the only way it can be: by taking their one role away after.
+  const email = await addMember(page, { name: "No Roles", roles: ["Viewer"] });
+  await openMember(page, email);
+  const drawer = page.getByRole("dialog", { name: "Member details" });
+  await drawer.getByRole("checkbox", { name: startsWith("Viewer") }).uncheck();
+  await drawer.getByRole("button", { name: "Save roles" }).click();
+  await expect(drawer.getByRole("button", { name: "Save roles" })).toHaveCount(0);
 
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);

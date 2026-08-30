@@ -28,6 +28,13 @@ public class WorkGroupModel
     public long? NotifierQueueCount { get; set; }
     /// <summary>Live count of active RabbitMQ consumer instances for this group's queue.</summary>
     public long? ProcessorNodeCount { get; set; }
+
+    /// <summary>
+    /// How many subscriptions run in this work group. Counted here because the admin UI shows it
+    /// in the list: computing it client-side meant downloading every subscription alongside every
+    /// page of this list.
+    /// </summary>
+    public int UsedByCount { get; set; }
 }
 
 public class CreateWorkGroupModel

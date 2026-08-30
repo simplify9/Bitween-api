@@ -11,6 +11,7 @@ import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
 import { statusBadge } from "./MembersTab";
+import { keys } from "../../api/queryKeys";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -25,8 +26,8 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   const { session, can } = useSession();
   const queryClient = useQueryClient();
 
-  const user = useQuery({ queryKey: ["user", userId], queryFn: () => api.getUser(userId), retry: false });
-  const roles = useQuery({ queryKey: ["roles"], queryFn: () => api.listRoles() });
+  const user = useQuery({ queryKey: keys.users.detail(userId), queryFn: () => api.getUser(userId), retry: false });
+  const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
   const [draftRoleIds, setDraftRoleIds] = useState<string[] | null>(null);
   const [confirming, setConfirming] = useState<"remove" | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -42,9 +43,8 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   }, [onClose]);
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["users"] });
-    void queryClient.invalidateQueries({ queryKey: ["user", userId] });
-    void queryClient.invalidateQueries({ queryKey: ["roles"] });
+    void queryClient.invalidateQueries({ queryKey: keys.users.all });
+    void queryClient.invalidateQueries({ queryKey: keys.roles.all });
   };
 
   const saveRoles = useMutation({

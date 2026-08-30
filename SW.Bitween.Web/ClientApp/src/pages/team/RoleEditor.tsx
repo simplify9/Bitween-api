@@ -17,6 +17,7 @@ import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basi
 import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 /** Live answer to "what would someone with this role actually see?" */
 function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
@@ -73,7 +74,7 @@ export function RoleEditor() {
   const areas = catalog.data ?? [];
 
   const source = useQuery({
-    queryKey: ["role", sourceId],
+    queryKey: keys.roles.detail(sourceId),
     queryFn: () => api.getRole(sourceId!),
     enabled: sourceId !== null,
     retry: false,
@@ -127,8 +128,7 @@ export function RoleEditor() {
       return isNew ? api.createRole(input) : api.updateRole(id!, input);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["roles"] });
-      void queryClient.invalidateQueries({ queryKey: ["role", id] });
+      void queryClient.invalidateQueries({ queryKey: keys.roles.all });
       navigate("/team/roles");
     },
   });
@@ -355,7 +355,7 @@ export function RoleEditor() {
           confirmLabel="Delete role"
           onConfirm={async () => {
             await api.deleteRole(id!);
-            void queryClient.invalidateQueries({ queryKey: ["roles"] });
+            void queryClient.invalidateQueries({ queryKey: keys.roles.all });
             navigate("/team/roles");
           }}
           onClose={() => setConfirmingDelete(false)}

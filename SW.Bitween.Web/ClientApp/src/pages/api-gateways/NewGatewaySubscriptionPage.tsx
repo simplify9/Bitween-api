@@ -16,6 +16,7 @@ import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
 import { ResponseFields } from "../subscriptions/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -73,7 +74,7 @@ export function NewGatewaySubscriptionPage() {
   const [stage, setStage] = useState<StageId | null>("delivery");
 
   const gateway = useQuery({
-    queryKey: ["api-gateway", gatewayId],
+    queryKey: keys.apiGateways.detail(gatewayId),
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });
@@ -111,9 +112,7 @@ export function NewGatewaySubscriptionPage() {
         enabled: true,
       }),
     onSuccess: (created) => {
-      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
       backToAttach({ picked: String(created.id) });
     },
   });

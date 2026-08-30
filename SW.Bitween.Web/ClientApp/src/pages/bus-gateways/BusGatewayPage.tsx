@@ -24,6 +24,7 @@ import {
 import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { RouteList, type Selection } from "./studio/RouteList";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 import {
   BUS_NODES,
   NEW_ROUTE,
@@ -74,19 +75,19 @@ export function BusGatewayPage() {
   const [params, setParams] = useSearchParams();
 
   const gateway = useQuery({
-    queryKey: ["bus-gateway", gatewayId],
+    queryKey: keys.busGateways.detail(gatewayId),
     queryFn: () => api.getBusGateway(gatewayId),
     retry: false,
   });
   // One list serves three needs: the gateway's own promoted properties, its bus
   // message name, and resolving which type carries a published response.
   const informationTypes = useQuery({
-    queryKey: ["information-types"],
+    queryKey: keys.informationTypes.list,
     queryFn: () => api.listInformationTypes(),
   });
   // Every gateway, because a response on the bus wakes routes on all of them.
-  const allGateways = useQuery({ queryKey: ["bus-gateways"], queryFn: () => api.listBusGateways() });
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
+  const allGateways = useQuery({ queryKey: keys.busGateways.list, queryFn: () => api.listBusGateways() });
+  const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
   const rowsById = useSubscriptionRowsById();
   const allSubscriptions = useSubscriptionsCache();
   const catalogs = {
@@ -160,7 +161,7 @@ export function BusGatewayPage() {
 
   const id0 = routeEdit?.draft.subscriptionId ?? null;
   const q0 = useQuery({
-    queryKey: ["subscription", id0],
+    queryKey: keys.subscriptions.detail(id0),
     queryFn: () => api.getSubscription(id0!),
     // The subscription being defined here has no server side to fetch yet.
     enabled: id0 !== null && id0 !== NEW_SUBSCRIPTION_ID,
@@ -168,14 +169,14 @@ export function BusGatewayPage() {
   const d0 = useHopDraft(edit, id0, q0.data);
   const id1 = d0?.responseSubscriptionId ?? null;
   const q1 = useQuery({
-    queryKey: ["subscription", id1],
+    queryKey: keys.subscriptions.detail(id1),
     queryFn: () => api.getSubscription(id1!),
     enabled: id1 !== null,
   });
   const d1 = useHopDraft(edit, id1, q1.data);
   const id2 = d1?.responseSubscriptionId ?? null;
   const q2 = useQuery({
-    queryKey: ["subscription", id2],
+    queryKey: keys.subscriptions.detail(id2),
     queryFn: () => api.getSubscription(id2!),
     enabled: id2 !== null,
   });
@@ -330,15 +331,18 @@ export function BusGatewayPage() {
       // Both awaited before the drafts are dropped: re-seeding from stale data
       // would leave the save bar up over changes that are already saved.
       const fresh = await queryClient.fetchQuery({
-        queryKey: ["bus-gateway", gatewayId],
+        queryKey: keys.busGateways.detail(gatewayId),
         queryFn: () => api.getBusGateway(gatewayId),
+        // This has to be the saved gateway, not the one we already had: fetchQuery honours
+        // staleTime, and this key inherits the five minutes registered for bus gateways, so
+        // without this it returns the copy from before the save — and the new route would be
+        // missing from fresh.routes below.
+        staleTime: 0,
       });
-      if (edit && edit.subscriptionId !== NEW_SUBSCRIPTION_ID)
-        await queryClient.invalidateQueries({ queryKey: ["subscription", edit.subscriptionId] });
-      void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows"] });
-      void queryClient.invalidateQueries({ queryKey: ["subscription-rows-search"] });
+      void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
+      // Awaited before the drafts are dropped: re-seeding from stale data would leave the save bar
+      // up over changes that are already saved. Covers the edited route's own subscription too.
+      await queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
       setRouteEdit(null);
       setEdit(null);
       setName(fresh.name);
@@ -723,11 +727,14 @@ export function BusGatewayPage() {
           onConfirm={async () => {
             await api.removeBusRoute(gatewayId, removingRoute);
             const fresh = await queryClient.fetchQuery({
-              queryKey: ["bus-gateway", gatewayId],
+              queryKey: keys.busGateways.detail(gatewayId),
               queryFn: () => api.getBusGateway(gatewayId),
+              // As above: the cached copy still lists the route that was just removed, and
+              // fresh.routes[0] below would select it.
+              staleTime: 0,
             });
-            void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
-            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+            void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
+            void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
             setRouteEdit(null);
             setEdit(null);
             setQuery({ route: fresh.routes[0] ? String(fresh.routes[0].id) : null, hop: null });
@@ -747,8 +754,7 @@ export function BusGatewayPage() {
           confirmLabel={g.inactive ? "Activate" : "Deactivate"}
           onConfirm={async () => {
             await api.updateBusGateway(gatewayId, { name: g.name, inactive: !g.inactive });
-            await queryClient.invalidateQueries({ queryKey: ["bus-gateway", gatewayId] });
-            void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
+            await queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
           }}
           onClose={() => setConfirmingActive(false)}
         />
@@ -766,8 +772,8 @@ export function BusGatewayPage() {
           confirmLabel="Delete gateway"
           onConfirm={async () => {
             await api.deleteBusGateway(gatewayId);
-            void queryClient.invalidateQueries({ queryKey: ["bus-gateways"] });
-            void queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+            void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
+            void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
             navigate("/bus-gateways");
           }}
           onClose={() => setDeletingGateway(false)}

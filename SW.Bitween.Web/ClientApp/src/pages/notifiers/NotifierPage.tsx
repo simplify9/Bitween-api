@@ -14,6 +14,7 @@ import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { timeAgo } from "../../lib/dates";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
@@ -72,7 +73,7 @@ export function NotifierPage() {
   const canEdit = useSessionCan("notifiers.edit");
 
   const notifier = useQuery({
-    queryKey: ["notifier", notifierId],
+    queryKey: keys.notifiers.detail(notifierId),
     queryFn: () => api.getNotifier(notifierId),
     retry: false,
   });
@@ -101,10 +102,8 @@ export function NotifierPage() {
   const save = useMutation({
     mutationFn: () => api.updateNotifier(notifierId, draft!),
     onSuccess: async () => {
-      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
-      await queryClient.invalidateQueries({ queryKey: ["notifier", notifierId] });
-      void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
-      void queryClient.invalidateQueries({ queryKey: ["notifiers-search"] });
+      // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
+      await queryClient.invalidateQueries({ queryKey: keys.notifiers.all });
       setLoaded(false);
     },
   });
@@ -354,8 +353,7 @@ export function NotifierPage() {
           confirmLabel="Delete notifier"
           onConfirm={async () => {
             await api.deleteNotifier(notifierId);
-            void queryClient.invalidateQueries({ queryKey: ["notifiers"] });
-      void queryClient.invalidateQueries({ queryKey: ["notifiers-search"] });
+            void queryClient.invalidateQueries({ queryKey: keys.notifiers.all });
             navigate("/notifiers");
           }}
           onClose={() => setDeleting(false)}

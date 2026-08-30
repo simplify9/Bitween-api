@@ -5,10 +5,11 @@ import { api } from "../../api";
 import { allKeysIn, usePermissionCatalog } from "../../api/permissions";
 import { Can } from "../../auth/guards";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { keys } from "../../api/queryKeys";
 
 export function RolesTab() {
   const navigate = useNavigate();
-  const roles = useQuery({ queryKey: ["roles"], queryFn: () => api.listRoles() });
+  const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
   const totalPermissions = allKeysIn(usePermissionCatalog().data ?? []).length;
 
   if (roles.isPending) return <LoadingBlock label="Loading roles…" />;

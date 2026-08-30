@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Dialog } from "../ui/overlays";
+import { keys } from "../../api/queryKeys";
 import {
   EMPTY_INFORMATION_TYPE,
   InformationTypeFields,
@@ -41,7 +42,7 @@ export function InformationTypeDialog({
   const canEdit = useSessionCan("documents.edit");
 
   const existing = useQuery({
-    queryKey: ["information-type", typeId],
+    queryKey: keys.informationTypes.detail(typeId),
     queryFn: () => api.getInformationType(typeId!),
     enabled: typeId !== null,
   });
@@ -78,8 +79,7 @@ export function InformationTypeDialog({
       return (await api.createInformationType(body)).id;
     },
     onSuccess: async (savedId) => {
-      void queryClient.invalidateQueries({ queryKey: ["information-types"] });
-      await queryClient.invalidateQueries({ queryKey: ["information-type", savedId] });
+      await queryClient.invalidateQueries({ queryKey: keys.informationTypes.all });
       onSaved?.({ id: savedId, busMessageTypeName: informationTypeChanges(draft!).busMessageTypeName ?? "" });
       if (typeId === null) {
         onClose();

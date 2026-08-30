@@ -13,6 +13,7 @@ import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 const PAGE_SIZE = 25;
 
@@ -57,13 +58,13 @@ export function InformationTypesPage() {
   const filtering = subscriptionIds.length > 0;
 
   const serverSearch = useQuery({
-    queryKey: ["information-types-search", q, format, busEnabled, offset],
+    queryKey: keys.informationTypes.search({ q, format, busEnabled, offset }),
     queryFn: () => api.searchInformationTypes({ search: q, format, busEnabled, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
     enabled: !filtering,
   });
   const allTypes = useQuery({
-    queryKey: ["information-types-all"],
+    queryKey: keys.informationTypes.list,
     queryFn: () => api.listInformationTypes(),
     enabled: filtering,
   });

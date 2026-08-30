@@ -10,6 +10,7 @@ import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/u
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 import {
   SUBSCRIPTION_TYPE_LABELS,
   SubscriptionMiniList,
@@ -23,7 +24,7 @@ export function GlobalValueSetPage() {
   const canEdit = useSessionCan("global-values.edit");
 
   const set = useQuery({
-    queryKey: ["value-set", id],
+    queryKey: keys.valueSets.detail(id),
     queryFn: () => api.getValueSet(id),
     retry: false,
   });
@@ -50,9 +51,8 @@ export function GlobalValueSetPage() {
   const save = useMutation({
     mutationFn: () => api.updateValueSet(id, { name, values: toRecord(rows ?? []) }),
     onSuccess: async () => {
-      // Await the detail refetch before re-syncing the draft (avoids stale-data race).
-      await queryClient.invalidateQueries({ queryKey: ["value-set", id] });
-      void queryClient.invalidateQueries({ queryKey: ["value-sets"] });
+      // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
+      await queryClient.invalidateQueries({ queryKey: keys.valueSets.all });
       setLoaded(false);
     },
   });
@@ -186,7 +186,7 @@ export function GlobalValueSetPage() {
           confirmLabel="Delete value set"
           onConfirm={async () => {
             await api.deleteValueSet(id);
-            void queryClient.invalidateQueries({ queryKey: ["value-sets"] });
+            void queryClient.invalidateQueries({ queryKey: keys.valueSets.all });
             navigate("/global-values");
           }}
           onClose={() => setDeleting(false)}

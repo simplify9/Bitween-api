@@ -10,6 +10,7 @@ import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { ExchangesList, SetupList, usePartnerSubscriptions } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
+import { keys } from "../../api/queryKeys";
 import {
   PartnerFields,
   partnerChanges,
@@ -26,7 +27,7 @@ export function PartnerPage() {
   const canEdit = useSessionCan("partners.edit");
 
   const partner = useQuery({
-    queryKey: ["partner", partnerId],
+    queryKey: keys.partners.detail(partnerId),
     queryFn: () => api.getPartner(partnerId),
     retry: false,
   });
@@ -53,10 +54,9 @@ export function PartnerPage() {
   const save = useMutation({
     mutationFn: () => api.updatePartner(partnerId, partnerChanges(draft!)),
     onSuccess: async () => {
-      // Await the detail refetch BEFORE re-syncing the draft, so the re-sync
-      // effect reads the freshly-saved server data (not the stale cache).
-      await queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
-      void queryClient.invalidateQueries({ queryKey: ["partners"] });
+      // Awaited BEFORE the draft is re-synced, so the re-sync effect reads the
+      // freshly-saved server data (not the stale cache).
+      await queryClient.invalidateQueries({ queryKey: keys.partners.all });
       setLoaded(false);
     },
   });
@@ -206,7 +206,7 @@ export function PartnerPage() {
           confirmLabel="Delete partner"
           onConfirm={async () => {
             await api.deletePartner(partnerId);
-            void queryClient.invalidateQueries({ queryKey: ["partners"] });
+            void queryClient.invalidateQueries({ queryKey: keys.partners.all });
             navigate("/partners");
           }}
           onClose={() => setDeleting(false)}

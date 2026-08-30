@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 
+/** A seeded partner, used for the attachment this test makes and then removes. */
+const PARTNER = "Acme Retail";
+
 const ADMIN_EMAIL = "admin@Bitween.systems";
 const ADMIN_PASSWORD = "Mtm@dmin!2";
 
@@ -22,49 +25,50 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await expect(page).toHaveURL(/\/api-gateways\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
 
-  // Attach a partner, detouring to create the required GatewayApiCall subscription inline.
+  // Attach a partner, detouring to create the required GatewayApiCall subscription. The
+  // detour is a nested route off the attach page, and both pickers are comboboxes now —
+  // there is no wizard to "Continue" through.
   await page.getByRole("button", { name: "Attach partner" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach$/);
 
-  await page.getByRole("button", { name: "acme" }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("combobox", { name: "Partner" }).click();
+  await page.getByRole("option", { name: new RegExp(PARTNER) }).click();
+  await expect(page.getByRole("combobox", { name: "Partner" })).toHaveValue(PARTNER);
 
   const subscriptionName = `Playwright GW Subscription ${Date.now()}`;
-  await page.getByRole("link", { name: "New subscription" }).click();
-  await expect(page).toHaveURL(/\/subscriptions\/new\?type=GatewayApiCall/);
-  await page.fill("#ni-name", subscriptionName);
-  await page.getByRole("button", { name: "test doc" }).click();
-  await page.getByLabel("handler adapter").click();
+  await page.getByRole("button", { name: "New subscription" }).click();
+  // The picked partner rides along as a query param through the detour.
+  await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach\/new-subscription/);
+  await page.fill("#ngi-name", subscriptionName);
+  await page.getByRole("combobox", { name: "Information type" }).click();
+  await page.getByRole("option", { name: /Shipment order/ }).click();
+  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Shipment order/);
+  await page.getByRole("combobox", { name: "handler adapter" }).click();
   await page.getByRole("option", { name: "NativeHttpHandler" }).click();
-  await expect(page.getByRole("listbox")).toHaveCount(0, { timeout: 10000 });
   await page.locator("#prop-Url").fill("https://example.com/sink");
+  await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
   await page.getByRole("button", { name: "Create subscription" }).click();
 
-  // This page itself renders a ReturnBanner with a "Continue" button before
-  // the mutation resolves (inherited from the detour link) — wait for the
-  // create to actually land on the new subscription's own page first, or the
-  // click races and hits that stale button instead.
-  await expect(page).toHaveURL(/\/subscriptions\/\d+\?/);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach$/);
-  await expect(page.getByText(subscriptionName)).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
+  // Back on the attach form with the new subscription already chosen.
+  await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach(\?|$)/);
+  // It comes back selected in the picker, so it is the combobox's value, not page text.
+  await expect(page.getByRole("combobox", { name: "Subscription" })).toHaveValue(subscriptionName);
   await page.getByRole("button", { name: "Attach partner" }).click();
 
   await expect(page).toHaveURL(/\/api-gateways\/\d+$/);
-  await expect(page.getByText("acme").first()).toBeVisible();
-  await expect(page.getByText(subscriptionName)).toBeVisible();
+  await expect(page.getByText(PARTNER).first()).toBeVisible();
+  await expect(page.getByText(subscriptionName).first()).toBeVisible();
 
   // Edit the attachment — exercises the remove-then-add path (backend's
   // updatepartner can't mutate a composite-key column in place).
-  await page.getByRole("button", { name: "Edit attachment for acme" }).click();
+  await page.getByRole("button", { name: `Edit attachment for ${PARTNER}` }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attachments\/\d+$/);
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+$/);
   await expect(page.getByText(subscriptionName)).toBeVisible();
 
   // Detach.
-  await page.getByRole("button", { name: "Detach acme" }).click();
+  await page.getByRole("button", { name: `Detach ${PARTNER}` }).click();
   await page
     .getByRole("dialog", { name: "Detach this partner?" })
     .getByRole("button", { name: "Detach partner" })
@@ -79,9 +83,8 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
     .getByRole("dialog", { name: "Delete this API gateway?" })
     .getByRole("button", { name: "Delete gateway" })
     .click();
-  // ApiGatewayPage navigates to /api-gateways, which the router redirects to
-  // the unified subscriptions list.
-  await expect(page).toHaveURL(/\/subscriptions\?types=api-gateways$/);
+  // API gateways have their own list page now, which is where deleting one lands.
+  await expect(page).toHaveURL(/\/api-gateways$/);
 });
 
 test("Bus gateway: create, add route with match expression, edit route, remove, delete", async ({ page }) => {
@@ -89,62 +92,58 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
 
   await page.goto("bus-gateways/new");
   await page.fill("#nbg-name", name);
-  await page.getByRole("button", { name: "test-hh" }).click();
+  // Bus-enabled types only, and this one is the one no seeded gateway already listens for.
+  await page.getByRole("combobox", { name: "Information type" }).click();
+  await page.getByRole("option", { name: /Delivery proof/ }).click();
+  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Delivery proof/);
   await page.getByRole("button", { name: "Create gateway" }).click();
   await expect(page).toHaveURL(/\/bus-gateways\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add route" }).click();
-  await expect(page).toHaveURL(/\/bus-gateways\/\d+\/add-route$/);
+  // Routes are built on the gateway's own canvas now — no separate add-route page, and no
+  // wizard: the route, its subscription and that subscription's delivery are all edited in
+  // place, and "Create route" saves the lot.
+  // An empty gateway offers both "Add a route" in the header and "Add the first route"
+  // in the empty canvas; either does the same thing.
+  await page.getByRole("button", { name: /^Add (a|the first) route/ }).first().click();
+  await expect(page).toHaveURL(/\/bus-gateways\/\d+\?route=new/);
 
-  // Filter step — leave the match expression empty (null = matches everything).
-  await page.getByRole("button", { name: "Continue" }).click();
-  // Partner step — no partner.
-  await page.getByRole("button", { name: "No partner" }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
-
-  // Subscription step — detour to create the required BusGateway subscription.
+  // No partner and no filter: an empty match expression means "matches everything".
   const subscriptionName = `Playwright Bus Subscription ${Date.now()}`;
-  await page.getByRole("link", { name: "New subscription" }).click();
-  await expect(page).toHaveURL(/\/subscriptions\/new\?type=BusGateway/);
-  await page.fill("#ni-name", subscriptionName);
-  await page.getByLabel("handler adapter").click();
+  await page.getByRole("button", { name: "New subscription" }).click();
+  await page.fill("#bs-int-name", subscriptionName);
+
+  // Its delivery is a node on the same canvas.
+  await page.getByRole("button", { name: /^Delivery/ }).click();
+  await page.getByRole("combobox", { name: "handler adapter" }).click();
   await page.getByRole("option", { name: "NativeHttpHandler" }).click();
-  await expect(page.getByRole("listbox")).toHaveCount(0, { timeout: 10000 });
   await page.locator("#prop-Url").fill("https://example.com/sink");
-  await page.getByRole("button", { name: "Create subscription" }).click();
+  await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
 
-  // Wait for the create to actually land (see the comment in the API gateway
-  // test above) before clicking the ReturnBanner's "Continue".
-  await expect(page).toHaveURL(/\/subscriptions\/\d+\?/);
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page).toHaveURL(/\/bus-gateways\/\d+\/add-route$/);
-  await expect(page.getByText(subscriptionName)).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByRole("button", { name: "Add route" }).click();
+  await page.getByRole("button", { name: "Create route" }).click();
+  await expect(page).toHaveURL(/\/bus-gateways\/\d+\?.*route=\d+/);
 
-  await expect(page).toHaveURL(/\/bus-gateways\/\d+$/);
-  await expect(page.getByText(subscriptionName)).toBeVisible();
-
-  // Edit the route (no-op save exercises the round trip of a null match expression).
-  await page.getByRole("button", { name: /Edit route \d+/ }).click();
-  await expect(page).toHaveURL(/\/bus-gateways\/\d+\/routes\/\d+$/);
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page).toHaveURL(/\/bus-gateways\/\d+$/);
+  // Reload to prove the route round-tripped, null match expression and all.
+  await page.reload();
+  await expect(page.getByText(subscriptionName).first()).toBeVisible();
 
   // Remove the route.
-  await page.getByRole("button", { name: /Remove route \d+/ }).click();
+  await page.getByRole("button", { name: "Remove route" }).click();
   await page
     .getByRole("dialog", { name: "Remove this route?" })
     .getByRole("button", { name: "Remove route" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("No routes")).toBeVisible();
+  // The route list and the main panel both say this, so name the panel's heading: it shows only
+  // when no route is selected, which is the thing actually worth proving here — that removing
+  // the last route doesn't leave the page still pointing at it.
+  await expect(page.getByRole("heading", { name: /^No routes —/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Delete" }).click();
   await page
     .getByRole("dialog", { name: "Delete this bus gateway?" })
     .getByRole("button", { name: "Delete gateway" })
     .click();
-  await expect(page).toHaveURL(/\/subscriptions\?types=bus-gateways$/);
+  // Bus gateways have their own list page now, which is where deleting one lands.
+  await expect(page).toHaveURL(/\/bus-gateways$/);
 });

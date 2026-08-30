@@ -11,6 +11,7 @@ import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { Panel } from "../ui/Panel";
 import { MiniTable } from "../ui/Table";
 import { SubscriptionMiniList, usePartnerSubscriptions } from "./shared";
+import { keys } from "../../api/queryKeys";
 
 /**
  * Everything about a partner that can be *edited*, as one component.
@@ -73,8 +74,7 @@ export function PartnerFields({
   const revoke = useMutation({
     mutationFn: (keyName: string) => api.revokePartnerCredential(partnerId!, keyName),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
-      void queryClient.invalidateQueries({ queryKey: ["partners"] });
+      void queryClient.invalidateQueries({ queryKey: keys.partners.all });
     },
   });
 
@@ -209,8 +209,7 @@ function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () =
     mutationFn: () => api.addPartnerCredential(partnerId, name),
     onSuccess: ({ key }) => {
       setIssuedKey(key);
-      void queryClient.invalidateQueries({ queryKey: ["partner", partnerId] });
-      void queryClient.invalidateQueries({ queryKey: ["partners"] });
+      void queryClient.invalidateQueries({ queryKey: keys.partners.all });
     },
   });
 

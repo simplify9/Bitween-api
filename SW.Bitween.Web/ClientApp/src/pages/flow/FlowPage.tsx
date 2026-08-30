@@ -9,6 +9,7 @@ import { EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { FlowLegend, FlowMap } from "./FlowMap";
 import { buildFlowGraph } from "./model";
 import { layoutFlow } from "./layout";
+import { keys } from "../../api/queryKeys";
 
 /**
  * How data moves between gateways, on one surface.
@@ -27,16 +28,16 @@ export function FlowPage() {
 
   const subscriptions = useSubscriptionsCache();
   const informationTypes = useQuery({
-    queryKey: ["information-types"],
+    queryKey: keys.informationTypes.list,
     queryFn: () => api.listInformationTypes(),
   });
   const apiGateways = useQuery({
-    queryKey: ["api-gateways"],
+    queryKey: keys.apiGateways.list,
     queryFn: () => api.listApiGateways(),
     enabled: canSeeApi,
   });
   const busGateways = useQuery({
-    queryKey: ["bus-gateways"],
+    queryKey: keys.busGateways.list,
     queryFn: () => api.listBusGateways(),
     enabled: canSeeBus,
   });

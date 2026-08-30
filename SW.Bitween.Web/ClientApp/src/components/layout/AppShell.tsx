@@ -20,6 +20,7 @@ import { visibleGroups } from "../../nav";
 import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/basics";
 import { Menu, MenuItem } from "../ui/overlays";
+import { keys } from "../../api/queryKeys";
 
 /**
  * Shown on every page while unsaved setting changes exist — the whole app
@@ -35,7 +36,7 @@ function SettingsPreviewBanner() {
   if (count === 0 || pathname.startsWith("/settings")) return null;
 
   // Land back on the section holding the first pending change.
-  const rows = queryClient.getQueryData<SettingRow[]>(["settings"]);
+  const rows = queryClient.getQueryData<SettingRow[]>(keys.settings.list);
   const section = rows?.find((r) => r.key in draft)?.section;
   const editUrl = section ? `/settings?section=${encodeURIComponent(section)}` : "/settings";
 

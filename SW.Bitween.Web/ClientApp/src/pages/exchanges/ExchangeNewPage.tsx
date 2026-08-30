@@ -7,6 +7,7 @@ import { Button, FormError } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useSubscriptionsCache } from "../../components/config/shared";
+import { keys } from "../../api/queryKeys";
 
 /**
  * Manually inject a payload — useful for testing a pipeline without waiting
@@ -29,7 +30,7 @@ export function ExchangeNewPage() {
 
   const subscriptions = useSubscriptionsCache().data ?? [];
   const infoTypes =
-    useQuery({ queryKey: ["information-types"], queryFn: () => api.listInformationTypes() }).data ?? [];
+    useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? [];
 
   const create = useMutation({
     mutationFn: () =>

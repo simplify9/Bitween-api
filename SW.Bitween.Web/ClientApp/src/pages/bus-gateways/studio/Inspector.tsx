@@ -10,6 +10,7 @@ import { AdapterConfig } from "../../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../../components/config/MatchExpressionEditor";
 import { HealthBadge } from "../../../components/config/shared";
 import { ResponseFields } from "../../subscriptions/studio/ResponseFields";
+import { keys } from "../../../api/queryKeys";
 import {
   BUS_NODES,
   type BusNodeId,
@@ -121,11 +122,10 @@ export function RouteBody({
   onEditPartner: (partnerId: number) => void;
   onNewSubscription: () => void;
 }) {
-  const partners = useQuery({ queryKey: ["partners"], queryFn: () => api.listPartners() });
+  const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
   const subscriptions = useQuery({
-    queryKey: ["subscriptions"],
+    queryKey: keys.subscriptions.cache,
     queryFn: () => api.listSubscriptions(),
-    staleTime: Infinity,
   });
   const canCreatePartner = useSessionCan("partners.create");
   const canCreateSubscription = useSessionCan("subscriptions.create");
@@ -224,11 +224,10 @@ export function SubscriptionBody({
   autoFocusName?: boolean;
 }) {
   const workGroups = useQuery({
-    queryKey: ["work-groups"],
+    queryKey: keys.workGroups.list,
     queryFn: () => api.listWorkGroups(),
-    staleTime: Infinity,
   });
-  const retryPolicies = useQuery({ queryKey: ["retry-policies"], queryFn: () => api.listRetryPolicies() });
+  const retryPolicies = useQuery({ queryKey: keys.retryPolicies.list, queryFn: () => api.listRetryPolicies() });
 
   return (
     <div className="space-y-4">

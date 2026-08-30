@@ -9,6 +9,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { timeAgo } from "../../lib/dates";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { MemberDrawer } from "./MemberDrawer";
+import { keys } from "../../api/queryKeys";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
@@ -33,8 +34,8 @@ export function MembersTab() {
   const status = searchParams.get("status") ?? "all";
   const addOpen = searchParams.get("add") === "1";
 
-  const users = useQuery({ queryKey: ["users"], queryFn: () => api.listUsers() });
-  const roles = useQuery({ queryKey: ["roles"], queryFn: () => api.listRoles() });
+  const users = useQuery({ queryKey: keys.users.list, queryFn: () => api.listUsers() });
+  const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
 
   const setParam = (key: string, value: string | null) => {
     setSearchParams(

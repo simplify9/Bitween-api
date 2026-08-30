@@ -7,6 +7,7 @@ import { homePath } from "../../nav";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, PasswordInput, TextInput } from "../../components/ui/forms";
 import { AuthLayout } from "./AuthLayout";
+import { keys } from "../../api/queryKeys";
 
 function MicrosoftMark() {
   return (
@@ -31,7 +32,7 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
 
   // Microsoft sign-in only shows when the backend has MSAL configured.
-  const appConfig = useQuery({ queryKey: ["app-config"], queryFn: getAppConfig });
+  const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
   const microsoftEnabled = Boolean(appConfig.data?.msalClientId);
   // The Login handler rejects email/password outright when this instance is Microsoft-only, so
   // offering the form would only ever produce a failed sign-in.
