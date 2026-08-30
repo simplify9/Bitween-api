@@ -9,6 +9,22 @@
  * unbounded" guard, so an omitted size silently returns zero rows despite a correct
  * total count. Always supplying both sidesteps that regardless of which handler runs.
  */
+/**
+ * Serializes a Searchy query string, percent-encoding spaces.
+ *
+ * `URLSearchParams.toString()` form-encodes a space as "+", but the backend parses this query
+ * string with `Uri.UnescapeDataString` (SW.PrimitiveTypes' QueryStringParser), which decodes
+ * %XX escapes and leaves "+" as a literal plus. So every multi-word term silently matched
+ * nothing: searching "Order intake" looked for "Order+intake". Only `filter=` is affected —
+ * endpoints whose parameters are model-bound go through ASP.NET's own parser, which reads "+"
+ * as a space correctly.
+ *
+ * Safe as a blanket replace: URLSearchParams already encodes a literal "+" as %2B, so any bare
+ * "+" left in the output is a space.
+ */
+export const searchyQueryString = (params: URLSearchParams): string =>
+  params.toString().replace(/\+/g, "%20");
+
 export function buildListQuery(opts: {
   /** [Field, Rule, Value] triples — Rule 1 = EqualsTo, 4 = Contains. Skipped when Value is "". */
   filters?: [string, number, string | number][];
@@ -24,7 +40,7 @@ export function buildListQuery(opts: {
   if (opts.sort) params.append("sort", `${opts.sort[0]}:${opts.sort[1]}`);
   params.set("page", String(Math.floor(opts.offset / opts.limit)));
   params.set("size", String(opts.limit));
-  return params.toString();
+  return searchyQueryString(params);
 }
 
 export const SEARCHY_RULE = {
