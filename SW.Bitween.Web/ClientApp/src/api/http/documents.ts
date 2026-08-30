@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
-import { get, getEnrichment, post, request } from "./request";
+import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
@@ -31,6 +31,8 @@ interface RawDocument {
   duplicateInterval: number;
   disregardsUnfilteredMessages: boolean;
   promotedProperties: RawKeyAndValue[] | null;
+  /** Counted by the backend — see DocumentRow.UsedByCount. */
+  usedByCount: number;
 }
 interface RawSubscriptionRef {
   id: number;
@@ -138,14 +140,8 @@ const documentBody = (t: Omit<InformationType, "id" | "createdOn">) => ({
 
 export const documentMethods = {
   async listInformationTypes(): Promise<InformationTypeRow[]> {
-    const [res, subs] = await Promise.all([
-      get<SearchyResponse<RawDocument>>("/documents"),
-      getEnrichment<SearchyResponse<{ documentId: number }>>("/subscriptions", { result: [], totalCount: 0 }),
-    ]);
-    const countByDocument = new Map<number, number>();
-    for (const s of subs.result ?? [])
-      countByDocument.set(s.documentId, (countByDocument.get(s.documentId) ?? 0) + 1);
-    return (res.result ?? []).map((d) => ({ ...toInformationType(d), usedByCount: countByDocument.get(d.id) ?? 0 }));
+    const res = await get<SearchyResponse<RawDocument>>("/documents");
+    return (res.result ?? []).map((d) => ({ ...toInformationType(d), usedByCount: d.usedByCount }));
   },
 
   async searchInformationTypes(query: {
@@ -164,16 +160,10 @@ export const documentMethods = {
       offset: query.offset,
       limit: query.limit,
     });
-    const [res, subs] = await Promise.all([
-      get<SearchyResponse<RawDocument>>(`/documents?${qs}`),
-      getEnrichment<SearchyResponse<{ documentId: number }>>("/subscriptions", { result: [], totalCount: 0 }),
-    ]);
-    const countByDocument = new Map<number, number>();
-    for (const s of subs.result ?? [])
-      countByDocument.set(s.documentId, (countByDocument.get(s.documentId) ?? 0) + 1);
+    const res = await get<SearchyResponse<RawDocument>>(`/documents?${qs}`);
     return {
       total: res.totalCount,
-      result: (res.result ?? []).map((d) => ({ ...toInformationType(d), usedByCount: countByDocument.get(d.id) ?? 0 })),
+      result: (res.result ?? []).map((d) => ({ ...toInformationType(d), usedByCount: d.usedByCount })),
     };
   },
 

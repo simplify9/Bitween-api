@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,14 @@ public class Search(
         var workGroups = await dbContext.Set<WorkGroup>().AsNoTracking()
             .Where(w => request.Name == null || w.Name.Contains(request.Name))
             .ToArrayAsync();
+        // One grouped count for every group at once, so the "used by" column the UI shows costs a
+        // single aggregate query instead of the whole Subscription table over the wire.
+        var usedByWorkGroup = await dbContext.Set<Subscription>().AsNoTracking()
+            .Where(subscription => subscription.WorkGroupId != null)
+            .GroupBy(subscription => subscription.WorkGroupId!.Value)
+            .Select(group => new { WorkGroupId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(row => row.WorkGroupId, row => row.Count);
+
         var consumerCounts = Array.Empty<ConsumerCount>();
 
         try
@@ -78,6 +87,7 @@ public class Search(
                     NotifierProcessingCount = notifiersCounts?.ProcessingCount,
                     NotifierQueueCount = notifiersCounts?.QueueCount,
                     ProcessorNodeCount = processorsCounts?.TotalNodes,
+                    UsedByCount = usedByWorkGroup.GetValueOrDefault(workGroup.Id),
                 };
             }).ToList();
 

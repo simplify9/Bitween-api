@@ -31,7 +31,11 @@ public class Search : ISearchyHandler
             {
                 Id = policy.Id,
                 Name = policy.Name,
-                GroupCount = policy.Groups.Count
+                GroupCount = policy.Groups.Count,
+                // A correlated count, so the "used by" column the UI shows costs one subquery per
+                // row instead of the whole Subscription table over the wire.
+                UsedByCount = _dbContext.Set<Subscription>()
+                    .Count(subscription => subscription.RetryPolicyId == policy.Id)
             };
 
         query = query.AsNoTracking();

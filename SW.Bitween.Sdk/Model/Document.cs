@@ -47,5 +47,11 @@ namespace SW.Bitween.Model
 
     public class DocumentRow : DocumentUpdate
     {
+        /// <summary>
+        /// How many subscriptions carry this information type. Counted here because the admin UI
+        /// shows it in the list: computing it client-side meant downloading every subscription
+        /// alongside every page of this list.
+        /// </summary>
+        public int UsedByCount { get; set; }
     }
 }

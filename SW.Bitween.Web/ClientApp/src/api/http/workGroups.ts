@@ -7,7 +7,7 @@ import {
   type WorkGroupRow,
   type Paged,
 } from "../types";
-import { get, getEnrichment, post } from "./request";
+import { get, post } from "./request";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -19,6 +19,8 @@ interface RawWorkGroup {
   busMessageName: string;
   options: { rabbitMqOptions: { prefetch: number | null; priority: number | null } | null } | null;
   processorNodeCount: number | null;
+  /** Counted by the backend — see WorkGroupModel.UsedByCount. */
+  usedByCount: number;
 }
 interface RawSubscriptionRef {
   id: number;
@@ -95,18 +97,10 @@ async function fetchPagedRows(query: {
 
 export const workGroupMethods = {
   async listWorkGroups(): Promise<WorkGroupRow[]> {
-    const [rows, subs] = await Promise.all([
-      fetchRows(),
-      getEnrichment<SearchyResponse<{ workGroupId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
-    ]);
-    const countByWorkGroup = new Map<number, number>();
-    for (const s of subs.result ?? []) {
-      if (s.workGroupId == null) continue;
-      countByWorkGroup.set(s.workGroupId, (countByWorkGroup.get(s.workGroupId) ?? 0) + 1);
-    }
+    const rows = await fetchRows();
     return rows.map((w) => ({
       ...toWorkGroup(w),
-      usedByCount: countByWorkGroup.get(w.id) ?? 0,
+      usedByCount: w.usedByCount,
       consumerCount: w.processorNodeCount ?? 0,
     }));
   },
@@ -116,20 +110,12 @@ export const workGroupMethods = {
     offset: number;
     limit: number;
   }): Promise<Paged<WorkGroupRow>> {
-    const [{ rows, total }, subs] = await Promise.all([
-      fetchPagedRows(query),
-      getEnrichment<SearchyResponse<{ workGroupId: number | null }>>("/subscriptions", { result: [], totalCount: 0 }),
-    ]);
-    const countByWorkGroup = new Map<number, number>();
-    for (const s of subs.result ?? []) {
-      if (s.workGroupId == null) continue;
-      countByWorkGroup.set(s.workGroupId, (countByWorkGroup.get(s.workGroupId) ?? 0) + 1);
-    }
+    const { rows, total } = await fetchPagedRows(query);
     return {
       total,
       result: rows.map((w) => ({
         ...toWorkGroup(w),
-        usedByCount: countByWorkGroup.get(w.id) ?? 0,
+        usedByCount: w.usedByCount,
         consumerCount: w.processorNodeCount ?? 0,
       })),
     };

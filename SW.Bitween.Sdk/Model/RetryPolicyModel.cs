@@ -25,6 +25,13 @@ public class RetryPolicyRow
     public int Id { get; set; }
     public string Name { get; set; }
     public int GroupCount { get; set; }
+
+    /// <summary>
+    /// How many subscriptions this policy is assigned to. Counted here because the admin UI shows
+    /// it in the list: computing it client-side meant downloading every subscription alongside
+    /// every page of this list.
+    /// </summary>
+    public int UsedByCount { get; set; }
 }
 
 /// <summary>

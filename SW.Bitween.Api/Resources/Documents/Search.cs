@@ -40,7 +40,11 @@ namespace SW.Bitween.Resources.Documents
                             BusEnabled = document.BusEnabled,
                             DuplicateInterval = document.DuplicateInterval,
                             PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection(),
-                            DocumentFormat = document.DocumentFormat
+                            DocumentFormat = document.DocumentFormat,
+                            // A correlated count, so the "used by" column the UI shows costs one
+                            // subquery per row instead of the whole Subscription table over the wire.
+                            UsedByCount = dbContext.Set<Subscription>()
+                                .Count(subscription => subscription.DocumentId == document.Id)
                         };
 
             query = query.AsNoTracking();
