@@ -32,6 +32,10 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await page.locator("#prop-Url").fill("https://example.com/feed");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/feed");
 
+  // Collapse Source before opening Delivery: its property form renders asynchronously and the
+  // cards below it keep moving while it does, so clicking straight through hits a moving target.
+  await page.getByRole("button", { name: "Close this step" }).click();
+
   // Delivery — handler adapter and its required prop (transformation stays "Passes through").
   // Only one stage is open at a time, so #prop-Url is unambiguous here.
   await page.getByRole("button", { name: /^Delivery/ }).click();
