@@ -26,7 +26,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
         //Todo chek rabbitMq
         dbContext.Remove(category);
         await dbContext.SaveChangesAsync();
-        _infolinkCache.BroadcastRevoke();
+        await _infolinkCache.BroadcastRevoke();
         await _broadcast.RefreshConsumers();
         return null;
     }

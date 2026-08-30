@@ -12,11 +12,13 @@ namespace SW.Bitween.Resources.Documents
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IInfolinkCache _cache;
 
-        public Delete(BitweenDbContext dbContext, RequestContext requestContext)
+        public Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _cache = cache;
         }
 
         async public Task<object> Handle(int key)
@@ -24,6 +26,7 @@ namespace SW.Bitween.Resources.Documents
             await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Documents.Delete);
 
             await _dbContext.DeleteByKeyAsync<Document>(key);
+            await _cache.BroadcastRevoke();
             return null;
         }
     }

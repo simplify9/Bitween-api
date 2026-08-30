@@ -12,12 +12,14 @@ namespace SW.Bitween.Resources.Subscriptions
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IInfolinkCache _cache;
 
 
-        public Pause(BitweenDbContext dbContext, RequestContext requestContext)
+        public Pause(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _cache = cache;
         }
 
         public async Task<object> Handle(int key, SubscriptionPause request)
@@ -40,6 +42,11 @@ namespace SW.Bitween.Resources.Subscriptions
             trail.SetAfter(entity);
             _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
+            // The receiving path reads PausedOn off the cached copy, so without this a paused
+            // integration keeps taking messages for the rest of the cache's ten minutes. Resuming
+            // has the mirror problem: its handler re-reads the cache, finds the copy still paused
+            // and returns early, leaving everything it held on hold.
+            await _cache.BroadcastRevoke();
             return new
             {
                 entity.Id

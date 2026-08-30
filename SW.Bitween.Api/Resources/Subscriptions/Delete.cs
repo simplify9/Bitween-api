@@ -13,12 +13,14 @@ namespace SW.Bitween.Resources.Subscriptions
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IInfolinkCache _cache;
 
 
-        public Delete(BitweenDbContext dbContext, RequestContext requestContext)
+        public Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
         {
             this._dbContext = dbContext;
             _requestContext = requestContext;
+            _cache = cache;
         }
 
         public async Task<object> Handle(int key)
@@ -28,6 +30,7 @@ namespace SW.Bitween.Resources.Subscriptions
             await EnsureNothingPointsAtIt(key);
 
             await _dbContext.DeleteByKeyAsync<Subscription>(key);
+            await _cache.BroadcastRevoke();
             return null;
         }
 

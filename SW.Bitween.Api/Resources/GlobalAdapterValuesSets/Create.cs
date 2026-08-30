@@ -11,11 +11,13 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IInfolinkCache _cache;
 
-        public Create(BitweenDbContext dbContext, RequestContext requestContext)
+        public Create(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _cache = cache;
         }
 
         public async Task<object> Handle(GlobalAdapterValuesSetCreate request)
@@ -35,6 +37,7 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
 
             _dbContext.Add(entity);
             await _dbContext.SaveChangesAsync();
+            await _cache.BroadcastRevoke();
             return new
             {
                 entity.Id

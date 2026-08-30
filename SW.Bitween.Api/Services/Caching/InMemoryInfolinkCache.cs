@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -21,6 +22,12 @@ public class InMemoryBitweenCache : IInfolinkCache
     private readonly IServiceScopeFactory _ssf;
     private readonly ILogger<InMemoryBitweenCache> _logger;
 
+    /// <summary>How many times <see cref="Load"/> re-reads before publishing regardless.</summary>
+    private const int MaxLoadAttempts = 3;
+
+    /// <summary>Bumped by every <see cref="Revoke"/>, so a load can tell one overtook it.</summary>
+    private long _generation;
+
 
     public InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory ssf,
         ILogger<InMemoryBitweenCache> logger)
@@ -30,26 +37,55 @@ public class InMemoryBitweenCache : IInfolinkCache
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>
+    /// Reads every cached set from the database and publishes it.
+    /// </summary>
+    /// <remarks>
+    /// The six reads take time, and <see cref="Revoke"/> runs on the bus consumer thread against
+    /// this same singleton. A revoke landing between the reads and the writes is revoking the
+    /// snapshot those reads just took — the write it announces happened after they began — so
+    /// publishing it anyway would reinstate the staleness the revoke existed to clear, for the
+    /// full ten minutes. Hence the generation check: read again rather than publish a snapshot
+    /// that is already known to be behind.
+    ///
+    /// Callers rely on this having populated the cache by the time it returns, so the last attempt
+    /// publishes regardless. Two revokes landing inside one set of reads is already unlikely; three
+    /// means the system is revoking continuously, and making progress matters more than the last
+    /// few milliseconds of freshness.
+    /// </remarks>
     private async Task Load()
     {
-        using var scope = _ssf.CreateScope();
-        var repo = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        _logger.LogInformation("Loading documents and subscriptions to cache");
-        var cachedSubscriptions = await repo.Set<Subscription>().Include(s=>s.WorkGroup)
-            .AsNoTracking().Where(i => !i.Inactive).ToArrayAsync();
-        var cachedDocuments = await repo.Set<Document>().AsNoTracking().ToArrayAsync();
-        var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
-        var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
-        var cachedGlobalValues = await repo.Set<GlobalAdapterValuesSet>().AsNoTracking().ToArrayAsync();
-        var cachedBusGateways = await repo.Set<BusGateway>().Include(g => g.Routes).AsNoTracking().ToArrayAsync();
-        var span = TimeSpan.FromMinutes(10);
-        _cache.Set(nameof(Document), cachedDocuments, span);
+        for (var attempt = 0; ; attempt++)
+        {
+            var generation = Volatile.Read(ref _generation);
 
-        _cache.Set(nameof(Subscription), cachedSubscriptions, span);
-        _cache.Set(nameof(Notifier), cachedNotifiers, span);
-        _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
-        _cache.Set(nameof(GlobalAdapterValuesSet), cachedGlobalValues, span);
-        _cache.Set(nameof(BusGateway), cachedBusGateways, span);
+            using var scope = _ssf.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            _logger.LogInformation("Loading documents and subscriptions to cache");
+            var cachedSubscriptions = await repo.Set<Subscription>().Include(s=>s.WorkGroup)
+                .AsNoTracking().Where(i => !i.Inactive).ToArrayAsync();
+            var cachedDocuments = await repo.Set<Document>().AsNoTracking().ToArrayAsync();
+            var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
+            var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
+            var cachedGlobalValues = await repo.Set<GlobalAdapterValuesSet>().AsNoTracking().ToArrayAsync();
+            var cachedBusGateways = await repo.Set<BusGateway>().Include(g => g.Routes).AsNoTracking().ToArrayAsync();
+
+            if (Volatile.Read(ref _generation) != generation && attempt < MaxLoadAttempts - 1)
+            {
+                _logger.LogInformation("Cache was revoked while loading; reading again");
+                continue;
+            }
+
+            var span = TimeSpan.FromMinutes(10);
+            _cache.Set(nameof(Document), cachedDocuments, span);
+
+            _cache.Set(nameof(Subscription), cachedSubscriptions, span);
+            _cache.Set(nameof(Notifier), cachedNotifiers, span);
+            _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
+            _cache.Set(nameof(GlobalAdapterValuesSet), cachedGlobalValues, span);
+            _cache.Set(nameof(BusGateway), cachedBusGateways, span);
+            return;
+        }
     }
 
     public async Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId)
@@ -200,10 +236,18 @@ public class InMemoryBitweenCache : IInfolinkCache
 
     public void Revoke()
     {
+        // Before the removals, so a load that reads after this sees the new value and a load that
+        // read before it is discarded. Bumping afterwards would leave a window where a load could
+        // both miss the removal and match the generation.
+        Interlocked.Increment(ref _generation);
+
         _cache.Remove(nameof(Subscription));
         _cache.Remove(nameof(Notifier));
         _cache.Remove(nameof(Document));
         _cache.Remove(nameof(WorkGroup));
         _cache.Remove(nameof(BusGateway));
+        // Load() caches this one too. Leaving it out here meant no write of any kind could
+        // clear a global value: it sat for its full ten minutes regardless.
+        _cache.Remove(nameof(GlobalAdapterValuesSet));
     }
 }

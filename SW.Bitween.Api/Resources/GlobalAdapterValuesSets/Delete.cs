@@ -10,11 +10,13 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IInfolinkCache _cache;
 
-        public Delete(BitweenDbContext dbContext, RequestContext requestContext)
+        public Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _cache = cache;
         }
 
         public async Task<object> Handle(string key, DeleteGlobalAdapterValuesSetModel _)
@@ -27,6 +29,7 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
 
             _dbContext.Remove(entity);
             await _dbContext.SaveChangesAsync();
+            await _cache.BroadcastRevoke();
             return null;
         }
     }
