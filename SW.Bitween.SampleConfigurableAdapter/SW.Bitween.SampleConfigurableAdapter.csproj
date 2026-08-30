@@ -5,6 +5,6 @@
     <RootNamespace>SW.Bitween.SampleConfigurableAdapter</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.1" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.11" />
   </ItemGroup>
 </Project>

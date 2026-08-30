@@ -1002,7 +1002,8 @@ export interface DashboardData {
   /** Percentage 0–100 across the last 7 days of finished exchanges. */
   successRate7d: number;
   pendingRetries: number;
-  queueAlerts: number;
+  /** Null when the RabbitMQ management API is unavailable — never counts as zero. */
+  queueAlerts: number | null;
   /** Last 14 days, oldest first; today is the final entry. */
   trafficByDay: { date: string; success: number; failed: number }[];
   /** Top subscriptions by 7-day traffic, busiest first. */

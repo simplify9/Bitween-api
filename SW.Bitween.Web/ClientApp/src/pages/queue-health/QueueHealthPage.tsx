@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, OctagonAlert } from "lucide-react";
+import { AlertTriangle, OctagonAlert, Unplug } from "lucide-react";
 import { api, type ConsumerHealth, type QueueLane, type QueueSeverity } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { queueHealthTitle } from "../../components/config/shared";
 import { Panel } from "../../components/ui/Panel";
 import { timeAgo } from "../../lib/dates";
+import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 
 const POLL_MS = 5_000;
 
@@ -89,12 +90,37 @@ function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?
  * stays on screen while the next one loads, so nothing flashes.
  */
 export function QueueHealthPage() {
-  const { data, isLoading, dataUpdatedAt } = useQuery({
+  const rabbitMqConfigured = useRabbitMqManagementConfigured();
+  const { data, isLoading, isError, dataUpdatedAt } = useQuery({
     queryKey: ["queue-health"],
     queryFn: () => api.getQueueHealth(),
     refetchInterval: POLL_MS,
     placeholderData: keepPreviousData,
+    enabled: rabbitMqConfigured,
   });
+
+  if (!rabbitMqConfigured)
+    return (
+      <div>
+        <PageHeader
+          title="Queue health"
+          description="Live throughput and backlog for every queue this instance consumes."
+        />
+        <EmptyState icon={<Unplug />} title="RabbitMQ management isn't configured">
+          This page reads live queue stats from the RabbitMQ management API, which the backend
+          isn't configured to reach. Ask an admin to set the management URL, username and
+          password, then reload.
+        </EmptyState>
+      </div>
+    );
+
+  if (isError && !data)
+    return (
+      <EmptyState title="Couldn't load queue statistics">
+        Something went wrong reaching the RabbitMQ management API. It'll keep retrying in the
+        background — try refreshing the page.
+      </EmptyState>
+    );
 
   if (isLoading || !data) return <LoadingBlock label="Reading queue statistics…" />;
 

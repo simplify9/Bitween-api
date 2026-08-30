@@ -13,7 +13,7 @@ public class NativeS3Receiver : INativeInfolinkReceiver, IDisposable
 
     public Task Initialize()
     {
-        var options = new CloudFilesOptions
+        var options = new S3CloudFilesOptions
         {
             AccessKeyId = _options.AccessKeyId,
             SecretAccessKey = _options.SecretAccessKey,
