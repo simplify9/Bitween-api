@@ -9,11 +9,13 @@ namespace SW.Bitween.Resources.Notifiers
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IInfolinkCache _cache;
 
-        public Delete(BitweenDbContext dbContext, RequestContext requestContext)
+        public Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _cache = cache;
         }
 
         /// <remarks>
@@ -26,6 +28,7 @@ namespace SW.Bitween.Resources.Notifiers
             await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Notifiers.Delete);
 
             await _dbContext.DeleteByKeyAsync<Notifier>(key);
+            await _cache.BroadcastRevoke();
             return null;
         }
     }

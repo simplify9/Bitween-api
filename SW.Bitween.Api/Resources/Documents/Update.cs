@@ -102,7 +102,7 @@ namespace SW.Bitween.Resources.Documents
             trail.SetAfter(entity);
             _dbContext.Add(trail);
             await _dbContext.SaveChangesAsync();
-            _BitweenCache.BroadcastRevoke();
+            await _BitweenCache.BroadcastRevoke();
             await _broadcast.RefreshConsumers();
             return null;
         }

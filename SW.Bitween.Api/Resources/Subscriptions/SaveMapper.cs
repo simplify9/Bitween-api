@@ -39,7 +39,7 @@ namespace SW.Bitween.Resources.Subscriptions
             );
 
             await _dbContext.SaveChangesAsync();
-            _BitweenCache.BroadcastRevoke();
+            await _BitweenCache.BroadcastRevoke();
             return null;
         }
 

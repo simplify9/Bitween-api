@@ -30,7 +30,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext,II
         };
         dbContext.Add(workgroup);
         await dbContext.SaveChangesAsync();
-        _BitweenCache.BroadcastRevoke();
+        await _BitweenCache.BroadcastRevoke();
         await _broadcast.RefreshConsumers();
         return new
         {

@@ -15,13 +15,15 @@ namespace SW.Bitween.Resources.ApiGateways
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
         private readonly AdapterRequirements _adapterRequirements;
+        private readonly IInfolinkCache _cache;
 
         public AddPartner(BitweenDbContext dbContext, RequestContext requestContext,
-            AdapterRequirements adapterRequirements)
+            AdapterRequirements adapterRequirements, IInfolinkCache cache)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
             _adapterRequirements = adapterRequirements;
+            _cache = cache;
         }
 
         public async Task<object> Handle(int gatewayId, ApiGatewayPartnerCreate model)
@@ -81,6 +83,9 @@ namespace SW.Bitween.Resources.ApiGateways
 
             _dbContext.Add(partnerLink);
             await _dbContext.SaveChangesAsync();
+            // Attaching an existing integration changes nothing the cache holds, but staging a new
+            // one above creates a Subscription — and unconditional is what AddRoute does.
+            await _cache.BroadcastRevoke();
 
             return null;
         }

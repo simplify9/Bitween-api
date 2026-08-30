@@ -205,5 +205,8 @@ public class InMemoryBitweenCache : IInfolinkCache
         _cache.Remove(nameof(Document));
         _cache.Remove(nameof(WorkGroup));
         _cache.Remove(nameof(BusGateway));
+        // Load() caches this one too. Leaving it out here meant no write of any kind could
+        // clear a global value: it sat for its full ten minutes regardless.
+        _cache.Remove(nameof(GlobalAdapterValuesSet));
     }
 }

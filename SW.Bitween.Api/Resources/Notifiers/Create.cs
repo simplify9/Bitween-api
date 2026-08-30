@@ -10,11 +10,13 @@ namespace SW.Bitween.Resources.Notifiers
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly IInfolinkCache _cache;
 
-        public Create(BitweenDbContext dbContext, RequestContext requestContext)
+        public Create(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
         {
             this._dbContext = dbContext;
             _requestContext = requestContext;
+            _cache = cache;
         }
 
         public async Task<object> Handle(NotifierCreate request)
@@ -25,6 +27,7 @@ namespace SW.Bitween.Resources.Notifiers
 
             _dbContext.Add(notifier);
             await _dbContext.SaveChangesAsync();
+            await _cache.BroadcastRevoke();
             return notifier.Id;
         }
 

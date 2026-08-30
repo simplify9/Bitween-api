@@ -17,12 +17,15 @@ namespace SW.Bitween.Resources.Documents
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
         private readonly IBroadcast _broadcast;
+        private readonly IInfolinkCache _cache;
 
-        public Create(BitweenDbContext dbContext, RequestContext requestContext, IBroadcast broadcast)
+        public Create(BitweenDbContext dbContext, RequestContext requestContext, IBroadcast broadcast,
+            IInfolinkCache cache)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
             _broadcast = broadcast;
+            _cache = cache;
         }
 
         public async Task<object> Handle(DocumentCreate model)
@@ -78,6 +81,9 @@ namespace SW.Bitween.Resources.Documents
             _dbContext.Add(trail);
             _dbContext.Add(entity);
             await _dbContext.SaveChangesAsync();
+            // Routing resolves an information type by name off the cache, so a new one is
+            // invisible to it until this lands.
+            await _cache.BroadcastRevoke();
 
             // A bus-enabled type adds a queue, and the consumer set is only rebuilt when asked.
             // Without this the queue is declared but nothing ever consumes it, until either an
