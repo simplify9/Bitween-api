@@ -45,7 +45,9 @@ export const dashboardMethods = {
         `/xchanges?filter=${encodeURIComponent(`StartedOn:6:${new Date(windowStart).toISOString()}`)}&size=1000&sort=StartedOn:1`,
       ),
       get<SearchyResponse<unknown>>("/delayedretries?size=1"),
-      get<RawAlert[]>("/ops/alerts"),
+      // Depends on RabbitMQ management being configured on the backend — don't let it take the
+      // rest of the dashboard down when it isn't; the "Queue alerts" tile flags it instead.
+      get<RawAlert[]>("/ops/alerts").catch(() => null),
       subscriptionMethods.listSubscriptionRows(),
     ]);
 
@@ -117,7 +119,7 @@ export const dashboardMethods = {
       yesterdayTotal: yesterdayRows.length,
       successRate7d,
       pendingRetries: delayedRes.totalCount,
-      queueAlerts: alertsRaw.filter((a) => a.severity !== "Info").length,
+      queueAlerts: alertsRaw === null ? null : alertsRaw.filter((a) => a.severity !== "Info").length,
       trafficByDay,
       busiest,
       latestFailures,

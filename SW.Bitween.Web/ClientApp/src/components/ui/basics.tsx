@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, TriangleAlert } from "lucide-react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -105,6 +105,16 @@ export function EmptyState({
       {children && <p className="max-w-sm text-sm text-ink-500">{children}</p>}
       {action && <div className="mt-3">{action}</div>}
     </div>
+  );
+}
+
+/** Slim inline banner for a known, expected degraded state (e.g. an optional integration not configured). */
+export function InlineNotice({ children }: { children: ReactNode }) {
+  return (
+    <p className="mb-3 flex items-start gap-1.5 rounded-lg border border-warn-100 bg-warn-100/40 px-3 py-2 text-[13px] text-warn-800">
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </p>
   );
 }
 

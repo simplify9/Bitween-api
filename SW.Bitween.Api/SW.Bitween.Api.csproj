@@ -32,8 +32,8 @@
          them to ask the broker what exists; without this it would have to rebuild each of them
          from configuration and get them subtly wrong. Already in the app through SW.Bitween.Web —
          keep the version in step with it. -->
-    <PackageReference Include="SimplyWorks.Bus" Version="8.1.11" />
-    <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.11" />
+    <PackageReference Include="SimplyWorks.Bus" Version="8.1.18" />
+    <PackageReference Include="SimplyWorks.Bus.RabbitMqExtensions" Version="8.1.18" />
     <PackageReference Include="SimplyWorks.EfCoreExtensions" Version="8.1.2" />
     <PackageReference Include="SimplyWorks.Scheduler.Sdk" Version="8.1.7" />
   </ItemGroup>
