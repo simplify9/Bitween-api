@@ -38,7 +38,12 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   // Bulk retry a couple of specific rows (not the whole page — each retry does
   // real file I/O against storage, so keep this fast and deterministic).
   await page.getByRole("button", { name: "All" }).click();
-  const rowCheckbox = page.getByRole("checkbox", { name: /^Select \w/ });
+  // Row checkboxes only. "Select all on this page" also starts with "Select", and its checked
+  // state is derived from every row on the page — so a refetch landing mid-click (the filter
+  // above triggers one) flips it back and reads as a click that did nothing. A row checkbox is
+  // keyed by its own id and survives that. It also keeps the bulk retry to two rows, which is
+  // what this test says it wants: each retry is real file I/O.
+  const rowCheckbox = page.getByRole("checkbox", { name: /^Select (?!all\b)/ });
   await expect(rowCheckbox.first()).toBeVisible({ timeout: 10000 });
   await rowCheckbox.nth(0).check();
   await rowCheckbox.nth(1).check();
