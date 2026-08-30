@@ -14,16 +14,16 @@ test.beforeEach(async ({ page }) => {
 test("information type Code is optional end to end", async ({ page }) => {
   const name = `Playwright No Code ${Date.now()}`;
 
-  await page.goto("information-types/new");
-  await page.fill("#nit-name", name);
+  // Creating happens in a dialog on the list page, not on a page of its own.
+  await page.goto("information-types");
+  await page.getByRole("button", { name: "New information type" }).click();
 
-  // Expand the collapsed code/format section and clear the auto-suggested code.
-  await page.getByRole("button", { name: /^Code/ }).click();
-  const codeInput = page.locator("#nit-code");
-  await expect(codeInput).not.toHaveAttribute("required", "");
-  await codeInput.fill("");
+  const dialog = page.getByRole("dialog", { name: "New information type" });
+  await dialog.getByRole("textbox", { name: "Name" }).fill(name);
+  // Code starts empty and stays optional — nothing to clear, and it doesn't block creating.
+  await expect(dialog.getByRole("textbox", { name: "Code" })).toHaveValue("");
 
-  await page.getByRole("button", { name: "Create information type" }).click();
+  await dialog.getByRole("button", { name: "Create information type" }).click();
 
   // Should navigate straight to the detail page — no validation block on empty code.
   await expect(page).toHaveURL(/\/information-types\/\d+$/);

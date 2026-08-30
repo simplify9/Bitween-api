@@ -61,7 +61,9 @@ test("an administrator resets a member's password", async ({ page }) => {
   const drawer = page.getByRole("dialog", { name: "Member details" });
   await drawer.getByLabel("New password").fill(ROTATED_PASSWORD);
   await drawer.getByRole("button", { name: "Set password" }).click();
-  await expect(drawer.getByLabel("New password")).toHaveValue("");
+  // The form is replaced by a confirmation carrying the new password to copy: Bitween sends
+  // no email, so this is the only place it is ever shown.
+  await expect(drawer.getByText(/Password set for/)).toBeVisible();
 
   await signOut(page);
   await signIn(page, email, ROTATED_PASSWORD);
@@ -79,7 +81,9 @@ test("the old password stops working after a reset", async ({ page }) => {
   const drawer = page.getByRole("dialog", { name: "Member details" });
   await drawer.getByLabel("New password").fill(ROTATED_PASSWORD);
   await drawer.getByRole("button", { name: "Set password" }).click();
-  await expect(drawer.getByLabel("New password")).toHaveValue("");
+  // The form is replaced by a confirmation carrying the new password to copy: Bitween sends
+  // no email, so this is the only place it is ever shown.
+  await expect(drawer.getByText(/Password set for/)).toBeVisible();
 
   await signOut(page);
   await page.fill("#login-email", email);

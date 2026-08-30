@@ -10,12 +10,15 @@ const DEFAULT_CRON = "0 * * * * ?";
 const brandColorVar = (page: Page) =>
   page.evaluate(() => document.documentElement.style.getPropertyValue("--color-crimson-600").trim());
 
+/** Sections are real links — a section is a URL you can paste into a ticket — not buttons. */
+const sectionLink = (page: Page, name: string) => page.getByRole("link", { name });
+
 /** The hex box beside the colour swatch; `exact` keeps it apart from the picker itself. */
 const hexInput = (page: Page) => page.getByRole("textbox", { name: "Primary color", exact: true });
 
 async function openBrandSection(page: Page) {
   await page.goto("settings");
-  await page.getByRole("button", { name: "Brand & theme" }).click();
+  await sectionLink(page, "Brand & theme").click();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -36,7 +39,7 @@ test("sections come from the backend catalog, with no restart-required rows", as
     "Security",
     "Brand & theme",
   ])
-    await expect(page.getByRole("button", { name: section })).toBeVisible();
+    await expect(sectionLink(page, section)).toBeVisible();
 
   // Nothing carries a restart badge: a setting that couldn't take effect immediately is shown
   // as an environment value instead of being offered as an edit that needs a restart to land.
@@ -45,7 +48,7 @@ test("sections come from the backend catalog, with no restart-required rows", as
 
 test("environment settings are shown but not offered as edits", async ({ page }) => {
   await page.goto("settings");
-  await page.getByRole("button", { name: "Database" }).click();
+  await sectionLink(page, "Database").click();
 
   // A read-only row renders its value as text — there's no control carrying its label…
   await expect(page.getByText("Use Azure managed identity")).toBeVisible();
@@ -68,7 +71,7 @@ test("environment settings are shown but not offered as edits", async ({ page })
 
 test("Microsoft-only sign-in is an editable setting, not an environment value", async ({ page }) => {
   await page.goto("settings");
-  await page.getByRole("button", { name: "Single sign-on (Microsoft)" }).click();
+  await sectionLink(page, "Single sign-on (Microsoft)").click();
 
   // It applies per request — the Login handler and the config endpoint both read it live — so it
   // belongs in the catalog as an edit rather than a read-only environment row.
@@ -80,7 +83,7 @@ test("Microsoft-only sign-in is an editable setting, not an environment value", 
 
 test("the retry schedule is editable and rejects an invalid cron", async ({ page }) => {
   await page.goto("settings");
-  await page.getByRole("button", { name: "Reliability & jobs" }).click();
+  await sectionLink(page, "Reliability & jobs").click();
 
   const cron = page.getByRole("textbox", { name: "Retry poll schedule", exact: true });
   await expect(cron).toHaveValue(DEFAULT_CRON);
@@ -137,7 +140,7 @@ test("a secret's value never reaches the browser", async ({ page }) => {
   });
 
   await page.goto("settings");
-  await page.getByRole("button", { name: "Adapters" }).click();
+  await sectionLink(page, "Adapters").click();
 
   // The local backend configures a Rebex key, so the row shows as set — masked, with the
   // adapter-config "Replace" affordance rather than the value itself.

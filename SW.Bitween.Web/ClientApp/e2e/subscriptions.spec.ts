@@ -15,28 +15,34 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   const name = `Playwright Job ${Date.now()}`;
 
   await page.goto("scheduled-jobs/new");
-  await page.fill("#sjw-name", name);
-  await page.getByRole("button", { name: "order" }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.fill("#nj-name", name);
 
-  // Source & schedule step — receiver adapter + its one required prop.
-  await page.getByLabel("receiver adapter").click();
+  // The information type is a searchable picker, and the stages below it are cards that open
+  // in place — there is no wizard to "Continue" through any more.
+  await page.getByRole("combobox", { name: "Information type" }).click();
+  await page.getByRole("option", { name: /Shipment order/ }).click();
+  // Wait for the pick to land: without this the next click can run first and the form is still
+  // missing its information type, leaving "Create job" disabled.
+  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Shipment order/);
+
+  // Source — open by default. Receiver adapter plus its one required prop.
+  await page.getByRole("combobox", { name: "receiver adapter" }).click();
   await page.getByRole("option", { name: "NativeHttpReceiver" }).click();
-  await page.keyboard.press("Escape"); // close the combobox popover, it doesn't auto-dismiss
-  await expect(page.getByLabel("receiver adapter")).toHaveValue("NativeHttpReceiver");
+  await expect(page.getByRole("combobox", { name: "receiver adapter" })).toHaveValue("NativeHttpReceiver");
   await page.locator("#prop-Url").fill("https://example.com/feed");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/feed");
 
-  // Pipeline step — handler adapter + its required prop (mapper stays "None").
-  await page.getByLabel("handler adapter").click();
+  // Delivery — handler adapter and its required prop (transformation stays "Passes through").
+  // Only one stage is open at a time, so #prop-Url is unambiguous here.
+  await page.getByRole("button", { name: /^Delivery/ }).click();
+  await page.getByRole("combobox", { name: "handler adapter" }).click();
   await page.getByRole("option", { name: "NativeHttpHandler" }).click();
-  await expect(page.getByLabel("handler adapter")).toHaveValue("NativeHttpHandler");
-  await expect(page.getByRole("listbox")).toHaveCount(0, { timeout: 10000 });
+  await expect(page.getByRole("combobox", { name: "handler adapter" })).toHaveValue("NativeHttpHandler");
   await page.locator("#prop-Url").fill("https://example.com/sink");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
 
-  // Review step — "Enable immediately" is checked by default.
-  await page.getByRole("button", { name: "Create scheduled job" }).click();
+  // "Enable immediately" is checked by default.
+  await page.getByRole("button", { name: "Create job" }).click();
 
   await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
@@ -59,18 +65,26 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Next run")).toBeVisible();
 
-  // Reload to prove the adapter config truly persisted server-side.
+  // Reload to prove the adapter config truly persisted server-side. Each stage card
+  // summarises what it saved, so both the adapter and its property show without opening it.
   await page.reload();
-  await expect(page.getByLabel("receiver adapter")).toHaveValue("NativeHttpReceiver");
-  await expect(page.locator("#prop-Url").first()).toHaveValue("https://example.com/feed");
-  await expect(page.getByLabel("handler adapter")).toHaveValue("NativeHttpHandler");
+  const source = page.getByRole("button", { name: /^Source/ });
+  await expect(source).toContainText("NativeHttpReceiver");
+  await expect(source).toContainText("https://example.com/feed");
+  const delivery = page.getByRole("button", { name: /^Delivery/ });
+  await expect(delivery).toContainText("NativeHttpHandler");
+  await expect(delivery).toContainText("https://example.com/sink");
 
-  await page.goto("subscriptions?types=scheduled-jobs");
+  // Narrow by type — the supported filter — so the row can't be paged out of sight. Deliberately
+  // not the search box: a multi-word term is encoded with "+" and the backend never decodes it,
+  // so searching any name containing a space returns nothing (pre-existing, see notes).
+  await page.goto("subscriptions?type=Receiving");
   const row = page.getByRole("row", { name: new RegExp(name) });
   await expect(row).toBeVisible({ timeout: 15000 });
   await expect(row.getByText("undefined")).toHaveCount(0);
 
-  await row.getByRole("button", { name: `Open ${name}` }).click();
+  // The whole row is the link on this table — there is no separate open button.
+  await row.click();
   await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
   await page.getByRole("button", { name: "Delete" }).click();
   await page.getByRole("button", { name: "Delete subscription" }).click();
