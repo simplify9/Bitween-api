@@ -30,7 +30,7 @@ export function Button({
     <button
       type="button"
       disabled={disabled || busy}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors cursor-pointer disabled:cursor-not-allowed ${
+      className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition-colors cursor-pointer disabled:cursor-not-allowed ${
         size === "sm" ? "h-8 px-3 text-[13px]" : "h-9.5 px-4 text-sm"
       } ${buttonStyles[variant]} ${className}`}
       {...rest}

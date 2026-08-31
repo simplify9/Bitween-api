@@ -416,8 +416,12 @@ namespace SW.Bitween.Web
         /// <summary>Mirrors the policy the legacy UI enforces at nginx, minus its nginx-only bits.</summary>
         private const string ContentSecurityPolicy =
             "default-src 'self'; " +
-            "script-src 'self'; " +
-            "style-src 'self' 'unsafe-inline'; " +
+            // The Scriban mapping editor lazy-loads Monaco, which fetches its script,
+            // stylesheet and language workers from jsdelivr — each needs an explicit
+            // allowance beyond 'self'.
+            "script-src 'self' https://cdn.jsdelivr.net; " +
+            "worker-src 'self' blob: https://cdn.jsdelivr.net; " +
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
             "img-src 'self' data:; " +
             "connect-src 'self' https://login.microsoftonline.com; " +
             "frame-src https://login.microsoftonline.com; " +
