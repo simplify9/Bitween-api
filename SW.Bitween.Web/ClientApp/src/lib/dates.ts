@@ -23,16 +23,26 @@ export const timeAgo = (iso: string): string => {
   return formatDate(iso);
 };
 
-/** "in 34m", "in 2h" — for things scheduled in the future. */
+/** "in 34m", "in 2h" for the future; "overdue by 3d" once a schedule has been missed a while. */
 export const timeUntil = (iso: string): string => {
-  const seconds = (new Date(iso).getTime() - Date.now()) / 1000;
-  if (seconds <= 0) return "any moment";
-  if (seconds < 90) return "in under a minute";
-  const minutes = seconds / 60;
-  if (minutes < 60) return `in ${Math.round(minutes)}m`;
-  const hours = minutes / 60;
-  if (hours < 24) return `in ${Math.round(hours)}h`;
-  return `in ${Math.round(hours / 24)}d`;
+  const d = asDate(iso);
+  if (!d) return "—";
+  const seconds = (d.getTime() - Date.now()) / 1000;
+  if (seconds > 0) {
+    if (seconds < 90) return "in under a minute";
+    const minutes = seconds / 60;
+    if (minutes < 60) return `in ${Math.round(minutes)}m`;
+    const hours = minutes / 60;
+    if (hours < 24) return `in ${Math.round(hours)}h`;
+    return `in ${Math.round(hours / 24)}d`;
+  }
+  const overdue = -seconds;
+  if (overdue < 30) return "any moment";
+  const minutes = overdue / 60;
+  if (minutes < 90) return `overdue by ${Math.max(1, Math.round(minutes))}m`;
+  const hours = overdue / 3600;
+  if (hours < 48) return `overdue by ${Math.round(hours)}h`;
+  return `overdue by ${Math.round(overdue / 86400)}d`;
 };
 
 const timeFormatter = new Intl.DateTimeFormat("en", {

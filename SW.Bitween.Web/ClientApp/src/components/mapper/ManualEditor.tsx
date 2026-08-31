@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect, useRef } from "react";
+import loader from "@monaco-editor/loader";
 import {
   useMappingEditorDispatch,
   useMappingEditorState,
@@ -8,6 +9,10 @@ import {
   syncManualTemplate,
 } from "../../lib/mapping/MappingEditorContext";
 import { generateScriban, parseScriban } from "../../lib/mapping/scribanGenerator";
+
+// Pinned to an exact version so the CSP entries in Startup.cs (which allow only
+// this path, not all of cdn.jsdelivr.net) stay valid — bump both together.
+loader.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs" } });
 
 // Monaco is heavy — lazy-load it so it stays out of the main bundle.
 const MonacoEditor = lazy(() => import("@monaco-editor/react"));
