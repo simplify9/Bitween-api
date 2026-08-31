@@ -7,15 +7,16 @@
   
   <ItemGroup>
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.12">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.30">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
   
   <ItemGroup>
+    <PackageReference Include="SimplyWorks.Scheduler.EfCore" Version="8.1.8" />
     <ProjectReference Include="..\SW.Bitween.Api\SW.Bitween.Api.csproj" />
-    <PackageReference Include="SimplyWorks.Scheduler.MySql" Version="8.1.7" />
+    <PackageReference Include="SimplyWorks.Scheduler.MySql" Version="8.1.8" />
   </ItemGroup>
   
 
