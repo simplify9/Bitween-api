@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { pickOption } from "./helpers";
 
 const ADMIN_EMAIL = "admin@Bitween.systems";
 const ADMIN_PASSWORD = "Mtm@dmin!2";
@@ -19,28 +20,23 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
 
   // The information type is a searchable picker, and the stages below it are cards that open
   // in place — there is no wizard to "Continue" through any more.
-  await page.getByRole("combobox", { name: "Information type" }).click();
-  await page.getByRole("option", { name: /Shipment order/ }).click();
-  // Wait for the pick to land: without this the next click can run first and the form is still
-  // missing its information type, leaving "Create job" disabled.
+  await pickOption(page, "Information type", /Shipment order/);
   await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Shipment order/);
 
   // Source — open by default. Receiver adapter plus its one required prop.
-  await page.getByRole("combobox", { name: "receiver adapter" }).click();
-  await page.getByRole("option", { name: "NativeHttpReceiver" }).click();
+  await pickOption(page, "receiver adapter", "NativeHttpReceiver");
   await expect(page.getByRole("combobox", { name: "receiver adapter" })).toHaveValue("NativeHttpReceiver");
   await page.locator("#prop-Url").fill("https://example.com/feed");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/feed");
 
-  // Collapse Source before opening Delivery: its property form renders asynchronously and the
-  // cards below it keep moving while it does, so clicking straight through hits a moving target.
+  // Collapse Source before opening Delivery: only one stage is open at a time, which is what
+  // keeps #prop-Url unambiguous below.
   await page.getByRole("button", { name: "Close this step" }).click();
 
   // Delivery — handler adapter and its required prop (transformation stays "Passes through").
   // Only one stage is open at a time, so #prop-Url is unambiguous here.
   await page.getByRole("button", { name: /^Delivery/ }).click();
-  await page.getByRole("combobox", { name: "handler adapter" }).click();
-  await page.getByRole("option", { name: "NativeHttpHandler" }).click();
+  await pickOption(page, "handler adapter", "NativeHttpHandler");
   await expect(page.getByRole("combobox", { name: "handler adapter" })).toHaveValue("NativeHttpHandler");
   await page.locator("#prop-Url").fill("https://example.com/sink");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
@@ -87,8 +83,10 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await expect(row).toBeVisible({ timeout: 15000 });
   await expect(row.getByText("undefined")).toHaveCount(0);
 
-  // The whole row is the link on this table — there is no separate open button.
-  await row.click();
+  // The name, not the row's centre. The whole row opens the subscription, but it also
+  // carries links of its own — information type, partner — and which one sits under the
+  // centre depends on how wide the columns happen to be.
+  await row.getByText(name).click();
   await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
   await page.getByRole("button", { name: "Delete" }).click();
   await page.getByRole("button", { name: "Delete subscription" }).click();

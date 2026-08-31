@@ -33,7 +33,7 @@ interface RawXchangeRow {
   inputKey: string | null;
   outputKey: string | null;
   responseKey: string | null;
-  promotedProperties: Record<string, string> | null;
+  promotedProperties: Record<string, string | null> | null;
   retryFor: string | null;
   aggregationXchangeId: string | null;
   responseBad: boolean | null;
@@ -50,7 +50,7 @@ interface RawDelayedRetryRow {
   documentName: string;
   exception: string | null;
   startedOn: string;
-  promotedProperties: Record<string, string> | null;
+  promotedProperties: Record<string, string | null> | null;
   retryPolicyId: number | null;
   retryPolicyName: string | null;
 }

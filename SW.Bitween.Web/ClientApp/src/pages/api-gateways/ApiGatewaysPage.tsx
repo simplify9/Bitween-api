@@ -118,10 +118,10 @@ export function ApiGatewaysPage() {
           columns={[
             {
               header: "Gateway",
-              truncate: true,
+              wrap: true,
               cell: (g) => (
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className={`truncate font-medium ${g.inactive ? "text-ink-400" : "text-ink-900"}`}>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <span className={`font-medium ${g.inactive ? "text-ink-400" : "text-ink-900"}`}>
                     {g.name}
                   </span>
                   {/* Beside the name, not in the Health column: health reports on what the
@@ -145,7 +145,7 @@ export function ApiGatewaysPage() {
             },
             {
               header: "Partners",
-              truncate: true,
+              wrap: true,
               cell: (g) => (
                 <LinkListCell
                   label="partners"

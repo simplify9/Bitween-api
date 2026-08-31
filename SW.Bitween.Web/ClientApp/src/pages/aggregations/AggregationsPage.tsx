@@ -198,15 +198,15 @@ export function AggregationsPage() {
             {
               header: "Aggregation",
               headerTitle: "The roll-up job itself. Open it to configure what it delivers.",
-              truncate: true,
-              cell: (r) => <span className="block truncate font-medium text-ink-900">{r.name}</span>,
+              wrap: true,
+              cell: (r) => <span className="block font-medium text-ink-900">{r.name}</span>,
             },
             {
               // The whole point of the row: an aggregation with no source name is one
               // whose source was deleted, and it will never produce anything again.
               header: "Rolls up",
               headerTitle: "The subscription whose successful exchanges this collects. Fixed when the aggregation was created.",
-              truncate: true,
+              wrap: true,
               cell: (r) => {
                 const name = r.aggregationForId === null ? null : nameById.get(r.aggregationForId);
                 if (r.aggregationForId === null)
@@ -215,7 +215,7 @@ export function AggregationsPage() {
                   <Link
                     to={`/subscriptions/${r.aggregationForId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                   >
                     {name}
                   </Link>
@@ -227,9 +227,9 @@ export function AggregationsPage() {
             {
               header: "Collects",
               headerTitle: "Which file of each collected exchange the roll-up links to. Links only \u2014 the files are not combined.",
-              truncate: true,
+              wrap: true,
               cell: (r) => (
-                <span className="block truncate text-[13px] text-ink-600">
+                <span className="block text-[13px] text-ink-600">
                   {AGGREGATION_TARGET_LABEL[r.aggregationTarget]}
                 </span>
               ),
@@ -304,7 +304,7 @@ export function AggregationsPage() {
             {
               header: "Partner",
               headerTitle: "Who the roll-up exchange belongs to. Not the partners of the exchanges it collected \u2014 one roll-up can cover many.",
-              truncate: true,
+              wrap: true,
               cell: (r) => (
                 <LinkListCell
                   label="partners"
@@ -319,7 +319,7 @@ export function AggregationsPage() {
             {
               header: "Work group",
               headerTitle: "Which queue lane the roll-up runs in \u2014 the difference between idle and queued behind other work.",
-              truncate: true,
+              wrap: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
                 const name = id === null ? null : (workGroupNames.get(id) ?? null);
@@ -328,7 +328,7 @@ export function AggregationsPage() {
                   <Link
                     to={`/work-groups/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                   >
                     {name}
                   </Link>
@@ -340,7 +340,7 @@ export function AggregationsPage() {
             {
               header: "Retry policy",
               headerTitle: "What happens when the roll-up\u2019s delivery fails. None means a failure is recorded and left alone.",
-              truncate: true,
+              wrap: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.retryPolicyId ?? null;
                 const name = id === null ? null : (retryPolicyNames.get(id) ?? null);
@@ -349,7 +349,7 @@ export function AggregationsPage() {
                   <Link
                     to={`/retry-policies/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                   >
                     {name}
                   </Link>
@@ -362,7 +362,7 @@ export function AggregationsPage() {
               header: "Status",
               headerTitle: "Whether it is turned on, holding work, and executing right now. Hover a badge for what it means.",
               cell: (r) => (
-                <span className="inline-flex items-center gap-1">
+                <span className="flex max-w-20 flex-wrap items-center gap-1">
                   <ScheduleFault health={healthById.get(r.id)} />
                   <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
                   <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />

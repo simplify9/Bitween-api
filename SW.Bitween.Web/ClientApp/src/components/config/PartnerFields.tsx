@@ -149,8 +149,8 @@ export function PartnerFields({
               columns={[
                 {
                   header: "Key",
-                  truncate: true,
-                  cell: (c) => <span className="block truncate font-medium text-ink-800">{c.name}</span>,
+                  wrap: true,
+                  cell: (c) => <span className="block font-medium text-ink-800">{c.name}</span>,
                 },
                 {
                   header: "Prefix",

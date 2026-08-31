@@ -234,7 +234,7 @@ export function InformationTypesPage() {
             },
             {
               header: "Used by",
-              truncate: true,
+              wrap: true,
               cell: (t) => <UsedByCell items={subscriptions.filter((s) => s.informationTypeId === t.id)} />,
             },
           ]}

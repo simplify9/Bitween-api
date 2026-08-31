@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { pickOption } from "./helpers";
 
 /** A seeded partner, used for the attachment this test makes and then removes. */
 const PARTNER = "Acme Retail";
@@ -31,8 +32,7 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await page.getByRole("button", { name: "Attach partner" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach$/);
 
-  await page.getByRole("combobox", { name: "Partner" }).click();
-  await page.getByRole("option", { name: new RegExp(PARTNER) }).click();
+  await pickOption(page, "Partner", new RegExp(PARTNER));
   await expect(page.getByRole("combobox", { name: "Partner" })).toHaveValue(PARTNER);
 
   const subscriptionName = `Playwright GW Subscription ${Date.now()}`;
@@ -40,11 +40,9 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   // The picked partner rides along as a query param through the detour.
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach\/new-subscription/);
   await page.fill("#ngi-name", subscriptionName);
-  await page.getByRole("combobox", { name: "Information type" }).click();
-  await page.getByRole("option", { name: /Shipment order/ }).click();
+  await pickOption(page, "Information type", /Shipment order/);
   await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Shipment order/);
-  await page.getByRole("combobox", { name: "handler adapter" }).click();
-  await page.getByRole("option", { name: "NativeHttpHandler" }).click();
+  await pickOption(page, "handler adapter", "NativeHttpHandler");
   await page.locator("#prop-Url").fill("https://example.com/sink");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
   await page.getByRole("button", { name: "Create subscription" }).click();
@@ -93,8 +91,7 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
   await page.goto("bus-gateways/new");
   await page.fill("#nbg-name", name);
   // Bus-enabled types only, and this one is the one no seeded gateway already listens for.
-  await page.getByRole("combobox", { name: "Information type" }).click();
-  await page.getByRole("option", { name: /Delivery proof/ }).click();
+  await pickOption(page, "Information type", /Delivery proof/);
   await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Delivery proof/);
   await page.getByRole("button", { name: "Create gateway" }).click();
   await expect(page).toHaveURL(/\/bus-gateways\/\d+$/);
@@ -115,8 +112,7 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
 
   // Its delivery is a node on the same canvas.
   await page.getByRole("button", { name: /^Delivery/ }).click();
-  await page.getByRole("combobox", { name: "handler adapter" }).click();
-  await page.getByRole("option", { name: "NativeHttpHandler" }).click();
+  await pickOption(page, "handler adapter", "NativeHttpHandler");
   await page.locator("#prop-Url").fill("https://example.com/sink");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
 

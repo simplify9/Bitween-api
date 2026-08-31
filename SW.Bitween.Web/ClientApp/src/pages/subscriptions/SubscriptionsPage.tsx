@@ -222,8 +222,8 @@ export function SubscriptionsPage() {
           columns={[
             {
               header: "Subscription",
-              truncate: true,
-              cell: (r) => <span className="block truncate font-medium text-ink-900">{r.name}</span>,
+              wrap: true,
+              cell: (r) => <span className="block font-medium text-ink-900">{r.name}</span>,
             },
             { header: "Type", cell: (r) => <TypeBadge type={r.type} /> },
             {
@@ -243,7 +243,7 @@ export function SubscriptionsPage() {
             },
             {
               header: "Partner",
-              truncate: true,
+              wrap: true,
               cell: (r) => (
                 <LinkListCell
                   label="partners"

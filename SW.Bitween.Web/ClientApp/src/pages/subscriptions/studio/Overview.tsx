@@ -25,11 +25,11 @@ export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: s
       columns={[
         {
           header: "Entry point",
-          truncate: true,
+          wrap: true,
           cell: (e) => (
             <Link
               to={e.href}
-              className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
             >
               {e.name}
             </Link>
@@ -354,11 +354,11 @@ export function Overview({
                 columns={[
                   {
                     header: "Notifier",
-                    truncate: true,
+                    wrap: true,
                     cell: (n) => (
                       <Link
                         to={`/notifiers/${n.id}`}
-                        className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                        className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                       >
                         {n.name}
                       </Link>

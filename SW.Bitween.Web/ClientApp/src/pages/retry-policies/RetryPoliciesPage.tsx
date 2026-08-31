@@ -158,7 +158,7 @@ export function RetryPoliciesPage() {
             },
             {
               header: "Used by",
-              truncate: true,
+              wrap: true,
               cell: (p) => <UsedByCell items={subscriptions.filter((s) => s.retryPolicyId === p.id)} />,
             },
           ]}

@@ -177,7 +177,7 @@ export function PartnersPage() {
             },
             {
               header: "Used by",
-              truncate: true,
+              wrap: true,
               cell: (p) => <UsedByCell items={partnerSubscriptions.get(p.id) ?? []} />,
             },
           ]}

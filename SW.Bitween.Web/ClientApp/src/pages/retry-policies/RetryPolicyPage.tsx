@@ -333,7 +333,6 @@ export function RetryPolicyPage() {
             <MiniTable
               rows={sortedGroups}
               rowKey={(g) => g.id}
-              fitWidth
               onRowClick={canEdit ? (g) => setEditingGroup(g) : undefined}
               empty="No groups yet — failures under this policy are never retried."
               columns={[
@@ -344,11 +343,11 @@ export function RetryPolicyPage() {
                 },
                 {
                   header: "Group",
-                  truncate: true,
+                  wrap: true,
                   cell: (g) => (
                     <span
                       title={g.notes ? `${g.name} — ${g.notes}` : g.name}
-                      className={`block truncate font-medium text-ink-900 ${g.enabled ? "" : "opacity-60"}`}
+                      className={`block font-medium text-ink-900 ${g.enabled ? "" : "opacity-60"}`}
                     >
                       {g.name}
                     </span>
@@ -365,7 +364,7 @@ export function RetryPolicyPage() {
                 },
                 {
                   header: "Applies to",
-                  truncate: true,
+                  wrap: true,
                   cell: (g) => {
                     // Scope first and short, conditions second: every row in a policy tends to
                     // share the scope, so leading with "errors matching " spent the column's
@@ -380,7 +379,7 @@ export function RetryPolicyPage() {
                         : g.matchers.map((m) => matcherSummary(m)).join(" or ");
                     return (
                       <span
-                        className="block truncate text-[13px] text-ink-600"
+                        className="block text-[13px] text-ink-600"
                         title={scope ? `${scope} · ${conditions}` : conditions}
                       >
                         {scope && <span className="text-ink-400">{scope} · </span>}

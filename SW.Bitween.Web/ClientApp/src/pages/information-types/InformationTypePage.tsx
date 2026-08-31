@@ -103,15 +103,16 @@ export function InformationTypePage() {
                   <MiniTable
                     rows={t.busGateways}
                     rowKey={(g) => g.gatewayId}
+                    search={{ text: (g) => g.gatewayName, noun: "bus gateways" }}
                     empty=""
                     columns={[
                       {
                         header: "Bus gateway",
-                        truncate: true,
+                        wrap: true,
                         cell: (g) => (
                           <Link
                             to={`/bus-gateways/${g.gatewayId}`}
-                            className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                            className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                           >
                             {g.gatewayName}
                           </Link>

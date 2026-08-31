@@ -28,11 +28,11 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
       columns={[
         {
           header: "Exchange",
-          truncate: true,
+          wrap: true,
           cell: (n) => (
             <Link
               to={`/exchanges?ids=${encodeURIComponent(n.xchangeId)}`}
-              className="block truncate font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+              className="block font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
             >
               {n.xchangeId}
             </Link>
