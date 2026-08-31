@@ -25,7 +25,9 @@ export const timeAgo = (iso: string): string => {
 
 /** "in 34m", "in 2h" for the future; "overdue by 3d" once a schedule has been missed a while. */
 export const timeUntil = (iso: string): string => {
-  const seconds = (new Date(iso).getTime() - Date.now()) / 1000;
+  const d = asDate(iso);
+  if (!d) return "—";
+  const seconds = (d.getTime() - Date.now()) / 1000;
   if (seconds > 0) {
     if (seconds < 90) return "in under a minute";
     const minutes = seconds / 60;

@@ -417,11 +417,12 @@ namespace SW.Bitween.Web
         private const string ContentSecurityPolicy =
             "default-src 'self'; " +
             // The Scriban mapping editor lazy-loads Monaco, which fetches its script,
-            // stylesheet and language workers from jsdelivr — each needs an explicit
-            // allowance beyond 'self'.
-            "script-src 'self' https://cdn.jsdelivr.net; " +
-            "worker-src 'self' blob: https://cdn.jsdelivr.net; " +
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+            // stylesheet and language workers from jsdelivr. Pinned to the exact
+            // version path ManualEditor.tsx configures the loader with — not the
+            // whole jsdelivr origin — so this must move in lockstep with that pin.
+            "script-src 'self' https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/; " +
+            "worker-src 'self' blob: https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/; " +
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/; " +
             "img-src 'self' data:; " +
             "connect-src 'self' https://login.microsoftonline.com; " +
             "frame-src https://login.microsoftonline.com; " +
