@@ -15,7 +15,11 @@ import { signInAsAdmin } from "./helpers";
 const LONG_NAMES = [
   "Customer Aggregation Trace Out Manifest - Sodexi Cassini EDI",
   "Agent Tracing - Colissimo EDI Daily Reconciliation",
-  "Customer Aggregation Scan Out - CUSTOMS Chronopost",
+  // No spaces anywhere: there is nothing for the browser to break on when it
+  // works out the column's intrinsic minimum, which is what `wrap-anywhere`
+  // exists to handle. With `break-words` this one alone widened Aggregations by
+  // nearly 900px.
+  "Customer_Aggregation_Scan_Out_CUSTOMS_Chronopost_Returns",
 ];
 
 /** Replaces every `name` the API returns with a production-length one. */

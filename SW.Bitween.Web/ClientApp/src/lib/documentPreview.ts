@@ -44,12 +44,12 @@ function formatXml(text: string): string | null {
   // survive being displayed. Neither is common enough to be worth handling.
   if (text.includes("<![CDATA[") || text.includes("<!--")) return null;
 
-  // Split only where one tag butts directly against the next. That is the whole
-  // transformation: text sitting between elements is never moved, so the only
-  // thing this can change is whitespace that was already insignificant. No
-  // parse, no validation — malformed markup comes back oddly indented rather
-  // than with characters missing, which is the trade worth making here.
-  const lines = text.replace(/>\s*</g, ">\n<").split("\n");
+  // Split only where one tag butts *literally* against the next, with nothing
+  // between them. Whitespace sitting between two tags is a text node — in mixed
+  // content it is character data the reader came here to see — so it is left
+  // exactly where it is, even though that means those tags don't get reflowed.
+  // Indenting still inserts whitespace, but only at boundaries that held none.
+  const lines = text.replace(/></g, ">\n<").split("\n");
   if (lines.length === 1) return null;
 
   let depth = 0;

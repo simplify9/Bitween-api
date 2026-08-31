@@ -48,13 +48,15 @@ export interface Column<T> {
  *
  * `wrap` columns take that same slack but carry no `max-w-0`, so the table
  * hands them width in proportion to how long their text really is and they
- * wrap inside it. Both kinds also carry a floor, because the slack being
+ * wrap inside it. `wrap-anywhere` rather than `break-words`: only the former
+ * feeds mid-token breaks into intrinsic sizing, and a name with no spaces in it
+ * would otherwise set the column's min-content and widen the table anyway. Both kinds also carry a floor, because the slack being
  * shared is what collapsed three columns into a grid of ellipses: below the
  * floor the card scrolls sideways instead of shaving every column at once.
  */
 const widthClass = <T,>(c: Column<T>, compact = false) =>
   c.wrap
-    ? `${compact ? "min-w-20" : "min-w-26"} break-words`
+    ? `${compact ? "min-w-20" : "min-w-26"} wrap-anywhere`
     : c.truncate
       ? `max-w-0 ${compact ? "min-w-16" : "min-w-20"}`
       : "w-px whitespace-nowrap";

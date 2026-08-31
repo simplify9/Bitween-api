@@ -16,17 +16,28 @@ describe("formatDocument", () => {
     expect(formatDocument("<p>hello <b>there</b></p>")).toBe("<p>hello <b>there</b>\n</p>");
   });
 
+  it("keeps a space between two tags, which is character data and not formatting", () => {
+    // The reflow used to swallow this, on the assumption that whitespace between
+    // tags is only ever indentation. In mixed content it is the payload.
+    expect(formatDocument("<a><b>1</b> <c>2</c></a>")).toBe("<a>\n  <b>1</b> <c>2</c>\n</a>");
+  });
+
   /**
    * The property that matters more than tidy output: reflowing a payload must
    * never lose or move a character of it, however odd the markup is. Malformed
    * XML comes back strangely indented and completely intact.
    */
-  it.each(['<a><b>1</b><c/></a>', '<a><b></a>', '<?xml version="1.0"?><a><b/></a>'])(
-    "changes nothing but whitespace between tags: %s",
-    (src) => {
-      expect(formatDocument(src)!.replace(/\s*\n\s*/g, "")).toBe(src);
-    },
-  );
+  it.each([
+    '<a><b>1</b><c/></a>',
+    '<a><b></a>',
+    '<?xml version="1.0"?><a><b/></a>',
+    '<a><b>1</b> <c>2</c></a>',
+    '<a>text <b>1</b></a>',
+  ])("adds whitespace but never removes any: %s", (src) => {
+    // Undoing only the newline-plus-indent this inserts has to give the input
+    // back character for character. A swallowed space fails here.
+    expect(formatDocument(src)!.replace(/\n */g, "")).toBe(src);
+  });
 
   // Everything below comes back null, and the caller then shows the payload
   // exactly as it arrived.
