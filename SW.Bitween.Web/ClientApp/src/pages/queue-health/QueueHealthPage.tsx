@@ -224,23 +224,23 @@ export function QueueHealthPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
-                <th className="py-2 pr-3">Lane</th>
-                <th className="px-3 py-2">Queue</th>
-                <th className="px-3 py-2 text-right">Nodes</th>
-                <th className="px-3 py-2 text-right">In flight</th>
-                <th className="px-3 py-2 text-right">Queued</th>
-                <th className="px-3 py-2 text-right">Retrying</th>
-                <th className="px-3 py-2 text-right">Dead</th>
-                <th className="px-3 py-2 text-right">Prefetch</th>
-                <th className="px-3 py-2 text-right">In/s</th>
-                <th className="px-3 py-2 text-right">Ack/s</th>
-                <th className="px-3 py-2">Health</th>
+                <th className="py-2 pr-2">Lane</th>
+                <th className="px-2 py-2">Queue</th>
+                <th className="px-2 py-2 text-right">Nodes</th>
+                <th className="px-2 py-2 text-right">In flight</th>
+                <th className="px-2 py-2 text-right">Queued</th>
+                <th className="px-2 py-2 text-right">Retrying</th>
+                <th className="px-2 py-2 text-right">Dead</th>
+                <th className="px-2 py-2 text-right">Prefetch</th>
+                <th className="px-2 py-2 text-right">In/s</th>
+                <th className="px-2 py-2 text-right">Ack/s</th>
+                <th className="px-2 py-2">Health</th>
               </tr>
             </thead>
             <tbody className="tabular-nums">
               {LANE_ORDER.filter((lane) => byLane.get(lane)?.length).flatMap((lane) => [
                 <tr key={`h-${lane}`} className="border-b border-ink-100 bg-ink-50/60">
-                  <td colSpan={11} className="px-3 py-1.5">
+                  <td colSpan={11} className="px-2 py-1.5">
                     <span className="text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
                       {LANES[lane].label}
                     </span>
@@ -251,7 +251,7 @@ export function QueueHealthPage() {
                   // Keyed on the queue name: the consumer name is the C# class, which
                   // repeats across every work-group lane.
                   <tr key={c.queueName} className="border-b border-ink-50 last:border-0">
-                    <td className="py-2 pr-3">
+                    <td className="py-2 pr-2">
                       {linkFor(c) !== null ? (
                         <Link
                           to={linkFor(c)!}
@@ -264,22 +264,22 @@ export function QueueHealthPage() {
                       )}
                       <span className="block text-xs text-ink-400">{roleOf(c)}</span>
                     </td>
-                    <td className="px-3 py-2">
-                      <code className="font-mono text-xs text-ink-500">{c.queueName}</code>
+                    <td className="px-2 py-2">
+                      <code className="font-mono text-xs wrap-anywhere text-ink-500">{c.queueName}</code>
                     </td>
-                    <td className="px-3 py-2 text-right text-ink-700">{c.totalNodes}</td>
-                    <td className="px-3 py-2 text-right text-ink-700">{c.processingCount}</td>
-                    <td className="px-3 py-2 text-right text-ink-700">{c.queueCount}</td>
-                    <td className={`px-3 py-2 text-right ${c.retryCount > 0 ? "font-medium text-warn-700" : "text-ink-700"}`}>
+                    <td className="px-2 py-2 text-right text-ink-700">{c.totalNodes}</td>
+                    <td className="px-2 py-2 text-right text-ink-700">{c.processingCount}</td>
+                    <td className="px-2 py-2 text-right text-ink-700">{c.queueCount}</td>
+                    <td className={`px-2 py-2 text-right ${c.retryCount > 0 ? "font-medium text-warn-700" : "text-ink-700"}`}>
                       {c.retryCount}
                     </td>
-                    <td className={`px-3 py-2 text-right ${c.failedCount > 0 ? "font-medium text-danger-700" : "text-ink-700"}`}>
+                    <td className={`px-2 py-2 text-right ${c.failedCount > 0 ? "font-medium text-danger-700" : "text-ink-700"}`}>
                       {c.failedCount}
                     </td>
-                    <td className="px-3 py-2 text-right text-ink-500">{c.prefetch}</td>
-                    <td className="px-3 py-2 text-right text-ink-700">{c.incomingRate}</td>
-                    <td className="px-3 py-2 text-right text-ink-700">{c.ackRate}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 text-right text-ink-500">{c.prefetch}</td>
+                    <td className="px-2 py-2 text-right text-ink-700">{c.incomingRate}</td>
+                    <td className="px-2 py-2 text-right text-ink-700">{c.ackRate}</td>
+                    <td className="px-2 py-2">
                       <span className="inline-flex items-center gap-1">
                         <HealthBadge health={c.health} />
                         {c.isBackpressured && (
@@ -324,10 +324,10 @@ export function QueueHealthPage() {
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-white">
                 <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
-                  <th className="py-2 pr-3">Queue</th>
-                  <th className="px-3 py-2 text-right">Queued</th>
-                  <th className="px-3 py-2 text-right">Retrying</th>
-                  <th className="px-3 py-2 text-right">Dead</th>
+                  <th className="py-2 pr-2">Queue</th>
+                  <th className="px-2 py-2 text-right">Queued</th>
+                  <th className="px-2 py-2 text-right">Retrying</th>
+                  <th className="px-2 py-2 text-right">Dead</th>
                 </tr>
               </thead>
               <tbody className="tabular-nums">
@@ -339,13 +339,13 @@ export function QueueHealthPage() {
                       <code className="font-mono text-xs text-ink-600">{q.queueName}</code>
                       {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-400">+{q.queues - 1}</span>}
                     </td>
-                    <td className={`px-3 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                    <td className={`px-2 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
                       {q.messages}
                     </td>
-                    <td className={`px-3 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                    <td className={`px-2 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
                       {q.retryMessages}
                     </td>
-                    <td className={`px-3 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-400"}`}>
+                    <td className={`px-2 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-400"}`}>
                       {q.deadMessages}
                     </td>
                   </tr>

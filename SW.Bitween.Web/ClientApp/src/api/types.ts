@@ -119,7 +119,7 @@ export interface ExchangeRef {
   status: ExchangeStatus;
   on: string;
   /** What the exchange was, in the information type's own terms. The lead column. */
-  promotedProperties?: Record<string, string> | null;
+  promotedProperties?: Record<string, string | null> | null;
   /** Documents produced as the exchange moved through the pipeline, for drill-down previews. */
   documents?: ExchangeDocument[];
 }
@@ -619,7 +619,7 @@ export type ReceiveOutcome = "Failed" | "NoNewData" | "Received";
 export interface ReceiveAttemptExchange {
   id: string;
   status: ExchangeStatus;
-  promotedProperties: Record<string, string> | null;
+  promotedProperties: Record<string, string | null> | null;
 }
 
 export interface ReceiveAttemptRow {
@@ -820,7 +820,7 @@ export interface ExchangeRow {
   /** A pending auto-retry, when the retry policy scheduled one. */
   scheduledRetryOn: string | null;
   exception: string | null;
-  promotedProperties: Record<string, string> | null;
+  promotedProperties: Record<string, string | null> | null;
   /** True when the subscription has no mapper — the Mapped stage is skipped. */
   mapperSkipped: boolean;
   files: {
@@ -872,7 +872,7 @@ export interface ScheduledRetryRow {
   /** When the failed exchange originally started. */
   startedOn: string;
   /** What the exchange carries — how a pending retry identifies itself in a list. */
-  promotedProperties: Record<string, string> | null;
+  promotedProperties: Record<string, string | null> | null;
   /**
    * The shared retry policy the subscription currently points at. Null when the
    * policy is defined inline on the subscription instead, so the subscription — not

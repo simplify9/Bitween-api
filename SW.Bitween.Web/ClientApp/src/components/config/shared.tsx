@@ -1,5 +1,6 @@
-import { useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   api,
@@ -210,7 +211,7 @@ export function PromotedProps({
   max = 3,
   fallbackId,
 }: {
-  properties: Record<string, string> | null;
+  properties: Record<string, string | null> | null;
   max?: number;
   /**
    * Shown when the information type promotes nothing, or promotes nothing this
@@ -220,7 +221,10 @@ export function PromotedProps({
    */
   fallbackId?: string;
 }) {
-  const entries = Object.entries(properties ?? {});
+  // The backend hands the promoted bag over as it found it, so a promoted path
+  // that resolved to nothing arrives as a null value rather than as an empty
+  // string. Normalise once, here, so nothing downstream has to keep asking.
+  const entries: [string, string][] = Object.entries(properties ?? {}).map(([k, v]) => [k, v ?? ""]);
   if (entries.length === 0)
     return fallbackId ? (
       <span className="font-mono text-xs text-ink-400" title={fallbackId}>
@@ -229,24 +233,95 @@ export function PromotedProps({
     ) : (
       <span className="text-[13px] text-ink-400">—</span>
     );
+
   const shown = entries.slice(0, max);
   const rest = entries.length - shown.length;
+  // A value the chip had to cut is every bit as hidden as one that didn't fit in
+  // the cell at all, so either is reason enough to offer the panel. Cutting by
+  // characters rather than by CSS is what makes that knowable here.
+  const cut = shown.some(([, v]) => v.length > VALUE_CHIP_CAP);
+
   return (
-    <span
-      className="flex flex-wrap items-center gap-1"
-      title={entries.map(([k, v]) => `${k}=${v}`).join("\n")}
-    >
+    <span className="flex flex-wrap items-center gap-1">
       {shown.map(([k, v]) => (
         <code
           key={k}
-          className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700"
+          className="max-w-full rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] wrap-anywhere text-ink-700"
         >
           <span className="text-ink-500">{k}=</span>
-          {v}
+          {v.length > VALUE_CHIP_CAP ? `${v.slice(0, VALUE_CHIP_CAP)}…` : v}
         </code>
       ))}
-      {rest > 0 && <span className="text-[11px] text-ink-400">+{rest}</span>}
+      {(rest > 0 || cut) && (
+        <Popover
+          label={`Show all ${entries.length} promoted properties`}
+          width="w-96"
+          button={
+            // A chevron rather than another ellipsis when nothing overflowed:
+            // the cut value already ends in one, and two in a row read as one
+            // more character of the value instead of as a control.
+            <span className="flex items-center rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px]">
+              {rest > 0 ? `+${rest}` : <ChevronDown className="size-3" aria-hidden />}
+            </span>
+          }
+        >
+          <PromotedPropsPanel entries={entries} />
+        </Popover>
+      )}
     </span>
+  );
+}
+
+/**
+ * How much of one value a chip shows before the panel has to carry it. Long
+ * enough for a trace code or a hostname, short enough that one runaway value
+ * can't take the column away from every other row on the page.
+ */
+const VALUE_CHIP_CAP = 28;
+
+/**
+ * Every promoted property, in full.
+ *
+ * The row can only afford three chips and a cut value, and these are the fields
+ * people actually search on — "which of these is Northwind's order" is answered
+ * here, so it can't be a `title` attribute: a tooltip can't be selected, copied,
+ * or scrolled, and ten properties don't fit in one. Keys and values line up in
+ * two columns and long values wrap, because a value cut twice is no better than
+ * a value cut once.
+ */
+function PromotedPropsPanel({ entries }: { entries: [string, string][] }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    await navigator.clipboard.writeText(entries.map(([k, v]) => `${k}=${v}`).join("\n"));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2 px-1.5 pb-1.5">
+        <p className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+          {entries.length} promoted {entries.length === 1 ? "property" : "properties"}
+        </p>
+        <button
+          type="button"
+          onClick={copy}
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium text-ink-500 hover:bg-ink-50 hover:text-ink-800"
+        >
+          {copied ? <Check className="size-3 text-ok-600" /> : <Copy className="size-3" />}
+          {copied ? "Copied" : "Copy all"}
+        </button>
+      </div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 border-t border-ink-100 px-1.5 pt-2">
+        {entries.map(([k, v]) => (
+          <Fragment key={k}>
+            <dt className="font-mono text-[11px] text-ink-500">{k}</dt>
+            <dd className="font-mono text-[11px] break-words text-ink-800">{v}</dd>
+          </Fragment>
+        ))}
+      </dl>
+    </>
   );
 }
 
@@ -260,10 +335,9 @@ export function PromotedProps({
  * are missing" is answered by reading order numbers off these rows; it used to
  * take eight clicks.
  *
- * The id gets no column of its own. These panels are ~360px wide, and a complete
- * guid pushes the table past the panel edge — MiniTable scrolls rather than
- * truncating, so the last column ends up clipped instead of shortened. Clicking
- * the row opens it in Exchanges, where the full id is shown and copyable.
+ * The id gets no column of its own. These panels are ~360px wide and a complete
+ * guid would spend most of that on 32 characters nobody reads. Clicking the row
+ * opens it in Exchanges, where the full id is shown and copyable.
  *
  * When an exchange has no promoted properties there is nothing to lead with, so
  * the short id stands in — a row still needs a handle, and admitting "no
@@ -283,6 +357,7 @@ export function ExchangesList({
   const columns = [
     {
       header: "What",
+      wrap: true,
       cell: (x: ExchangeRef) => {
         const properties = Object.entries(x.promotedProperties ?? {});
         return (
@@ -297,6 +372,7 @@ export function ExchangesList({
           >
             <PromotedProps
               properties={x.promotedProperties ?? null}
+              max={1}
               fallbackId={x.id}
             />
           </Link>
@@ -320,8 +396,9 @@ export function ExchangesList({
       : [
           {
             header: "Partner",
+            truncate: true,
             cell: (x: ExchangeRef) => (
-              <span className="text-[13px] text-ink-600">
+              <span className="block truncate text-[13px] text-ink-600" title={x.partnerName}>
                 {x.partnerName ?? "—"}
               </span>
             ),
@@ -357,15 +434,16 @@ export function SetupList({ items }: { items: SubscriptionSetupRef[] }) {
     <MiniTable
       rows={items}
       rowKey={(s) => s.id}
+      search={{ text: (s) => s.name, noun: "subscriptions" }}
       empty="Not used by any subscription."
       columns={[
         {
           header: "Subscription",
-          truncate: true,
+          wrap: true,
           cell: (s) => (
             <Link
               to={`/subscriptions/${s.id}`}
-              className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
             >
               {s.name}
             </Link>
@@ -679,9 +757,7 @@ export function useWiredSubscriptionColumns<T>(
     },
     {
       header: "Last error",
-      // A bounded width, not `truncate`: MiniTable ignores that flag, and an
-      // unbounded stack trace would push everything else out of the panel.
-      className: "max-w-48 overflow-hidden",
+      truncate: true,
       cell: (row) => {
         const message = rowsById.get(subscriptionIdOf(row))?.lastException;
         return message ? (
@@ -738,7 +814,7 @@ export function LinkListCell({
         to={only.href}
         onClick={(e) => e.stopPropagation()}
         title={only.name}
-        className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+        className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
       >
         {only.name}
       </Link>
@@ -816,17 +892,17 @@ export function TrailTable({ entries }: { entries: TrailEntry[] }) {
         },
         {
           header: "By",
-          truncate: true,
+          wrap: true,
           cell: (e) =>
             e.byUserId ? (
               <Link
                 to={`/team/members/${e.byUserId}`}
-                className="block truncate text-ink-600 hover:text-crimson-700 hover:underline"
+                className="block text-ink-600 hover:text-crimson-700 hover:underline"
               >
                 {e.by}
               </Link>
             ) : (
-              <span className="block truncate text-ink-600">{e.by}</span>
+              <span className="block text-ink-600">{e.by}</span>
             ),
         },
         {
@@ -854,15 +930,16 @@ export function SubscriptionMiniList({
     <MiniTable
       rows={items}
       rowKey={(s) => s.id}
+      search={{ text: (s) => s.name, noun: "subscriptions" }}
       empty={emptyText}
       columns={[
         {
           header: "Subscription",
-          truncate: true,
+          wrap: true,
           cell: (s) => (
             <Link
               to={`/subscriptions/${s.id}`}
-              className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
             >
               {s.name}
             </Link>

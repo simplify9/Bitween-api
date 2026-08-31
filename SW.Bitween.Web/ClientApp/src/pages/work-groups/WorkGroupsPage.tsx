@@ -164,7 +164,7 @@ export function WorkGroupsPage() {
             },
             {
               header: "Used by",
-              truncate: true,
+              wrap: true,
               cell: (g) => <UsedByCell items={subscriptions.filter((s) => s.workGroupId === g.id)} />,
             },
             // `enabled: false` on the `live` query only stops it refetching — it doesn't clear a

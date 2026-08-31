@@ -148,15 +148,16 @@ export function PartnerPage() {
                   <MiniTable
                     rows={gatewayUses}
                     rowKey={(g) => g.key}
+                    search={{ text: (g) => g.name, noun: "gateways" }}
                     empty=""
                     columns={[
                       {
                         header: "Gateway",
-                        truncate: true,
+                        wrap: true,
                         cell: (g) => (
                           <Link
                             to={g.href}
-                            className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                            className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                           >
                             {g.name}
                           </Link>

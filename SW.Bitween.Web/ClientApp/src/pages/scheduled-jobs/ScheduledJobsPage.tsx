@@ -195,8 +195,8 @@ export function ScheduledJobsPage() {
           columns={[
             {
               header: "Job",
-              truncate: true,
-              cell: (r) => <span className="block truncate font-medium text-ink-900">{r.name}</span>,
+              wrap: true,
+              cell: (r) => <span className="block font-medium text-ink-900">{r.name}</span>,
             },
             {
               header: "Pulls in",
@@ -285,7 +285,7 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Partner",
-              truncate: true,
+              wrap: true,
               cell: (r) => (
                 <LinkListCell
                   label="partners"
@@ -301,7 +301,7 @@ export function ScheduledJobsPage() {
               // Which queue lane it runs in — the difference between a job that
               // is merely idle and one that is queued behind everything else.
               header: "Work group",
-              truncate: true,
+              wrap: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
                 const name = id === null ? null : (workGroupNames.get(id) ?? null);
@@ -310,7 +310,7 @@ export function ScheduledJobsPage() {
                   <Link
                     to={`/work-groups/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                   >
                     {name}
                   </Link>
@@ -321,7 +321,7 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Retry policy",
-              truncate: true,
+              wrap: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.retryPolicyId ?? null;
                 const name = id === null ? null : (retryPolicyNames.get(id) ?? null);
@@ -330,7 +330,7 @@ export function ScheduledJobsPage() {
                   <Link
                     to={`/retry-policies/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block truncate text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
                   >
                     {name}
                   </Link>
@@ -342,7 +342,7 @@ export function ScheduledJobsPage() {
             {
               header: "Status",
               cell: (r) => (
-                <span className="inline-flex items-center gap-1">
+                <span className="flex max-w-20 flex-wrap items-center gap-1">
                   <ScheduleFault health={healthById.get(r.id)} />
                   <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
                   <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />

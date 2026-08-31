@@ -129,15 +129,16 @@ export function GlobalValueSetPage() {
             <MiniTable
               rows={s.usedBy}
               rowKey={(u) => u.subscriptionSetup.id}
+              search={{ text: (u) => u.subscriptionSetup.name, noun: "subscriptions" }}
               empty="Not referenced anywhere yet — safe to delete."
               columns={[
                 {
                   header: "Subscription",
-                  truncate: true,
+                  wrap: true,
                   cell: (u) => (
                     <Link
                       to={`/subscriptions/${u.subscriptionSetup.id}`}
-                      className="block truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
                     >
                       {u.subscriptionSetup.name}
                     </Link>

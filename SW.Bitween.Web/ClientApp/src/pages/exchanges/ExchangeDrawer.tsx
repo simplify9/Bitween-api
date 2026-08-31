@@ -1,12 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Check, Copy, FileText, Play, RotateCcw } from "lucide-react";
+import { ArrowRight, Check, Copy, Download, FileText, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { Badge, Button } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { formatDateTime, duration, timeUntil } from "../../lib/dates";
+import { formatDocument } from "../../lib/documentPreview";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { RetryDialog, journeyStages, type JourneyStage } from "./shared";
 import { keys } from "../../api/queryKeys";
@@ -22,7 +23,16 @@ const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNod
 
 const kb = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`);
 
-function CopyButton({ value, label }: { value: string; label: string }) {
+function CopyButton({
+  value,
+  label,
+  className = "rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700",
+}: {
+  value: string;
+  label: string;
+  /** Overridden by the document toolbar, which sits on a dark ground. */
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -32,7 +42,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
         setTimeout(() => setCopied(false), 1400);
       }}
       title={`Copy ${label}`}
-      className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+      className={className}
     >
       {copied ? <Check className="size-3.5 text-ok-600" /> : <Copy className="size-3.5" />}
     </button>
@@ -44,6 +54,111 @@ function MetaItem({ label, children }: { label: string; children: ReactNode }) {
     <div className="min-w-0">
       <dt className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">{label}</dt>
       <dd className="mt-0.5 text-[13px] text-ink-800">{children}</dd>
+    </div>
+  );
+}
+
+/**
+ * How much of a payload is laid out before it becomes a download instead.
+ *
+ * The fetch has already happened by this point, so what this avoids is not
+ * transfer but wrapping a few million text nodes, which is what actually locks
+ * the tab up.
+ */
+const MAX_PREVIEW_CHARS = 256 * 1024;
+
+/**
+ * The active stage's document.
+ *
+ * Worth its own component because getting it wrong took the whole page with it:
+ * the drawer sits in a `<td colSpan>` of an auto-layout table, so the cell sizes
+ * to its content and one 4KB line of minified JSON set the width of every row on
+ * the page. `overflow-auto` never stood a chance — there was no width for it to
+ * overflow. Wrapping is the fix, and laying the payload out is what makes the
+ * wrapped result worth reading; `wrap-anywhere` rather than `break-words`
+ * because only the former shrinks the cell's intrinsic width, which is the
+ * number the table was sizing itself from.
+ *
+ * Copy and download always carry the payload exactly as it arrived, never the
+ * laid-out version — what people paste into a ticket has to be the bytes.
+ */
+function DocumentPreview({
+  name,
+  size,
+  content,
+  loading,
+  errored,
+}: {
+  name: string;
+  size: number;
+  content: string | undefined;
+  loading: boolean;
+  errored: boolean;
+}) {
+  const [raw, setRaw] = useState(false);
+
+  const full = content ?? "";
+  const clipped = full.length > MAX_PREVIEW_CHARS;
+  const head = clipped ? full.slice(0, MAX_PREVIEW_CHARS) : full;
+  const formatted = useMemo(() => (clipped ? null : formatDocument(head)), [clipped, head]);
+
+  const body = loading
+    ? "Loading…"
+    : errored
+      ? "Failed to load this document."
+      : ((raw ? null : formatted) ?? head);
+
+  // Some records store a size of 0, which reads as a lie sitting next to four
+  // kilobytes of visible payload. Once the document is here, measure it.
+  const bytes = size || (full === "" ? 0 : new Blob([full]).size);
+
+  const download = () => {
+    const url = URL.createObjectURL(new Blob([full], { type: "text/plain" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const dark = "rounded-md p-1 text-ink-400 hover:bg-white/10 hover:text-ink-100";
+
+  return (
+    <div className="overflow-hidden rounded-lg bg-ink-950">
+      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-1.5">
+        <FileText className="size-3 shrink-0 text-ink-500" aria-hidden />
+        <span className="truncate font-mono text-[11px] text-ink-300">{name}</span>
+        <span className="shrink-0 font-mono text-[11px] text-ink-500">· {kb(bytes)}</span>
+        {!loading && !errored && full !== "" && (
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            {formatted && (
+              <button
+                onClick={() => setRaw((r) => !r)}
+                title={
+                  raw
+                    ? "Lay the document out over lines"
+                    : "Show the document exactly as it arrived"
+                }
+                className="rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ink-400 hover:bg-white/10 hover:text-ink-100"
+              >
+                {raw ? "Formatted" : "Raw"}
+              </button>
+            )}
+            <CopyButton value={full} label="document" className={dark} />
+            <button onClick={download} title="Download this document" className={dark}>
+              <Download className="size-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+      <pre className="max-h-96 overflow-y-auto px-3 py-2.5 font-mono text-[11px] leading-relaxed wrap-anywhere whitespace-pre-wrap text-ink-100">
+        {body}
+      </pre>
+      {clipped && (
+        <p className="border-t border-white/10 px-3 py-1.5 text-[11px] text-ink-400">
+          Showing the first 256 KB — download the document to read the rest.
+        </p>
+      )}
     </div>
   );
 }
@@ -155,9 +270,13 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
 
       {/* — active stage document — */}
       {activeKey && (
-        <pre className="max-h-56 overflow-auto rounded-lg bg-ink-950 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-ink-100">
-          {activeLoading ? "Loading…" : activeErrored ? "Failed to load this document." : activeContent}
-        </pre>
+        <DocumentPreview
+          name={files[stage]?.name ?? "document"}
+          size={files[stage]?.size ?? 0}
+          content={activeContent}
+          loading={activeLoading}
+          errored={activeErrored}
+        />
       )}
 
       {/* — failure — */}

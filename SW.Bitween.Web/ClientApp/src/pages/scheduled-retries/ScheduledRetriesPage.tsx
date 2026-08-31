@@ -194,24 +194,24 @@ export function ScheduledRetriesPage() {
               // exception alone can't explain. This is the subscription's policy as it
               // stands now — editing a policy doesn't reschedule retries it already queued.
               header: "Scheduled by",
-              truncate: true,
+              wrap: true,
               cell: (r) =>
                 r.retryPolicyId !== null ? (
                   can("retry-policies.view") ? (
                     <Link
                       to={`/retry-policies/${r.retryPolicyId}`}
-                      className="block truncate text-[13px] font-medium text-crimson-700 hover:underline"
+                      className="block text-[13px] font-medium text-crimson-700 hover:underline"
                     >
                       {r.retryPolicyName}
                     </Link>
                   ) : (
-                    <span className="block truncate text-[13px] font-medium text-ink-700">{r.retryPolicyName}</span>
+                    <span className="block text-[13px] font-medium text-ink-700">{r.retryPolicyName}</span>
                   )
                 ) : r.subscriptionId !== null ? (
                   <Link
                     to={`/subscriptions/${r.subscriptionId}`}
                     title="The retry policy set on its subscription"
-                    className="block truncate text-[13px] text-crimson-700 hover:underline"
+                    className="block text-[13px] text-crimson-700 hover:underline"
                   >
                     policy on {r.subscriptionName ?? "its subscription"}
                   </Link>

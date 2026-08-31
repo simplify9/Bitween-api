@@ -182,7 +182,7 @@ export function GlobalValueSetsPage() {
             },
             {
               header: "Used by",
-              truncate: true,
+              wrap: true,
               cell: (s) => <UsedByCell items={subscriptions.filter((i) => referencesGlobal(i, s.id))} />,
             },
           ]}
