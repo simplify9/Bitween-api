@@ -8,25 +8,25 @@
 
   <ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.12">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.30">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
-    <PackageReference Include="Azure.Identity" Version="1.13.1" />
+    <PackageReference Include="Azure.Identity" Version="1.13.2" />
     <PackageReference Include="Humanizer.Core" Version="2.14.1" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.12" />
-    <PackageReference Include="SimplyWorks.Bus" Version="8.1.11" />
-    <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="8.1.1" />
-    <PackageReference Include="SimplyWorks.CloudFiles.OC.Extensions" Version="8.1.1" />
-    <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="8.1.1" />
-    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="8.1.6" />
-    <PackageReference Include="SimplyWorks.CqApi" Version="8.2.6" />
-    <PackageReference Include="SimplyWorks.Logger.ElasticSearch" Version="8.1.1" />
-    <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.5" />
-    <PackageReference Include="SimplyWorks.Serverless" Version="8.1.5" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.30" />
+    <PackageReference Include="SimplyWorks.Bus" Version="8.1.18" />
+    <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="8.1.12" />
+    <PackageReference Include="SimplyWorks.CloudFiles.OC.Extensions" Version="8.1.12" />
+    <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="8.1.12" />
+    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="8.1.12" />
+    <PackageReference Include="SimplyWorks.CqApi" Version="8.2.11" />
+    <PackageReference Include="SimplyWorks.Logger.ElasticSearch" Version="8.1.6" />
+    <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="8.1.9" />
+    <PackageReference Include="SimplyWorks.Serverless" Version="8.1.11" />
     <PackageReference Include="SimplyWorks.SimplyRazor" Version="5.0.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="8.1.4" />
 
   </ItemGroup>
 
@@ -36,7 +36,7 @@
     <ProjectReference Include="..\SW.Bitween.MySql\SW.Bitween.MySql.csproj" />
     <ProjectReference Include="..\SW.Bitween.PgSql\SW.Bitween.PgSql.csproj" />
     <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
-    <PackageReference Include="SimplyWorks.Scheduler.EfCore" Version="8.1.7" />
+    <PackageReference Include="SimplyWorks.Scheduler.EfCore" Version="8.1.8" />
   </ItemGroup>
 
   <ItemGroup>
