@@ -127,7 +127,16 @@ namespace SW.Bitween.Resources.Xchanges
                     switch (statusFilter.Value)
                     {
                         case "0":
-                            query = query.Where(i => i.Status == null);
+                            // "Still running" means no result row exists yet. Asking for it as
+                            // Status == null reads as `x0.success IS NULL` on the left join, and
+                            // Postgres cannot estimate that: it guesses one row, plans every join
+                            // above it for one row, and picks per-row sequential scans of the small
+                            // side tables. Measured on 1M exchanges that was 22.8s for 25 rows.
+                            // NOT EXISTS asks the same question as an anti-join, which it can
+                            // estimate — 34ms. Equivalent because success is NOT NULL, so a result
+                            // row can never itself carry a null status.
+                            query = query.Where(i =>
+                                !dbContext.Set<XchangeResult>().Any(r => r.Id == i.Id));
                             break;
                         case "1":
                             query = query.Where(i => i.Status == true && i.ResponseBad != true);
