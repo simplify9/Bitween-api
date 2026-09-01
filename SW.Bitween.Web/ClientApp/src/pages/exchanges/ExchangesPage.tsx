@@ -307,10 +307,27 @@ export function ExchangesPage() {
       {isLoading ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
-        <EmptyState title="No exchanges match">
-          {activeFilterCount > 0
-            ? "Try removing some filters — or widen the date range."
-            : "Traffic will show up here as soon as a subscription processes something."}
+        /* An empty page and an empty search are different problems. This branch replaces the
+           table, paging footer and all, so a page past the end of the list would otherwise
+           leave nothing to click back to. Reachable two ways: a hand-typed ?offset=, and Next
+           past the count cap, where a last page that happens to be full still enables it. */
+        <EmptyState
+          title={query.offset > 0 ? "Nothing on this page" : "No exchanges match"}
+          action={
+            query.offset > 0 ? (
+              <Button
+                onClick={() => setParam("offset", String(Math.max(0, query.offset - PAGE_SIZE)), false)}
+              >
+                Back a page
+              </Button>
+            ) : undefined
+          }
+        >
+          {query.offset > 0
+            ? "The list ends before this page."
+            : activeFilterCount > 0
+              ? "Try removing some filters — or widen the date range."
+              : "Traffic will show up here as soon as a subscription processes something."}
         </EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
