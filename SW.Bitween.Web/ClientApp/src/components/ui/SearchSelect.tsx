@@ -9,6 +9,13 @@ export interface SearchSelectOption {
   code?: string;
   /** Muted right-aligned text on the option row. */
   hint?: string;
+  /**
+   * Muted second line under the label, for context too long to sit beside it. Search matches
+   * it as well, since it is text the reader can see on the row.
+   */
+  sublabel?: string;
+  /** Native tooltip on the option row, for detail that would crowd it (a path, an id…). */
+  title?: string;
   /** Fully custom option row; label/code/hint rendering is skipped. */
   render?: ReactNode;
 }
@@ -64,7 +71,10 @@ export function SearchSelect({
     const needle = query.trim().toLowerCase();
     if (!needle) return all;
     return all.filter(
-      (o) => o.label.toLowerCase().includes(needle) || o.code?.toLowerCase().includes(needle),
+      (o) =>
+        o.label.toLowerCase().includes(needle) ||
+        o.code?.toLowerCase().includes(needle) ||
+        o.sublabel?.toLowerCase().includes(needle),
     );
   }, [all, query]);
 
@@ -97,29 +107,42 @@ export function SearchSelect({
           <ChevronsUpDown className="size-3.5" aria-hidden />
         </ComboboxButton>
       </div>
+      {/* The panel starts at the input's width but is free to outgrow it: several of these sit
+          in narrow filter bars, and an option is worth nothing if its name is the part that
+          gets truncated away. */}
       <ComboboxOptions
         anchor={{ to: "bottom start", gap: 4 }}
-        className="z-50 max-h-64 w-(--input-width) overflow-auto rounded-lg border border-ink-200 bg-white py-1 shadow-lg empty:hidden"
+        className="z-50 max-h-64 max-w-[min(28rem,90vw)] min-w-(--input-width) overflow-auto rounded-lg border border-ink-200 bg-white py-1 shadow-lg empty:hidden"
       >
         {filtered.map((o) => (
           <ComboboxOption
             key={o.value || "∅"}
             value={o.value}
+            title={o.title}
             className="group flex cursor-pointer items-center gap-2 px-3 py-1.5 data-focus:bg-ink-50"
           >
             {o.render ?? (
               <>
-                <span
-                  className={`min-w-0 flex-1 truncate text-sm ${o.value === "" ? "text-ink-500 italic" : "text-ink-800"}`}
-                >
-                  {o.label}
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`block truncate text-sm ${o.value === "" ? "text-ink-500 italic" : "text-ink-800"}`}
+                  >
+                    {o.label}
+                  </span>
+                  {o.sublabel && (
+                    <span className="block truncate text-xs text-ink-400">{o.sublabel}</span>
+                  )}
                 </span>
                 {o.code && (
                   <code className="shrink-0 rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-600">
                     {o.code}
                   </code>
                 )}
-                {o.hint && <span className="shrink-0 text-xs text-ink-400">{o.hint}</span>}
+                {/* Shrinkable, unlike the label: whatever a hint adds, it is never the thing
+                    worth reading if only one of the two can fit. */}
+                {o.hint && (
+                  <span className="max-w-[50%] min-w-0 truncate text-xs text-ink-400">{o.hint}</span>
+                )}
                 <Check className="size-3.5 shrink-0 text-crimson-600 opacity-0 group-data-selected:opacity-100" aria-hidden />
               </>
             )}

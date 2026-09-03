@@ -77,20 +77,36 @@ export function ExchangesPage() {
    * Every promoted key any information type declares, with the types that declare it.
    * Read off the list already fetched for the information-type filter, so offering the
    * keys costs nothing — and picking from real names beats remembering how one was spelled.
+   *
+   * Narrowed to the picked information type when there is one: a short list of its own keys
+   * beats the whole catalogue with a disambiguating line on every row.
    */
   const propertyKeyOptions = useMemo(() => {
-    const owners = new Map<string, string[]>();
-    for (const t of infoTypes)
+    const scoped = query.informationTypeId
+      ? infoTypes.filter((t) => t.id === query.informationTypeId)
+      : infoTypes;
+    const owners = new Map<string, { type: string; path: string }[]>();
+    for (const t of scoped)
       for (const p of t.promotedProperties ?? []) {
         const carriers = owners.get(p.key) ?? [];
-        const name = t.code ?? t.name;
-        if (!carriers.includes(name)) carriers.push(name);
+        const type = t.code ?? t.name;
+        if (!carriers.some((c) => c.type === type)) carriers.push({ type, path: p.path });
         owners.set(p.key, carriers);
       }
     return [...owners.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, carriers]) => ({ value: key, label: key, hint: carriers.join(", ") }));
-  }, [infoTypes]);
+      .map(([key, carriers]) => ({
+        value: key,
+        label: key,
+        // A second line rather than text beside the name: these run long enough
+        // ("InventoryTransactionPosted") that sharing one line left the name with no room at
+        // all. Dropped once a type is picked above — naming it again on every row says nothing.
+        sublabel: query.informationTypeId ? undefined : carriers.map((c) => c.type).join(", "),
+        // What the key actually reads out of the payload. The thing you want when a filter
+        // comes back empty and you can't tell whether the key or the value is wrong.
+        title: carriers.map((c) => `${c.type}: ${c.path}`).join("\n"),
+      }));
+  }, [infoTypes, query.informationTypeId]);
 
   /** Set (or drop) one URL param; changing any filter resets paging. */
   const setParam = (key: string, value: string | null, resetOffset = true) => {
