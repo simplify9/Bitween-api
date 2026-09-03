@@ -4,6 +4,7 @@ import { api, ApiRequestError } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, PasswordInput, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { PASSWORD_HINT, validatePassword } from "../../lib/passwordPolicy";
 import { keys } from "../../api/queryKeys";
 
 export function AddMemberDialog({ onClose }: { onClose: () => void }) {
@@ -14,6 +15,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [passwordError, setPasswordError] = useState("");
 
   const create = useMutation({
     mutationFn: () => api.createUser({ displayName, email, password, roleIds }),
@@ -29,6 +31,13 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    // The server rejects a weak password too; checking here saves the round trip.
+    const problems = validatePassword(password);
+    if (problems.length > 0) {
+      setPasswordError(problems.join(" "));
+      return;
+    }
+    setPasswordError("");
     create.mutate();
   };
 
@@ -60,7 +69,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
         <Field
           label="Password"
           htmlFor="member-password"
-          hint="Pass this on to them yourself — Bitween doesn't send mail. They can change it from their profile."
+          hint={`${PASSWORD_HINT} Pass it on to them yourself — Bitween doesn't send mail. They can change it from their profile.`}
         >
           <PasswordInput
             id="member-password"
@@ -88,7 +97,8 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
         </fieldset>
 
         <FormError>
-          {create.error instanceof ApiRequestError ? create.error.message : create.error?.message}
+          {passwordError ||
+            (create.error instanceof ApiRequestError ? create.error.message : create.error?.message)}
         </FormError>
 
         <div className="flex justify-end gap-2">

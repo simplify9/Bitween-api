@@ -9,6 +9,7 @@ import { PageHeader } from "../components/layout/PageHeader";
 import { Avatar } from "../components/ui/Avatar";
 import { Badge, Button, FormError } from "../components/ui/basics";
 import { Field, PasswordInput, TextInput } from "../components/ui/forms";
+import { PASSWORD_HINT, validatePassword } from "../lib/passwordPolicy";
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -76,6 +77,12 @@ export function ProfilePage() {
     setPasswordError("");
     if (newPassword !== confirmPassword) {
       setPasswordError("The new passwords don't match.");
+      return;
+    }
+    // The server rejects a weak password too; checking here saves the round trip.
+    const problems = validatePassword(newPassword);
+    if (problems.length > 0) {
+      setPasswordError(problems.join(" "));
       return;
     }
     password.mutate();
@@ -151,7 +158,7 @@ export function ProfilePage() {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                 />
               </Field>
-              <Field label="New password" htmlFor="pf-new" hint="At least 8 characters.">
+              <Field label="New password" htmlFor="pf-new" hint={PASSWORD_HINT}>
                 <PasswordInput
                   id="pf-new"
                   autoComplete="new-password"
