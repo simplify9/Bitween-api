@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, type PermissionKey, type Session } from "../api";
+import { useIdleLogout } from "./useIdleLogout";
 
 interface SessionContextValue {
   session: Session | null;
@@ -71,6 +72,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     setSession(null);
   }, [queryClient]);
+
+  // Finding #4 in the 9USRCraft pen test: an authenticated session stayed usable
+  // indefinitely. Signs out after 30 minutes with no activity in any tab.
+  useIdleLogout(!!session, signOut);
 
   const value = useMemo<SessionContextValue>(
     () => ({

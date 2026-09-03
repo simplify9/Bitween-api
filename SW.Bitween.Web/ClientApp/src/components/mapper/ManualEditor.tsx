@@ -1,5 +1,7 @@
-import React, { lazy, Suspense, useEffect, useRef } from "react";
-import loader from "@monaco-editor/loader";
+import React, { useEffect } from "react";
+import CodeMirror from "@uiw/react-codemirror";
+import { EditorView } from "@codemirror/view";
+import { scribanLanguage } from "./scribanLanguage";
 import {
   useMappingEditorDispatch,
   useMappingEditorState,
@@ -10,21 +12,19 @@ import {
 } from "../../lib/mapping/MappingEditorContext";
 import { generateScriban, parseScriban } from "../../lib/mapping/scribanGenerator";
 
-// Pinned to an exact version so the CSP entries in Startup.cs (which allow only
-// this path, not all of cdn.jsdelivr.net) stay valid — bump both together.
-loader.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/min/vs" } });
-
-// Monaco is heavy — lazy-load it so it stays out of the main bundle.
-const MonacoEditor = lazy(() => import("@monaco-editor/react"));
-
 const SCRIBAN_HINT = `{{- # Scriban template — edit freely -}}
 {{- # Use {{ variable.path }} for values, for/end for loops, if/end for filters -}}
 `;
 
+const editorTheme = EditorView.theme({
+  '&': { height: '100%', backgroundColor: '#ffffff' },
+  '.cm-scroller': { fontFamily: 'var(--font-mono)', overflow: 'auto' },
+  '&.cm-focused': { outline: 'none' },
+});
+
 const ManualEditor: React.FC = () => {
   const dispatch = useMappingEditorDispatch();
   const { fieldMappings, arrayMappings, manualTemplate, isManualDirty } = useMappingEditorState();
-  const editorRef = useRef<any>(null);
   const [parseWarnings, setParseWarnings] = React.useState<string[]>([]);
   const [parseSuccess, setParseSuccess] = React.useState(false);
 
@@ -39,14 +39,15 @@ const ManualEditor: React.FC = () => {
     }
   }, []); // Only on mount — ongoing sync is handled by handleModeChange
 
-  const handleEditorChange = (value: string | undefined) => {
-    dispatch(setManualTemplate(value ?? ''));
+  const handleEditorChange = (value: string) => {
+    dispatch(setManualTemplate(value));
   };
 
   const handleRegenerateFromVisual = () => {
     const generated = generateScriban(fieldMappings, arrayMappings, undefined, undefined);
+    // syncManualTemplate updates manualTemplate, which flows into the editor's
+    // controlled `value` below — no imperative setValue needed.
     dispatch(syncManualTemplate(generated));
-    editorRef.current?.setValue(generated);
     setParseWarnings([]);
     setParseSuccess(false);
   };
@@ -77,11 +78,15 @@ const ManualEditor: React.FC = () => {
     }
   };
 
-  const templateToShow =
-    manualTemplate ||
-    (fieldMappings.length > 0 || arrayMappings.length > 0
-      ? generateScriban(fieldMappings, arrayMappings, undefined, undefined)
-      : SCRIBAN_HINT);
+  // Once the user has edited the template (isManualDirty), show it verbatim so an
+  // intentional empty template stays empty. Only before any edit do we fall back to
+  // the generated template / hint.
+  const templateToShow = isManualDirty
+    ? manualTemplate
+    : manualTemplate ||
+      (fieldMappings.length > 0 || arrayMappings.length > 0
+        ? generateScriban(fieldMappings, arrayMappings, undefined, undefined)
+        : SCRIBAN_HINT);
 
   return (
     <div className="flex flex-col h-full">
@@ -130,31 +135,21 @@ const ManualEditor: React.FC = () => {
         </div>
       )}
 
-      {/* Monaco Editor */}
+      {/* CodeMirror editor */}
       <div className="flex-1 min-h-0">
-        <Suspense fallback={<div className="flex h-full items-center justify-center text-sm text-ink-400">Loading editor…</div>}>
-          <MonacoEditor
-            language="handlebars"
-            theme="vs"
-            value={templateToShow}
-            onChange={handleEditorChange}
-            onMount={(ed) => {
-              editorRef.current = ed;
-            }}
-            options={{
-              minimap: { enabled: true },
-              fontSize: 13,
-              lineNumbers: 'on',
-              wordWrap: 'on',
-              scrollBeyondLastLine: false,
-              fontFamily: '"Fira Code", "JetBrains Mono", monospace',
-              automaticLayout: true,
-              formatOnPaste: true,
-              tabSize: 2,
-              suggest: { snippetsPreventQuickSuggestions: false },
-            }}
-          />
-        </Suspense>
+        <CodeMirror
+          value={templateToShow}
+          onChange={handleEditorChange}
+          extensions={[scribanLanguage, EditorView.lineWrapping, editorTheme]}
+          height="100%"
+          basicSetup={{
+            lineNumbers: true,
+            foldGutter: false,
+            autocompletion: false,
+            highlightActiveLine: true,
+          }}
+          className="h-full text-[13px]"
+        />
       </div>
 
       {/* Scriban cheat sheet */}
@@ -164,8 +159,8 @@ const ManualEditor: React.FC = () => {
             <span className="text-crimson-600">{'{{ var.path }}'}</span> value
           </span>
           <span>
-            <span className="text-crimson-600">{'{{- for item in arr -}}'}</span> …{' '}
-            <span className="text-crimson-600">{'{{- end -}}'}</span> loop
+            <span className="text-warn-700">{'{{- for item in arr -}}'}</span> …{' '}
+            <span className="text-warn-700">{'{{- end -}}'}</span> loop
           </span>
           <span>
             <span className="text-warn-700">{'{{- if expr -}}'}</span> …{' '}
