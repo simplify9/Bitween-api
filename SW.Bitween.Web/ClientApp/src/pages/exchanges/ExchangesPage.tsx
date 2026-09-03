@@ -18,6 +18,14 @@ import { keys } from "../../api/queryKeys";
 const PAGE_SIZE = 25;
 const STATUSES: ExchangeStatus[] = ["processing", "success", "badResponse", "failed"];
 
+/**
+ * The backend stops counting matches past this and returns `COUNT_CAP + 1` instead, because an
+ * exact total has to visit every matching row and was costing more than fetching the rows did.
+ * So a total above the cap means "at least this many", shown as "10,000+".
+ * Kept in step with `CountCap` in Xchanges/Search.cs.
+ */
+const COUNT_CAP = 10_000;
+
 const REFRESH_OPTIONS = [
   { value: "0", label: "Refresh: off" },
   { value: "5000", label: "Refresh: 5s" },
@@ -113,6 +121,7 @@ export function ExchangesPage() {
 
   const rows = data?.result ?? [];
   const total = data?.total ?? 0;
+  const totalIsCapped = total > COUNT_CAP;
   const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
 
   const bulkRetry = useMutation({
@@ -298,10 +307,27 @@ export function ExchangesPage() {
       {isLoading ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
-        <EmptyState title="No exchanges match">
-          {activeFilterCount > 0
-            ? "Try removing some filters — or widen the date range."
-            : "Traffic will show up here as soon as a subscription processes something."}
+        /* An empty page and an empty search are different problems. This branch replaces the
+           table, paging footer and all, so a page past the end of the list would otherwise
+           leave nothing to click back to. Reachable two ways: a hand-typed ?offset=, and Next
+           past the count cap, where a last page that happens to be full still enables it. */
+        <EmptyState
+          title={query.offset > 0 ? "Nothing on this page" : "No exchanges match"}
+          action={
+            query.offset > 0 ? (
+              <Button
+                onClick={() => setParam("offset", String(Math.max(0, query.offset - PAGE_SIZE)), false)}
+              >
+                Back a page
+              </Button>
+            ) : undefined
+          }
+        >
+          {query.offset > 0
+            ? "The list ends before this page."
+            : activeFilterCount > 0
+              ? "Try removing some filters — or widen the date range."
+              : "Traffic will show up here as soon as a subscription processes something."}
         </EmptyState>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
@@ -439,7 +465,14 @@ export function ExchangesPage() {
           {/* — paging — */}
           <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
             <span>
-              Showing {query.offset + 1}–{Math.min(query.offset + PAGE_SIZE, total)} of {total}
+              Showing {query.offset + 1}–{query.offset + rows.length} of{" "}
+              {totalIsCapped ? (
+                <span title={`More than ${COUNT_CAP.toLocaleString()} match — narrow the filters for an exact count`}>
+                  {COUNT_CAP.toLocaleString()}+
+                </span>
+              ) : (
+                total.toLocaleString()
+              )}
             </span>
             <span className="flex gap-1.5">
               <Button
@@ -451,7 +484,10 @@ export function ExchangesPage() {
               </Button>
               <Button
                 size="sm"
-                disabled={query.offset + PAGE_SIZE >= total}
+                /* Past the cap the total no longer says where the end is, so fall back to "was this
+                   page full" — otherwise Next would dead-end at row 10,000. Below the cap the total
+                   is exact, so keep using it and Next stops on the true last page. */
+                disabled={totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
                 onClick={() => setParam("offset", String(query.offset + PAGE_SIZE), false)}
               >
                 Next

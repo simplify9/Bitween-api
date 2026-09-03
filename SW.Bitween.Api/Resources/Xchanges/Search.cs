@@ -14,6 +14,13 @@ namespace SW.Bitween.Resources.Xchanges
 {
     public class Search : ISearchyHandler
     {
+        /// <summary>
+        /// Largest exact total the exchange search reports. Beyond it the response carries
+        /// <c>CountCap + 1</c>, meaning "more than this" — the client renders that as "10,000+".
+        /// Kept in step with <c>COUNT_CAP</c> in ClientApp's <c>ExchangesPage.tsx</c>.
+        /// </summary>
+        internal const int CountCap = 10_000;
+
         private readonly BitweenDbContext dbContext;
         private readonly RequestContext requestContext;
         private readonly XchangeService xchangeService;
@@ -177,7 +184,17 @@ namespace SW.Bitween.Resources.Xchanges
             var searchyResponse = new SearchyResponse<XchangeRow>
             {
                 Result = r,
-                TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions).CountAsync()
+                // Counting every match is what a filtered search now spends its time on: the rows
+                // themselves come back in a few milliseconds, while an exact count has to visit
+                // every matching row because it cannot stop early. Measured on 1M exchanges, the
+                // Success pill's count was 264ms against 0.5ms for the rows.
+                //
+                // Stop counting past the cap and report the cap + 1 instead, which the client shows
+                // as "10,000+". 36ms drops to 2.3ms unfiltered, 264ms to 25ms on Success. Anything
+                // filtered narrowly enough to act on still gets an exact number; only views far too
+                // broad to page through lose it, and 10,000 rows is 400 pages of Next.
+                TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions)
+                    .Take(CountCap + 1).CountAsync()
             };
 
             return searchyResponse;
