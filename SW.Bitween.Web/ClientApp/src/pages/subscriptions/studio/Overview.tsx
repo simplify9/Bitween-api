@@ -1,18 +1,17 @@
-import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, type SubscriptionDetail, type SubscriptionRun } from "../../../api";
 import { Can } from "../../../auth/guards";
 import { Badge, LoadingBlock } from "../../../components/ui/basics";
-import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { MiniTable } from "../../../components/ui/Table";
 import { Panel } from "../../../components/ui/Panel";
 import { HistoryCard } from "../../../components/config/HistoryCard";
 import { ExchangesList, HealthBadge } from "../../../components/config/shared";
-import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
 import { formatDate, formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../../lib/dates";
 import { ReceiveAttemptsPanel, type AttemptKind } from "./ReceiveAttemptsPanel";
 import { RetryBudget } from "./RetryBudget";
+import { Fact } from "./Fact";
+import { LaneAndRetry } from "./LaneAndRetry";
 import type { Draft, EntryPoint } from "./model";
 import { keys } from "../../../api/queryKeys";
 
@@ -61,15 +60,6 @@ export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: s
   );
 }
 
-/** One labelled cell of the facts strip. */
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <p className="mb-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">{label}</p>
-      <div className="text-[13px] text-ink-800">{children}</div>
-    </div>
-  );
-}
 
 function LastRunFact({ run }: { run: SubscriptionRun | undefined }) {
   if (!run) return <span className="text-ink-400">Never</span>;
@@ -158,7 +148,6 @@ export function Overview({
   draft,
   set,
   canEdit,
-  canCreateWorkGroup,
   entryPoints,
   scheduled,
 }: {
@@ -166,16 +155,10 @@ export function Overview({
   draft: Draft;
   set: <K extends keyof Draft>(key: K, value: Draft[K]) => void;
   canEdit: boolean;
-  canCreateWorkGroup: boolean;
   entryPoints: EntryPoint[];
   /** Receiving and Aggregation run on a schedule, so they have run history. */
   scheduled: boolean;
 }) {
-  const workGroups = useQuery({
-    queryKey: keys.workGroups.list,
-    queryFn: () => api.listWorkGroups(),
-  });
-  const retryPolicies = useQuery({ queryKey: keys.retryPolicies.list, queryFn: () => api.listRetryPolicies() });
   // Both scheduled types keep their own attempt history and show it in one table
   // (ReceiveAttemptsPanel) instead of the scheduler's run history beside a separate exchange
   // list. The scheduler's history is Quartz vocabulary an operator has no reason to know, it
@@ -209,8 +192,6 @@ export function Overview({
     };
   })();
   const paused = s.pausedOn !== null;
-  /** undefined = closed, null = creating, number = editing that group. */
-  const [groupDialog, setGroupDialog] = useState<number | null | undefined>(undefined);
 
   return (
     <div className="space-y-5">
@@ -238,58 +219,14 @@ export function Overview({
             <span className="text-danger-700">Nothing — it never runs</span>
           )}
         </Fact>
-        <Fact label="Work group">
-          <div className="w-52">
-            <SearchSelect
-              id="in-wg"
-              value={draft.workGroupId === null ? "" : String(draft.workGroupId)}
-              disabled={!canEdit}
-              onChange={(v) => set("workGroupId", v === "" ? null : Number(v))}
-              clearLabel="Ungrouped (default lane)"
-              options={(workGroups.data ?? []).map((w) => ({ value: String(w.id), label: w.name }))}
-            />
-          </div>
-          <div className="mt-1 flex items-center gap-3">
-            {draft.workGroupId !== null && (
-              <button
-                type="button"
-                onClick={() => setGroupDialog(draft.workGroupId)}
-                className="text-[12px] font-medium text-crimson-700 hover:underline"
-              >
-                Edit it
-              </button>
-            )}
-            {canCreateWorkGroup && (
-              <button
-                type="button"
-                onClick={() => setGroupDialog(null)}
-                className="text-[12px] font-medium text-crimson-700 hover:underline"
-              >
-                + New
-              </button>
-            )}
-          </div>
-        </Fact>
-        <Fact label="Retry policy">
-          <div className="w-52">
-            <SearchSelect
-              id="in-rp"
-              value={draft.retryPolicyId === null ? "" : String(draft.retryPolicyId)}
-              disabled={!canEdit}
-              onChange={(v) => set("retryPolicyId", v === "" ? null : Number(v))}
-              clearLabel="None — failures are not retried"
-              options={(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
-            />
-          </div>
-          {draft.retryPolicyId !== null && (
-            <Link
-              to={`/retry-policies/${draft.retryPolicyId}`}
-              className="mt-1 inline-block text-[12px] font-medium text-crimson-700 hover:underline"
-            >
-              View
-            </Link>
-          )}
-        </Fact>
+        <LaneAndRetry
+          workGroupId={draft.workGroupId}
+          retryPolicyId={draft.retryPolicyId}
+          onWorkGroupChange={(id) => set("workGroupId", id)}
+          onRetryPolicyChange={(id) => set("retryPolicyId", id)}
+          canEdit={canEdit}
+          idPrefix="in"
+        />
       </div>
 
       <RetryBudget subscriptionId={s.id} canEdit={canEdit} />
@@ -306,14 +243,6 @@ export function Overview({
         <pre className="max-h-40 overflow-auto rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
           {s.lastException}
         </pre>
-      )}
-
-      {groupDialog !== undefined && (
-        <WorkGroupDialog
-          groupId={groupDialog}
-          onClose={() => setGroupDialog(undefined)}
-          onSaved={(workGroupId) => set("workGroupId", workGroupId)}
-        />
       )}
 
       {attemptKind !== null && (
