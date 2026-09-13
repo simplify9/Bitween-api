@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
@@ -88,6 +88,28 @@ export function NewGatewaySubscriptionPage() {
   const handlers = useAdapterCatalog("handler");
 
   const [draft, update] = useDraft<Draft>(EMPTY);
+
+  // Reuses the picker's cache: the attach page you came from has already listed them,
+  // so naming the partner here costs no request.
+  const partners = useQuery({
+    queryKey: keys.partners.list,
+    queryFn: () => api.listPartners(),
+    enabled: partnerId !== null,
+  });
+
+  /**
+   * Fills the name in from the two things already decided — who calls, and which
+   * gateway they call — so the common case is a field to accept rather than one to
+   * invent. Seeded once: `touched` latches as soon as the field is edited, and the
+   * partner can't change while this page is open, so nothing overwrites a typed name.
+   */
+  const touched = useRef(false);
+  const partnerName = partners.data?.find((p) => p.id === Number(partnerId))?.name;
+  useEffect(() => {
+    if (touched.current || !partnerName || !gateway.data) return;
+    update({ name: `${partnerName} via ${gateway.data.name}` });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partnerName, gateway.data]);
 
   /** Back to the attach page, carrying the partner along if one was already picked. */
   const backToAttach = (extra: Record<string, string>) => {
@@ -265,7 +287,10 @@ export function NewGatewaySubscriptionPage() {
               value={draft.name}
               autoFocus
               placeholder="e.g. Coral orders to SAP"
-              onChange={(e) => update({ name: e.target.value })}
+              onChange={(e) => {
+                touched.current = true;
+                update({ name: e.target.value });
+              }}
             />
           </Field>
         </div>
