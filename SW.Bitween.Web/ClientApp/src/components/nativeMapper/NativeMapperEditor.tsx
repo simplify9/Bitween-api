@@ -30,33 +30,49 @@ import {
   useMappingPreview,
   useMappingSave,
   useMappingShortcuts,
+  type MappingTarget,
 } from "./useMapping";
 
-export default function NativeMapperEditor() {
+/**
+ * @param target What the editor reads and writes. Omitted, it takes the subscription in
+ * the route — which is how the `/subscriptions/:id/mapper` page has always opened it.
+ * A create page passes a draft instead, so a mapping can be built before the
+ * subscription it belongs to exists.
+ * @param onClose Where "Back" goes. Omitted, it returns to the subscription's page; a
+ * draft has no page to return to, so its host closes the overlay instead.
+ */
+export default function NativeMapperEditor({
+  target,
+  onClose,
+}: {
+  target?: MappingTarget;
+  onClose?: () => void;
+} = {}) {
   return (
     <RulesEditorProvider>
-      <Editor />
+      <Editor target={target} onClose={onClose} />
     </RulesEditorProvider>
   );
 }
 
-function Editor() {
+function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => void }) {
   const { id } = useParams<{ id: string }>();
   const subscriptionId = Number(id);
   const navigate = useNavigate();
+  const resolved: MappingTarget = target ?? { kind: "subscription", subscriptionId };
 
   const { rules, sourceSample, selectedId, hoveredPath, loadError, dirty, match, testPartnerId } =
     useRules();
   const dispatch = useRulesDispatch();
 
-  const { partnerId } = useMappingLoader(subscriptionId);
+  const { partnerId } = useMappingLoader(resolved);
 
   const { isPreviewing } = useMappingPreview(testPartnerId ?? partnerId);
 
   // Hiding the preview gives the rules the whole width, which is what a big mapping
   // wants once it is built and being read rather than checked.
   const [showPreview, setShowPreview] = useState(true);
-  const { save, isSaving, justSaved, saveError, replacing } = useMappingSave(subscriptionId);
+  const { save, isSaving, justSaved, saveError, replacing } = useMappingSave(resolved);
 
   // Everything that saves goes through here, so the keyboard cannot slip past the
   // question the Save button asks.
@@ -122,8 +138,8 @@ function Editor() {
           Nothing has been changed. Saving from here would replace the stored rules, so the editor
           will not open them.
         </p>
-        <Button onClick={() => navigate(`/subscriptions/${subscriptionId}`)}>
-          Back to the subscription
+        <Button onClick={() => (onClose ? onClose() : navigate(`/subscriptions/${subscriptionId}`))}>
+          {onClose ? "Back" : "Back to the subscription"}
         </Button>
       </div>
     );
@@ -133,6 +149,7 @@ function Editor() {
   const leave = () => {
     if (dirty && !window.confirm("This mapping has changes that have not been saved. Leave anyway?"))
       return;
+    if (onClose) return onClose();
     navigate(`/subscriptions/${subscriptionId}`);
   };
 

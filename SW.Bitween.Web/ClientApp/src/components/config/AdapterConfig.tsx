@@ -420,6 +420,7 @@ export function AdapterConfig({
   required = false,
   noneLabel = "None",
   mapperEditorHref,
+  onOpenMapperEditor,
 }: {
   kind: AdapterKind;
   adapterId: string | null;
@@ -432,6 +433,12 @@ export function AdapterConfig({
   /** When a mapper with a visual editor is selected, where that editor lives. */
   /** Null while the subscription is still a draft — there is no page to open yet. */
   mapperEditorHref?: string | null;
+  /**
+   * Opens the editor in place instead of navigating to it. The create pages hold their
+   * subscription in memory, so there is no page to link to — but the editor no longer
+   * needs one, and leaving the page would throw the draft away.
+   */
+  onOpenMapperEditor?: (() => void) | null;
 }) {
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
@@ -530,7 +537,16 @@ export function AdapterConfig({
         </div>
       )}
       {adapter && usesVisualMappingEditor(adapter.id) && (
-        mapperEditorHref ? (
+        onOpenMapperEditor ? (
+          <button
+            type="button"
+            onClick={onOpenMapperEditor}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-crimson-700 hover:border-ink-300 hover:bg-ink-50"
+          >
+            Open the visual mapping editor
+            <ArrowUpRight className="size-3.5" aria-hidden />
+          </button>
+        ) : mapperEditorHref ? (
           <Link
             // Which mapper is *picked*, which is not yet which mapper is saved. Without
             // it the editor asks the server and gets the one being replaced, so choosing

@@ -30,7 +30,6 @@ export function SubscriptionPage() {
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("subscriptions.edit");
   const canOperate = useSessionCan("subscriptions.operate");
-  const canCreateWorkGroup = useSessionCan("workgroups.create");
   const [params, setParams] = useSearchParams();
 
   const subscription = useQuery({
@@ -501,7 +500,6 @@ export function SubscriptionPage() {
             draft={draft}
             set={set}
             canEdit={canEdit}
-            canCreateWorkGroup={canCreateWorkGroup}
             entryPoints={entryPoints}
             scheduled={isReceiver || isAggregation}
           />
