@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import type { MatchCondition, MatchGroup, MatchNode } from "../../api";
+import { useSessionCan } from "../../auth/guards";
 import { matchSummary } from "../../lib/match";
 import { Button } from "../ui/basics";
 import { Select } from "../ui/forms";
@@ -182,6 +183,10 @@ export function MatchExpressionEditor({
    */
   informationTypeId?: number | null;
 }) {
+  // Not `disabled`: that says whether this filter can be edited, which is a different
+  // grant from the one that would let you go and add the properties it needs.
+  const canEditTypes = useSessionCan("documents.edit");
+
   if (value === null) {
     return (
       <div className="space-y-2.5">
@@ -202,7 +207,7 @@ export function MatchExpressionEditor({
         {properties.length === 0 && (
           <p className="text-[13px] text-ink-400">
             Filters match on promoted properties — this information type has none yet.{" "}
-            {informationTypeId != null && (
+            {informationTypeId != null && canEditTypes && (
               <Link
                 to={`/information-types/${informationTypeId}`}
                 className="font-medium text-crimson-700 hover:underline"
