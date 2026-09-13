@@ -4,14 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { api } from "../../api";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Field, TextInput } from "../../components/ui/forms";
+import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
 import {
   AdapterConfig,
   useAdapterCatalog,
-  usesVisualMappingEditor,
 } from "../../components/config/AdapterConfig";
 import { InfoTypePicker } from "../../components/config/pickers";
+import { DataSourceBinding } from "../subscriptions/studio/DataSourceBinding";
+import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
+import { useBindsToDataSource } from "../data-sources/providers";
+import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
+import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { STAGES, stagesFor, type StageId } from "../subscriptions/studio/stages";
 import { StageRail } from "../subscriptions/studio/StageRail";
@@ -40,6 +44,10 @@ type Draft = Pick<
   | "handlerProperties"
   | "responseSubscriptionId"
   | "responseMessageTypeName"
+  | "enabled"
+  | "workGroupId"
+  | "retryPolicyId"
+  | "dataSourceId"
 > & { informationTypeId: number | null };
 
 const EMPTY: Draft = {
@@ -53,6 +61,12 @@ const EMPTY: Draft = {
   handlerProperties: {},
   responseSubscriptionId: null,
   responseMessageTypeName: null,
+  // Live as soon as it exists: it only runs once a partner is attached to it, which is
+  // the thing you are in the middle of doing.
+  enabled: true,
+  workGroupId: null,
+  retryPolicyId: null,
+  dataSourceId: null,
 };
 
 const STAGES_HERE = stagesFor("GatewayApiCall");
@@ -67,6 +81,11 @@ const STAGES_HERE = stagesFor("GatewayApiCall");
  * until the attachment page does, so there is nothing to leave half-wired if you
  * stop after creating it, and the return trip lands you back there with it
  * already picked.
+ *
+ * It offers every setting the subscription's own page does, because the create call
+ * has always accepted them all. What it used to leave out — the lane, the retry
+ * policy, the connection, the mapping — was the whole reason a new subscription had
+ * to be opened a second time to finish it.
  */
 export function NewGatewaySubscriptionPage() {
   const { id = "" } = useParams();
@@ -76,6 +95,8 @@ export function NewGatewaySubscriptionPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<StageId | null>("delivery");
+  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  const [mapping, setMapping] = useState(false);
 
   const gateway = useQuery({
     queryKey: keys.apiGateways.detail(gatewayId),
@@ -88,6 +109,7 @@ export function NewGatewaySubscriptionPage() {
   const handlers = useAdapterCatalog("handler");
 
   const [draft, update] = useDraft<Draft>(EMPTY);
+  const bindsToDataSource = useBindsToDataSource();
 
   /**
    * Fills the name in from the gateway, so the field is one to accept rather than one
@@ -129,9 +151,10 @@ export function NewGatewaySubscriptionPage() {
         handlerProperties: draft.handlerProperties,
         responseSubscriptionId: draft.responseSubscriptionId,
         responseMessageTypeName: draft.responseMessageTypeName,
-        // Safe to enable: it waits for an attachment, which is what you are in
-        // the middle of making.
-        enabled: true,
+        workGroupId: draft.workGroupId,
+        retryPolicyId: draft.retryPolicyId,
+        dataSourceId: draft.dataSourceId,
+        enabled: draft.enabled,
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
@@ -157,13 +180,8 @@ export function NewGatewaySubscriptionPage() {
     ...draft,
     // Aggregation only, and this page never creates one.
     aggregationTarget: "Input",
-    enabled: true,
-    workGroupId: null,
-    retryPolicyId: null,
     receiverId: null,
     receiverProperties: {},
-    // A new subscription binds no connection until an adapter that needs one is chosen.
-    dataSourceId: null,
     matchExpression: null,
     schedules: [],
   };
@@ -224,11 +242,20 @@ export function NewGatewaySubscriptionPage() {
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
               noneLabel="None — the document passes through unchanged"
+              onOpenMapperEditor={() => setMapping(true)}
             />
-            {usesVisualMappingEditor(draft.mapperId) && (
-              <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-500">
-                The visual mapping editor opens from the subscription's own page, once it exists.
-              </p>
+            {bindsToDataSource(draft.mapperId, "mapper") && (
+              <div className="mt-3">
+                <DataSourceBinding
+                  slot="mapper"
+                  siblings={[{ slot: "delivery", adapterId: draft.handlerId }]}
+                  dataSourceId={draft.dataSourceId}
+                  properties={draft.mapperProperties}
+                  onDataSourceChange={(dataSourceId) => update({ dataSourceId })}
+                  onPropertiesChange={(mapperProperties) => update({ mapperProperties })}
+                  disabled={false}
+                />
+              </div>
             )}
           </Panel>
         );
@@ -243,6 +270,19 @@ export function NewGatewaySubscriptionPage() {
               disabled={false}
               required
             />
+            {bindsToDataSource(draft.handlerId, "handler") && (
+              <div className="mt-3">
+                <DataSourceBinding
+                  slot="handler"
+                  siblings={[{ slot: "transformation", adapterId: draft.mapperId }]}
+                  dataSourceId={draft.dataSourceId}
+                  properties={draft.handlerProperties}
+                  onDataSourceChange={(dataSourceId) => update({ dataSourceId })}
+                  onPropertiesChange={(handlerProperties) => update({ handlerProperties })}
+                  disabled={false}
+                />
+              </div>
+            )}
           </Panel>
         );
       case "response":
@@ -272,7 +312,7 @@ export function NewGatewaySubscriptionPage() {
         New subscription for {g.name}
       </h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
-        Set up as much of it as you'd like — the rest is still here, on its own page, once it exists.
+        Everything it needs, in one go — nothing here has to wait until after it is created.
       </p>
 
       <div className="mb-5 flex flex-wrap gap-5">
@@ -305,6 +345,20 @@ export function NewGatewaySubscriptionPage() {
         </div>
       </div>
 
+      {/* The two settings that belong to no stage, in the strip the subscription's own
+          page keeps them in. Offered here because the API has always accepted them on a
+          create — leaving them out is what made a new subscription need a second visit. */}
+      <div className="mb-5 flex flex-wrap items-start gap-x-10 gap-y-4 border-y border-ink-200 px-1 py-4">
+        <LaneAndRetry
+          workGroupId={draft.workGroupId}
+          retryPolicyId={draft.retryPolicyId}
+          onWorkGroupChange={(workGroupId) => update({ workGroupId })}
+          onRetryPolicyChange={(retryPolicyId) => update({ retryPolicyId })}
+          canEdit
+          idPrefix="ngi"
+        />
+      </div>
+
       <StageRail faces={faces} selected={stage} onSelect={setStage} />
 
       {stage !== null && (
@@ -322,25 +376,49 @@ export function NewGatewaySubscriptionPage() {
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
-        {missing.length > 0 && (
-          <p className="text-[13px] text-ink-500">
-            Still needs {missing.slice(0, -1).join(", ")}
-            {missing.length > 1 ? " and " : ""}
-            {missing.at(-1)}.
-          </p>
-        )}
-        <Button onClick={() => backToAttach({})}>Cancel</Button>
-        <Button
-          variant="primary"
-          busy={create.isPending}
-          disabled={missing.length > 0}
-          onClick={() => create.mutate()}
-        >
-          Create subscription
-        </Button>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
+        <Checkbox
+          label="Enable immediately"
+          description="Unchecked, it is created disabled. Either way it only runs once a partner is attached."
+          checked={draft.enabled}
+          onChange={(e) => update({ enabled: e.target.checked })}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          {missing.length > 0 && (
+            <p className="text-[13px] text-ink-500">
+              Still needs {missing.slice(0, -1).join(", ")}
+              {missing.length > 1 ? " and " : ""}
+              {missing.at(-1)}.
+            </p>
+          )}
+          <Button onClick={() => backToAttach({})}>Cancel</Button>
+          <Button
+            variant="primary"
+            busy={create.isPending}
+            disabled={missing.length > 0}
+            onClick={() => create.mutate()}
+          >
+            Create subscription
+          </Button>
+        </div>
       </div>
       <FormError>{create.error?.message}</FormError>
+
+      {/* Over the page rather than a route of its own: the subscription exists only in
+          this component's state, so navigating to the editor would throw it away. Saving
+          in there hands the rules back to the draft; they are written on Create. */}
+      {mapping && (
+        <NativeMapperEditor
+          target={{
+            kind: "draft",
+            mapperId: draft.mapperId,
+            mapperProperties: draft.mapperProperties,
+            partnerId: partnerId === null ? null : Number(partnerId),
+            onSave: (mapperProperties) => update({ mapperId: NATIVE_MAPPER_ID, mapperProperties }),
+          }}
+          onClose={() => setMapping(false)}
+        />
+      )}
     </div>
   );
 }

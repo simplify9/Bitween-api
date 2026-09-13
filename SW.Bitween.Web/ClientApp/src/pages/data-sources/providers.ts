@@ -89,3 +89,20 @@ export const isSecretName = (
   setting?.secret === true ||
   declared.some((d) => d.toLowerCase() === name.toLowerCase()) ||
   CREDENTIAL.test(name);
+
+/**
+ * Which adapters bind to a data source at all, as a hook so every page asking the
+ * question shares one answer — the subscription's own page and all three create pages.
+ *
+ * A relational one always does; a BROKER one does in a delivery, because that is how a
+ * subscription answers on the customer's own queue — ingress from a broker comes through
+ * a bus gateway rather than through a subscription slot.
+ */
+export function useBindsToDataSource() {
+  const providers = useDataSourceProviders();
+  return (adapterId: string | null, slot: "receiver" | "mapper" | "handler") => {
+    const kind = adapterId == null ? null : providerOf(providers.data, adapterId)?.kind;
+    if (kind === "Relational") return true;
+    return kind === "Broker" && slot !== "receiver";
+  };
+}

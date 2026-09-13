@@ -14,7 +14,7 @@ import { AggregationFields } from "../../components/config/AggregationFields";
 import { TypeBadge, scheduleFault, useSubscriptionsCache } from "../../components/config/shared";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { DataSourceBinding } from "./studio/DataSourceBinding";
-import { providerOf, useDataSourceProviders } from "../data-sources/providers";
+import { useBindsToDataSource } from "../data-sources/providers";
 import { StageRail } from "./studio/StageRail";
 import { faceOf } from "./studio/faces";
 import { EntryPointsTable, Overview } from "./studio/Overview";
@@ -57,7 +57,7 @@ export function SubscriptionPage() {
   // Which adapters are database providers, so the connection controls appear only where they mean
   // something. Called with the other queries because this component returns early below, and a
   // hook after that point runs in a different order on the two paths.
-  const dataSourceProviders = useDataSourceProviders();
+  const bindsToDataSource = useBindsToDataSource();
 
   const scheduleHealth = useQuery({
     queryKey: keys.subscriptions.scheduleHealth,
@@ -175,14 +175,6 @@ export function SubscriptionPage() {
   const entryPoints = entryPointsOf(s);
 
   const stages = stagesFor(s.type);
-  // Which adapters bind to a data source at all. A relational one always does; a BROKER one does
-  // in a delivery, because that is how a subscription answers on the customer's own queue —
-  // ingress from a broker comes through a bus gateway rather than through a subscription slot.
-  const bindsToDataSource = (adapterId: string | null, slot: "receiver" | "mapper" | "handler") => {
-    const kind = adapterId == null ? null : providerOf(dataSourceProviders.data, adapterId)?.kind;
-    if (kind === "Relational") return true;
-    return kind === "Broker" && slot !== "receiver";
-  };
 
   const stageParam = params.get("stage") as StageId | null;
   const stage = stageParam && stages.includes(stageParam) ? stageParam : null;
