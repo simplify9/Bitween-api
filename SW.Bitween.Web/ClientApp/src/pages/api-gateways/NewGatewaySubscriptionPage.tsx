@@ -89,27 +89,23 @@ export function NewGatewaySubscriptionPage() {
 
   const [draft, update] = useDraft<Draft>(EMPTY);
 
-  // Reuses the picker's cache: the attach page you came from has already listed them,
-  // so naming the partner here costs no request.
-  const partners = useQuery({
-    queryKey: keys.partners.list,
-    queryFn: () => api.listPartners(),
-    enabled: partnerId !== null,
-  });
-
   /**
-   * Fills the name in from the two things already decided — who calls, and which
-   * gateway they call — so the common case is a field to accept rather than one to
-   * invent. Seeded once: `touched` latches as soon as the field is edited, and the
-   * partner can't change while this page is open, so nothing overwrites a typed name.
+   * Fills the name in from the gateway, so the field is one to accept rather than one
+   * to invent. Deliberately not from the partner in `?partnerId=`, even though it is
+   * right there: an attachment is (gateway, partner, subscription), and one subscription
+   * is normally shared by every partner on the gateway. Seeding it with whichever partner
+   * happened to be picked first would name a shared pipeline after one of its callers.
+   *
+   * Seeded once: `touched` latches as soon as the field is edited, so nothing overwrites
+   * a typed name.
    */
   const touched = useRef(false);
-  const partnerName = partners.data?.find((p) => p.id === Number(partnerId))?.name;
+  const gatewayName = gateway.data?.name;
   useEffect(() => {
-    if (touched.current || !partnerName || !gateway.data) return;
-    update({ name: `${partnerName} via ${gateway.data.name}` });
+    if (touched.current || !gatewayName) return;
+    update({ name: gatewayName });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partnerName, gateway.data]);
+  }, [gatewayName]);
 
   /** Back to the attach page, carrying the partner along if one was already picked. */
   const backToAttach = (extra: Record<string, string>) => {
