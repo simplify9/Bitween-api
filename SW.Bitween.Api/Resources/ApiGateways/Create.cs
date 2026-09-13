@@ -13,6 +13,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
             await requestContext.EnsurePermission(dbContext, Model.Permissions.ApiGateways.Create);
 
             GatewayUrlName.Validate(model.UrlName);
+            await GatewayUrlName.EnsureIsFree(dbContext, model.UrlName);
 
             var entity = new ApiGateway
             {

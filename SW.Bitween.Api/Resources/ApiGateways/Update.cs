@@ -23,6 +23,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
                 throw new SWNotFoundException($"ApiGateway with Id {key} not found");
 
             GatewayUrlName.Validate(model.UrlName);
+            await GatewayUrlName.EnsureIsFree(dbContext, model.UrlName, key);
 
             entity.Name = model.Name;
             entity.UrlName = model.UrlName;

@@ -1,4 +1,8 @@
 using System.Text.RegularExpressions;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain.Gateway;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.ApiGateways;
@@ -23,5 +27,27 @@ internal static partial class GatewayUrlName
             throw new SWValidationException("GATEWAY_URL_NAME_INVALID",
                 $"'{urlName}' cannot be used in a URL. Use lowercase letters, digits, hyphens " +
                 "and underscores only — no spaces, and not starting or ending with a separator.");
+    }
+
+    /// <summary>
+    /// Refuses a url name another gateway already answers on. Pass the gateway's own id when
+    /// updating, so saving a gateway without touching its url name isn't a collision with itself.
+    /// </summary>
+    /// <remarks>
+    /// The column is uniquely indexed, so this was already refused — as a constraint violation
+    /// that reached the screen as "Request failed (500)", with nothing to say the name was taken
+    /// or which gateway has it.
+    /// </remarks>
+    public static async Task EnsureIsFree(BitweenDbContext dbContext, string urlName, int? existingId = null)
+    {
+        var taken = await dbContext.Set<ApiGateway>().AsNoTracking()
+            .Where(gateway => gateway.UrlName == urlName && gateway.Id != existingId)
+            .Select(gateway => gateway.Name)
+            .FirstOrDefaultAsync();
+
+        if (taken != null)
+            throw new SWValidationException("GATEWAY_URL_NAME_TAKEN",
+                $"'{urlName}' is already the address of the gateway '{taken}'. " +
+                "Partners reach a gateway by this name, so two can't share one.");
     }
 }

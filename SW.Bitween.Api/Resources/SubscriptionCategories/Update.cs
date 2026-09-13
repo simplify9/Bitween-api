@@ -15,6 +15,9 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         var category = await dbContext.Set<SubscriptionCategory>().FindAsync(key);
         if (category is null)
             throw new SWValidationException("CATEGORY_NOT_FOUND", $"Category with id {key} was not found");
+
+        await Create.EnsureCodeIsFree(dbContext, request.Code, key);
+
         category.Update(request.Code, request.Description);
         await dbContext.SaveChangesAsync();
         return null;
