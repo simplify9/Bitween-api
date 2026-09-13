@@ -18,6 +18,11 @@ import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
 import { ResponseFields } from "../subscriptions/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
+import { DataSourceBinding } from "../subscriptions/studio/DataSourceBinding";
+import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
+import { useBindsToDataSource } from "../data-sources/providers";
+import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
+import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 
 /** Local draft state with the patch-and-clear shape the other create pages use. */
 function useDraft<T extends object>(initial: T) {
@@ -40,6 +45,9 @@ type Draft = Pick<
   | "handlerProperties"
   | "responseSubscriptionId"
   | "responseMessageTypeName"
+  | "workGroupId"
+  | "retryPolicyId"
+  | "dataSourceId"
 > & {
   aggregationForId: number | null;
   partnerId: number | null;
@@ -67,6 +75,9 @@ const EMPTY: Draft = {
   handlerProperties: {},
   responseSubscriptionId: null,
   responseMessageTypeName: null,
+  workGroupId: null,
+  retryPolicyId: null,
+  dataSourceId: null,
   enable: false,
 };
 
@@ -87,6 +98,8 @@ export function NewAggregationPage() {
   const fixedSourceId = params.get("source") ? Number(params.get("source")) : null;
 
   const [stage, setStage] = useState<StageId | null>("aggregation");
+  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
   const receivers = useAdapterCatalog("receiver");
@@ -95,6 +108,7 @@ export function NewAggregationPage() {
   const handlers = useAdapterCatalog("handler");
 
   const [draft, update] = useDraft<Draft>({ ...EMPTY, aggregationForId: fixedSourceId });
+  const bindsToDataSource = useBindsToDataSource();
 
   const source = allSubscriptions.data?.find((s) => s.id === draft.aggregationForId) ?? null;
 
@@ -124,6 +138,9 @@ export function NewAggregationPage() {
         handlerProperties: draft.handlerProperties,
         responseSubscriptionId: draft.responseSubscriptionId,
         responseMessageTypeName: draft.responseMessageTypeName,
+        workGroupId: draft.workGroupId,
+        retryPolicyId: draft.retryPolicyId,
+        dataSourceId: draft.dataSourceId,
         enabled: draft.enable,
       }),
     onSuccess: (created) => {
@@ -136,14 +153,12 @@ export function NewAggregationPage() {
   const studioDraft: StudioDraft = {
     ...draft,
     enabled: draft.enable,
-    workGroupId: null,
-    retryPolicyId: null,
+    // An aggregation is fed by its source, not by a receiver, and has no Validation
+    // stage — see stages.ts.
     receiverId: null,
     receiverProperties: {},
     validatorId: null,
     validatorProperties: {},
-    // A new subscription binds no connection until an adapter that needs one is chosen.
-    dataSourceId: null,
     matchExpression: null,
   };
 
@@ -210,11 +225,25 @@ export function NewAggregationPage() {
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
               noneLabel="None — the list of links is delivered as it is"
+              onOpenMapperEditor={() => setMapping(true)}
             />
             <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-500">
               What arrives here is a JSON list of links, not the documents themselves. Combining
               them into one file is this step's job, or the delivery's.
             </p>
+            {bindsToDataSource(draft.mapperId, "mapper") && (
+              <div className="mt-3">
+                <DataSourceBinding
+                  slot="mapper"
+                  siblings={[{ slot: "delivery", adapterId: draft.handlerId }]}
+                  dataSourceId={draft.dataSourceId}
+                  properties={draft.mapperProperties}
+                  onDataSourceChange={(dataSourceId) => update({ dataSourceId })}
+                  onPropertiesChange={(mapperProperties) => update({ mapperProperties })}
+                  disabled={false}
+                />
+              </div>
+            )}
           </Panel>
         );
       case "delivery":
@@ -228,6 +257,19 @@ export function NewAggregationPage() {
               disabled={false}
               required
             />
+            {bindsToDataSource(draft.handlerId, "handler") && (
+              <div className="mt-3">
+                <DataSourceBinding
+                  slot="handler"
+                  siblings={[{ slot: "transformation", adapterId: draft.mapperId }]}
+                  dataSourceId={draft.dataSourceId}
+                  properties={draft.handlerProperties}
+                  onDataSourceChange={(dataSourceId) => update({ dataSourceId })}
+                  onPropertiesChange={(handlerProperties) => update({ handlerProperties })}
+                  disabled={false}
+                />
+              </div>
+            )}
           </Panel>
         );
       case "response":
@@ -309,6 +351,20 @@ export function NewAggregationPage() {
         </div>
       </div>
 
+      {/* The two settings that belong to no stage, in the strip the subscription's own
+          page keeps them in. Offered here because the API has always accepted them on a
+          create — leaving them out is what made a new aggregation need a second visit. */}
+      <div className="mb-5 flex flex-wrap items-start gap-x-10 gap-y-4 border-y border-ink-200 px-1 py-4">
+        <LaneAndRetry
+          workGroupId={draft.workGroupId}
+          retryPolicyId={draft.retryPolicyId}
+          onWorkGroupChange={(workGroupId) => update({ workGroupId })}
+          onRetryPolicyChange={(retryPolicyId) => update({ retryPolicyId })}
+          canEdit
+          idPrefix="na"
+        />
+      </div>
+
       <StageRail faces={faces} selected={stage} onSelect={setStage} />
 
       {stage !== null && (
@@ -357,6 +413,22 @@ export function NewAggregationPage() {
       </div>
 
       <FormError>{create.error?.message}</FormError>
+
+      {/* Over the page rather than a route of its own: the aggregation exists only in this
+          component's state, so navigating to the editor would throw it away. Saving in
+          there hands the rules back to the draft; they are written on Create. */}
+      {mapping && (
+        <NativeMapperEditor
+          target={{
+            kind: "draft",
+            mapperId: draft.mapperId,
+            mapperProperties: draft.mapperProperties,
+            partnerId,
+            onSave: (mapperProperties) => update({ mapperId: NATIVE_MAPPER_ID, mapperProperties }),
+          }}
+          onClose={() => setMapping(false)}
+        />
+      )}
     </div>
   );
 }

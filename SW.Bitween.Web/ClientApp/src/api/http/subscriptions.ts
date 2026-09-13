@@ -437,6 +437,10 @@ export const subscriptionMethods = {
     handlerId?: string | null;
     handlerProperties?: Record<string, string>;
     schedules?: Schedule[];
+    /** Which lane it runs in. The API has always taken it; no create page used to ask. */
+    workGroupId?: number | null;
+    /** The connection its adapters go through, when one of them needs a data source. */
+    dataSourceId?: number | null;
     retryPolicyId?: number | null;
     responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
@@ -465,6 +469,8 @@ export const subscriptionMethods = {
       // Receiving subscription is rejected, and a job created without one is a
       // legitimate (if idle) thing to have.
       schedules: input.schedules?.length ? toRawSchedules(input.schedules) : undefined,
+      workGroupId: input.workGroupId ?? null,
+      dataSourceId: input.dataSourceId ?? null,
       retryPolicyId: input.retryPolicyId ?? null,
       customRetryPolicy: null,
       responseSubscriptionId: input.responseSubscriptionId ?? null,

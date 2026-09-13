@@ -215,6 +215,10 @@ export interface ApiClient {
     handlerId?: string | null;
     handlerProperties?: Record<string, string>;
     schedules?: Schedule[];
+    /** Which lane it runs in. The API has always taken it; no create page used to ask. */
+    workGroupId?: number | null;
+    /** The connection its adapters go through, when one of them needs a data source. */
+    dataSourceId?: number | null;
     retryPolicyId?: number | null;
     responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
