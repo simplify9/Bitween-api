@@ -151,6 +151,7 @@ export function RouteBody({
           onChange={(matchExpression) => onChange({ matchExpression })}
           properties={promotedProperties}
           disabled={disabled}
+          informationTypeId={informationTypeId}
         />
       </Field>
 

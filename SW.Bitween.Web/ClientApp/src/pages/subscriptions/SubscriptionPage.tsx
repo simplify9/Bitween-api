@@ -241,6 +241,7 @@ export function SubscriptionPage() {
                 onChange={(matchExpression) => set("matchExpression", matchExpression)}
                 properties={infoType.data?.promotedProperties ?? []}
                 disabled={!canEdit}
+                informationTypeId={infoType.data?.id}
               />
             ) : (
               <EntryPointsTable rows={entryPoints} empty={triggerEmpty} />
