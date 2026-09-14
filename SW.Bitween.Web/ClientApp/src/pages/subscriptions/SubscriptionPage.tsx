@@ -73,7 +73,10 @@ export function SubscriptionPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmingPause, setConfirmingPause] = useState(false);
-  const [confirmingEnabled, setConfirmingEnabled] = useState(false);
+  // The state being asked for, not a flag: the dialog then confirms and writes the
+  // action the operator actually opened it for, rather than re-deriving it from a
+  // `s.enabled` that a refetch could have flipped underneath the open dialog.
+  const [enabling, setEnabling] = useState<boolean | null>(null);
   const [confirmingReceive, setConfirmingReceive] = useState(false);
   const [confirmingAggregate, setConfirmingAggregate] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -489,7 +492,7 @@ export function SubscriptionPage() {
                 only in whether the work survives. */}
             {canEdit && (
               <Button
-                onClick={() => setConfirmingEnabled(true)}
+                onClick={() => setEnabling(!s.enabled)}
                 title={
                   s.enabled
                     ? "Stop it running at all. Work that arrives while it is off is not kept — pause instead to hold it."
@@ -565,26 +568,26 @@ export function SubscriptionPage() {
         />
       )}
 
-      {confirmingEnabled && (
+      {enabling !== null && (
         <ConfirmDialog
-          title={s.enabled ? "Disable this subscription?" : "Enable this subscription?"}
+          title={enabling ? "Enable this subscription?" : "Disable this subscription?"}
           body={
-            s.enabled ? (
+            enabling ? (
+              `${s.name} starts being matched and scheduled again.`
+            ) : (
               <>
                 <strong className="font-medium text-ink-800">{s.name}</strong> stops being matched
                 and stops being scheduled. Anything that arrives for it while it is off is{" "}
                 <strong className="font-medium text-ink-800">not kept</strong> — pause it instead to
                 hold that work and release it later.
               </>
-            ) : (
-              `${s.name} starts being matched and scheduled again.`
             )
           }
-          confirmLabel={s.enabled ? "Disable" : "Enable"}
+          confirmLabel={enabling ? "Enable" : "Disable"}
           onConfirm={async () => {
-            await setEnabled.mutateAsync(!s.enabled);
+            await setEnabled.mutateAsync(enabling);
           }}
-          onClose={() => setConfirmingEnabled(false)}
+          onClose={() => setEnabling(null)}
         />
       )}
 
