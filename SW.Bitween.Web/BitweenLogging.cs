@@ -1,6 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
+using System.Text.Json;
+using System.Collections.Generic;
 using System.Reflection;
 using Elastic.Ingest.Elasticsearch;
 using Elastic.Ingest.Elasticsearch.DataStreams;
@@ -55,6 +59,10 @@ namespace SW.Bitween.Web
                 .Contains(environmentName, StringComparer.OrdinalIgnoreCase);
 
         public string PolicyName => $"{ApplicationName.ToLower()}-policy";
+
+        /// <summary>The data stream the sink writes to; its backing indices are ".ds-{this}-*".</summary>
+        public string DataStreamName(string environmentName) =>
+            $"logs-{ApplicationName.ToLower()}-{environmentName.ToLower()}";
     }
 
     /// <summary>
@@ -101,7 +109,6 @@ namespace SW.Bitween.Web
 
             if (options.ShipsToElasticsearch(environment.EnvironmentName))
             {
-                CreateLifeCyclePolicy(options);
                 logger = logger.WriteTo.Elasticsearch(
                     new[] { new Uri(options.ElasticsearchUrl) },
                     opts =>
@@ -127,23 +134,32 @@ namespace SW.Bitween.Web
                     });
             }
 
+            var serilogLogger = logger.CreateLogger();
+
+            // After CreateLogger, because the sink writes its index template while bootstrapping
+            // and the retention setting has to end up on that template.
+            if (options.ShipsToElasticsearch(environment.EnvironmentName))
+                ApplyRetentionPolicy(options, environment.EnvironmentName);
+
             services.AddSingleton(options);
-            services.AddSerilog(logger.CreateLogger(), dispose: true);
+            services.AddSerilog(serilogLogger, dispose: true);
             return services;
         }
 
         /// <summary>
-        /// Pushes the retention policy, carried over unchanged from SimplyWorks.Logger.ElasticSearch.
+        /// Makes ElasticsearchDeleteIndexAfterDays actually govern how long logs are kept.
         /// <para>
-        /// Note that the policy is created but not yet attached to anything: the sink writes to a
-        /// "logs-{app}-{env}" data stream whose backing indices are named ".ds-logs-*", so the
-        /// pattern below matches no index, and those backing indices inherit Elasticsearch's
-        /// built-in "logs" policy instead of this one. Attaching it means owning the sink's
-        /// composable index template, which the sink rewrites whenever it bootstraps, so
-        /// ElasticsearchDeleteIndexAfterDays does not currently govern retention.
+        /// Elasticsearch never deletes anything on its own. The sink writes to a
+        /// "logs-{app}-{env}" data stream, and a data stream's backing indices inherit their
+        /// retention from the composable index template that created them, not from any setting
+        /// applied to the stream itself. The sink bootstraps that template pointing at
+        /// Elasticsearch's built-in "logs" policy, which only rolls indices over and has no delete
+        /// phase, so without this logs accumulate forever. Writing the setting into the template
+        /// covers every index created from here on; the sweep afterwards covers the ones already
+        /// on disk, which is what lets an existing deployment adopt a retention policy.
         /// </para>
         /// </summary>
-        private static void CreateLifeCyclePolicy(BitweenLoggerOptions options)
+        private static void ApplyRetentionPolicy(BitweenLoggerOptions options, string environmentName)
         {
             var settings = new ConnectionSettings(new Uri(options.ElasticsearchUrl))
                 .BasicAuthentication(options.ElasticsearchUser, options.ElasticsearchPassword);
@@ -156,10 +172,106 @@ namespace SW.Bitween.Web
                             .MinimumAge($"{options.ElasticsearchDeleteIndexAfterDays}d")
                             .Actions(a => a.Delete(x => x))))));
 
-            client.Indices.UpdateSettings(new UpdateIndexSettingsRequest($"{options.ApplicationName.ToLower()}-*")
+            var stream = options.DataStreamName(environmentName);
+            var template = FindTemplateFor(client, stream);
+            if (template != null) PointTemplateAtPolicy(client, template, options.PolicyName);
+
+            // Existing backing indices keep whatever policy they were created with.
+            Request(client, Elasticsearch.Net.HttpMethod.PUT, $"/.ds-{stream}-*/_settings",
+                $@"{{""index.lifecycle.name"":""{options.PolicyName}""}}");
+        }
+
+        /// <summary>Raw Elasticsearch call; returns the body, or null when the call failed.</summary>
+        private static string Request(
+            IElasticClient client, Elasticsearch.Net.HttpMethod method, string path, string body = null)
+        {
+            var response = client.LowLevel.DoRequest<Elasticsearch.Net.StringResponse>(
+                method, path, Elasticsearch.Net.PostData.String(body ?? string.Empty));
+            return response.Success ? response.Body : null;
+        }
+
+        /// <summary>
+        /// The one index template Elasticsearch would actually apply to the sink's data stream.
+        /// <para>
+        /// Several templates can match a name, but only the highest-priority one is used, so that
+        /// is the only one worth editing. Templates Elasticsearch manages itself are skipped
+        /// outright: the built-in "logs" template matches "logs-*-*" and therefore covers every
+        /// service in the cluster, so writing this application's retention into it would quietly
+        /// take over how everyone else's logs expire.
+        /// </para>
+        /// </summary>
+        private static string FindTemplateFor(IElasticClient client, string stream)
+        {
+            var response = Request(client, Elasticsearch.Net.HttpMethod.GET, "/_index_template");
+            if (response == null) return null;
+
+            using var document = JsonDocument.Parse(response);
+            if (!document.RootElement.TryGetProperty("index_templates", out var templates))
+                return null;
+
+            string winner = null;
+            var highest = long.MinValue;
+
+            foreach (var entry in templates.EnumerateArray())
             {
-                IndexSettings = new IndexSettings { { "index.lifecycle.name", options.PolicyName } }
-            });
+                var template = entry.GetProperty("index_template");
+
+                if (template.TryGetProperty("_meta", out var meta)
+                    && meta.TryGetProperty("managed", out var managed)
+                    && managed.ValueKind == JsonValueKind.True) continue;
+
+                var patterns = template.GetProperty("index_patterns").EnumerateArray();
+                if (!patterns.Any(pattern => MatchesPattern(pattern.GetString(), stream))) continue;
+
+                var priority = template.TryGetProperty("priority", out var p) ? p.GetInt64() : 0;
+                if (priority < highest) continue;
+
+                highest = priority;
+                winner = entry.GetProperty("name").GetString();
+            }
+
+            return winner;
+        }
+
+        private static bool MatchesPattern(string pattern, string value)
+        {
+            if (string.IsNullOrEmpty(pattern)) return false;
+            var regex = "^" + string.Join(".*", pattern.Split('*').Select(Regex.Escape)) + "$";
+            return Regex.IsMatch(value, regex, RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>
+        /// Rewrites one template with the retention setting added, leaving the rest of it — the ECS
+        /// mappings the sink depends on — exactly as the sink wrote it.
+        /// </summary>
+        private static void PointTemplateAtPolicy(IElasticClient client, string templateName, string policyName)
+        {
+            var current = Request(client, Elasticsearch.Net.HttpMethod.GET, $"/_index_template/{templateName}");
+            if (current == null) return;
+
+            var root = JsonNode.Parse(current);
+            var template = root?["index_templates"]?.AsArray().FirstOrDefault()?["index_template"];
+            if (template == null) return;
+
+            var body = template.AsObject();
+            var inner = body["template"]?.AsObject();
+            if (inner == null)
+            {
+                inner = new JsonObject();
+                body["template"] = inner;
+            }
+
+            var indexSettings = inner["settings"]?.AsObject();
+            if (indexSettings == null)
+            {
+                indexSettings = new JsonObject();
+                inner["settings"] = indexSettings;
+            }
+
+            indexSettings["index.lifecycle.name"] = policyName;
+
+            Request(client, Elasticsearch.Net.HttpMethod.PUT,
+                $"/_index_template/{templateName}", body.ToJsonString());
         }
     }
 }
