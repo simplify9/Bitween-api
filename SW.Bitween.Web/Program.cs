@@ -12,7 +12,6 @@ using Npgsql;
 using SW.Bitween.Services;
 using SW.EfCoreExtensions;
 using SW.Logger;
-using SW.Logger.ElasticSerach;
 
 namespace SW.Bitween.Web
 {
@@ -21,7 +20,7 @@ namespace SW.Bitween.Web
         public static void Main(string[] args)
         {
             //var id = (long)(DateTime.UtcNow.Subtract(new DateTime(2010, 1, 1)).TotalMilliseconds * 1000);
-            var host = CreateHostBuilder(args).UseSwElasticSearchLogger().Build();
+            var host = CreateHostBuilder(args).Build();
 
             // Startup migration failures otherwise surface only as a bare unhandled exception with
             // no indication of which database was targeted, which makes an environment-specific

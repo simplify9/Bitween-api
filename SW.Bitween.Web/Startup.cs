@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -35,7 +36,6 @@ using SW.Bitween.Services.DataSources;
 using SW.Serverless.Resident;
 using SW.CqApi.AuthOptions;
 using SW.Logger.Console;
-using SW.Logger.ElasticSerach;
 using Azure.Identity;
 using Microsoft.Data.SqlClient;
 using SW.Bitween.NativeAdapters;
@@ -94,10 +94,12 @@ namespace SW.Bitween.Web
             services.AddScoped<SubscriptionSchedulerService>();
             services.AddHostedService<SchedulerSeedService>();
 
-            services.AddSWConsoleLogger(options =>
+            services.AddBitweenLogging(Configuration, Environment, options =>
             {
                 options.ApplicationName = bitweenOptions.QueuePrefix;
             });
+            services.AddSingleton<IHttpContextFactory>(sp =>
+                new EdgeRequestIdHttpContextFactory(new DefaultHttpContextFactory(sp)));
 
             services.AddBus(config =>
             {
@@ -601,7 +603,7 @@ namespace SW.Bitween.Web
             app.UseAuthentication();
             app.UseAuthorization();
             app.UseHttpAsRequestContext();
-            SW.Logger.ElasticSerach.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
+            SW.Logger.Console.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
 
             app.UseSwaggerUI(c => { c.SwaggerEndpoint("/api/swagger.json", "Bitween Api"); });
 
