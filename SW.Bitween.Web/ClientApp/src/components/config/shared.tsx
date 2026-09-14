@@ -675,6 +675,18 @@ export function WiredHealthBadge({
  * Everything here comes from caches the app already holds, keyed by subscription
  * id; the gateway endpoints know none of it.
  */
+/**
+ * Work group and retry policy are the two columns that sit between "Runs" and
+ * "Status" and, rendered as plain links like it, gave the row three stretches of
+ * identical 13px text with nothing but padding between them — which is what made
+ * the table hard to read across. They are both *an assignment to a named thing*,
+ * so they take a shared chip: it groups the pair, and separates them from the
+ * subscription link on one side and the status badges on the other.
+ */
+const assignmentChip =
+  "inline-flex items-center rounded-md bg-ink-50 px-1.5 py-0.5 text-[12px] text-ink-600 " +
+  "hover:bg-ink-100 hover:text-crimson-700";
+
 export function useWiredSubscriptionColumns<T>(
   subscriptionIdOf: (row: T) => number,
   /** Off where the parent already fixes it — a bus gateway listens for one type. */
@@ -726,10 +738,7 @@ export function useWiredSubscriptionColumns<T>(
           return <span className="text-[13px] text-ink-400">Ungrouped</span>;
         const name = workGroupNames.get(id);
         return name ? (
-          <Link
-            to={`/work-groups/${id}`}
-            className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
-          >
+          <Link to={`/work-groups/${id}`} className={assignmentChip}>
             {name}
           </Link>
         ) : (
@@ -745,10 +754,7 @@ export function useWiredSubscriptionColumns<T>(
           return <span className="text-[13px] text-ink-400">None</span>;
         const name = retryPolicyNames.get(id);
         return name ? (
-          <Link
-            to={`/retry-policies/${id}`}
-            className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
-          >
+          <Link to={`/retry-policies/${id}`} className={assignmentChip}>
             {name}
           </Link>
         ) : (

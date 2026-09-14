@@ -46,15 +46,35 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
 
   await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Active" })).toBeVisible();
+  // A badge now, not a button — the switch that turns it off lives with Pause on the right.
+  await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
 
-  // Pause / resume.
-  await page.getByRole("button", { name: "Pause" }).click();
+  // Disable / enable. Distinct from pause below: this one drops the work rather than holding it,
+  // and unlike the chip it replaced it applies on confirm instead of waiting for a save.
+  await page.getByRole("button", { name: "Disable", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Disable this subscription?" })
+    .getByRole("button", { name: "Disable" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("Disabled", { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Enable", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Enable this subscription?" })
+    .getByRole("button", { name: "Enable" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("Disabled", { exact: true })).toHaveCount(0);
+
+  // Pause / resume. `exact` because the history card's "Show what changed: …, PausedOn, …"
+  // button is also a substring match for "Pause" once there are edits to show.
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
   await page.getByRole("dialog", { name: "Pause this subscription?" }).getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Resume" }).click();
+  await page.getByRole("button", { name: "Resume", exact: true }).click();
   await page.getByRole("dialog", { name: "Resume this subscription?" }).getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);

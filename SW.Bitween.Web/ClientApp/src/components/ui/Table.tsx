@@ -192,8 +192,12 @@ export function MiniTable<T>({
   const start = Math.min(page, Math.max(0, Math.ceil(matches.length / pageSize) - 1)) * pageSize;
   const shown = paged ? matches.slice(start, start + pageSize) : matches;
 
+  // `px-2`, not the `px-1` this started at: shrink-to-content columns sit at
+  // exactly twice the padding from their neighbours, and at 2px a panel holding
+  // half a dozen of them read as one run-on row. Still tighter than the
+  // page-level table's `px-3`, which is the density a panel is for.
   const cell = (c: Column<T>) =>
-    `px-1 ${widthClass(c, true)} ${c.align === "right" ? "text-right" : ""} ${c.className ?? ""}`;
+    `px-2 ${widthClass(c, true)} ${c.align === "right" ? "text-right" : ""} ${c.className ?? ""}`;
 
   return (
     <div className="space-y-2">
@@ -217,7 +221,7 @@ export function MiniTable<T>({
       {matches.length === 0 ? (
         <p className="py-1 text-sm text-ink-500">No {search?.noun ?? "rows"} match “{query.trim()}”.</p>
       ) : (
-        <div className="-mx-1 overflow-x-auto">
+        <div className="-mx-2 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
