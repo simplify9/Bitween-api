@@ -114,22 +114,34 @@ namespace SW.Bitween.Web
                     {
                         transport.Authentication(
                             new BasicAuthentication(options.ElasticsearchUser, options.ElasticsearchPassword));
-                        transport.ServerCertificateValidationCallback(
-                            string.IsNullOrWhiteSpace(options.ElasticsearchCertificatePath)
-                                ? (_, _, _, _) => true
-                                : CertificateValidations.AuthorityIsRoot(
+                        // Only override validation when a custom authority is supplied. Trusting
+                        // every certificate would expose these credentials and the log stream to
+                        // anyone able to impersonate the Elasticsearch host.
+                        if (!string.IsNullOrWhiteSpace(options.ElasticsearchCertificatePath))
+                        {
+                            transport.ServerCertificateValidationCallback(
+                                CertificateValidations.AuthorityIsRoot(
                                     new System.Security.Cryptography.X509Certificates.X509Certificate(
                                         options.ElasticsearchCertificatePath)));
+                        }
                     });
             }
 
             services.AddSingleton(options);
-            services.AddSerilog(logger.CreateLogger());
+            services.AddSerilog(logger.CreateLogger(), dispose: true);
             return services;
         }
 
         /// <summary>
-        /// Elasticsearch does not expire indices on its own, so retention is a policy we push.
+        /// Pushes the retention policy, carried over unchanged from SimplyWorks.Logger.ElasticSearch.
+        /// <para>
+        /// Note that the policy is created but not yet attached to anything: the sink writes to a
+        /// "logs-{app}-{env}" data stream whose backing indices are named ".ds-logs-*", so the
+        /// pattern below matches no index, and those backing indices inherit Elasticsearch's
+        /// built-in "logs" policy instead of this one. Attaching it means owning the sink's
+        /// composable index template, which the sink rewrites whenever it bootstraps, so
+        /// ElasticsearchDeleteIndexAfterDays does not currently govern retention.
+        /// </para>
         /// </summary>
         private static void CreateLifeCyclePolicy(BitweenLoggerOptions options)
         {

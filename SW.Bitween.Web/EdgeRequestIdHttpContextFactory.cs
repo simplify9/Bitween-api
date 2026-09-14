@@ -30,8 +30,9 @@ namespace SW.Bitween.Web
         {
             var context = inner.Create(featureCollection);
 
-            var edgeId = context.Request.Headers[EdgeRequestIdHeader].FirstOrDefault();
-            if (!string.IsNullOrEmpty(edgeId)) context.TraceIdentifier = edgeId;
+            var edgeId = context.Request.Headers[EdgeRequestIdHeader]
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            if (edgeId != null) context.TraceIdentifier = edgeId;
 
             return context;
         }
