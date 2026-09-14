@@ -219,6 +219,12 @@ export function ApiGatewayPage() {
               columns={[
                 {
                   header: "Partner",
+                  // Both name columns wrap rather than shrink to fit. Every column here but
+                  // "Last error" was shrink-to-content, so all the slack in a full-width panel
+                  // pooled in that one column and left the other six bunched against each other
+                  // down the left-hand side — which is what read as cramped, more than the
+                  // padding did. `wrap` is what the width strategy says a name should use anyway.
+                  wrap: true,
                   cell: (a) => (
                     <Link
                       to={`/partners/${a.partnerId}`}
@@ -230,6 +236,7 @@ export function ApiGatewayPage() {
                 },
                 {
                   header: "Runs",
+                  wrap: true,
                   cell: (a) => (
                     <Link
                       to={`/subscriptions/${a.subscriptionId}`}

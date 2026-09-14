@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DownloadCloud, FileStack, Pause, Play, Trash2, X } from "lucide-react";
+import { DownloadCloud, FileStack, Pause, Play, Power, PowerOff, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../components/config/MatchExpressionEditor";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { AggregationFields } from "../../components/config/AggregationFields";
-import { TypeBadge, scheduleFault, useSubscriptionsCache } from "../../components/config/shared";
+import {
+  SubscriptionStatusBadges,
+  TypeBadge,
+  scheduleFault,
+  useSubscriptionsCache,
+} from "../../components/config/shared";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { DataSourceBinding } from "./studio/DataSourceBinding";
 import { useBindsToDataSource } from "../data-sources/providers";
@@ -68,6 +73,7 @@ export function SubscriptionPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmingPause, setConfirmingPause] = useState(false);
+  const [confirmingEnabled, setConfirmingEnabled] = useState(false);
   const [confirmingReceive, setConfirmingReceive] = useState(false);
   const [confirmingAggregate, setConfirmingAggregate] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -131,6 +137,19 @@ export function SubscriptionPage() {
   const pause = useMutation({
     mutationFn: () => api.pauseSubscription(subscriptionId),
     onSuccess: invalidate,
+  });
+
+  // Its own one-field write rather than a draft edit ridden along on the save
+  // bar: this is the switch that drops work on the floor, so it applies when
+  // asked for and not at some later save of unrelated configuration. The draft
+  // is patched to match so an operator's half-finished edits below survive it —
+  // and so the value doesn't immediately read back as unsaved.
+  const setEnabled = useMutation({
+    mutationFn: (enabled: boolean) => api.updateSubscription(subscriptionId, { enabled }),
+    onSuccess: async (updated) => {
+      await invalidate();
+      setDraft((d) => (d ? { ...d, enabled: updated.enabled } : d));
+    },
   });
 
   const aggregate = useMutation({
@@ -402,20 +421,12 @@ export function SubscriptionPage() {
               placeholder="Subscription name"
             />
             <TypeBadge type={s.type} />
-            {draft && (
-              <button
-                type="button"
-                disabled={!canEdit}
-                onClick={() => set("enabled", !draft.enabled)}
-                title="Disabled subscriptions are never scheduled or matched."
-                className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium disabled:cursor-not-allowed ${
-                  draft.enabled ? "bg-ok-100 text-ok-600 hover:bg-ok-200/70" : "bg-ink-100 text-ink-700 hover:bg-ink-200"
-                }`}
-              >
-                {draft.enabled ? "Active" : "Disabled"}
-              </button>
-            )}
-            {paused && <Badge tone="warn">Paused</Badge>}
+            {/* Status is reported here and changed from the buttons on the right.
+                It used to be a clickable chip, indistinguishable from the Paused
+                badge beside it, that only edited the draft — so the lossy switch
+                saved later and quietly, while Pause, which keeps the work, asked
+                first and applied at once. */}
+            <SubscriptionStatusBadges enabled={s.enabled} paused={paused} />
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             Carries{" "}
@@ -471,6 +482,22 @@ export function SubscriptionPage() {
               >
                 {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
                 {paused ? "Resume" : "Pause"}
+              </Button>
+            )}
+            {/* Beside Pause, because the two questions an operator actually has
+                are the same shape — stop it, or hold it — and the answer differs
+                only in whether the work survives. */}
+            {canEdit && (
+              <Button
+                onClick={() => setConfirmingEnabled(true)}
+                title={
+                  s.enabled
+                    ? "Stop it running at all. Work that arrives while it is off is not kept — pause instead to hold it."
+                    : "Let it match and run again."
+                }
+              >
+                {s.enabled ? <PowerOff className="size-4" /> : <Power className="size-4" />}
+                {s.enabled ? "Disable" : "Enable"}
               </Button>
             )}
             <Can permission="subscriptions.delete">
@@ -535,6 +562,29 @@ export function SubscriptionPage() {
             await pause.mutateAsync();
           }}
           onClose={() => setConfirmingPause(false)}
+        />
+      )}
+
+      {confirmingEnabled && (
+        <ConfirmDialog
+          title={s.enabled ? "Disable this subscription?" : "Enable this subscription?"}
+          body={
+            s.enabled ? (
+              <>
+                <strong className="font-medium text-ink-800">{s.name}</strong> stops being matched
+                and stops being scheduled. Anything that arrives for it while it is off is{" "}
+                <strong className="font-medium text-ink-800">not kept</strong> — pause it instead to
+                hold that work and release it later.
+              </>
+            ) : (
+              `${s.name} starts being matched and scheduled again.`
+            )
+          }
+          confirmLabel={s.enabled ? "Disable" : "Enable"}
+          onConfirm={async () => {
+            await setEnabled.mutateAsync(!s.enabled);
+          }}
+          onClose={() => setConfirmingEnabled(false)}
         />
       )}
 
