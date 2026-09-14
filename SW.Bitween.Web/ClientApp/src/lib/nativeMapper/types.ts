@@ -9,7 +9,7 @@
 // nothing is recovered out of anything, so the editor reads back exactly what it
 // wrote.
 
-export type DocumentFormatId = "json" | "xml";
+export type DocumentFormatId = "json" | "xml" | "csv";
 
 /**
  * Which of the day and the month comes first in the incoming document's dates.
@@ -27,7 +27,50 @@ export const DATE_ORDERS: { value: DateOrderName; label: string }[] = [
   { value: "monthFirst", label: "Month first — 09.04.2026" },
 ];
 
-export type ValueSourceKind = "path" | "rootPath" | "fixed" | "partner" | "global";
+/**
+ * How one side reads or writes delimited text.
+ *
+ * Per side rather than per mapping: a partner's semicolon file routinely becomes somebody
+ * else's comma file, and one client alone sends all three of comma, semicolon and pipe.
+ * Nothing is sniffed from the sample — a guessed delimiter is right until the first field
+ * that legitimately contains a comma, and by then the mapping is in production.
+ */
+export interface CsvOptions {
+  /** The characters between one field and the next. */
+  delimiter: string;
+  /** Whether the first line names the columns rather than carrying data. */
+  hasHeader: boolean;
+  /**
+   * Whether to start a written file with the three bytes that tell Excel it is UTF-8.
+   *
+   * Without them a name like `BEAUTRAIT Raphaël` opens as `RaphaÃ«l`, and nobody downstream
+   * can put that right afterwards. Off by default, because a partner's own parser can just as
+   * easily choke on three bytes it did not expect.
+   */
+  byteOrderMark?: boolean;
+}
+
+export const defaultCsvOptions = (): CsvOptions => ({
+  delimiter: ",",
+  hasHeader: true,
+  byteOrderMark: false,
+});
+
+/** The separators worth offering, all of which turn up in real partner files. */
+export const CSV_DELIMITERS: { value: string; label: string }[] = [
+  { value: ",", label: "Comma ," },
+  { value: ";", label: "Semicolon ;" },
+  { value: "|", label: "Pipe |" },
+  { value: "\t", label: "Tab" },
+];
+
+export type ValueSourceKind =
+  | "path"
+  | "rootPath"
+  | "fixed"
+  | "partner"
+  | "global"
+  | "count";
 
 export type ValueTypeName = "string" | "number" | "boolean";
 
@@ -124,6 +167,14 @@ export interface ListRule {
    * and writing it into every stored list would be noise.
    */
   fixed?: ListEntry[];
+  /**
+   * Entries put into the list after the walked ones.
+   *
+   * The other end of `fixed`, and why it exists: a carrier's file ends with a trailer record
+   * carrying the number of records above it. Built the same way and reading the same scope —
+   * the only differences are where they land and that `count` can see the whole list by then.
+   */
+  after?: ListEntry[];
 }
 
 export interface MappingRules {
@@ -132,6 +183,10 @@ export interface MappingRules {
   targetFormat: DocumentFormatId;
   /** Absent means year-first, which is the only unambiguous shape. */
   sourceDateOrder?: DateOrderName;
+  /** How the incoming document is delimited, when it is delimited text. */
+  sourceCsv?: CsvOptions;
+  /** How the produced document is delimited, when it is delimited text. */
+  targetCsv?: CsvOptions;
   fields: FieldRule[];
   lists: ListRule[];
   /** When set, the whole output is this list rather than an object. */
@@ -173,6 +228,7 @@ export interface EditorListRule
   fields: EditorFieldRule[];
   lists: EditorListRule[];
   fixed: EditorListEntry[];
+  after: EditorListEntry[];
 }
 
 export interface EditorRules extends Omit<MappingRules, "fields" | "lists" | "root"> {
@@ -199,6 +255,7 @@ export const emptyListRule = (target: string[] = []): EditorListRule => ({
   fields: [],
   lists: [],
   fixed: [],
+  after: [],
 });
 
 export const emptyListEntry = (): EditorListEntry => ({
@@ -220,6 +277,7 @@ export const emptyRules = (): EditorRules => ({
 export const DOCUMENT_FORMATS: { id: DocumentFormatId; label: string }[] = [
   { id: "json", label: "JSON" },
   { id: "xml", label: "XML" },
+  { id: "csv", label: "CSV" },
 ];
 
 /**
@@ -250,6 +308,24 @@ export const TYPE_BADGES: Record<ValueTypeName, string> = {
   boolean: "y/n",
 };
 
+/**
+ * Counting the entries of a list, offered only on a rule that sits inside one.
+ *
+ * Outside a list there is nothing to count, and a segment that produced an error whenever it
+ * was chosen would be a control that exists to be wrong.
+ */
+const COUNT_KIND = {
+  value: "count" as ValueSourceKind,
+  label: "Count",
+  title:
+    "How many rows the source list produced. Entries you write by hand are not counted, so a " +
+    "trailer says how many records there are and adding a header line cannot change it.",
+};
+
+/** The segments a rule shows, which depends only on whether it sits inside a list. */
+export const sourceKindsFor = (insideList: boolean) =>
+  insideList ? [...SOURCE_KINDS, COUNT_KIND] : SOURCE_KINDS;
+
 /** What a value can be written as. Blank leaves it as the source produced it. */
 export const VALUE_TYPES: { value: string; label: string }[] = [
   { value: "", label: "As it comes" },
@@ -272,7 +348,10 @@ export const freshSource = (kind: ValueSourceKind): ValueSource =>
       ? { kind: "fixed", value: "" }
       : kind === "partner"
         ? { kind: "partner", key: "" }
-        : { kind: "global", setId: "", key: "" };
+        : kind === "count"
+          ? // Nothing to configure: the question is the whole rule.
+            { kind: "count" }
+          : { kind: "global", setId: "", key: "" };
 
 /** Filter operators, with the symbol a user recognises. */
 export const FILTER_OPERATORS: { value: FilterOperatorName; label: string }[] = [

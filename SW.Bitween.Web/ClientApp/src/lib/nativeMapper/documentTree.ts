@@ -7,6 +7,9 @@
 // list walks. The tree has to show the same thing, or the editor would offer paths
 // that resolve to null.
 
+import { dsvFormat } from "d3-dsv";
+import { defaultCsvOptions, type CsvOptions } from "./types";
+
 export type DocumentNodeKind = "value" | "object" | "list";
 
 export interface DocumentNode {
@@ -53,10 +56,13 @@ export function parseSample(
   text: string,
   format: string,
   role: SampleRole = "source",
+  csv: CsvOptions = defaultCsvOptions(),
 ): ParsedSample {
   if (!text.trim()) return { root: null, error: null };
 
   if (format === "xml") return parseXmlSample(text, role);
+
+  if (format === "csv") return parseCsvSample(text, csv);
 
   if (format !== "json") {
     return { root: null, error: `No preview of the document shape for ${format} yet.` };
@@ -151,6 +157,102 @@ function mergeNode(a: DocumentNode, b: DocumentNode): DocumentNode {
   // so the sample shown beside it comes from an entry that has something in it.
   return a.sample === null || a.sample === undefined || a.sample === "" ? b : a;
 }
+
+// ─── Delimited text ──────────────────────────────────────────────────────────
+//
+// These conventions have to match `CsvFormat` on the server exactly, for the same
+// reason the XML ones do: this tree is what the editor offers, and that reader is
+// what the mapping actually gets. `CsvSampleTreeTests` and `CsvFormatReadTests`
+// walk the same files on both sides to keep the two in step.
+
+/**
+ * A delimited file as a tree: a list, whose children are its columns.
+ *
+ * The same shape a JSON document that is a bare array produces, which is the whole
+ * reason this format needed nothing from the mapper. A rule walks the document with
+ * an empty path and reads a column off each row.
+ */
+function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
+  // d3-dsv takes one character. The wire format allows more, since the server's parser
+  // does — so a mapping hand-edited to a longer delimiter still runs, it just cannot be
+  // shown here, and saying so is better than drawing a tree that is wrong.
+  const delimiter = options.delimiter;
+  if (delimiter.length !== 1) {
+    return {
+      root: null,
+      error: `The shape of a file separated by '${options.delimiter}' cannot be shown here.`,
+    };
+  }
+
+  const rows = dsvFormat(delimiter)
+    .parseRows(stripByteOrderMark(text))
+    // A blank line, and a line holding only delimiters, are gaps between blocks of
+    // records rather than rows. Both turn up in the middle of real files.
+    .filter((row) => row.some((field) => (field ?? "").length > 0));
+
+  if (rows.length === 0) return { root: null, error: null };
+
+  const names = options.hasHeader ? columnNames(rows[0]) : [];
+  const body = options.hasHeader ? rows.slice(1) : rows;
+
+  return {
+    root: {
+      key: "",
+      path: "",
+      kind: "list",
+      count: body.length,
+      // Merged over every row, so a column that is empty in the first one still shows a
+      // sample from a row that has something in it — and a row with extra fields still
+      // offers them.
+      children: mergeShape(
+        body.flatMap((row) =>
+          row.map((field, at) => {
+            const name = nameAt(names, at);
+            return {
+              key: name,
+              path: name,
+              kind: "value" as const,
+              sample: field ?? "",
+              children: [],
+            };
+          }),
+        ),
+      ),
+    },
+    error: null,
+  };
+}
+
+/**
+ * The column names a header record gives, with every column left addressable.
+ *
+ * A blank name and a repeated one both fall back to the column's position — the name
+ * that column would have had with no header at all. Two columns sharing a name would
+ * mean the second silently replacing the first, which on the server is a column of the
+ * partner's file simply missing.
+ */
+function columnNames(header: string[]): string[] {
+  const used = new Set<string>();
+  return header.map((name, at) => {
+    const taken = name.length === 0 || used.has(name);
+    const chosen = taken ? String(at + 1) : name;
+    used.add(name);
+    used.add(chosen);
+    return chosen;
+  });
+}
+
+/** What the field at `at` is called: its header name, or its position counting from one. */
+const nameAt = (names: string[], at: number) => names[at] ?? String(at + 1);
+
+/**
+ * Drops the byte-order mark Excel writes.
+ *
+ * Left in place it becomes part of the first column's name, so every rule reading that
+ * column resolves to nothing while the editor shows a name that looks exactly right.
+ */
+const stripByteOrderMark = (text: string) =>
+  text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 
 // ─── XML ─────────────────────────────────────────────────────────────────────
 //

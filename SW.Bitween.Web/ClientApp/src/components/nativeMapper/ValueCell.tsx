@@ -171,6 +171,18 @@ export function ValueCell({
         />
       );
 
+    // Nothing to fill in — the question is the whole rule. Said in words rather than left as
+    // an empty box, which would read as a control nobody had got round to filling in.
+    case "count":
+      return (
+        <span
+          className="min-w-0 flex-1 truncate px-1 text-[11px] text-ink-500"
+          title="How many rows the source list produced — the same number wherever it is read in this list. Entries written by hand are not counted."
+        >
+          how many rows
+        </span>
+      );
+
     case "partner": {
       const known = Object.keys(partnerProps ?? {});
       // Flagged the same way a source path is: the partner being previewed not

@@ -3,6 +3,7 @@ import {
   RULES_VERSION,
   SOURCE_SAMPLE_KEY,
   TARGET_SAMPLE_KEY,
+  defaultCsvOptions,
   emptyRules,
   newRuleId,
   type DocumentFormatId,
@@ -39,6 +40,7 @@ function listWithIds(list: ListRule): EditorListRule {
     fields: withFieldIds(list.fields),
     lists: withListIds(list.lists),
     fixed: (list.fixed ?? []).map(entryWithIds),
+    after: (list.after ?? []).map(entryWithIds),
   };
 }
 
@@ -56,7 +58,7 @@ const stripFieldId = ({ id: _id, ...rest }: EditorFieldRule): FieldRule => rest;
 
 // `fixed` comes out of the spread rather than being overwritten after it: spreading
 // the editor's rule would put an empty array in every stored list.
-function stripListId({ id: _id, fixed, ...list }: EditorListRule): ListRule {
+function stripListId({ id: _id, fixed, after, ...list }: EditorListRule): ListRule {
   const wire: ListRule = {
     ...list,
     item: list.item ? stripFieldId(list.item) : undefined,
@@ -67,6 +69,7 @@ function stripListId({ id: _id, fixed, ...list }: EditorListRule): ListRule {
   // Only when there are some: a list that has none reads back identically without
   // the key, which keeps what was saved equal to what was loaded.
   if (fixed.length > 0) wire.fixed = fixed.map(stripEntryId);
+  if (after.length > 0) wire.after = after.map(stripEntryId);
   return wire;
 }
 
@@ -96,6 +99,14 @@ export function toWire(rules: EditorRules): MappingRules {
   if (rules.sourceDateOrder && rules.sourceDateOrder !== "yearFirst")
     wire.sourceDateOrder = rules.sourceDateOrder;
 
+  // Written whenever that side is delimited text, default or not. Leaving a comma out
+  // because it happens to match the default would make the mapping depend on two sides
+  // agreeing about a default for ever, and the delimiter is the one thing about such a
+  // file nobody should have to infer. Left out entirely for JSON and XML, where it would
+  // be configuration that never applies.
+  if (rules.sourceFormat === "csv") wire.sourceCsv = rules.sourceCsv ?? defaultCsvOptions();
+  if (rules.targetFormat === "csv") wire.targetCsv = rules.targetCsv ?? defaultCsvOptions();
+
   return wire;
 }
 
@@ -105,6 +116,11 @@ export function fromWire(rules: MappingRules): EditorRules {
     version: rules.version ?? RULES_VERSION,
     sourceFormat: (rules.sourceFormat ?? "json") as DocumentFormatId,
     targetFormat: (rules.targetFormat ?? "json") as DocumentFormatId,
+    // Kept as they were stored. A mapping whose format is delimited text but whose options
+    // are missing — hand-written, or saved before these existed — falls back to the same
+    // defaults the server would apply, rather than to nothing.
+    sourceCsv: rules.sourceCsv ?? (rules.sourceFormat === "csv" ? defaultCsvOptions() : undefined),
+    targetCsv: rules.targetCsv ?? (rules.targetFormat === "csv" ? defaultCsvOptions() : undefined),
     // Absent means year-first: a mapping saved before this existed could only ever have
     // read the unambiguous shapes correctly anyway.
     sourceDateOrder: rules.sourceDateOrder ?? "yearFirst",

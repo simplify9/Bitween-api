@@ -6,6 +6,7 @@ import {
   emptyListEntry,
   emptyListRule,
   emptyRules,
+  type CsvOptions,
   type DateOrderName,
   type DocumentFormatId,
   type EditorFieldRule,
@@ -75,6 +76,7 @@ export type RulesEditorAction =
   | { type: "SET_SOURCE_FORMAT"; format: DocumentFormatId }
   | { type: "SET_TARGET_FORMAT"; format: DocumentFormatId }
   | { type: "SET_DATE_ORDER"; order: DateOrderName }
+  | { type: "SET_CSV_OPTIONS"; side: "source" | "target"; options: CsvOptions }
   | { type: "SET_SOURCE_SAMPLE"; text: string }
   | { type: "SET_TARGET_SAMPLE"; text: string }
   | { type: "SCAFFOLD_FROM_TARGET" }
@@ -89,6 +91,7 @@ export type RulesEditorAction =
   | { type: "REMOVE_LIST"; id: RuleId }
   | { type: "MAKE_LIST_OF_VALUES"; listId: RuleId }
   | { type: "ADD_FIXED_ENTRY"; listId: RuleId }
+  | { type: "ADD_CLOSING_ENTRY"; listId: RuleId }
   | { type: "REMOVE_FIXED_ENTRY"; id: RuleId }
   | {
       type: "UPDATE_FIXED_ENTRY";
@@ -139,8 +142,14 @@ function allLists(rules: EditorRules): EditorListRule[] {
 }
 
 /** Every fixed entry in the tree, with the list it belongs to. */
-function allEntries(rules: EditorRules): { entry: EditorListEntry; list: EditorListRule }[] {
-  return allLists(rules).flatMap((list) => list.fixed.map((entry) => ({ entry, list })));
+/** Every written entry of every list, at both ends of it. */
+function allEntries(
+  rules: EditorRules,
+): { entry: EditorListEntry; list: EditorListRule; where: "fixed" | "after" }[] {
+  return allLists(rules).flatMap((list) => [
+    ...list.fixed.map((entry) => ({ entry, list, where: "fixed" as const })),
+    ...list.after.map((entry) => ({ entry, list, where: "after" as const })),
+  ]);
 }
 
 /**
@@ -215,6 +224,7 @@ function changesTheMapping(action: RulesEditorAction): boolean {
   switch (action.type) {
     case "SET_SOURCE_FORMAT":
     case "SET_TARGET_FORMAT":
+    case "SET_CSV_OPTIONS":
     case "SET_DATE_ORDER":
     case "ADD_FIELD":
     case "UPDATE_FIELD":
@@ -224,6 +234,7 @@ function changesTheMapping(action: RulesEditorAction): boolean {
     case "REMOVE_LIST":
     case "MAKE_LIST_OF_VALUES":
     case "ADD_FIXED_ENTRY":
+    case "ADD_CLOSING_ENTRY":
     case "REMOVE_FIXED_ENTRY":
     case "UPDATE_FIXED_ENTRY":
     case "SET_ROOT_LIST":
@@ -279,6 +290,11 @@ export function rulesEditorReducer(
         draft.rules.sourceDateOrder = action.order;
         break;
 
+      case "SET_CSV_OPTIONS":
+        if (action.side === "source") draft.rules.sourceCsv = action.options;
+        else draft.rules.targetCsv = action.options;
+        break;
+
       // Samples are an editor convenience — runtime never reads them — so changing
       // one is not a change to the mapping and does not go on the undo stack.
       case "SET_SOURCE_SAMPLE":
@@ -296,8 +312,8 @@ export function rulesEditorReducer(
       // Both samples are parsed here rather than passed in, so the action carries
       // nothing and the button cannot hand the reducer a tree from a stale render.
       case "SCAFFOLD_FROM_TARGET": {
-        const target = parseSample(draft.targetSample, draft.rules.targetFormat, "target");
-        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat);
+        const target = parseSample(draft.targetSample, draft.rules.targetFormat, "target", draft.rules.targetCsv);
+        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv);
         draft.scaffold = target.error
           ? { created: 0, matched: 0, problem: target.error }
           : scaffoldFromTarget(draft.rules, target.root, source.root);
@@ -305,7 +321,7 @@ export function rulesEditorReducer(
       }
 
       case "MATCH_SOURCES": {
-        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat);
+        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv);
         draft.match = matchSources(draft.rules, source.root);
         break;
       }
@@ -317,6 +333,8 @@ export function rulesEditorReducer(
           ...emptyRules(),
           sourceFormat: draft.rules.sourceFormat,
           targetFormat: draft.rules.targetFormat,
+          sourceCsv: draft.rules.sourceCsv,
+          targetCsv: draft.rules.targetCsv,
         };
         draft.selectedId = null;
         draft.scaffold = null;
@@ -381,14 +399,28 @@ export function rulesEditorReducer(
         break;
       }
 
+      case "ADD_CLOSING_ENTRY": {
+        const list = findList(draft.rules, action.listId);
+        if (!list) break;
+        // Mirrors the list it joins exactly as a leading entry does, so switching the list
+        // afterwards leaves the ones already written alone.
+        const entry = emptyListEntry();
+        if (list.item) entry.item = emptyFieldRule();
+        list.after.push(entry);
+        break;
+      }
+
       case "REMOVE_FIXED_ENTRY": {
-        const owner = allEntries(draft.rules).find((e) => e.entry.id === action.id)?.list;
-        if (!owner) break;
-        owner.fixed = owner.fixed.filter((e) => e.id !== action.id);
+        const found = allEntries(draft.rules).find((e) => e.entry.id === action.id);
+        if (!found) break;
+        const owner = found.list;
+        if (found.where === "after") owner.after = owner.after.filter((e) => e.id !== action.id);
+        else owner.fixed = owner.fixed.filter((e) => e.id !== action.id);
         // A list that walks nothing is exactly the entries written into it, so with the
         // last one gone there is nothing left to say it holds values — and leaving the
         // mark on would mean the list could never be built out of records instead.
-        if (owner.over === undefined && owner.fixed.length === 0) owner.item = undefined;
+        if (owner.over === undefined && owner.fixed.length === 0 && owner.after.length === 0)
+          owner.item = undefined;
         break;
       }
 
@@ -538,6 +570,9 @@ export function isAssigned(rule: EditorFieldRule): boolean {
       return Boolean(rule.from.key?.trim());
     case "global":
       return Boolean(rule.from.setId?.trim() && rule.from.key?.trim());
+    // Nothing to fill in: asking how many entries there are is the whole rule.
+    case "count":
+      return true;
     default:
       return false;
   }

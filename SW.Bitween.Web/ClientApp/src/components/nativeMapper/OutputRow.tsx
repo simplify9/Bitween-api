@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
 import { isAssigned, isItemAssigned } from "../../lib/nativeMapper/rulesReducer";
 import type { OutputRowNode } from "../../lib/nativeMapper/outputTree";
-import { SOURCE_KINDS, TYPE_BADGES, freshSource } from "../../lib/nativeMapper/types";
+import { TYPE_BADGES, freshSource, sourceKindsFor } from "../../lib/nativeMapper/types";
 import { SegmentedControl } from "../ui/SegmentedControl";
 import { RuleDetail } from "./RuleDetail";
 import { RowInput } from "./rowControls";
@@ -31,10 +31,13 @@ export function OutputRow({
    */
   prefix,
   paths,
+  /** Whether this rule sits inside a list, which is the only place counting means anything. */
+  inList,
 }: {
   node: OutputRowNode;
   prefix: string[];
   paths: SourcePaths;
+  inList: boolean;
 }) {
   const { rule, errorKey } = node;
   const dispatch = useRulesDispatch();
@@ -152,7 +155,7 @@ export function OutputRow({
         <SegmentedControl
           size="sm"
           label="Where the value comes from"
-          options={SOURCE_KINDS}
+          options={sourceKindsFor(inList)}
           value={rule.from.kind === "rootPath" ? "path" : rule.from.kind}
           // A row showing "Source" may be reading the entry or the document; both are
           // that one choice, and the dropdown beside it says which.

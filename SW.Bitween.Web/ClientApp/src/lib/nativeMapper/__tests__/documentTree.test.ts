@@ -104,10 +104,10 @@ describe("reading a sample document", () => {
 
   /** Honest rather than showing a JSON tree for a format we cannot read yet. */
   it("shows no tree for a format it cannot read", () => {
-    const { root, error } = parseSample("ref,qty\nA1,2", "csv");
+    const { root, error } = parseSample("UNB+UNOA:1+SENDER", "edifact");
 
     expect(root).toBeNull();
-    expect(error).toMatch(/csv/);
+    expect(error).toMatch(/edifact/);
   });
 });
 

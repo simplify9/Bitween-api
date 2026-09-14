@@ -16,7 +16,13 @@ import {
 } from "../../lib/nativeMapper/documentTree";
 import { everyFieldRule } from "../../lib/nativeMapper/rulesReducer";
 import type { MatchTally } from "../../lib/nativeMapper/scaffold";
-import { DOCUMENT_FORMATS, type DocumentFormatId } from "../../lib/nativeMapper/types";
+import {
+  CSV_DELIMITERS,
+  DOCUMENT_FORMATS,
+  defaultCsvOptions,
+  type CsvOptions,
+  type DocumentFormatId,
+} from "../../lib/nativeMapper/types";
 import { Button, FormError } from "../ui/basics";
 import { ConnectionLines, type Connection } from "../ui/ConnectionLines";
 import { ConfirmDialog } from "../ui/overlays";
@@ -84,8 +90,8 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
   useMappingShortcuts(requestSave);
 
   const sample = useMemo(
-    () => parseSample(sourceSample, rules.sourceFormat),
-    [sourceSample, rules.sourceFormat],
+    () => parseSample(sourceSample, rules.sourceFormat, "source", rules.sourceCsv),
+    [sourceSample, rules.sourceFormat, rules.sourceCsv],
   );
   const sourcePaths = useMemo(() => readablePaths(sample.root), [sample.root]);
 
@@ -173,6 +179,13 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
             value={rules.sourceFormat}
             onChange={(format) => dispatch({ type: "SET_SOURCE_FORMAT", format })}
           />
+          {rules.sourceFormat === "csv" && (
+            <CsvControls
+              side="source"
+              options={rules.sourceCsv ?? defaultCsvOptions()}
+              onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "source", options })}
+            />
+          )}
           <span aria-hidden className="text-ink-300">
             →
           </span>
@@ -181,6 +194,13 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
             value={rules.targetFormat}
             onChange={(format) => dispatch({ type: "SET_TARGET_FORMAT", format })}
           />
+          {rules.targetFormat === "csv" && (
+            <CsvControls
+              side="target"
+              options={rules.targetCsv ?? defaultCsvOptions()}
+              onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "target", options })}
+            />
+          )}
         </div>
 
         <div className="ml-2">
@@ -404,6 +424,75 @@ function TestPartnerSelect({
         ]}
       />
     </label>
+  );
+}
+
+/**
+ * How one side's delimited text is separated, and whether its first line names the columns.
+ *
+ * Asked rather than sniffed. A guessed delimiter is right until the first field that
+ * legitimately contains a comma, and a guessed header is right until a file whose first
+ * data row happens to look like labels — both of which are found in production rather
+ * than here. One client alone sends comma, semicolon and pipe, two of the three with no
+ * header at all, so neither of these has a safe default to fall back on.
+ */
+function CsvControls({
+  side,
+  options,
+  onChange,
+}: {
+  side: "source" | "target";
+  options: CsvOptions;
+  onChange: (options: CsvOptions) => void;
+}) {
+  const what = side === "source" ? "incoming" : "produced";
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Select
+        className="h-8 w-28 text-xs"
+        aria-label={`${side} delimiter`}
+        title={`What separates one field from the next in the ${what} file`}
+        value={options.delimiter}
+        onChange={(e) => onChange({ ...options, delimiter: e.target.value })}
+        options={CSV_DELIMITERS}
+      />
+      <label
+        className="flex items-center gap-1 text-[11px] text-ink-500"
+        title={
+          side === "source"
+            ? "Whether the first line of the incoming file names the columns rather than carrying data"
+            : "Whether to write a first line naming the columns"
+        }
+      >
+        <input
+          type="checkbox"
+          aria-label={`${side} header row`}
+          checked={options.hasHeader}
+          onChange={(e) => onChange({ ...options, hasHeader: e.target.checked })}
+          className="size-3.5 rounded border-ink-300"
+        />
+        header
+      </label>
+      {/* Only worth asking on the side that writes one. A mark on the way in is stripped
+          whatever anyone thinks about it, because left in place it becomes part of the first
+          column's name. */}
+      {side === "target" && (
+        <label
+          className="flex items-center gap-1 text-[11px] text-ink-500"
+          title="Start the file with the three bytes that tell Excel it is UTF-8. Without them an accented name opens as mangled text; with them, a strict parser on the partner's side can object."
+        >
+          <input
+            type="checkbox"
+            aria-label="write a byte-order mark"
+            checked={options.byteOrderMark ?? false}
+            onChange={(e) => onChange({ ...options, byteOrderMark: e.target.checked })}
+            className="size-3.5 rounded border-ink-300"
+          />
+          for Excel
+        </label>
+      )}
+    </div>
   );
 }
 

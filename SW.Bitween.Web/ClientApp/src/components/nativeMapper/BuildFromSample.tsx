@@ -19,8 +19,8 @@ export function BuildFromSample() {
   const dispatch = useRulesDispatch();
 
   const parsed = useMemo(
-    () => parseSample(targetSample, rules.targetFormat, "target"),
-    [targetSample, rules.targetFormat],
+    () => parseSample(targetSample, rules.targetFormat, "target", rules.targetCsv),
+    [targetSample, rules.targetFormat, rules.targetCsv],
   );
 
   return (
