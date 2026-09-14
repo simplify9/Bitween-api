@@ -49,6 +49,8 @@ export interface OutputListNode {
   children: OutputNode[];
   /** Entries written into the list, before whatever walking a source produces. */
   fixed: OutputEntryNode[];
+  /** Entries written after them — where a trailer carrying a record count goes. */
+  after: OutputEntryNode[];
 }
 
 /** One entry written into a list rather than produced by walking a source list. */
@@ -57,6 +59,13 @@ export interface OutputEntryNode {
   key: string;
   /** Counting from one, because it is shown to a reader. */
   position: number;
+  /**
+   * Which end of the list it is written at.
+   *
+   * Shown, not just stored: both ends number from one, so a list with a header and a trailer
+   * would otherwise have two rows called "entry 1" and two buttons that add to them.
+   */
+  placement: "fixed" | "after";
   entry: EditorListEntry;
   errorKey: string;
   /** Empty when the entry is a single value rather than an object. */
@@ -145,14 +154,25 @@ function listNode(list: EditorListRule, prefix: string, isRoot = false): OutputL
       : grouped(entriesOf(list.fields, list.lists, errorKey)),
     // A fixed entry's rules are reported under the list, exactly as a walked
     // entry's are — the mapper hands both the same target.
-    fixed: list.fixed.map((entry, at) => ({
-      kind: "entry" as const,
-      key: entry.id,
-      position: at + 1,
-      entry,
-      errorKey,
-      children: entry.item ? [] : grouped(entriesOf(entry.fields, entry.lists, errorKey)),
-    })),
+    fixed: list.fixed.map((entry, at) => entryNode(entry, at, errorKey, "fixed")),
+    after: (list.after ?? []).map((entry, at) => entryNode(entry, at, errorKey, "after")),
+  };
+}
+
+function entryNode(
+  entry: EditorListEntry,
+  at: number,
+  errorKey: string,
+  placement: "fixed" | "after",
+): OutputEntryNode {
+  return {
+    kind: "entry",
+    key: entry.id,
+    position: at + 1,
+    placement,
+    entry,
+    errorKey,
+    children: entry.item ? [] : grouped(entriesOf(entry.fields, entry.lists, errorKey)),
   };
 }
 
@@ -258,8 +278,9 @@ export function filterTree(nodes: OutputNode[], search: string): OutputNode[] {
           // entries written into it.
           const children = keep(node.children);
           const fixed = keep(node.fixed) as OutputEntryNode[];
-          if (children.length > 0 || fixed.length > 0)
-            out.push({ ...node, children, fixed });
+          const after = keep(node.after) as OutputEntryNode[];
+          if (children.length > 0 || fixed.length > 0 || after.length > 0)
+            out.push({ ...node, children, fixed, after });
           break;
         }
 

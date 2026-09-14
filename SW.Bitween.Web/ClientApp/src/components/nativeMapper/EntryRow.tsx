@@ -3,9 +3,9 @@ import { ChevronDown, ChevronRight, CornerDownRight, Trash2 } from "lucide-react
 import type { OutputEntryNode } from "../../lib/nativeMapper/outputTree";
 import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
 import {
-  SOURCE_KINDS,
   TYPE_BADGES,
   freshSource,
+  sourceKindsFor,
   type EditorFieldRule,
 } from "../../lib/nativeMapper/types";
 import { SegmentedControl } from "../ui/SegmentedControl";
@@ -34,6 +34,8 @@ export function EntryRow({
   paths: SourcePaths;
 }) {
   const { entry, position } = node;
+  // Both ends number from one, so the words have to say which end this is.
+  const named = node.placement === "after" ? `closing entry ${position}` : `entry ${position}`;
   const dispatch = useRulesDispatch();
   const { ruleErrors } = useRules();
   const [open, setOpen] = useState(false);
@@ -54,16 +56,14 @@ export function EntryRow({
       // Named, so this entry's own controls can be told apart from the list's and
       // from the other entries' — the position is the only thing distinguishing them.
       role="group"
-      aria-label={`Entry ${position}`}
+      aria-label={named}
       className={`rounded border ${
         error ? "border-danger-300 bg-danger-50" : "border-warn-200/70 bg-warn-100/20"
       }`}
     >
       <div className="flex items-center gap-1.5 px-1.5 py-0.5">
         <CornerDownRight size={11} className="flex-shrink-0 text-warn-700" aria-hidden />
-        <span className="flex-shrink-0 text-[11px] font-medium text-warn-700">
-          entry {position}
-        </span>
+        <span className="flex-shrink-0 text-[11px] font-medium text-warn-700">{named}</span>
 
         {item && (
           <>
@@ -72,8 +72,8 @@ export function EntryRow({
             </span>
             <SegmentedControl
               size="sm"
-              label={`Where entry ${position} comes from`}
-              options={SOURCE_KINDS}
+              label={`Where ${named} comes from`}
+              options={sourceKindsFor(true)}
               value={item.from.kind === "rootPath" ? "path" : item.from.kind}
               onChange={(kind) => updateItem({ from: freshSource(kind) })}
             />
@@ -87,7 +87,7 @@ export function EntryRow({
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              aria-label={`Details for entry ${position}`}
+              aria-label={`Details for ${named}`}
               title={
                 extras > 0
                   ? "Has a transform or a table"
@@ -109,7 +109,7 @@ export function EntryRow({
         <button
           type="button"
           onClick={() => dispatch({ type: "REMOVE_FIXED_ENTRY", id: entry.id })}
-          aria-label={`Remove entry ${position}`}
+          aria-label={`Remove ${named}`}
           title="Remove this entry"
           className="ml-auto flex-shrink-0 rounded p-0.5 text-ink-300 hover:bg-danger-50 hover:text-danger-700"
         >

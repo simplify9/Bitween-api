@@ -98,7 +98,8 @@ public static class DocumentMapper
         MappingContext context,
         SourceTraits traits,
         List<MappingError> errors,
-        string path)
+        string path,
+        int? written = null)
     {
         foreach (var field in fields)
         {
@@ -110,7 +111,7 @@ public static class DocumentMapper
                 continue;
             }
 
-            if (!TryResolveField(field, scope, context, traits, out var value, out var reason))
+            if (!TryResolveField(field, scope, context, traits, written, out var value, out var reason))
             {
                 errors.Add(new MappingError(target, reason!));
                 continue;
@@ -134,12 +135,20 @@ public static class DocumentMapper
     }
 
     /// <summary>
-    /// Builds the list a rule produces: its fixed entries, then one per entry of the source list
-    /// it walks.
+    /// Builds the list a rule produces: the entries written before it, one per entry of the source
+    /// list it walks, then the entries written after.
     /// </summary>
     /// <remarks>
-    /// Fixed entries come first because that is where a header line belongs, and because it is
-    /// the order the previous mapper produced for the same configuration.
+    /// <para>
+    /// The order is the feature. A header line belongs at the top and a trailer at the bottom, and
+    /// a partner's file routinely ends with a record saying how many came before it.
+    /// </para>
+    /// <para>
+    /// Which is why the source entries are matched before anything is built. The number of rows is
+    /// then the same wherever <see cref="ValueSourceKind.Count"/> is read from — the header, a row,
+    /// or the trailer — rather than a running total that means something different depending on
+    /// where it sits.
+    /// </para>
     /// </remarks>
     private static ListNode BuildList(
         ListRule rule,
@@ -150,19 +159,51 @@ public static class DocumentMapper
         string path)
     {
         var target = Describe(path, rule.Target);
+        var rows = Matching(rule, scope, traits, errors, target);
         var list = ValueNode.List();
 
-        // Read against the scope the list sits in, since a fixed entry has no entry of its own.
+        // Read against the scope the list sits in, since a written entry has no entry of its own.
         foreach (var entry in rule.Fixed)
-            AddEntry(list, entry.Item, entry.Fields, entry.Lists, scope, context, traits, errors, target);
+            AddEntry(list, entry.Item, entry.Fields, entry.Lists, scope, context, traits, errors,
+                target, rows.Count);
 
-        // No source list to walk: the list is whatever its fixed entries produced.
-        if (rule.Over is null) return list;
+        foreach (var item in rows)
+            AddEntry(list, rule.Item, rule.Fields, rule.Lists, scope.Enter(item), context, traits,
+                errors, target, rows.Count);
+
+        // A trailer belongs on the file whether the source list had a thousand entries, none, or
+        // was never there at all — a partner expecting a record count still expects to be told
+        // that it is zero.
+        foreach (var entry in rule.After)
+            AddEntry(list, entry.Item, entry.Fields, entry.Lists, scope, context, traits, errors,
+                target, rows.Count);
+
+        return list;
+    }
+
+    /// <summary>
+    /// The entries of the source list that this rule's condition lets through.
+    /// </summary>
+    /// <remarks>
+    /// Separated from building them so that how many there are is known first. Nothing is produced
+    /// here; a rule that fails does so when its entry is built, as it always did.
+    /// </remarks>
+    private static List<ValueNode> Matching(
+        ListRule rule,
+        Scope scope,
+        SourceTraits traits,
+        List<MappingError> errors,
+        string target)
+    {
+        var matched = new List<ValueNode>();
+
+        // No source list to walk: the list is whatever its written entries produce.
+        if (rule.Over is null) return matched;
 
         // A path that is absent adds nothing rather than failing. An order with no lines is
         // ordinary; so is an optional section.
         var over = Values.Resolve(scope.Current, rule.Over);
-        if (over is null) return list;
+        if (over is null) return matched;
 
         // XML makes a list by repeating a name, so an order with one <line> is the same document as
         // one whose `line` was never a list. Reading that as no lines would drop the only line
@@ -191,10 +232,10 @@ public static class DocumentMapper
                 break;
             }
 
-            AddEntry(list, rule.Item, rule.Fields, rule.Lists, scope.Enter(item), context, traits, errors, target);
+            matched.Add(item);
         }
 
-        return list;
+        return matched;
     }
 
     /// <summary>
@@ -214,11 +255,12 @@ public static class DocumentMapper
         MappingContext context,
         SourceTraits traits,
         List<MappingError> errors,
-        string target)
+        string target,
+        int written)
     {
         if (item is not null)
         {
-            if (TryResolveField(item, scope, context, traits, out var value, out var reason))
+            if (TryResolveField(item, scope, context, traits, written, out var value, out var reason))
                 list.Add(ValueNode.Value(value));
             else
                 errors.Add(new MappingError(target, reason!));
@@ -226,7 +268,7 @@ public static class DocumentMapper
         }
 
         var row = ValueNode.Object();
-        MapInto(row, fields, lists, scope, context, traits, errors, target);
+        MapInto(row, fields, lists, scope, context, traits, errors, target, written);
         list.Add(row);
     }
 
@@ -235,10 +277,20 @@ public static class DocumentMapper
         Scope scope,
         MappingContext context,
         SourceTraits traits,
+        int? written,
         out object? value,
         out string? reason)
     {
         reason = null;
+
+        // Outside a list there is nothing to count, and answering zero would be a number the
+        // partner would act on rather than a mistake anyone would notice.
+        if (field.From.Kind == ValueSourceKind.Count && written is null)
+        {
+            value = null;
+            reason = "counting entries only means something inside a list";
+            return false;
+        }
 
         value = field.From.Kind switch
         {
@@ -247,6 +299,7 @@ public static class DocumentMapper
             ValueSourceKind.RootPath => Values.ResolveScalar(scope.Root, field.From.Path),
             ValueSourceKind.Partner => context.PartnerValue(field.From.Key),
             ValueSourceKind.Global => context.GlobalValue(field.From.SetId, field.From.Key),
+            ValueSourceKind.Count => (decimal)(written ?? 0),
             _ => null,
         };
 

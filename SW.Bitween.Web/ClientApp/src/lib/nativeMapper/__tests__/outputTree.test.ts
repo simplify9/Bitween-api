@@ -417,3 +417,36 @@ describe("fixed entries", () => {
     expect(filterTree(outputTreeOf(rules), "nothingLikeThis")).toHaveLength(0);
   });
 });
+
+describe("the two ends of a list", () => {
+  it("draws the closing entries as their own rows", () => {
+    const rules = emptyRules();
+    const list = emptyListRule(["rows"]);
+    list.fixed.push(emptyListEntry());
+    list.after.push(emptyListEntry());
+    rules.lists.push(list);
+
+    const [node] = outputTreeOf(rules);
+    expect(node.kind).toBe("list");
+    if (node.kind !== "list") return;
+
+    expect(node.fixed).toHaveLength(1);
+    expect(node.after).toHaveLength(1);
+    // Numbered from one at each end: they are two sets of entries, not one run.
+    expect(node.after[0].position).toBe(1);
+  });
+
+  it("keeps a list whose only match is a closing entry's rule", () => {
+    const rules = emptyRules();
+    const list = emptyListRule(["rows"]);
+    const entry = emptyListEntry();
+    entry.fields.push(emptyFieldRule(["recordCount"]));
+    list.after.push(entry);
+    rules.lists.push(list);
+
+    const found = filterTree(outputTreeOf(rules), "recordCount");
+
+    expect(found).toHaveLength(1);
+    expect(found[0].kind === "list" && found[0].after).toHaveLength(1);
+  });
+});

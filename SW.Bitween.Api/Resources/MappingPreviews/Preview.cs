@@ -83,10 +83,10 @@ public class Preview(MappingContextFactory contextFactory)
                         $"Bitween understands up to version {MappingRules.CurrentVersion}.",
             };
 
-        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source))
+        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source, rules.SourceCsv))
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.SourceFormat, "source") };
 
-        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target))
+        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target, rules.TargetCsv))
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.TargetFormat, "target") };
 
         ValueNode input;

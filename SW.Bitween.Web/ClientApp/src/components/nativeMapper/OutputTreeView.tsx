@@ -94,7 +94,7 @@ function TreeNode({
   if (node.kind === "field" || node.kind === "item") {
     return (
       <div style={pad}>
-        <OutputRow node={node} prefix={prefix} paths={paths} />
+        <OutputRow node={node} prefix={prefix} paths={paths} inList={listId !== null} />
       </div>
     );
   }
@@ -136,13 +136,15 @@ function TreeNode({
   }
 
   if (node.kind === "entry") {
+    const named =
+      node.placement === "after" ? `closing entry ${node.position}` : `entry ${node.position}`;
     return (
       <>
         <div style={pad}>
           <EntryRow node={node} paths={paths} />
         </div>
         {node.entry.item === undefined && (
-          <div role="group" aria-label={`Rules for entry ${node.position}`}>
+          <div role="group" aria-label={`Rules for ${named}`}>
             <OutputTreeView
               nodes={node.children}
               scope={scope}
@@ -156,7 +158,7 @@ function TreeNode({
               <AddRuleButtons
                 listId={node.entry.id}
                 canAddList={listDepth < MAX_LIST_DEPTH}
-                inside={`entry ${node.position}`}
+                inside={named}
               />
             </div>
           </div>
@@ -207,6 +209,18 @@ function TreeNode({
               indent={indent + 1}
             />
           )}
+          {/* Written after everything above them, which is where a trailer goes — and the
+              only point from which counting can see the whole list. */}
+          <OutputTreeView
+            nodes={node.after}
+            scope={scope}
+            root={root}
+            prefix={[]}
+            listId={node.list.id}
+            listDepth={listDepth}
+            indent={indent + 1}
+          />
+
           <div style={{ paddingLeft: `${(indent + 1) * 14}px` }}>
             <AddRuleButtons
               listId={node.list.id}
@@ -214,6 +228,9 @@ function TreeNode({
               inside={node.name || "the root list"}
               onAddFixedEntry={() =>
                 dispatch({ type: "ADD_FIXED_ENTRY", listId: node.list.id })
+              }
+              onAddClosingEntry={() =>
+                dispatch({ type: "ADD_CLOSING_ENTRY", listId: node.list.id })
               }
               showPerEntryRules={node.list.over !== undefined && node.list.item === undefined}
               onAddValue={
@@ -297,6 +314,7 @@ export function AddRuleButtons({
   canAddList,
   inside,
   onAddFixedEntry,
+  onAddClosingEntry,
   onAddValue,
   showPerEntryRules = true,
 }: {
@@ -306,6 +324,13 @@ export function AddRuleButtons({
   inside?: string;
   /** Offered on a list, where an entry can be written into it. */
   onAddFixedEntry?: () => void;
+  /**
+   * Offered on a list, for an entry written after the walked ones.
+   *
+   * Separate from the leading one because a trailer is a different thing from a header, and
+   * because it is the only place a rule can count what the list ended up holding.
+   */
+  onAddClosingEntry?: () => void;
   /**
    * Offered on a list that has not yet been made of anything.
    *
@@ -342,6 +367,17 @@ export function AddRuleButtons({
           className="flex items-center gap-1 rounded border border-warn-300 bg-white px-1.5 py-0.5 text-[11px] text-warn-700 hover:bg-warn-100/50"
         >
           <Plus size={11} /> Entry
+        </button>
+      )}
+      {onAddClosingEntry && (
+        <button
+          type="button"
+          onClick={onAddClosingEntry}
+          aria-label={`Add a closing entry${where}`}
+          title="An entry written after the walked ones — a trailer, which is the only place a rule can count what the list holds"
+          className="flex items-center gap-1 rounded border border-warn-300 bg-white px-1.5 py-0.5 text-[11px] text-warn-700 hover:bg-warn-100/50"
+        >
+          <Plus size={11} /> Closing entry
         </button>
       )}
       {showPerEntryRules && (

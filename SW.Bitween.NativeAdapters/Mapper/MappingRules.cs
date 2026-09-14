@@ -47,6 +47,17 @@ public class MappingRules
     /// </remarks>
     public DateOrder SourceDateOrder { get; set; } = DateOrder.YearFirst;
 
+    /// <summary>How the incoming document is delimited, when it is delimited text.</summary>
+    /// <remarks>
+    /// Null for every other format, and null here means the defaults. Two options rather than one
+    /// because the two sides are genuinely independent: reading a partner's semicolon file and
+    /// writing a comma file for someone else is one mapping.
+    /// </remarks>
+    public Formats.CsvOptions? SourceCsv { get; set; }
+
+    /// <summary>How the produced document is delimited, when it is delimited text.</summary>
+    public Formats.CsvOptions? TargetCsv { get; set; }
+
     public List<FieldRule> Fields { get; set; } = new();
 
     public List<ListRule> Lists { get; set; } = new();
@@ -143,6 +154,27 @@ public enum ValueSourceKind
 
     /// <summary>A key in one of the global values sets.</summary>
     Global,
+
+    /// <summary>
+    /// How many entries the source list produced for the list this rule sits in.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For a trailer record: a partner's file ends with a line carrying the number of records
+    /// above it, and nothing else in a mapping knows that number.
+    /// </para>
+    /// <para>
+    /// Entries written by hand are not counted, which is the whole point of the distinction — a
+    /// trailer says how many <em>records</em> there are, and the header line above it is not one.
+    /// Counting them would also mean adding a header later quietly changed the trailer, with
+    /// nothing on screen to say the number had moved.
+    /// </para>
+    /// <para>
+    /// The same number wherever it is read in one list, so a format that puts its count in the
+    /// header rather than the trailer works without anything special.
+    /// </para>
+    /// </remarks>
+    Count,
 }
 
 /// <summary>How a document writes dates that are not year-first.</summary>
@@ -261,6 +293,17 @@ public class ListRule
     /// </para>
     /// </remarks>
     public List<ListEntry> Fixed { get; set; } = new();
+
+    /// <summary>
+    /// Entries put into the list after the walked ones.
+    /// </summary>
+    /// <remarks>
+    /// The other end of <see cref="Fixed"/>, and the reason it exists: a delimited file from a
+    /// carrier ends with a trailer record carrying the number of records above it. Built exactly
+    /// the same way, reading against the same scope — the only difference is where they land, and
+    /// that <see cref="ValueSourceKind.Count"/> can see the whole list by the time they run.
+    /// </remarks>
+    public List<ListEntry> After { get; set; } = new();
 }
 
 /// <summary>One entry of a list that no source list produced.</summary>

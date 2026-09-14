@@ -720,3 +720,81 @@ describe("a list of plain values", () => {
     expect(items[0].rule).toBe(theList(after).item);
   });
 });
+
+// ─── Entries written after the walked rows ────────────────────────────────────
+
+describe("a list's closing entries", () => {
+  const runFrom = (state: RulesEditorState, actions: RulesEditorAction[]) =>
+    actions.reduce(rulesEditorReducer, state);
+
+  const theList = (state: RulesEditorState) => state.rules.lists[0];
+
+  const withAList = (): RulesEditorState => {
+    const rules = emptyRules();
+    rules.lists.push(emptyListRule(["rows"]));
+    return run([{ type: "LOAD", rules, sourceSample: "", targetSample: "" }]);
+  };
+
+  it("go at the other end from the leading ones", () => {
+    const start = withAList();
+    const after = runFrom(start, [
+      { type: "ADD_FIXED_ENTRY", listId: theList(start).id },
+      { type: "ADD_CLOSING_ENTRY", listId: theList(start).id },
+    ]);
+
+    expect(theList(after).fixed).toHaveLength(1);
+    expect(theList(after).after).toHaveLength(1);
+  });
+
+  it("are removed by the same action, wherever they sit", () => {
+    const start = withAList();
+    const added = runFrom(start, [{ type: "ADD_CLOSING_ENTRY", listId: theList(start).id }]);
+    const after = runFrom(added, [
+      { type: "REMOVE_FIXED_ENTRY", id: theList(added).after[0].id },
+    ]);
+
+    expect(theList(after).after).toHaveLength(0);
+  });
+
+  it("mirror a list of plain values, as a leading entry does", () => {
+    const rules = emptyRules();
+    const list = emptyListRule(["codes"]);
+    list.item = emptyFieldRule();
+    rules.lists.push(list);
+    const start = loaded(rules);
+
+    const after = runFrom(start, [
+      { type: "ADD_CLOSING_ENTRY", listId: start.rules.lists[0].id },
+    ]);
+
+    expect(theList(after).after[0].item).toBeDefined();
+  });
+
+  it("survive being saved and loaded", () => {
+    const rules = emptyRules();
+    const list = emptyListRule(["rows"]);
+    const entry = emptyListEntry();
+    entry.fields.push({ ...emptyFieldRule(["total"]), from: { kind: "count" } });
+    list.after.push(entry);
+    rules.lists.push(list);
+
+    const reloaded = fromWire(toWire(rules));
+
+    expect(reloaded.lists[0].after).toHaveLength(1);
+    expect(reloaded.lists[0].after[0].fields[0].from).toEqual({ kind: "count" });
+  });
+
+  it("are left out of a stored list that has none", () => {
+    // The same reason `fixed` is: both sides default it, and writing an empty array into
+    // every list stored would be noise in a file people read.
+    const rules = emptyRules();
+    rules.lists.push(emptyListRule(["rows"]));
+
+    expect(toWire(rules).lists[0].after).toBeUndefined();
+  });
+
+  it("counts as assigned without anything being filled in", () => {
+    // The question is the whole rule, so a count is never a row waiting for a value.
+    expect(isAssigned({ ...emptyFieldRule(), from: { kind: "count" } })).toBe(true);
+  });
+});

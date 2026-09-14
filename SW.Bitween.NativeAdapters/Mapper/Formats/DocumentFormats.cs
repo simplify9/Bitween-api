@@ -12,20 +12,39 @@ namespace SW.Bitween.NativeAdapters.Mapper.Formats;
 /// </remarks>
 public static class DocumentFormats
 {
-    private static readonly Dictionary<string, IDocumentFormat> ById =
+    private static readonly JsonFormat Json = new();
+    private static readonly XmlFormat Xml = new();
+
+    /// <summary>
+    /// How each id is built.
+    /// </summary>
+    /// <remarks>
+    /// Factories rather than instances because delimited text is configured per side — a partner's
+    /// semicolon file routinely becomes somebody else's comma file — so its reader and its writer
+    /// cannot be the same shared object. The formats that need no configuration stay singletons.
+    /// </remarks>
+    private static readonly Dictionary<string, Func<CsvOptions?, IDocumentFormat>> ById =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["json"] = new JsonFormat(),
-            ["xml"] = new XmlFormat(),
+            ["json"] = _ => Json,
+            ["xml"] = _ => Xml,
+            ["csv"] = csv => new CsvFormat(csv),
         };
 
     /// <summary>Format ids, for the editor's dropdown and for error messages.</summary>
     public static IReadOnlyList<string> Ids { get; } = ById.Keys.OrderBy(k => k).ToList();
 
-    public static bool TryGet(string? id, [NotNullWhen(true)] out IDocumentFormat? format)
+    /// <summary>The format for an id, configured with <paramref name="csv"/> where it applies.</summary>
+    public static bool TryGet(
+        string? id,
+        [NotNullWhen(true)] out IDocumentFormat? format,
+        CsvOptions? csv = null)
     {
         format = null;
-        return id is not null && ById.TryGetValue(id, out format);
+        if (id is null || !ById.TryGetValue(id, out var build)) return false;
+
+        format = build(csv);
+        return true;
     }
 
     /// <summary>

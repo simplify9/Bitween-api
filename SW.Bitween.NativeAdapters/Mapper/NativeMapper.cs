@@ -69,8 +69,8 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
 
     public Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
-        var source = ResolveFormat(_rules.SourceFormat, "source");
-        var target = ResolveFormat(_rules.TargetFormat, "target");
+        var source = ResolveFormat(_rules.SourceFormat, "source", _rules.SourceCsv);
+        var target = ResolveFormat(_rules.TargetFormat, "target", _rules.TargetCsv);
 
         var input = source.Read(xchangeFile.Data);
         var output = DocumentMapper.Map(_rules, input, _context, source.SingleValueIsAList);
@@ -136,8 +136,8 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
         }
     }
 
-    private static IDocumentFormat ResolveFormat(string id, string role) =>
-        DocumentFormats.TryGet(id, out var format)
+    private static IDocumentFormat ResolveFormat(string id, string role, CsvOptions? csv) =>
+        DocumentFormats.TryGet(id, out var format, csv)
             ? format
             : throw new InvalidOperationException(DocumentFormats.Unsupported(id, role));
 }
