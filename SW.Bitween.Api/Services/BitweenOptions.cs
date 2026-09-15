@@ -10,7 +10,6 @@ namespace SW.Bitween
         {
             //   AESEncryptionKey = "BitweenS9SecretKey";
             AdapterPath = "adapters";
-            AdminCredentials = "admin:1234512345";
             DocumentPrefix = "temp30/Bitweendocs";
             DatabaseType = "MySql";
             AdminDatabaseName = "defaultdb";
@@ -36,7 +35,22 @@ namespace SW.Bitween
         /// (<c>{AdapterPath}/{adapterId}</c>). Passed to <c>ServerlessOptions.AdapterRemotePath</c>.
         /// </summary>
         public string AdapterPath { get; set; }
-        public string AdminCredentials { get; set; }
+
+        /// <summary>
+        /// Serves the API description and the Swagger interface. Off unless switched on.
+        /// </summary>
+        /// <remarks>
+        /// A penetration test read all 94 endpoints and their request and response shapes off a
+        /// deployed instance without signing in, and used the repository link it found alongside
+        /// them to reach our published source. Useful while building, an inventory for a stranger
+        /// anywhere else.
+        /// <para>
+        /// A setting of its own rather than a Development-only behaviour: the deployment chart
+        /// defaults ASPNETCORE_ENVIRONMENT to Development, so keying this to the environment would
+        /// have left it on for exactly the deployments nobody had configured.
+        /// </para>
+        /// </remarks>
+        public bool ExposeApiDocs { get; set; }
         public string DocumentPrefix { get; set; }
         public int ServerlessCommandTimeout { get; set; }
 
