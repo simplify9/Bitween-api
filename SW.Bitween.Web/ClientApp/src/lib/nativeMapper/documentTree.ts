@@ -176,7 +176,9 @@ function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
   // d3-dsv takes one character. The wire format allows more, since the server's parser
   // does — so a mapping hand-edited to a longer delimiter still runs, it just cannot be
   // shown here, and saying so is better than drawing a tree that is wrong.
-  const delimiter = options.delimiter;
+  // Defended rather than assumed: rules can be written by hand or by an older build, and a
+  // missing delimiter here would throw while the editor was drawing itself.
+  const delimiter = typeof options?.delimiter === "string" ? options.delimiter : ",";
   if (delimiter.length !== 1) {
     return {
       root: null,
@@ -192,8 +194,12 @@ function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
 
   if (rows.length === 0) return { root: null, error: null };
 
-  const names = options.hasHeader ? columnNames(rows[0]) : [];
-  const body = options.hasHeader ? rows.slice(1) : rows;
+  const hasHeader = options?.hasHeader !== false;
+  // One naming run for the whole file, so a column keeps the same name on every row and no two
+  // columns ever share one. It grows as wider rows turn up.
+  const used = new Set<string>();
+  const names = hasHeader ? rows[0].map((name, at) => unique(name || String(at + 1), used)) : [];
+  const body = hasHeader ? rows.slice(1) : rows;
 
   return {
     root: {
@@ -205,18 +211,19 @@ function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
       // sample from a row that has something in it — and a row with extra fields still
       // offers them.
       children: mergeShape(
-        body.flatMap((row) =>
-          row.map((field, at) => {
-            const name = nameAt(names, at);
-            return {
-              key: name,
-              path: name,
-              kind: "value" as const,
-              sample: field ?? "",
-              children: [],
-            };
-          }),
-        ),
+        body.flatMap((row) => {
+          // A row wider than anything seen before: the extra fields are named by position rather
+          // than dropped, which would be the same silent loss as two columns sharing a name.
+          while (names.length < row.length) names.push(unique(String(names.length + 1), used));
+
+          return row.map((field, at) => ({
+            key: names[at],
+            path: names[at],
+            kind: "value" as const,
+            sample: field ?? "",
+            children: [],
+          }));
+        }),
       ),
     },
     error: null,
@@ -224,26 +231,30 @@ function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
 }
 
 /**
- * The column names a header record gives, with every column left addressable.
+ * `wanted`, or the first name after it that nothing has taken yet.
  *
- * A blank name and a repeated one both fall back to the column's position — the name
- * that column would have had with no header at all. Two columns sharing a name would
- * mean the second silently replacing the first, which on the server is a column of the
- * partner's file simply missing.
+ * Two columns cannot share a name: a rule reads a column by its name, so the second would be
+ * unreachable and the editor would offer one path for two different fields. Falling back to the
+ * position is not enough on its own either, because a header can be a number — a file headed
+ * `2,` names its first column `2` and then wants `2` again for the blank one beside it.
+ *
+ * The same rule as `CsvFormat.Unique` on the server, and it has to stay that way: a name only
+ * one side invents is a path the editor offers and the mapping cannot read.
  */
-function columnNames(header: string[]): string[] {
-  const used = new Set<string>();
-  return header.map((name, at) => {
-    const taken = name.length === 0 || used.has(name);
-    const chosen = taken ? String(at + 1) : name;
-    used.add(name);
-    used.add(chosen);
-    return chosen;
-  });
-}
+function unique(wanted: string, used: Set<string>): string {
+  if (!used.has(wanted)) {
+    used.add(wanted);
+    return wanted;
+  }
 
-/** What the field at `at` is called: its header name, or its position counting from one. */
-const nameAt = (names: string[], at: number) => names[at] ?? String(at + 1);
+  for (let n = 2; ; n++) {
+    const candidate = `${wanted}_${n}`;
+    if (!used.has(candidate)) {
+      used.add(candidate);
+      return candidate;
+    }
+  }
+}
 
 /**
  * Drops the byte-order mark Excel writes.

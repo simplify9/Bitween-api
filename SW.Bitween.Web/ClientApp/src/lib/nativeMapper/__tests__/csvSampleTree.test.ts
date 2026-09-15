@@ -140,10 +140,41 @@ describe("the tree for a delimited sample", () => {
     );
   });
 
-  it("keeps a repeated column name reachable by position", () => {
+  it("gives a repeated column name one of its own", () => {
     const columns = itemShapeAt(tree("code,code,qty\nA1,B7,2").root, "");
 
-    expect(columns.map((c) => c.key)).toEqual(["code", "2", "qty"]);
+    expect(columns.map((c) => c.key)).toEqual(["code", "code_2", "qty"]);
+  });
+
+  it("moves a fallback name a header already took", () => {
+    // The blank second column wants its position, `2`, which the first column is called. Sharing
+    // it would leave the second column with no path of its own for a rule to read.
+    const columns = itemShapeAt(tree("2,,qty\na,b,7").root, "");
+
+    expect(columns.map((c) => c.key)).toEqual(["2", "2_2", "qty"]);
+  });
+
+  it("names a surplus field without colliding either", () => {
+    const columns = itemShapeAt(tree("sku,3\nA1,x,surplus").root, "");
+
+    expect(columns.map((c) => c.key)).toEqual(["sku", "3", "3_2"]);
+  });
+
+  it("names a column the same way on every row", () => {
+    // Naming runs once for the file rather than per row, so a narrow row followed by a wide one
+    // cannot end up calling the same column two different things.
+    const columns = itemShapeAt(tree("sku\nA1\nB7,extra").root, "");
+
+    expect(columns.map((c) => c.key)).toEqual(["sku", "2"]);
+  });
+
+  it("draws a tree even when the stored options are incomplete", () => {
+    // Rules can be hand-written or saved by an older build. Reading the delimiter off `{}` used
+    // to throw while the editor was drawing, which is a blank screen rather than a message.
+    const parsed = parseSample("a,b\n1,2", "csv", "source", {} as CsvOptions);
+
+    expect(parsed.error).toBeNull();
+    expect(itemShapeAt(parsed.root, "").map((c) => c.key)).toEqual(["a", "b"]);
   });
 
   it("drops the byte-order mark Excel writes", () => {
