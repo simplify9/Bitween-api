@@ -105,12 +105,43 @@ namespace SW.Bitween.Resources.Subscriptions
             var result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize,
                 searchyRequest.PageIndex).ToListAsync();
             await AttachSchedules(result);
+            StripAdapterProperties(result);
 
             return new SearchyResponse<SubscriptionSearch>
             {
                 TotalCount = count,
                 Result = result
             };
+        }
+
+        /// <summary>Empties the adapter property collections on every returned row.</summary>
+        /// <remarks>
+        /// Adapter properties hold credentials — a storage key, an OAuth secret, the password for a
+        /// partner system. <c>Subscriptions/Get</c> replaces those with a sentinel before answering;
+        /// this list endpoint returned them verbatim, which put every integration's secrets one
+        /// request away from anyone allowed to see the list at all.
+        /// <para>
+        /// Emptied here rather than left out of the projection because the projection needs them:
+        /// the <c>rawsubscriptionproperties</c> filter searches inside their values, in memory, over
+        /// the rows this query produced. So they are loaded, used, and then dropped before the
+        /// response is shaped. Nothing reads them off this endpoint — both UIs configure a
+        /// subscription from <c>Subscriptions/Get</c>, and the list has never shown them.
+        /// </para>
+        /// <para>
+        /// Emptied rather than masked because masking can only hide what an adapter declares
+        /// <c>[Secure]</c>, and the external adapters declare nothing — masking here would have
+        /// looked like a fix while leaving those integrations exactly as exposed.
+        /// </para>
+        /// </remarks>
+        private static void StripAdapterProperties(List<SubscriptionSearch> rows)
+        {
+            foreach (var row in rows)
+            {
+                row.HandlerProperties = [];
+                row.MapperProperties = [];
+                row.ReceiverProperties = [];
+                row.ValidatorProperties = [];
+            }
         }
 
         /// <summary>Fills in each returned row's schedules.</summary>
@@ -185,6 +216,7 @@ namespace SW.Bitween.Resources.Subscriptions
             var page = data.Skip(searchyRequest.PageSize * searchyRequest.PageIndex)
                 .Take(searchyRequest.PageSize).ToList();
             await AttachSchedules(page);
+            StripAdapterProperties(page);
 
             return new SearchyResponse<SubscriptionSearch>
             {
