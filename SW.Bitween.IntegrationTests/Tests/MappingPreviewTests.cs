@@ -133,11 +133,17 @@ public class MappingPreviewTests
     [Fact]
     public async Task An_unsupported_format_names_what_is_supported()
     {
-        var response = await PreviewAsync(new { version = 1, sourceFormat = "csv" }, "{}");
+        // Named rather than a format that merely happens to be unsupported today: this test asked
+        // for "csv" until delimited text landed, at which point it stopped testing anything and
+        // failed on a null error message instead. Asserting the whole supported list is the half
+        // that has to be kept honest — the next format to arrive is meant to break this line, and
+        // it now says so out loud.
+        var response = await PreviewAsync(new { version = 1, sourceFormat = "yaml" }, "{}");
 
         Assert.Contains("not a source format", response.Error);
-        Assert.Contains("json", response.Error);
-        Assert.Contains("xml", response.Error);
+        Assert.Equal(
+            "'yaml' is not a source format this mapper supports. Supported: csv, json, xml.",
+            response.Error);
     }
 
     [Fact]
