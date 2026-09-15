@@ -61,6 +61,12 @@ export interface Session {
   roles: RoleSummary[];
   /** The union of every permission the user's roles grant — resolved by the backend. */
   permissions: PermissionKey[];
+  /**
+   * The account still has the password it was created with. The backend grants such a token
+   * nothing, so `permissions` is empty and every screen would refuse — the app sends them to
+   * change it instead of leaving them staring at an empty shell.
+   */
+  mustChangePassword: boolean;
 }
 
 export interface ApiError {

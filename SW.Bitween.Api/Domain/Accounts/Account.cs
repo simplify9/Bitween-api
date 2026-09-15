@@ -31,6 +31,19 @@ namespace SW.Bitween.Domain.Accounts
         public int FailedLoginCount { get; private set; }
         public DateTime? LockoutEnd { get; private set; }
 
+        /// <summary>
+        /// Set while the account still has a password nobody chose. Signing in works, but the token
+        /// it returns grants nothing until the password is replaced.
+        /// </summary>
+        /// <remarks>
+        /// This exists for one account: the administrator seeded into every installation, whose
+        /// password ships in our public repository. On installations where it was never changed,
+        /// that published value was full administrative access to anyone who read the repository.
+        /// A migration sets this only where the stored password is still that one, so an
+        /// installation that changed it years ago notices nothing.
+        /// </remarks>
+        public bool MustChangePassword { get; private set; }
+
         public bool IsLockedOut(DateTime nowUtc) => LockoutEnd.HasValue && LockoutEnd.Value > nowUtc;
 
         public void RegisterSuccessfulLogin()
@@ -71,6 +84,8 @@ namespace SW.Bitween.Domain.Accounts
         public void SetPassword(string password)
         {
             Password = SecurePasswordHasher.Hash(password);
+            // Whoever set this one chose it, which is the whole requirement.
+            MustChangePassword = false;
         }
 
 

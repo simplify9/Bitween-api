@@ -4,6 +4,7 @@ import { useSession } from "./auth/SessionContext";
 import { AppShell } from "./components/layout/AppShell";
 import { NAV_GROUPS, homePath } from "./nav";
 import { LoginPage } from "./pages/auth/Login";
+import { ChangePasswordPage } from "./pages/auth/ChangePassword";
 import { NotFoundPage, PlaceholderPage } from "./pages/PlaceholderPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AuditPage } from "./pages/audit/AuditPage";
@@ -77,6 +78,9 @@ export const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
+      // Inside the auth guard because it needs a session, outside the shell because the session
+      // it serves grants nothing — a sidebar built from those permissions would be empty.
+      { path: "change-password", element: <ChangePasswordPage /> },
       {
         element: <AppShell />,
         children: [

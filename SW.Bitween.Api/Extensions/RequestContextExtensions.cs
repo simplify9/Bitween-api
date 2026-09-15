@@ -11,12 +11,33 @@ namespace SW.Bitween
     public static class RequestContextExtensions
     {
         /// <summary>
-        /// Marks the break-glass token minted by POST /login from configured AdminCredentials. That
-        /// token has no account behind it, so its grants can't be resolved from the database. It
-        /// used to clear every check only because the old role guard failed open on a missing
-        /// claim; this claim makes the same grant deliberate instead of accidental.
+        /// Grants everything to an identity with no account behind it, so there are no roles to
+        /// resolve from the database. Only the integration test fixture mints it.
         /// </summary>
+        /// <remarks>
+        /// It used to mark the token from <c>POST /login</c>, which signed in against a username
+        /// and password held in configuration. That defaulted to a working pair published in our
+        /// public repository, neither UI ever called it, and a penetration test used it to take
+        /// full control of a deployment. The endpoint is gone.
+        /// <para>
+        /// The claim stays because it is how a caller with no account is granted anything at all.
+        /// Minting one needs the signing key, which is enough to impersonate anybody anyway.
+        /// </para>
+        /// </remarks>
         public const string SuperuserClaim = "bitween_superuser";
+
+        /// <summary>
+        /// Present on a token issued to an account whose password nobody has chosen. Such a token
+        /// authenticates but grants nothing, so the account can reach self-service — changing the
+        /// password — and nothing else.
+        /// </summary>
+        /// <remarks>
+        /// A sign-in has to succeed for the password to be changeable at all: the change requires
+        /// the current password and the caller's own identity, so refusing the sign-in outright
+        /// would leave the account with no way out but an administrator who may not exist. Granting
+        /// nothing is the same thing said in the only place that can act on it.
+        /// </remarks>
+        public const string MustChangePasswordClaim = "bitween_must_change_password";
 
         /// <summary>
         /// Throws unless the caller holds at least one of <paramref name="anyOf"/>. This is really a
@@ -49,6 +70,11 @@ namespace SW.Bitween
         public static async Task<HashSet<string>> GetPermissions(this RequestContext requestContext,
             BitweenDbContext dbContext)
         {
+            // Checked ahead of everything, superuser included: a password nobody chose is not a
+            // basis for any grant, whatever else the token claims.
+            if (requestContext.User?.FindFirst(MustChangePasswordClaim) is not null)
+                return [];
+
             if (requestContext.User?.FindFirst(SuperuserClaim) is not null)
                 return PermissionCatalog.AllKeys.ToHashSet();
 

@@ -70,6 +70,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<DateTime?>("ModifiedOn")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)
@@ -97,6 +100,7 @@ namespace SW.Bitween.MySql.Migrations
                             EmailProvider = (byte)0,
                             FailedLoginCount = 0,
                             LoginMethods = (byte)2,
+                            MustChangePassword = true,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0
                         });

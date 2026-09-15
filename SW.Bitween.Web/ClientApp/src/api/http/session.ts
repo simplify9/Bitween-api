@@ -13,6 +13,7 @@ interface Profile {
   createdOn: string;
   roles: { id: number; name: string }[] | null;
   permissions: string[] | null;
+  mustChangePassword?: boolean;
 }
 
 /** POST /accounts/login → { jwt }. */
@@ -37,6 +38,7 @@ const buildSession = (profile: Profile): Session => {
     roles: (profile.roles ?? []).map((r) => ({ id: String(r.id), name: r.name })),
     // Resolved server-side from the user's roles, so a revoked role takes effect on next load.
     permissions: profile.permissions ?? [],
+    mustChangePassword: profile.mustChangePassword ?? false,
   };
 };
 

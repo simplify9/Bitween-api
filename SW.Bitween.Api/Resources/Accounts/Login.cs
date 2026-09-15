@@ -162,8 +162,14 @@ namespace SW.Bitween.Resources.Accounts
                 Expires = DateTimeOffset.UtcNow.AddDays(30)
             });
 
-            // Return only the JWT — refresh token stays in the cookie, not in the response body
-            return new { Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, jwtTokenParameters, jwtExpiryTimeSpan) };
+            // Return only the JWT — refresh token stays in the cookie, not in the response body.
+            // MustChangePassword rides along so the client can send them straight to the change
+            // form; the token grants nothing until they do, so this is a courtesy, not the control.
+            return new
+            {
+                Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, jwtTokenParameters, jwtExpiryTimeSpan),
+                account.MustChangePassword
+            };
         }
 
         private string CreateRefreshToken(Account account, LoginMethod loginMethod)
