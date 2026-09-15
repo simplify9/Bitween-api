@@ -118,8 +118,19 @@ export const visibleGroups = (permissions: PermissionKey[]): NavGroup[] =>
     (g) => g.items.length > 0,
   );
 
-/** Where to land after signing in: the first page this session can see. */
+/**
+ * Where to land after signing in with nowhere particular to go.
+ *
+ * The dashboard, which is deliberately not in the sidebar — reached from the logo — so the
+ * rule below would never pick it. Landing there is the one moment it is the obviously right
+ * page: you have just arrived and want to know how the system is doing before going anywhere.
+ *
+ * Signing in *to get somewhere* is a different thing and does not come through here: the guard
+ * remembers the page it turned away and login returns to it, so an expired session and a link
+ * from a colleague both still end where they were headed.
+ */
 export const homePath = (session: Session): string => {
+  if (session.permissions.includes("dashboard.view")) return "/dashboard";
   const groups = visibleGroups(session.permissions);
   return groups[0]?.items[0]?.path ?? "/profile";
 };
