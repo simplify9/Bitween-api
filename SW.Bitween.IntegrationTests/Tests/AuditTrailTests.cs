@@ -141,7 +141,10 @@ public class AuditTrailTests(BitweenFixture fixture)
         var entry = await SingleEntryFor(db, nameof(Account), account.Id.ToString());
 
         Assert.DoesNotContain("hashed-password-should-never-be-stored", entry.Changes);
-        Assert.DoesNotContain(nameof(Account.Password), entry.Changes);
+        // Asked of the parsed changes rather than the serialized string: "Password" is a substring
+        // of MustChangePassword, which is an ordinary audited flag, so searching the JSON text
+        // reported a leak the moment a second property happened to contain the word.
+        Assert.DoesNotContain(nameof(Account.Password), Changes(entry).Keys);
         Assert.Equal("Audited Account", Changes(entry)[nameof(Account.DisplayName)].New);
     }
 
