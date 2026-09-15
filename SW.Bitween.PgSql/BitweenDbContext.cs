@@ -400,7 +400,11 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                         Disabled = false,
                         Password = defaultPasswordHash,
                         Role = AccountRole.Admin,
-                        FailedLoginCount = 0
+                        FailedLoginCount = 0,
+                        // True for a fresh installation, whose password is the published default.
+                        // Installations that already exist are handled by the migration, which
+                        // flags only those still holding that same value.
+                        MustChangePassword = true
                     });
             });
 

@@ -1,11 +1,14 @@
 using System;
 using System.IO.Compression;
 using System.Linq;
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -367,6 +370,8 @@ namespace SW.Bitween.Web
             // {
             //     config.DefaultApiClientFactory = sp => sp.GetService<BitweenClient>();
             // });
+            RejectSampleSigningKey();
+            AddRateLimiting(services);
             services.AddJwtTokenParameters();
             services.AddAuthorization();
             services.AddScoped<RunFlagUpdater>();
@@ -507,11 +512,164 @@ namespace SW.Bitween.Web
                 redirectUri.Length == 0 ? "(not set)" : redirectUri, MsalRedirectPath);
         }
 
+        /// <summary>
+        /// The signing key every token is minted and verified with. Anyone holding it can mint a
+        /// token for any identity, including one that has no account, so the one value that must
+        /// never be shared between deployments is this one.
+        /// </summary>
+        /// <remarks>
+        /// The sample below ships as the default in our public deployment chart, which is exactly
+        /// why it has to be rejected: a deployment that never overrode it looked completely healthy
+        /// — tokens were issued, signatures verified — while anyone who had read the chart could
+        /// mint their own. A penetration test did precisely that.
+        /// <para>
+        /// Checked in every environment, deliberately. Exempting Development would have made this
+        /// inert exactly where it is needed most: the chart also defaults ASPNETCORE_ENVIRONMENT to
+        /// Development, so the deployments most likely to be running an untouched chart are the
+        /// ones that would have skipped the check. Local development uses its own key instead,
+        /// which is what the settings files carry.
+        /// </para>
+        /// <para>
+        /// Refusing to start is the point. There is no degraded mode worth offering: running on a
+        /// public key is indistinguishable, from the inside, from having no authentication at all.
+        /// </para>
+        /// </remarks>
+        private const string SampleSigningKey = "6547647654764764767657658658758765876532542";
+
+        private const int MinimumSigningKeyLength = 32;
+
+        private void RejectSampleSigningKey()
+        {
+            var key = Configuration["Token:Key"];
+
+            if (string.IsNullOrWhiteSpace(key))
+                throw new InvalidOperationException(
+                    "Token:Key is not configured. Generate a random secret unique to this " +
+                    "deployment — tokens cannot be trusted without one.");
+
+            // The length our own configuration documents. A short key is brute-forceable offline
+            // against any token the holder has seen, which is every token they were ever issued.
+            if (key.Length < MinimumSigningKeyLength)
+                throw new InvalidOperationException(
+                    $"Token:Key is {key.Length} characters; it must be at least " +
+                    $"{MinimumSigningKeyLength}. Generate a random secret rather than choosing one.");
+
+            if (key == SampleSigningKey)
+                throw new InvalidOperationException(
+                    "Token:Key is still the sample value that ships as the default in the " +
+                    "deployment chart, and it is published in a public repository — anyone can " +
+                    "mint a valid token with it. Set Token:Key (env: Token__Key) to a random " +
+                    "secret unique to this deployment. Doing so signs out everyone holding a " +
+                    "token issued under the old key, which is the intended outcome.");
+        }
+
+        /// <summary>
+        /// One limit over the whole application, rather than an attribute remembered endpoint by
+        /// endpoint.
+        /// </summary>
+        /// <remarks>
+        /// A penetration test ran forty-six passwords at the login endpoint in a single
+        /// uninterrupted burst; nothing throttled, delayed or blocked any of them, and response
+        /// times stayed flat throughout. Nothing else in the API behaved differently — the whole
+        /// dataset could be pulled as fast as it could be asked for.
+        /// <para>
+        /// Partitioned by account where there is one and by address otherwise. Partitioning
+        /// everything by address would have made one office behind a single NAT share one budget,
+        /// which turns a busy afternoon into an outage; partitioning by account cannot work before
+        /// anyone has signed in, which is exactly where the strict limit is needed. Address is read
+        /// after <c>UseForwardedHeaders</c>, so it is the client rather than the ingress.
+        /// </para>
+        /// <para>
+        /// Sign-in is deliberately far tighter than everything else. Ten attempts a minute is more
+        /// than any person needs and nowhere near enough to work through a password list. It is not
+        /// a replacement for the per-account lockout, which counts attempts against one account
+        /// across every address; this counts them per address across every account.
+        /// </para>
+        /// </remarks>
+        private static void AddRateLimiting(IServiceCollection services)
+        {
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                {
+                    if (IsSignInPath(context.Request.Path))
+                        return RateLimitPartition.GetFixedWindowLimiter(
+                            $"signin:{ClientAddress(context)}",
+                            _ => new FixedWindowRateLimiterOptions
+                            {
+                                PermitLimit = 10,
+                                Window = TimeSpan.FromMinutes(1)
+                            });
+
+                    var account = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        account is null ? $"anon:{ClientAddress(context)}" : $"account:{account}",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 600,
+                            Window = TimeSpan.FromMinutes(1)
+                        });
+                });
+            });
+        }
+
+        /// <summary>
+        /// Matched on the trailing segment so that a sign-in route added later is covered the day
+        /// it appears rather than the day someone remembers this list.
+        /// </summary>
+        /// <remarks>
+        /// Narrowed to the API prefix because the SPA has a <c>/login</c> route of its own, served
+        /// through the fallback further down this pipeline. Without that, reloading the sign-in
+        /// page ten times would spend the whole sign-in budget on page loads and lock someone out
+        /// of an app they had not yet tried to enter.
+        /// </remarks>
+        private static bool IsSignInPath(PathString path)
+        {
+            if (!path.HasValue) return false;
+
+            // Routing treats "/api/accounts/login/" as the same endpoint, so the limit has to as
+            // well — otherwise one trailing character moves an attempt to the general budget.
+            var value = path.Value!.TrimEnd('/');
+
+            return value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
+                && value.EndsWith("/login", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ClientAddress(HttpContext context) =>
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            var apiDocsExposed = app.ApplicationServices.GetRequiredService<BitweenOptions>().ExposeApiDocs;
+
             app.UseSWConsoleLogger();
             WarnIfMsalRedirectUriIsStale(app);
             app.UseForwardedHeaders();
+
+            // The API description is a map of the whole surface — every route, every request and
+            // response shape — and nobody who should have it needs to fetch it from a running
+            // deployment. Closed here, ahead of everything else, because the two halves are served
+            // by different things: the UI page below, and /api/swagger.json by CqApi itself, which
+            // offers no switch of its own. One gate covers both.
+            if (!apiDocsExposed)
+            {
+                app.Use(async (context, next) =>
+                {
+                    var path = context.Request.Path;
+                    if (path.StartsWithSegments("/swagger") ||
+                        path.Equals("/api/swagger.json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status404NotFound;
+                        return;
+                    }
+
+                    await next();
+                });
+            }
+
             // Early, so everything downstream — static files, the SPA fallback, every API
             // response — is compressed on the way out.
             app.UseResponseCompression();
@@ -601,11 +759,15 @@ namespace SW.Bitween.Web
             app.UseStaticFiles();
             app.UseRouting();
             app.UseAuthentication();
+            // After authentication, so an authenticated request is counted against its account
+            // rather than against whatever address it shares with everyone else in the building.
+            app.UseRateLimiter();
             app.UseAuthorization();
             app.UseHttpAsRequestContext();
             SW.Logger.Console.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
 
-            app.UseSwaggerUI(c => { c.SwaggerEndpoint("/api/swagger.json", "Bitween Api"); });
+            if (apiDocsExposed)
+                app.UseSwaggerUI(c => { c.SwaggerEndpoint("/api/swagger.json", "Bitween Api"); });
 
 
             app.UseEndpoints(endpoints =>

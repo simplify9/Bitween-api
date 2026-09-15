@@ -89,6 +89,12 @@ namespace SW.Bitween
 
             if (account.Email != null) claims.Add(new Claim(ClaimTypes.Email, account.Email));
 
+            // Carried on the token rather than read per request like permissions are: it decides
+            // what the token itself is worth, and a token has to keep meaning the same thing for
+            // as long as it is valid.
+            if (account.MustChangePassword)
+                claims.Add(new Claim(RequestContextExtensions.MustChangePasswordClaim, "true"));
+
 
             return new ClaimsIdentity(claims, "Bitween");
         }

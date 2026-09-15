@@ -12,8 +12,6 @@ import { request } from "@playwright/test";
 const API = "https://localhost:7155/api";
 const ADMIN_EMAIL = "admin@Bitween.systems";
 const ADMIN_PASSWORD = "Mtm@dmin!2";
-/** Configured break-glass credentials — the only way in when the admin has no roles left. */
-const BREAK_GLASS = { username: "1", password: "1" };
 const ADMINISTRATOR_ROLE_ID = 1;
 
 const TEST_EMAIL = /^pw-.*@example\.test$/;
@@ -50,23 +48,36 @@ interface Account {
 export default async function purgeTestData() {
   const api = await request.newContext({ ignoreHTTPSErrors: true });
 
-  // Prefer the real admin; fall back to break-glass, which works even with no roles at all.
   const login = await api.post(`${API}/accounts/login`, {
     data: { Username: ADMIN_EMAIL, Password: ADMIN_PASSWORD },
   });
   let token: string = login.ok() ? (await login.json()).jwt : "";
 
   const auth = () => ({ Authorization: `Bearer ${token}` });
-  let accounts = await api.get(`${API}/accounts?limit=500`, { headers: auth() });
+
+  // The seeded admin ships with a published password, so a freshly migrated database flags it and
+  // issues it a token that grants nothing until someone chooses a new one. Setting it back to the
+  // same value clears the flag, which is the whole of what the suite needs: every spec signs in as
+  // this account, and none of them is about the forced change itself.
+  //
+  // Deliberately loud about what it is. Re-setting a known password is exactly the thing the flag
+  // exists to prevent — it is defensible here only because this database exists to be thrown away.
+  await api.post(`${API}/accounts/changePassword`, {
+    headers: auth(),
+    data: { OldPassword: ADMIN_PASSWORD, NewPassword: ADMIN_PASSWORD },
+  });
+
+  const accounts = await api.get(`${API}/accounts?limit=500`, { headers: auth() });
 
   if (!accounts.ok()) {
-    const su = await api.post(`${API}/login`, { data: BREAK_GLASS });
-    if (!su.ok())
-      throw new Error(
-        "Can't reach the API as an administrator or via break-glass — is the local backend running?",
-      );
-    token = (await su.json()).jwt;
-    accounts = await api.get(`${API}/accounts?limit=500`, { headers: auth() });
+    // There used to be a fallback here: a second sign-in against credentials held in
+    // configuration, which worked even for an admin holding no roles. That endpoint shipped with a
+    // published default password and has been removed, so this is now the only way in — and if the
+    // seeded admin has lost Administrator, no request can put it back.
+    throw new Error(
+      "Can't reach the API as the seeded administrator. Either the local backend isn't running, " +
+        "or the admin has lost its Administrator role and the database needs restoring.",
+    );
   }
 
   const rows: Account[] = (await accounts.json()).result ?? [];

@@ -32,7 +32,8 @@ public class Profile(BitweenDbContext dbContext, RequestContext requestContext) 
                 Name = a.DisplayName,
                 Id = a.Id,
                 Disabled = a.Disabled,
-                Role = a.Role.ToString()
+                Role = a.Role.ToString(),
+                MustChangePassword = a.MustChangePassword
             })
             .SingleOrDefaultAsync();
 

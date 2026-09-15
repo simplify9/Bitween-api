@@ -179,7 +179,6 @@ public sealed class BitweenFixture : IAsyncLifetime
                         StorageProvider = "LocalTests",
                         DatabaseType = "PgSql",
                         BusDefaultQueuePrefetch = 10,
-                        AdminCredentials = "configured-admin:configured-password",
                         JwtExpiryMinutes = 30,
                         // A passphrase has to exist or secret settings refuse to be stored at
                         // all, which would make the encryption path untestable.

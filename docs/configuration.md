@@ -10,11 +10,25 @@ Some values are also **runtime settings** that administrators change in the UI. 
 |---|---|
 | `ConnectionStrings:BitweenDb` | `Host=db;Port=5432;Database=bitween;Username=bitween;Password=...` |
 | `ConnectionStrings:RabbitMQ` | `amqp://user:password@rabbitmq:5672/` |
-| `Token:Key` | A random secret of at least 32 characters |
+| `Token:Key` | A random secret of at least 32 characters, unique to this deployment |
 | `Token:Issuer`, `Token:Audience` | Values used to sign and validate JWTs |
 | Storage settings | See [Storage](#storage) |
 
 The service stops at startup with a clear error when the database connection string is missing.
+
+### `Token:Key` must be your own
+
+Whoever holds this key can mint a token for any identity, including one with no account behind
+it. The service **refuses to start** when it is missing, or when it is still the sample value
+`6547647654764764767657658658758765876532542` — which ships as the chart default and is published
+in this repository, so a deployment that never overrode it was open to anyone who read it.
+
+The check runs in every environment, including Development, so **a local checkout needs its own
+key too**: put one in your gitignored `appsettings.Development.json` (or `appsettings.Local.json`).
+Any long random string will do — `openssl rand -base64 48`.
+
+Changing the key invalidates every token already issued, so everyone signs in again. That is the
+intended response to a key you no longer trust.
 
 ## `Bitween` section
 
@@ -36,7 +50,6 @@ The service stops at startup with a clear error when the database connection str
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
 | `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
-| `AdminCredentials` | `admin:1234512345` | Break-glass `user:password`. Always override. |
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings in the database. |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |

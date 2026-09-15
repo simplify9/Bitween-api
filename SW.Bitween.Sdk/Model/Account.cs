@@ -74,6 +74,14 @@ public class AccountModel
 public class ProfileModel : AccountModel
 {
     public List<string> Permissions { get; set; } = [];
+
+    /// <summary>
+    /// The account still has the password it was created with, so its token grants nothing until
+    /// that is changed. Here as well as on the sign-in response because a reload has no sign-in
+    /// response to read — without it, refreshing the page lands on an app with every screen denied
+    /// and no explanation.
+    /// </summary>
+    public bool MustChangePassword { get; set; }
 }
 
 public class UnlockAccountModel

@@ -15,7 +15,6 @@ docker run -p 8080:8080 \
   -e Bitween__StorageProvider=S3 \
   -e CloudFiles__AccessKeyId=... -e CloudFiles__SecretAccessKey=... \
   -e CloudFiles__ServiceUrl=https://s3.example.com -e CloudFiles__BucketName=bitween \
-  -e Bitween__AdminCredentials="..." \
   bitween:local
 ```
 
@@ -38,7 +37,6 @@ helm install bitween ./charts/default \
   --set global.cloudFiles.secretAccessKey=... \
   --set global.cloudFiles.serviceUrl=https://s3.example.com \
   --set global.cloudFiles.bucketName=bitween \
-  --set secrets.Bitween__AdminCredentials="..." \
   --set secrets.Bitween__SettingsEncryptionKey="..." \
   --set ingress.hosts[0]=bitween.example.com
 ```
