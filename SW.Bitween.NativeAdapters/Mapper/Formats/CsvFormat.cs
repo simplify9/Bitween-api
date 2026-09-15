@@ -65,13 +65,18 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
             using var reader = new StringReader(StripByteOrderMark(text));
             using var parser = new CsvParser(reader, Configuration(forWriting: false));
 
-            var names = Array.Empty<string>();
+            // One naming run for the whole file, so a column keeps the same name on every row and
+            // no two columns ever share one. It grows as wider rows turn up.
+            var names = new List<string>();
+            var used = new HashSet<string>(StringComparer.Ordinal);
+
             if (_options.HasHeader)
             {
                 // A file that is nothing but a header is a list of no rows, which is a true answer
                 // and not an error — a carrier with nothing to report sends exactly that.
                 if (!parser.Read()) return list;
-                names = ColumnNames(parser.Record ?? []);
+                foreach (var name in parser.Record ?? [])
+                    names.Add(Unique(name.Length > 0 ? name : Position(names.Count), used));
             }
 
             while (parser.Read())
@@ -79,9 +84,14 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
                 var record = parser.Record;
                 if (record is null || IsBlank(record)) continue;
 
+                // A row wider than anything seen before: the extra fields are named by position
+                // rather than dropped, which would be the same silent loss as a shared name.
+                while (names.Count < record.Length)
+                    names.Add(Unique(Position(names.Count), used));
+
                 var row = ValueNode.Object();
                 for (var at = 0; at < record.Length; at++)
-                    row.Set(NameAt(names, at), ValueNode.Value(record[at]));
+                    row.Set(names[at], ValueNode.Value(record[at]));
 
                 list.Add(row);
             }
@@ -169,8 +179,18 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
             // one-column file of tracking numbers. It has no name to take, so it takes the name any
             // column has when nothing names it: its position.
             case ScalarNode scalar:
-                cells[prefix.Length == 0 ? Position(0) : prefix] = AsText(scalar.Value);
+            {
+                var column = prefix.Length == 0 ? Position(0) : prefix;
+
+                // A rule targeting the single key `a.b` and a pair of rules targeting `a` then `b`
+                // both want the column `a.b`. Only one of them can have it, and quietly keeping
+                // whichever ran last would drop a field the mapping plainly asks for.
+                if (!cells.TryAdd(column, AsText(scalar.Value)))
+                    throw new DocumentFormatException(
+                        $"Two rules both write the column '{column}'. A row has one cell per " +
+                        "column, so one of them would be lost. Give one of them another name.");
                 break;
+            }
 
             case ListNode:
                 throw new DocumentFormatException(
@@ -226,39 +246,29 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
     }
 
     /// <summary>
-    /// The column names a header record gives, with every column left addressable.
+    /// <paramref name="wanted"/>, or the first name after it that nothing has taken yet.
     /// </summary>
     /// <remarks>
-    /// A blank name and a repeated one both fall back to the column's position, which is the name
-    /// that column would have had with no header at all. The alternative is two columns sharing a
-    /// name, and since a row is built by setting keys on an object, the second would silently
-    /// replace the first — a column of the partner's file simply missing, with nothing to say so.
+    /// <para>
+    /// Two columns cannot share a name: a row is built by setting keys on an object, so the second
+    /// would silently replace the first and a column of the partner's file would simply be missing.
+    /// </para>
+    /// <para>
+    /// Falling back to the position is not enough on its own, because a header can be a number. A
+    /// file headed <c>2,</c> names its first column <c>2</c> and then wants <c>2</c> again for the
+    /// blank one beside it, so the fallback has to be checked like any other name.
+    /// </para>
     /// </remarks>
-    private static string[] ColumnNames(string[] header)
+    private static string Unique(string wanted, HashSet<string> used)
     {
-        var names = new string[header.Length];
-        var used = new HashSet<string>(StringComparer.Ordinal);
+        if (used.Add(wanted)) return wanted;
 
-        for (var at = 0; at < header.Length; at++)
+        for (var n = 2; ; n++)
         {
-            var name = header[at];
-            names[at] = name.Length > 0 && used.Add(name) ? name : Position(at);
-            used.Add(names[at]);
+            var candidate = $"{wanted}_{n}";
+            if (used.Add(candidate)) return candidate;
         }
-
-        return names;
     }
-
-    /// <summary>
-    /// What the field at <paramref name="at"/> is called.
-    /// </summary>
-    /// <remarks>
-    /// Past the end of the header — a row with more fields than the header named — the position is
-    /// used, so the extra field is still readable. Dropping it would be the same silent loss as a
-    /// duplicate name.
-    /// </remarks>
-    private static string NameAt(string[] names, int at) =>
-        at < names.Length ? names[at] : Position(at);
 
     /// <summary>A field's name when it has none: its position, counting from one.</summary>
     private static string Position(int at) => (at + 1).ToString(CultureInfo.InvariantCulture);

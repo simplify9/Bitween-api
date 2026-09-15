@@ -79,11 +79,21 @@ test("the columns the editor offers are the ones the server can read", async ({ 
   await root.getByRole("button", { name: "Add a field to the root list" }).click();
   await root.getByRole("textbox", { name: "Output field name" }).last().fill("checked");
 
-  // Every column the source panel offers, tried against the server one at a time.
+  // Every column the source panel offers, tried against the server one at a time — and each
+  // asserted on the value it should carry. A "not null" check would pass off the previous
+  // column's preview before the next one arrived, which is exactly the mismatch being hunted.
   const field = root.getByRole("combobox", { name: "Source field" }).last();
-  for (const column of ["ShipmentNumber", "Reference", "TrackingCode", "Date", "Time"]) {
+  const firstRow: [string, string][] = [
+    ["ShipmentNumber", "6G61965126082"],
+    ["Reference", "202493482"],
+    ["TrackingCode", "SHOR020"],
+    ["Date", "2026-09-14"],
+    ["Time", "08:29:49"],
+  ];
+
+  for (const [column, value] of firstRow) {
     await field.fill(column);
-    await expect(preview(page)).not.toContainText('"checked": null', { timeout: 15000 });
+    await expect(preview(page)).toContainText(`"checked": "${value}"`, { timeout: 15000 });
   }
 });
 

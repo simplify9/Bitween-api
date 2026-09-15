@@ -200,15 +200,61 @@ public class CsvFormatReadTests
     }
 
     [TestMethod]
-    public void A_repeated_column_name_stays_reachable_by_position()
+    public void A_repeated_column_name_stays_reachable_under_a_name_of_its_own()
     {
         // Two columns cannot share a name — a row is built by setting keys on an object, so the
-        // second would silently replace the first and a column would simply be gone.
+        // second would silently replace the first and a column would simply be gone. Numbered
+        // rather than moved to its position, which reads better and cannot collide with a header
+        // that happens to be a number.
         var rows = Rows("code,code,qty\nA1,B7,2");
 
         Assert.AreEqual("A1", At(rows.Items[0], "code"));
-        Assert.AreEqual("B7", At(rows.Items[0], "2"), "the repeat falls back to its position");
+        Assert.AreEqual("B7", At(rows.Items[0], "code_2"));
         Assert.AreEqual("2", At(rows.Items[0], "qty"));
+    }
+
+    [TestMethod]
+    public void A_fallback_name_that_a_header_already_took_is_moved_out_of_the_way()
+    {
+        // The header's second column has no name, so it wants its position — which the first
+        // column is already called. Sharing it would mean the second column silently replacing
+        // the first when the row is built, and a column of the file simply disappearing.
+        var rows = Rows("2,,qty\na,b,7");
+
+        Assert.AreEqual("a", At(rows.Items[0], "2"));
+        Assert.AreEqual("b", At(rows.Items[0], "2_2"));
+        Assert.AreEqual("7", At(rows.Items[0], "qty"));
+    }
+
+    [TestMethod]
+    public void A_header_repeating_a_number_keeps_both_columns()
+    {
+        var rows = Rows("2,2\na,b");
+
+        Assert.AreEqual("a", At(rows.Items[0], "2"));
+        Assert.AreEqual("b", At(rows.Items[0], "2_2"));
+    }
+
+    [TestMethod]
+    public void A_surplus_field_whose_position_is_taken_is_moved_too()
+    {
+        // The header names a column `3`, and a row then has a third field wanting the same name.
+        var rows = Rows("sku,3\nA1,x,surplus");
+
+        Assert.AreEqual("x", At(rows.Items[0], "3"));
+        Assert.AreEqual("surplus", At(rows.Items[0], "3_2"));
+    }
+
+    [TestMethod]
+    public void Every_row_names_a_column_the_same_way()
+    {
+        // Naming runs once for the file rather than per row, so a narrow row followed by a wide
+        // one cannot end up calling the same column two different things.
+        var rows = Rows("sku\nA1\nB7,extra");
+
+        Assert.AreEqual("A1", At(rows.Items[0], "sku"));
+        Assert.AreEqual("B7", At(rows.Items[1], "sku"));
+        Assert.AreEqual("extra", At(rows.Items[1], "2"));
     }
 
     [TestMethod]
@@ -407,6 +453,18 @@ public class CsvFormatWriteTests
         // A file of tracking numbers and nothing else. There is no name to take, so the column
         // takes the name any column has when nothing names it.
         Assert.AreEqual("1\nA1\nB7\n", Written(L(V("A1"), V("B7"))));
+    }
+
+    [TestMethod]
+    public void Two_rules_writing_the_same_column_are_refused()
+    {
+        // A literal `a.b` key and a nested `a` → `b` both flatten to the column `a.b`. Keeping
+        // whichever ran last would drop a field the mapping plainly asks for.
+        var message = Refuses(L(Obj(
+            ("a.b", V("literal")),
+            ("a", Obj(("b", V("nested")))))));
+
+        StringAssert.Contains(message, "a.b");
     }
 
     [TestMethod]

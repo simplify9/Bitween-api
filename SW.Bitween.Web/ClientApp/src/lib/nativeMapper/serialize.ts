@@ -6,6 +6,7 @@ import {
   defaultCsvOptions,
   emptyRules,
   newRuleId,
+  type CsvOptions,
   type DocumentFormatId,
   type EditorFieldRule,
   type EditorListEntry,
@@ -110,6 +111,28 @@ export function toWire(rules: EditorRules): MappingRules {
   return wire;
 }
 
+/**
+ * Stored delimited-text options, with anything missing or unusable filled in.
+ *
+ * Rules can be written by hand or saved by an older build, so `{}` and a delimiter that is not a
+ * string both reach here. Neither is worth refusing the whole mapping over — an absent option
+ * already means the default — but neither can be passed on either: the editor reads the delimiter
+ * while it is drawing, and would throw rather than show a mapping.
+ */
+function csvOptionsFrom(stored: CsvOptions | undefined, format: DocumentFormatId) {
+  if (format !== "csv") return undefined;
+
+  const defaults = defaultCsvOptions();
+  return {
+    delimiter:
+      typeof stored?.delimiter === "string" && stored.delimiter.length > 0
+        ? stored.delimiter
+        : defaults.delimiter,
+    hasHeader: typeof stored?.hasHeader === "boolean" ? stored.hasHeader : defaults.hasHeader,
+    byteOrderMark: stored?.byteOrderMark === true,
+  };
+}
+
 /** Adds the editor's ids to rules that came off the wire. */
 export function fromWire(rules: MappingRules): EditorRules {
   return {
@@ -119,8 +142,8 @@ export function fromWire(rules: MappingRules): EditorRules {
     // Kept as they were stored. A mapping whose format is delimited text but whose options
     // are missing — hand-written, or saved before these existed — falls back to the same
     // defaults the server would apply, rather than to nothing.
-    sourceCsv: rules.sourceCsv ?? (rules.sourceFormat === "csv" ? defaultCsvOptions() : undefined),
-    targetCsv: rules.targetCsv ?? (rules.targetFormat === "csv" ? defaultCsvOptions() : undefined),
+    sourceCsv: csvOptionsFrom(rules.sourceCsv, rules.sourceFormat),
+    targetCsv: csvOptionsFrom(rules.targetCsv, rules.targetFormat),
     // Absent means year-first: a mapping saved before this existed could only ever have
     // read the unambiguous shapes correctly anyway.
     sourceDateOrder: rules.sourceDateOrder ?? "yearFirst",

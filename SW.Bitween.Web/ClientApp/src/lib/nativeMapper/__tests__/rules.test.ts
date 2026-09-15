@@ -798,3 +798,32 @@ describe("a list's closing entries", () => {
     expect(isAssigned({ ...emptyFieldRule(), from: { kind: "count" } })).toBe(true);
   });
 });
+
+describe("delimited-text options off the wire", () => {
+  // Rules reach the editor from storage, so they can be hand-written or saved by an older
+  // build. Neither is worth refusing a whole mapping over, and neither can be passed on as it
+  // came: the editor reads the delimiter while it is drawing.
+
+  it("fills in what an incomplete stored options object leaves out", () => {
+    const loaded = fromWire({ ...emptyRules(), sourceFormat: "csv", sourceCsv: {} as never });
+
+    expect(loaded.sourceCsv).toEqual({ delimiter: ",", hasHeader: true, byteOrderMark: false });
+  });
+
+  it("replaces a delimiter that is not usable text", () => {
+    const loaded = fromWire({
+      ...emptyRules(),
+      sourceFormat: "csv",
+      sourceCsv: { delimiter: "", hasHeader: false } as never,
+    });
+
+    expect(loaded.sourceCsv?.delimiter).toBe(",");
+    expect(loaded.sourceCsv?.hasHeader).toBe(false);
+  });
+
+  it("keeps options off a format that has none", () => {
+    const loaded = fromWire({ ...emptyRules(), sourceFormat: "json", sourceCsv: {} as never });
+
+    expect(loaded.sourceCsv).toBeUndefined();
+  });
+});
