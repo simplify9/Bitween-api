@@ -94,4 +94,10 @@ jobs:
       dependabot-alerts-token: ${{ secrets.DEPENDABOT_ALERTS_TOKEN }}
 
       # App configuration passed to helm --set-string during deploy (masked)
-      helm-set-secret-values: 'db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
+      #
+      # global.token.key signs every authentication token. The chart still carries a sample
+      # key as its default, and that value is published in this public repository — anyone
+      # holding it can mint a token for any identity, so the app refuses to start on it.
+      # Set the TokenKey secret to a long random string unique to this environment
+      # (openssl rand -base64 48). Changing it signs out everyone holding an older token.
+      helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
