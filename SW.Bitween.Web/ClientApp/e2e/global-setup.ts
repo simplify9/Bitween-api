@@ -51,7 +51,7 @@ export default async function purgeTestData() {
   const login = await api.post(`${API}/accounts/login`, {
     data: { Username: ADMIN_EMAIL, Password: ADMIN_PASSWORD },
   });
-  const token: string = login.ok() ? (await login.json()).jwt : "";
+  let token: string = login.ok() ? (await login.json()).jwt : "";
 
   const auth = () => ({ Authorization: `Bearer ${token}` });
 

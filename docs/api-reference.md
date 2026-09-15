@@ -48,7 +48,6 @@ See [Entry points](entry-points.md) for status codes.
 | `POST /api/accounts/logout` | none | Deletes the refresh token and clears site data |
 | `GET /api/accounts/profile` | signed in | The current member, roles and permissions |
 | `POST /api/accounts/changePassword` | signed in | Change your own password |
-| `POST /api/login` | none | Break-glass sign-in against `Bitween:AdminCredentials` |
 | `GET /api/settings/config` | none | Sign-in options and theme |
 | `GET /api/settings/myversion` | signed in | API version |
 | `GET /api/permissions` | signed in | The permission catalogue |

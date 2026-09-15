@@ -6,8 +6,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 
 | Issue | Where |
 |---|---|
-| Break-glass credentials default to `admin:1234512345`. They return a token with every permission, with no lockout. | `BitweenOptions.AdminCredentials`, `Resources/Login/Login.cs` |
-| The seeded administrator's password is known, and the SYSTEM partner's API key is seeded with a fixed value. | `Data/BitweenDbContext.cs` |
+| The SYSTEM partner's API key is seeded with a fixed value. (The seeded administrator's password is also published, but that account now grants nothing until the password is changed.) | `Data/BitweenDbContext.cs` |
 | Microsoft ID tokens are checked for signature and lifetime but not issuer or audience. A valid token from any tenant or app signs in the Bitween account with the same email. The tenant setting only affects the browser popup. | `Extensions/AccountExtensions.cs` |
 | Creating an exchange by hand, previewing a rules-based mapping and generating a partner key check no permission. Any signed-in member can call them. | `Resources/Xchanges/Create.cs`, `Resources/MappingPreviews/Preview.cs`, `Resources/Partners/GenerateKey.cs` |
 | `GET /api/bitweendocs` needs no sign-in and reads any storage key it is given. | `Resources/BitweenDocs/Get.cs` |

@@ -50,7 +50,6 @@ intended response to a key you no longer trust.
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
 | `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
-| `AdminCredentials` | `admin:1234512345` | Break-glass `user:password`. Always override. |
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings in the database. |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |

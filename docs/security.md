@@ -30,11 +30,15 @@ The redirect URI must be `/blank.html` on the Bitween host, such as `https://bit
 
 Bitween does not check the token's issuer or audience. See [Known limitations](caveats.md#security).
 
-### Break-glass login
+### Break-glass login (removed)
 
-`POST /api/login` with `{ "Username": "...", "Password": "..." }` compares the values with `Bitween:AdminCredentials`, written as `user:password`. A match returns a token with every permission, without touching the database, and there is no lockout.
+`POST /api/login` signed in against `Bitween:AdminCredentials` and returned a token with every
+permission, without touching the database and with no lockout. It shipped with a working default —
+`admin:1234512345`, published in this repository — and neither the current nor the legacy UI ever
+called it. A penetration test signed in with it. The endpoint and the setting are gone.
 
-The default in code is `admin:1234512345`. **Override `Bitween__AdminCredentials` in every environment.**
+There is now no sign-in that bypasses the database. If the last account holding Administrator loses
+the role, no request can restore it and the database has to be repaired directly.
 
 ## Tokens and sessions
 
@@ -149,8 +153,9 @@ The trail is written in the same transaction as the change, and no API edits or 
 
 ## Production checklist
 
-1. Set `Bitween__AdminCredentials` to an unguessable user name and password.
-2. Change the seeded administrator's password, or add your own administrator and then remove the seeded one.
+1. Change the seeded administrator's password, or add your own administrator and then remove the
+   seeded one. The seeded password is published in this repository, so until it is replaced that
+   account's token grants nothing and the only screen it can reach is the password change.
 3. Replace or remove the SYSTEM partner's API key.
 4. Set `Token__Key` to a long random secret, and choose your own `Token__Issuer` and `Token__Audience`.
 5. Set `Bitween__SettingsEncryptionKey` before saving a Rebex license key.

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,14 @@ public class ChangePassword(BitweenDbContext dbContext, RequestContext requestCo
 
         account.SetPassword(request.NewPassword);
         await dbContext.SaveChangesAsync();
+
+        // Signing in with a refresh token skips password verification entirely — it looks the
+        // account up by id and issues a fresh token from whatever state it is now in. So a session
+        // opened with the old password outlives the change unless the tokens go with it, and
+        // "change the password" would not actually remove whoever you changed it because of.
+        await dbContext.Set<RefreshToken>()
+            .Where(t => t.AccountId == account.Id)
+            .ExecuteDeleteAsync();
 
         return null;
     }

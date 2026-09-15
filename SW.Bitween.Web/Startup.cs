@@ -536,6 +536,8 @@ namespace SW.Bitween.Web
         /// </remarks>
         private const string SampleSigningKey = "6547647654764764767657658658758765876532542";
 
+        private const int MinimumSigningKeyLength = 32;
+
         private void RejectSampleSigningKey()
         {
             var key = Configuration["Token:Key"];
@@ -544,6 +546,13 @@ namespace SW.Bitween.Web
                 throw new InvalidOperationException(
                     "Token:Key is not configured. Generate a random secret unique to this " +
                     "deployment — tokens cannot be trusted without one.");
+
+            // The length our own configuration documents. A short key is brute-forceable offline
+            // against any token the holder has seen, which is every token they were ever issued.
+            if (key.Length < MinimumSigningKeyLength)
+                throw new InvalidOperationException(
+                    $"Token:Key is {key.Length} characters; it must be at least " +
+                    $"{MinimumSigningKeyLength}. Generate a random secret rather than choosing one.");
 
             if (key == SampleSigningKey)
                 throw new InvalidOperationException(
@@ -617,10 +626,17 @@ namespace SW.Bitween.Web
         /// page ten times would spend the whole sign-in budget on page loads and lock someone out
         /// of an app they had not yet tried to enter.
         /// </remarks>
-        private static bool IsSignInPath(PathString path) =>
-            path.HasValue
-            && path.Value!.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
-            && path.Value!.EndsWith("/login", StringComparison.OrdinalIgnoreCase);
+        private static bool IsSignInPath(PathString path)
+        {
+            if (!path.HasValue) return false;
+
+            // Routing treats "/api/accounts/login/" as the same endpoint, so the limit has to as
+            // well — otherwise one trailing character moves an attempt to the general budget.
+            var value = path.Value!.TrimEnd('/');
+
+            return value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
+                && value.EndsWith("/login", StringComparison.OrdinalIgnoreCase);
+        }
 
         private static string ClientAddress(HttpContext context) =>
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
