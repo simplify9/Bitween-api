@@ -18,7 +18,7 @@ import { AuthLayout } from "./AuthLayout";
  * lets them out of it.
  */
 export function ChangePasswordPage() {
-  const { refresh } = useSession();
+  const { session, refresh, signOut } = useSession();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -60,6 +60,15 @@ export function ChangePasswordPage() {
         This account still has the password it shipped with, which is publicly known. Pick your own
         to carry on — nothing else is available until you do.
       </p>
+      {/*
+        Named, because the page is reached by redirect rather than by choice: whoever lands here
+        did not ask for it and has no other way to tell which account is being talked about.
+      */}
+      {session && (
+        <p className="mt-3 rounded-md bg-ink-50 px-3 py-2 text-sm text-ink-600">
+          Signed in as <span className="font-medium text-ink-900">{session.user.email}</span>
+        </p>
+      )}
 
       <form onSubmit={submit} className="mt-7 space-y-4">
         <Field label="Current password" htmlFor="current-password">
@@ -97,6 +106,22 @@ export function ChangePasswordPage() {
           {change.isPending ? "Saving…" : "Set password"}
         </Button>
       </form>
+
+      {/*
+        The way out. Without it this screen is a trap: every route redirects back here, so someone
+        who reached it on the wrong account — or who does not know this password — has no way to
+        sign in as anyone else short of clearing their cookies.
+      */}
+      <p className="mt-6 text-center text-sm text-ink-500">
+        Not your account?{" "}
+        <button
+          type="button"
+          onClick={() => void signOut()}
+          className="font-medium text-ink-900 underline underline-offset-2 hover:text-ink-700"
+        >
+          Sign in as someone else
+        </button>
+      </p>
     </AuthLayout>
   );
 }
