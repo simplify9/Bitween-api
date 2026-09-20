@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, Eraser, Eye, EyeOff, Link2, Redo2, Undo2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Eraser, Eye, EyeOff, Link2, Redo2, Undo2 } from "lucide-react";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
 import {
@@ -26,6 +26,7 @@ import {
 import { Button, FormError } from "../ui/basics";
 import { ConnectionLines, type Connection } from "../ui/ConnectionLines";
 import { ConfirmDialog } from "../ui/overlays";
+import { Popover } from "../ui/Popover";
 import { Select } from "../ui/forms";
 import { BuildFromSample } from "./BuildFromSample";
 import { OutputPanel } from "./OutputPanel";
@@ -173,44 +174,13 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
 
         <span className="text-sm font-semibold text-ink-900">Mapping</span>
 
-        <div className="ml-2 flex items-center gap-1.5">
-          <FormatSelect
-            label="From"
-            value={rules.sourceFormat}
-            onChange={(format) => dispatch({ type: "SET_SOURCE_FORMAT", format })}
-          />
-          {rules.sourceFormat === "csv" && (
-            <CsvControls
-              side="source"
-              options={rules.sourceCsv ?? defaultCsvOptions()}
-              onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "source", options })}
-            />
-          )}
-          <span aria-hidden className="text-ink-300">
-            →
-          </span>
-          <FormatSelect
-            label="To"
-            value={rules.targetFormat}
-            onChange={(format) => dispatch({ type: "SET_TARGET_FORMAT", format })}
-          />
-          {rules.targetFormat === "csv" && (
-            <CsvControls
-              side="target"
-              options={rules.targetCsv ?? defaultCsvOptions()}
-              onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "target", options })}
-            />
-          )}
-        </div>
+        <ToolbarDivider />
 
-        <div className="ml-2">
-          <BuildFromSample />
-        </div>
+        <FormatSettings />
 
-        <TestPartnerSelect
-          value={testPartnerId}
-          onChange={(partner) => dispatch({ type: "SET_TEST_PARTNER", partnerId: partner })}
-        />
+        <ToolbarDivider />
+
+        <BuildFromSample />
 
         <ToolbarButton
           label="Match the source fields"
@@ -218,7 +188,6 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
           icon={<Link2 size={12} aria-hidden />}
           onClick={() => dispatch({ type: "MATCH_SOURCES" })}
         />
-        {match && <MatchNote tally={match} />}
 
         <ToolbarButton
           label="Clear all the rules"
@@ -227,7 +196,14 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
           onClick={() => dispatch({ type: "CLEAR_RULES" })}
         />
 
+        {match && <MatchNote tally={match} />}
+
         <div className="ml-auto flex items-center gap-1.5">
+          <TestPartnerSelect
+            value={testPartnerId}
+            onChange={(partner) => dispatch({ type: "SET_TEST_PARTNER", partnerId: partner })}
+          />
+
           <button
             type="button"
             onClick={() => setShowPreview((shown) => !shown)}
@@ -341,6 +317,81 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
   );
 }
 
+/** Separates one kind of toolbar control from the next. */
+function ToolbarDivider() {
+  return <span aria-hidden className="h-5 w-px shrink-0 bg-ink-200" />;
+}
+
+/**
+ * What the mapping reads and writes, behind a summary of itself.
+ *
+ * In a panel rather than in the toolbar because it is configuration, not an action:
+ * it is the densest part of the toolbar and the part changed least often, and its
+ * CSV controls only exist while a side is CSV — so in the row it moved everything
+ * after it sideways each time a format changed.
+ */
+function FormatSettings() {
+  const { rules } = useRules();
+  const dispatch = useRulesDispatch();
+
+  const name = (format: DocumentFormatId) =>
+    DOCUMENT_FORMATS.find((f) => f.id === format)?.label ?? format;
+
+  return (
+    <Popover
+      label="What this mapping reads and writes"
+      width="w-80"
+      // The toolbar is fixed, so the chip never scrolls away from its panel — and the
+      // preview pane below re-renders on every server preview, which would otherwise
+      // close this mid-edit.
+      closeOnScroll={false}
+      button={
+        <span
+          title="What this mapping reads and writes"
+          className="flex items-center gap-1 rounded-lg border border-ink-200 bg-white px-2 py-1 text-xs font-medium text-ink-600 hover:border-ink-300 hover:bg-ink-50"
+        >
+          {name(rules.sourceFormat)}
+          <span aria-hidden className="text-ink-300">
+            →
+          </span>
+          {name(rules.targetFormat)}
+          <ChevronDown size={12} aria-hidden className="text-ink-400" />
+        </span>
+      }
+    >
+      <div className="space-y-2">
+        <FormatSelect
+          label="From"
+          value={rules.sourceFormat}
+          onChange={(format) => dispatch({ type: "SET_SOURCE_FORMAT", format })}
+        />
+        {rules.sourceFormat === "csv" && (
+          <CsvControls
+            side="source"
+            options={rules.sourceCsv ?? defaultCsvOptions()}
+            onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "source", options })}
+          />
+        )}
+
+        <hr className="border-ink-100" />
+
+        <FormatSelect
+          label="To"
+          value={rules.targetFormat}
+          onChange={(format) => dispatch({ type: "SET_TARGET_FORMAT", format })}
+        />
+        {rules.targetFormat === "csv" && (
+          <CsvControls
+            side="target"
+            options={rules.targetCsv ?? defaultCsvOptions()}
+            onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "target", options })}
+          />
+        )}
+      </div>
+    </Popover>
+  );
+}
+
 /** A toolbar action that looks like the "Build from a sample" trigger beside it. */
 function ToolbarButton({
   label,
@@ -408,7 +459,7 @@ function TestPartnerSelect({
   });
 
   return (
-    <label className="ml-2 flex items-center gap-1 text-[11px] text-ink-500">
+    <label className="flex shrink-0 items-center gap-1 whitespace-nowrap text-[11px] text-ink-500">
       Preview as
       <Select
         className="h-8 w-44 text-xs"
@@ -448,17 +499,21 @@ function CsvControls({
   const what = side === "source" ? "incoming" : "produced";
 
   return (
-    <div className="flex items-center gap-1.5">
-      <Select
-        className="h-8 w-28 text-xs"
-        aria-label={`${side} delimiter`}
+    <div className="space-y-1.5 pl-3">
+      <SettingRow
+        label="Separator"
         title={`What separates one field from the next in the ${what} file`}
-        value={options.delimiter}
-        onChange={(e) => onChange({ ...options, delimiter: e.target.value })}
-        options={CSV_DELIMITERS}
-      />
+      >
+        <Select
+          className="h-8 w-40 text-xs"
+          aria-label={`${side} delimiter`}
+          value={options.delimiter}
+          onChange={(e) => onChange({ ...options, delimiter: e.target.value })}
+          options={CSV_DELIMITERS}
+        />
+      </SettingRow>
       <label
-        className="flex items-center gap-1 text-[11px] text-ink-500"
+        className="flex items-center gap-1.5 text-[11px] text-ink-500"
         title={
           side === "source"
             ? "Whether the first line of the incoming file names the columns rather than carrying data"
@@ -479,7 +534,7 @@ function CsvControls({
           column's name. */}
       {side === "target" && (
         <label
-          className="flex items-center gap-1 text-[11px] text-ink-500"
+          className="flex items-center gap-1.5 text-[11px] text-ink-500"
           title="Start the file with the three bytes that tell Excel it is UTF-8. Without them an accented name opens as mangled text; with them, a strict parser on the partner's side can object."
         >
           <input
@@ -496,6 +551,24 @@ function CsvControls({
   );
 }
 
+/** A label on the left, its control on the right — the shape every row in the panel takes. */
+function SettingRow({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2 text-[11px] text-ink-500" title={title}>
+      {label}
+      {children}
+    </label>
+  );
+}
+
 function FormatSelect({
   label,
   value,
@@ -506,15 +579,14 @@ function FormatSelect({
   onChange: (format: DocumentFormatId) => void;
 }) {
   return (
-    <label className="flex items-center gap-1 text-[11px] text-ink-500">
-      {label}
+    <SettingRow label={label}>
       <Select
-        className="h-8 w-24 text-xs"
+        className="h-8 w-40 text-xs"
         aria-label={`${label} format`}
         value={value}
         onChange={(e) => onChange(e.target.value as DocumentFormatId)}
         options={DOCUMENT_FORMATS.map((f) => ({ value: f.id, label: f.label }))}
       />
-    </label>
+    </SettingRow>
   );
 }

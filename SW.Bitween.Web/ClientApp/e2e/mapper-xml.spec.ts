@@ -11,6 +11,7 @@ import {
   openMapper,
   saveAndReload,
   suggestionsFor,
+  withFormats,
 } from "./mapperHelpers";
 
 /**
@@ -59,7 +60,7 @@ const SOAP_REQUEST = `<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envel
 async function openWithXml(page: import("@playwright/test").Page, sample = SOAP_REQUEST) {
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
-  await page.getByLabel("From format").selectOption("xml");
+  await withFormats(page, () => page.getByLabel("From format").selectOption("xml"));
   await page.getByRole("textbox", { name: "Sample source document" }).fill(sample);
   return subscriptionId;
 }
@@ -120,8 +121,10 @@ test("a mapping that writes XML takes its namespaces from the sample of the outp
 }) => {
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
-  await page.getByLabel("From format").selectOption("xml");
-  await page.getByLabel("To format").selectOption("xml");
+  await withFormats(page, async () => {
+    await page.getByLabel("From format").selectOption("xml");
+    await page.getByLabel("To format").selectOption("xml");
+  });
   await page.getByRole("textbox", { name: "Sample source document" }).fill(SOAP_REQUEST);
 
   await buildFromSample(
@@ -152,8 +155,10 @@ test("a shape XML cannot hold is refused with a reason, not a broken document", 
 }) => {
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
-  await page.getByLabel("From format").selectOption("xml");
-  await page.getByLabel("To format").selectOption("xml");
+  await withFormats(page, async () => {
+    await page.getByLabel("From format").selectOption("xml");
+    await page.getByLabel("To format").selectOption("xml");
+  });
   await page.getByRole("textbox", { name: "Sample source document" }).fill(SOAP_REQUEST);
 
   // JSON writes as many top-level keys as it likes; XML has exactly one root element.
@@ -179,8 +184,10 @@ test("an element that carries both an attribute and a value maps as two rules", 
   // same convention as reading, in reverse.
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
-  await page.getByLabel("From format").selectOption("xml");
-  await page.getByLabel("To format").selectOption("xml");
+  await withFormats(page, async () => {
+    await page.getByLabel("From format").selectOption("xml");
+    await page.getByLabel("To format").selectOption("xml");
+  });
   await page.getByRole("textbox", { name: "Sample source document" }).fill(SOAP_REQUEST);
 
   // The sample needs a value between the tags, not just the attribute: an element with
@@ -200,8 +207,10 @@ test("an element that carries both an attribute and a value maps as two rules", 
 test("an attribute can be added to an element by hand, without a sample", async ({ page }) => {
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
-  await page.getByLabel("From format").selectOption("xml");
-  await page.getByLabel("To format").selectOption("xml");
+  await withFormats(page, async () => {
+    await page.getByLabel("From format").selectOption("xml");
+    await page.getByLabel("To format").selectOption("xml");
+  });
   await page.getByRole("textbox", { name: "Sample source document" }).fill(SOAP_REQUEST);
 
   // Dots separate the levels, so `order.weight.@unit` puts the attribute on `weight`
