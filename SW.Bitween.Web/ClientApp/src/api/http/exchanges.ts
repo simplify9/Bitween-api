@@ -181,6 +181,10 @@ function buildExchangeFilters(query: ExchangeQuery): URLSearchParams {
     const ids = query.ids.split(/[\s,|]+/).filter(Boolean);
     params.append("filter", `Id:4:text|${ids.join("|")}`);
   }
+  // The server turns this into the same Id filter above, from the run's own record of what it
+  // created — so a run of any size is one short parameter rather than every id in the URL.
+  if (query.receiveAttemptId !== undefined)
+    params.append("filter", `ReceiveAttemptId:1:${query.receiveAttemptId}`);
   if (query.correlationId?.trim()) params.append("filter", `CorrelationId:1:${query.correlationId.trim()}`);
   if (query.latest) params.append("filter", "LatestOnly:1:true");
   // PromotedPropertiesRaw is stored as "key:value,key:value", so prefixing the key turns

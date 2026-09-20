@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
 import { api, type ReceiveAttemptRow, type ReceiveOutcome } from "../../../api";
 import { Badge, EmptyState, LoadingBlock } from "../../../components/ui/basics";
 import { Select } from "../../../components/ui/forms";
@@ -153,11 +153,26 @@ function AttemptResult({ attempt, kind }: { attempt: ReceiveAttemptRow; kind: At
   );
 }
 
-function AttemptExchanges({ exchanges }: { exchanges: ReceiveAttemptRow["exchanges"] }) {
+/**
+ * A single poll can pick up dozens of documents, and each one is a line here. Uncapped,
+ * one busy run makes a row taller than the screen while its When and Result cells stay
+ * two short lines — so the column is capped and the rest is one click away.
+ */
+const EXCHANGES_SHOWN = 5;
+
+function AttemptExchanges({
+  attemptId,
+  exchanges,
+}: {
+  attemptId: number;
+  exchanges: ReceiveAttemptRow["exchanges"];
+}) {
   if (exchanges.length === 0) return <span className="text-ink-400">—</span>;
+
+  const hidden = exchanges.length - EXCHANGES_SHOWN;
   return (
-    <span className="flex flex-col gap-1">
-      {exchanges.map((x) => (
+    <span className="flex flex-col items-start gap-1">
+      {exchanges.slice(0, EXCHANGES_SHOWN).map((x) => (
         <Link
           key={x.id}
           to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
@@ -168,6 +183,18 @@ function AttemptExchanges({ exchanges }: { exchanges: ReceiveAttemptRow["exchang
           <StatusBadge status={x.status} />
         </Link>
       ))}
+      {hidden > 0 && (
+        // One parameter whatever the run picked up: the server reads the run's own list of the
+        // exchanges it created, so this never has to spell them into the URL.
+        <Link
+          to={`/exchanges?receiveAttemptId=${attemptId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1 text-[11px] font-medium text-crimson-700 hover:underline"
+        >
+          View all {exchanges.length} in Exchanges
+          <ArrowUpRight className="size-3" />
+        </Link>
+      )}
     </span>
   );
 }
@@ -253,7 +280,7 @@ export function ReceiveAttemptsPanel({
             {
               header: w.exchangeHeader,
               headerTitle: w.exchangeHint,
-              cell: (a) => <AttemptExchanges exchanges={a.exchanges} />,
+              cell: (a) => <AttemptExchanges attemptId={a.id} exchanges={a.exchanges} />,
             },
           ]}
         />

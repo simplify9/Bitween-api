@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
@@ -19,6 +20,58 @@ namespace SW.Bitween.Resources.Xchanges;
 /// </remarks>
 internal static class XchangeFilters
 {
+    /// <summary>
+    /// Turns a <c>ReceiveAttemptId</c> filter into the <c>Id</c> filter the rest of the pipeline
+    /// already understands, by reading the run's own record of the exchanges it created.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="ApplySpecialFilters"/>, and async, because the run has to be read
+    /// before the query can be built. <c>ReceiveAttempt.ExchangeIds</c> is persisted as a single
+    /// separator-delimited string rather than an array (see <c>BitweenDbContext</c>), so no
+    /// subquery can reach inside it — and with three database providers in the solution there is
+    /// no one translation that would.
+    ///
+    /// It rewrites rather than filters here so the result stays identical to the long
+    /// <c>?ids=a,b,c</c> URL this replaces, relatives and all — the only thing that changes is that
+    /// the ids no longer have to fit in a web address.
+    /// </remarks>
+    internal static async Task ResolveReceiveAttemptFilterAsync(SearchyRequest searchyRequest,
+        BitweenDbContext dbContext)
+    {
+        var condition = searchyRequest.Conditions.FirstOrDefault();
+        if (condition == null)
+            return;
+
+        var attemptFilters = condition.Filters.Where(f => f.Field == "ReceiveAttemptId").ToList();
+        foreach (var attemptFilter in attemptFilters)
+        {
+            if (!int.TryParse(attemptFilter.Value?.ToString(), out var attemptId))
+                throw new SWValidationException("NOT_SUPPORTED",
+                    $"'{attemptFilter.Value}' is not a receive attempt id.");
+
+            var exchangeIds = await dbContext.Set<ReceiveAttempt>().AsNoTracking()
+                .Where(a => a.Id == attemptId)
+                .Select(a => a.ExchangeIds)
+                .SingleOrDefaultAsync();
+
+            if (exchangeIds == null)
+                throw new SWValidationException("NOT_FOUND",
+                    $"Run {attemptId} no longer exists. Its history may have been cleaned up.");
+
+            // A run that created nothing leaves an empty array, and the Contains branch below reads
+            // that as "matches no row" — which is the honest answer. Dropping the filter instead
+            // would widen the selection to every exchange, and bulk retry acts on whatever this
+            // selects.
+            condition.Filters.Add(new SearchyFilter
+            {
+                Field = "Id",
+                Rule = SearchyRule.Contains,
+                ValueStringArray = exchangeIds,
+            });
+            condition.Filters.Remove(attemptFilter);
+        }
+    }
+
     /// <summary>
     /// Applies the special filters and removes them from <paramref name="searchyRequest"/>, leaving
     /// the plain per-column ones for Searchy to handle.

@@ -1,60 +1,15 @@
-import { useState, type FormEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, RotateCcw, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Field, TextInput } from "../../components/ui/forms";
-import { Dialog } from "../../components/ui/overlays";
+import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { CreateRetryPolicyDialog } from "../../components/config/RetryPolicyDialog";
 import { keys } from "../../api/queryKeys";
-
-function CreateRetryPolicyDialog({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-
-  const create = useMutation({
-    mutationFn: () => api.createRetryPolicy({ name }),
-    onSuccess: (policy) => {
-      void queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
-      navigate(`/retry-policies/${policy.id}`);
-    },
-  });
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    create.mutate();
-  };
-
-  return (
-    <Dialog title="New retry policy" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Name" htmlFor="nrp-name" hint="Groups and budgets are added on the policy's page.">
-          <TextInput
-            id="nrp-name"
-            required
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Transient failures"
-          />
-        </Field>
-        <FormError>{create.error?.message}</FormError>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={create.isPending}>
-            Create policy
-          </Button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}
 
 const PAGE_SIZE = 25;
 

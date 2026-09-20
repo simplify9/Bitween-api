@@ -25,7 +25,9 @@ function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
     mutationFn: () => api.createValueSet({ id: slug, name, values: {} }),
     onSuccess: (set) => {
       void queryClient.invalidateQueries({ queryKey: keys.valueSets.all });
-      navigate(`/global-values/${set.id}`);
+      // replace, not push: the ?new=1 entry this dialog opened on is still behind us,
+      // and Back onto it would reopen the form that was just submitted.
+      navigate(`/global-values/${set.id}`, { replace: true });
     },
   });
 

@@ -20,3 +20,14 @@ export const busMessageNameProblem = (name: string): string | null =>
  * `MyMessage` and `mymessage` are the same message on the wire.
  */
 export const BUS_MESSAGE_NAME_PLACEHOLDER = "PurchaseOrderReceived";
+
+/**
+ * A work group's real queue name, as `WorkGroup.GetBusMessageName()` builds it server-side:
+ * the id, then the bus message name.
+ *
+ * It is the only thing about a group that is guaranteed to be unique. Nothing stops two
+ * groups sharing both a name and a bus message name — local data has two called `test`
+ * whose bus name is also `test` — and the id is what actually tells such a pair apart.
+ */
+export const workGroupQueueName = (group: { id: number; busMessageName: string }): string =>
+  `${group.id}${group.busMessageName}`;

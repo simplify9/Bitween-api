@@ -12,6 +12,7 @@ import { Table, type Column } from "../../components/ui/Table";
 import { UsedByCell, queueHealthTitle, useSubscriptionsCache } from "../../components/config/shared";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
+import { workGroupQueueName } from "../../lib/busMessageName";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
@@ -159,8 +160,13 @@ export function WorkGroupsPage() {
           columns={[
             { header: "Name", cell: (g) => <span className="font-medium text-ink-900">{g.name}</span> },
             {
-              header: "Bus message name",
-              cell: (g) => <code className="font-mono text-xs text-ink-600">{g.busMessageName}</code>,
+              // The queue rather than the bare bus message name: nothing stops two groups
+              // sharing both a name and a bus message name, and then neither column tells
+              // them apart. The queue carries the id, so it always does — and it is what
+              // these rows are called in RabbitMQ.
+              header: "Queue",
+              headerTitle: "The group's queue in RabbitMQ — its id followed by its bus message name.",
+              cell: (g) => <code className="font-mono text-xs text-ink-600">{workGroupQueueName(g)}</code>,
             },
             {
               header: "Used by",

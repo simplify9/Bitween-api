@@ -1126,6 +1126,12 @@ export interface ExchangeQuery {
   informationTypeId?: number;
   /** Comma/pipe/newline separated; matches id, retryFor OR aggregationXchangeId. */
   ids?: string;
+  /**
+   * The exchanges one run of a scheduled job created. The server reads the run's own list of
+   * them, so this says the same thing as spelling every id into `ids` — at any size, and
+   * without putting them all in the URL.
+   */
+  receiveAttemptId?: number;
   correlationId?: string;
   /**
    * Only the newest attempt of each retry chain. A chain is one piece of work however many
