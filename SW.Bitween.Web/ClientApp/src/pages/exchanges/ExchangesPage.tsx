@@ -35,7 +35,7 @@ const REFRESH_OPTIONS = [
 ];
 
 /** Everything except paging counts as "a filter" for the Clear affordance. */
-const FILTER_KEYS = ["status", "subscriptionId", "partnerId", "informationTypeId", "ids", "correlationId", "propertyKey", "property", "from", "to", "latest"] as const;
+const FILTER_KEYS = ["status", "subscriptionId", "partnerId", "informationTypeId", "ids", "receiveAttemptId", "correlationId", "propertyKey", "property", "from", "to", "latest"] as const;
 
 const readQuery = (sp: URLSearchParams): ExchangeQuery => ({
   status: (sp.get("status") as ExchangeStatus | null) ?? undefined,
@@ -43,6 +43,7 @@ const readQuery = (sp: URLSearchParams): ExchangeQuery => ({
   partnerId: sp.get("partnerId") ? Number(sp.get("partnerId")) : undefined,
   informationTypeId: sp.get("informationTypeId") ? Number(sp.get("informationTypeId")) : undefined,
   ids: sp.get("ids") ?? undefined,
+  receiveAttemptId: sp.get("receiveAttemptId") ? Number(sp.get("receiveAttemptId")) : undefined,
   correlationId: sp.get("correlationId") ?? undefined,
   latest: sp.get("latest") === "1" || undefined,
   propertyKey: sp.get("propertyKey") ?? undefined,

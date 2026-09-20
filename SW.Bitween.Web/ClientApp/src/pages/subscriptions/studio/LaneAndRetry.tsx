@@ -5,7 +5,9 @@ import { api } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
+import { CreateRetryPolicyDialog } from "../../../components/config/RetryPolicyDialog";
 import { keys } from "../../../api/queryKeys";
+import { workGroupQueueName } from "../../../lib/busMessageName";
 import { Fact } from "./Fact";
 
 /**
@@ -36,6 +38,7 @@ export function LaneAndRetry({
   idPrefix: string;
 }) {
   const canCreateWorkGroup = useSessionCan("workgroups.create");
+  const canCreateRetryPolicy = useSessionCan("retry-policies.create");
   const workGroups = useQuery({ queryKey: keys.workGroups.list, queryFn: () => api.listWorkGroups() });
   const retryPolicies = useQuery({
     queryKey: keys.retryPolicies.list,
@@ -43,6 +46,7 @@ export function LaneAndRetry({
   });
   /** undefined = closed, null = creating, number = editing that group. */
   const [groupDialog, setGroupDialog] = useState<number | null | undefined>(undefined);
+  const [creatingPolicy, setCreatingPolicy] = useState(false);
 
   return (
     <>
@@ -54,7 +58,13 @@ export function LaneAndRetry({
             disabled={!canEdit}
             onChange={(v) => onWorkGroupChange(v === "" ? null : Number(v))}
             clearLabel="Ungrouped (default lane)"
-            options={(workGroups.data ?? []).map((w) => ({ value: String(w.id), label: w.name }))}
+            options={(workGroups.data ?? []).map((w) => ({
+              value: String(w.id),
+              label: w.name,
+              // Two groups may share a name AND a bus message name, so neither tells them
+              // apart. The queue name carries the id, which is the part that always differs.
+              code: workGroupQueueName(w),
+            }))}
           />
         </div>
         <div className="mt-1 flex items-center gap-3">
@@ -89,20 +99,39 @@ export function LaneAndRetry({
             options={(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
           />
         </div>
-        {retryPolicyId !== null && (
-          <Link
-            to={`/retry-policies/${retryPolicyId}`}
-            className="mt-1 inline-block text-[12px] font-medium text-crimson-700 hover:underline"
-          >
-            View
-          </Link>
-        )}
+        <div className="mt-1 flex items-center gap-3">
+          {retryPolicyId !== null && (
+            <Link
+              to={`/retry-policies/${retryPolicyId}`}
+              className="text-[12px] font-medium text-crimson-700 hover:underline"
+            >
+              View
+            </Link>
+          )}
+          {canCreateRetryPolicy && (
+            <button
+              type="button"
+              onClick={() => setCreatingPolicy(true)}
+              className="text-[12px] font-medium text-crimson-700 hover:underline"
+            >
+              + New
+            </button>
+          )}
+        </div>
       </Fact>
       {groupDialog !== undefined && (
         <WorkGroupDialog
           groupId={groupDialog}
           onClose={() => setGroupDialog(undefined)}
           onSaved={onWorkGroupChange}
+        />
+      )}
+      {creatingPolicy && (
+        // Selects the new policy rather than navigating to it — the rest of the policy is
+        // configured behind "View", and leaving here would abandon the subscription edit.
+        <CreateRetryPolicyDialog
+          onClose={() => setCreatingPolicy(false)}
+          onCreated={onRetryPolicyChange}
         />
       )}
     </>

@@ -11,6 +11,7 @@ import { MatchExpressionEditor } from "../../../components/config/MatchExpressio
 import { HealthBadge } from "../../../components/config/shared";
 import { ResponseFields } from "../../subscriptions/studio/ResponseFields";
 import { keys } from "../../../api/queryKeys";
+import { workGroupQueueName } from "../../../lib/busMessageName";
 import {
   BUS_NODES,
   type BusNodeId,
@@ -281,7 +282,13 @@ export function SubscriptionBody({
             disabled={disabled}
             onChange={(v) => onChange({ workGroupId: v === "" ? null : Number(v) })}
             clearLabel="Ungrouped (default lane)"
-            options={(workGroups.data ?? []).map((w) => ({ value: String(w.id), label: w.name }))}
+            options={(workGroups.data ?? []).map((w) => ({
+              value: String(w.id),
+              label: w.name,
+              // Two groups may share a name AND a bus message name, so neither tells them
+              // apart. The queue name carries the id, which is the part that always differs.
+              code: workGroupQueueName(w),
+            }))}
           />
         </Field>
         <Field label="Retry policy" htmlFor="bs-int-rp">

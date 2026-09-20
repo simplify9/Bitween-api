@@ -23,7 +23,9 @@ function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
     mutationFn: () => api.createNotifier({ name }),
     onSuccess: (notifier) => {
       void queryClient.invalidateQueries({ queryKey: keys.notifiers.all });
-      navigate(`/notifiers/${notifier.id}`);
+      // replace, not push: the ?new=1 entry this dialog opened on is still behind us,
+      // and Back onto it would reopen the form that was just submitted.
+      navigate(`/notifiers/${notifier.id}`, { replace: true });
     },
   });
 

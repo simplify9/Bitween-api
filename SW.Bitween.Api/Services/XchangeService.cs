@@ -394,11 +394,22 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     private async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
     {
-        await cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings
+        var key = GetFileKey(xchangeId, type);
+        try
         {
-            Public = !BitweenSettings.AreXChangeFilesPrivate,
-            Key = GetFileKey(xchangeId, type)
-        });
+            await cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings
+            {
+                Public = !BitweenSettings.AreXChangeFilesPrivate,
+                Key = key
+            });
+            logger.LogDebug("Wrote the {FileType} file of xchange {XchangeId} to {Key}.", type, xchangeId, key);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not write the {FileType} file of xchange {XchangeId} to {Key}.",
+                type, xchangeId, key);
+            throw;
+        }
     }
 
     public string GetFileUrl(string xchangeId, XchangeFileType type)
@@ -415,23 +426,29 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         if (fileSize is null or 0)
             return null;
-        var key = $"{BitweenSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
-        logger.LogInformation($"the file key is:'{key}'");
-        return key;
+        return $"{BitweenSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
     }
 
     private string GetFileKey(string xchangeId, XchangeFileType type)
     {
-        var key = $"{BitweenSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
-        logger.LogInformation($"the file key is:'{key}'");
-        return key;
+        return $"{BitweenSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
     }
 
     public async Task<string> GetFile(string xchangeId, XchangeFileType type)
     {
-        await using var cloudStream = await cloudFiles.OpenReadAsync(GetFileKey(xchangeId, type));
-        using var reader = new StreamReader(cloudStream);
-        return await reader.ReadToEndAsync();
+        var key = GetFileKey(xchangeId, type);
+        try
+        {
+            await using var cloudStream = await cloudFiles.OpenReadAsync(key);
+            using var reader = new StreamReader(cloudStream);
+            return await reader.ReadToEndAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not read the {FileType} file of xchange {XchangeId} from {Key}.",
+                type, xchangeId, key);
+            throw;
+        }
     }
 
     private async Task Process(XchangeMessage message)

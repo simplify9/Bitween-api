@@ -34,6 +34,7 @@ namespace SW.Bitween.Resources.Xchanges
                 await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View, Model.Permissions.Dashboard.View);
 
             searchyRequest.DatesToUtc();
+            await XchangeFilters.ResolveReceiveAttemptFilterAsync(searchyRequest, dbContext);
             await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
 
             var query = from xchange in dbContext.Set<Xchange>()

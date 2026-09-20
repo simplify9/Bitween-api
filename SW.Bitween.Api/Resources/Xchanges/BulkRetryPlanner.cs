@@ -260,7 +260,7 @@ internal sealed class BulkRetryPlanner
 
         // One past the limit is all it takes to know the selection is too big, and stops a
         // "select all" over a wide filter from reading a million ids to refuse them.
-        return await SelectionQuery(request)
+        return await (await SelectionQuery(request))
             .Where(r => !exclude.Contains(r.Id))
             .Select(r => r.Id)
             .Take(Limit + 1)
@@ -270,7 +270,7 @@ internal sealed class BulkRetryPlanner
     private async Task<int> CountSelection(XchangeBulkRetry request)
     {
         var exclude = request.ExcludeIds ?? new List<string>();
-        return await SelectionQuery(request)
+        return await (await SelectionQuery(request))
             .Where(r => !exclude.Contains(r.Id))
             // Same reason the search caps its own count: counting every match has to visit every
             // matching row. The number is only being used to say "too many", so stopping early
@@ -290,10 +290,13 @@ internal sealed class BulkRetryPlanner
     /// in C#. Filtering on a column that is not here would silently match nothing, so a new filter
     /// on the list needs a column here too.
     /// </remarks>
-    private IQueryable<XchangeRow> SelectionQuery(XchangeBulkRetry request)
+    private async Task<IQueryable<XchangeRow>> SelectionQuery(XchangeBulkRetry request)
     {
         var searchyRequest = new SearchyRequest(request.Filter);
         searchyRequest.DatesToUtc();
+        // Async, and inside here rather than in the two callers, so a "select all matching" over a
+        // run selects exactly the rows the list showed for it.
+        await XchangeFilters.ResolveReceiveAttemptFilterAsync(searchyRequest, _dbContext);
 
         var query = from xchange in _dbContext.Set<Xchange>()
                     join result in _dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
