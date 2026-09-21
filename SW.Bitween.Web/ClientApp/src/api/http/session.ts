@@ -65,6 +65,16 @@ let logoutInFlight: AbortController | null = null;
 const abortPendingLogout = () => logoutInFlight?.abort();
 
 export const sessionMethods = {
+  /**
+   * The session this browser already holds, or null when there genuinely isn't one.
+   *
+   * Only an answer from the server counts as "signed out". This used to swallow every
+   * failure and return null, which reads as "no session" and sends the caller to the
+   * sign-in page — so a rate-limited or momentarily unreachable server signed people
+   * out mid-task while their token sat in localStorage, still perfectly good. Anything
+   * that is not an answer about *this* token is rethrown for the caller to show as the
+   * outage it is.
+   */
   async getSession(): Promise<Session | null> {
     // No stored Jwt → anonymous; don't probe the backend (an expired token still
     // gets refreshed via cookie inside request() on its 401). The token is only
@@ -72,9 +82,12 @@ export const sessionMethods = {
     if (!getToken()) return null;
     try {
       return await loadSession();
-    } catch {
-      // Token invalid and no refresh cookie → signed out. Show login, don't fake it.
-      return null;
+    } catch (e) {
+      // Token refused and no refresh cookie left to replace it → signed out for real.
+      // `request()` has already cleared the token and told the app by this point.
+      if (e instanceof ApiRequestError && (e.code === "UNAUTHENTICATED" || e.code === "HTTP_403"))
+        return null;
+      throw e;
     }
   },
 

@@ -1,19 +1,37 @@
 import type { ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
-import { Lock } from "lucide-react";
+import { CloudOff, Lock } from "lucide-react";
 import type { PermissionKey } from "../api";
 import { labelIn, usePermissionCatalog } from "../api/permissions";
+import { Button } from "../components/ui/basics";
 import { useSession } from "./SessionContext";
 
 /** Redirects to /login when signed out; shows a splash while checking. */
 export function RequireAuth() {
-  const { session, initializing } = useSession();
+  const { session, initializing, unreachable, retry } = useSession();
   const location = useLocation();
 
   if (initializing) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
         <img src={import.meta.env.BASE_URL + "brand/BitweenIcon.svg"} alt="Bitween" className="size-10 animate-pulse" />
+      </div>
+    );
+  }
+  // Nobody said this session was over — the server could not be asked. Sending someone
+  // to sign in here would be a lie, and one that loses the page they were on and invites
+  // them to re-enter a password they never needed to.
+  if (unreachable) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
+        <span className="flex size-12 items-center justify-center rounded-full bg-ink-100 text-ink-400">
+          <CloudOff className="size-5" />
+        </span>
+        <h1 className="text-lg font-semibold text-ink-900">Can't reach Bitween</h1>
+        <p className="max-w-prose text-sm text-ink-500">
+          You are still signed in — the server just didn't answer. This usually clears on its own.
+        </p>
+        <Button onClick={retry}>Try again</Button>
       </div>
     );
   }

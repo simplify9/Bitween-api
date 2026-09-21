@@ -24,6 +24,14 @@ interface SessionContextValue {
   /** Re-fetch the session after profile changes. */
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
+  /**
+   * Set when the server could not be asked whether this browser's token is still good
+   * — rate limited, down, or unreachable. Distinct from `session === null`, which
+   * means it answered and the answer was no.
+   */
+  unreachable: boolean;
+  /** Ask again after `unreachable`. */
+  retry: () => void;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -42,15 +50,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    */
   const generation = useRef(0);
 
+  const [unreachable, setUnreachable] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setUnreachable(false);
+    setInitializing(true);
+    setAttempt((n) => n + 1);
+  }, []);
+
   useEffect(() => {
     const startedAt = generation.current;
     api
       .getSession()
       .then((next) => {
-        if (generation.current === startedAt) setSession(next);
+        if (generation.current !== startedAt) return;
+        setSession(next);
+        setUnreachable(false);
+      })
+      .catch(() => {
+        // Not "signed out": `getSession` only resolves to null when the server said so.
+        // Reaching here means it could not be asked, and the token this browser holds
+        // may well still be good — so keep it and say the server is unreachable rather
+        // than sending someone to sign in again for a blip.
+        if (generation.current === startedAt) setUnreachable(true);
       })
       .finally(() => setInitializing(false));
-  }, []);
+  }, [attempt]);
 
   const adoptSession = useCallback(
     (next: Session) => {
@@ -150,8 +175,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       adoptSession,
       refresh,
       signOut,
+      unreachable,
+      retry,
     }),
-    [session, initializing, signIn, signInWithMicrosoft, adoptSession, refresh, signOut],
+    [
+      session,
+      initializing,
+      signIn,
+      signInWithMicrosoft,
+      adoptSession,
+      refresh,
+      signOut,
+      unreachable,
+      retry,
+    ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
