@@ -21,6 +21,7 @@ export function Popover({
   label,
   children,
   width = "w-72",
+  closeOnScroll = true,
 }: {
   /** Rendered inside the trigger button. */
   button: ReactNode;
@@ -30,6 +31,14 @@ export function Popover({
   children: ReactNode;
   /** Tailwind width class for the panel. */
   width?: string;
+  /**
+   * Off for a trigger that cannot scroll away from its panel — one in a fixed
+   * toolbar, say. The scroll listener is on `document` in the capture phase, so
+   * it fires for *any* scrolling element on the page, including a pane that
+   * merely re-rendered somewhere else; where the trigger never moves, that
+   * closes the panel under the person using it for no reason.
+   */
+  closeOnScroll?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -61,7 +70,7 @@ export function Popover({
 
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
-    document.addEventListener("scroll", onScroll, true);
+    if (closeOnScroll) document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
       document.removeEventListener("mousedown", onDown);
@@ -69,7 +78,7 @@ export function Popover({
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
-  }, [open]);
+  }, [open, closeOnScroll]);
 
   return (
     <>

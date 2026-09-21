@@ -6,6 +6,7 @@ import {
   expectPreview,
   openMapper,
   preview,
+  withFormats,
 } from "./mapperHelpers";
 
 /**
@@ -42,11 +43,13 @@ async function openWithCsv(page: import("@playwright/test").Page, sample: string
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
 
-  await page.getByLabel("From format").selectOption("csv");
-  await page.getByLabel("source delimiter").selectOption(delimiter);
-  const box = page.getByRole("checkbox", { name: "source header row" });
-  if (header) await box.check();
-  else await box.uncheck();
+  await withFormats(page, async () => {
+    await page.getByLabel("From format").selectOption("csv");
+    await page.getByLabel("source delimiter").selectOption(delimiter);
+    const box = page.getByRole("checkbox", { name: "source header row" });
+    if (header) await box.check();
+    else await box.uncheck();
+  });
 
   await page.getByRole("textbox", { name: "Sample source document" }).fill(sample);
   return subscriptionId;
@@ -142,9 +145,11 @@ test("writing a delimited file takes its delimiter and header from the target si
 }) => {
   await openWithCsv(page, TRACKING, "|", false);
 
-  await page.getByLabel("To format").selectOption("csv");
-  await page.getByLabel("target delimiter").selectOption(";");
-  await page.getByRole("checkbox", { name: "target header row" }).check();
+  await withFormats(page, async () => {
+    await page.getByLabel("To format").selectOption("csv");
+    await page.getByLabel("target delimiter").selectOption(";");
+    await page.getByRole("checkbox", { name: "target header row" }).check();
+  });
 
   const root = await rootListOverTheDocument(page);
   await page.getByRole("button", { name: "Settings for the list at the root" }).click();
@@ -163,7 +168,7 @@ test("writing a delimited file takes its delimiter and header from the target si
 
 test("a nested rule becomes a dotted column", async ({ page }) => {
   await openWithCsv(page, MOVEMENTS, ",", true);
-  await page.getByLabel("To format").selectOption("csv");
+  await withFormats(page, () => page.getByLabel("To format").selectOption("csv"));
 
   const root = await rootListOverTheDocument(page);
   // A row is flat, so the nesting has to land somewhere. The name box splits on dots, so
@@ -176,7 +181,7 @@ test("a nested rule becomes a dotted column", async ({ page }) => {
 
 test("a shape a row cannot hold is refused with a reason", async ({ page }) => {
   await openWithCsv(page, MOVEMENTS, ",", true);
-  await page.getByLabel("To format").selectOption("csv");
+  await withFormats(page, () => page.getByLabel("To format").selectOption("csv"));
 
   // A list inside a row. There is no cell that holds one, and inventing a way to fit it —
   // joining the entries, taking the first — would lose data without a word.
@@ -208,9 +213,11 @@ test("the carrier's whole file can be produced, trailer count and all", async ({
   // client's ends with a record carrying how many records came before it.
   await openWithCsv(page, TRACKING, "|", false);
 
-  await page.getByLabel("To format").selectOption("csv");
-  await page.getByLabel("target delimiter").selectOption("|");
-  await page.getByRole("checkbox", { name: "target header row" }).uncheck();
+  await withFormats(page, async () => {
+    await page.getByLabel("To format").selectOption("csv");
+    await page.getByLabel("target delimiter").selectOption("|");
+    await page.getByRole("checkbox", { name: "target header row" }).uncheck();
+  });
 
   const root = await rootListOverTheDocument(page);
   await page.getByRole("button", { name: "Settings for the list at the root" }).click();
@@ -261,7 +268,7 @@ test("counting is offered inside a list and nowhere else", async ({ page }) => {
 
 test("a file can be marked so Excel opens accented names correctly", async ({ page }) => {
   await openWithCsv(page, MOVEMENTS, ",", true);
-  await page.getByLabel("To format").selectOption("csv");
+  await withFormats(page, () => page.getByLabel("To format").selectOption("csv"));
 
   const root = await rootListOverTheDocument(page);
   await addListField(root, "the root list", "shipment", "ShipmentNumber");
@@ -270,7 +277,9 @@ test("a file can be marked so Excel opens accented names correctly", async ({ pa
   // The mark itself is invisible, so what is checked is that asking for it changes the
   // document the server produced rather than that anything looks different.
   const before = await preview(page).textContent();
-  await page.getByRole("checkbox", { name: "write a byte-order mark" }).check();
+  await withFormats(page, () =>
+    page.getByRole("checkbox", { name: "write a byte-order mark" }).check(),
+  );
   await expect
     .poll(async () => (await preview(page).textContent())?.charCodeAt(0), { timeout: 15000 })
     .toBe(0xfeff);

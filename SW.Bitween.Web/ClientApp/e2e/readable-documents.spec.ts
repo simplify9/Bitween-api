@@ -6,6 +6,7 @@ import {
   expectPreview,
   openMapper,
   preview,
+  withFormats,
 } from "./mapperHelpers";
 
 /**
@@ -40,7 +41,7 @@ test.beforeEach(async ({ page }) => {
 test("lays out a one-line XML sample, and the tree still reads it", async ({ page }) => {
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
-  await page.getByLabel("From format").selectOption("xml");
+  await withFormats(page, () => page.getByLabel("From format").selectOption("xml"));
 
   const sample = page.getByRole("textbox", { name: "Sample source document" });
   await sample.fill(MINIFIED_XML);
@@ -133,7 +134,7 @@ test("the mapped document is coloured, in whichever format it is written", async
 
   // Switching the output to XML colours it as XML, because the mapping declares the
   // format rather than the pane guessing from the text.
-  await page.getByLabel("To format").selectOption("xml");
+  await withFormats(page, () => page.getByLabel("To format").selectOption("xml"));
   await page.getByRole("textbox", { name: "Output field name" }).first().fill("order");
   await expect(preview.locator(".hljs-name").first()).toBeVisible({ timeout: 15000 });
 });

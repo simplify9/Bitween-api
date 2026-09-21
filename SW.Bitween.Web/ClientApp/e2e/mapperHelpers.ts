@@ -63,6 +63,26 @@ export async function openWithSample(page: Page, sample: unknown = SAMPLE): Prom
   return subscriptionId;
 }
 
+/**
+ * Runs `set` with the format panel open, and closes it afterwards.
+ *
+ * What the mapping reads and writes sits behind a summary chip rather than in the
+ * toolbar row, so a test that changes a format has to open the panel first — and the
+ * panel covers the rules underneath, so it has to be closed before touching them.
+ */
+export async function withFormats(page: Page, set: () => Promise<unknown>) {
+  const chip = page.getByRole("button", { name: "What this mapping reads and writes" });
+  const panel = page.getByLabel("From format");
+
+  // Waited for on both sides because the chip toggles: acting before the panel has
+  // opened, or opening again before the last one has gone, closes it instead.
+  await chip.click();
+  await expect(panel).toBeVisible({ timeout: 15000 });
+  await set();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden({ timeout: 15000 });
+}
+
 /** Pastes an output sample into the toolbar panel and builds the rules from it. */
 export async function buildFromSample(page: Page, target: unknown) {
   await page.getByRole("button", { name: "Build from a sample of the output" }).click();

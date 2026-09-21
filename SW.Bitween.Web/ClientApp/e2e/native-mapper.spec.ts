@@ -220,7 +220,9 @@ test("the editor opens for the mapper you picked, not the one that is saved", as
   // Saved as the old mapper, picking the new one: the new editor, no save in between.
   await pickOption(page, "mapper adapter", "NativeMapper");
   await link.click();
-  await expect(page.getByLabel("From format")).toBeVisible({ timeout: 15000 });
+  await expect(
+    page.getByRole("button", { name: "What this mapping reads and writes" }),
+  ).toBeVisible({ timeout: 15000 });
 
   // And back the other way, which is the same bug reversed.
   await page.goto(`subscriptions/${subscriptionId}/mapper?mapper=NativeJSONMapper`);
