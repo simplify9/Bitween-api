@@ -1,4 +1,5 @@
-﻿using SW.Bitween.Domain;
+﻿using System.Linq;
+using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
             // the insert, so a partner is never created half-configured.
             if (model.AdapterProperties != null)
                 entity.AdapterProperties = model.AdapterProperties;
+            entity.SecretProperties = model.SecretProperties?.ToList() ?? [];
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             return entity.Id;

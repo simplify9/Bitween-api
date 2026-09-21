@@ -10,6 +10,12 @@ namespace SW.Bitween.Model
 
         public string Name { get; set; } = null!;
         public Dictionary<string, string> Values { get; set; } = new();
+
+        /// <summary>
+        /// Which of <see cref="Values"/> are secrets. Masked with the <c>__private__</c> sentinel
+        /// on the way out, restored from storage when the sentinel comes back.
+        /// </summary>
+        public ICollection<string> SecretProperties { get; set; } = [];
     }
 
     // Id is inherited from GlobalAdapterValuesSetCreate. Redeclaring it here shadowed the base

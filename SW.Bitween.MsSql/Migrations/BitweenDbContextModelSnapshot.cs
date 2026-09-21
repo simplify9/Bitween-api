@@ -766,6 +766,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("SecretProperties")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Values")
                         .HasColumnType("nvarchar(max)");
 
@@ -862,6 +865,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(200)
                         .IsUnicode(false)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<string>("SecretProperties")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

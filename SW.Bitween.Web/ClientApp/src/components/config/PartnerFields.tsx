@@ -30,21 +30,34 @@ import { keys } from "../../api/queryKeys";
 export interface PartnerDraft {
   name: string;
   properties: KvRow[];
+  /** Property names whose values the API hides; their values ride along as the sentinel. */
+  secretProperties: string[];
 }
 
-export const partnerDraftOf = (p: Pick<Partner, "name" | "adapterProperties">): PartnerDraft => ({
+export const partnerDraftOf = (
+  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties">,
+): PartnerDraft => ({
   name: p.name,
   properties: toRows(p.adapterProperties),
+  secretProperties: [...p.secretProperties],
 });
 
 export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean =>
   draft.name !== saved.name ||
-  JSON.stringify(toRecord(draft.properties)) !== JSON.stringify(toRecord(saved.properties));
+  JSON.stringify(toRecord(draft.properties)) !== JSON.stringify(toRecord(saved.properties)) ||
+  // Locking a property changes nothing about its value, so the value comparison above
+  // cannot see it — without this the save bar never appears for a lock on its own.
+  JSON.stringify([...draft.secretProperties].sort()) !==
+    JSON.stringify([...saved.secretProperties].sort());
 
 /** What the host sends to `updatePartner`. */
 export const partnerChanges = (draft: PartnerDraft) => ({
   name: draft.name.trim(),
   adapterProperties: toRecord(draft.properties.filter((r) => r.key.trim())),
+  // A lock on a property that was renamed or removed would otherwise linger forever.
+  secretProperties: draft.secretProperties.filter((n) =>
+    draft.properties.some((r) => r.key.trim().toLowerCase() === n.toLowerCase()),
+  ),
 });
 
 export function PartnerFields({
@@ -98,7 +111,7 @@ export function PartnerFields({
 
       <Panel
         title="Properties"
-        description="Key-value settings adapters can reference — use the reference token inside any adapter field."
+        description="Key-value settings adapters can reference — use the reference token inside any adapter field. Lock one to keep its value out of the API and off this page."
       >
         <KeyValueEditor
           rows={draft.properties}
@@ -109,6 +122,10 @@ export function PartnerFields({
           valuePlaceholder="CR-114"
           editable={canEdit}
           token={(row) => `{{partner.${row.key.trim()}}}`}
+          secrets={{
+            names: draft.secretProperties,
+            onChange: (secretProperties) => onChange({ ...draft, secretProperties }),
+          }}
           emptyText="No properties yet."
           rowDetails={(row) => {
             if (!row.key.trim() || partnerId === null) return null;

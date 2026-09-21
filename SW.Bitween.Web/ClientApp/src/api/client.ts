@@ -131,10 +131,18 @@ export interface ApiClient {
   getPartner(id: number): Promise<PartnerDetail>;
   /** Light fetch used by the mapper editor's test-partner selector. */
   getPartnerAdapterProperties(id: number): Promise<Record<string, string>>;
-  createPartner(input: { name: string; adapterProperties?: Record<string, string> }): Promise<Partner>;
+  createPartner(input: {
+    name: string;
+    adapterProperties?: Record<string, string>;
+    secretProperties?: string[];
+  }): Promise<Partner>;
   updatePartner(
     id: number,
-    changes: { name?: string; adapterProperties?: Record<string, string> },
+    changes: {
+      name?: string;
+      adapterProperties?: Record<string, string>;
+      secretProperties?: string[];
+    },
   ): Promise<Partner>;
   deletePartner(id: number): Promise<void>;
   /** Returns the full key exactly once; afterwards only a prefix is ever shown. */
@@ -173,10 +181,11 @@ export interface ApiClient {
     id: string;
     name: string;
     values: Record<string, string>;
+    secretProperties?: string[];
   }): Promise<GlobalValuesSetRow>;
   updateValueSet(
     id: string,
-    changes: { name: string; values: Record<string, string> },
+    changes: { name: string; values: Record<string, string>; secretProperties?: string[] },
   ): Promise<GlobalValuesSetRow>;
   deleteValueSet(id: string): Promise<void>;
 

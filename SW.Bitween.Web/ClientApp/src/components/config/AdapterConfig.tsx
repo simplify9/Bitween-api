@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Braces, ChevronDown, ChevronRight, Search } from "lucide-react";
-import { api, type AdapterInfo, type AdapterKind, type PartnerRow } from "../../api";
+import { api, SECRET_SENTINEL, type AdapterInfo, type AdapterKind, type PartnerRow } from "../../api";
 import { Button } from "../ui/basics";
 import { Field } from "../ui/forms";
 import { AdapterPicker, useAdapterCatalog } from "./AdapterPicker";
@@ -49,7 +49,10 @@ function useReferenceTokens() {
     Object.entries(s.values).map(([key, value]) => ({
       label: `${s.id}.${key}`,
       token: `{{globals.${s.id}.${key}}}`,
-      value,
+      // A locked value arrives as the sentinel. It is still perfectly usable as a
+      // reference — the substitution happens on the server — so the token stays in
+      // the list and only its preview is withheld.
+      value: value === SECRET_SENTINEL ? undefined : value,
     })),
   );
   // propertyKeys, not adapterProperties: the list endpoint deliberately withholds
@@ -76,6 +79,12 @@ function PartnerPropValue({ partnerId, propKey }: { partnerId: number; propKey: 
   });
   if (props.isPending) return <span className="text-ink-300">loading…</span>;
   const value = props.data?.[propKey];
+  if (value === SECRET_SENTINEL)
+    return (
+      <span className="text-ink-400" title="Locked on the partner — resolved on the server at run time">
+        secret
+      </span>
+    );
   return (
     <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] break-all text-ink-700">
       {value === undefined || value === "" ? "—" : value}
@@ -169,8 +178,11 @@ function ReferenceMenu({
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-ink-50"
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
-                    <span className="max-w-24 shrink-0 truncate text-xs text-ink-400" title={t.value}>
-                      {t.value}
+                    <span
+                      className="max-w-24 shrink-0 truncate text-xs text-ink-400"
+                      title={t.value ?? "Locked — the value is never sent to this page"}
+                    >
+                      {t.value ?? "secret"}
                     </span>
                   </button>
                 ))}
@@ -310,6 +322,15 @@ function ReferenceHints({
   );
 }
 
+/**
+ * Whether a value is a reference and nothing else. Substitution happens on the
+ * server, so what sits in the field is the pointer — worth showing even on a field
+ * the adapter marked secure, because an operator who cannot see which partner
+ * property a password comes from cannot tell a correct wiring from a typo.
+ */
+const isPureReference = (value: string): boolean =>
+  /^\s*\{\{(globals\.[^.{}]+\.[^{}]+|partner\.[^{}]+)\}\}\s*$/i.test(value);
+
 /** One adapter property: grows with content, can insert reference tokens. */
 function PropField({
   prop,
@@ -344,7 +365,9 @@ function PropField({
     onChange(next);
   };
 
-  const masked = prop.secret && !!value && !entering;
+  // A value that is nothing but a reference token is a pointer, not a secret — masking
+  // it would make the field uneditable and hide a config mistake behind dots.
+  const masked = prop.secret && !!value && !entering && !isPureReference(value);
 
   // Insert at the cursor (or over the current selection) instead of always
   // appending, so picking a second reference doesn't just tack it onto the end.
@@ -392,7 +415,7 @@ function PropField({
               {value || prop.default || " "}{" "}
             </span>
           </div>
-          {!disabled && !prop.secret && (globals.length > 0 || partnerKeys.length > 0) && (
+          {!disabled && (globals.length > 0 || partnerKeys.length > 0) && (
             <ReferenceMenu
               globals={globals}
               partnerKeys={partnerKeys}

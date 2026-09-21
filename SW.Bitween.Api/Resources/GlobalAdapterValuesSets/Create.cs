@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +23,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext, I
             {
                 Id = request.Id,
                 Name = request.Name,
-                Values = request.Values
+                Values = request.Values,
+                SecretProperties = request.SecretProperties?.ToList() ?? []
             };
 
             dbContext.Add(entity);
