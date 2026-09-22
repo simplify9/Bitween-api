@@ -11,6 +11,7 @@ interface RawValueSet {
   id: string;
   name: string;
   values: Record<string, string> | null;
+  secretProperties?: string[] | null;
 }
 interface RawKeyAndValue {
   key: string;
@@ -53,6 +54,7 @@ const toRow = (r: RawValueSet): GlobalValuesSet => ({
   id: r.id,
   name: r.name,
   values: r.values ?? {},
+  secretProperties: r.secretProperties ?? [],
   createdOn: "",
 });
 
@@ -93,17 +95,35 @@ export const globalValuesMethods = {
     return { ...toRow(r), usedBy };
   },
 
-  async createValueSet(input: { id: string; name: string; values: Record<string, string> }): Promise<GlobalValuesSetRow> {
-    await post("/globaladaptervaluessets", { id: input.id, name: input.name, values: input.values });
-    return toRow(input);
+  async createValueSet(input: {
+    id: string;
+    name: string;
+    values: Record<string, string>;
+    secretProperties?: string[];
+  }): Promise<GlobalValuesSetRow> {
+    const secretProperties = input.secretProperties ?? [];
+    await post("/globaladaptervaluessets", {
+      id: input.id,
+      name: input.name,
+      values: input.values,
+      secretProperties,
+    });
+    return toRow({ ...input, secretProperties });
   },
 
   async updateValueSet(
     id: string,
-    changes: { name: string; values: Record<string, string> },
+    changes: { name: string; values: Record<string, string>; secretProperties?: string[] },
   ): Promise<GlobalValuesSetRow> {
-    await post(`/globaladaptervaluessets/${id}`, { name: changes.name, values: changes.values });
-    return toRow({ id, ...changes });
+    // Values the operator did not retype are still SECRET_SENTINEL here, which is exactly
+    // what the backend reads as "keep what is stored".
+    const secretProperties = changes.secretProperties ?? [];
+    await post(`/globaladaptervaluessets/${id}`, {
+      name: changes.name,
+      values: changes.values,
+      secretProperties,
+    });
+    return toRow({ id, ...changes, secretProperties });
   },
 
   async deleteValueSet(id: string): Promise<void> {

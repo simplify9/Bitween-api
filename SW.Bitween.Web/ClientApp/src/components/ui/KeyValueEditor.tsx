@@ -1,5 +1,6 @@
-import { Fragment, useState, type ReactNode } from "react";
-import { Check, Copy, Plus, Trash2 } from "lucide-react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
+import { Check, Copy, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { SECRET_SENTINEL } from "../../api";
 import { Button } from "./basics";
 
 export interface KvRow {
@@ -50,6 +51,77 @@ function GrowingValueInput({
 }
 
 /**
+ * A stored secret's value: dots, with a Replace button, exactly as adapter config
+ * shows one. Used whenever the value is the sentinel, which covers both a row that
+ * is still marked secret and one just unmarked — unmarking cannot reveal the value
+ * on its own, because the browser was never sent it.
+ */
+function SecretValueCell({
+  value,
+  disabled,
+  placeholder,
+  ariaLabel,
+  stillSecret,
+  onChange,
+}: {
+  value: string;
+  disabled: boolean;
+  placeholder?: string;
+  ariaLabel: string;
+  stillSecret: boolean;
+  onChange: (value: string) => void;
+}) {
+  // Keyed off "is the operator part-way through typing", not off whether the box
+  // holds text — the latter re-masks on the first keystroke and hides what they typed.
+  const [entering, setEntering] = useState(false);
+  const lastEmitted = useRef<string | null>(null);
+
+  // A save or a discard re-supplies the value from the server. Anything this field
+  // did not emit means the draft was reset from outside, so mask it again.
+  useEffect(() => {
+    if (value !== lastEmitted.current) setEntering(false);
+  }, [value]);
+
+  const emit = (next: string) => {
+    lastEmitted.current = next;
+    setEntering(true);
+    onChange(next);
+  };
+
+  if (!entering && value === SECRET_SENTINEL) {
+    return (
+      <div
+        className="flex h-8.5 items-center justify-between rounded-md border border-ink-200 bg-ink-50 px-2.5"
+        title={
+          stillSecret
+            ? "Stored and hidden. Replace it to set a new value."
+            : "Still hidden — save to reveal this value."
+        }
+      >
+        <span className="font-mono text-sm tracking-widest text-ink-400" aria-label={ariaLabel}>
+          ••••••••
+        </span>
+        {!disabled && (
+          <Button size="sm" variant="ghost" onClick={() => emit("")}>
+            Replace
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <GrowingValueInput
+      value={value}
+      disabled={disabled}
+      placeholder={placeholder}
+      ariaLabel={ariaLabel}
+      onChange={emit}
+    />
+  );
+}
+
+/**
  * The runtime reference token, click-to-copy. Wraps instead of truncating —
  * a cut-off token is useless since it can't be pasted correctly.
  */
@@ -86,7 +158,9 @@ function ReferenceToken({ token }: { token: string }) {
  * promoted properties. Fully controlled: the parent owns the draft rows
  * and decides when to save. `token` renders the runtime reference for a
  * row (e.g. {{partner.KEY}}); `rowDetails` renders a per-row note under it
- * (e.g. "where is this used?"), always visible.
+ * (e.g. "where is this used?"), always visible. `secrets` adds a lock column:
+ * a locked value never leaves the server, so it reads back as the sentinel and
+ * shows as dots until someone replaces it.
  */
 export function KeyValueEditor({
   rows,
@@ -101,6 +175,7 @@ export function KeyValueEditor({
   keyWidthClass = "w-40 sm:w-48 lg:w-56",
   valueWidthClass = "w-56 sm:w-72 lg:w-96",
   rowDetails,
+  secrets,
 }: {
   rows: KvRow[];
   onChange: (rows: KvRow[]) => void;
@@ -115,8 +190,24 @@ export function KeyValueEditor({
   keyWidthClass?: string;
   valueWidthClass?: string;
   rowDetails?: (row: KvRow) => ReactNode | null;
+  /** Omit entirely for editors whose values are never secrets. */
+  secrets?: { names: string[]; onChange: (names: string[]) => void };
 }) {
   const [focusLast, setFocusLast] = useState(false);
+
+  // Names are compared case-insensitively, matching how the resolver looks a key up.
+  const isSecret = (key: string) =>
+    !!secrets && secrets.names.some((n) => n.toLowerCase() === key.trim().toLowerCase());
+
+  const toggleSecret = (key: string) => {
+    const name = key.trim();
+    if (!secrets || !name) return;
+    secrets.onChange(
+      isSecret(name)
+        ? secrets.names.filter((n) => n.toLowerCase() !== name.toLowerCase())
+        : [...secrets.names, name],
+    );
+  };
 
   const update = (index: number, patch: Partial<KvRow>) =>
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
@@ -132,7 +223,7 @@ export function KeyValueEditor({
     return <p className="text-sm text-ink-500">{emptyText}</p>;
   }
 
-  const columns = 2 + (token ? 1 : 0) + (editable ? 1 : 0);
+  const columns = 2 + (token ? 1 : 0) + (secrets ? 1 : 0) + (editable ? 1 : 0);
 
   return (
     <div>
@@ -143,6 +234,11 @@ export function KeyValueEditor({
               <th className={`${keyWidthClass} pb-1.5 pr-3 font-medium`}>{keyLabel}</th>
               <th className={`${valueWidthClass} pb-1.5 pr-3 font-medium`}>{valueLabel}</th>
               {token && <th className="hidden w-56 pb-1.5 pr-3 font-medium xl:table-cell">Reference</th>}
+              {secrets && (
+                <th className="w-10 pb-1.5 pr-3 font-medium" title="Hide this value from the API and from this page">
+                  Secret
+                </th>
+              )}
               {editable && <th className="w-8 pb-1.5" />}
             </tr>
           </thead>
@@ -162,17 +258,57 @@ export function KeyValueEditor({
                     />
                   </td>
                   <td className="py-1 pr-3">
-                    <GrowingValueInput
-                      value={row.value}
-                      disabled={!editable}
-                      placeholder={valuePlaceholder}
-                      onChange={(value) => update(i, { value })}
-                      ariaLabel={`${valueLabel} ${i + 1}`}
-                    />
+                    {secrets && (isSecret(row.key) || row.value === SECRET_SENTINEL) ? (
+                      <SecretValueCell
+                        value={row.value}
+                        disabled={!editable}
+                        placeholder={valuePlaceholder}
+                        ariaLabel={`${valueLabel} ${i + 1}`}
+                        stillSecret={isSecret(row.key)}
+                        onChange={(value) => update(i, { value })}
+                      />
+                    ) : (
+                      <GrowingValueInput
+                        value={row.value}
+                        disabled={!editable}
+                        placeholder={valuePlaceholder}
+                        onChange={(value) => update(i, { value })}
+                        ariaLabel={`${valueLabel} ${i + 1}`}
+                      />
+                    )}
                   </td>
                   {token && (
                     <td className="hidden pt-1.5 pb-1 pr-3 xl:table-cell">
                       {row.key.trim() && <ReferenceToken token={token(row)} />}
+                    </td>
+                  )}
+                  {secrets && (
+                    <td className="pt-1.5 pb-1 pr-3">
+                      {row.key.trim() && (
+                        <button
+                          type="button"
+                          disabled={!editable}
+                          onClick={() => toggleSecret(row.key)}
+                          aria-pressed={isSecret(row.key)}
+                          aria-label={`Mark ${row.key.trim()} secret`}
+                          title={
+                            isSecret(row.key)
+                              ? "Secret: the value is never sent back to this page. Click to unlock."
+                              : "Ordinary value, readable by anyone who can open this page. Click to make it secret."
+                          }
+                          className={`rounded-md p-1.5 disabled:cursor-default ${
+                            isSecret(row.key)
+                              ? "text-crimson-600 hover:bg-crimson-50"
+                              : "text-ink-300 hover:bg-ink-100 hover:text-ink-500"
+                          }`}
+                        >
+                          {isSecret(row.key) ? (
+                            <Lock className="size-3.5" />
+                          ) : (
+                            <LockOpen className="size-3.5" />
+                          )}
+                        </button>
+                      )}
                     </td>
                   )}
                   {editable && (

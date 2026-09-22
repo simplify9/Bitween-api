@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation;
 using SW.Bitween.Domain;
@@ -18,7 +19,10 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
                 throw new SWValidationException("NOT_FOUND", $"GlobalAdapterValuesSet with id {key} was not found");
 
             entity.Name = request.Name;
-            entity.Values = request.Values;
+            // A secret the form did not touch comes back as the sentinel; restore it from storage
+            // rather than saving the mask.
+            entity.Values = AdapterSecretProperties.Merge(entity.Values, request.Values);
+            entity.SecretProperties = request.SecretProperties?.ToList() ?? [];
 
             await dbContext.SaveChangesAsync();
             await cache.BroadcastRevoke();

@@ -33,6 +33,7 @@ export function GlobalValueSetPage() {
 
   const [name, setName] = useState("");
   const [rows, setRows] = useState<KvRow[] | null>(null);
+  const [secretKeys, setSecretKeys] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -40,17 +41,33 @@ export function GlobalValueSetPage() {
     if (!loaded && set.data) {
       setName(set.data.name);
       setRows(toRows(set.data.values));
+      setSecretKeys([...set.data.secretProperties]);
       setLoaded(true);
     }
   }, [set.data, loaded]);
 
   const dirty = useMemo(() => {
     if (!set.data || rows === null) return false;
-    return name !== set.data.name || JSON.stringify(toRecord(rows)) !== JSON.stringify(set.data.values);
-  }, [set.data, name, rows]);
+    return (
+      name !== set.data.name ||
+      JSON.stringify(toRecord(rows)) !== JSON.stringify(set.data.values) ||
+      // Locking a value leaves the value itself untouched, so the comparison above
+      // cannot see it on its own.
+      JSON.stringify([...secretKeys].sort()) !==
+        JSON.stringify([...set.data.secretProperties].sort())
+    );
+  }, [set.data, name, rows, secretKeys]);
 
   const save = useMutation({
-    mutationFn: () => api.updateValueSet(id, { name, values: toRecord(rows ?? []) }),
+    mutationFn: () =>
+      api.updateValueSet(id, {
+        name,
+        values: toRecord(rows ?? []),
+        // A lock left behind by a renamed or deleted key would linger forever.
+        secretProperties: secretKeys.filter((n) =>
+          (rows ?? []).some((r) => r.key.trim().toLowerCase() === n.toLowerCase()),
+        ),
+      }),
     onSuccess: async () => {
       // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
       await queryClient.invalidateQueries({ queryKey: keys.valueSets.all });
@@ -94,7 +111,7 @@ export function GlobalValueSetPage() {
         <div className="min-w-0 space-y-5">
           <Panel
             title="Values"
-            description="Paste a reference into any adapter field to use a value."
+            description="Paste a reference into any adapter field to use a value. Lock one to keep it out of the API and off this page."
           >
             <KeyValueEditor
               rows={rows ?? []}
@@ -105,6 +122,7 @@ export function GlobalValueSetPage() {
               valuePlaceholder="https://…"
               editable={canEdit}
               token={(row) => `{{globals.${s.id}.${row.key.trim()}}}`}
+              secrets={{ names: secretKeys, onChange: setSecretKeys }}
               emptyText="No values yet."
               rowDetails={(row) => {
                 if (!row.key.trim()) return null;

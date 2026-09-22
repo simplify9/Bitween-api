@@ -17,7 +17,7 @@ namespace SW.Bitween.Resources.Partners
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Partners.View);
 
-            return await dbContext.Set<Partner>().AsNoTracking().
+            var partner = await dbContext.Set<Partner>().AsNoTracking().
                 Search("Id", key).
                 Select(partner => new PartnerUpdate
                 {
@@ -38,9 +38,17 @@ namespace SW.Bitween.Resources.Partners
 
                     }).ToList(),
 
-                    AdapterProperties = partner.AdapterProperties
+                    AdapterProperties = partner.AdapterProperties,
+                    SecretProperties = partner.SecretProperties
 
                 }).AsNoTracking().SingleOrDefaultAsync();
+
+            // The names come back so the form can draw the locks; the values behind them do not.
+            if (partner != null)
+                partner.AdapterProperties =
+                    AdapterSecretProperties.Mask(partner.AdapterProperties, partner.SecretProperties);
+
+            return partner;
         }
     }
 }

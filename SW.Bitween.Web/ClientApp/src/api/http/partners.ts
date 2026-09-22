@@ -29,6 +29,7 @@ interface RawPartnerDetail {
   name: string;
   apiCredentials: RawKeyAndValue[] | null;
   adapterProperties: Record<string, string> | null;
+  secretProperties: string[] | null;
 }
 
 // GET masks keys as `<first-5>...(hidden)`; recover the visible prefix.
@@ -51,14 +52,18 @@ async function requireDetail(id: number): Promise<RawPartnerDetail> {
 async function writePartner(
   id: number,
   d: RawPartnerDetail,
-  patch: { name?: string; adapterProperties?: Record<string, string> },
+  patch: { name?: string; adapterProperties?: Record<string, string>; secretProperties?: string[] },
   mutate: (creds: RawKeyAndValue[]) => RawKeyAndValue[] = (c) => c,
 ): Promise<Partner> {
   const name = patch.name ?? d.name;
+  // Secrets read back as SECRET_SENTINEL, and sending the sentinel means "keep what is
+  // stored" — so a write that changes only the name carries the masks through untouched
+  // and the stored values are never overwritten with dots.
   const adapterProperties = patch.adapterProperties ?? d.adapterProperties ?? {};
+  const secretProperties = patch.secretProperties ?? d.secretProperties ?? [];
   const apiCredentials = mutate((d.apiCredentials ?? []).map((c) => ({ key: c.key, value: c.value })));
-  await post(`/partners/${id}`, { name, adapterProperties, apiCredentials });
-  return { id, name, adapterProperties, isSystem: id === SYSTEM_PARTNER_ID, createdOn: "" };
+  await post(`/partners/${id}`, { name, adapterProperties, secretProperties, apiCredentials });
+  return { id, name, adapterProperties, secretProperties, isSystem: id === SYSTEM_PARTNER_ID, createdOn: "" };
 }
 
 export const partnerMethods = {
@@ -70,6 +75,7 @@ export const partnerMethods = {
       // The list endpoint sends property names, never their values — they can be
       // secrets. Anything needing values must fetch the partner's detail.
       adapterProperties: {},
+      secretProperties: [],
       propertyKeys: p.propertyKeys ?? [],
       isSystem: p.id === SYSTEM_PARTNER_ID,
       createdOn: "",
@@ -91,6 +97,7 @@ export const partnerMethods = {
         id: p.id,
         name: p.name,
         adapterProperties: {},
+        secretProperties: [],
         propertyKeys: p.propertyKeys ?? [],
         isSystem: p.id === SYSTEM_PARTNER_ID,
         createdOn: "",
@@ -117,6 +124,7 @@ export const partnerMethods = {
       id,
       name: d.name,
       adapterProperties: d.adapterProperties ?? {},
+      secretProperties: d.secretProperties ?? [],
       isSystem: id === SYSTEM_PARTNER_ID,
       createdOn: "",
       apiCredentials: (d.apiCredentials ?? []).map((c) => ({
@@ -145,20 +153,22 @@ export const partnerMethods = {
   async createPartner({
     name,
     adapterProperties = {},
+    secretProperties = [],
   }: {
     name: string;
     adapterProperties?: Record<string, string>;
+    secretProperties?: string[];
   }): Promise<Partner> {
     // One call: Partners/Create applies AdapterProperties in the same transaction
     // as the insert, so a partner is never created without the values its adapters
     // are about to resolve.
-    const id = await post<number>("/partners", { name, adapterProperties });
-    return { id, name, adapterProperties, isSystem: false, createdOn: "" };
+    const id = await post<number>("/partners", { name, adapterProperties, secretProperties });
+    return { id, name, adapterProperties, secretProperties, isSystem: false, createdOn: "" };
   },
 
   async updatePartner(
     id: number,
-    changes: { name?: string; adapterProperties?: Record<string, string> },
+    changes: { name?: string; adapterProperties?: Record<string, string>; secretProperties?: string[] },
   ): Promise<Partner> {
     return writePartner(id, await requireDetail(id), changes);
   },

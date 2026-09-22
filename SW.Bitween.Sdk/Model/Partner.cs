@@ -16,6 +16,13 @@ namespace SW.Bitween.Model
         /// partner whose adapters resolve nothing.
         /// </summary>
         public Dictionary<string, string>? AdapterProperties { get; set; }
+
+        /// <summary>
+        /// Which of <see cref="AdapterProperties"/> are secrets. Their values come back from the
+        /// API as the <c>__private__</c> sentinel; sending the sentinel back means "keep what is
+        /// stored", so a form that changed only the partner's name never blanks a password.
+        /// </summary>
+        public ICollection<string> SecretProperties { get; set; } = [];
     }
     public class PartnerRow : PartnerUpdate
     {

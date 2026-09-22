@@ -219,6 +219,11 @@ export interface Partner {
   name: string;
   /** Referenced in adapter configs as {{partner.KEY}}. */
   adapterProperties: Record<string, string>;
+  /**
+   * Which property names are secrets. Their values arrive as SECRET_SENTINEL and go back
+   * unchanged to mean "keep what is stored"; only a value the operator retypes is ever sent.
+   */
+  secretProperties: string[];
   /** The built-in SYSTEM partner can't be renamed or deleted. */
   isSystem: boolean;
   createdOn: string;
@@ -277,6 +282,8 @@ export interface GlobalValuesSet {
   id: string;
   name: string;
   values: Record<string, string>;
+  /** Which value names are secrets — same sentinel round trip as Partner.secretProperties. */
+  secretProperties: string[];
   createdOn: string;
 }
 /** Alias the ported mapper code types its global-set props with. */

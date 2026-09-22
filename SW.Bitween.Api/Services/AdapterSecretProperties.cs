@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -58,6 +59,30 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
             described.TryGetValue(kv.Key, out var startupValue)
             && startupValue.Private
             && !string.IsNullOrEmpty(kv.Value)
+                ? Sentinel
+                : kv.Value);
+    }
+
+    /// <summary>
+    /// Masks the values whose names are in <paramref name="declared"/>, for the property bags whose
+    /// secrets nobody can ask an adapter about.
+    /// </summary>
+    /// <remarks>
+    /// A partner property or a global value is not a startup value of any one adapter — it is
+    /// referenced as <c>{{partner.KEY}}</c> by however many adapters point at it, so there is no
+    /// single adapter to describe. The owner names its own secrets instead, exactly as a data
+    /// source does. Unlike <c>DataSources.Secrets</c> this does not also guess from the key's name:
+    /// a partner property has always been readable, and inferring would hide values that an
+    /// operator could see yesterday.
+    /// </remarks>
+    public static Dictionary<string, string> Mask(
+        IReadOnlyDictionary<string, string> properties, IEnumerable<string> declared)
+    {
+        if (properties == null) return null;
+
+        var secretNames = new HashSet<string>(declared ?? [], StringComparer.OrdinalIgnoreCase);
+        return properties.ToDictionary(kv => kv.Key,
+            kv => secretNames.Contains(kv.Key) && !string.IsNullOrEmpty(kv.Value)
                 ? Sentinel
                 : kv.Value);
     }

@@ -77,6 +77,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.AdapterProperties).HasColumnType("jsonb");
+                b.Property(p => p.SecretProperties).HasColumnType("jsonb");
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
                     .OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>
@@ -233,6 +234,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 gav.ToTable("global_adapter_values_set");
                 gav.HasKey(i => i.Id);
                 gav.Property(p => p.Values).HasColumnType("jsonb");
+                gav.Property(p => p.SecretProperties).HasColumnType("jsonb");
             });
             modelBuilder.Entity<Subscription>(b =>
             {

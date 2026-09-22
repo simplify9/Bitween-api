@@ -23,7 +23,8 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
             {
                 Id = entity.Id,
                 Name = entity.Name,
-                Values = entity.Values
+                Values = AdapterSecretProperties.Mask(entity.Values, entity.SecretProperties),
+                SecretProperties = entity.SecretProperties
             };
         }
     }
