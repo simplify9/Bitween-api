@@ -857,6 +857,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AcceptedResponseStatusCode")
+                        .HasColumnType("int");
+
                     b.Property<string>("AdapterProperties")
                         .HasColumnType("nvarchar(max)");
 

@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { api, referencesPartnerProp, type ApiCredentialRef, type Partner } from "../../api";
+import { api, referencesPartnerProp, type ApiCredentialRef, type PartnerDetail } from "../../api";
 import { Can } from "../../auth/guards";
 import { Button, FormError } from "../ui/basics";
 import { CopyField } from "../ui/CopyField";
-import { Field, TextInput } from "../ui/forms";
+import { Field, Select, TextInput } from "../ui/forms";
 import { KeyValueEditor, toRecord, toRows, type KvRow } from "../ui/KeyValueEditor";
 import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { Panel } from "../ui/Panel";
@@ -32,14 +32,17 @@ export interface PartnerDraft {
   properties: KvRow[];
   /** Property names whose values the API hides; their values ride along as the sentinel. */
   secretProperties: string[];
+  /** 200, 202, or null to leave it to the instance-wide setting. */
+  acceptedResponseStatusCode: number | null;
 }
 
 export const partnerDraftOf = (
-  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties">,
+  p: Pick<PartnerDetail, "name" | "adapterProperties" | "secretProperties" | "acceptedResponseStatusCode">,
 ): PartnerDraft => ({
   name: p.name,
   properties: toRows(p.adapterProperties),
   secretProperties: [...p.secretProperties],
+  acceptedResponseStatusCode: p.acceptedResponseStatusCode,
 });
 
 export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean =>
@@ -48,7 +51,8 @@ export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean 
   // Locking a property changes nothing about its value, so the value comparison above
   // cannot see it — without this the save bar never appears for a lock on its own.
   JSON.stringify([...draft.secretProperties].sort()) !==
-    JSON.stringify([...saved.secretProperties].sort());
+    JSON.stringify([...saved.secretProperties].sort()) ||
+  draft.acceptedResponseStatusCode !== saved.acceptedResponseStatusCode;
 
 /** What the host sends to `updatePartner`. */
 export const partnerChanges = (draft: PartnerDraft) => ({
@@ -58,6 +62,7 @@ export const partnerChanges = (draft: PartnerDraft) => ({
   secretProperties: draft.secretProperties.filter((n) =>
     draft.properties.some((r) => r.key.trim().toLowerCase() === n.toLowerCase()),
   ),
+  acceptedResponseStatusCode: draft.acceptedResponseStatusCode,
 });
 
 export function PartnerFields({
@@ -189,6 +194,37 @@ export function PartnerFields({
             <FormError>{revoke.error?.message}</FormError>
           </>
         )}
+      </Panel>
+
+      <Panel
+        title="API behaviour"
+        description="How Bitween answers this partner's calls."
+      >
+        <div className="w-80">
+          <Field
+            label="Empty-result response"
+            htmlFor="pf-accepted-code"
+            hint="What this partner gets back when a call they waited on finished successfully but produced nothing to send. Set it only if their system insists on one or the other."
+          >
+            <Select
+              id="pf-accepted-code"
+              title="Answered only when the work finished with an empty result — every other outcome has its own code."
+              value={draft.acceptedResponseStatusCode?.toString() ?? ""}
+              disabled={!canEdit}
+              onChange={(e) =>
+                onChange({
+                  ...draft,
+                  acceptedResponseStatusCode: e.target.value === "" ? null : Number(e.target.value),
+                })
+              }
+              options={[
+                { value: "", label: "Use the instance default" },
+                { value: "200", label: "200 OK" },
+                { value: "202", label: "202 Accepted" },
+              ]}
+            />
+          </Field>
+        </div>
       </Panel>
 
       {addingKey && partnerId !== null && (

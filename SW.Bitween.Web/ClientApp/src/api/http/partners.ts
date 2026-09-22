@@ -30,6 +30,7 @@ interface RawPartnerDetail {
   apiCredentials: RawKeyAndValue[] | null;
   adapterProperties: Record<string, string> | null;
   secretProperties: string[] | null;
+  acceptedResponseStatusCode: number | null;
 }
 
 // GET masks keys as `<first-5>...(hidden)`; recover the visible prefix.
@@ -52,7 +53,12 @@ async function requireDetail(id: number): Promise<RawPartnerDetail> {
 async function writePartner(
   id: number,
   d: RawPartnerDetail,
-  patch: { name?: string; adapterProperties?: Record<string, string>; secretProperties?: string[] },
+  patch: {
+    name?: string;
+    adapterProperties?: Record<string, string>;
+    secretProperties?: string[];
+    acceptedResponseStatusCode?: number | null;
+  },
   mutate: (creds: RawKeyAndValue[]) => RawKeyAndValue[] = (c) => c,
 ): Promise<Partner> {
   const name = patch.name ?? d.name;
@@ -62,7 +68,19 @@ async function writePartner(
   const adapterProperties = patch.adapterProperties ?? d.adapterProperties ?? {};
   const secretProperties = patch.secretProperties ?? d.secretProperties ?? [];
   const apiCredentials = mutate((d.apiCredentials ?? []).map((c) => ({ key: c.key, value: c.value })));
-  await post(`/partners/${id}`, { name, adapterProperties, secretProperties, apiCredentials });
+  // Carried on every write, including the ones that only touch a key: the server copies the
+  // whole model onto the partner, so a field left out of the payload is stored as null.
+  const acceptedResponseStatusCode =
+    patch.acceptedResponseStatusCode !== undefined
+      ? patch.acceptedResponseStatusCode
+      : d.acceptedResponseStatusCode;
+  await post(`/partners/${id}`, {
+    name,
+    adapterProperties,
+    secretProperties,
+    apiCredentials,
+    acceptedResponseStatusCode,
+  });
   return { id, name, adapterProperties, secretProperties, isSystem: id === SYSTEM_PARTNER_ID, createdOn: "" };
 }
 
@@ -125,6 +143,7 @@ export const partnerMethods = {
       name: d.name,
       adapterProperties: d.adapterProperties ?? {},
       secretProperties: d.secretProperties ?? [],
+      acceptedResponseStatusCode: d.acceptedResponseStatusCode ?? null,
       isSystem: id === SYSTEM_PARTNER_ID,
       createdOn: "",
       apiCredentials: (d.apiCredentials ?? []).map((c) => ({
@@ -154,21 +173,33 @@ export const partnerMethods = {
     name,
     adapterProperties = {},
     secretProperties = [],
+    acceptedResponseStatusCode = null,
   }: {
     name: string;
     adapterProperties?: Record<string, string>;
     secretProperties?: string[];
+    acceptedResponseStatusCode?: number | null;
   }): Promise<Partner> {
     // One call: Partners/Create applies AdapterProperties in the same transaction
     // as the insert, so a partner is never created without the values its adapters
     // are about to resolve.
-    const id = await post<number>("/partners", { name, adapterProperties, secretProperties });
+    const id = await post<number>("/partners", {
+      name,
+      adapterProperties,
+      secretProperties,
+      acceptedResponseStatusCode,
+    });
     return { id, name, adapterProperties, secretProperties, isSystem: false, createdOn: "" };
   },
 
   async updatePartner(
     id: number,
-    changes: { name?: string; adapterProperties?: Record<string, string>; secretProperties?: string[] },
+    changes: {
+      name?: string;
+      adapterProperties?: Record<string, string>;
+      secretProperties?: string[];
+      acceptedResponseStatusCode?: number | null;
+    },
   ): Promise<Partner> {
     return writePartner(id, await requireDetail(id), changes);
   },

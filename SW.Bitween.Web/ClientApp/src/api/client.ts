@@ -135,6 +135,8 @@ export interface ApiClient {
     name: string;
     adapterProperties?: Record<string, string>;
     secretProperties?: string[];
+    /** 200 or 202; null leaves it to the instance-wide setting. */
+    acceptedResponseStatusCode?: number | null;
   }): Promise<Partner>;
   updatePartner(
     id: number,
@@ -142,6 +144,7 @@ export interface ApiClient {
       name?: string;
       adapterProperties?: Record<string, string>;
       secretProperties?: string[];
+      acceptedResponseStatusCode?: number | null;
     },
   ): Promise<Partner>;
   deletePartner(id: number): Promise<void>;

@@ -235,6 +235,12 @@ export interface PartnerRow extends Partner {
   propertyKeys: string[];
 }
 export interface PartnerDetail extends Partner {
+  /**
+   * 200 or 202 — what a call this partner waited on is answered with when the work finished
+   * with nothing to send back. Null leaves it to the instance-wide setting. Only the detail
+   * endpoint carries it; the list never does, which is why it is not on `Partner`.
+   */
+  acceptedResponseStatusCode: number | null;
   apiCredentials: ApiCredentialRef[];
   apiGateways: ApiGatewayAttachmentRef[];
   busGatewayRoutes: BusGatewayRouteRef[];

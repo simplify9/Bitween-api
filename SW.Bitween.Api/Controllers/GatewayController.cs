@@ -117,7 +117,11 @@ public class GatewayController(
             {
                 case true when xchangeResult.ResponseSize == 0:
                     {
-                        return Ok(xchangeId);
+                        // Falls back to 200, which is what this endpoint has always answered —
+                        // deliberately not to the instance-wide setting, which it never read.
+                        // Honouring that setting here would flip every existing gateway partner
+                        // to 202 on upgrade, since 202 is its default.
+                        return partner.AnswersOkWhenEmpty(200) ? Ok(xchangeId) : Accepted(xchangeId);
                     }
                 case true when xchangeResult.ResponseSize != 0:
                     {

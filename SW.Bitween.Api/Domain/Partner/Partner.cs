@@ -33,6 +33,13 @@ namespace SW.Bitween.Domain
         public Dictionary<string,string> AdapterProperties { get; set; }
 
         /// <summary>
+        /// What this partner's queued API calls are answered with when the work finished
+        /// successfully but produced nothing to send back. <c>null</c> means the partner has no
+        /// preference and whoever is answering falls back to its own default.
+        /// </summary>
+        public int? AcceptedResponseStatusCode { get; set; }
+
+        /// <summary>
         /// Names within <see cref="AdapterProperties"/> whose values are never returned by the API
         /// in clear. Opt-in and freely reversible: a partner property is ordinary text until
         /// someone marks it, which is why the list lives here rather than being inferred from the
@@ -50,6 +57,18 @@ namespace SW.Bitween.Domain
         {
             _ApiCredentials.Update(apiCredentials);
         }
+
+        /// <summary>
+        /// Whether an empty result is answered 200 rather than 202. <paramref name="fallback"/>
+        /// answers for a partner that has no preference of its own.
+        /// </summary>
+        public bool AnswersOkWhenEmpty(int? fallback) => (AcceptedResponseStatusCode ?? fallback) == 200;
+
+        /// <summary>
+        /// 200 and 202 are the only codes worth storing: the reply is built by asking whether the
+        /// code is 200, so a third value would quietly behave as 202.
+        /// </summary>
+        public static bool IsValidAcceptedResponseStatusCode(int? code) => code is null or 200 or 202;
         
 
     }

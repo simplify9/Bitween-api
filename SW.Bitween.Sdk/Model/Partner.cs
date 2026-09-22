@@ -23,6 +23,13 @@ namespace SW.Bitween.Model
         /// stored", so a form that changed only the partner's name never blanks a password.
         /// </summary>
         public ICollection<string> SecretProperties { get; set; } = [];
+
+        /// <summary>
+        /// 200 or 202 — what this partner is answered with when a call it waited on finished with
+        /// nothing to send back. Null leaves it to the instance-wide setting. Every write carries
+        /// it, so a form that changed only the name must send the value it read back unchanged.
+        /// </summary>
+        public int? AcceptedResponseStatusCode { get; set; }
     }
     public class PartnerRow : PartnerUpdate
     {

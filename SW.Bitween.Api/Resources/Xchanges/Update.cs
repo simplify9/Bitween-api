@@ -97,9 +97,12 @@ namespace SW.Bitween.Resources.Xchanges
                 {
                     case true when xchangeResult.ResponseSize == 0:
                     {
+                        // The partner's own choice, falling back to the instance-wide setting
+                        // for the partners that have not expressed one.
                         return new CqApiResult<string>(xchangeId)
                         {
-                            Status = BitweenSettings.ApiCallSubscriptionResponseAcceptedStatusCode == 200
+                            Status = par.Partner.AnswersOkWhenEmpty(
+                                BitweenSettings.ApiCallSubscriptionResponseAcceptedStatusCode)
                                 ? CqApiResultStatus.Ok
                                 : CqApiResultStatus.UnderProcessing
                         };

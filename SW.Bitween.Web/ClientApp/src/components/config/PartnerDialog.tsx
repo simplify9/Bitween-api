@@ -48,10 +48,10 @@ export function PartnerDialog({
   });
 
   const [draft, setDraft] = useState<PartnerDraft | null>(
-    partnerId === null ? { name: "", properties: [], secretProperties: [] } : null,
+    partnerId === null ? { name: "", properties: [], secretProperties: [], acceptedResponseStatusCode: null } : null,
   );
   const [saved, setSaved] = useState<PartnerDraft | null>(
-    partnerId === null ? { name: "", properties: [], secretProperties: [] } : null,
+    partnerId === null ? { name: "", properties: [], secretProperties: [], acceptedResponseStatusCode: null } : null,
   );
 
   useEffect(() => {

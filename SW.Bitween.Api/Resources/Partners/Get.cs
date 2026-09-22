@@ -39,7 +39,8 @@ namespace SW.Bitween.Resources.Partners
                     }).ToList(),
 
                     AdapterProperties = partner.AdapterProperties,
-                    SecretProperties = partner.SecretProperties
+                    SecretProperties = partner.SecretProperties,
+                    AcceptedResponseStatusCode = partner.AcceptedResponseStatusCode
 
                 }).AsNoTracking().SingleOrDefaultAsync();
 

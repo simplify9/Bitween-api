@@ -17,6 +17,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Partners.Edit);
 
+            PartnerValidation.EnsureAcceptedResponseStatusCode(model.AcceptedResponseStatusCode);
+
             var entity = await dbContext.FindAsync<Partner>(key);
             entity.SetApiCredentials(model.ApiCredentials.Select(kv => new ApiCredential(kv.Key, kv.Value)));
 
