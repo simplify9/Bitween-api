@@ -88,8 +88,10 @@ export function DashboardPage() {
     ...data.attention.failingSubscriptions.map((s) => ({ ...s, paused: false })),
     ...data.attention.pausedSubscriptions.map((s) => ({ ...s, consecutiveFailures: 0, paused: true })),
   ];
-  // The list can shrink on a refetch; don't leave the page pointing past its end.
+  // The list can shrink on a refetch; don't leave the page pointing past its end. Reset the stored
+  // offset too, or a later refetch that grows the list again jumps back to the old page.
   const healthStart = healthOffset < unhealthy.length ? healthOffset : 0;
+  if (healthStart !== healthOffset) setHealthOffset(0);
 
   return (
     <div>
