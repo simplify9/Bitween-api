@@ -41,3 +41,41 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
     await expect(page).toHaveURL(/\/exchanges\?ids=/);
   }
 });
+
+test("subscription health pages its rows instead of growing without bound", async ({ page }) => {
+  // Fourteen unhealthy subscriptions, built from a real row so the rest of the page still resolves:
+  // eleven failing, then three paused.
+  await page.route("**/api/subscriptions", async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    const template = body.result[0];
+    body.result = Array.from({ length: 14 }, (_, i) => ({
+      ...template,
+      id: 900000 + i,
+      name: `Health page ${i + 1}`,
+      consecutiveFailures: i < 11 ? i + 1 : 0,
+      pausedOn: i < 11 ? null : new Date().toISOString(),
+    }));
+    body.totalCount = body.result.length;
+    await route.fulfill({ response: res, json: body });
+  });
+
+  await page.goto("login");
+  await page.fill("#login-email", ADMIN_EMAIL);
+  await page.fill("#login-password", ADMIN_PASSWORD);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+
+  await page.goto("dashboard");
+  const panel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Subscription health" }) });
+  await expect(panel.getByText("1–10 of 14")).toBeVisible({ timeout: 15000 });
+  await expect(panel.getByRole("listitem")).toHaveCount(10);
+  await expect(panel.getByText("Health page 1", { exact: true })).toBeVisible();
+
+  await panel.getByRole("button", { name: "Next →" }).click();
+  await expect(panel.getByText("11–14 of 14")).toBeVisible();
+  await expect(panel.getByRole("listitem")).toHaveCount(4);
+  await expect(panel.getByText("Health page 11", { exact: true })).toBeVisible();
+  await expect(panel.getByText("Paused")).toHaveCount(3);
+  await expect(panel.getByRole("button", { name: "Next →" })).toBeDisabled();
+});
