@@ -106,3 +106,29 @@ export function useBindsToDataSource() {
     return kind === "Broker" && slot !== "receiver";
   };
 }
+
+/** Words an adapter spells in PascalCase that read wrong once lower-cased. */
+const ACRONYMS: Record<string, string> = {
+  ssl: "SSL", tls: "TLS", url: "URL", uri: "URI", id: "ID", sql: "SQL", ttl: "TTL", tcp: "TCP",
+  ms: "ms",
+};
+
+/**
+ * A setting's name as a label: "UserName" reads "User name", "UseSsl" reads "Use SSL". Only the
+ * label changes — the adapter still receives the setting under its own name.
+ */
+export const settingLabel = (name: string): string => {
+  const words = name
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .split(/[\s_.-]+/)
+    .filter(Boolean);
+  return words
+    .map((word, i) => {
+      const acronym = ACRONYMS[word.toLowerCase()];
+      if (acronym) return acronym;
+      if (word.length > 1 && word === word.toUpperCase()) return word;
+      return i === 0 ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase();
+    })
+    .join(" ");
+};

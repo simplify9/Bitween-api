@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Gauge, Plug, Plus, Telescope, Trash2, X } from "lucide-react";
+import { Check, CircleHelp, Gauge, Plug, Plus, Telescope, Trash2, X } from "lucide-react";
 import {
   api,
   ApiRequestError,
@@ -15,9 +15,17 @@ import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basi
 import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";
+import { UnsavedBar } from "../../components/ui/Panel";
 import { keys } from "../../api/queryKeys";
 import { ConnectionBadge } from "./ConnectionBadge";
-import { isSecretName, providerOf, settingOf, useDataSourceProviders, orderedSettingNames } from "./providers";
+import {
+  isSecretName,
+  providerOf,
+  settingLabel,
+  settingOf,
+  useDataSourceProviders,
+  orderedSettingNames,
+} from "./providers";
 import { LiveConnection } from "./LiveConnection";
 import { Statements, type StatementSeed } from "./Statements";
 import { SchemaBrowser } from "./SchemaBrowser";
@@ -150,6 +158,9 @@ export function DataSourcePage() {
   const cores = navigator.hardwareConcurrency || 8;
   const provider = providerOf(providers.data, d.adapterId);
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftOf(d));
+  // A database has no queue to redeliver from and no bus gateway to feed, so the broker-only
+  // parts of this page are left off it rather than shown empty.
+  const relational = d.kind === "Relational";
 
   const setProperty = (key: string, value: string) =>
     setDraft({ ...draft, properties: { ...draft.properties, [key]: value } });
@@ -174,7 +185,7 @@ export function DataSourcePage() {
   };
 
   return (
-    <div>
+    <div className={canEdit && dirty ? "pb-24" : undefined}>
       {removing && (
         <ConfirmDialog
           title={`Delete "${d.name}"?`}
@@ -184,7 +195,11 @@ export function DataSourcePage() {
           body={
             d.gatewayCount > 0
               ? `${d.gatewayCount} bus gateway(s) still read from this connection, so deleting will be refused until they are moved off it.`
-              : "Its remembered deduplication keys go with it, so a message already processed could be handled again if it arrives later."
+              : d.subscriptionCount > 0
+                ? `${d.subscriptionCount} subscription(s) still run on this connection, so deleting will be refused until they are moved off it.`
+                : relational
+                  ? "Every node closes its connection to this database."
+                  : "Its remembered deduplication keys go with it, so a message already processed could be handled again if it arrives later."
           }
         />
       )}
@@ -321,11 +336,15 @@ export function DataSourcePage() {
                 {d.lastHeartbeatOn ? new Date(d.lastHeartbeatOn).toLocaleString() : "—"}
               </Row>
               <Row label="Consecutive restarts">{String(d.consecutiveFailures)}</Row>
-              <Row label="Bus gateways reading this">
-                <Link to="/bus-gateways" className="text-crimson-700 hover:underline">
-                  {d.gatewayCount}
-                </Link>
-              </Row>
+              {relational ? (
+                <Row label="Subscriptions using this">{String(d.subscriptionCount)}</Row>
+              ) : (
+                <Row label="Bus gateways reading this">
+                  <Link to="/bus-gateways" className="text-crimson-700 hover:underline">
+                    {d.gatewayCount}
+                  </Link>
+                </Row>
+              )}
               {d.lastException && (
                 <div className="sm:col-span-2">
                   <dt className="text-ink-500">Last error</dt>
@@ -455,68 +474,69 @@ export function DataSourcePage() {
               description="Turning this off stops the connection without losing its settings."
             />
 
-            <Field
-              label="Remember deduplication keys for (days)"
-              htmlFor="ds-dedupe"
-              hint="Has to exceed the widest redelivery window this broker can produce — its message TTL, a dead-letter replay, someone re-driving a queue by hand. A key forgotten too early lets a redelivery through as a fresh message. Zero turns deduplication off."
-            >
-              <TextInput
-                id="ds-dedupe"
-                type="number"
-                min={0}
-                value={draft.deduplicationWindowDays}
-                disabled={!canEdit}
-                onChange={(e) =>
-                  setDraft({ ...draft, deduplicationWindowDays: Number(e.target.value) || 0 })
-                }
-              />
-            </Field>
+            {!relational && (
+              <Field
+                label="Remember deduplication keys for (days)"
+                htmlFor="ds-dedupe"
+                hint="Has to exceed the widest redelivery window this broker can produce — its message TTL, a dead-letter replay, someone re-driving a queue by hand. A key forgotten too early lets a redelivery through as a fresh message. Zero turns deduplication off."
+              >
+                <TextInput
+                  id="ds-dedupe"
+                  type="number"
+                  min={0}
+                  value={draft.deduplicationWindowDays}
+                  disabled={!canEdit}
+                  onChange={(e) =>
+                    setDraft({ ...draft, deduplicationWindowDays: Number(e.target.value) || 0 })
+                  }
+                />
+              </Field>
+            )}
 
+            {/* All four in one row. Each explanation sits on its label's help mark: as paragraphs
+                they were most of this card. */}
             <div className="border-t border-ink-100 pt-4">
-              <h3 className="mb-1 text-sm font-medium text-ink-800">Memory ceilings</h3>
+              <h3 className="mb-1 text-sm font-medium text-ink-800">Resource ceilings</h3>
               <p className="mb-3 text-[12px] text-ink-500">
-                An adapter is a separate process holding this broker's connection. Without a ceiling
-                it is bounded by nothing but the host, so one runaway payload takes every other
-                integration on the node down with it. Leave both at 0 to use the host's own defaults.
+                0 uses the host default. Changing these restarts the adapter; nothing in flight is
+                lost, because messages are only acknowledged once Bitween has persisted them.
               </p>
 
-              <div className="flex flex-wrap gap-4">
-                <div className="w-48">
-                  <Field
-                    label="Soft limit (MB)"
-                    htmlFor="ds-soft"
-                    hint="Crossing it recycles the adapter between messages, so nothing in flight is lost."
-                  >
-                    <TextInput
-                      id="ds-soft"
-                      type="number"
-                      min={0}
-                      value={draft.softMemoryLimitMb}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        setDraft({ ...draft, softMemoryLimitMb: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </Field>
-                </div>
-                <div className="w-48">
-                  <Field
-                    label="Hard limit (MB)"
-                    htmlFor="ds-hard"
-                    hint="The runtime's own ceiling: an allocation past it fails inside the adapter."
-                  >
-                    <TextInput
-                      id="ds-hard"
-                      type="number"
-                      min={0}
-                      value={draft.hardMemoryLimitMb}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        setDraft({ ...draft, hardMemoryLimitMb: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </Field>
-                </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <CeilingInput
+                  id="ds-soft"
+                  label="Soft memory (MB)"
+                  help="An adapter is a separate process, so without a ceiling one runaway payload can take the whole node down. Crossing the soft limit recycles the adapter between messages, so nothing in flight is lost."
+                  value={draft.softMemoryLimitMb}
+                  disabled={!canEdit}
+                  onChange={(v) => setDraft({ ...draft, softMemoryLimitMb: v })}
+                />
+                <CeilingInput
+                  id="ds-hard"
+                  label="Hard memory (MB)"
+                  help="The runtime's own ceiling: an allocation past it fails inside the adapter."
+                  value={draft.hardMemoryLimitMb}
+                  disabled={!canEdit}
+                  onChange={(v) => setDraft({ ...draft, hardMemoryLimitMb: v })}
+                />
+                <CeilingInput
+                  id="ds-cpu"
+                  label="CPU (% of node)"
+                  help="A share of the whole node, not of one core: one core flat out on a sixteen-core node reads about 6%. Crossing it asks the adapter to drain rather than killing it, so in-flight messages go back instead of being lost."
+                  value={draft.cpuPercentLimit}
+                  max={100}
+                  step={0.5}
+                  disabled={!canEdit}
+                  onChange={(v) => setDraft({ ...draft, cpuPercentLimit: v })}
+                />
+                <CeilingInput
+                  id="ds-cpu-samples"
+                  label="CPU heartbeats"
+                  help="How many heartbeats in a row it must stay above the CPU line before it trips. Higher lets a bigger burst of real work pass — an adapter draining a backlog is supposed to work hard."
+                  value={draft.cpuLimitSamples}
+                  disabled={!canEdit}
+                  onChange={(v) => setDraft({ ...draft, cpuLimitSamples: v })}
+                />
               </div>
 
               {draft.softMemoryLimitMb > 0 &&
@@ -528,79 +548,19 @@ export function DataSourcePage() {
                   </p>
                 )}
 
-              <p className="mt-2 text-[12px] text-ink-500">
-                Applied when the adapter process launches, so changing these restarts it. Nothing in
-                flight is lost: messages are only acknowledged once Bitween has persisted them.
-              </p>
-            </div>
-
-            <div className="border-t border-ink-100 pt-4">
-              <h3 className="mb-1 text-sm font-medium text-ink-800">CPU ceiling</h3>
-              <p className="mb-3 text-[12px] text-ink-500">
-                A share of the <strong>whole node</strong>, not of one core — one core pegged flat out
-                on a sixteen-core node reads about 6%, so &ldquo;50%&rdquo; would allow eight cores
-                rather than half of one. It trips only after several consecutive heartbeats above the
-                line, because an adapter draining a backlog is <em>supposed</em> to work hard.
-                Leave at 0 for the host default.
-              </p>
-
-              <div className="flex flex-wrap gap-4">
-                <div className="w-48">
-                  <Field
-                    label="CPU limit (% of node)"
-                    htmlFor="ds-cpu"
-                    hint={
-                      draft.cpuPercentLimit > 0
-                        ? `For scale: ${(draft.cpuPercentLimit / 100 * cores).toFixed(1)} core(s) on a `
-                          + `${cores}-core machine — this browser's core count, not the node's.`
-                        : "Off — the host default applies."
-                    }
-                  >
-                    <TextInput
-                      id="ds-cpu"
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={0.5}
-                      value={draft.cpuPercentLimit}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        setDraft({ ...draft, cpuPercentLimit: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </Field>
-                </div>
-                <div className="w-48">
-                  <Field
-                    label="Consecutive heartbeats"
-                    htmlFor="ds-cpu-samples"
-                    hint="How long it must stay above the line. Higher lets a bigger burst of real work pass."
-                  >
-                    <TextInput
-                      id="ds-cpu-samples"
-                      type="number"
-                      min={0}
-                      value={draft.cpuLimitSamples}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        setDraft({ ...draft, cpuLimitSamples: Number(e.target.value) || 0 })
-                      }
-                    />
-                  </Field>
-                </div>
-              </div>
-
-              {draft.cpuPercentLimit > 100 && (
+              {draft.cpuPercentLimit > 100 ? (
                 <p className="mt-2 text-[12px] text-danger-700">
                   Above 100% can never be reached — the figure is a share of the whole node, so 100%
                   is every core at once.
                 </p>
+              ) : (
+                draft.cpuPercentLimit > 0 && (
+                  <p className="mt-2 text-[12px] text-ink-500">
+                    For scale: {((draft.cpuPercentLimit / 100) * cores).toFixed(1)} core(s) on a{" "}
+                    {cores}-core machine — this browser's core count, not the node's.
+                  </p>
+                )
               )}
-
-              <p className="mt-2 text-[12px] text-ink-500">
-                Crossing it asks the adapter to drain rather than killing it, so in-flight messages go
-                back to the broker instead of being lost.
-              </p>
             </div>
 
             <div className="border-t border-ink-100 pt-4">
@@ -622,7 +582,7 @@ export function DataSourcePage() {
                     <div key={key} className="flex items-start gap-2">
                       <div className="flex-1">
                         <Field
-                          label={declared?.required ? `${key} *` : key}
+                          label={declared?.required ? `${settingLabel(key)} *` : settingLabel(key)}
                           htmlFor={`ds-prop-${key}`}
                           hint={stored ? "Stored. Type to replace it." : declared?.hint}
                         >
@@ -712,28 +672,63 @@ export function DataSourcePage() {
               )}
             </div>
 
-            {error && <FormError>{error}</FormError>}
-
-            {canEdit && (
-              <div className="flex items-center gap-2 border-t border-ink-100 pt-4">
-                <Button
-                  variant="primary"
-                  onClick={() => save.mutate(draft)}
-                  disabled={!dirty || save.isPending}
-                >
-                  {save.isPending ? "Saving…" : "Save"}
-                </Button>
-                {dirty && (
-                  <Button onClick={() => setDraft(draftOf(d))} disabled={save.isPending}>
-                    Discard
-                  </Button>
-                )}
-                {!dirty && !save.isPending && <span className="text-sm text-ink-500">No changes.</span>}
-              </div>
-            )}
           </div>
         </section>
       </div>
+
+      {canEdit && dirty && (
+        <UnsavedBar
+          busy={save.isPending}
+          error={error ?? undefined}
+          onSave={() => save.mutate(draft)}
+          onDiscard={() => {
+            setError(null);
+            setDraft(draftOf(d));
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** A number box whose explanation sits on a help mark beside its label. */
+function CeilingInput({
+  id,
+  label,
+  help,
+  value,
+  onChange,
+  disabled,
+  max,
+  step,
+}: {
+  id: string;
+  label: string;
+  help: string;
+  value: number;
+  onChange: (value: number) => void;
+  disabled: boolean;
+  max?: number;
+  step?: number;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="flex items-center gap-1 text-[13px] font-medium text-ink-700">
+        {label}
+        <span title={help} aria-label={help} className="cursor-help text-ink-400">
+          <CircleHelp className="size-3.5" />
+        </span>
+      </label>
+      <TextInput
+        id={id}
+        type="number"
+        min={0}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+      />
     </div>
   );
 }
