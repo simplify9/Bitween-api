@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
@@ -11,6 +11,8 @@ import { StatusBadge, XchangeId } from "../exchanges/shared";
 import { keys } from "../../api/queryKeys";
 
 const CHART_HEIGHT = 140;
+/** Single-line rows, so ten fill about the height of the six two-line "Latest failures" beside them. */
+const HEALTH_PAGE_SIZE = 10;
 
 const dayLabel = new Intl.DateTimeFormat("en", { day: "numeric", month: "short" });
 
@@ -57,6 +59,7 @@ function StatTile({
  */
 export function DashboardPage() {
   const rabbitMqConfigured = useRabbitMqManagementConfigured();
+  const [healthOffset, setHealthOffset] = useState(0);
   const { data, isLoading, isError } = useQuery({
     queryKey: keys.dashboard,
     queryFn: () => api.getDashboard(),
@@ -81,8 +84,14 @@ export function DashboardPage() {
       : "live consumer health";
   const delta = data.today.total - data.yesterdayTotal;
   const maxDay = Math.max(1, ...data.trafficByDay.map((d) => d.success + d.failed));
-  const needsAttention =
-    data.attention.failingSubscriptions.length + data.attention.pausedSubscriptions.length;
+  const unhealthy = [
+    ...data.attention.failingSubscriptions.map((s) => ({ ...s, paused: false })),
+    ...data.attention.pausedSubscriptions.map((s) => ({ ...s, consecutiveFailures: 0, paused: true })),
+  ];
+  // The list can shrink on a refetch; don't leave the page pointing past its end. Reset the stored
+  // offset too, or a later refetch that grows the list again jumps back to the old page.
+  const healthStart = healthOffset < unhealthy.length ? healthOffset : 0;
+  if (healthStart !== healthOffset) setHealthOffset(0);
 
   return (
     <div>
@@ -338,35 +347,56 @@ export function DashboardPage() {
 
         {/* — subscription health — */}
         <Panel title="Subscription health" description="Subscriptions that aren't running clean.">
-          {needsAttention === 0 ? (
+          {unhealthy.length === 0 ? (
             <EmptyState title="All subscriptions healthy">No failures piling up, nothing paused.</EmptyState>
           ) : (
-            <ul className="space-y-2">
-              {data.attention.failingSubscriptions.map((s) => (
-                <li key={`f-${s.id}`} className="flex items-center gap-2.5 text-sm">
-                  <Link
-                    to={`/subscriptions/${s.id}`}
-                    className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                  >
-                    {s.name}
-                  </Link>
-                  <Badge tone="danger">
-                    {s.consecutiveFailures} consecutive failure{s.consecutiveFailures === 1 ? "" : "s"}
-                  </Badge>
-                </li>
-              ))}
-              {data.attention.pausedSubscriptions.map((s) => (
-                <li key={`p-${s.id}`} className="flex items-center gap-2.5 text-sm">
-                  <Link
-                    to={`/subscriptions/${s.id}`}
-                    className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                  >
-                    {s.name}
-                  </Link>
-                  <Badge tone="warn">Paused</Badge>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="space-y-2">
+                {unhealthy.slice(healthStart, healthStart + HEALTH_PAGE_SIZE).map((s) => (
+                  <li key={`${s.paused ? "p" : "f"}-${s.id}`} className="flex items-center gap-2.5 text-sm">
+                    <Link
+                      to={`/subscriptions/${s.id}`}
+                      className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                    >
+                      {s.name}
+                    </Link>
+                    {s.paused ? (
+                      <Badge tone="warn">Paused</Badge>
+                    ) : (
+                      <Badge tone="danger">
+                        {s.consecutiveFailures} consecutive failure{s.consecutiveFailures === 1 ? "" : "s"}
+                      </Badge>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {unhealthy.length > HEALTH_PAGE_SIZE && (
+                <div className="mt-3 flex items-center justify-between text-[13px]">
+                  <span className="text-ink-500 tabular-nums" title="Failing subscriptions first, then paused ones.">
+                    {healthStart + 1}–{Math.min(healthStart + HEALTH_PAGE_SIZE, unhealthy.length)} of{" "}
+                    {unhealthy.length}
+                  </span>
+                  <span className="flex gap-4 font-medium text-crimson-700">
+                    <button
+                      type="button"
+                      className="hover:underline disabled:text-ink-300 disabled:no-underline"
+                      disabled={healthStart === 0}
+                      onClick={() => setHealthOffset(Math.max(0, healthStart - HEALTH_PAGE_SIZE))}
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="hover:underline disabled:text-ink-300 disabled:no-underline"
+                      disabled={healthStart + HEALTH_PAGE_SIZE >= unhealthy.length}
+                      onClick={() => setHealthOffset(healthStart + HEALTH_PAGE_SIZE)}
+                    >
+                      Next →
+                    </button>
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </Panel>
       </div>
