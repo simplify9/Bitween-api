@@ -813,6 +813,8 @@ export interface DataSource {
   /** The adapter that speaks this protocol, e.g. bitween.bus.rabbitmq. */
   adapterId: string;
   kind: string;
+  /** Auto, Exclusive or PerNode. Auto means Exclusive for a broker and PerNode otherwise. */
+  placement: string;
   inactive: boolean;
   /**
    * How long a message's deduplication key is remembered. Has to exceed the widest redelivery

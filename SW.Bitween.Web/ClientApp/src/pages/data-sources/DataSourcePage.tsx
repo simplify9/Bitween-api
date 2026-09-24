@@ -161,6 +161,9 @@ export function DataSourcePage() {
   // A database has no queue to redeliver from and no bus gateway to feed, so the broker-only
   // parts of this page are left off it rather than shown empty.
   const relational = d.kind === "Relational";
+  // Resolved the way the supervisor resolves it: Auto is exclusive for a broker only, and either
+  // kind can be set explicitly — a database can be pinned to one node too.
+  const exclusive = d.placement === "Exclusive" || (d.placement !== "PerNode" && !relational);
 
   const setProperty = (key: string, value: string) =>
     setDraft({ ...draft, properties: { ...draft.properties, [key]: value } });
@@ -198,7 +201,9 @@ export function DataSourcePage() {
               : d.subscriptionCount > 0
                 ? `${d.subscriptionCount} subscription(s) still run on this connection, so deleting will be refused until they are moved off it.`
                 : relational
-                  ? "Every node closes its connection to this database."
+                  ? exclusive
+                    ? "The node holding it closes its connection to this database."
+                    : "Every node closes its connection to this database."
                   : "Its remembered deduplication keys go with it, so a message already processed could be handled again if it arrives later."
           }
         />
@@ -356,7 +361,7 @@ export function DataSourcePage() {
             {/* The two placements are opposites, and the wrong explanation directly contradicts the
                 "Held by" value right above it — which is how someone concludes the page is broken. */}
             <p className="mt-3 text-[12px] text-ink-500">
-              {source.data?.kind === "Relational" ? (
+              {!exclusive ? (
                 <>
                   A connection pool is held by every node that runs work, not leased to one: a node
                   without it could not run the exchanges that need it. Nothing here is exclusive, so
@@ -364,7 +369,7 @@ export function DataSourcePage() {
                 </>
               ) : (
                 <>
-                  A broker connection is exclusive, so exactly one node holds it. The term after the
+                  This connection is exclusive, so exactly one node holds it. The term after the
                   node name is the fencing token — it increases every time ownership moves, and a node
                   whose term is no longer current stops immediately rather than carrying on consuming.
                 </>
@@ -713,14 +718,21 @@ function CeilingInput({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={id} className="flex items-center gap-1 text-[13px] font-medium text-ink-700">
-        {label}
-        <span title={help} aria-label={help} className="cursor-help text-ink-400">
+      <div className="flex items-center gap-1">
+        <label htmlFor={id} className="text-[13px] font-medium text-ink-700">
+          {label}
+        </label>
+        {/* Focusable so a keyboard reaches it too; the text itself is tied to the input below. */}
+        <button type="button" title={help} aria-label={`About ${label}`} className="cursor-help text-ink-400">
           <CircleHelp className="size-3.5" />
-        </span>
-      </label>
+        </button>
+      </div>
+      <span id={`${id}-help`} className="sr-only">
+        {help}
+      </span>
       <TextInput
         id={id}
+        aria-describedby={`${id}-help`}
         type="number"
         min={0}
         max={max}

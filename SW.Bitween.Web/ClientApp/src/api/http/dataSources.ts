@@ -20,6 +20,7 @@ interface RawDataSource {
   name: string;
   adapterId: string;
   kind: string;
+  placement?: string | null;
   inactive: boolean | null;
   deduplicationWindowDays: number;
   softMemoryLimitMb?: number | null;
@@ -55,6 +56,7 @@ const toRow = (raw: RawDataSource): DataSourceRow => ({
   name: raw.name,
   adapterId: raw.adapterId,
   kind: raw.kind,
+  placement: raw.placement ?? "Auto",
   inactive: raw.inactive ?? false,
   deduplicationWindowDays: raw.deduplicationWindowDays,
   softMemoryLimitMb: raw.softMemoryLimitMb ?? 0,
