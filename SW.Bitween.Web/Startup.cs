@@ -585,9 +585,18 @@ namespace SW.Bitween.Web
         /// a replacement for the per-account lockout, which counts attempts against one account
         /// across every address; this counts them per address across every account.
         /// </para>
+        /// <para>
+        /// Both numbers can be overridden through <c>Bitween:RateLimits</c>, and are unchanged wherever
+        /// that is not set. The end-to-end suite needs it: it drives the UI far faster than a person,
+        /// all as one account, and spends the per-account budget several times over in a run.
+        /// </para>
         /// </remarks>
-        private static void AddRateLimiting(IServiceCollection services)
+        private void AddRateLimiting(IServiceCollection services)
         {
+            var limits = Configuration.GetSection("Bitween:RateLimits");
+            var signInLimit = limits.GetValue("SignInPerMinute", 10);
+            var requestLimit = limits.GetValue("RequestsPerMinute", 600);
+
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -599,7 +608,7 @@ namespace SW.Bitween.Web
                             $"signin:{ClientAddress(context)}",
                             _ => new FixedWindowRateLimiterOptions
                             {
-                                PermitLimit = 10,
+                                PermitLimit = signInLimit,
                                 Window = TimeSpan.FromMinutes(1)
                             });
 
@@ -609,7 +618,7 @@ namespace SW.Bitween.Web
                         account is null ? $"anon:{ClientAddress(context)}" : $"account:{account}",
                         _ => new FixedWindowRateLimiterOptions
                         {
-                            PermitLimit = 600,
+                            PermitLimit = requestLimit,
                             Window = TimeSpan.FromMinutes(1)
                         });
                 });
