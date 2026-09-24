@@ -83,6 +83,9 @@ public class DataSourceRow : DataSourceUpdate
     /// <summary>How many bus gateways this data source feeds. Deleting is refused while any do.</summary>
     public int GatewayCount { get; set; }
 
+    /// <summary>How many subscriptions run on this data source's connection.</summary>
+    public int SubscriptionCount { get; set; }
+
     // ------------------------------------------------------------------ health
 
     /// <summary>Null until the supervisor has reported on it once.</summary>

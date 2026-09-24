@@ -845,6 +845,8 @@ export interface DataSource {
 export interface DataSourceRow extends DataSource {
   /** How many bus gateways read from it. Deleting is refused while any do. */
   gatewayCount: number;
+  /** How many subscriptions run on its connection. */
+  subscriptionCount: number;
 }
 
 export interface DataSourceDetail extends DataSourceRow {

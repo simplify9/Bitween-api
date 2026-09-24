@@ -55,7 +55,7 @@ export function DataSourcesPage() {
     <div>
       <PageHeader
         title="Data sources"
-        description="Connections to brokers outside Bitween. A bus gateway points at one to read from it instead of from Bitween's own internal bus."
+        description="Connections to brokers and databases outside Bitween. A bus gateway reads from a broker instead of Bitween's own internal bus; a subscription runs its SQL on a database."
         help={{
           title: "How data sources work",
           body: (
@@ -139,6 +139,13 @@ export function DataSourcesPage() {
               ),
             },
             {
+              header: "Kind",
+              headerTitle: "Broker (read by bus gateways) or database (used by subscriptions).",
+              cell: (d: DataSourceRow) => (
+                <span className="text-ink-700">{d.kind === "Relational" ? "Database" : d.kind}</span>
+              ),
+            },
+            {
               header: "Connection",
               wrap: true,
               cell: (d: DataSourceRow) => (
@@ -161,9 +168,18 @@ export function DataSourcesPage() {
               ),
             },
             {
-              header: "Gateways",
+              // A broker feeds bus gateways; a database is used by subscriptions. Counting the
+              // wrong one would show every database as unused.
+              header: "Used by",
+              headerTitle: "Bus gateways reading a broker, or subscriptions running on a database. Deleting is refused while any remain.",
               align: "right",
-              cell: (d: DataSourceRow) => <span className="tabular-nums text-ink-700">{d.gatewayCount}</span>,
+              cell: (d: DataSourceRow) => (
+                <span className="tabular-nums text-ink-700">
+                  {d.kind === "Relational"
+                    ? `${d.subscriptionCount} subscription${d.subscriptionCount === 1 ? "" : "s"}`
+                    : `${d.gatewayCount} gateway${d.gatewayCount === 1 ? "" : "s"}`}
+                </span>
+              ),
             },
             {
               header: "",
