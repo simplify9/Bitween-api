@@ -179,6 +179,9 @@ test("Raw shows the bytes as they arrived, uncoloured", async ({ page }) => {
   const row = page.getByRole("row").nth(1);
   await expect(row).toBeVisible({ timeout: 15000 });
   await row.locator("td").last().click();
+  // The drawer opens on the furthest stage with a document, and whether mapping has
+  // finished by now is a race. Raw is a promise about what arrived, so ask for that.
+  await page.getByTitle("Show the Input document").click();
 
   // Formatted is the default, and it parsed, so it is coloured.
   const pane = page.locator(".doc-hl-dark");
