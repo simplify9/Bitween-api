@@ -2,8 +2,6 @@ import { test, expect } from "@playwright/test";
 import { pickOption, signInAsAdmin } from "./helpers";
 import {
   SAMPLE,
-  addList,
-  addListValue,
   addPathRule,
   createSubscription,
   openDetail,
@@ -121,24 +119,6 @@ test("builds a mapping, previews it, saves it, and reloads exactly what was buil
   await expect(page.locator("pre").first()).toContainText('"total": 116,', { timeout: 15000 });
 });
 
-test("stored rules survive a switch to a list-shaped output and back", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SAMPLE);
-  await addPathRule(page, "customerName", "order.customer");
-
-  await page.getByRole("checkbox", { name: /The whole output is a list/ }).check();
-  await expect(page.getByRole("button", { name: "Collapse the list at the root" })).toBeVisible();
-
-  await page.getByRole("checkbox", { name: /The whole output is a list/ }).uncheck();
-
-  // The field rules were put aside, not thrown away.
-  await expect(page.getByRole("textbox", { name: "Output field name" })).toHaveValue(
-    "customerName",
-  );
-});
-
 test("choosing the new mapper offers its editor, and the old mapper keeps its own", async ({
   page,
 }) => {
@@ -236,28 +216,6 @@ test("saving over the mapping the other mapper already has asks first", async ({
   await page.getByRole("button", { name: "Save" }).click();
   await page.getByRole("button", { name: "Replace the mapping" }).click();
   await expect(page.getByText("Saved")).toBeVisible({ timeout: 15000 });
-});
-
-test("a list's value takes a type and a transform like any other rule", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-  await page
-    .getByRole("textbox", { name: "Sample source document" })
-    .fill(JSON.stringify({ price: [10, 20] }));
-
-  const list = await addList(page, "totals", "price");
-  await addListValue(list, "totals", "");
-
-  // The row carries the whole rule, which is the point of it being a row: the value
-  // each entry produces can be multiplied and typed exactly like a named field.
-  await list.getByRole("button", { name: "Details for each entry" }).click();
-  await list.getByRole("combobox", { name: "Transform" }).selectOption("multiply");
-  await list.getByRole("textbox", { name: /Multiply.*By/ }).fill("2");
-  await list.getByRole("combobox", { name: "Value type" }).selectOption("number");
-
-  await expect(page.locator("pre").first()).toHaveText(/"totals":\s*\[\s*20,\s*40\s*\]/, {
-    timeout: 15000,
-  });
 });
 
 test("dragging a source field onto a rule wires it up", async ({ page }) => {

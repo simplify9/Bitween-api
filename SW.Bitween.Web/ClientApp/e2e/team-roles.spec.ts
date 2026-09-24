@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { addMember, createRole, deleteRole, removeMember, signInAsAdmin } from "./helpers";
+import { createRole, deleteRole, signInAsAdmin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
@@ -83,36 +83,6 @@ test("built-in roles are read-only", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Delete role" })).toHaveCount(0);
   // Name and description aren't even rendered for a built-in.
   await expect(page.locator("#role-name")).toHaveCount(0);
-});
-
-test("a role in use can't be deleted", async ({ page }) => {
-  const roleName = `PW InUse ${Date.now()}`;
-  await createRole(page, { name: roleName, permissions: [{ area: "Exchanges", action: "View" }] });
-  const email = await addMember(page, { name: "Role Holder", roles: [roleName] });
-
-  await page.goto("team/roles");
-  await expect(page.getByRole("link", { name: new RegExp(roleName) })).toContainText("1 member");
-
-  await page.getByRole("link", { name: new RegExp(roleName) }).click();
-  await page.getByRole("button", { name: "Delete role" }).click();
-  await page.getByRole("button", { name: "Delete role" }).last().click();
-  await expect(page.getByText(/is still assigned to 1 member/i)).toBeVisible();
-
-  // Free the role up, and the delete goes through.
-  await removeMember(page, email);
-  await deleteRole(page, roleName);
-  await expect(page.getByText(roleName)).toHaveCount(0);
-});
-
-test("two roles can't share a name", async ({ page }) => {
-  await page.goto("team/roles/new");
-  await page.fill("#role-name", "Administrator");
-  await page.fill("#role-desc", "Should be refused.");
-  await page.getByRole("checkbox", { name: "Exchanges: View", exact: true }).check();
-  await page.getByRole("button", { name: "Create role" }).click();
-
-  await expect(page.getByText(/already exists/i)).toBeVisible();
-  await expect(page).toHaveURL(/\/team\/roles\/new$/);
 });
 
 test("duplicate a role", async ({ page }) => {

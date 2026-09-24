@@ -266,6 +266,48 @@ public class DocumentMapperTests
         Assert.IsNull(Scalar(Map(rules, Order), "state"));
     }
 
+    /// <summary>
+    /// The table is asked about the value after the transform, so a table keyed on "JO" matches a
+    /// document that says "jo" once it has been uppercased. The other order would miss.
+    /// </summary>
+    [TestMethod]
+    public void Lookup_IsAskedAboutTheTransformedValue()
+    {
+        var rules = new MappingRules
+        {
+            Fields =
+            [
+                Field("countryName", Path("country"), transform: Transform("upper"),
+                    lookup: new LookupRule { Table = new Dictionary<string, object?> { ["JO"] = "Jordan" } }),
+            ],
+        };
+
+        Assert.AreEqual("Jordan", Scalar(Map(rules, """{ "country": "jo" }"""), "countryName"));
+    }
+
+    /// <summary>
+    /// How an ambiguous date is read is a setting on the mapping, not on the rule — a partner writes
+    /// dates one way throughout. The transforms have their own tests; this pins that the mapping's
+    /// setting is what reaches them.
+    /// </summary>
+    [TestMethod]
+    public void SourceDateOrder_DecidesHowTheTransformsReadADate()
+    {
+        const string document = """{ "shippingDate": "04.09.2026" }""";
+        MappingRules Rules(DateOrder order) => new()
+        {
+            SourceDateOrder = order,
+            Fields = [Field("shipDate", Path("shippingDate"), transform: Transform("formatDate", ("format", "yyyy-MM-dd")))],
+        };
+
+        Assert.AreEqual("2026-09-04", Scalar(Map(Rules(DateOrder.DayFirst), document), "shipDate"));
+        Assert.AreEqual("2026-04-09", Scalar(Map(Rules(DateOrder.MonthFirst), document), "shipDate"));
+
+        // Left at year-first, it is refused rather than guessed.
+        var refused = Assert.ThrowsException<MappingFailedException>(() => Map(Rules(DateOrder.YearFirst), document));
+        StringAssert.Contains(refused.Errors[0].Reason, "04.09.2026");
+    }
+
     // ── loops ───────────────────────────────────────────────────────────────────
 
     [TestMethod]
@@ -410,6 +452,32 @@ public class DocumentMapperTests
         Assert.AreEqual("O1", Values.ResolveScalar(orders.Items[0], "ref"));
         Assert.AreEqual(2, ((ListNode)Values.Resolve(orders.Items[0], "items")!).Items.Count);
         Assert.AreEqual(1, ((ListNode)Values.Resolve(orders.Items[1], "items")!).Items.Count);
+    }
+
+    /// <summary>
+    /// A list of plain values produces one value per entry, and that value is a whole rule: it is
+    /// transformed and typed exactly like a named field would be.
+    /// </summary>
+    [TestMethod]
+    public void AListOfPlainValues_IsTransformedAndTypedLikeAnyField()
+    {
+        var rules = new MappingRules
+        {
+            Lists =
+            [
+                new ListRule
+                {
+                    Over = "price", Target = ["totals"],
+                    Item = Field("", Path(""), ValueType.Number, Transform("multiply", ("by", 2))),
+                },
+            ],
+        };
+
+        var totals = (ListNode)Values.Resolve(Map(rules, """{ "price": [10, 20] }"""), "totals")!;
+
+        CollectionAssert.AreEqual(
+            new object?[] { 20m, 40m },
+            totals.Items.Select(i => ((ScalarNode)i).Value).ToArray());
     }
 
     // ── failure ─────────────────────────────────────────────────────────────────
@@ -690,6 +758,36 @@ public class DocumentMapperTests
         var first = (ObjectNode)((ListNode)Values.Resolve(Map(rules, Order), "lines")!).Items[0];
 
         Assert.AreEqual("Ali", Scalar(first, "who"));
+    }
+
+    /// <summary>A fixed entry can carry a partner value too, like the header line a partner expects.</summary>
+    [TestMethod]
+    public void AFixedEntry_ReadsThePartner()
+    {
+        var context = new MappingContext
+        {
+            Partner = new Dictionary<string, string> { ["WarehouseCode"] = "WH-7" },
+        };
+        var rules = new MappingRules
+        {
+            Lists =
+            [
+                new ListRule
+                {
+                    Over = "order.line", Target = ["lines"],
+                    Fixed =
+                    [
+                        Entry(Field("sku", Fixed("HEADER")),
+                            Field("warehouse", new ValueSource { Kind = ValueSourceKind.Partner, Key = "WarehouseCode" })),
+                    ],
+                    Fields = [Field("sku", Path("sku"))],
+                },
+            ],
+        };
+
+        var first = (ObjectNode)((ListNode)Values.Resolve(Map(rules, Order, context), "lines")!).Items[0];
+
+        Assert.AreEqual("WH-7", Scalar(first, "warehouse"));
     }
 
     /// <summary>

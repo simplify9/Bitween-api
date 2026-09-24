@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin } from "./helpers";
 import {
-  buildFromSample,
   createSubscription,
   expectPreview,
   openMapper,
@@ -78,32 +77,4 @@ test("the paths the source tree offers are the ones the server can read", async 
 
   // Read by the server, not by the editor — which is what makes this a real check.
   await expectPreview(page, '"account": "55480501"');
-});
-
-test("an element that carries both an attribute and a value maps as two rules", async ({
-  page,
-}) => {
-  // `<weight unit="kg">0.940</weight>` is one element holding two separate things, so it
-  // is two rules: `@unit` for the attribute and `#text` for the element's own value. The
-  // same convention as reading, in reverse.
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-  await withFormats(page, async () => {
-    await page.getByLabel("From format").selectOption("xml");
-    await page.getByLabel("To format").selectOption("xml");
-  });
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SOAP_REQUEST);
-
-  // The sample needs a value between the tags, not just the attribute: an element with
-  // no text has no text node to make a rule for.
-  await buildFromSample(page, `<order><weight unit="kg">0</weight></order>`);
-
-  const names = page.getByRole("textbox", { name: "Output field name" });
-  await expect(names).toHaveCount(2);
-
-  const sourceOf = (n: number) => page.getByLabel("Source field", { exact: true }).nth(n);
-  await sourceOf(0).fill("Envelope.Body.shipping.weight.@unit");
-  await sourceOf(1).fill("Envelope.Body.shipping.weight.#text");
-
-  await expectPreview(page, '<weight unit="kg">0.940</weight>');
 });

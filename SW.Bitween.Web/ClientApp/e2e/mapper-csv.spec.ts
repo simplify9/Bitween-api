@@ -1,11 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { signInAsAdmin } from "./helpers";
 import {
-  addListField,
   createSubscription,
-  expectPreview,
   openMapper,
-  preview,
   withFormats,
 } from "./mapperHelpers";
 
@@ -20,13 +17,6 @@ import {
  *
  * The files are the three a single client really sends, unaltered.
  */
-
-/** Pipe, no header, three record types told apart by the first field. */
-const TRACKING =
-  "H|FFSTAT|1|0||||||||||202609141313|1309981|N\n" +
-  "D|1309981172|OK|DELIVERY|0.100|KGM|1|||20260908FRACPKT03831|3800351262|202609141307|20260911|NTE|CDG|NTE||BRIAN MATIAS CASTRO PENA|GLOBAL LOGTICS NETWORK|||||||222998693|Clementine Sandri|\n" +
-  "D|1309981174|CC|AWAITING CONSIGNEE COLLECTION|0.100|KGM|1|||E824836443|4472825486|202609141305|20260911|MRS|CDG|MRS||CHRISTOPHER GERGES|GLOBAL LOGISTIC NETWORK|||||||222998693||\n" +
-  "T|9|1309981|\n";
 
 /** Comma, with a header naming its columns. */
 const MOVEMENTS =
@@ -62,32 +52,6 @@ async function rootListOverTheDocument(page: import("@playwright/test").Page) {
   return page.getByRole("group", { name: "Rules for the list at the root" });
 }
 
-test("writing a delimited file takes its delimiter and header from the target side", async ({
-  page,
-}) => {
-  await openWithCsv(page, TRACKING, "|", false);
-
-  await withFormats(page, async () => {
-    await page.getByLabel("To format").selectOption("csv");
-    await page.getByLabel("target delimiter").selectOption(";");
-    await page.getByRole("checkbox", { name: "target header row" }).check();
-  });
-
-  const root = await rootListOverTheDocument(page);
-  await page.getByRole("button", { name: "Settings for the list at the root" }).click();
-  await page.getByRole("checkbox", { name: "Only some entries" }).check();
-  await page.getByRole("textbox", { name: "Filter field" }).fill("1");
-  await page.getByRole("textbox", { name: "Filter value" }).fill("D");
-  await page.getByRole("button", { name: "Settings for the list at the root" }).click();
-
-  await addListField(root, "the root list", "Tracking", "2");
-  await addListField(root, "the root list", "Status", "3");
-
-  await expectPreview(page, "Tracking;Status");
-  await expect(preview(page)).toContainText("1309981172;OK");
-  await expect(preview(page)).toContainText("1309981174;CC");
-});
-
 test("counting is offered inside a list and nowhere else", async ({ page }) => {
   // Outside a list there is nothing to count, so the segment is not there to be chosen.
   await openWithCsv(page, MOVEMENTS, ",", true);
@@ -98,24 +62,4 @@ test("counting is offered inside a list and nowhere else", async ({ page }) => {
   const root = await rootListOverTheDocument(page);
   await root.getByRole("button", { name: "Add a field to the root list" }).click();
   await expect(root.getByRole("radio", { name: "Count" })).toHaveCount(1);
-});
-
-test("a file can be marked so Excel opens accented names correctly", async ({ page }) => {
-  await openWithCsv(page, MOVEMENTS, ",", true);
-  await withFormats(page, () => page.getByLabel("To format").selectOption("csv"));
-
-  const root = await rootListOverTheDocument(page);
-  await addListField(root, "the root list", "shipment", "ShipmentNumber");
-  await expectPreview(page, "shipment");
-
-  // The mark itself is invisible, so what is checked is that asking for it changes the
-  // document the server produced rather than that anything looks different.
-  const before = await preview(page).textContent();
-  await withFormats(page, () =>
-    page.getByRole("checkbox", { name: "write a byte-order mark" }).check(),
-  );
-  await expect
-    .poll(async () => (await preview(page).textContent())?.charCodeAt(0), { timeout: 15000 })
-    .toBe(0xfeff);
-  expect(before?.charCodeAt(0)).not.toBe(0xfeff);
 });

@@ -83,16 +83,6 @@ export async function withFormats(page: Page, set: () => Promise<unknown>) {
   await expect(panel).toBeHidden({ timeout: 15000 });
 }
 
-/** Pastes an output sample into the toolbar panel and builds the rules from it. */
-export async function buildFromSample(page: Page, target: unknown) {
-  await page.getByRole("button", { name: "Build from a sample of the output" }).click();
-  await page
-    .getByRole("textbox", { name: "Sample output document" })
-    .fill(typeof target === "string" ? target : JSON.stringify(target, null, 2));
-  await page.getByRole("button", { name: "Build the rules" }).click();
-  await page.keyboard.press("Escape");
-}
-
 /**
  * Points the last-added rule within `scope` at a source path.
  *
@@ -172,23 +162,6 @@ export async function addListField(
 ) {
   await list.getByRole("button", { name: `Add a field to ${addTo}` }).click();
   await list.getByRole("textbox", { name: "Output field name" }).last().fill(name);
-  await setSourcePath(list, path, from);
-}
-
-/**
- * Makes a list hold plain values, and points its one value at a path.
- *
- * The counterpart of `addListField`. What a list holds is decided by what is put into
- * it, so this is a click that adds a row rather than a setting that changes a mode —
- * and it is only offered while the list is still empty.
- */
-export async function addListValue(
-  list: Locator,
-  addTo: string,
-  path: string,
-  from: "entry" | "document" = "entry",
-) {
-  await list.getByRole("button", { name: `Add a value to ${addTo}` }).click();
   await setSourcePath(list, path, from);
 }
 

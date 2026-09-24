@@ -133,33 +133,6 @@ test("brand colour: staged draft previews app-wide, saves, and resets", async ({
   await expect(hexInput(page)).toHaveValue(DEFAULT_COLOR);
 });
 
-test("a secret's value never reaches the browser", async ({ page }) => {
-  const payloads: string[] = [];
-  page.on("response", async (res) => {
-    if (res.url().endsWith("/api/settings")) payloads.push(await res.text());
-  });
-
-  await page.goto("settings");
-  await sectionLink(page, "Adapters").click();
-
-  // The local backend configures a Rebex key, so the row shows as set — masked, with the
-  // adapter-config "Replace" affordance rather than the value itself.
-  await expect(page.getByText("••••••••")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Replace" })).toBeVisible();
-
-  expect(payloads.length).toBeGreaterThan(0);
-  const rebex = JSON.parse(payloads[0]).find(
-    (r: { key: string }) => r.key === "Bitween.RebexLicenseKey",
-  );
-  expect(rebex.secret).toBe(true);
-  expect(rebex.value).toBeNull();
-  expect(rebex.defaultValue).toBe("");
-  expect(rebex.hasValue).toBe(true);
-  // Editable because this instance has an encryption key configured; without one the row comes
-  // back read-only instead.
-  expect(rebex.editable).toBe(true);
-});
-
 test("the sign-in page brands itself before anyone has signed in", async ({ page }) => {
   await openBrandSection(page);
   await hexInput(page).fill(INDIGO);

@@ -11,6 +11,8 @@ on:
     branches: [releases/**]
     paths:
       - 'SW.Bitween.Web/ClientApp/**'
+      # transformArgs.test.ts reads this to check the editor names arguments as the engine does.
+      - 'SW.Bitween.NativeAdapters/Mapper/Transforms.cs'
       - '.github/workflows/frontend-tests.yml'
 
 permissions:

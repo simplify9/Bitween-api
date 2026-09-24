@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
@@ -144,6 +145,52 @@ public class MappingPreviewTests
         Assert.Equal(
             "'yaml' is not a source format this mapper supports. Supported: csv, json, xml.",
             response.Error);
+    }
+
+    /// <summary>Rules that write a delimited file, with the target side's options left to the caller.</summary>
+    private static object CsvTargetRules(object targetCsv) => new
+    {
+        version = 1,
+        sourceFormat = "json",
+        targetFormat = "csv",
+        targetCsv,
+        root = new
+        {
+            over = "",
+            fields = new object[]
+            {
+                new { target = new[] { "Tracking" }, from = new { kind = "Path", path = "t" } },
+                new { target = new[] { "Status" }, from = new { kind = "Path", path = "s" } },
+            },
+        },
+    };
+
+    private const string Scans = """[ { "t": "1309981172", "s": "OK" }, { "t": "1309981174", "s": "CC" } ]""";
+
+    /// <summary>
+    /// The writer's own tests prove it honours a delimiter and a header. This pins that the ones on
+    /// the rules are the ones it is handed — the preview builds its target format from them.
+    /// </summary>
+    [Fact]
+    public async Task A_delimited_file_is_written_with_the_delimiter_and_header_the_rules_ask_for()
+    {
+        var response = await PreviewAsync(CsvTargetRules(new { delimiter = ";", hasHeader = true }), Scans);
+
+        Assert.Null(response.Error);
+        var lines = response.OutputDocument!.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal(new[] { "Tracking;Status", "1309981172;OK", "1309981174;CC" },
+            lines.Select(l => l.TrimEnd('\r')).ToArray());
+    }
+
+    /// <summary>The mark is invisible, so what is checked is the first character itself.</summary>
+    [Fact]
+    public async Task A_delimited_file_starts_with_a_byte_order_mark_only_when_asked()
+    {
+        var marked = await PreviewAsync(CsvTargetRules(new { byteOrderMark = true }), Scans);
+        var plain = await PreviewAsync(CsvTargetRules(new { byteOrderMark = false }), Scans);
+
+        Assert.Equal('\uFEFF', marked.OutputDocument![0]);
+        Assert.NotEqual('\uFEFF', plain.OutputDocument![0]);
     }
 
     [Fact]
