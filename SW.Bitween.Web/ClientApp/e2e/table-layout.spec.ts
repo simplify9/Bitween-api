@@ -206,7 +206,12 @@ test("a panel list pages and filters once it runs long", async ({ page }) => {
   });
 
   await page.goto("information-types");
-  await page.locator("tbody tr").first().click();
+  // The route above can only multiply a subscription that exists, so open a type something
+  // uses — the first row is just whichever type was made last.
+  const usedBy = page
+    .locator('a[href*="/subscriptions/"]')
+    .or(page.getByRole("button", { name: /^Show all \d+ subscriptions$/ }));
+  await page.locator("tbody tr").filter({ has: usedBy }).first().locator("td").nth(1).click();
   await expect(page).toHaveURL(/\/information-types\/\d+$/);
 
   // Long names in a ~360px panel used to push Type off the right-hand edge.
