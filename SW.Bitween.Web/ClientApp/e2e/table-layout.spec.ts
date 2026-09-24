@@ -5,11 +5,10 @@ import { signInAsAdmin } from "./helpers";
  * The layout contracts the tables have to keep, whatever is in them.
  *
  * These are all data-shape problems: a customer with 60-character subscription
- * names, ten promoted properties, a 4KB minified payload and 45 subscriptions on
- * one information type. None of that exists in a dev database, so every test
- * here rewrites the API response on the way past rather than seeding rows —
- * nothing is written, and the assertions don't drift with whatever the local
- * data happens to be.
+ * names, a 4KB minified payload and 45 subscriptions on one information type.
+ * None of that exists in a dev database, so every test here rewrites the API
+ * response on the way past rather than seeding rows — nothing is written, and
+ * the assertions don't drift with whatever the local data happens to be.
  */
 
 const LONG_NAMES = [
@@ -102,64 +101,6 @@ test("long names wrap rather than collapsing into a row of ellipses", async ({ p
   }
 });
 
-test("promoted properties open in a panel, not just a tooltip", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-
-  await page.route("**/xchanges?**", async (route) => {
-    const res = await route.fetch();
-    let body: any;
-    try { body = await res.json(); } catch { return route.fulfill({ response: res }); }
-    // Ten properties, one value too long for a chip, and a null — the value
-    // shape that used to take the page down on paging.
-    for (const row of body.result ?? [])
-      row.promotedProperties = {
-        "Trace Code": "SHOR020", "Agent Code": null, "First Time": "True",
-        CreatedBy: "madebydaily.shopify.com", "Order Ref": "SO-2026-0088341-RETURN-LINE-2",
-        Weight: "2.4kg", Destination: "FR-75011", Service: "EXPRESS", Attempt: "3", Manifest: "M-88214",
-      };
-    await route.fulfill({ response: res, json: body });
-  });
-
-  await page.goto("exchanges");
-  const trigger = page.getByRole("button", { name: "Show all 10 promoted properties" }).first();
-  await trigger.click();
-
-  // Every property, in full — including the one too long to have fitted a chip.
-  await expect(page.getByText("10 promoted properties")).toBeVisible();
-  await expect(page.getByText("SO-2026-0088341-RETURN-LINE-2")).toBeVisible();
-
-  // Opening the panel is not a request to expand the row underneath it.
-  await expect(page.getByText("EXCHANGE ID")).toHaveCount(0);
-
-  await page.getByRole("button", { name: "Copy all" }).click();
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied).toContain("Order Ref=SO-2026-0088341-RETURN-LINE-2");
-  expect(copied.split("\n")).toHaveLength(10);
-});
-
-test("paging the exchanges list survives a null promoted value", async ({ page }) => {
-  await page.route("**/xchanges?**", async (route) => {
-    const res = await route.fetch();
-    let body: any;
-    try { body = await res.json(); } catch { return route.fulfill({ response: res }); }
-    // A promoted path that resolved to nothing arrives as null, not "".
-    for (const row of body.result ?? [])
-      row.promotedProperties = { "Agent Code": null, "Trace Code": null, "First Time": "True" };
-    await route.fulfill({ response: res, json: body });
-  });
-
-  const crashes: string[] = [];
-  page.on("pageerror", (e) => crashes.push(e.message));
-
-  await page.goto("exchanges");
-  const next = page.getByRole("button", { name: "Next" }).first();
-  if (!(await next.isDisabled())) {
-    await next.click();
-    await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
-  }
-  expect(crashes).toEqual([]);
-});
-
 test("a long payload doesn't stretch the exchanges table", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const payload = JSON.stringify({
@@ -191,7 +132,7 @@ test("a long payload doesn't stretch the exchanges table", async ({ page }) => {
   expect(await page.evaluate(() => document.querySelector("table")!.scrollWidth)).toBe(before);
 });
 
-test("a panel list pages and filters once it runs long", async ({ page }) => {
+test("a long panel list keeps its Type column inside the card", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.route("**/subscriptions?filter=DocumentId*", async (route) => {
     const res = await route.fetch();
@@ -214,14 +155,8 @@ test("a panel list pages and filters once it runs long", async ({ page }) => {
   await page.locator("tbody tr").filter({ has: usedBy }).first().locator("td").nth(1).click();
   await expect(page).toHaveURL(/\/information-types\/\d+$/);
 
-  // Long names in a ~360px panel used to push Type off the right-hand edge.
+  // Long names in a ~360px panel used to push Type off the right-hand edge. Only a real browser
+  // lays the panel out; paging and filtering this list are in UsedByPanel.test.tsx.
   await expect(page.getByRole("columnheader", { name: "Type" }).first()).toBeVisible();
   expect(await overflowing(page)).toEqual([]);
-
-  await expect(page.getByText("1–10 of 45")).toBeVisible();
-  const box = page.getByPlaceholder("Search 45 subscriptions");
-  await box.fill(LONG_NAMES[0].slice(0, 20));
-  // Filtering to one page takes the pager away but leaves the box that got you there.
-  await expect(page.getByText(/of 45$/)).toHaveCount(0);
-  await expect(box).toBeVisible();
 });

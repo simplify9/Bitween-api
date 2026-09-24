@@ -19,7 +19,9 @@ import {
  * changed and nothing said so.
  *
  * The mapping shapes themselves — every source, every transform, every kind of
- * list — are in mapper-cases.spec.ts.
+ * list — are tested below the browser: what the engine makes of them in C#
+ * (SW.Bitween.UnitTests/NativeMapper), and the editor's handling of them in
+ * src/components/nativeMapper/__tests__.
  */
 
 test.beforeEach(async ({ page }) => {

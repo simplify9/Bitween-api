@@ -53,16 +53,6 @@ export async function openMapper(page: Page, subscriptionId: string) {
   await expect(page.getByRole("button", { name: "Save" })).toBeVisible({ timeout: 15000 });
 }
 
-/** Creates a subscription, opens its editor, and pastes a source sample. */
-export async function openWithSample(page: Page, sample: unknown = SAMPLE): Promise<string> {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-  await page
-    .getByRole("textbox", { name: "Sample source document" })
-    .fill(typeof sample === "string" ? sample : JSON.stringify(sample, null, 2));
-  return subscriptionId;
-}
-
 /**
  * Runs `set` with the format panel open, and closes it afterwards.
  *
@@ -122,47 +112,9 @@ export async function addPathRule(page: Page, name: string, path: string) {
   await setSourcePath(page, path);
 }
 
-/** Adds a field at the top level whose value is a literal. */
-export async function addFixedRule(page: Page, name: string, value: string) {
-  await page.getByRole("button", { name: "Add a field", exact: true }).click();
-  await page.getByRole("textbox", { name: "Output field name" }).last().fill(name);
-  await page.getByRole("radio", { name: "Fixed" }).last().click();
-  await page.getByRole("textbox", { name: "Fixed value" }).last().fill(value);
-}
-
 /** Opens a row's detail panel, which is where the transform, type and lookup live. */
 export async function openDetail(page: Page, name: string) {
   await page.getByRole("button", { name: `Details for ${name}` }).click();
-}
-
-/** Adds a list at the top level over a source path, and returns its rules group. */
-export async function addList(page: Page, name: string, over: string | null): Promise<Locator> {
-  await page.getByRole("button", { name: "Add a list", exact: true }).click();
-  await page.getByRole("textbox", { name: "Output list name" }).last().fill(name);
-  await page
-    .getByRole("combobox", { name: "Source list" })
-    .last()
-    .selectOption(over === null ? "none" : `p:${over}`);
-  return page.getByRole("group", { name: `Rules for the list ${name}` });
-}
-
-/**
- * Adds a field inside a list, pointed at a path on the entry.
- *
- * `addTo` is the list as its own add button names it — its output name, or "the
- * root list". Passed rather than read off the row, because the root list has no
- * name box to read: it says "the whole output" instead.
- */
-export async function addListField(
-  list: Locator,
-  addTo: string,
-  name: string,
-  path: string,
-  from: "entry" | "document" = "entry",
-) {
-  await list.getByRole("button", { name: `Add a field to ${addTo}` }).click();
-  await list.getByRole("textbox", { name: "Output field name" }).last().fill(name);
-  await setSourcePath(list, path, from);
 }
 
 /** The mapped document, which the server produces. */
@@ -171,13 +123,6 @@ export const preview = (page: Page): Locator => page.locator("pre").first();
 /** Waits for the preview to settle on the given text. */
 export async function expectPreview(page: Page, text: string | RegExp) {
   await expect(preview(page)).toContainText(text, { timeout: 15000 });
-}
-
-export async function saveAndReload(page: Page) {
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Saved")).toBeVisible({ timeout: 15000 });
-  await page.reload();
-  await expect(page.getByRole("button", { name: "Save" })).toBeVisible({ timeout: 15000 });
 }
 
 // ─── Reaching past the editor ─────────────────────────────────────────────────
