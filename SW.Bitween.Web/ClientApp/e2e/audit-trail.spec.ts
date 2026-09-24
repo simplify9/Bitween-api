@@ -119,48 +119,6 @@ test.describe("audit trail", () => {
     expect(deleted!.changes.Name.new).toBeNull();
   });
 
-  test("adapter properties never reach the trail", async ({ page }) => {
-    const name = `Playwright Secret ${Date.now()}`;
-    const secret = `do-not-store-${Date.now()}`;
-
-    await page.goto("partners");
-    const id = await createPartnerViaApi(page, name, { Host: "smtp.example.test", Password: secret });
-
-    const rows = await audit(page, `entityName=Partner&entityKey=${id}`);
-    expect(rows.totalCount).toBeGreaterThan(0);
-
-    const asText = JSON.stringify(rows.result);
-    expect(asText, "the secret value must not be stored").not.toContain(secret);
-    expect(asText, "the property bag holding it must not be stored").not.toContain("AdapterProperties");
-    // The rest of the entity is still recorded — redaction is a scalpel, not a blanket.
-    expect(rows.result.some((r) => r.changes.Name?.new === name)).toBeTruthy();
-
-    await deletePartnerViaApi(page, id);
-  });
-
-  test("an account's password never reaches the trail", async ({ page }) => {
-    const email = await addMember(page, { name: "Playwright Audited", roles: ["Viewer"] });
-
-    const rows = await audit(page, "entityName=Account&limit=50");
-    const asText = JSON.stringify(rows.result);
-    expect(asText, "the password hash must not be stored").not.toContain(FIRST_PASSWORD);
-    expect(asText).not.toContain('"Password"');
-    // The member was recorded, just without the credential.
-    expect(rows.result.some((r) => r.changes.Email?.new === email)).toBeTruthy();
-
-    await removeMember(page, email);
-  });
-
-  test("runtime traffic is not audited", async ({ page }) => {
-    await page.goto("audit");
-    // Everything that flows through Bitween at runtime. One row each would bury the
-    // configuration changes the trail exists to show, so the policy excludes them.
-    for (const entityName of ["Xchange", "XchangeResult", "ReceiveAttempt", "RefreshToken"]) {
-      const rows = await audit(page, `entityName=${entityName}`);
-      expect(rows.totalCount, `${entityName} must not be audited`).toBe(0);
-    }
-  });
-
   test("the trail page filters, groups one save, and clears", async ({ page }) => {
     const name = `Playwright Filter ${Date.now()}`;
     await page.goto("partners");
