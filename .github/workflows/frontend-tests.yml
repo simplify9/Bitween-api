@@ -1,0 +1,33 @@
+# Runs the ClientApp's unit tests (vitest) on every pull request that touches the UI.
+#
+# The deploy pipeline only runs the .NET test projects, and only after a merge, so until
+# this existed nothing ever ran the frontend tests outside someone's machine. These need
+# no backend or database, so they take seconds. The Playwright e2e suite is not run here:
+# it needs a running backend with seeded data.
+name: Frontend tests
+
+on:
+  pull_request:
+    branches: [releases/**]
+    paths:
+      - 'SW.Bitween.Web/ClientApp/**'
+      - '.github/workflows/frontend-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SW.Bitween.Web/ClientApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'   # matches the Dockerfile's ui-build stage
+          cache: yarn
+          cache-dependency-path: SW.Bitween.Web/ClientApp/yarn.lock
+      - run: yarn install --frozen-lockfile
+      - run: yarn test
