@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
     private const string SecretKey = "Bitween.RebexLicenseKey";
     private const string EditableKey = "Bitween.JwtExpiryMinutes";
     private const string EnvironmentOwnedKey = "Bitween.DocumentPrefix";
+    private const string CronKey = "Bitween.RetryJobCron";
 
     private readonly Dictionary<string, string> _originals = new();
 
@@ -165,5 +167,38 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
         // Empty is how you remove a license key or an optional link. Treating it as "nothing to
         // do" would make a setting impossible to unset once set.
         Assert.Equal(string.Empty, await LiveValue(SecretKey));
+    }
+
+    /// <summary>
+    /// What the settings page is sent for a secret: that one is set, and nothing more. Storing it
+    /// encrypted protects a database dump; this is the other half, the page itself.
+    /// </summary>
+    [Fact]
+    public async Task A_secret_is_read_back_as_set_but_never_with_its_value()
+    {
+        await Store(SecretKey, "REBEX-5678-SECRET-VALUE");
+
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Resources.Settings.Get>(scope.ServiceProvider);
+        var row = ((IEnumerable<SettingRow>)await handler.Handle()).Single(r => r.Key == SecretKey);
+
+        Assert.True(row.Secret);
+        Assert.True(row.HasValue);
+        Assert.Null(row.Value);
+        Assert.Equal(string.Empty, row.DefaultValue);
+    }
+
+    /// <summary>
+    /// Checked before it is stored, because the value is handed straight to the job scheduler: a
+    /// bad expression saved here would surface as the retry job never running.
+    /// </summary>
+    [Fact]
+    public async Task A_schedule_that_is_not_a_cron_expression_is_refused()
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Store(CronKey, "not a cron"));
+
+        Assert.StartsWith("SETTING_INVALID_VALUE", ex.Message);
+        Assert.Contains("not a valid cron expression", ex.Message);
     }
 }

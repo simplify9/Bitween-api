@@ -247,6 +247,25 @@ describe("building rules from a sample of an XML output", () => {
     expect(tag?.kind).toBe("list");
   });
 
+  it("makes two rules for an element that holds both an attribute and a value", () => {
+    // `<weight unit="kg">0.940</weight>` is one element carrying two things: `@unit` for
+    // the attribute and `#text` for its own value, the same convention reading uses.
+    const rules = emptyRules();
+    rules.targetFormat = "xml";
+
+    const tally = scaffoldFromTarget(
+      rules,
+      parseSample(`<order><weight unit="kg">0</weight></order>`, "xml", "target").root,
+      null,
+    );
+
+    expect(tally.problem).toBeNull();
+    expect(rules.fields.map((f) => f.target.join("."))).toEqual([
+      "order.weight.@unit",
+      "order.weight.#text",
+    ]);
+  });
+
   it("reads a document that contains an element called parsererror", () => {
     // A browser reports a parse failure by handing back a document holding its own
     // complaint, so the name alone cannot be the signal: a partner is entitled to an

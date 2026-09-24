@@ -179,7 +179,20 @@ public class AuditTrailTests(BitweenFixture fixture)
         await EntriesFor(db, entityName, key).SingleAsync();
 
     static Dictionary<string, Diff> Changes(AuditEntry entry) =>
-        Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, Diff>>(entry.Changes);
+        Newtonsoft.Json.Linq.JObject.Parse(entry.Changes).Properties().ToDictionary(
+            p => p.Name,
+            p => new Diff { Old = Text(p.Value["Old"]), New = Text(p.Value["New"]) });
+
+    /// <summary>
+    /// A value as the test compares it. Most columns are recorded as text, but a collection — the
+    /// names of a partner's secret properties, say — is recorded as the list it is.
+    /// </summary>
+    static string? Text(Newtonsoft.Json.Linq.JToken? value) => value?.Type switch
+    {
+        null or Newtonsoft.Json.Linq.JTokenType.Null => null,
+        Newtonsoft.Json.Linq.JTokenType.String => (string?)value,
+        _ => value.ToString(Newtonsoft.Json.Formatting.None),
+    };
 
     private class Diff
     {

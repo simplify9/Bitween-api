@@ -14,5 +14,8 @@
   "include": ["src/**/__tests__/**/*", "e2e", "playwright.config.ts", "vite.config.ts"],
   // The old mapper's own tests, left out for the same reason `tsconfig.app.json`
   // leaves out its source: it is verbatim-ported code that goes when it goes.
-  "exclude": ["src/lib/mapping/**"]
+  "exclude": ["src/lib/mapping/**"],
+  // Not inherited through `extends`: without it the component tests, which mount the app's routes,
+  // would pull the old mapper in as source and check it under rules it was never written to.
+  "references": [{ "path": "./tsconfig.mapping.json" }]
 }

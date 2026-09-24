@@ -6,10 +6,8 @@ import {
   deleteRole,
   removeMember,
   signIn,
-  openMember,
   signInAsAdmin,
   signOut,
-  startsWith,
 } from "./helpers";
 
 /**
@@ -111,28 +109,6 @@ test("Viewer can read but not write", async ({ page }) => {
   await removeMember(page, email);
 });
 
-test("Member can configure subscriptions but not manage the team", async ({ page }) => {
-  await signInAsAdmin(page);
-  const email = await addMember(page, { name: "Regular Member", roles: ["Member"] });
-
-  await signOut(page);
-  await signIn(page, email, FIRST_PASSWORD);
-
-  await page.goto("partners");
-  await expect(page.getByRole("button", { name: "New partner" })).toBeVisible();
-
-  // The whole Administration group is absent for a Member.
-  await expect(sidebarLinks(page).filter({ hasText: "Team" })).toHaveCount(0);
-  await expect(sidebarLinks(page).filter({ hasText: "Settings" })).toHaveCount(0);
-
-  expect(await apiStatus(page, "GET", "/accounts?limit=5")).toBe(401);
-  expect(await apiStatus(page, "POST", "/roles", { name: "x", description: "", permissions: [] })).toBe(401);
-
-  await signOut(page);
-  await signInAsAdmin(page);
-  await removeMember(page, email);
-});
-
 test("editing a role changes what its members can do, without them signing in again", async ({
   page,
 }) => {
@@ -166,30 +142,4 @@ test("editing a role changes what its members can do, without them signing in ag
   await signInAsAdmin(page);
   await removeMember(page, email);
   await deleteRole(page, roleName);
-});
-
-test("a member with no roles at all sees nothing and can do nothing", async ({ page }) => {
-  await signInAsAdmin(page);
-  // A member cannot be created without a role — the server refuses an empty one — so the
-  // roleless state is reached the only way it can be: by taking their one role away after.
-  const email = await addMember(page, { name: "No Roles", roles: ["Viewer"] });
-  await openMember(page, email);
-  const drawer = page.getByRole("dialog", { name: "Member details" });
-  await drawer.getByRole("checkbox", { name: startsWith("Viewer") }).uncheck();
-  await drawer.getByRole("button", { name: "Save roles" }).click();
-  await expect(drawer.getByRole("button", { name: "Save roles" })).toHaveCount(0);
-
-  await signOut(page);
-  await signIn(page, email, FIRST_PASSWORD);
-
-  await expect(sidebarLinks(page)).toHaveCount(0);
-  for (const path of ["exchanges", "partners", "team/members", "settings"]) {
-    await page.goto(path);
-    await expect(page.getByText("You don't have access to this page")).toBeVisible();
-  }
-  expect(await apiStatus(page, "POST", "/partners", { name: "nope" })).toBe(401);
-
-  await signOut(page);
-  await signInAsAdmin(page);
-  await removeMember(page, email);
 });

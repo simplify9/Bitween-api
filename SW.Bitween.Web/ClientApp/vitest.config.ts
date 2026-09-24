@@ -7,6 +7,21 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globals: true,
-    include: ["src/**/__tests__/**/*.test.ts"],
+    projects: [
+      {
+        extends: true,
+        test: { name: "unit", include: ["src/**/__tests__/**/*.test.ts"] },
+      },
+      {
+        // Whole pages rendered in jsdom against a mock network: see src/__tests__/support.
+        extends: true,
+        test: {
+          name: "component",
+          include: ["src/**/__tests__/**/*.test.tsx"],
+          environment: "jsdom",
+          setupFiles: ["./src/__tests__/support/setup.ts"],
+        },
+      },
+    ],
   },
 });

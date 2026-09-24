@@ -1,0 +1,46 @@
+# Runs the ClientApp's unit and component tests (vitest) on every pull request that touches
+# the UI.
+#
+# The deploy pipeline only runs the .NET test projects, and only after a merge, so until
+# this existed nothing ever ran the frontend tests outside someone's machine. These need
+# no backend or database — the component tests render pages against a mock network — so
+# they take seconds. The Playwright e2e suite is not run here: it needs a running backend
+# with seeded data.
+name: Frontend tests
+
+on:
+  pull_request:
+    branches: [releases/**]
+    paths:
+      - 'SW.Bitween.Web/ClientApp/**'
+      # Read by the tests: transformArgs.test.ts checks the editor names arguments as the engine
+      # does, and the component tests sign in holding every permission the catalog defines.
+      - 'SW.Bitween.NativeAdapters/Mapper/Transforms.cs'
+      - 'SW.Bitween.Sdk/Model/Permissions.cs'
+      - '.github/workflows/frontend-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SW.Bitween.Web/ClientApp
+    steps:
+      # Pinned to commits, since a tag can be moved; and the checkout keeps no token, since the
+      # install below runs dependencies' own scripts.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'   # matches the Dockerfile's ui-build stage
+          cache: yarn
+          cache-dependency-path: SW.Bitween.Web/ClientApp/yarn.lock
+      - run: yarn install --frozen-lockfile
+      # The same type-check the Docker build runs, which covers the tests too — so a test file
+      # that breaks it fails here rather than in the deploy after the merge.
+      - run: npx tsc -b
+      - run: yarn test

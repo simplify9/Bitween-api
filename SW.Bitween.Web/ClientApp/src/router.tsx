@@ -1,4 +1,4 @@
-import { Navigate, createBrowserRouter } from "react-router";
+import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
 import { RequireAuth, RequirePermission } from "./auth/guards";
 import { useSession } from "./auth/SessionContext";
 import { AppShell } from "./components/layout/AppShell";
@@ -73,7 +73,8 @@ const placeholderRoutes = NAV_GROUPS.flatMap((group) => group.items)
 /** "/" → undefined (no basename); "/prefix/" → "/prefix" if ever remounted. */
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
 
-export const router = createBrowserRouter([
+/** Exported apart from the router so the component tests can mount the same routes in memory. */
+export const routes: RouteObject[] = [
   { path: "/login", element: <LoginPage /> },
   {
     element: <RequireAuth />,
@@ -449,4 +450,6 @@ export const router = createBrowserRouter([
       },
     ],
   },
-], { basename });
+];
+
+export const router = createBrowserRouter(routes, { basename });

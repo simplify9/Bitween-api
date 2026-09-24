@@ -273,6 +273,17 @@ describe("editing rules", () => {
     expect(state.rules.root).toBeUndefined();
   });
 
+  it("keeps the field rules through a switch to a list-shaped output and back", () => {
+    // Put aside, not thrown away: ticking the box by mistake must not cost the mapping.
+    let state = run([
+      { type: "ADD_FIELD", listId: null, target: ["customerName"] },
+      { type: "SET_ROOT_LIST", enabled: true },
+    ]);
+    state = rulesEditorReducer(state, { type: "SET_ROOT_LIST", enabled: false });
+
+    expect(state.rules.fields.map((f) => f.target)).toEqual([["customerName"]]);
+  });
+
   it("finds a field inside the root list", () => {
     let state = run([{ type: "SET_ROOT_LIST", enabled: true }]);
     const rootId = state.rules.root!.id;
@@ -825,5 +836,17 @@ describe("delimited-text options off the wire", () => {
     const loaded = fromWire({ ...emptyRules(), sourceFormat: "json", sourceCsv: {} as never });
 
     expect(loaded.sourceCsv).toBeUndefined();
+  });
+
+  it("sends the options chosen for the output with the mapping", () => {
+    // The server writes the file with whatever arrives here, so this is the editor's half of
+    // a delimiter or a byte-order mark actually reaching the document.
+    const options = { delimiter: ";", hasHeader: true, byteOrderMark: true };
+    const state = run([
+      { type: "SET_TARGET_FORMAT", format: "csv" },
+      { type: "SET_CSV_OPTIONS", side: "target", options },
+    ]);
+
+    expect(toWire(state.rules).targetCsv).toEqual(options);
   });
 });

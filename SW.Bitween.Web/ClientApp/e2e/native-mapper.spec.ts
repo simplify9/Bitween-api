@@ -2,15 +2,11 @@ import { test, expect } from "@playwright/test";
 import { pickOption, signInAsAdmin } from "./helpers";
 import {
   SAMPLE,
-  addList,
-  addListValue,
   addPathRule,
-  buildFromSample,
   createSubscription,
   openDetail,
   openMapper,
   setSourcePath,
-  suggestionsFor,
   writeMapperProperties,
 } from "./mapperHelpers";
 
@@ -23,7 +19,9 @@ import {
  * changed and nothing said so.
  *
  * The mapping shapes themselves — every source, every transform, every kind of
- * list — are in mapper-cases.spec.ts.
+ * list — are tested below the browser: what the engine makes of them in C#
+ * (SW.Bitween.UnitTests/NativeMapper), and the editor's handling of them in
+ * src/components/nativeMapper/__tests__.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -121,46 +119,6 @@ test("builds a mapping, previews it, saves it, and reloads exactly what was buil
 
   // And the preview still produces the same document after the round trip.
   await expect(page.locator("pre").first()).toContainText('"total": 116,', { timeout: 15000 });
-});
-
-test("a rule that cannot be applied is named rather than producing an empty field", async ({
-  page,
-}) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SAMPLE);
-
-  await addPathRule(page, "total", "order.customer");
-  await openDetail(page, "total");
-  await page.getByRole("combobox", { name: "Value type" }).last().selectOption("number");
-
-  // "Ali" is not a number. The old mapper wrote null into the field and said nothing;
-  // this fails the mapping and names the rule.
-  await expect(page.getByText(/could not be applied/)).toBeVisible({ timeout: 15000 });
-
-  // Reported twice on purpose — once on the rule row that is wrong, and once in the
-  // preview panel's summary of everything that failed.
-  await expect(page.getByText(/cannot convert 'Ali' to number/)).toHaveCount(2);
-  await expect(page.getByRole("alert").filter({ hasText: /cannot convert 'Ali'/ })).toBeVisible();
-});
-
-test("stored rules survive a switch to a list-shaped output and back", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SAMPLE);
-  await addPathRule(page, "customerName", "order.customer");
-
-  await page.getByRole("checkbox", { name: /The whole output is a list/ }).check();
-  await expect(page.getByRole("button", { name: "Collapse the list at the root" })).toBeVisible();
-
-  await page.getByRole("checkbox", { name: /The whole output is a list/ }).uncheck();
-
-  // The field rules were put aside, not thrown away.
-  await expect(page.getByRole("textbox", { name: "Output field name" })).toHaveValue(
-    "customerName",
-  );
 });
 
 test("choosing the new mapper offers its editor, and the old mapper keeps its own", async ({
@@ -262,147 +220,6 @@ test("saving over the mapping the other mapper already has asks first", async ({
   await expect(page.getByText("Saved")).toBeVisible({ timeout: 15000 });
 });
 
-test("builds the whole output from a sample of it, and matches the source fields", async ({
-  page,
-}) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SAMPLE);
-
-  // What the partner expects. Adding this by hand is five rules; on a real document
-  // it is hundreds, which is the whole point of building it from the sample.
-  await buildFromSample(page, { customer: "", net: 0, line: [{ sku: "", qty: 0 }] });
-
-  await page.getByRole("button", { name: "Build from a sample of the output" }).click();
-  await expect(page.getByText(/Added 5 rules · 5 matched to a source field/)).toBeVisible();
-  await page.keyboard.press("Escape");
-
-  const names = page.getByRole("textbox", { name: "Output field name" });
-  await expect(names.nth(0)).toHaveValue("customer");
-  await expect(names.nth(1)).toHaveValue("net");
-
-  await expect(page.getByRole("textbox", { name: "Output list name" })).toHaveValue("line");
-  await expect(page.getByRole("combobox", { name: "Source list" })).toHaveValue("p:order.line");
-
-  // A rule inside the list reads one entry, so its path is `sku`, not `order.line.sku`.
-  const lines = page.getByRole("group", { name: "Rules for the list line" });
-  await expect(lines.getByRole("combobox", { name: "Source field" }).first()).toHaveValue("sku");
-
-  // The number came from `0` in the sample, so the output keeps the partner's type.
-  await openDetail(page, "net");
-  await expect(page.getByRole("combobox", { name: "Value type" })).toHaveValue("number");
-  await openDetail(page, "net");
-
-  // ── The mapping actually runs ──────────────────────────────────────────────
-  const preview = page.locator("pre").first();
-  await expect(preview).toContainText('"customer": "Ali"', { timeout: 15000 });
-  await expect(preview).toContainText('"net": 100');
-  await expect(preview).toContainText('"sku": "A1"');
-  await expect(preview).toContainText('"sku": "B7"');
-});
-
-test("a list of plain values built from a sample is wired up and says so", async ({
-  page,
-}) => {
-  // The shape that sent this round: both sides hold `[1,2,3]`, and the scaffolder
-  // wires each entry to the entry itself — the right answer, which used to be shown
-  // as an empty box behind a checkbox and read as nothing configured at all.
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page
-    .getByRole("textbox", { name: "Sample source document" })
-    .fill(JSON.stringify({ city: "errr", test: [1, 2, 3] }));
-  await buildFromSample(page, { city: "", test: [1, 2, 3] });
-  await page.getByRole("button", { name: "Build from a sample of the output" }).click();
-  await page.keyboard.press("Escape");
-
-  const list = page.getByRole("group", { name: "Rules for the list test" });
-
-  // A row in the tree, not a setting behind a chevron — and it reads as an answer
-  // rather than as a box waiting to be filled in.
-  const value = list.getByRole("combobox", { name: "Source field" });
-  await expect(value).toHaveAttribute("placeholder", "the entry itself");
-  await expect(value).toHaveValue("");
-  await expect(list.getByText("each entry")).toBeVisible();
-
-  // Nothing is left unassigned, which is what the count above the tree has to agree
-  // with: an empty path here is the answer, not a blank.
-  await expect(page.getByText("2 rules · 2 assigned")).toBeVisible();
-
-  // And it runs: the source values come straight through.
-  await expect(page.locator("pre").first()).toHaveText(/"test":\s*\[\s*1,\s*2,\s*3\s*\]/, {
-    timeout: 15000,
-  });
-});
-
-test("a list's value takes a type and a transform like any other rule", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-  await page
-    .getByRole("textbox", { name: "Sample source document" })
-    .fill(JSON.stringify({ price: [10, 20] }));
-
-  const list = await addList(page, "totals", "price");
-  await addListValue(list, "totals", "");
-
-  // The row carries the whole rule, which is the point of it being a row: the value
-  // each entry produces can be multiplied and typed exactly like a named field.
-  await list.getByRole("button", { name: "Details for each entry" }).click();
-  await list.getByRole("combobox", { name: "Transform" }).selectOption("multiply");
-  await list.getByRole("textbox", { name: /Multiply.*By/ }).fill("2");
-  await list.getByRole("combobox", { name: "Value type" }).selectOption("number");
-
-  await expect(page.locator("pre").first()).toHaveText(/"totals":\s*\[\s*20,\s*40\s*\]/, {
-    timeout: 15000,
-  });
-});
-
-test("a list inside a list offers the entry's own lists, not the document's", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  // `tags` sits inside an entry of `order.line`, and there is a decoy `tags` at the
-  // top of the document that the inner list must not reach for.
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(
-    JSON.stringify(
-      {
-        tags: [{ code: "DECOY" }],
-        order: {
-          line: [
-            { sku: "A1", tags: [{ code: "fragile" }, { code: "boxed" }] },
-            { sku: "B7", tags: [{ code: "cold" }] },
-          ],
-        },
-      },
-      null,
-      2,
-    ),
-  );
-
-  await buildFromSample(page, { line: [{ sku: "", tags: [{ code: "" }] }] });
-
-  // The outer list is named from the document; the inner one from one entry of it.
-  // Offering `order.line.tags` here was a real bug: the mapper resolves a nested
-  // list against the entry, so that path names nothing at all.
-  const lists = page.getByRole("combobox", { name: "Source list" });
-  await expect(lists.nth(0)).toHaveValue("p:order.line");
-  await expect(lists.nth(1)).toHaveValue("p:tags");
-  // Only the entry's own lists, plus the choice to walk nothing at all.
-  await expect(lists.nth(1).locator("option")).toHaveText([
-    "— just the entries below —",
-    "tags",
-  ]);
-
-  // And it runs: two entries, each with its own tags, and no sign of the decoy.
-  const preview = page.locator("pre").first();
-  await expect(preview).toContainText('"code": "fragile"', { timeout: 15000 });
-  await expect(preview).toContainText('"code": "boxed"');
-  await expect(preview).toContainText('"code": "cold"');
-  await expect(preview).not.toContainText("DECOY");
-});
-
 test("dragging a source field onto a rule wires it up", async ({ page }) => {
   const subscriptionId = await createSubscription(page);
   await openMapper(page, subscriptionId);
@@ -423,156 +240,4 @@ test("dragging a source field onto a rule wires it up", async ({ page }) => {
   await expect(page.locator("pre").first()).toContainText('"customerName": "Ali"', {
     timeout: 15000,
   });
-});
-
-test("a lookup table substitutes values, and says what happens to a miss", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(
-    JSON.stringify({ country: "JO", other: "XX" }, null, 2),
-  );
-
-  await addPathRule(page, "countryName", "country");
-  await addPathRule(page, "otherName", "other");
-
-  // ── The table applies ──────────────────────────────────────────────────────
-  await openDetail(page, "countryName");
-  await page.getByRole("checkbox", { name: "Substitute values from a table" }).check();
-  await page.getByRole("button", { name: "Add incoming value" }).click();
-  await page.getByRole("textbox", { name: "Incoming value 1" }).fill("JO");
-  await page.getByRole("textbox", { name: "Becomes 1" }).fill("Jordan");
-
-  await expect(page.locator("pre").first()).toContainText('"countryName": "Jordan"', {
-    timeout: 15000,
-  });
-
-  // ── A miss is empty unless the rule says otherwise ─────────────────────────
-  await expect(page.getByText("Otherwise the field is left empty.")).toBeVisible();
-  await page.getByRole("checkbox", { name: /Use a fallback/ }).check();
-  await page.getByRole("textbox", { name: "Lookup fallback" }).fill("Unknown");
-
-  await expect(page.locator("pre").first()).toContainText('"otherName": "XX"');
-  await expect(page.locator("pre").first()).toContainText('"countryName": "Jordan"');
-});
-
-test("a rule inside a list can read a value from the top of the document", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SAMPLE);
-
-  await page.getByRole("button", { name: "Add a list", exact: true }).click();
-  await page.getByRole("textbox", { name: "Output list name" }).fill("lines");
-  await page.getByRole("combobox", { name: "Source list" }).selectOption("p:order.line");
-
-  const lines = page.getByRole("group", { name: "Rules for the list lines" });
-  await lines.getByRole("button", { name: "Add a field to lines" }).click();
-  await lines.getByRole("textbox", { name: "Output field name" }).fill("code");
-
-  // Inside a list, "sku" alone is ambiguous — it could be the line's or the
-  // document's — so the scope is its own control, and the suggestions follow it.
-  const field = lines.getByRole("combobox", { name: "Source field" });
-  const scope = lines.getByRole("combobox", { name: "Read from" });
-
-  await expect(scope).toHaveValue("entry");
-  expect(await suggestionsFor(page, field)).toContain("sku");
-
-  await scope.selectOption("doc");
-  expect(await suggestionsFor(page, field)).toContain("order.customer");
-  await scope.selectOption("entry");
-
-  await setSourcePath(lines, "sku");
-
-  await lines.getByRole("button", { name: "Add a field to lines" }).click();
-  await lines.getByRole("textbox", { name: "Output field name" }).last().fill("customer");
-  await setSourcePath(lines, "order.customer", "document");
-
-  // Every line carries the order's customer, which a path read on the entry cannot do.
-  const preview = page.locator("pre").first();
-  await expect(preview).toContainText('"code": "A1"', { timeout: 15000 });
-  await expect(preview).toContainText('"customer": "Ali"');
-
-  // And it survives the round trip as a document-scoped read, not an entry one.
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Saved")).toBeVisible({ timeout: 15000 });
-  await page.reload();
-  await expect(page.getByRole("button", { name: "Save" })).toBeVisible({ timeout: 15000 });
-
-  const reloaded = page.getByRole("group", { name: "Rules for the list lines" });
-  await expect(reloaded.getByRole("combobox", { name: "Source field" }).nth(0)).toHaveValue("sku");
-  await expect(reloaded.getByRole("combobox", { name: "Read from" }).nth(0)).toHaveValue("entry");
-  await expect(reloaded.getByRole("combobox", { name: "Source field" }).nth(1)).toHaveValue(
-    "order.customer",
-  );
-  await expect(reloaded.getByRole("combobox", { name: "Read from" }).nth(1)).toHaveValue("doc");
-});
-
-test("a list can carry entries written into it, before the ones it walks", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SAMPLE);
-
-  await page.getByRole("button", { name: "Add a list", exact: true }).click();
-  await page.getByRole("textbox", { name: "Output list name" }).fill("lines");
-  await page.getByRole("combobox", { name: "Source list" }).selectOption("p:order.line");
-
-  const lines = page.getByRole("group", { name: "Rules for the list lines" });
-  await lines.getByRole("button", { name: "Add a field to lines" }).click();
-  await lines.getByRole("textbox", { name: "Output field name" }).fill("sku");
-  await setSourcePath(lines, "sku");
-
-  // ── A header line the partner expects ──────────────────────────────────────
-  await lines.getByRole("button", { name: "Add an entry to lines" }).click();
-
-  const entry = page.getByRole("group", { name: "Rules for entry 1" });
-  await entry.getByRole("button", { name: "Add a field to entry 1" }).click();
-  await entry.getByRole("textbox", { name: "Output field name" }).fill("sku");
-  await entry.getByRole("radio", { name: "Fixed" }).click();
-  await entry.getByRole("textbox", { name: "Fixed value" }).fill("HEADER");
-
-  // Written entries come first, then one per entry of the source list — the order
-  // the previous mapper produced for the same configuration.
-  const preview = page.locator("pre").first();
-  await expect(preview).toContainText('"sku": "HEADER"', { timeout: 15000 });
-  await expect(preview).toHaveText(/HEADER[\s\S]*A1[\s\S]*B7/);
-
-  // ── And it survives the round trip ─────────────────────────────────────────
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Saved")).toBeVisible({ timeout: 15000 });
-  await page.reload();
-  await expect(page.getByRole("button", { name: "Save" })).toBeVisible({ timeout: 15000 });
-
-  await expect(page.getByRole("group", { name: "Rules for entry 1" })).toBeVisible();
-  await expect(page.locator("pre").first()).toHaveText(/HEADER[\s\S]*A1/, { timeout: 15000 });
-});
-
-test("a list of values with a slot per rule, walking nothing", async ({ page }) => {
-  const subscriptionId = await createSubscription(page);
-  await openMapper(page, subscriptionId);
-
-  await page.getByRole("textbox", { name: "Sample source document" }).fill(SAMPLE);
-
-  await page.getByRole("button", { name: "Add a list", exact: true }).click();
-  await page.getByRole("textbox", { name: "Output list name" }).fill("codes");
-
-  // Nothing to walk, so the list is exactly what is written into it. This is what
-  // the old mapper called a primitive array.
-  await page.getByRole("combobox", { name: "Source list" }).selectOption("none");
-
-  // What the list holds is decided by what is put in it, not by a setting: the first
-  // slot says these are plain values, and every entry after it follows.
-  await page.getByRole("button", { name: "Add a value to codes" }).click();
-  await page.getByRole("button", { name: "Add an entry to codes" }).click();
-
-  const first = page.getByRole("group", { name: "Entry 1" });
-  const second = page.getByRole("group", { name: "Entry 2" });
-
-  await setSourcePath(first, "order.customer");
-  await second.getByRole("radio", { name: "Fixed" }).click();
-  await second.getByRole("textbox", { name: "Fixed value" }).fill("WEB");
-
-  await expect(page.locator("pre").first()).toContainText('"codes"', { timeout: 15000 });
-  await expect(page.locator("pre").first()).toHaveText(/"codes":\s*\[\s*"Ali",\s*"WEB"\s*\]/);
 });
