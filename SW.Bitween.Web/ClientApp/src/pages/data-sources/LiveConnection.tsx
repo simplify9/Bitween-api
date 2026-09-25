@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity } from "lucide-react";
 import { api } from "../../api";
 import { Badge, LoadingBlock } from "../../components/ui/basics";
 import { keys } from "../../api/queryKeys";
-import { ConnectionBadge } from "./ConnectionBadge";
 
 /**
  * What the connection is doing, as opposed to how it is configured.
@@ -14,8 +12,17 @@ import { ConnectionBadge } from "./ConnectionBadge";
  * cooperation from the adapter at all, so it still answers when the other half has gone quiet.
  * That distinction is the whole reason an operator can tell "the broker is idle" from "the adapter
  * is stuck", which no single health badge can say.
+ *
+ * Rendered inside the page's Connection card, which already shows the state badge and the last
+ * error — so neither is repeated here unless the live figure says something different.
  */
-export function LiveConnection({ dataSourceId }: { dataSourceId: number }) {
+export function LiveConnection({
+  dataSourceId,
+  knownError,
+}: {
+  dataSourceId: number;
+  knownError?: string | null;
+}) {
   const telemetry = useQuery({
     queryKey: keys.dataSources.telemetry(dataSourceId),
     queryFn: () => api.getDataSourceTelemetry(dataSourceId),
@@ -44,11 +51,9 @@ export function LiveConnection({ dataSourceId }: { dataSourceId: number }) {
   );
 
   return (
-    <section className="mb-4 rounded-xl border border-ink-200 bg-white p-4">
+    <div className="mt-4 border-t border-ink-100 pt-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Activity className="size-4 text-ink-400" />
-        <h2 className="text-sm font-semibold text-ink-900">Live</h2>
-        <ConnectionBadge state={t.state} failures={t.restartCount} />
+        <h3 className="text-[12px] font-medium tracking-wide text-ink-500 uppercase">Live</h3>
         {t.quarantined && (
           <Badge tone="danger" title="Restarted too many times too quickly; the supervisor stopped trying.">
             Quarantined
@@ -141,10 +146,12 @@ export function LiveConnection({ dataSourceId }: { dataSourceId: number }) {
             </details>
           )}
 
-          {t.lastError && <p className="text-sm text-danger-800">{t.lastError}</p>}
+          {t.lastError && t.lastError !== knownError && (
+            <p className="text-sm text-danger-800">{t.lastError}</p>
+          )}
         </div>
       )}
-    </section>
+    </div>
   );
 }
 

@@ -20,6 +20,7 @@ interface RawDataSource {
   name: string;
   adapterId: string;
   kind: string;
+  placement?: string | null;
   inactive: boolean | null;
   deduplicationWindowDays: number;
   softMemoryLimitMb?: number | null;
@@ -27,6 +28,7 @@ interface RawDataSource {
   cpuPercentLimit?: number | null;
   cpuLimitSamples?: number | null;
   gatewayCount: number;
+  subscriptionCount?: number | null;
   lastKnownState: string | null;
   lastHeartbeatOn: string | null;
   lastException: string | null;
@@ -54,6 +56,7 @@ const toRow = (raw: RawDataSource): DataSourceRow => ({
   name: raw.name,
   adapterId: raw.adapterId,
   kind: raw.kind,
+  placement: raw.placement ?? "Auto",
   inactive: raw.inactive ?? false,
   deduplicationWindowDays: raw.deduplicationWindowDays,
   softMemoryLimitMb: raw.softMemoryLimitMb ?? 0,
@@ -61,6 +64,7 @@ const toRow = (raw: RawDataSource): DataSourceRow => ({
   cpuPercentLimit: raw.cpuPercentLimit ?? 0,
   cpuLimitSamples: raw.cpuLimitSamples ?? 0,
   gatewayCount: raw.gatewayCount,
+  subscriptionCount: raw.subscriptionCount ?? 0,
   lastKnownState: raw.lastKnownState,
   lastHeartbeatOn: raw.lastHeartbeatOn,
   lastException: raw.lastException,

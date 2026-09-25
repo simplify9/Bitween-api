@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.DataSources;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
@@ -41,7 +42,9 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
                 // A correlated count, so the "used by" column costs one subquery per row rather
                 // than the whole BusGateway table over the wire.
                 GatewayCount = dbContext.Set<BusGateway>()
-                    .Count(gateway => gateway.DataSourceId == dataSource.Id)
+                    .Count(gateway => gateway.DataSourceId == dataSource.Id),
+                SubscriptionCount = dbContext.Set<Subscription>()
+                    .Count(subscription => subscription.DataSourceId == dataSource.Id)
             };
 
         query = query.AsNoTracking();

@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.DataSources;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
@@ -47,7 +48,9 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
             OwnedByNode = dataSource.OwnedByNode,
 
             GatewayCount = await dbContext.Set<BusGateway>()
-                .CountAsync(gateway => gateway.DataSourceId == key)
+                .CountAsync(gateway => gateway.DataSourceId == key),
+            SubscriptionCount = await dbContext.Set<Subscription>()
+                .CountAsync(subscription => subscription.DataSourceId == key)
         };
     }
 }

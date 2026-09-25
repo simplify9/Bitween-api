@@ -21,7 +21,8 @@ export function ConnectionBadge({
       </Badge>
     );
 
-  const tone = /connected|idle|running/i.test(state)
+  // Whole words, or "Disconnected" would match "connected" and read as healthy.
+  const tone = /\b(connected|ready|idle|running)\b/i.test(state)
     ? "ok"
     : /starting|draining/i.test(state)
       ? "warn"
