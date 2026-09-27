@@ -55,7 +55,7 @@ export function ApiGatewayNewPage() {
         <Field
           label="URL name"
           htmlFor="nag-url"
-          hint={`Partners will call /api/Gateway/${urlName || "…"}/sync or /async.`}
+          hint={`Partners will call /api/gateway/${urlName || "…"}/sync or /async. Use / to split it into parts, e.g. logistics/slim/orders.`}
         >
           <TextInput
             id="nag-url"
