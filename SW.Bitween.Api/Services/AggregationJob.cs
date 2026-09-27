@@ -21,7 +21,7 @@ public class AggregationJob(
 {
     public async Task Execute(AggregationJobParams jobParams)
     {
-        var aggSub = await dbContext.Set<Subscription>()
+        var aggSub = await dbContext.Subscriptions()
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
         if (aggSub == null) return;

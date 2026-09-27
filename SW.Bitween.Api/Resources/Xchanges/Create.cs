@@ -21,7 +21,7 @@ namespace SW.Bitween.Resources.Xchanges
             }
             else if (request.Option == CreateXchangeOption.SubscriberId)
             {
-                var subscription = await dbc.Set<Subscription>().FirstOrDefaultAsync(d => d.Id == request.SubscriberId);
+                var subscription = await dbc.Subscriptions().FirstOrDefaultAsync(d => d.Id == request.SubscriberId);
                 if (subscription == null) throw new SWValidationException("SUBSCRIPTION_NOT_FOUND", "Subscription was not found");
                 await xchangeService.CreateXchange(subscription, xchangeFile);
             }

@@ -140,7 +140,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             return false;
         }
 
-        var subscription = await dbContext.Set<Subscription>()
+        var subscription = await dbContext.Subscriptions()
             .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
         if (subscription == null)
         {
