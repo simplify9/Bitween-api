@@ -17,6 +17,10 @@ public class HttpReceiverInput
     [Secure]
     [Description("Password for Basic or OAuth2 password-grant authentication.")]
     public string? LoginPassword { get; set; }
+    [Description("Optional custom login request (Login auth type). Put the real username and password in LoginUsername and LoginPassword, then write {{username}} and {{password}} here where they belong, e.g. {\"email\":\"{{username}}\",\"password\":\"{{password}}\"}. This field is not hidden, so never type a secret into it directly. Leave empty to send the default body.")]
+    public string? LoginBody { get; set; }
+    [Description("Optional path to the token in the login response (e.g. token, data.access_token). Empty reads the 'jwt' field.")]
+    public string? LoginTokenPath { get; set; }
 
     [Required]
     [Description("The source HTTP endpoint URL to pull data from.")]
