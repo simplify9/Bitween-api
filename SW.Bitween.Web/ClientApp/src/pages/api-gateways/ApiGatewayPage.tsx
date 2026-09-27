@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Pause, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";
 import { api, type ApiGatewayAttachment } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { finishUrlName, toUrlName } from "../../lib/identifiers";
+import { finishUrlName, toUrlName, urlNameProblem } from "../../lib/identifiers";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
@@ -64,6 +64,7 @@ export function ApiGatewayPage() {
   const [removing, setRemoving] = useState<{ partnerId: number; partnerName: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmingActive, setConfirmingActive] = useState(false);
+  const [confirmingUrl, setConfirmingUrl] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -106,6 +107,7 @@ export function ApiGatewayPage() {
     );
 
   const g = gateway.data;
+  const urlProblem = urlNameProblem(urlName);
 
   return (
     <div className="pb-24">
@@ -145,7 +147,7 @@ export function ApiGatewayPage() {
       <div className="space-y-5">
         <Panel title="Endpoint" description="Where partners send their documents, and how they identify themselves.">
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="URL name" htmlFor="ag-url">
+            <Field label="URL name" htmlFor="ag-url" error={urlProblem ?? undefined}>
               <TextInput
                 id="ag-url"
                 value={urlName}
@@ -154,8 +156,8 @@ export function ApiGatewayPage() {
                 onChange={(e) => setUrlName(toUrlName(e.target.value))}
               />
             </Field>
-            <CopyField value={`/api/Gateway/${urlName}/sync`} label="Synchronous — waits for the result" />
-            <CopyField value={`/api/Gateway/${urlName}/async`} label="Asynchronous — returns the exchange id" />
+            <CopyField value={`/api/gateway/${urlName}/sync`} label="Synchronous — waits for the result" />
+            <CopyField value={`/api/gateway/${urlName}/async`} label="Asynchronous — returns the exchange id" />
           </div>
 
           {/*
@@ -168,7 +170,7 @@ export function ApiGatewayPage() {
               How a partner calls it
             </p>
             <pre className="overflow-x-auto rounded-lg bg-ink-50 px-3 py-2.5 font-mono text-[12px] leading-relaxed text-ink-700">
-              {`POST /api/Gateway/${urlName}/sync\npartnerkey: <the partner's API key>\n\n<the document, as the body>`}
+              {`POST /api/gateway/${urlName}/sync\npartnerkey: <the partner's API key>\n\n<the document, as the body>`}
             </pre>
             <p className="mt-2 text-[12px] text-ink-500">
               The{" "}
@@ -290,8 +292,13 @@ export function ApiGatewayPage() {
       {canEdit && dirty && (
         <UnsavedBar
           busy={save.isPending}
-          error={save.error?.message}
-          onSave={() => save.mutate()}
+          error={urlProblem ?? save.error?.message}
+          onSave={() => {
+            if (urlProblem) return;
+            // The URL is what partners hold; changing it cuts every one of them off.
+            if (finishUrlName(urlName) !== g.urlName) setConfirmingUrl(true);
+            else save.mutate();
+          }}
           onDiscard={() => setLoaded(false)}
         />
       )}
@@ -315,13 +322,32 @@ export function ApiGatewayPage() {
         />
       )}
 
+      {confirmingUrl && (
+        <ConfirmDialog
+          title="Change this gateway's URL?"
+          body={
+            <>
+              Partners calling{" "}
+              <code className="font-mono text-[12px]">/api/gateway/{g.urlName}</code> will get 404s
+              until they switch to{" "}
+              <code className="font-mono text-[12px]">/api/gateway/{finishUrlName(urlName)}</code>.
+            </>
+          }
+          confirmLabel="Change URL"
+          onConfirm={async () => {
+            await save.mutateAsync();
+          }}
+          onClose={() => setConfirmingUrl(false)}
+        />
+      )}
+
       {confirmingActive && (
         <ConfirmDialog
           title={g.inactive ? `Activate ${g.name}?` : `Deactivate ${g.name}?`}
           body={
             g.inactive
               ? "Partners can call it again immediately. Nothing they sent while it was off was kept."
-              : `Partners calling /api/Gateway/${g.urlName} get a 503 until it is activated again. Its ${g.attachments.length} attachment${g.attachments.length === 1 ? "" : "s"} stay as they are.`
+              : `Partners calling /api/gateway/${g.urlName} get a 503 until it is activated again. Its ${g.attachments.length} attachment${g.attachments.length === 1 ? "" : "s"} stay as they are.`
           }
           confirmLabel={g.inactive ? "Activate" : "Deactivate"}
           onConfirm={async () => {

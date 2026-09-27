@@ -8,14 +8,18 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.ApiGateways;
 
 /// <summary>
-/// The url name is a path segment — partners call <c>/api/Gateway/{urlName}/sync</c> — so
-/// anything needing escaping there makes a gateway that reads as configured and cannot be
-/// reached. A space is the one that actually happens: it saves, the endpoint shown on the
-/// page is the one the partner copies, and the call 404s with nothing on screen to explain it.
+/// The url name is the path partners call — <c>/api/gateway/{urlName}/sync</c> — so anything
+/// needing escaping there makes a gateway that reads as configured and cannot be reached. A
+/// space is the one that actually happens: it saves, the endpoint shown on the page is the one
+/// the partner copies, and the call 404s with nothing on screen to explain it.
 /// </summary>
+/// <remarks>
+/// It may run to several segments (<c>logistics/slim/orders</c>): clients lay out their own
+/// URL scheme, and the shape differs between them, so no position means anything to us.
+/// </remarks>
 internal static partial class GatewayUrlName
 {
-    [GeneratedRegex("^[a-z0-9]+(?:[-_][a-z0-9]+)*$")]
+    [GeneratedRegex(@"^[a-z0-9]+(?:[-_][a-z0-9]+)*(?:/[a-z0-9]+(?:[-_][a-z0-9]+)*)*\z")]
     private static partial Regex Allowed();
 
     public static void Validate(string urlName)
@@ -26,7 +30,15 @@ internal static partial class GatewayUrlName
         if (!Allowed().IsMatch(urlName))
             throw new SWValidationException("GATEWAY_URL_NAME_INVALID",
                 $"'{urlName}' cannot be used in a URL. Use lowercase letters, digits, hyphens " +
-                "and underscores only — no spaces, and not starting or ending with a separator.");
+                "and underscores, with / between parts — no spaces, and no part starting or " +
+                "ending with a separator.");
+
+        // The call ends in /sync or /async, and it is the last segment that says which. A name
+        // ending in one would make "orders/sync" and "orders" the same address.
+        var last = urlName[(urlName.LastIndexOf('/') + 1)..];
+        if (last is "sync" or "async")
+            throw new SWValidationException("GATEWAY_URL_NAME_INVALID",
+                $"'{urlName}' cannot end in '{last}' — partners add /sync or /async after it.");
     }
 
     /// <summary>
@@ -41,7 +53,9 @@ internal static partial class GatewayUrlName
     public static async Task EnsureIsFree(BitweenDbContext dbContext, string urlName, int? existingId = null)
     {
         var taken = await dbContext.Set<ApiGateway>().AsNoTracking()
-            .Where(gateway => gateway.UrlName == urlName && gateway.Id != existingId)
+            // Lowered because rows saved before names had to be lowercase may not be, and the
+            // partner's call is matched without regard to case.
+            .Where(gateway => gateway.UrlName.ToLower() == urlName && gateway.Id != existingId)
             .Select(gateway => gateway.Name)
             .FirstOrDefaultAsync();
 

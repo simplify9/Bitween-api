@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
-import { finishUrlName, suggestSlug, toUrlName } from "../../lib/identifiers";
+import { finishUrlName, suggestSlug, toUrlName, urlNameProblem } from "../../lib/identifiers";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 
@@ -23,6 +23,9 @@ export function ApiGatewayNewPage() {
       navigate(base, { replace: true });
     },
   });
+
+  // Empty is left to `required`, or the page would open on an error.
+  const urlProblem = urlName ? urlNameProblem(urlName) : null;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -55,7 +58,8 @@ export function ApiGatewayNewPage() {
         <Field
           label="URL name"
           htmlFor="nag-url"
-          hint={`Partners will call /api/Gateway/${urlName || "…"}/sync or /async.`}
+          error={urlProblem ?? undefined}
+          hint={`Partners will call /api/gateway/${urlName || "…"}/sync or /async. Use / to split it into parts, e.g. logistics/slim/orders.`}
         >
           <TextInput
             id="nag-url"
@@ -71,7 +75,7 @@ export function ApiGatewayNewPage() {
         </Field>
         <FormError>{create.error?.message}</FormError>
         <div className="flex justify-end">
-          <Button type="submit" variant="primary" busy={create.isPending}>
+          <Button type="submit" variant="primary" busy={create.isPending} disabled={!!urlProblem}>
             Create gateway
           </Button>
         </div>

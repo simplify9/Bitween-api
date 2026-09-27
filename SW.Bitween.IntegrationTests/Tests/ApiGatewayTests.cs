@@ -67,11 +67,16 @@ public class ApiGatewayTests(BitweenFixture fixture)
     [Theory]
     [InlineData("order sync")]      // the one that actually happens — a space
     [InlineData("Order-Sync")]      // upper case, which the route match is not
-    [InlineData("orders/sync")]     // a second path segment
     [InlineData("-orders")]
+    [InlineData("/orders")]         // an empty part, front or back or middle
+    [InlineData("orders/")]
+    [InlineData("logistics//orders")]
+    [InlineData("orders/sync")]     // ends where /sync or /async goes
+    [InlineData("orders/async")]
+    [InlineData("orders\n")]       // $ would let a final newline through
     public async Task A_url_name_that_cannot_appear_in_a_path_is_refused(string urlName)
     {
-        // Partners call /api/Gateway/{urlName}/sync. Anything needing escaping there produces a
+        // Partners call /api/gateway/{urlName}/sync. Anything needing escaping there produces a
         // gateway that reads as configured on every screen and cannot be reached — and the URL
         // the partner is given to copy is the broken one.
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => CreateGateway(urlName));
@@ -83,12 +88,31 @@ public class ApiGatewayTests(BitweenFixture fixture)
     [InlineData("order-sync")]
     [InlineData("order_sync_v2")]
     [InlineData("orders2")]
+    [InlineData("logistics/slim/orders")]   // a client's own scheme, as many parts as it has
+    [InlineData("sync/orders")]             // only the last part is reserved
     public async Task A_usable_url_name_is_accepted(string urlName)
     {
         // The guard has to stay narrow: refusing a legitimate name blocks a gateway from
         // existing at all, with the error pointing at the name rather than the rule.
         var id = await CreateGateway(urlName);
         Assert.True(id > 0);
+    }
+
+    [Fact]
+    public async Task A_url_name_matching_an_older_mixed_case_one_is_taken()
+    {
+        // Rows saved before names had to be lowercase can still hold capitals, and partner calls
+        // match without regard to case — so the lowercase twin would answer on the same address.
+        var legacy = Unique("Legacy-Orders");
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Set<ApiGateway>().Add(new ApiGateway { Name = Unique("Legacy"), UrlName = legacy });
+            await db.SaveChangesAsync();
+        }
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => CreateGateway(legacy.ToLowerInvariant()));
+        Assert.StartsWith("GATEWAY_URL_NAME_TAKEN", ex.Message);
     }
 
     [Fact]

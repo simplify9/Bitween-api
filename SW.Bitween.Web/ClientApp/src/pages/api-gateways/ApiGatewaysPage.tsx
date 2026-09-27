@@ -137,9 +137,9 @@ export function ApiGatewaysPage() {
               cell: (g) => (
                 <code
                   className="block truncate font-mono text-xs text-ink-600"
-                  title={`/api/Gateway/${g.urlName}`}
+                  title={`/api/gateway/${g.urlName}`}
                 >
-                  /api/Gateway/{g.urlName}
+                  /api/gateway/{g.urlName}
                 </code>
               ),
             },

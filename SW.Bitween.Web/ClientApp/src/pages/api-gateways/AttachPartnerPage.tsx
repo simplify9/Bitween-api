@@ -103,7 +103,7 @@ export function AttachPartnerPage() {
         <Field
           label="Partner"
           htmlFor="ap-partner"
-          hint={`Who calls /api/Gateway/${g.urlName}. Partners already attached aren't listed.`}
+          hint={`Who calls /api/gateway/${g.urlName}. Partners already attached aren't listed.`}
         >
           <PartnerPicker
             id="ap-partner"

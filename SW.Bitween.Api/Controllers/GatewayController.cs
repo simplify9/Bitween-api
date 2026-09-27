@@ -15,32 +15,45 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/gateway")]
 public class GatewayController(
     BitweenDbContext dbContext,
     RequestContext requestContext,
     IInfolinkCache cache,
     XchangeService xchangeService) : ControllerBase
 {
-    [HttpPost("{gatewayApiName}/sync")]
-    public Task<IActionResult> PostSync([FromRoute] string gatewayApiName)
+    /// <summary>
+    /// <c>{gateway's url name}/sync</c> or <c>/async</c>. The url name can be several segments,
+    /// so it is everything before the last one — a route can't put a literal after a catch-all.
+    /// </summary>
+    /// <remarks>
+    /// The literal "gateway" is what keeps this clear of CqApi, which owns the rest of /api/ with
+    /// templates up to three segments deep: without it, /api/logistics/slim/sync is an admin call.
+    /// </remarks>
+    [HttpPost("{**path}")]
+    public Task<IActionResult> Post([FromRoute] string path)
     {
-        return ProcessAsync(gatewayApiName, resultSync: true);
+        var trimmed = (path ?? "").Trim('/').ToLowerInvariant();
+        var split = trimmed.LastIndexOf('/');
+        if (split <= 0)
+            return Task.FromResult<IActionResult>(NotFound());
+
+        return trimmed[(split + 1)..] switch
+        {
+            "sync" => ProcessAsync(trimmed[..split], resultSync: true),
+            "async" => ProcessAsync(trimmed[..split], resultSync: false),
+            _ => Task.FromResult<IActionResult>(NotFound()),
+        };
     }
 
-    [HttpPost("{gatewayApiName}/async")]
-    public Task<IActionResult> PostAsync([FromRoute] string gatewayApiName)
-    {
-        return ProcessAsync(gatewayApiName, resultSync: false);
-    }
-
-    private async Task<IActionResult> ProcessAsync([FromRoute] string gatewayApiName, bool resultSync)
+    private async Task<IActionResult> ProcessAsync(string gatewayApiName, bool resultSync)
     {
         var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
+        // Lowered on the column too: rows saved before names had to be lowercase may not be.
         var apiGateway = await dbContext.Set<ApiGateway>()
             .Include(ag => ag.Partners)
             .ThenInclude(agp => agp.Partner)
-            .FirstOrDefaultAsync(ag => ag.UrlName == gatewayApiName);
+            .FirstOrDefaultAsync(ag => ag.UrlName.ToLower() == gatewayApiName);
 
         if (apiGateway == null)
             return NotFound();
@@ -74,7 +87,9 @@ public class GatewayController(
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
-        var xchangeFile = new XchangeFile(json, $"{gatewayApiName}.json");
+        // The file name travels with the exchange into handlers, some of which write it to disk —
+        // a slash there is a directory nobody asked for.
+        var xchangeFile = new XchangeFile(json, $"{gatewayApiName.Replace('/', '-')}.json");
 
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);
