@@ -61,21 +61,14 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
       else if (_options.AuthType == "Login")
       {
-        string loginJson = JsonConvert.SerializeObject(new ReceiverUserLoginModel()
-        {
-          UserName = _options.LoginUsername,
-          Password = _options.LoginPassword
-        });
-        HttpResponseMessage loginResponse = await client.PostAsync(new Uri(Require(_options.LoginUrl, "LoginUrl")),
-          new StringContent(loginJson, Encoding.UTF8, "application/json"));
-        loginResponse.EnsureSuccessStatusCode();
-        if (loginResponse.StatusCode != HttpStatusCode.OK)
-          throw new Exception(loginResponse.StatusCode.ToString());
-        string rs = await loginResponse.Content.ReadAsStringAsync();
-        LoginResponse? rsDeserialized = JsonConvert.DeserializeObject<LoginResponse>(rs);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
-          rsDeserialized?.Jwt ?? throw new SWException(
-            "The login endpoint did not return a JSON body carrying a 'jwt'."));
+        string token = await HttpLogin.GetToken(client, Require(_options.LoginUrl, "LoginUrl"), _options.LoginBody,
+          _options.LoginTokenPath, _options.LoginUsername, _options.LoginPassword,
+          new ReceiverUserLoginModel()
+          {
+            UserName = _options.LoginUsername,
+            Password = _options.LoginPassword
+          });
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
       }
       else if (_options.AuthType == "OAuth2")
       {

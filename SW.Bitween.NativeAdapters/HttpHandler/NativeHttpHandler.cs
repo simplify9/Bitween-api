@@ -45,20 +45,14 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         }
         else if (_options.AuthType == "Login")
         {
-            string loginJson = JsonConvert.SerializeObject(new UserLoginModel()
-            {
-                Email = _options.LoginUsername,
-                Password = _options.LoginPassword
-            });
-            HttpResponseMessage loginResponse = await client.PostAsync(new Uri(_options.LoginUrl!),
-                new StringContent(loginJson, Encoding.UTF8, "application/json"));
-            loginResponse.EnsureSuccessStatusCode();
-            if (loginResponse.StatusCode != HttpStatusCode.OK)
-                throw new Exception(loginResponse.StatusCode.ToString());
-            string rs = await loginResponse.Content.ReadAsStringAsync();
-            LoginResponse? rsDeserialized = JsonConvert.DeserializeObject<LoginResponse>(rs);
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", rsDeserialized?.Jwt);
+            string token = await HttpLogin.GetToken(client, _options.LoginUrl!, _options.LoginBody,
+                _options.LoginTokenPath, _options.LoginUsername, _options.LoginPassword,
+                new UserLoginModel()
+                {
+                    Email = _options.LoginUsername,
+                    Password = _options.LoginPassword
+                });
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
         else if (_options.AuthType == "OAuth2")
         {
