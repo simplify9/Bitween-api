@@ -73,6 +73,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
     [InlineData("logistics//orders")]
     [InlineData("orders/sync")]     // ends where /sync or /async goes
     [InlineData("orders/async")]
+    [InlineData("orders\n")]       // $ would let a final newline through
     public async Task A_url_name_that_cannot_appear_in_a_path_is_refused(string urlName)
     {
         // Partners call /api/gateway/{urlName}/sync. Anything needing escaping there produces a

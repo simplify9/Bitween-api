@@ -19,7 +19,7 @@ namespace SW.Bitween.Resources.ApiGateways;
 /// </remarks>
 internal static partial class GatewayUrlName
 {
-    [GeneratedRegex("^[a-z0-9]+(?:[-_][a-z0-9]+)*(?:/[a-z0-9]+(?:[-_][a-z0-9]+)*)*$")]
+    [GeneratedRegex(@"^[a-z0-9]+(?:[-_][a-z0-9]+)*(?:/[a-z0-9]+(?:[-_][a-z0-9]+)*)*\z")]
     private static partial Regex Allowed();
 
     public static void Validate(string urlName)
