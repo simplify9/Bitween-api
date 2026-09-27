@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Pause, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";
 import { api, type ApiGatewayAttachment } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { finishUrlName, toUrlName } from "../../lib/identifiers";
+import { finishUrlName, toUrlName, urlNameProblem } from "../../lib/identifiers";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
@@ -107,6 +107,7 @@ export function ApiGatewayPage() {
     );
 
   const g = gateway.data;
+  const urlProblem = urlNameProblem(urlName);
 
   return (
     <div className="pb-24">
@@ -146,7 +147,7 @@ export function ApiGatewayPage() {
       <div className="space-y-5">
         <Panel title="Endpoint" description="Where partners send their documents, and how they identify themselves.">
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="URL name" htmlFor="ag-url">
+            <Field label="URL name" htmlFor="ag-url" error={urlProblem ?? undefined}>
               <TextInput
                 id="ag-url"
                 value={urlName}
@@ -291,11 +292,13 @@ export function ApiGatewayPage() {
       {canEdit && dirty && (
         <UnsavedBar
           busy={save.isPending}
-          error={save.error?.message}
-          onSave={() =>
+          error={urlProblem ?? save.error?.message}
+          onSave={() => {
+            if (urlProblem) return;
             // The URL is what partners hold; changing it cuts every one of them off.
-            finishUrlName(urlName) !== g.urlName ? setConfirmingUrl(true) : save.mutate()
-          }
+            if (finishUrlName(urlName) !== g.urlName) setConfirmingUrl(true);
+            else save.mutate();
+          }}
           onDiscard={() => setLoaded(false)}
         />
       )}
