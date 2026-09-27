@@ -56,7 +56,8 @@ internal static class HttpLogin
         {
             // Matched case-insensitively, as the old fixed deserialisation did.
             var jwt = json is JObject obj
-                ? obj.GetValue("Jwt", StringComparison.OrdinalIgnoreCase)?.ToString()
+                && obj.GetValue("Jwt", StringComparison.OrdinalIgnoreCase) is JValue { Type: JTokenType.String } value
+                ? (string?)value
                 : null;
             return !string.IsNullOrEmpty(jwt)
                 ? jwt

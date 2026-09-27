@@ -84,6 +84,13 @@ public class HttpLoginTests
     }
 
     [TestMethod]
+    public void ReadToken_DefaultNonStringJwtIsRejected()
+    {
+        Assert.ThrowsException<SWException>(() => HttpLogin.ReadToken("{\"jwt\":123}", null));
+        Assert.ThrowsException<SWException>(() => HttpLogin.ReadToken("{\"jwt\":{\"value\":\"abc\"}}", null));
+    }
+
+    [TestMethod]
     public void ReadToken_DefaultWithNoJwtSaysSo()
     {
         var ex = Assert.ThrowsException<SWException>(() => HttpLogin.ReadToken("{\"token\":\"abc\"}", null));
@@ -115,7 +122,7 @@ public class HttpLoginTests
 
     private class FakeHandler(HttpStatusCode status, string responseBody) : HttpMessageHandler
     {
-        public string? SentBody { get; private set; }
+        public string SentBody { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
             CancellationToken cancellationToken)
