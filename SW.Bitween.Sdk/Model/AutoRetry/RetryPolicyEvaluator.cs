@@ -71,12 +71,15 @@ public class RetryPolicyEvaluator(IRetryPolicy policy, IRetryGroupBudget groupBu
                 $"Per-message cap reached ({budget.MaxAttemptsPerError}) in group '{group.Name}'", group);
 
         // Claimed last so a message already stopped by its own per-message cap doesn't
-        // eat a slot out of the shared total.
-        var claim = await groupBudget.TryConsume(group.Id, budget.MaxAttemptsTotal);
-        if (!claim.Granted)
-            return RetryDecision.Block(
-                $"Group total cap reached ({budget.MaxAttemptsTotal}) for group '{group.Name}'", group,
-                claim.JustExhausted);
+        // eat a slot out of the shared total. A group with no total has nothing to claim from.
+        if (budget.MaxAttemptsTotal is { } maxAttemptsTotal)
+        {
+            var claim = await groupBudget.TryConsume(group.Id, maxAttemptsTotal);
+            if (!claim.Granted)
+                return RetryDecision.Block(
+                    $"Group total cap reached ({maxAttemptsTotal}) for group '{group.Name}'", group,
+                    claim.JustExhausted);
+        }
 
         var delay = budget.DelayStrategy.GetDelay(attemptIndexForThisMessage);
         return RetryDecision.Allow(delay, group);

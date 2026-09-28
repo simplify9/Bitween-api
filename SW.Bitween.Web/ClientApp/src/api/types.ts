@@ -341,7 +341,8 @@ export interface RetryGroup {
   /** OR logic; empty = any failure of the applicable kind. */
   matchers: RetryMatcher[];
   action: "Allow" | "Block";
-  budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number; delay: RetryDelay };
+  /** `maxAttemptsTotal: null` is no group-wide limit — only the per-message cap applies. */
+  budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number | null; delay: RetryDelay };
   notes?: string;
   /** Where this group's budget-exhausted alert goes, for every subscription using the policy. */
   alertMode: RetryAlertMode;

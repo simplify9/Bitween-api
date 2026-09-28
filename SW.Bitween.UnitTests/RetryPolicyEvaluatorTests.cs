@@ -17,7 +17,7 @@ public class RetryPolicyEvaluatorTests
         string name,
         Matcher matcher,
         int maxPerError = 5,
-        int maxTotal = 100,
+        int? maxTotal = 100,
         DelayStrategy delay = null,
         int priority = 10,
         RetryAction action = RetryAction.Allow) =>
@@ -66,6 +66,13 @@ public class RetryPolicyEvaluatorTests
     private sealed class TestPolicy(RetryGroup[] groups) : IRetryPolicy
     {
         public List<RetryGroup> Groups { get; } = new List<RetryGroup>(groups);
+    }
+
+    // A group with no total has nothing to claim from, so any claim at all is the bug.
+    private sealed class NoClaimsBudget : IRetryGroupBudget
+    {
+        public Task<RetryBudgetClaim> TryConsume(Guid groupId, int maxAttemptsTotal) =>
+            throw new AssertFailedException("A group with no total limit must not claim from a budget.");
     }
 
     // ─── Allow with no budget ───────────────────────────────────────────────────
@@ -392,6 +399,20 @@ public class RetryPolicyEvaluatorTests
         Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
         Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
         Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry); // exceeded total=3
+    }
+
+    [TestMethod]
+    public async Task Evaluator_NoTotal_OnlyPerMessageCapApplies()
+    {
+        var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" },
+            maxPerError: 2, maxTotal: null));
+        var ev = new RetryPolicyEvaluator(policy, new NoClaimsBudget());
+
+        // Far more messages than any total a test would pick, and none of them is refused.
+        for (var message = 0; message < 500; message++)
+            Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+
+        Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 2)).ShouldRetry); // per-message cap = 2
     }
 
     // ─── Evaluator: delay strategies ─────────────────────────────────────────────

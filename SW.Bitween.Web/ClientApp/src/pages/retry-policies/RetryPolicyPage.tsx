@@ -145,8 +145,8 @@ function PolicyAlertCard({
   const [draftId, setDraftId] = useState(handlerId);
   const [draftProps, setDraftProps] = useState(properties);
 
-  // Only a group that retries can exhaust a budget, so only those can inherit an alert.
-  const canAlert = groups.filter((g) => g.action === "Allow");
+  // Only a group that retries within a total can exhaust a budget, so only those can inherit an alert.
+  const canAlert = groups.filter((g) => g.action === "Allow" && g.budget?.maxAttemptsTotal !== null);
   const inheriting = canAlert.filter((g) => g.alertMode === "Inherit");
 
   const open = () => {
@@ -396,7 +396,8 @@ export function RetryPolicyPage() {
                   cell: (g) =>
                     g.action === "Allow" && g.budget ? (
                       <span className="text-[13px] text-ink-600">
-                        {g.budget.maxAttemptsPerError} tries ({g.budget.maxAttemptsTotal} total) ·{" "}
+                        {g.budget.maxAttemptsPerError} tries (
+                        {g.budget.maxAttemptsTotal == null ? "no total limit" : `${g.budget.maxAttemptsTotal} total`}) ·{" "}
                         {g.budget.delay.type}
                       </span>
                     ) : (
@@ -409,6 +410,10 @@ export function RetryPolicyPage() {
                   cell: (g) =>
                     g.action !== "Allow" ? (
                       <span className="text-ink-400">—</span>
+                    ) : g.budget && g.budget.maxAttemptsTotal === null ? (
+                      <span className="text-ink-400" title="No total limit, so the budget never runs out and there is nothing to alert on.">
+                        —
+                      </span>
                     ) : g.alertMode === "Silent" ? (
                       <span className="text-[13px] text-ink-500">Silent</span>
                     ) : g.alertMode === "Send" && g.alertHandlerId ? (

@@ -79,7 +79,7 @@ type RawDelayStrategy =
   | { type: "exponential"; initialDelayMs: number; multiplier: number; maxDelayMs: number };
 interface RawRetryBudget {
   maxAttemptsPerError: number;
-  maxAttemptsTotal: number;
+  maxAttemptsTotal: number | null;
   delayStrategy: RawDelayStrategy;
 }
 interface RawRetryGroup extends Omit<RetryGroup, "budget" | "alertHandlerProperties"> {

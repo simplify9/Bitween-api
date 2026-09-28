@@ -95,7 +95,13 @@ public class RetryBudget
     /// rolling window: the count only falls once it has been reached — the subscription's next success
     /// then lifts it — or when somebody resets it by hand.
     /// </summary>
-    public int MaxAttemptsTotal { get; init; }
+    /// <remarks>
+    /// Null means no group-wide ceiling: only <see cref="MaxAttemptsPerError"/> applies, nothing is
+    /// counted, and the group can never exhaust or alert. Not zero, because zero already meant "no
+    /// retries at all" on stored policies, and reusing it would switch those back on. Only an explicit
+    /// null lifts the ceiling: a caller that leaves the field out still gets zero, as it always did.
+    /// </remarks>
+    public int? MaxAttemptsTotal { get; init; } = 0;
 
     /// <summary>Calculates the wait duration before each successive retry attempt.</summary>
     public required DelayStrategy DelayStrategy { get; init; }

@@ -667,7 +667,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 xchange.SubscriptionId.Value,
                 decision.MatchedGroup!.Id,
                 decision.MatchedGroup.Name,
-                decision.MatchedGroup.Budget!.MaxAttemptsTotal);
+                decision.MatchedGroup.Budget!.MaxAttemptsTotal!.Value);
     }
 
     /// <summary>
