@@ -31,6 +31,7 @@ const TYPE_ORDER: SubscriptionType[] = [
   "GatewayApiCall",
   "BusGateway",
   "Aggregation",
+  "Response",
   "Internal",
   "ApiCall",
 ];

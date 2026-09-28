@@ -1,4 +1,4 @@
-import type { InlineSubscriptionDraft, Schedule } from "../types";
+import type { InlineSubscriptionDraft, NewResponseSubscriptionDraft, Schedule } from "../types";
 import { toRawMatchExpression } from "./matchExpression";
 
 /**
@@ -40,7 +40,7 @@ export const toRawSchedules = (schedules: Schedule[]): RawSchedule[] =>
  * take. No `documentId`: a bus gateway imposes its own, and the API-gateway caller
  * adds the one its picker chose.
  */
-export const inlineSubscriptionBody = (d: InlineSubscriptionDraft) => ({
+export const inlineSubscriptionBody = (d: InlineSubscriptionDraft): Record<string, unknown> => ({
   name: d.name.trim(),
   inactive: !d.enabled,
   workGroupId: d.workGroupId,
@@ -58,4 +58,10 @@ export const inlineSubscriptionBody = (d: InlineSubscriptionDraft) => ({
   schedules: toRawSchedules(d.schedules),
   responseSubscriptionId: d.responseSubscriptionId,
   responseMessageTypeName: d.responseMessageTypeName,
+  runOnBadResponses: d.runOnBadResponses ?? false,
+  newResponseSubscription: newResponseSubscriptionBody(d.newResponseSubscription),
 });
+
+/** The response subscription defined alongside, carrying the information type it was given. */
+export const newResponseSubscriptionBody = (d: NewResponseSubscriptionDraft | null | undefined) =>
+  d ? { ...inlineSubscriptionBody(d), documentId: d.informationTypeId } : null;

@@ -214,7 +214,8 @@ export function Overview({
           {scheduled ? (
             "Its own schedule"
           ) : entryPoints.length ? (
-            `${entryPoints.length} entry point${entryPoints.length === 1 ? "" : "s"}`
+            // A response subscription's entry points are the subscriptions feeding it.
+            `${entryPoints.length} ${s.type === "Response" ? "subscription" : "entry point"}${entryPoints.length === 1 ? "" : "s"}`
           ) : (
             <span className="text-danger-700">Nothing — it never runs</span>
           )}

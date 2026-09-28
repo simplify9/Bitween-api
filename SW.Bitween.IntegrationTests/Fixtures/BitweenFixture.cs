@@ -246,6 +246,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddSingleton<INativeInfolinkReceiver, NativeEmptyTestReceiver>();
                     services.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();
+                    services.AddScoped<INativeInfolinkHandler, NativeTestResponder>();
+                    services.AddScoped<INativeAdapter, NativeTestResponder>();
 
                     // The mapper step had no end-to-end coverage at all — every mapper test was a
                     // unit test against ScribanJsonHelper, so what XchangeService does to a payload

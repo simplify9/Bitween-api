@@ -42,6 +42,8 @@ import { NewScheduledJobPage } from "./pages/scheduled-jobs/NewScheduledJobPage"
 import { ScheduledJobsPage } from "./pages/scheduled-jobs/ScheduledJobsPage";
 import { AggregationsPage } from "./pages/aggregations/AggregationsPage";
 import { NewAggregationPage } from "./pages/aggregations/NewAggregationPage";
+import { ResponseSubscriptionsPage } from "./pages/response-subscriptions/ResponseSubscriptionsPage";
+import { NewResponseSubscriptionPage } from "./pages/response-subscriptions/NewResponseSubscriptionPage";
 import { RetryPoliciesPage } from "./pages/retry-policies/RetryPoliciesPage";
 import { RetryPolicyPage } from "./pages/retry-policies/RetryPolicyPage";
 import { MembersPage } from "./pages/team/MembersPage";
@@ -248,6 +250,22 @@ export const routes: RouteObject[] = [
             element: (
               <RequirePermission permission="subscriptions.create">
                 <NewAggregationPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "response-subscriptions",
+            element: (
+              <RequirePermission permission="subscriptions.view">
+                <ResponseSubscriptionsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "response-subscriptions/new",
+            element: (
+              <RequirePermission permission="subscriptions.create">
+                <NewResponseSubscriptionPage />
               </RequirePermission>
             ),
           },

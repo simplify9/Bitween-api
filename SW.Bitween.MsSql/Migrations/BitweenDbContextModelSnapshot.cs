@@ -829,11 +829,17 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<bool>("BadData")
                         .HasColumnType("bit");
 
+                    b.Property<string>("CorrelationId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Data")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FileName")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
 
                     b.Property<string>("References")
                         .HasMaxLength(1024)
@@ -1124,6 +1130,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<int?>("RetryPolicyId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("RunOnBadResponses")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("Temporary")
                         .HasColumnType("bit");

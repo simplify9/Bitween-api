@@ -23,7 +23,8 @@ namespace SW.Bitween.Resources.Subscriptions
     /// </para>
     /// </summary>
     public class Create(BitweenDbContext dbContext, RequestContext requestContext,
-        IInfolinkCache BitweenCache, SubscriptionSchedulerService subScheduler) : ICommandHandler<SubscriptionCreate, object>
+        IInfolinkCache BitweenCache, SubscriptionSchedulerService subScheduler,
+        AdapterRequirements adapterRequirements) : ICommandHandler<SubscriptionCreate, object>
     {
         private readonly BitweenDbContext _dbContext = dbContext;
 
@@ -47,6 +48,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     break;
                 case SubscriptionType.GatewayApiCall:
                 case SubscriptionType.BusGateway:
+                case SubscriptionType.Response:
                     entity = new Subscription(model.Name, model.DocumentId, model.Type);
                     break;
 
@@ -58,7 +60,7 @@ namespace SW.Bitween.Resources.Subscriptions
             _dbContext.Add(entity);
 
             // Same code the update handler applies, so a field can't work on one and not the other.
-            await SubscriptionConfigurationApplier.Apply(_dbContext, entity, model);
+            await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model);
 
             // Every constructor starts it inactive. Only an explicit false turns that around, so a
             // caller that doesn't mention it keeps the behaviour it has always had.
@@ -100,9 +102,12 @@ namespace SW.Bitween.Resources.Subscriptions
                 RuleFor(i => i.PartnerId).NotEqual(Partner.SystemId);
                 RuleFor(i => i.Type).NotEqual(SubscriptionType.Unknown);
 
-                When(i => (i.Type != SubscriptionType.Receiving && i.Type != SubscriptionType.GatewayApiCall && i.Type != SubscriptionType.BusGateway), () => { RuleFor(i => i.PartnerId).NotEmpty(); });
+                When(i => (i.Type != SubscriptionType.Receiving && i.Type != SubscriptionType.GatewayApiCall && i.Type != SubscriptionType.BusGateway && i.Type != SubscriptionType.Response), () => { RuleFor(i => i.PartnerId).NotEmpty(); });
 
-                When(i => i.Type == SubscriptionType.GatewayApiCall || i.Type == SubscriptionType.BusGateway,
+                // A response subscription has no partner of its own: it runs as the partner of
+                // whichever subscription fed it.
+                When(i => i.Type == SubscriptionType.GatewayApiCall || i.Type == SubscriptionType.BusGateway ||
+                          i.Type == SubscriptionType.Response,
                     () =>
                     {
                         RuleFor(i => i.PartnerId)

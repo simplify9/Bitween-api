@@ -17,6 +17,9 @@ namespace SW.Bitween.Resources.BusGateways
         public async Task<object> Handle(int gatewayId, BusGatewayRouteCreate model)
         {
             await requestContext.EnsurePermission(_dbContext, Model.Permissions.BusGateways.Edit);
+            // A route that brings its own subscription creates one, so it needs what creating one needs.
+            if (model.NewIntegration != null)
+                await requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Create);
 
             var gateway = await _dbContext.Set<BusGateway>()
                 .FirstOrDefaultAsync(bg => bg.Id == gatewayId);

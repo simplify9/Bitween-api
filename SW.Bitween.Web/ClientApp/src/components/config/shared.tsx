@@ -35,6 +35,7 @@ export const SUBSCRIPTION_TYPE_LABELS: Record<SubscriptionType, string> = {
   Internal: "Internal",
   ApiCall: "API call",
   Aggregation: "Aggregation",
+  Response: "Response",
 };
 
 export const isLegacyType = (type: SubscriptionType) =>

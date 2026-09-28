@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadCloud, FileStack, Pause, Play, Power, PowerOff, Trash2, X } from "lucide-react";
@@ -24,11 +24,24 @@ import { StageRail } from "./studio/StageRail";
 import { faceOf } from "./studio/faces";
 import { EntryPointsTable, Overview } from "./studio/Overview";
 import { ResponseFields } from "./studio/ResponseFields";
-import { draftOf, entryPointsOf, stageDirty, type Draft } from "./studio/model";
+import { ResponseTrigger } from "./studio/ResponseTrigger";
+import { draftOf, entryPointsOf, feedersOf, stageDirty, type Draft } from "./studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useResponseDetour } from "../../lib/responseDetour";
 
+/**
+ * Keyed by id. Going from one subscription's page straight to another's — down a response
+ * chain, say — keeps the same route mounted, and without a key the draft of the one you left
+ * stayed on screen as the next one's: its name in the title, its save bar, and its settings
+ * written over the next one's on Save.
+ */
 export function SubscriptionPage() {
+  const { id = "" } = useParams();
+  return <SubscriptionStudio key={id} />;
+}
+
+function SubscriptionStudio() {
   const { id = "" } = useParams();
   const subscriptionId = Number(id);
   const navigate = useNavigate();
@@ -79,11 +92,20 @@ export function SubscriptionPage() {
   const [enabling, setEnabling] = useState<boolean | null>(null);
   const [confirmingReceive, setConfirmingReceive] = useState(false);
   const [confirmingAggregate, setConfirmingAggregate] = useState(false);
+  /** The response subscription asked to be opened while this page had unsaved changes. */
+  const [opening, setOpening] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // Back from creating a response subscription: the edits as they were left, with that one
+  // picked. Used for the first load only — Discard after that goes back to what is saved.
+  const detour = useResponseDetour<Draft>();
+  const returning = useRef({ kept: detour.kept, picked: detour.pickedResponse });
 
   useEffect(() => {
     if (!loaded && subscription.data) {
-      setDraft(draftOf(subscription.data));
+      const { kept, picked } = returning.current;
+      returning.current = { kept: null, picked: null };
+      const base = kept ?? draftOf(subscription.data);
+      setDraft(picked !== null ? { ...base, responseSubscriptionId: picked } : base);
       setLoaded(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,10 +213,13 @@ export function SubscriptionPage() {
   const isInternal = s.type === "Internal";
   const isApiCall = s.type === "ApiCall";
   const isAggregation = s.type === "Aggregation";
+  const isResponse = s.type === "Response";
   const aggregationSource =
     allSubscriptions.data?.find((x) => x.id === s.aggregationForId) ?? null;
   const paused = s.pausedOn !== null;
-  const entryPoints = entryPointsOf(s);
+  // A response subscription has no gateway of its own; what feeds it is the subscriptions
+  // that hand it their response.
+  const entryPoints = isResponse ? feedersOf(s.id, allSubscriptions.data) : entryPointsOf(s);
 
   const stages = stagesFor(s.type);
 
@@ -248,7 +273,14 @@ export function SubscriptionPage() {
               isInternal ? "Which documents of this type the subscription picks up." : description
             }
           >
-            {isInternal ? (
+            {isResponse ? (
+              <ResponseTrigger
+                feeders={entryPoints}
+                runOnBadResponses={draft.runOnBadResponses}
+                onChange={(runOnBadResponses) => set("runOnBadResponses", runOnBadResponses)}
+                disabled={!canEdit}
+              />
+            ) : isInternal ? (
               <MatchExpressionEditor
                 value={draft.matchExpression}
                 onChange={(matchExpression) => set("matchExpression", matchExpression)}
@@ -404,6 +436,10 @@ export function SubscriptionPage() {
               disabled={!canEdit}
               candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== subscriptionId)}
               idPrefix="in-resp"
+              onNewResponseSubscription={() => detour.leave(draft)}
+              onOpenResponseSubscription={(target) =>
+                dirty ? setOpening(target) : navigate(`/subscriptions/${target}`)
+              }
             />
           </Panel>
         );
@@ -437,6 +473,24 @@ export function SubscriptionPage() {
               <CodeBadge code={s.informationTypeCode} name={s.informationTypeName} className="align-middle" />
             </Link>
             .
+            {/* The way back up a response chain, as the Response step's Open is the way down. */}
+            {isResponse &&
+              (entryPoints.length > 0 ? (
+                <>
+                  {" "}Runs on the response of{" "}
+                  {entryPoints.map((e, i) => (
+                    <span key={e.key}>
+                      {i > 0 && (i === entryPoints.length - 1 ? " and " : ", ")}
+                      <Link to={e.href} className="font-medium text-ink-700 hover:text-crimson-700 hover:underline">
+                        {e.name}
+                      </Link>
+                    </span>
+                  ))}
+                  .
+                </>
+              ) : (
+                " Nothing hands it a response yet, so it never runs."
+              ))}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -600,6 +654,28 @@ export function SubscriptionPage() {
             await receive.mutateAsync();
           }}
           onClose={() => setConfirmingReceive(false)}
+        />
+      )}
+
+      {opening !== null && (
+        <ConfirmDialog
+          title="Save your changes first?"
+          body={
+            <>
+              Opening{" "}
+              <strong className="font-medium text-ink-800">
+                {allSubscriptions.data?.find((x) => x.id === opening)?.name ?? "it"}
+              </strong>{" "}
+              leaves this page, so your changes to {draft?.name || s.name} are saved first. To drop them
+              instead, cancel and Discard them from the bar below.
+            </>
+          }
+          confirmLabel="Save and open"
+          onConfirm={async () => {
+            await save.mutateAsync();
+            navigate(`/subscriptions/${opening}`);
+          }}
+          onClose={() => setOpening(null)}
         />
       )}
 

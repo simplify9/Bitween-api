@@ -270,7 +270,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasOne<DataSource>().WithMany().HasForeignKey(p => p.DataSourceId).IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false)
+                b.HasOne(p => p.ResponseSubscription).WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_subscription_response_subscriber");
 
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)

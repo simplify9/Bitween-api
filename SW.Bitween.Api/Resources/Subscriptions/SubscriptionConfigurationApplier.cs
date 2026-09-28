@@ -27,7 +27,8 @@ internal static class SubscriptionConfigurationApplier
     /// </summary>
     private const string PrivateSentinel = "__private__";
 
-    public static async Task Apply(BitweenDbContext dbContext, Subscription entity, SubscriptionConfiguration model)
+    public static async Task Apply(BitweenDbContext dbContext, AdapterRequirements adapterRequirements,
+        Subscription entity, SubscriptionConfiguration model)
     {
         entity.ReceiverId = model.ReceiverId;
         entity.ValidatorId = model.ValidatorId;
@@ -37,7 +38,19 @@ internal static class SubscriptionConfigurationApplier
         entity.CategoryId = model.CategoryId;
         entity.WorkGroupId = model.WorkGroupId;
         entity.ResponseSubscriptionId = model.ResponseSubscriptionId;
+        if (model.NewResponseSubscription != null)
+        {
+            if (model.ResponseSubscriptionId != null)
+                throw new SWValidationException(ResponseRoutingValidation.Code,
+                    "Hand the response to an existing response subscription or to a new one, not both.");
+
+            // Staged, not saved: EF inserts it first and fills ResponseSubscriptionId from it on the
+            // caller's one save, so a subscription pointing at one that was never committed can't happen.
+            entity.ResponseSubscription = await InlineIntegration.Stage(dbContext, adapterRequirements,
+                model.NewResponseSubscription, model.NewResponseSubscription.DocumentId, SubscriptionType.Response);
+        }
         entity.ResponseMessageTypeName = model.ResponseMessageTypeName;
+        entity.RunOnBadResponses = model.RunOnBadResponses;
         // Meaningless for every other type, where it stays at its default — but harmless
         // there, and applying it unconditionally is what stops create and update disagreeing.
         entity.AggregationTarget = model.AggregationTarget;

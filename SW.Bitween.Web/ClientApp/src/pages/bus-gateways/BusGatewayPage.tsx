@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pause, PanelLeftClose, PanelLeftOpen, Play, Trash2 } from "lucide-react";
-import { api, type BusGatewayDetail, type SubscriptionDetail } from "../../api";
+import { api, type BusGatewayDetail, type InlineSubscriptionDraft, type SubscriptionDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
@@ -10,7 +10,13 @@ import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { useSubscriptionRowsById, useSubscriptionsCache } from "../../components/config/shared";
-import { EMPTY_SUBSCRIPTION, NEW_SUBSCRIPTION_ID, draftOf } from "../subscriptions/studio/model";
+import {
+  EMPTY_SUBSCRIPTION,
+  NEW_SUBSCRIPTION_ID,
+  draftOf,
+  isNewResponseSubscriptionId,
+  newResponseSubscriptionId,
+} from "../subscriptions/studio/model";
 import { adapterIncomplete } from "../subscriptions/studio/faces";
 import { Canvas, type Hop } from "./studio/Canvas";
 import {
@@ -54,6 +60,11 @@ interface SubscriptionEdit {
   subscriptionId: number;
   draft: SubscriptionDraft;
   saved: SubscriptionDraft;
+  /**
+   * A response subscription being defined here only: the information type of the responses it
+   * runs on. Not in the draft because nothing else asks — every other hop's is fixed.
+   */
+  informationTypeId?: number | null;
 }
 
 /**
@@ -66,8 +77,17 @@ interface SubscriptionEdit {
  * path is one diagram and every part of it is editable in place: the route, the
  * subscription behind it, its delivery, its response, and whoever picks that
  * response up.
+ *
+ * Keyed by id. Opening another gateway from here — a listener card on the canvas — keeps
+ * the same route mounted, and without a key the page you left stayed in its state: its
+ * name in the title, read back as an unsaved rename, which Save wrote onto the new gateway.
  */
 export function BusGatewayPage() {
+  const { id = "" } = useParams();
+  return <BusGatewayStudio key={id} />;
+}
+
+function BusGatewayStudio() {
   const { id = "" } = useParams();
   const gatewayId = Number(id);
   const navigate = useNavigate();
@@ -101,7 +121,12 @@ export function BusGatewayPage() {
 
   const [name, setName] = useState<string | null>(null);
   const [routeEdit, setRouteEdit] = useState<RouteEdit | null>(null);
-  const [edit, setEdit] = useState<SubscriptionEdit | null>(null);
+  /**
+   * One per hop that has been opened, by subscription id. Kept per hop rather than for the open
+   * one alone, so defining a response subscription — which changes the hop before it too — and
+   * moving between the two loses neither.
+   */
+  const [edits, setEdits] = useState<Record<number, SubscriptionEdit>>({});
   const [collapsedInspector, setCollapsedInspector] = useState(false);
   const [listOpen, setListOpen] = useState(() => localStorage.getItem(LIST_KEY) !== "0");
   /** undefined = closed, null = creating, number = editing that partner's values. */
@@ -166,24 +191,24 @@ export function BusGatewayPage() {
   const q0 = useQuery({
     queryKey: keys.subscriptions.detail(id0),
     queryFn: () => api.getSubscription(id0!),
-    // The subscription being defined here has no server side to fetch yet.
-    enabled: id0 !== null && id0 !== NEW_SUBSCRIPTION_ID,
+    // A subscription being defined here has no server side to fetch yet.
+    enabled: id0 !== null && id0 > 0,
   });
-  const d0 = useHopDraft(edit, id0, q0.data);
+  const d0 = useHopDraft(edits, id0, q0.data);
   const id1 = d0?.responseSubscriptionId ?? null;
   const q1 = useQuery({
     queryKey: keys.subscriptions.detail(id1),
     queryFn: () => api.getSubscription(id1!),
-    enabled: id1 !== null,
+    enabled: id1 !== null && id1 > 0,
   });
-  const d1 = useHopDraft(edit, id1, q1.data);
+  const d1 = useHopDraft(edits, id1, q1.data);
   const id2 = d1?.responseSubscriptionId ?? null;
   const q2 = useQuery({
     queryKey: keys.subscriptions.detail(id2),
     queryFn: () => api.getSubscription(id2!),
-    enabled: id2 !== null,
+    enabled: id2 !== null && id2 > 0,
   });
-  const d2 = useHopDraft(edit, id2, q2.data);
+  const d2 = useHopDraft(edits, id2, q2.data);
 
   const chain = [
     { id: id0, draft: d0, data: q0.data },
@@ -194,36 +219,56 @@ export function BusGatewayPage() {
   const activeIndex = Math.min(activeHop, Math.max(0, chain.length - 1));
   const active = chain[activeIndex];
   const activeData = active?.data;
+  const edit = active ? (edits[active.id] ?? null) : null;
+  const setEdit = (change: (e: SubscriptionEdit) => SubscriptionEdit) =>
+    setEdits((all) => (active && all[active.id] ? { ...all, [active.id]: change(all[active.id]) } : all));
 
-  // Seed the editable hop. Keyed on the subscription id, so switching hop or route
-  // re-seeds and a draft can never be applied to the wrong subscription.
+  // Seed the open hop's edit the first time it is opened. Keyed on the subscription id, so a
+  // draft can never be applied to the wrong subscription.
   useEffect(() => {
-    if (!active?.id) {
-      if (edit) setEdit(null);
-      return;
-    }
-    if (edit?.subscriptionId === active.id) return;
+    if (!active?.id || edits[active.id]) return;
     if (active.id === NEW_SUBSCRIPTION_ID) {
       // Blank, and `saved` blank too: every field the user fills counts as a change,
       // so the save bar names them the same way it does for an existing subscription.
-      setEdit({
-        subscriptionId: NEW_SUBSCRIPTION_ID,
-        draft: structuredClone(EMPTY_SUBSCRIPTION),
-        saved: structuredClone(EMPTY_SUBSCRIPTION),
-      });
+      setEdits((all) => ({
+        ...all,
+        [NEW_SUBSCRIPTION_ID]: {
+          subscriptionId: NEW_SUBSCRIPTION_ID,
+          draft: structuredClone(EMPTY_SUBSCRIPTION),
+          saved: structuredClone(EMPTY_SUBSCRIPTION),
+        },
+      }));
       return;
     }
-    if (!activeData || activeData.id !== active.id) return;
+    // A new response subscription is seeded when it is started — see `startNewResponse`.
+    if (active.id < 0 || !activeData || activeData.id !== active.id) return;
     const seeded = draftOf(activeData);
-    setEdit({ subscriptionId: active.id, draft: seeded, saved: structuredClone(seeded) });
-  }, [active?.id, activeData, edit]);
+    setEdits((all) => ({ ...all, [active.id]: { subscriptionId: active.id, draft: seeded, saved: structuredClone(seeded) } }));
+  }, [active?.id, activeData, edits]);
+
+  /**
+   * Response subscriptions being defined here. Listed wherever a subscription is named, so the
+   * hop feeding one says what it feeds rather than an id nothing on the server has.
+   */
+  const pendingResponses = chain
+    .filter((h) => isNewResponseSubscriptionId(h.id))
+    .map((h) => ({
+      id: h.id,
+      name: edits[h.id]?.draft.name.trim() || "New response subscription",
+      type: "Response" as const,
+    }));
 
   // ——— what's unsaved ———
 
   const nameDirty = !!g && name !== null && name !== g.name;
   const isNewRoute = routeEdit?.routeId === "new";
   const routeIsDirty = !!routeEdit && routeEdit.saved !== null && routeDirty(routeEdit.draft, routeEdit.saved);
-  const intIsDirty = !!edit && JSON.stringify(edit.draft) !== JSON.stringify(edit.saved);
+  // Only the hops still in the chain count: a new response subscription dropped by pointing the
+  // hop before it somewhere else is not saved, and says nothing about unsaved work.
+  const chainEdits = chain.map((h) => edits[h.id]).filter((e): e is SubscriptionEdit => !!e);
+  const editDirty = (e: SubscriptionEdit) =>
+    isNewResponseSubscriptionId(e.subscriptionId) || JSON.stringify(e.draft) !== JSON.stringify(e.saved);
+  const intIsDirty = chainEdits.some(editDirty);
   const dirty = nameDirty || routeIsDirty || intIsDirty || isNewRoute;
 
   // Named down to the field. This bar is the last thing between an edit and a
@@ -238,21 +283,26 @@ export function BusGatewayPage() {
           routeEdit.draft.partner !== routeEdit.saved.partner && "partner",
           routeEdit.draft.subscriptionId !== routeEdit.saved.subscriptionId && "subscription",
         ].filter((x): x is string => typeof x === "string"));
-  const subscriptionChanges = edit
-    ? (Object.keys(BUS_NODES) as BusNodeId[])
-        .filter((n) => OWNER[n] === "subscription" && nodeDirty(n, edit.draft, edit.saved))
-        .map((n) => BUS_NODES[n].label.toLowerCase())
-    : [];
+  const subscriptionChanges = (e: SubscriptionEdit) =>
+    (Object.keys(BUS_NODES) as BusNodeId[])
+      .filter((n) => OWNER[n] === "subscription" && nodeDirty(n, e.draft, e.saved))
+      .map((n) => BUS_NODES[n].label.toLowerCase());
   const dirtyLabels = [
     nameDirty && "the gateway name",
     isNewRoute ? "a new route" : routeIsDirty && `the route (${routeChanges.join(", ")})`,
-    intIsDirty && `${edit ? edit.draft.name : "the subscription"} (${subscriptionChanges.join(", ")})`,
+    ...chainEdits
+      .filter(editDirty)
+      .map((e) =>
+        isNewResponseSubscriptionId(e.subscriptionId)
+          ? `a new response subscription${e.draft.name.trim() ? ` (${e.draft.name.trim()})` : ""}`
+          : `${e.draft.name || "the subscription"} (${subscriptionChanges(e).join(", ")})`,
+      ),
   ].filter((x): x is string => typeof x === "string");
 
   const discard = () => {
     setName(g?.name ?? null);
     setRouteEdit(null);
-    setEdit(null);
+    setEdits({});
     if (isNewRoute) setQuery({ route: g?.routes[0] ? String(g.routes[0].id) : null, node: null, hop: null });
   };
 
@@ -262,15 +312,33 @@ export function BusGatewayPage() {
   const select = (next: Selection) =>
     guard("this route", () => {
       setRouteEdit(null);
-      setEdit(null);
+      setEdits({});
       setQuery({ route: next === null ? null : String(next), hop: null });
     });
 
-  const selectHop = (index: number) =>
-    guard("this subscription", () => {
-      setEdit(null);
-      setQuery({ hop: String(index) });
-    });
+  // No guard: every hop keeps its own edits, so moving between them loses nothing.
+  const selectHop = (index: number) => setQuery({ hop: String(index) });
+
+  /**
+   * Hop `index` in the shape the API takes, with a response subscription being defined after it
+   * nested inside — the two are written in one save, so neither can exist without the other.
+   */
+  const inlineHop = (index: number): InlineSubscriptionDraft => {
+    const own = edits[chain[index].id]!;
+    const next = chain[index + 1];
+    const nested = next && isNewResponseSubscriptionId(next.id) ? edits[next.id] : undefined;
+    return {
+      ...own.draft,
+      responseSubscriptionId: nested ? null : own.draft.responseSubscriptionId,
+      newResponseSubscription: nested
+        ? {
+            ...inlineHop(index + 1),
+            informationTypeId: nested.informationTypeId!,
+            runOnBadResponses: nested.draft.runOnBadResponses,
+          }
+        : null,
+    };
+  };
 
   // Escape closes the open node, but only when it holds nothing unsaved — the
   // same rule the subscription studio applies to its stages.
@@ -299,15 +367,18 @@ export function BusGatewayPage() {
       if (nameDirty && name !== null)
         await api.updateBusGateway(gatewayId, { name, inactive: g.inactive });
       // A subscription being defined here is not written on its own: it goes with the
-      // route, in the one call the endpoint commits as a single transaction, so a
-      // failure can't leave a subscription nothing points at.
+      // route — or, for a response subscription, with the hop feeding it — in the one call
+      // the endpoint commits as a single transaction, so a failure can't leave a
+      // subscription nothing points at.
       const definingSubscription = routeEdit?.draft.subscriptionId === NEW_SUBSCRIPTION_ID;
-      const subscriptionDraft = edit?.draft;
 
-      // Otherwise the subscription first: if the route write then fails, what was saved
+      // Otherwise the subscriptions first: if the route write then fails, what was saved
       // is the part that stands on its own.
-      if (edit && intIsDirty && !definingSubscription)
-        await api.updateSubscription(edit.subscriptionId, subscriptionDraft!);
+      for (let i = 0; i < chain.length; i++) {
+        const own = edits[chain[i].id];
+        if (!own || chain[i].id < 0 || !editDirty(own)) continue;
+        await api.updateSubscription(chain[i].id, inlineHop(i));
+      }
 
       if (routeEdit && (isNewRoute || routeIsDirty)) {
         const partnerId = routeEdit.draft.partner === "none" ? null : routeEdit.draft.partner;
@@ -315,7 +386,7 @@ export function BusGatewayPage() {
           const before = new Set((g?.routes ?? []).map((r) => r.id));
           await api.addBusRoute(gatewayId, {
             ...(definingSubscription
-              ? { newSubscription: subscriptionDraft! }
+              ? { newSubscription: inlineHop(0) }
               : { subscriptionId: routeEdit.draft.subscriptionId! }),
             partnerId,
             matchExpression: routeEdit.draft.matchExpression,
@@ -347,7 +418,7 @@ export function BusGatewayPage() {
       // up over changes that are already saved. Covers the edited route's own subscription too.
       await queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
       setRouteEdit(null);
-      setEdit(null);
+      setEdits({});
       setName(fresh.name);
       if (before) {
         const created = fresh.routes.find((r) => !before.has(r.id));
@@ -377,9 +448,13 @@ export function BusGatewayPage() {
     name:
       h.draft?.name?.trim() ||
       h.data?.name ||
-      (h.id === NEW_SUBSCRIPTION_ID ? "New subscription" : `#${h.id}`),
+      (h.id === NEW_SUBSCRIPTION_ID
+        ? "New subscription"
+        : isNewResponseSubscriptionId(h.id)
+          ? "New response subscription"
+          : `#${h.id}`),
     draft: h.draft,
-    saved: edit?.subscriptionId === h.id ? edit.saved : h.draft,
+    saved: edits[h.id]?.saved ?? h.draft,
     row: rowsById.get(h.id),
     destination:
       h.draft?.responseMessageTypeName && informationTypes.data
@@ -390,17 +465,28 @@ export function BusGatewayPage() {
   // What still blocks a save, said the way the modal used to say it at its Create
   // button. The rule outlives the modal: a subscription defined here cannot be saved
   // half-made, and the server refuses it too.
+  const defining = edits[NEW_SUBSCRIPTION_ID];
   const missing = [
-    ...(routeEdit?.draft.subscriptionId === NEW_SUBSCRIPTION_ID && edit
+    ...(routeEdit?.draft.subscriptionId === NEW_SUBSCRIPTION_ID && defining
       ? [
-          edit.draft.name.trim().length < 2 && "a name",
-          !edit.draft.handlerId && "a delivery",
-          adapterIncomplete(catalogs.handlers, edit.draft.handlerId, edit.draft.handlerProperties) &&
+          defining.draft.name.trim().length < 2 && "a name",
+          !defining.draft.handlerId && "a delivery",
+          adapterIncomplete(catalogs.handlers, defining.draft.handlerId, defining.draft.handlerProperties) &&
             "its required delivery fields",
         ]
       : isNewRoute && routeEdit?.draft.subscriptionId === null
         ? ["a subscription"]
         : []),
+    // The same for a response subscription being defined, which also has to be told what it carries.
+    ...chainEdits
+      .filter((e) => isNewResponseSubscriptionId(e.subscriptionId))
+      .flatMap((e) => [
+        e.draft.name.trim().length < 2 && "a name for the new response subscription",
+        (e.informationTypeId ?? null) === null && "the information type it carries",
+        !e.draft.handlerId && "its delivery",
+        adapterIncomplete(catalogs.handlers, e.draft.handlerId, e.draft.handlerProperties) &&
+          "its required delivery fields",
+      ]),
   ].filter((m): m is string => typeof m === "string");
 
   const nodeIsDirty = node
@@ -443,14 +529,19 @@ export function BusGatewayPage() {
             partnerTokenSlots={partnerTokenSlots}
             onNewPartner={() => setPartnerDialog(null)}
             onEditPartner={(id) => setPartnerDialog(id)}
-            onNewSubscription={() => {
-              // No modal: the route draft points at the subscription being defined, and the
-              // canvas draws it like any other. Straight to its own node, where the name is.
-              setRouteEdit((r) =>
-                r ? { ...r, draft: { ...r.draft, subscriptionId: NEW_SUBSCRIPTION_ID } } : r,
-              );
-              setQuery({ node: "subscription" });
-            }}
+            // Only a new route: updating one takes an existing subscription, never a new one.
+            onNewSubscription={
+              isNewRoute
+                ? () => {
+                    // No modal: the route draft points at the subscription being defined, and the
+                    // canvas draws it like any other. Straight to its own node, where the name is.
+                    setRouteEdit((r) =>
+                      r ? { ...r, draft: { ...r.draft, subscriptionId: NEW_SUBSCRIPTION_ID } } : r,
+                    );
+                    setQuery({ node: "subscription" });
+                  }
+                : undefined
+            }
           />
         )
       );
@@ -463,7 +554,30 @@ export function BusGatewayPage() {
         </p>
       );
     const onChange = (patch: Partial<SubscriptionDraft>) =>
-      setEdit((e) => (e ? { ...e, draft: { ...e.draft, ...patch } } : e));
+      setEdit((e) => ({ ...e, draft: { ...e.draft, ...patch } }));
+    const isNewHop = edit.subscriptionId < 0;
+    const isResponseHop = isNewResponseSubscriptionId(edit.subscriptionId) || activeData?.type === "Response";
+
+    // Its cards drawn straight on the canvas as the next hop, the way a route's new subscription
+    // is. Not past the third hop — the canvas draws no further, so it could not be edited.
+    const startNewResponse =
+      activeIndex < 2
+        ? () => {
+            const id = newResponseSubscriptionId(activeIndex + 1);
+            const at = active!.id;
+            setEdits((all) => ({
+              ...all,
+              [at]: { ...all[at], draft: { ...all[at].draft, responseSubscriptionId: id } },
+              [id]: {
+                subscriptionId: id,
+                draft: structuredClone(EMPTY_SUBSCRIPTION),
+                saved: structuredClone(EMPTY_SUBSCRIPTION),
+                informationTypeId: null,
+              },
+            }));
+            setQuery({ hop: String(activeIndex + 1), node: "subscription" });
+          }
+        : undefined;
     switch (node) {
       case "subscription":
         return (
@@ -477,7 +591,19 @@ export function BusGatewayPage() {
                 : null
             }
             lastException={activeData?.lastException ?? null}
-            autoFocusName={edit.subscriptionId === NEW_SUBSCRIPTION_ID}
+            autoFocusName={isNewHop}
+            response={
+              isResponseHop
+                ? {
+                    informationType: isNewResponseSubscriptionId(edit.subscriptionId)
+                      ? {
+                          value: edit.informationTypeId ?? null,
+                          onChange: (informationTypeId) => setEdit((e) => ({ ...e, informationTypeId })),
+                        }
+                      : undefined,
+                  }
+                : undefined
+            }
           />
         );
       case "transformation":
@@ -486,11 +612,7 @@ export function BusGatewayPage() {
             draft={edit.draft}
             onChange={onChange}
             disabled={!canEditSubscription}
-            mapperEditorHref={
-              edit.subscriptionId === NEW_SUBSCRIPTION_ID
-                ? null
-                : `/subscriptions/${edit.subscriptionId}/mapper`
-            }
+            mapperEditorHref={isNewHop ? null : `/subscriptions/${edit.subscriptionId}/mapper`}
           />
         );
       case "delivery":
@@ -501,7 +623,17 @@ export function BusGatewayPage() {
             draft={edit.draft}
             onChange={onChange}
             disabled={!canEditSubscription}
-            candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== edit.subscriptionId)}
+            candidates={[...(allSubscriptions.data ?? []), ...pendingResponses].filter(
+              (x) => x.id !== edit.subscriptionId,
+            )}
+            onNewResponseSubscription={startNewResponse}
+            // It is already the next hop on the canvas, so opening it is selecting that hop —
+            // unless this is the last hop the canvas draws, and then it is its own page.
+            onOpenResponseSubscription={(target) => {
+              const at = chain.findIndex((h) => h.id === target);
+              if (at > activeIndex) setQuery({ hop: String(at), node: "subscription" });
+              else guard("this route", () => navigate(`/subscriptions/${target}`));
+            }}
           />
         );
     }
@@ -680,7 +812,7 @@ export function BusGatewayPage() {
               selectedNode={node}
               onSelectNode={(next) => setQuery({ node: next })}
               catalogs={catalogs}
-              subscriptionNames={allSubscriptions.data ?? []}
+              subscriptionNames={[...(allSubscriptions.data ?? []), ...pendingResponses]}
               onOpenListener={(l) =>
                 l.gatewayId === gatewayId
                   ? select(l.routeId)
@@ -762,7 +894,7 @@ export function BusGatewayPage() {
             const go = guarded.go;
             setName(g.name);
             setRouteEdit(null);
-            setEdit(null);
+            setEdits({});
             go();
           }}
           onClose={() => setGuarded(null)}
@@ -794,7 +926,7 @@ export function BusGatewayPage() {
             void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
             void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
             setRouteEdit(null);
-            setEdit(null);
+            setEdits({});
             setQuery({ route: fresh.routes[0] ? String(fresh.routes[0].id) : null, hop: null });
           }}
           onClose={() => setRemovingRoute(null)}
@@ -842,8 +974,8 @@ export function BusGatewayPage() {
 }
 
 /**
- * A hop's current shape: the live draft when this is the hop being edited, the
- * saved record otherwise. Taking the draft is what makes picking a response
+ * A hop's current shape: its draft once it has been opened for editing, the saved
+ * record otherwise. Taking the draft is what makes picking a response
  * target grow the chain on the canvas before anything is saved.
  *
  * Matched on the subscription's own id rather than on which hop is active — a
@@ -851,13 +983,13 @@ export function BusGatewayPage() {
  * saved data while the draft went nowhere.
  */
 function useHopDraft(
-  edit: SubscriptionEdit | null,
+  edits: Record<number, SubscriptionEdit>,
   subscriptionId: number | null,
   data: SubscriptionDetail | undefined,
 ): SubscriptionDraft | null {
   return useMemo(() => {
     if (subscriptionId === null) return null;
-    if (edit?.subscriptionId === subscriptionId) return edit.draft;
+    if (edits[subscriptionId]) return edits[subscriptionId].draft;
     return data && data.id === subscriptionId ? draftOf(data) : null;
-  }, [edit, subscriptionId, data]);
+  }, [edits, subscriptionId, data]);
 }

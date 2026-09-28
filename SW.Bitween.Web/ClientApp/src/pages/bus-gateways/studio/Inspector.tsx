@@ -4,7 +4,8 @@ import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { api, type SubscriptionType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Badge } from "../../../components/ui/basics";
-import { Field, TextInput } from "../../../components/ui/forms";
+import { Checkbox, Field, TextInput } from "../../../components/ui/forms";
+import { InfoTypePicker } from "../../../components/config/pickers";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { AdapterConfig } from "../../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../../components/config/MatchExpressionEditor";
@@ -127,7 +128,8 @@ export function RouteBody({
   onNewPartner: () => void;
   /** Opens the chosen partner's values here, rather than sending you to its page. */
   onEditPartner: (partnerId: number) => void;
-  onNewSubscription: () => void;
+  /** Absent on a saved route: only a new one can bring its own subscription with it. */
+  onNewSubscription?: () => void;
 }) {
   const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
   const subscriptions = useQuery({
@@ -236,6 +238,7 @@ export function SubscriptionBody({
   lastException,
   /** Set while the subscription is being defined here — the name is the first thing asked. */
   autoFocusName = false,
+  response,
 }: {
   draft: SubscriptionDraft;
   onChange: (patch: Partial<SubscriptionDraft>) => void;
@@ -243,6 +246,13 @@ export function SubscriptionBody({
   health: { isRunning: boolean; consecutiveFailures: number } | null;
   lastException: string | null;
   autoFocusName?: boolean;
+  /**
+   * A response subscription's own two questions. What it carries is asked only while it is
+   * being defined — nothing imposes it, unlike a route's, and it is fixed once it exists.
+   */
+  response?: {
+    informationType?: { value: number | null; onChange: (id: number | null) => void };
+  };
 }) {
   const workGroups = useQuery({
     queryKey: keys.workGroups.list,
@@ -263,7 +273,10 @@ export function SubscriptionBody({
             onChange={(e) => onChange({ name: e.target.value })}
           />
         </Field>
-        <Field label="Runs at all" hint="Disabled, no route ever reaches it.">
+        <Field
+          label="Runs at all"
+          hint={response ? "Disabled, it skips every response handed to it." : "Disabled, no route ever reaches it."}
+        >
           <button
             type="button"
             disabled={disabled}
@@ -302,6 +315,27 @@ export function SubscriptionBody({
           />
         </Field>
       </div>
+
+      {response && (
+        <div className="grid max-w-5xl gap-5 sm:grid-cols-2">
+          {response.informationType && (
+            <Field label="Carries" htmlFor="bs-int-type" hint="The information type of the responses it runs on.">
+              <InfoTypePicker
+                id="bs-int-type"
+                value={response.informationType.value}
+                onChange={response.informationType.onChange}
+              />
+            </Field>
+          )}
+          <Checkbox
+            label="Also run on a bad response"
+            description="Off, it only runs when the delivery that fed it succeeded. On, it also gets the error bodies, so its mapper has to be able to read them."
+            checked={draft.runOnBadResponses}
+            disabled={disabled}
+            onChange={(e) => onChange({ runOnBadResponses: e.target.checked })}
+          />
+        </div>
+      )}
 
       {health && (
         <p className="flex items-center gap-2 text-[13px] text-ink-500">
@@ -367,11 +401,16 @@ export function ResponseBody({
   onChange,
   disabled,
   candidates,
+  onNewResponseSubscription,
+  onOpenResponseSubscription,
 }: {
   draft: SubscriptionDraft;
   onChange: (patch: Partial<SubscriptionDraft>) => void;
   disabled: boolean;
   candidates: { id: number; name: string; type: SubscriptionType }[];
+  /** Draws a new response subscription as the next hop; absent where the canvas stops. */
+  onNewResponseSubscription?: () => void;
+  onOpenResponseSubscription?: (id: number) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -383,6 +422,8 @@ export function ResponseBody({
         disabled={disabled}
         candidates={candidates}
         idPrefix="bs-resp"
+        onNewResponseSubscription={onNewResponseSubscription}
+        onOpenResponseSubscription={onOpenResponseSubscription}
       />
       {draft.handlerId !== null && (
         <p className="text-[12px] text-ink-500">

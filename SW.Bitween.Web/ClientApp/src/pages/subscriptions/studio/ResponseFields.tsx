@@ -1,10 +1,17 @@
 import { useState } from "react";
-import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ArrowUpRight, Plus } from "lucide-react";
 import { api, type SubscriptionType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Field } from "../../../components/ui/forms";
+import { Button } from "../../../components/ui/basics";
+import { CodeBadge } from "../../../components/ui/Panel";
+import {
+  SubscriptionStatusBadges,
+  TypeBadge,
+  useSubscriptionRowsById,
+  useSubscriptionsCache,
+} from "../../../components/config/shared";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { InformationTypeDialog } from "../../../components/config/InformationTypeDialog";
 import { busMessageNameProblem } from "../../../lib/busMessageName";
@@ -17,8 +24,8 @@ import { keys } from "../../../api/queryKeys";
  * thing wherever it appears — the create rails would otherwise be one node
  * shorter than the edit rail, which defeats reusing the pipeline at all.
  *
- * There is one way to pass a response on: publish it on the bus. Feeding it
- * straight into a named subscription is retired — see {@link FedIntoNotice}.
+ * Two ways to pass a response on, and both can be set: hand it to a response
+ * subscription, which runs its own pipeline on it, or publish it on the bus.
  */
 export function ResponseFields({
   handlerId,
@@ -28,6 +35,8 @@ export function ResponseFields({
   disabled,
   candidates,
   idPrefix = "resp",
+  onNewResponseSubscription,
+  onOpenResponseSubscription,
 }: {
   /** Nothing is delivered without a handler, so there is no response to route. */
   handlerId: string | null;
@@ -38,9 +47,21 @@ export function ResponseFields({
     responseMessageTypeName?: string | null;
   }) => void;
   disabled: boolean;
-  /** Only used to name an already-saved target; nothing here can choose from them. */
+  /** Every other subscription. Only the Response ones can be picked; the rest name a saved target. */
   candidates: { id: number; name: string; type: SubscriptionType }[];
   idPrefix?: string;
+  /**
+   * Starts a new response subscription the way this page makes new things: the bus gateway
+   * draws its cards on the canvas, every other page opens its create page and comes back.
+   * Left out, nothing is offered.
+   */
+  onNewResponseSubscription?: () => void;
+  /**
+   * Opens the chosen one, to see or change it and go on down its own chain. Each page decides
+   * how: a saved page offers to save first, a create page keeps its draft for the way back,
+   * the bus gateway canvas opens it as the next hop.
+   */
+  onOpenResponseSubscription?: (id: number) => void;
 }) {
   if (handlerId === null)
     return (
@@ -49,17 +70,19 @@ export function ResponseFields({
       </p>
     );
 
+  const chosen = candidates.find((x) => x.id === responseSubscriptionId);
+
   return (
     <div className="space-y-4">
-      {responseSubscriptionId !== null && (
-        <FedIntoNotice
-          name={candidates.find((x) => x.id === responseSubscriptionId)?.name ?? null}
-          id={responseSubscriptionId}
-          disabled={disabled}
-          onClear={() => onChange({ responseSubscriptionId: null })}
-        />
-      )}
       <div className="grid gap-4 sm:grid-cols-2">
+        <ResponseSubscriptionField
+          value={responseSubscriptionId}
+          candidates={candidates}
+          disabled={disabled}
+          idPrefix={idPrefix}
+          onChange={(responseSubscriptionId) => onChange({ responseSubscriptionId })}
+          onNew={onNewResponseSubscription}
+        />
         <BusMessageField
           value={responseMessageTypeName}
           disabled={disabled}
@@ -67,57 +90,149 @@ export function ResponseFields({
           onChange={(responseMessageTypeName) => onChange({ responseMessageTypeName })}
         />
       </div>
+      {chosen && <ResponseTargetCard target={chosen} onOpen={onOpenResponseSubscription} />}
     </div>
   );
 }
 
 /**
- * An already-saved "feed the response into this subscription", shown so it can be seen
- * and undone — and offered nowhere else, because nothing new should acquire one.
+ * Which response subscription the response is handed to.
  *
- * It hands the response to exactly one subscription with the bus skipped: nothing is
- * published, no filter is consulted, and nothing else bound to the same information
- * type hears it. Publishing does all of that and is the reason the bus is here, so the
- * field is kept only for configuration that already depends on it. Retired rather than
- * dropped, because silently ignoring a saved value would change what a live subscription
- * does without anyone being told.
+ * Only Response-type subscriptions are offered, because a response is the only way one
+ * runs — every other type has an entry point of its own, and feeding it a response runs
+ * it through a door it does not have. A legacy target already saved stays listed, so
+ * opening this panel can't quietly blank it; once changed, it can't be picked again.
  */
-function FedIntoNotice({
-  name,
-  id,
+function ResponseSubscriptionField({
+  value,
+  candidates,
   disabled,
-  onClear,
+  idPrefix,
+  onChange,
+  onNew,
 }: {
-  name: string | null;
-  id: number;
+  value: number | null;
+  candidates: { id: number; name: string; type: SubscriptionType }[];
   disabled: boolean;
-  onClear: () => void;
+  idPrefix: string;
+  onChange: (value: number | null) => void;
+  onNew?: () => void;
 }) {
+  const canCreate = useSessionCan("subscriptions.create");
+
+  const offered = candidates.filter((x) => x.type === "Response" || x.id === value);
+  // Saved, but no longer in the list: deleted, or not loaded yet. Listed so the field shows it.
+  const missing = value !== null && !offered.some((x) => x.id === value);
+
   return (
-    <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[13px] text-ink-800">
-          Feeds the response straight into{" "}
-          <Link to={`/subscriptions/${id}`} className="font-medium text-crimson-700 hover:underline">
-            {name ?? `subscription ${id}`}
-          </Link>
-          .
-        </p>
-        {!disabled && (
+    <Field
+      label="Hand the response to"
+      htmlFor={`${idPrefix}-into`}
+      hint="A response subscription runs its own pipeline on it, as this subscription's partner."
+    >
+      <SearchSelect
+        id={`${idPrefix}-into`}
+        value={value === null ? "" : String(value)}
+        disabled={disabled}
+        onChange={(v) => onChange(v === "" ? null : Number(v))}
+        clearLabel="Nothing — no response subscription"
+        options={[
+          ...offered.map((x) => ({
+            value: String(x.id),
+            label: x.name,
+            hint: x.type === "Response" ? undefined : "legacy",
+          })),
+          ...(missing ? [{ value: String(value), label: `Subscription ${value}` }] : []),
+        ]}
+      />
+      {!disabled && canCreate && onNew && (
+        <div className="mt-1">
           <button
             type="button"
-            onClick={onClear}
-            className="text-[13px] font-medium text-crimson-700 hover:underline"
+            onClick={onNew}
+            title="Define a new response subscription and hand the response to it."
+            className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
           >
-            Stop feeding it there
+            <Plus className="size-3" /> New response subscription
           </button>
+        </div>
+      )}
+    </Field>
+  );
+}
+
+/**
+ * The subscription the response goes to, summed up — what it carries, whether it runs, and
+ * where its own response goes next — with the way to open it.
+ *
+ * A legacy Internal or ApiCall target, from before the Response type existed, says so: it
+ * keeps working, because dropping it would change what a live subscription does without
+ * anyone being told, but nothing new can pick one.
+ */
+function ResponseTargetCard({
+  target,
+  onOpen,
+}: {
+  target: { id: number; name: string; type: SubscriptionType };
+  onOpen?: (id: number) => void;
+}) {
+  const setups = useSubscriptionsCache().data;
+  const rows = useSubscriptionRowsById();
+  // Not there for one still being defined on the bus gateway canvas — it has no id yet.
+  const setup = setups?.find((x) => x.id === target.id);
+  const row = rows.get(target.id);
+  const next = setup?.responseSubscriptionId
+    ? (setups?.find((x) => x.id === setup.responseSubscriptionId)?.name ?? `subscription ${setup.responseSubscriptionId}`)
+    : null;
+  const legacy = target.type !== "Response";
+
+  return (
+    <div className="rounded-xl border border-ink-200 bg-ink-50/60 p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-ink-900">
+            {target.name}
+            <TypeBadge type={target.type} />
+            {row && <SubscriptionStatusBadges enabled={row.enabled} paused={row.paused} />}
+          </p>
+          {setup ? (
+            <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-600">
+              {row && (
+                <>
+                  Carries <CodeBadge code={row.informationTypeCode} name={row.informationTypeCode} />
+                  <span className="text-ink-300">·</span>
+                </>
+              )}
+              <span title="Where this one's own delivery response goes">
+                {setup.handlerId === null
+                  ? "delivers nothing, so the chain ends here"
+                  : next
+                    ? <>then hands its response to <span className="font-medium text-ink-800">{next}</span></>
+                    : setup.responseMessageTypeName
+                      ? <>then publishes its response as <code className="font-mono text-[12px]">{setup.responseMessageTypeName}</code></>
+                      : "then records its response, and the chain ends here"}
+              </span>
+            </p>
+          ) : (
+            <p className="text-[13px] text-ink-500">Being defined here — it is saved with this one.</p>
+          )}
+        </div>
+        {onOpen && (
+          <Button
+            size="sm"
+            onClick={() => onOpen(target.id)}
+            title="Open it to see or change its pipeline, and follow its own response on from there."
+          >
+            Open <ArrowUpRight className="size-3.5" />
+          </Button>
         )}
       </div>
-      <p className="mt-1 text-[12px] text-ink-500">
-        An old setting, kept so it can be cleared — it can't be set again. The bus is skipped, so
-        nothing is published and no other route bound to that information type hears it. Publish on
-        the bus below instead.
-      </p>
+      {legacy && (
+        <p className="mt-2 border-t border-ink-200 pt-2 text-[12px] text-ink-500">
+          A legacy subscription. It keeps getting the response, but once you change this it can't be
+          picked again — only response subscriptions can.
+        </p>
+      )}
     </div>
   );
 }

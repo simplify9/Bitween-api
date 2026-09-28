@@ -13,7 +13,7 @@ import { CopyField } from "../../components/ui/CopyField";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { Pagination } from "../../components/ui/Pagination";
-import { useWiredSubscriptionColumns } from "../../components/config/shared";
+import { useSubscriptionsCache, useWiredSubscriptionColumns } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 
@@ -27,6 +27,10 @@ export function ApiGatewayPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const canEdit = useSessionCan("api-gateways.edit");
   const wiredColumns = useWiredSubscriptionColumns<ApiGatewayAttachment>((a) => a.subscriptionId);
+  // Where each attached subscription's response goes — not on the attachment rows themselves.
+  const cachedSetups = useSubscriptionsCache().data;
+  const setups = useMemo(() => cachedSetups ?? [], [cachedSetups]);
+  const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
 
   const gateway = useQuery({
     queryKey: keys.apiGateways.detail(gatewayId),
@@ -247,6 +251,45 @@ export function ApiGatewayPage() {
                       {a.subscriptionName}
                     </Link>
                   ),
+                },
+                {
+                  header: "Response",
+                  headerTitle:
+                    "What happens to what the delivery hands back: the response subscription it goes to, the bus message it is published as, or nothing.",
+                  wrap: true,
+                  cell: (a) => {
+                    const s = setupById.get(a.subscriptionId);
+                    if (!s) return <span className="text-ink-400">—</span>;
+                    if (s.handlerId === null)
+                      return (
+                        <span className="text-[13px] text-ink-400" title="It delivers nothing, so there is no response.">
+                          Nothing delivered
+                        </span>
+                      );
+                    const target = setups.find((x) => x.id === s.responseSubscriptionId);
+                    if (!target && !s.responseMessageTypeName)
+                      return <span className="text-[13px] text-ink-400">Recorded only</span>;
+                    return (
+                      <span className="block space-y-0.5">
+                        {s.responseSubscriptionId !== null && (
+                          <Link
+                            to={`/subscriptions/${s.responseSubscriptionId}`}
+                            className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                          >
+                            {target?.name ?? `Subscription ${s.responseSubscriptionId}`}
+                          </Link>
+                        )}
+                        {s.responseMessageTypeName && (
+                          <code
+                            className="block font-mono text-[11px] text-ink-500"
+                            title="Published on the bus as this message"
+                          >
+                            {s.responseMessageTypeName}
+                          </code>
+                        )}
+                      </span>
+                    );
+                  },
                 },
                 ...wiredColumns,
                 {

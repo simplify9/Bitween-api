@@ -81,6 +81,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     CustomRetryPolicy = subscriber.CustomRetryPolicy,
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
                     ResponseMessageTypeName = subscriber.ResponseMessageTypeName,
+                    RunOnBadResponses = subscriber.RunOnBadResponses,
                 };
 
             query = query.AsNoTracking().AsQueryable();

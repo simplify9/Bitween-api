@@ -249,6 +249,9 @@ public class GatewayRoutingTests(BitweenFixture fixture)
                 // Started by its own partner posting to Xchanges/Update.
                 [SubscriptionType.ApiCall] =
                     new("Entry api call", docId, SubscriptionType.ApiCall, partner.Id) { Inactive = false },
+                // Started by the subscription whose delivery response it is handed.
+                [SubscriptionType.Response] =
+                    new("Entry response", docId, SubscriptionType.Response) { Inactive = false },
                 // The control. Without one, every assertion below would also pass if the
                 // subscriptions simply never reached the dispatcher — an empty result looks
                 // identical to a correctly filtered one.
@@ -267,7 +270,7 @@ public class GatewayRoutingTests(BitweenFixture fixture)
 
         Assert.Contains(ids[SubscriptionType.Internal], result.Hits);
 
-        // Each of these four is started by something that decides it should run at all. Matching
+        // Each of these five is started by something that decides it should run at all. Matching
         // them here as well ran them a second time on traffic addressed to nobody: a scheduled job
         // publishing the very message type it is bound to fed itself forever, and an ApiCall
         // integration belonging to one partner ran on another partner's message. The second run

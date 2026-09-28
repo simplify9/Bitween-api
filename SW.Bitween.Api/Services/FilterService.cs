@@ -72,11 +72,12 @@ namespace SW.Bitween
                 //   GatewayApiCall — a partner calling the gateway it is attached to
                 //   ApiCall        — its own partner posting to Xchanges/Update, which runs the
                 //                    subscription belonging to the caller (legacy GatewayApiCall)
+                //   Response       — the subscription whose delivery response it is handed
                 //
-                // All four are started by name, through SubmitSubscriptionXchange. Auto-matching
-                // them as well ran them a second time, on traffic addressed to nobody: a scheduled
-                // job publishing the very message type it is bound to fed itself forever, and an
-                // ApiCall integration belonging to one partner ran on another partner's message.
+                // All five are started by name. Auto-matching them as well ran them a second time,
+                // on traffic addressed to nobody: a scheduled job publishing the very message type
+                // it is bound to fed itself forever, and an ApiCall integration belonging to one
+                // partner ran on another partner's message.
                 // Both stayed hidden only while those handlers happened to be unreachable. The
                 // second run also arrived without the partner the entry point would have passed,
                 // so every {{partner.…}} in its adapters stayed a literal token.
@@ -87,7 +88,8 @@ namespace SW.Bitween
                 if (sub.Type is SubscriptionType.BusGateway
                     or SubscriptionType.Receiving
                     or SubscriptionType.GatewayApiCall
-                    or SubscriptionType.ApiCall)
+                    or SubscriptionType.ApiCall
+                    or SubscriptionType.Response)
                     return false;
 
                 var exp = sub.BackwardCompatibleMatchExpression(doc);

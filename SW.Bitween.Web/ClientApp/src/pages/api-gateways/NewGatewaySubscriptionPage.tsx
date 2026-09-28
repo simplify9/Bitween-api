@@ -25,6 +25,7 @@ import { ResponseFields } from "../subscriptions/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useResponseDetour } from "../../lib/responseDetour";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -94,7 +95,11 @@ export function NewGatewaySubscriptionPage() {
   const partnerId = searchParams.get("partnerId");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [stage, setStage] = useState<StageId | null>("delivery");
+  // Back from creating a response subscription: the subscription as it was left, with that one
+  // picked. `?partnerId=` survives the trip, since the way back is this page's own URL.
+  const detour = useResponseDetour<Draft>();
+  const returned = detour.kept !== null || detour.pickedResponse !== null;
+  const [stage, setStage] = useState<StageId | null>(returned ? "response" : "delivery");
   /** The visual mapper, over the page — there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
@@ -108,7 +113,10 @@ export function NewGatewaySubscriptionPage() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
-  const [draft, update] = useDraft<Draft>(EMPTY);
+  const [draft, update] = useDraft<Draft>({
+    ...(detour.kept ?? EMPTY),
+    ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+  });
   const bindsToDataSource = useBindsToDataSource();
 
   /**
@@ -121,7 +129,8 @@ export function NewGatewaySubscriptionPage() {
    * Seeded once: `touched` latches as soon as the field is edited, so nothing overwrites
    * a typed name.
    */
-  const touched = useRef(false);
+  // A restored draft already has the name it was left with.
+  const touched = useRef(detour.kept !== null);
   const gatewayName = gateway.data?.name;
   useEffect(() => {
     if (touched.current || !gatewayName) return;
@@ -184,6 +193,8 @@ export function NewGatewaySubscriptionPage() {
     receiverProperties: {},
     matchExpression: null,
     schedules: [],
+    // Response only.
+    runOnBadResponses: false,
   };
 
   const faces = STAGES_HERE.map((stageId) => {
@@ -296,6 +307,8 @@ export function NewGatewaySubscriptionPage() {
               disabled={false}
               candidates={allSubscriptions.data ?? []}
               idPrefix="ngi-resp"
+              onNewResponseSubscription={() => detour.leave(draft)}
+              onOpenResponseSubscription={(id) => detour.open(draft, id)}
             />
           </Panel>
         );
