@@ -212,7 +212,7 @@ export function GroupDialog({
     // describe one that way while this refuses to make another.
     if (matchers.length === 0)
       return setError("Add at least one condition — a group with none is rejected when you save.");
-    if (alert.alertMode === "Send" && !alert.alertHandlerId)
+    if (action === "Allow" && !noTotal && alert.alertMode === "Send" && !alert.alertHandlerId)
       return setError("Pick how the budget-exhausted alert is delivered, or choose Inherit.");
     onSubmit({
       id: initial?.id ?? crypto.randomUUID(),

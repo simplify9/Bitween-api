@@ -154,6 +154,29 @@ public class RetryPolicyJsonConverterTests
         Assert.IsInstanceOfType(result.Budget!.DelayStrategy, typeof(ExponentialDelayStrategy));
     }
 
+    [TestMethod]
+    public void RetryBudget_total_left_out_is_zero_and_explicit_null_is_no_limit()
+    {
+        // Zero is "no retries", so a caller that omits the field must not be read as asking for no limit.
+        var serializer = BuildSerializer();
+        const string delay = "\"delayStrategy\":{\"type\":\"fixed\",\"delayMs\":1000}";
+        T Read<T>(string json) => serializer.Deserialize<T>(new JsonTextReader(new StringReader(json)));
+
+        Assert.AreEqual(0, Read<RetryBudget>($"{{\"maxAttemptsPerError\":3,{delay}}}").MaxAttemptsTotal);
+        Assert.IsNull(Read<RetryBudget>($"{{\"maxAttemptsPerError\":3,\"maxAttemptsTotal\":null,{delay}}}").MaxAttemptsTotal);
+
+        // Both stores write the null back out rather than dropping it, or it would reload as zero.
+        var unlimited = new RetryBudget
+        {
+            MaxAttemptsPerError = 3,
+            MaxAttemptsTotal = null,
+            DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
+        };
+        Assert.IsNull(RoundTrip(unlimited, serializer).MaxAttemptsTotal);
+        Assert.IsNull(System.Text.Json.JsonSerializer.Deserialize<RetryBudget>(
+            System.Text.Json.JsonSerializer.Serialize(unlimited))!.MaxAttemptsTotal);
+    }
+
     private static T Assert1<T>(object value) where T : class
     {
         Assert.IsInstanceOfType(value, typeof(T));
