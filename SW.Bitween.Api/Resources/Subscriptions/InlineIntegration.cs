@@ -54,7 +54,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 dbContext, model.ResponseSubscriptionId);
             if (responseFailure != null)
                 throw new SWValidationException(
-                    ResponseRoutingValidation.BusGatewayCode, responseFailure);
+                    ResponseRoutingValidation.Code, responseFailure);
 
             // Neither gateway type carries its own partner — a partner reaches them through the
             // attachment or the route, which is the very thing being made.
@@ -108,10 +108,11 @@ namespace SW.Bitween.Resources.Subscriptions
 
             // The same code an ordinary create runs, so a field cannot work through one door
             // and not the other.
-            await SubscriptionConfigurationApplier.Apply(dbContext, entity, model);
+            await SubscriptionConfigurationApplier.Apply(dbContext, adapterRequirements, entity, model);
 
-            // Neither gateway type runs on its own — a GatewayApiCall waits for an attachment, a
-            // BusGateway for a route — and the one being made is in this same transaction.
+            // None of these types runs on its own — a GatewayApiCall waits for an attachment, a
+            // BusGateway for a route, a Response for a subscription to hand it a response — and the
+            // one being made is in this same transaction.
             entity.Inactive = false;
 
             dbContext.Add(entity);

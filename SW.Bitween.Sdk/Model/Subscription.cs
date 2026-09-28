@@ -13,6 +13,11 @@ namespace SW.Bitween.Model
         Aggregation = 8,
         GatewayApiCall = 16,
         BusGateway = 32,
+        /// <summary>
+        /// Runs on what another subscription's delivery handed back, and on nothing else: its only
+        /// entry point is being named as that subscription's <c>ResponseSubscriptionId</c>.
+        /// </summary>
+        Response = 64,
     }
 
     public class SubscriptionReceiveNow
@@ -204,8 +209,22 @@ namespace SW.Bitween.Model
         /// </summary>
         public ICollection<ScheduleView>? Schedules { get; set; }
         public int? ResponseSubscriptionId { get; set; }
+
+        /// <summary>
+        /// A response subscription to create and hand the response to, in the same transaction as
+        /// this one — instead of <see cref="ResponseSubscriptionId"/>, never with it. Its
+        /// <c>DocumentId</c> is the information type of the responses it runs on.
+        /// </summary>
+        public InlineIntegrationCreate? NewResponseSubscription { get; set; }
+
         /// <summary>Null unless the result is published back onto the bus.</summary>
         public string? ResponseMessageTypeName { get; set; }
+
+        /// <summary>
+        /// Response subscriptions only: also run when the delivery that fed it came back bad.
+        /// Off by default, because its mapper has to be written to read an error body.
+        /// </summary>
+        public bool RunOnBadResponses { get; set; }
 
         public int? RetryPolicyId { get; set; }
         public CustomRetryPolicy? CustomRetryPolicy { get; set; }

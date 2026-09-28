@@ -291,7 +291,7 @@ namespace SW.Bitween
                 b.HasOne<DataSource>().WithMany().HasForeignKey(p => p.DataSourceId).IsRequired(false)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false)
+                b.HasOne(p => p.ResponseSubscription).WithMany().HasForeignKey(p => p.ResponseSubscriptionId).IsRequired(false)
                     .HasConstraintName("FK_Subscriptions_RespSub").OnDelete(DeleteBehavior.Restrict);
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.AggregationForId).IsRequired(false)
                     .HasConstraintName("FK_Subscriptions_AggFor").OnDelete(DeleteBehavior.Restrict);

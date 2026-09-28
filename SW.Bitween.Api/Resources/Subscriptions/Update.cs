@@ -13,7 +13,8 @@ using SW.Bitween.Resources.RetryPolicies;
 namespace SW.Bitween.Resources.Subscriptions
 {
     public class Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache,
-        RequestContext requestContext, SubscriptionSchedulerService subScheduler) : ICommandHandler<int, SubscriptionUpdate, object>
+        RequestContext requestContext, SubscriptionSchedulerService subScheduler,
+        AdapterRequirements adapterRequirements) : ICommandHandler<int, SubscriptionUpdate, object>
     {
         private readonly BitweenDbContext _dbContext = dbContext;
 
@@ -37,7 +38,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
 
             // Everything a person configures, through the same code the create handler runs.
-            await SubscriptionConfigurationApplier.Apply(_dbContext, entity, model);
+            await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model);
 
             await _dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();
@@ -146,7 +147,9 @@ namespace SW.Bitween.Resources.Subscriptions
                 // wrong whether or not this same request also sets a handler.
                 RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, ct) =>
                 {
-                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId);
+                    var subscription = await GetSub(dbContext, httpContextAccessor);
+                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId,
+                        subscription?.Id, subscription?.ResponseSubscriptionId);
                     if (failure != null)
                         context.AddFailure(nameof(SubscriptionUpdate.ResponseSubscriptionId), failure);
                 });
@@ -188,7 +191,8 @@ namespace SW.Bitween.Resources.Subscriptions
                     var subscription = await GetSub(dbContext, httpContextAccessor);
 
                     if (subscription?.Type == SubscriptionType.GatewayApiCall ||
-                        subscription?.Type == SubscriptionType.BusGateway)
+                        subscription?.Type == SubscriptionType.BusGateway ||
+                        subscription?.Type == SubscriptionType.Response)
                     {
                         if (model.PartnerId.HasValue)
                             context.AddFailure(nameof(model.PartnerId), $"PartnerId must be null for {subscription?.Type} subscriptions");

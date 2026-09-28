@@ -39,7 +39,8 @@ public class Subscription : BaseEntity
         type, null)
     {
         Inactive = true;
-        if (type != SubscriptionType.GatewayApiCall && type != SubscriptionType.BusGateway)
+        if (type != SubscriptionType.GatewayApiCall && type != SubscriptionType.BusGateway &&
+            type != SubscriptionType.Response)
             throw new ArgumentException();
     }
     private Subscription(string name, int documentId, SubscriptionType type, int? partnerId = null,
@@ -103,7 +104,14 @@ public class Subscription : BaseEntity
     public bool IsRunning { get; set; }
     public bool Inactive { get; set; }
     public int? ResponseSubscriptionId { get; set; }
+    /// <summary>
+    /// Only ever set to a response subscription being created alongside this one, so EF inserts
+    /// it first and fills <see cref="ResponseSubscriptionId"/> in the same save. Never loaded.
+    /// </summary>
+    public Subscription ResponseSubscription { get; set; }
     public string ResponseMessageTypeName { get; set; }
+    /// <summary>Response type only; see <see cref="SubscriptionConfiguration.RunOnBadResponses"/>.</summary>
+    public bool RunOnBadResponses { get; set; }
     public int? AggregationForId { get; private set; }
     public XchangeFileType AggregationTarget { get; set; }
     public DateTime? AggregateOn { get; private set; }

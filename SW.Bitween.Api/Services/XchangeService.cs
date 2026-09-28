@@ -205,11 +205,53 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         }
     }
 
-    private Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null)
+    private Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null,
+        int? partnerId = null, string correlationId = null)
     {
-        var xchange = new OnHoldXchange(subscription, file.Data, file.Filename, file.BadData, references);
+        var xchange = new OnHoldXchange(subscription, file.Data, file.Filename, file.BadData, references,
+            partnerId, correlationId);
         dbContext.Add(xchange);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Starts the subscription a delivery's response is handed to, or holds it while that one is
+    /// paused. Returns the exchange it started, if any.
+    /// </summary>
+    /// <remarks>
+    /// The delivery has already happened by now, so a target that simply is not there must not
+    /// throw: the exception would mark this exchange failed, and its retry would deliver a second
+    /// time. A disabled subscription is not in the cache, and is skipped the way a disabled bus
+    /// route's subscription is.
+    /// </remarks>
+    private async Task<Xchange> HandOnResponse(Xchange xchange, XchangeFile responseFile)
+    {
+        var target = await BitweenCache.SubscriptionByIdAsync(xchange.ResponseSubscriptionId!.Value);
+        if (target == null)
+        {
+            logger.LogWarning(
+                "The response of xchange {XchangeId} goes to subscription {SubscriptionId}, which is not active; skipping.",
+                xchange.Id, xchange.ResponseSubscriptionId);
+            return null;
+        }
+
+        // Legacy targets (Internal, ApiCall) keep what they have always had: every response, run
+        // as their own partner. A response subscription is shared by everything that feeds it, so
+        // it runs as the partner of the one that did, and only on a bad response if it says so.
+        var isResponseType = target.Type == SubscriptionType.Response;
+        if (isResponseType && responseFile.BadData && !target.RunOnBadResponses)
+            return null;
+
+        var partnerId = isResponseType ? xchange.PartnerId : null;
+
+        if (target.PausedOn != null)
+        {
+            await CreateOnHoldXchange(target, responseFile, null, partnerId, xchange.CorrelationId);
+            return null;
+        }
+
+        var partner = partnerId.HasValue ? await dbContext.FindAsync<Partner>(partnerId.Value) : null;
+        return await CreateXchange(target, responseFile, null, xchange.CorrelationId, partner);
     }
 
 
@@ -480,12 +522,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 }
 
                 if (xchange.ResponseSubscriptionId != null && responseFile != null)
-                {
-                    var subscription =
-                        await BitweenCache.SubscriptionByIdAsync(xchange.ResponseSubscriptionId.Value);
-
-                    responseXchange = await CreateXchange(subscription, responseFile, null, xchange.CorrelationId);
-                }
+                    responseXchange = await HandOnResponse(xchange, responseFile);
 
                 if (!string.IsNullOrWhiteSpace(xchange.ResponseMessageTypeName) && responseFile != null &&
                     !responseFile.BadData)
@@ -820,7 +857,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         foreach (var xchangeDetails in xchangesDetails)
         {
             var file = new XchangeFile(xchangeDetails.Data, xchangeDetails.FileName, xchangeDetails.BadData);
-            await CreateXchange(subscription, file, xchangeDetails.References);
+            var partner = xchangeDetails.PartnerId.HasValue
+                ? await dbContext.FindAsync<Partner>(xchangeDetails.PartnerId.Value)
+                : null;
+            await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner);
             dbContext.Remove(xchangeDetails);
         }
 
