@@ -66,8 +66,17 @@ interface SubscriptionEdit {
  * path is one diagram and every part of it is editable in place: the route, the
  * subscription behind it, its delivery, its response, and whoever picks that
  * response up.
+ *
+ * Keyed by id. Opening another gateway from here — a listener card on the canvas — keeps
+ * the same route mounted, and without a key the page you left stayed in its state: its
+ * name in the title, read back as an unsaved rename, which Save wrote onto the new gateway.
  */
 export function BusGatewayPage() {
+  const { id = "" } = useParams();
+  return <BusGatewayStudio key={id} />;
+}
+
+function BusGatewayStudio() {
   const { id = "" } = useParams();
   const gatewayId = Number(id);
   const navigate = useNavigate();
