@@ -1,8 +1,10 @@
 import type { InformationType, InformationTypeDetail, InformationTypeFormat } from "../../api";
+import { Button } from "../ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../ui/forms";
 import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
 import { Panel } from "../ui/Panel";
 import { BUS_MESSAGE_NAME_PLACEHOLDER, busMessageNameProblem } from "../../lib/busMessageName";
+import { CARRIED_FORMAT_NOTE, formatLabel, INFORMATION_TYPE_FORMATS, readsContent } from "../../lib/informationTypeFormat";
 
 /**
  * Everything about an information type that can be edited, as one component.
@@ -73,8 +75,13 @@ export function informationTypeMissing(draft: InformationTypeDraft): string[] {
     draft.busEnabled &&
       busMessageNameProblem(draft.busMessageTypeName.trim()) !== null &&
       "a bus message name without spaces",
+    // The server refuses these, so say it before the save rather than after.
+    !readsContent(draft.format) && hasPromotedRows(draft) && "its promoted properties removed",
   ].filter((m): m is string => typeof m === "string");
 }
+
+const hasPromotedRows = (draft: InformationTypeDraft) =>
+  draft.promotedProperties.some((r) => r.key.trim() || r.value.trim());
 
 export function InformationTypeFields({
   draft,
@@ -120,16 +127,17 @@ export function InformationTypeFields({
               placeholder="None set"
             />
           </Field>
-          <Field label="Payload format" htmlFor={`${idPrefix}-format`}>
+          <Field
+            label="Payload format"
+            htmlFor={`${idPrefix}-format`}
+            hint={readsContent(draft.format) ? undefined : CARRIED_FORMAT_NOTE}
+          >
             <Select
               id={`${idPrefix}-format`}
               value={draft.format}
               disabled={!canEdit}
               onChange={(e) => set("format", e.target.value as InformationTypeFormat)}
-              options={[
-                { value: "Json", label: "JSON" },
-                { value: "Xml", label: "XML" },
-              ]}
+              options={INFORMATION_TYPE_FORMATS}
             />
           </Field>
           <Field
@@ -195,23 +203,46 @@ export function InformationTypeFields({
         </div>
       </Panel>
 
-      <Panel
-        title="Promoted properties"
-        description={`Values pulled out of each payload by ${
-          draft.format === "Json" ? "JSON path" : "XML path"
-        } — routes and filters match on them.`}
-      >
-        <KeyValueEditor
-          rows={draft.promotedProperties}
-          onChange={(promotedProperties) => set("promotedProperties", promotedProperties)}
-          keyLabel="Friendly name"
-          valueLabel={draft.format === "Xml" ? "XML path" : "JSON path"}
-          keyPlaceholder="OrderNumber"
-          valuePlaceholder={draft.format === "Xml" ? "//Order/Number" : "$.order.id"}
-          editable={canEdit}
-          emptyText="No promoted properties — routes can only match on the whole payload."
-        />
-      </Panel>
+      {readsContent(draft.format) ? (
+        <Panel
+          title="Promoted properties"
+          description={`Values pulled out of each payload by ${
+            draft.format === "Json" ? "JSON path" : "XML path"
+          } — routes and filters match on them.`}
+        >
+          <KeyValueEditor
+            rows={draft.promotedProperties}
+            onChange={(promotedProperties) => set("promotedProperties", promotedProperties)}
+            keyLabel="Friendly name"
+            valueLabel={draft.format === "Xml" ? "XML path" : "JSON path"}
+            keyPlaceholder="OrderNumber"
+            valuePlaceholder={draft.format === "Xml" ? "//Order/Number" : "$.order.id"}
+            editable={canEdit}
+            emptyText="No promoted properties — routes can only match on the whole payload."
+          />
+        </Panel>
+      ) : (
+        <Panel
+          title="Promoted properties"
+          description={`None — ${formatLabel(draft.format)} content isn't read, so there is nothing to pull values from.`}
+        >
+          {/* Only reachable by switching a type that still promotes something, which the server
+              refuses to save. */}
+          {hasPromotedRows(draft) && (
+            <div className="flex flex-wrap items-center gap-3">
+              <p role="alert" className="text-[13px] text-danger-700">
+                Still promotes {draft.promotedProperties.map((r) => r.key.trim() || r.value.trim()).join(", ")} —{" "}
+                {formatLabel(draft.format)} types can't have promoted properties.
+              </p>
+              {canEdit && (
+                <Button size="sm" onClick={() => set("promotedProperties", [])}>
+                  Remove them
+                </Button>
+              )}
+            </div>
+          )}
+        </Panel>
+      )}
     </div>
   );
 }

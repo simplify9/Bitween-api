@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FileText, Plus, Search } from "lucide-react";
-import { api } from "../../api";
+import { api, type InformationTypeFormat } from "../../api";
 import { Can } from "../../auth/guards";
 import { InformationTypeDialog } from "../../components/config/InformationTypeDialog";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
@@ -14,14 +14,11 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
 import { keys } from "../../api/queryKeys";
+import { CARRIED_FORMAT_NOTE, formatLabel, INFORMATION_TYPE_FORMATS, readsContent } from "../../lib/informationTypeFormat";
 
 const PAGE_SIZE = 25;
 
-const FORMAT_OPTIONS = [
-  { value: "", label: "Any format" },
-  { value: "Json", label: "JSON" },
-  { value: "Xml", label: "XML" },
-];
+const FORMAT_OPTIONS = [{ value: "", label: "Any format" }, ...INFORMATION_TYPE_FORMATS];
 
 const BUS_OPTIONS = [
   { value: "", label: "Any bus status" },
@@ -43,7 +40,7 @@ export function InformationTypesPage() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
-  const format = searchParams.get("format") as "Json" | "Xml" | null;
+  const format = searchParams.get("format") as InformationTypeFormat | null;
   const busParam = searchParams.get("bus");
   const busEnabled = busParam === "true" ? true : busParam === "false" ? false : null;
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
@@ -209,7 +206,12 @@ export function InformationTypesPage() {
                 </span>
               ),
             },
-            { header: "Format", cell: (t) => <Badge>{t.format.toUpperCase()}</Badge> },
+            {
+              header: "Format",
+              cell: (t) => (
+                <Badge title={readsContent(t.format) ? undefined : CARRIED_FORMAT_NOTE}>{formatLabel(t.format)}</Badge>
+              ),
+            },
             {
               header: "Bus",
               cell: (t) =>

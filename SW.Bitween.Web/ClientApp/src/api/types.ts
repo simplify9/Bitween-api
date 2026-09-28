@@ -241,7 +241,7 @@ export interface PartnerDetail extends Partner {
   recentExchanges: ExchangeRef[];
 }
 
-export type InformationTypeFormat = "Json" | "Xml";
+export type InformationTypeFormat = "Json" | "Xml" | "Csv" | "Other";
 
 export interface InformationType {
   id: number;

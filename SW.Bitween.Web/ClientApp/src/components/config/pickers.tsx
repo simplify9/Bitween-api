@@ -10,6 +10,7 @@ import { SubscriptionDialog } from "./SubscriptionDialog";
 import { PartnerDialog } from "./PartnerDialog";
 import { useSubscriptionsCache } from "./shared";
 import { keys } from "../../api/queryKeys";
+import { formatLabel } from "../../lib/informationTypeFormat";
 
 /*
  * Pick-one controls used inside flows. Creating or amending the thing you are
@@ -104,7 +105,7 @@ export function InfoTypePicker({
           value: String(t.id),
           label: t.name,
           code: t.code,
-          hint: t.retiredOn !== null ? "Retired" : t.format === "Json" ? "JSON" : "XML",
+          hint: t.retiredOn !== null ? "Retired" : formatLabel(t.format),
         }))}
       />
       <PickerLinks

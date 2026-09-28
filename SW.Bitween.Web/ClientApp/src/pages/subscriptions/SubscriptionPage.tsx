@@ -287,6 +287,7 @@ function SubscriptionStudio() {
                 properties={infoType.data?.promotedProperties ?? []}
                 disabled={!canEdit}
                 informationTypeId={infoType.data?.id}
+                format={infoType.data?.format}
               />
             ) : (
               <EntryPointsTable rows={entryPoints} empty={triggerEmpty} />
