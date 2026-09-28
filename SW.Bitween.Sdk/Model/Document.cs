@@ -9,7 +9,19 @@ namespace SW.Bitween.Model
     public enum DocumentFormat
     {
         Json = 0,
-        Xml = 1
+        Xml = 1,
+
+        /// <summary>
+        /// Carried, never read: there are no promoted properties, and only subscriptions and
+        /// routes without a filter pick its messages up. A label for what the payload is.
+        /// </summary>
+        Csv = 2,
+
+        /// <summary>
+        /// Anything Bitween has no format for — custom adapters send whatever they like. Treated
+        /// exactly as <see cref="Csv"/>.
+        /// </summary>
+        Other = 3
     }
 
     public class DocumentCreate : IName

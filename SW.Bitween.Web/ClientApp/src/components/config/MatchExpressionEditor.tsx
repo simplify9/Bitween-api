@@ -1,7 +1,8 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router";
-import type { MatchCondition, MatchGroup, MatchNode } from "../../api";
+import type { InformationTypeFormat, MatchCondition, MatchGroup, MatchNode } from "../../api";
 import { useSessionCan } from "../../auth/guards";
+import { formatLabel, readsContent } from "../../lib/informationTypeFormat";
 import { matchSummary } from "../../lib/match";
 import { Button } from "../ui/basics";
 import { Select } from "../ui/forms";
@@ -171,6 +172,7 @@ export function MatchExpressionEditor({
   properties,
   disabled,
   informationTypeId,
+  format,
 }: {
   value: MatchGroup | null;
   onChange: (value: MatchGroup | null) => void;
@@ -182,10 +184,40 @@ export function MatchExpressionEditor({
    * without it the empty state names the fix without offering it.
    */
   informationTypeId?: number | null;
+  /** The type's format. CSV and Other are never read, so no filter on them can pass. */
+  format?: InformationTypeFormat;
 }) {
   // Not `disabled`: that says whether this filter can be edited, which is a different
   // grant from the one that would let you go and add the properties it needs.
   const canEditTypes = useSessionCan("documents.edit");
+
+  if (format && !readsContent(format)) {
+    return (
+      <div className="space-y-2.5">
+        {value === null ? (
+          <p className="text-sm text-ink-600">
+            No filter — <strong className="font-medium">every message</strong> is picked up.
+          </p>
+        ) : (
+          // Left over from before the type was switched: the server skips it on every message.
+          <>
+            <p role="alert" className="text-sm text-danger-700">
+              This filter never passes — nothing reads {formatLabel(format)} content, so no message is picked up.
+            </p>
+            <p className="rounded-lg bg-ink-50 px-3 py-2 font-mono text-xs text-ink-600">{matchSummary(value)}</p>
+            {!disabled && (
+              <Button size="sm" onClick={() => onChange(null)}>
+                Clear filter — match every message
+              </Button>
+            )}
+          </>
+        )}
+        <p className="text-[13px] text-ink-400">
+          Filters can't be used on {formatLabel(format)} information types: Bitween doesn't read their content.
+        </p>
+      </div>
+    );
+  }
 
   if (value === null) {
     return (

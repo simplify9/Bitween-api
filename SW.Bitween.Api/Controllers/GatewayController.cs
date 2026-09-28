@@ -88,8 +88,16 @@ public class GatewayController(
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
         // The file name travels with the exchange into handlers, some of which write it to disk —
-        // a slash there is a directory nobody asked for.
-        var xchangeFile = new XchangeFile(json, $"{gatewayApiName.Replace('/', '-')}.json");
+        // a slash there is a directory nobody asked for. JSON and XML types keep the ".json"
+        // they have always had, since whatever picks those files up may expect it.
+        var document = await cache.DocumentByIdAsync(subscription.DocumentId);
+        var extension = document?.DocumentFormat switch
+        {
+            DocumentFormat.Csv => ".csv",
+            DocumentFormat.Other => "",
+            _ => ".json",
+        };
+        var xchangeFile = new XchangeFile(json, $"{gatewayApiName.Replace('/', '-')}{extension}");
 
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);

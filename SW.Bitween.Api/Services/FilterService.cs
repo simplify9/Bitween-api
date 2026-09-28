@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Xml.XPath;
@@ -20,16 +21,25 @@ namespace SW.Bitween
 
             var doc = await _cache.DocumentByIdAsync(documentId);
 
-            IExchangePayloadReader propReader = doc.DocumentFormat == DocumentFormat.Xml
-                ? new XmlExchangePayloadReader(xchangeFile.Data)
-                : new JsonExchangePayloadReader(xchangeFile.Data);
+            // CSV and Other are carried, never read: there is nothing to promote and no filter
+            // that could pass, so only what asked for the type unconditionally picks it up.
+            IExchangePayloadReader propReader = doc.DocumentFormat switch
+            {
+                DocumentFormat.Xml => new XmlExchangePayloadReader(xchangeFile.Data),
+                DocumentFormat.Json => new JsonExchangePayloadReader(xchangeFile.Data),
+                _ => null,
+            };
 
             var filterResult = new FilterResult();
 
-            if (!propReader.CanGetValues())
+            // A JSON type whose payload isn't an object (CSV, XML, an array) reaches nobody here,
+            // unfiltered or not. Kept on purpose: clients run such types today, and letting those
+            // payloads through would start subscriptions that have never run. Switching the type
+            // to CSV or Other is how they opt in.
+            if (propReader != null && !propReader.CanGetValues())
                 return filterResult;
 
-            foreach (var pp in doc.PromotedProperties)
+            foreach (var pp in propReader == null ? new Dictionary<string, string>() : doc.PromotedProperties)
             {
                 string ppValue;
                 try
@@ -93,7 +103,7 @@ namespace SW.Bitween
                     return false;
 
                 var exp = sub.BackwardCompatibleMatchExpression(doc);
-                return exp == null || exp.IsMatch(propReader);
+                return exp == null || (propReader != null && exp.IsMatch(propReader));
             }).ToArray();
 
             foreach (var subscription in matches)
@@ -106,7 +116,7 @@ namespace SW.Bitween
             var routes = await _cache.ListBusGatewayRoutesByDocumentAsync(documentId);
             foreach (var route in routes)
             {
-                if (route.MatchExpression == null || route.MatchExpression.IsMatch(propReader))
+                if (route.MatchExpression == null || (propReader != null && route.MatchExpression.IsMatch(propReader)))
                 {
                     filterResult.GatewayHits.Add(new GatewayHit
                     {

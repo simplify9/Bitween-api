@@ -525,6 +525,7 @@ function BusGatewayStudio() {
             promotedProperties={ownType?.promotedProperties ?? []}
             informationTypeId={g.informationTypeId}
             informationTypeCode={g.informationTypeCode}
+            informationTypeFormat={ownType?.format}
             disabled={!canEdit}
             partnerTokenSlots={partnerTokenSlots}
             onNewPartner={() => setPartnerDialog(null)}

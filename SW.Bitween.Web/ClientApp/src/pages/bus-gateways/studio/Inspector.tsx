@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
-import { api, type SubscriptionType } from "../../../api";
+import { api, type InformationTypeFormat, type SubscriptionType } from "../../../api";
 import { useSessionCan } from "../../../auth/guards";
 import { Badge } from "../../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../../components/ui/forms";
@@ -107,6 +107,7 @@ export function RouteBody({
   promotedProperties,
   informationTypeId,
   informationTypeCode,
+  informationTypeFormat,
   disabled,
   partnerTokenSlots,
   onNewPartner,
@@ -119,6 +120,7 @@ export function RouteBody({
   /** Routes can only run subscriptions carrying the gateway's own type. */
   informationTypeId: number;
   informationTypeCode: string;
+  informationTypeFormat?: InformationTypeFormat;
   disabled: boolean;
   /**
    * Adapter slots on the subscription this route runs whose properties contain a
@@ -155,6 +157,7 @@ export function RouteBody({
           properties={promotedProperties}
           disabled={disabled}
           informationTypeId={informationTypeId}
+          format={informationTypeFormat}
         />
       </Field>
 
