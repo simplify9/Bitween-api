@@ -144,7 +144,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
 
         var xchangeResult = new XchangeResult(xchange.Id, null, null, exception: "System.TimeoutException: contains timeout");
         xchangeResult.RaiseBudgetExhausted(sub.Id, groupId, decision.MatchedGroup!.Name,
-            decision.MatchedGroup.Budget!.MaxAttemptsTotal);
+            decision.MatchedGroup.Budget!.MaxAttemptsTotal!.Value);
 
         // SaveChangesAsync dispatches and clears Events (see BitweenDbContext), same as it does in
         // production, so the event has to be captured before saving rather than read back after.

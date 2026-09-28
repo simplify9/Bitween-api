@@ -17,7 +17,7 @@ public class RetryPolicyEvaluatorTests
         string name,
         Matcher matcher,
         int maxPerError = 5,
-        int maxTotal = 100,
+        int? maxTotal = 100,
         DelayStrategy delay = null,
         int priority = 10,
         RetryAction action = RetryAction.Allow) =>
@@ -392,6 +392,20 @@ public class RetryPolicyEvaluatorTests
         Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
         Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
         Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry); // exceeded total=3
+    }
+
+    [TestMethod]
+    public async Task Evaluator_NoTotal_OnlyPerMessageCapApplies()
+    {
+        var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" },
+            maxPerError: 2, maxTotal: null));
+        var ev = Evaluator(policy);
+
+        // Far more messages than any total a test would pick, and none of them is refused.
+        for (var message = 0; message < 500; message++)
+            Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+
+        Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 2)).ShouldRetry); // per-message cap = 2
     }
 
     // ─── Evaluator: delay strategies ─────────────────────────────────────────────

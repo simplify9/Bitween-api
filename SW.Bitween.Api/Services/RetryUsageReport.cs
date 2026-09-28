@@ -36,7 +36,8 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
         // Only groups that allow retries have a budget to spend — and a group that can never spend
         // one can never exhaust it, so it can never alert either. Listing those would invite
         // configuring an alert that cannot fire. A ceiling of zero counts as "never": TryConsume
-        // denies it outright rather than claiming and exhausting it.
+        // denies it outright rather than claiming and exhausting it. No ceiling at all can never run
+        // out, so it is left out too.
         var groups = allGroups.Where(g => g.Budget is { MaxAttemptsTotal: > 0 }).ToList();
         if (groups.Count == 0 || subscriptions.Count == 0) return [];
 
@@ -116,7 +117,7 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
                 GroupId = group.Id,
                 GroupName = group.Name,
                 AttemptsUsed = usage?.AttemptsUsed ?? 0,
-                MaxAttemptsTotal = group.Budget!.MaxAttemptsTotal,
+                MaxAttemptsTotal = group.Budget!.MaxAttemptsTotal!.Value,
                 Exhausted = usage != null && usage.AttemptsUsed >= group.Budget.MaxAttemptsTotal,
                 LastAttemptOn = usage?.LastAttemptOn,
                 ExhaustedNotifiedOn = usage?.ExhaustedNotifiedOn,
