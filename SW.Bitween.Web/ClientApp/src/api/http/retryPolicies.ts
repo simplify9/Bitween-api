@@ -48,6 +48,7 @@ const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
   8: "Aggregation",
   16: "GatewayApiCall",
   32: "BusGateway",
+  64: "Response",
 };
 const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Receiving",
@@ -56,6 +57,7 @@ const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Internal",
   "ApiCall",
   "Aggregation",
+  "Response",
 ];
 /** Enums may arrive as the numeric value or the name in any case. */
 const toSubscriptionType = (t: number | string): SubscriptionType => {

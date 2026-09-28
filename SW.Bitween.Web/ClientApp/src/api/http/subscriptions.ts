@@ -10,6 +10,7 @@ import {
   type SubscriptionRun,
   type SubscriptionType,
   type InformationTypeRow,
+  type NewResponseSubscriptionDraft,
   type Paged,
   type PartnerRow,
   type ReceiveAttemptRow,
@@ -27,6 +28,7 @@ import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE, SEARCHY_SORT } from "./searchQuery";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
 import {
+  newResponseSubscriptionBody,
   toKvArray,
   toRawSchedules,
   type RawKeyAndValue,
@@ -90,6 +92,7 @@ interface RawSubscription {
   schedules: RawSchedule[] | null;
   responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
+  runOnBadResponses?: boolean;
   receiveOn: string | null;
   aggregateOn: string | null;
   pausedOn: string | null;
@@ -106,6 +109,7 @@ const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
   8: "Aggregation",
   16: "GatewayApiCall",
   32: "BusGateway",
+  64: "Response",
 };
 const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Receiving",
@@ -114,6 +118,7 @@ const SUBSCRIPTION_TYPES: SubscriptionType[] = [
   "Internal",
   "ApiCall",
   "Aggregation",
+  "Response",
 ];
 /** Enums serialize as their C# member name string, but guard the numeric case too. */
 const toSubscriptionType = (t: number | string): SubscriptionType =>
@@ -167,6 +172,7 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     schedules: toSchedules(raw.schedules),
     responseSubscriptionId: raw.responseSubscriptionId ?? null,
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
+    runOnBadResponses: raw.runOnBadResponses ?? false,
     aggregationForId: raw.aggregationForId ?? null,
     aggregationTarget: raw.aggregationTarget ?? "Input",
     isRunning: raw.isRunning ?? false,
@@ -209,9 +215,13 @@ type UpdatableFields = Partial<
     | "schedules"
     | "responseSubscriptionId"
     | "responseMessageTypeName"
+    | "runOnBadResponses"
     | "aggregationTarget"
   >
->;
+> & {
+  /** Create this response subscription in the same save and hand the response to it. */
+  newResponseSubscription?: NewResponseSubscriptionDraft | null;
+};
 
 /**
  * POST /subscriptions/{id} replaces the whole record, and Update.cs's model
@@ -254,6 +264,8 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
       changes.responseSubscriptionId !== undefined ? changes.responseSubscriptionId : current.responseSubscriptionId,
     responseMessageTypeName:
       changes.responseMessageTypeName !== undefined ? changes.responseMessageTypeName : current.responseMessageTypeName,
+    runOnBadResponses: changes.runOnBadResponses ?? current.runOnBadResponses ?? false,
+    newResponseSubscription: newResponseSubscriptionBody(changes.newResponseSubscription),
     temporary: current.temporary,
     aggregationTarget:
       changes.aggregationTarget !== undefined ? changes.aggregationTarget : current.aggregationTarget,
@@ -444,6 +456,7 @@ export const subscriptionMethods = {
     retryPolicyId?: number | null;
     responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
+    runOnBadResponses?: boolean;
     enabled?: boolean;
   }): Promise<Subscription> {
     // One call, one transaction. This used to be a POST followed by a PATCH,
@@ -475,6 +488,7 @@ export const subscriptionMethods = {
       customRetryPolicy: null,
       responseSubscriptionId: input.responseSubscriptionId ?? null,
       responseMessageTypeName: input.responseMessageTypeName ?? null,
+      runOnBadResponses: input.runOnBadResponses ?? false,
       inactive: !(input.enabled ?? false),
     });
     return toSubscription(await fetchRaw(id), id);

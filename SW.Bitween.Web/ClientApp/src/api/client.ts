@@ -39,6 +39,7 @@ import type {
   SubscriptionRun,
   SubscriptionType,
   MatchGroup,
+  NewResponseSubscriptionDraft,
   Notifier,
   NotifierDetail,
   Paged,
@@ -231,6 +232,8 @@ export interface ApiClient {
     retryPolicyId?: number | null;
     responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
+    /** Response type only: also run when the delivery that fed it came back bad. */
+    runOnBadResponses?: boolean;
     enabled?: boolean;
   }): Promise<Subscription>;
   updateSubscription(
@@ -254,9 +257,13 @@ export interface ApiClient {
         | "schedules"
         | "responseSubscriptionId"
         | "responseMessageTypeName"
+        | "runOnBadResponses"
         | "aggregationTarget"
       >
-    >,
+    > & {
+      /** Create this response subscription in the same save and hand the response to it. */
+      newResponseSubscription?: NewResponseSubscriptionDraft | null;
+    },
   ): Promise<Subscription>;
   deleteSubscription(id: number): Promise<void>;
   /** Toggles paused: paused subscriptions accept work but hold it. */

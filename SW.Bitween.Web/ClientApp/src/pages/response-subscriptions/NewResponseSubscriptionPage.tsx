@@ -5,17 +5,15 @@ import { X } from "lucide-react";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
-import { SearchSelect } from "../../components/ui/SearchSelect";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
-import { AggregationFields } from "../../components/config/AggregationFields";
-import { ScheduleEditor } from "../../components/config/ScheduleEditor";
-import { PartnerPicker } from "../../components/config/pickers";
+import { InfoTypePicker } from "../../components/config/pickers";
 import { useSubscriptionsCache } from "../../components/config/shared";
-import { api, type AggregationTarget, type Schedule } from "../../api";
-import { STAGES, type StageId } from "../subscriptions/studio/stages";
+import { api } from "../../api";
+import { STAGES, stagesFor, type StageId } from "../subscriptions/studio/stages";
 import { StageRail } from "../subscriptions/studio/StageRail";
 import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
 import { ResponseFields } from "../subscriptions/studio/ResponseFields";
+import { ResponseTrigger } from "../subscriptions/studio/ResponseTrigger";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { DataSourceBinding } from "../subscriptions/studio/DataSourceBinding";
@@ -23,164 +21,136 @@ import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { useResponseDetour } from "../../lib/responseDetour";
+import { returnPath, safeReturn, useResponseDetour } from "../../lib/responseDetour";
 
-/** Local draft state with the patch-and-clear shape the other create pages use. */
-function useDraft<T extends object>(initial: T) {
-  const [draft, setDraft] = useState<T>(initial);
-  const update = (patch: Partial<T>) => setDraft((d) => ({ ...d, ...patch }));
-  return [draft, update] as const;
-}
-
-/** The whole pipeline — the same nodes the studio page edits for a saved aggregation. */
-const STAGES_HERE: StageId[] = ["aggregation", "schedule", "transformation", "delivery", "response"];
+const STAGES_HERE = stagesFor("Response");
 
 type Draft = Pick<
   StudioDraft,
   | "name"
-  | "schedules"
-  | "aggregationTarget"
   | "mapperId"
   | "mapperProperties"
   | "handlerId"
   | "handlerProperties"
   | "responseSubscriptionId"
   | "responseMessageTypeName"
+  | "runOnBadResponses"
   | "workGroupId"
   | "retryPolicyId"
   | "dataSourceId"
 > & {
-  aggregationForId: number | null;
-  partnerId: number | null;
-  /**
-   * Whether the partner shown is the person's own choice. Without this, "cleared it" and
-   * "hasn't chosen yet" look identical and the source's partner keeps coming back.
-   */
-  partnerTouched: boolean;
+  informationTypeId: number | null;
   enable: boolean;
 };
 
 const EMPTY: Draft = {
   name: "",
-  aggregationForId: null,
-  partnerId: null,
-  partnerTouched: false,
-  aggregationTarget: "Input",
-  // A sensible default so the node starts valid, edited through the full recurrence editor
-  // on demand — matching the scheduled-job page. An aggregation has no other trigger, so a
-  // draft that starts with none would open on a broken node.
-  schedules: [{ recurrence: "Daily", days: 0, hours: 0, minutes: 0, backwards: false }] as Schedule[],
+  informationTypeId: null,
   mapperId: null,
   mapperProperties: {},
   handlerId: null,
   handlerProperties: {},
   responseSubscriptionId: null,
   responseMessageTypeName: null,
+  runOnBadResponses: false,
   workGroupId: null,
   retryPolicyId: null,
   dataSourceId: null,
-  enable: false,
+  enable: true,
 };
 
 /**
- * Creating an aggregation, on the same pipeline the studio page edits — the scheduled-job
- * page's shape, for the same reason: you learn the rail once, and after Create you land on
- * the page you were already looking at.
+ * Creating a response subscription, on the same pipeline the studio page edits.
  *
- * Arrives with `?source=` when started from the subscription being rolled up, in which case
- * the source is fixed and shown rather than picked. Either way it is fixed after creation:
- * the backend's `AggregationForId` has a private setter and the configuration applier skips
- * it, so no update can repoint a live roll-up.
+ * Nothing feeds it yet, and nothing here can make something feed it: that is chosen in the
+ * feeding subscription's own Response step, where the response is. Opened from that step it
+ * arrives with `?return=`, and Create goes back there with the new one picked; opened on its
+ * own, Create lands on its page, whose Trigger node lists the feeders once there are any.
+ *
+ * Keyed by where it goes back to: a new one started from this page is this same route, and
+ * without a key the draft on screen would carry over into it — and back again.
  */
-export function NewAggregationPage() {
+export function NewResponseSubscriptionPage() {
+  const [params] = useSearchParams();
+  return <NewResponseSubscription key={params.get("return") ?? ""} />;
+}
+
+function NewResponseSubscription() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
-  const fixedSourceId = params.get("source") ? Number(params.get("source")) : null;
-  // Back from creating a response subscription: the roll-up as it was left, with that one picked.
+  const returnTo = safeReturn(params.get("return"));
+  // It can hand its own response to a new response subscription too, which is this page again.
   const detour = useResponseDetour<Draft>();
-  const returned = detour.kept !== null || detour.pickedResponse !== null;
-
-  const [stage, setStage] = useState<StageId | null>(returned ? "response" : "aggregation");
+  const [stage, setStage] = useState<StageId | null>(
+    detour.kept || detour.pickedResponse !== null ? "response" : "delivery",
+  );
   /** The visual mapper, over the page — there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
-  const receivers = useAdapterCatalog("receiver");
   const validators = useAdapterCatalog("validator");
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
-  const [draft, update] = useDraft<Draft>({
-    ...(detour.kept ?? { ...EMPTY, aggregationForId: fixedSourceId }),
+  const [draft, setDraft] = useState<Draft>(() => ({
+    ...(detour.kept ?? EMPTY),
     ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
-  });
+  }));
+  const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const bindsToDataSource = useBindsToDataSource();
-
-  const source = allSubscriptions.data?.find((s) => s.id === draft.aggregationForId) ?? null;
-
-  // An aggregation may point at another aggregation — the backend does not stop it, and a
-  // chain of roll-ups summarising roll-ups is not a shape anyone has asked for.
-  const candidates = (allSubscriptions.data ?? []).filter((s) => s.type !== "Aggregation");
-
-  // The source's own partner where it has one, until the person says otherwise. It is a
-  // suggestion rather than an inheritance: a Receiving source usually has no partner at all,
-  // and the roll-up's partner answers a different question from the source's anyway.
-  const partnerId = draft.partnerTouched ? draft.partnerId : (source?.partnerIds[0] ?? null);
 
   const create = useMutation({
     mutationFn: () =>
       api.createSubscription({
-        type: "Aggregation",
-        name: draft.name.trim(),
-        // Ignored for this type — the backend forces the built-in Aggregation Document.
-        informationTypeId: 0,
-        partnerId,
-        aggregationForId: draft.aggregationForId,
-        aggregationTarget: draft.aggregationTarget,
-        schedules: draft.schedules,
+        type: "Response",
+        name: draft.name,
+        informationTypeId: draft.informationTypeId!,
         mapperId: draft.mapperId,
         mapperProperties: draft.mapperProperties,
         handlerId: draft.handlerId,
         handlerProperties: draft.handlerProperties,
         responseSubscriptionId: draft.responseSubscriptionId,
         responseMessageTypeName: draft.responseMessageTypeName,
+        runOnBadResponses: draft.runOnBadResponses,
         workGroupId: draft.workGroupId,
         retryPolicyId: draft.retryPolicyId,
         dataSourceId: draft.dataSourceId,
         enabled: draft.enable,
       }),
-    onSuccess: (created) => {
-      void queryClient.invalidateQueries();
-      navigate(`/subscriptions/${created.id}`, { replace: true });
+    onSuccess: async (created) => {
+      // Awaited when going back: the page there picks it from the subscriptions list, which
+      // has to include it by then.
+      await queryClient.invalidateQueries();
+      navigate(returnTo ? returnPath(returnTo, created.id) : `/subscriptions/${created.id}`, { replace: true });
     },
   });
 
-  // faceOf works off the studio's full draft shape; the fields this type never has are empty.
+  // faceOf works off the studio's full draft shape; the fields this type never has
+  // are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
     enabled: draft.enable,
-    // An aggregation is fed by its source, not by a receiver, and has no Validation
-    // stage — see stages.ts.
+    aggregationTarget: "Input",
     receiverId: null,
     receiverProperties: {},
     validatorId: null,
     validatorProperties: {},
     matchExpression: null,
-    // Response only.
-    runOnBadResponses: false,
+    schedules: [],
   };
 
-  const faces = STAGES_HERE.map((id) =>
-    faceOf(id, {
-      type: "Aggregation",
+  const faces = STAGES_HERE.map((id) => {
+    const face = faceOf(id, {
+      type: "Response",
       draft: studioDraft,
-      catalogs: { receivers, validators, mappers, handlers },
+      catalogs: { receivers: { data: undefined }, validators, mappers, handlers },
       subscriptionNames: allSubscriptions.data,
-      aggregationForId: draft.aggregationForId,
       unsaved: true,
-    }),
-  );
+    });
+    // Nothing can feed it before it exists, so "Nothing feeds it" is not a fault yet.
+    return id === "trigger" ? { ...face, state: "none" as const } : face;
+  });
 
   const unfilled = [
     adapterIncomplete(mappers, draft.mapperId, draft.mapperProperties) && "transformation",
@@ -188,38 +158,22 @@ export function NewAggregationPage() {
   ].filter((m): m is string => typeof m === "string");
 
   const missing = [
-    draft.aggregationForId === null && "something to roll up",
     draft.name.trim().length < 2 && "a name",
-    partnerId === null && "a partner",
-    // As strict as the scheduled-job page, for the same reason: a roll-up with nowhere to go
-    // is built and then thrown away. It also keeps the rail honest — the Delivery node reads
-    // "Needed" while nothing is set, and that has to mean something.
+    draft.informationTypeId === null && "an information type",
     draft.handlerId === null && "a delivery",
-    // Create does not demand a schedule, but update does — one saved without could never be
-    // saved again from its own page. The surface that can make that mistake refuses to.
-    draft.schedules.length === 0 && "a schedule",
     unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
   ].filter((m): m is string => typeof m === "string");
 
   const renderStage = (stageId: StageId) => {
     const { label, description } = STAGES[stageId];
     switch (stageId) {
-      case "aggregation":
+      case "trigger":
         return (
           <Panel title={label} description={description}>
-            <AggregationFields
-              source={source}
-              target={draft.aggregationTarget}
-              onTargetChange={(aggregationTarget: AggregationTarget) => update({ aggregationTarget })}
-            />
-          </Panel>
-        );
-      case "schedule":
-        return (
-          <Panel title={label} description="When the source's exchanges are rolled up.">
-            <ScheduleEditor
-              schedules={draft.schedules}
-              onChange={(schedules) => update({ schedules })}
+            <ResponseTrigger
+              feeders={[]}
+              runOnBadResponses={draft.runOnBadResponses}
+              onChange={(runOnBadResponses) => update({ runOnBadResponses })}
               disabled={false}
             />
           </Panel>
@@ -233,13 +187,9 @@ export function NewAggregationPage() {
               properties={draft.mapperProperties}
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
-              noneLabel="None — the list of links is delivered as it is"
+              noneLabel="None — the response passes through unchanged"
               onOpenMapperEditor={() => setMapping(true)}
             />
-            <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-500">
-              What arrives here is a JSON list of links, not the documents themselves. Combining
-              them into one file is this step's job, or the delivery's.
-            </p>
             {bindsToDataSource(draft.mapperId, "mapper") && (
               <div className="mt-3">
                 <DataSourceBinding
@@ -291,7 +241,7 @@ export function NewAggregationPage() {
               onChange={update}
               disabled={false}
               candidates={allSubscriptions.data ?? []}
-              idPrefix="na-resp"
+              idPrefix="nr-resp"
               onNewResponseSubscription={() => detour.leave(draft)}
               onOpenResponseSubscription={(id) => detour.open(draft, id)}
             />
@@ -304,67 +254,41 @@ export function NewAggregationPage() {
 
   return (
     <div className="pb-10">
-      <BackLink to="/aggregations" label="Aggregations" />
+      {returnTo ? (
+        <BackLink to={returnTo} label="Back" />
+      ) : (
+        <BackLink to="/response-subscriptions" label="Response subscriptions" />
+      )}
 
-      <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New aggregation</h1>
+      <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New response subscription</h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
-        On a schedule, collects another subscription's successful exchanges into one exchange
-        listing links to their files. It does not combine the files — the transformation or the
-        delivery does that.
+        Runs on what another subscription's delivery hands back, as that subscription's partner.
+        {returnTo && " Create takes you back with it picked, and nothing you had there is lost."}
       </p>
 
       <div className="mb-5 flex flex-wrap gap-5">
         <div className="w-80">
-          <Field label="Name" htmlFor="na-name">
+          <Field label="Name" htmlFor="nr-name">
             <TextInput
-              id="na-name"
+              id="nr-name"
               value={draft.name}
               autoFocus
-              placeholder={source ? `e.g. ${source.name} — daily manifest` : "e.g. Daily invoice manifest"}
+              placeholder="e.g. Store Acme shipment labels"
               onChange={(e) => update({ name: e.target.value })}
             />
           </Field>
         </div>
-        {fixedSourceId === null && (
-          <div className="w-80">
-            <Field
-              label="Rolls up"
-              htmlFor="na-source"
-              hint="Fixed once created. An aggregation cannot roll up another aggregation."
-            >
-              <SearchSelect
-                id="na-source"
-                aria-label="Subscription to roll up"
-                value={draft.aggregationForId === null ? "" : String(draft.aggregationForId)}
-                disabled={allSubscriptions.isPending}
-                onChange={(v) => v !== "" && update({ aggregationForId: Number(v) })}
-                placeholder="Pick a subscription…"
-                options={candidates.map((s) => ({ value: String(s.id), label: s.name, hint: s.type }))}
-              />
-            </Field>
-          </div>
-        )}
         <div className="w-80">
-          <Field
-            label="Partner"
-            htmlFor="na-partner"
-            // The question this answers is not "whose exchanges are collected" — one roll-up
-            // can sweep up exchanges belonging to many partners, or to none. It is who the
-            // roll-up itself belongs to.
-            hint="Who the roll-up exchange belongs to, and whose values fill {{partner.…}} in the delivery below. It does not affect which exchanges are collected."
-          >
-            <PartnerPicker
-              id="na-partner"
-              value={partnerId}
-              onChange={(v) => update({ partnerId: v === "none" ? null : v, partnerTouched: true })}
+          <Field label="Carries" htmlFor="nr-type" hint="The information type of the responses it runs on.">
+            <InfoTypePicker
+              id="nr-type"
+              value={draft.informationTypeId}
+              onChange={(informationTypeId) => update({ informationTypeId })}
             />
           </Field>
         </div>
       </div>
 
-      {/* The two settings that belong to no stage, in the strip the subscription's own
-          page keeps them in. Offered here because the API has always accepted them on a
-          create — leaving them out is what made a new aggregation need a second visit. */}
       <div className="mb-5 flex flex-wrap items-start gap-x-10 gap-y-4 border-y border-ink-200 px-1 py-4">
         <LaneAndRetry
           workGroupId={draft.workGroupId}
@@ -372,7 +296,7 @@ export function NewAggregationPage() {
           onWorkGroupChange={(workGroupId) => update({ workGroupId })}
           onRetryPolicyChange={(retryPolicyId) => update({ retryPolicyId })}
           canEdit
-          idPrefix="na"
+          idPrefix="nr"
         />
       </div>
 
@@ -396,10 +320,7 @@ export function NewAggregationPage() {
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
         <Checkbox
           label="Enable immediately"
-          // Off by default, unlike a scheduled job: the first run of a new aggregation sweeps
-          // up every successful exchange its source has ever produced, which for an old source
-          // can be a very large first roll-up going straight to a partner.
-          description="Off by default — the first run collects everything the source has ever produced, so enable it when you've checked the pipeline."
+          description="Unchecked, it is created disabled and skips every response handed to it until enabled."
           checked={draft.enable}
           onChange={(e) => update({ enable: e.target.checked })}
         />
@@ -411,30 +332,32 @@ export function NewAggregationPage() {
               {missing.at(-1)}.
             </p>
           )}
-          <Button onClick={() => navigate("/aggregations", { replace: true })}>Cancel</Button>
+          <Button onClick={() => navigate(returnTo ?? "/response-subscriptions", { replace: true })}>
+            Cancel
+          </Button>
           <Button
             variant="primary"
             busy={create.isPending}
             disabled={missing.length > 0}
             onClick={() => create.mutate()}
           >
-            Create aggregation
+            Create response subscription
           </Button>
         </div>
       </div>
-
       <FormError>{create.error?.message}</FormError>
 
-      {/* Over the page rather than a route of its own: the aggregation exists only in this
-          component's state, so navigating to the editor would throw it away. Saving in
-          there hands the rules back to the draft; they are written on Create. */}
+      {/* Over the page rather than a route of its own: the subscription exists only in this
+          component's state, so navigating to the editor would throw it away. */}
       {mapping && (
         <NativeMapperEditor
           target={{
             kind: "draft",
             mapperId: draft.mapperId,
             mapperProperties: draft.mapperProperties,
-            partnerId,
+            // It runs as whichever partner fed it, so there is no one partner to preview as
+            // unless one is picked in the editor's own "Preview as" list.
+            partnerId: null,
             onSave: (mapperProperties) => update({ mapperId: NATIVE_MAPPER_ID, mapperProperties }),
           }}
           onClose={() => setMapping(false)}

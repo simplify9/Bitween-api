@@ -512,6 +512,20 @@ export interface InlineSubscriptionDraft {
   schedules: Schedule[];
   responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
+  /** Response type only. */
+  runOnBadResponses?: boolean;
+  /**
+   * A response subscription to create in the same save and hand the response to — instead
+   * of `responseSubscriptionId`, never with it.
+   */
+  newResponseSubscription?: NewResponseSubscriptionDraft | null;
+}
+
+/** A response subscription being defined alongside the subscription that feeds it. */
+export interface NewResponseSubscriptionDraft extends InlineSubscriptionDraft {
+  /** What the responses it runs on are — nothing imposes it, unlike a bus gateway's own. */
+  informationTypeId: number;
+  runOnBadResponses: boolean;
 }
 
 export type SubscriptionType =
@@ -520,7 +534,8 @@ export type SubscriptionType =
   | "BusGateway"
   | "Internal"
   | "ApiCall"
-  | "Aggregation";
+  | "Aggregation"
+  | "Response";
 
 export type AdapterKind = "receiver" | "handler" | "mapper" | "validator";
 
@@ -600,9 +615,14 @@ export interface Subscription {
   matchExpression: MatchGroup | null;
   /** Receiving (and Aggregation) only. */
   schedules: Schedule[];
-  /** Feed the handler's response into another subscription. */
+  /**
+   * The response subscription the handler's response is handed to. Only a Response-type
+   * subscription can be chosen; a legacy Internal/ApiCall one already saved is kept.
+   */
   responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
+  /** Response type only: also run when the delivery that fed it came back bad. */
+  runOnBadResponses: boolean;
   /**
    * Aggregation only: whose exchanges get rolled up. Fixed at creation — the backend
    * property has a private setter and the configuration applier deliberately skips it,

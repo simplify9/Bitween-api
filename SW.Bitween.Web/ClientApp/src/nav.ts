@@ -5,6 +5,7 @@ import {
   Cable,
   Database,
   CalendarClock,
+  CornerDownLeft,
   FileText,
   Handshake,
   FileStack,
@@ -69,6 +70,13 @@ export const NAV_GROUPS: NavGroup[] = [
       // Directly under scheduled jobs: it is the other thing that runs on a schedule,
       // and it collects what one of these produced.
       { label: "Aggregations", path: "/aggregations", icon: FileStack, permissions: ["subscriptions.view"] },
+      // Last of the pipelines, because it runs on what one of the others delivered.
+      {
+        label: "Response subscriptions",
+        path: "/response-subscriptions",
+        icon: CornerDownLeft,
+        permissions: ["subscriptions.view"],
+      },
       // After the three ways work enters, because it is the picture of how they join up
       // rather than a fourth kind of them. Gated on the bus alone: bus messages are what
       // carry work *between* gateways, so without that permission there is no flow to map.

@@ -79,6 +79,14 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
           state: d.matchExpression ? "set" : "none",
         };
       if (type === "ApiCall") return { id: stageId, dirty, title: "Called by id", state: "none" };
+      if (type === "Response")
+        return {
+          id: stageId,
+          dirty,
+          title: entryPoints.length ? `Fed by ${entryPoints.length}` : "Nothing feeds it",
+          detail: d.runOnBadResponses ? "good and bad responses" : entryPoints[0]?.name,
+          state: entryPoints.length ? "set" : "missing",
+        };
       return {
         id: stageId,
         dirty,

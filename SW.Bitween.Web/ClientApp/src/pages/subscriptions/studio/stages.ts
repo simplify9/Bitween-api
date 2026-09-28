@@ -75,6 +75,9 @@ export const STAGES: Record<StageId, { label: string; description: string; icon:
  *   `AggregationJob` and published on the bus, never through the partner-key API path
  *   that runs the validator.
  *
+ * - **No Validation for Response.** Same again: a response exchange is created by
+ *   `XchangeService` when the delivery that feeds it returns.
+ *
  * Aggregation gets Schedule and Transformation like any other pipeline. It used to have
  * neither — a single "Aggregation" node saying it was not editable — while the schedule
  * fault badge was pinned to that very node. The page would tell you an aggregation's
@@ -93,6 +96,7 @@ export function stagesFor(type: SubscriptionType): StageId[] {
     case "ApiCall":
       return ["trigger", "validation", "transformation", "delivery", "response"];
     case "Internal":
+    case "Response":
       return ["trigger", "transformation", "delivery", "response"];
   }
 }

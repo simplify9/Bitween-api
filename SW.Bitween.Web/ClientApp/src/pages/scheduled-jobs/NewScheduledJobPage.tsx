@@ -24,6 +24,7 @@ import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
+import { useResponseDetour } from "../../lib/responseDetour";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -88,7 +89,10 @@ const EMPTY: Draft = {
 export function NewScheduledJobPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [stage, setStage] = useState<StageId | null>("source");
+  // Back from creating a response subscription: the job as it was left, with that one picked.
+  const detour = useResponseDetour<Draft>();
+  const returned = detour.kept !== null || detour.pickedResponse !== null;
+  const [stage, setStage] = useState<StageId | null>(returned ? "response" : "source");
   /** The visual mapper, over the page — there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
@@ -98,7 +102,10 @@ export function NewScheduledJobPage() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
-  const [draft, update, clear] = useDraft<Draft>(EMPTY);
+  const [draft, update, clear] = useDraft<Draft>({
+    ...(detour.kept ?? EMPTY),
+    ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+  });
   const bindsToDataSource = useBindsToDataSource();
 
 
@@ -140,6 +147,8 @@ export function NewScheduledJobPage() {
     validatorId: null,
     validatorProperties: {},
     matchExpression: null,
+    // Response only.
+    runOnBadResponses: false,
   };
 
   const faces = STAGES_HERE.map((id) =>
@@ -251,6 +260,8 @@ export function NewScheduledJobPage() {
               disabled={false}
               candidates={allSubscriptions.data ?? []}
               idPrefix="nj-resp"
+              onNewResponseSubscription={() => detour.leave(draft)}
+              onOpenResponseSubscription={(id) => detour.open(draft, id)}
             />
           </Panel>
         );

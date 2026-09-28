@@ -1,4 +1,4 @@
-import type { Subscription, SubscriptionDetail } from "../../../api";
+import type { Subscription, SubscriptionDetail, SubscriptionInfo } from "../../../api";
 import type { StageId } from "./stages";
 
 /** The editable slice of a subscription. One draft covers the whole rail. */
@@ -21,6 +21,7 @@ export type Draft = Pick<
   | "schedules"
   | "responseSubscriptionId"
   | "responseMessageTypeName"
+  | "runOnBadResponses"
   | "aggregationTarget"
 >;
 
@@ -42,6 +43,7 @@ export const draftOf = (d: SubscriptionDetail): Draft => ({
   schedules: structuredClone(d.schedules),
   responseSubscriptionId: d.responseSubscriptionId,
   responseMessageTypeName: d.responseMessageTypeName,
+  runOnBadResponses: d.runOnBadResponses,
   aggregationTarget: d.aggregationTarget,
 });
 
@@ -71,6 +73,7 @@ export const EMPTY_SUBSCRIPTION: Draft = {
   schedules: [],
   responseSubscriptionId: null,
   responseMessageTypeName: null,
+  runOnBadResponses: false,
   aggregationTarget: "Input",
 };
 
@@ -82,12 +85,21 @@ export const EMPTY_SUBSCRIPTION: Draft = {
 export const NEW_SUBSCRIPTION_ID = -1;
 
 /**
+ * Stands in for a response subscription being defined on a bus gateway's canvas — one per hop,
+ * so a new one handing on to another new one can't collide. Never sent either: the save nests
+ * it under the hop that feeds it, as that one's `newResponseSubscription`.
+ */
+export const newResponseSubscriptionId = (hop: number) => -10 - hop;
+export const isNewResponseSubscriptionId = (id: number | null | undefined) =>
+  id !== null && id !== undefined && id <= -10;
+
+/**
  * Which draft fields each stage owns — only so a card can carry an unsaved dot.
  * Name, enabled, work group and retry policy belong to no stage; they live on
  * the header and the overview, and the save bar covers them.
  */
 const STAGE_FIELDS: Record<StageId, (keyof Draft)[]> = {
-  trigger: ["matchExpression"],
+  trigger: ["matchExpression", "runOnBadResponses"],
   source: ["receiverId", "receiverProperties", "dataSourceId"],
   schedule: ["schedules"],
   aggregation: ["aggregationTarget"],
@@ -172,3 +184,20 @@ export const entryPointsOf = (s: SubscriptionDetail): EntryPoint[] => [
     detail: "—",
   })),
 ];
+
+/**
+ * A response subscription's entry points: the subscriptions that hand it their delivery's
+ * response. Nothing else ever runs one, so these are what its Trigger node lists.
+ */
+export const feedersOf = (id: number, subscriptions: SubscriptionInfo[] | undefined): EntryPoint[] =>
+  (subscriptions ?? [])
+    .filter((x) => x.responseSubscriptionId === id)
+    .map((x) => ({
+      key: `rs-${x.id}`,
+      name: x.name,
+      href: `/subscriptions/${x.id}`,
+      kind: "Response",
+      partnerId: null,
+      partnerName: null,
+      detail: "—",
+    }));

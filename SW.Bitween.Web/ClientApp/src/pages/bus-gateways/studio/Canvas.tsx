@@ -5,7 +5,6 @@ import type { SubscriptionRow } from "../../../api";
 import { PanZoomCanvas } from "../../../components/ui/PanZoomCanvas";
 import { Connector, StageNode, type StageFace } from "../../subscriptions/studio/StageRail";
 import { faceOf, type AdapterCatalogs } from "../../subscriptions/studio/faces";
-import { NEW_SUBSCRIPTION_ID } from "../../subscriptions/studio/model";
 import {
   BUS_NODES,
   HEALTH_DOT,
@@ -253,7 +252,8 @@ function ExpandedHop({
   subscriptionNames: { id: number; name: string }[];
 }) {
   const health = routeHealth(hop.row);
-  const isNew = hop.subscriptionId === NEW_SUBSCRIPTION_ID;
+  // The route's own new subscription, or a new response subscription further down.
+  const isNew = hop.subscriptionId < 0;
   const headerDirty = hop.draft && hop.saved ? nodeDirty("subscription", hop.draft, hop.saved) : false;
 
   if (!hop.draft)
