@@ -529,14 +529,19 @@ function BusGatewayStudio() {
             partnerTokenSlots={partnerTokenSlots}
             onNewPartner={() => setPartnerDialog(null)}
             onEditPartner={(id) => setPartnerDialog(id)}
-            onNewSubscription={() => {
-              // No modal: the route draft points at the subscription being defined, and the
-              // canvas draws it like any other. Straight to its own node, where the name is.
-              setRouteEdit((r) =>
-                r ? { ...r, draft: { ...r.draft, subscriptionId: NEW_SUBSCRIPTION_ID } } : r,
-              );
-              setQuery({ node: "subscription" });
-            }}
+            // Only a new route: updating one takes an existing subscription, never a new one.
+            onNewSubscription={
+              isNewRoute
+                ? () => {
+                    // No modal: the route draft points at the subscription being defined, and the
+                    // canvas draws it like any other. Straight to its own node, where the name is.
+                    setRouteEdit((r) =>
+                      r ? { ...r, draft: { ...r.draft, subscriptionId: NEW_SUBSCRIPTION_ID } } : r,
+                    );
+                    setQuery({ node: "subscription" });
+                  }
+                : undefined
+            }
           />
         )
       );

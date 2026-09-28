@@ -16,6 +16,9 @@ namespace SW.Bitween.Resources.ApiGateways
         public async Task<object> Handle(int gatewayId, ApiGatewayPartnerCreate model)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.ApiGateways.Edit);
+            // An attachment that brings its own subscription creates one, so it needs what creating one needs.
+            if (model.NewIntegration != null)
+                await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.Create);
 
             var gateway = await dbContext.Set<ApiGateway>()
                 .Include(ag => ag.Partners)

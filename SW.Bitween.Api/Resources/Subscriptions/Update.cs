@@ -21,6 +21,9 @@ namespace SW.Bitween.Resources.Subscriptions
         public async Task<object> Handle(int key, SubscriptionUpdate model)
         {
             await requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Edit);
+            // Defining a new response subscription here creates one, so it needs what creating one needs.
+            if (model.NewResponseSubscription != null)
+                await requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.Create);
             var entity = await _dbContext.FindAsync<Subscription>(key);
 
             // Capture before SetSchedules replaces the collection.

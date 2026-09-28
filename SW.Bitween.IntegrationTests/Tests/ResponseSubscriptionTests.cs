@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using SW.Bitween.Domain;
+using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
@@ -103,11 +104,15 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
             var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
             var released = await db.Set<Xchange>().AsNoTracking()
                 .SingleAsync(x => x.SubscriptionId == chain.ResponseSubscriptionId);
+            var source = await db.Set<Xchange>().AsNoTracking().SingleAsync(x => x.Id == result.Id);
 
             // Held and released later is still the same delivery's response: losing the partner
             // on the way would fill the handler's {{partner.…}} from nobody.
             Assert.Equal(chain.PartnerId, released.PartnerId);
             Assert.Equal("http://host/acme", released.HandlerProperties["Url"]);
+            Assert.Equal(source.CorrelationId, released.CorrelationId);
+            Assert.Equal("{\"ack\":\"H-1\"}",
+                await scope.ServiceProvider.GetRequiredService<XchangeService>().GetFile(released.Id, XchangeFileType.Input));
             Assert.False(await db.Set<OnHoldXchange>().AnyAsync(h => h.SubscriptionId == chain.ResponseSubscriptionId));
         }
     }
@@ -263,6 +268,43 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
         await using var scope = fixture.CreateScope();
         Assert.False(await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
             .Set<Subscription>().AnyAsync(s => s.Name == name));
+    }
+
+    [Fact]
+    public async Task Defining_a_new_subscription_inline_needs_the_create_permission()
+    {
+        var (docId, _, _) = await Targets();
+        var sourceId = await BusGatewaySubscription(docId);
+        var name = Unique("Needs create");
+
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var role = new Role(Unique("edit-only"), "Edits, never creates",
+            [Permissions.Subscriptions.Edit, Permissions.BusGateways.Edit, Permissions.ApiGateways.Edit]);
+        db.Set<Role>().Add(role);
+        var account = new Account("Editor", $"{Guid.NewGuid():N}@test.local", "hash", AccountRole.Member);
+        db.Set<Account>().Add(account);
+        await db.SaveChangesAsync();
+        db.Set<AccountRoleLink>().Add(new AccountRoleLink(account.Id, role.Id));
+        await db.SaveChangesAsync();
+        scope.As(account.Id);
+
+        var inline = new InlineIntegrationCreate { Name = name, DocumentId = docId, HandlerId = Responder };
+        var update = ActivatorUtilities.CreateInstance<Resources.Subscriptions.Update>(scope.ServiceProvider);
+
+        // Editing alone is still theirs; bringing a new subscription along with the edit is not.
+        await update.Handle(sourceId, new SubscriptionUpdate { Name = "Edited", HandlerId = Responder });
+        await Assert.ThrowsAsync<SWUnauthorizedException>(() => update.Handle(sourceId,
+            new SubscriptionUpdate { Name = "Edited", HandlerId = Responder, NewResponseSubscription = inline }));
+        // The same for the gateways' inline create, refused before the gateway is even looked up.
+        await Assert.ThrowsAsync<SWUnauthorizedException>(() =>
+            ActivatorUtilities.CreateInstance<Resources.BusGateways.AddRoute>(scope.ServiceProvider)
+                .Handle(0, new BusGatewayRouteCreate { NewIntegration = inline }));
+        await Assert.ThrowsAsync<SWUnauthorizedException>(() =>
+            ActivatorUtilities.CreateInstance<Resources.ApiGateways.AddPartner>(scope.ServiceProvider)
+                .Handle(0, new ApiGatewayPartnerCreate { NewIntegration = inline }));
+
+        Assert.False(await db.Set<Subscription>().AnyAsync(s => s.Name == name));
     }
 
     // ---------------------------------------------------------------- arrangement

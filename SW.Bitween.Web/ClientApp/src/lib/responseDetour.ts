@@ -26,9 +26,12 @@ export function returnPath(returnTo: string, picked: number | null): string {
   return `${returnTo}${returnTo.includes("?") ? "&" : "?"}${PICKED}=${picked}`;
 }
 
-/** Only a path inside the app counts — `?return=` is a link anyone could hand you. */
+/**
+ * Only a path inside the app counts — `?return=` is a link anyone could hand you. Browsers read
+ * a backslash as a slash, so `/\evil.example` leaves the app just as `//evil.example` does.
+ */
 export function safeReturn(value: string | null): string | null {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : null;
+  return value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\") ? value : null;
 }
 
 export function useResponseDetour<T>() {

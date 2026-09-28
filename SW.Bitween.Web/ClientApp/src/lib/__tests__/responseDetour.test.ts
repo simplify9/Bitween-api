@@ -7,6 +7,7 @@ describe("the way back from creating a response subscription", () => {
     // `?return=` is a link anyone could hand you.
     expect(safeReturn("https://evil.example/")).toBeNull();
     expect(safeReturn("//evil.example/")).toBeNull();
+    expect(safeReturn("/\\evil.example/")).toBeNull();
     expect(safeReturn(null)).toBeNull();
   });
 

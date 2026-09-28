@@ -128,7 +128,8 @@ export function RouteBody({
   onNewPartner: () => void;
   /** Opens the chosen partner's values here, rather than sending you to its page. */
   onEditPartner: (partnerId: number) => void;
-  onNewSubscription: () => void;
+  /** Absent on a saved route: only a new one can bring its own subscription with it. */
+  onNewSubscription?: () => void;
 }) {
   const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
   const subscriptions = useQuery({
