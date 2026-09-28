@@ -16,6 +16,12 @@ namespace SW.Bitween.Resources.Documents
         {
             if (promotedProperties == null) return;
 
+            // Nothing reads these formats, so a property on one would save cleanly and then
+            // never hold a value.
+            if (format is not (DocumentFormat.Json or DocumentFormat.Xml) && promotedProperties.Count > 0)
+                throw new SWValidationException("PROMOTED_PROPERTIES_NOT_SUPPORTED",
+                    $"{format} information types can't have promoted properties: Bitween doesn't read their content. Remove them first.");
+
             foreach (var pp in promotedProperties)
             {
                 if (string.IsNullOrWhiteSpace(pp.Key))
