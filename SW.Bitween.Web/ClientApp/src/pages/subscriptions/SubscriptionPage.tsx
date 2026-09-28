@@ -28,7 +28,18 @@ import { draftOf, entryPointsOf, stageDirty, type Draft } from "./studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 
+/**
+ * Keyed by id. Going from one subscription's page straight to another's — down a response
+ * chain, say — keeps the same route mounted, and without a key the draft of the one you left
+ * stayed on screen as the next one's: its name in the title, its save bar, and its settings
+ * written over the next one's on Save.
+ */
 export function SubscriptionPage() {
+  const { id = "" } = useParams();
+  return <SubscriptionStudio key={id} />;
+}
+
+function SubscriptionStudio() {
   const { id = "" } = useParams();
   const subscriptionId = Number(id);
   const navigate = useNavigate();
