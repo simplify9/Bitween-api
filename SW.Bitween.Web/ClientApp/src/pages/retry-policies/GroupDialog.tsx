@@ -176,9 +176,12 @@ export function GroupDialog({
   const [appliesTo, setAppliesTo] = useState<RetryResultType[]>(initial?.appliesTo ?? ["Error"]);
   const [action, setAction] = useState<RetryGroup["action"]>(initial?.action ?? "Allow");
   const [matchers, setMatchers] = useState<RetryMatcher[]>(initial?.matchers ?? []);
-  const [budget, setBudget] = useState(
-    initial?.budget ?? { maxAttemptsPerError: 3, maxAttemptsTotal: 10, delay: defaultDelayFor("exponential") },
-  );
+  const [budget, setBudget] = useState({
+    ...(initial?.budget ?? { maxAttemptsPerError: 3, delay: defaultDelayFor("exponential") }),
+    // Kept while "No limit" is ticked, so unticking it brings back a number rather than a blank.
+    maxAttemptsTotal: initial?.budget?.maxAttemptsTotal ?? 10,
+  });
+  const [noTotal, setNoTotal] = useState(initial?.budget != null && initial.budget.maxAttemptsTotal == null);
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [alert, setAlert] = useState<RetryAlertConfig>({
     alertMode: initial?.alertMode ?? "Inherit",
@@ -219,11 +222,11 @@ export function GroupDialog({
       appliesTo,
       matchers,
       action,
-      budget: action === "Allow" ? budget : undefined,
+      budget: action === "Allow" ? { ...budget, maxAttemptsTotal: noTotal ? null : budget.maxAttemptsTotal } : undefined,
       notes: notes.trim() || undefined,
-      // A group that blocks can never spend a budget, so it can never exhaust one and never
-      // alert. Saving routing for it would leave a setting on screen that cannot ever fire.
-      ...(action === "Allow"
+      // A group that blocks, or has no total, can never exhaust a budget and so never alerts.
+      // Saving routing for it would leave a setting on screen that cannot ever fire.
+      ...(action === "Allow" && !noTotal
         ? alert
         : { alertMode: "Inherit" as const, alertHandlerId: null, alertHandlerProperties: {} }),
     });
@@ -314,15 +317,26 @@ export function GroupDialog({
               <Field
                 label="Total budget"
                 htmlFor="rg-total"
-                hint="Shared by every message this group catches, per subscription. When it runs out the group stops retrying until the budget is reset — or the subscription succeeds."
+                hint={
+                  noTotal
+                    ? "No limit across messages — each message still stops after its own retries. With nothing to run out, there is no alert."
+                    : "Shared by every message this group catches, per subscription. When it runs out the group stops retrying until the budget is reset — or the subscription succeeds."
+                }
               >
-                <TextInput
-                  id="rg-total"
-                  type="number"
-                  min={1}
-                  value={budget.maxAttemptsTotal}
-                  onChange={(e) => setBudget({ ...budget, maxAttemptsTotal: Number(e.target.value) })}
-                />
+                <div className="flex items-center gap-4">
+                  <TextInput
+                    id="rg-total"
+                    type="number"
+                    min={1}
+                    disabled={noTotal}
+                    placeholder={noTotal ? "No limit" : undefined}
+                    value={noTotal ? "" : budget.maxAttemptsTotal}
+                    onChange={(e) => setBudget({ ...budget, maxAttemptsTotal: Number(e.target.value) })}
+                  />
+                  <span className="shrink-0" title="Don't cap retries across messages; only the per-message limit applies.">
+                    <Checkbox label="No limit" checked={noTotal} onChange={(e) => setNoTotal(e.target.checked)} />
+                  </span>
+                </div>
               </Field>
             </div>
             <Field label="Delay between attempts" htmlFor="rg-delay">
@@ -370,7 +384,7 @@ export function GroupDialog({
           </div>
         )}
 
-        {action === "Allow" && (
+        {action === "Allow" && !noTotal && (
           <fieldset>
             <legend className="mb-1.5 block text-[13px] font-medium text-ink-700">
               When the budget runs out
