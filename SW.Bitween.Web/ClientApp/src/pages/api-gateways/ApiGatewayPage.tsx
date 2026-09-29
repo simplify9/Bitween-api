@@ -19,6 +19,29 @@ import { keys } from "../../api/queryKeys";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
 
+/**
+ * The same key opens the gateway from any of three places, so a partner uses whichever their
+ * system can send. Basic auth splits the username off at the first colon, so it can't carry a key
+ * whose name has one.
+ */
+const KEY_USAGE = [
+  {
+    label: "Header",
+    tip: "Bitween's own header. Works from any system that can add a custom header.",
+    value: "partnerkey: <key>",
+  },
+  {
+    label: "Bearer token",
+    tip: 'The standard Authorization header. Use it when the partner\'s tool has a "Bearer token" option.',
+    value: "Authorization: Bearer <key>",
+  },
+  {
+    label: "Basic auth",
+    tip: "For tools that only ask for a username and password. The username is the key's name and the password is the key. Doesn't work for a key whose name has a colon in it.",
+    value: "username: <the key's name>\npassword: <key>",
+  },
+];
+
 export function ApiGatewayPage() {
   const { id = "" } = useParams();
   const gatewayId = Number(id);
@@ -165,21 +188,34 @@ export function ApiGatewayPage() {
           </div>
 
           {/*
-            The URLs alone are not enough to make a call, and the header name appears
-            nowhere else in the product — it is only in the C# that reads it. Without
-            this, handing a partner the endpoint still leaves them guessing.
+            The URLs alone are not enough to make a call, and the ways to send the key
+            appear nowhere else in the product — they are only in the C# that reads them.
+            Without this, handing a partner the endpoint still leaves them guessing.
           */}
           <div className="mt-4 border-t border-ink-100 pt-4">
             <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
               How a partner calls it
             </p>
             <pre className="overflow-x-auto rounded-lg bg-ink-50 px-3 py-2.5 font-mono text-[12px] leading-relaxed text-ink-700">
-              {`POST /api/gateway/${urlName}/sync\npartnerkey: <the partner's API key>\n\n<the document, as the body>`}
+              {`POST /api/gateway/${urlName}/sync\n<the partner's API key, sent one of the ways below>\n\n<the document, as the body>`}
             </pre>
+            <dl
+              aria-label="Ways to send the key"
+              className="mt-2 divide-y divide-ink-100 rounded-lg border border-ink-200"
+            >
+              {KEY_USAGE.map((w) => (
+                <div key={w.label} className="flex items-baseline gap-3 px-3 py-2">
+                  <dt title={w.tip} className="w-24 shrink-0 cursor-help text-[12px] text-ink-600">
+                    {w.label}
+                  </dt>
+                  <dd className="min-w-0 font-mono text-[12px] break-all whitespace-pre-wrap text-ink-700">
+                    {w.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
             <p className="mt-2 text-[12px] text-ink-500">
-              The{" "}
-              <code className="rounded bg-ink-100 px-1 py-0.5 font-mono text-[11px]">partnerkey</code>{" "}
-              header is what identifies the caller — it decides which attached partner the exchange
+              The key is what identifies the caller — it decides which attached partner the exchange
               runs as, so each partner sends its own. Keys are issued on a{" "}
               <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
                 partner's page

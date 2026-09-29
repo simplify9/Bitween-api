@@ -242,7 +242,7 @@ function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () =
           <CopyField value={issuedKey} label={`Key "${name}"`} />
           <p className="text-[13px] text-ink-500">
             Copy it now and share it with the partner — for security, the full key is never shown
-            again.
+            again. Each gateway's page shows the ways a partner can send it.
           </p>
           <div className="flex justify-end">
             <Button variant="primary" onClick={onClose}>
