@@ -4,12 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.DataSources;
 using SW.Bitween.Model;
+using SW.Bitween.Resources.Ops;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.WorkGroups;
 
 [HandlerName(nameof(Delete))]
-public class Delete(BitweenDbContext dbContext, RequestContext requestContext, IBroadcast _broadcast, IInfolinkCache _infolinkCache)
+public class Delete(BitweenDbContext dbContext, RequestContext requestContext, IBroadcast _broadcast, IInfolinkCache _infolinkCache,
+    BrokerQueues brokerQueues)
     : ICommandHandler<int, DeleteWorkGroupModel, object>
 {
     public async Task<object> Handle(int key, DeleteWorkGroupModel _)
@@ -36,11 +38,13 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
                 string.Join(", ", statements) +
                 ". Point them at another work group first.");
 
-        //Todo chek rabbitMq
+        var busMessageName = category.GetBusMessageName();
         dbContext.Remove(category);
         await dbContext.SaveChangesAsync();
         await _infolinkCache.BroadcastRevoke();
         await _broadcast.RefreshConsumers();
+        // After the refresh, which is what makes every instance let go of them.
+        await brokerQueues.DeleteWorkGroupLanes(busMessageName);
         return null;
     }
 }

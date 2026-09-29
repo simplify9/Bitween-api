@@ -8,6 +8,9 @@ import { HistoryCard } from "../../components/config/HistoryCard";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import {
+  BusRenameConfirm,
+  QueuedMessagesWarning,
+  renamesQueues,
   WorkGroupFields,
   workGroupDraftOf,
   type WorkGroupDraft,
@@ -56,6 +59,7 @@ export function WorkGroupPage() {
 
   const [draft, setDraft] = useState<WorkGroupDraft | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingRename, setConfirmingRename] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -131,7 +135,9 @@ export function WorkGroupPage() {
         <UnsavedBar
           busy={save.isPending}
           error={save.error?.message}
-          onSave={() => save.mutate()}
+          onSave={() =>
+            draft && renamesQueues(g.busMessageName, draft.busMessageName) ? setConfirmingRename(true) : save.mutate()
+          }
           onDiscard={() => setLoaded(false)}
         />
       )}
@@ -140,10 +146,13 @@ export function WorkGroupPage() {
         <ConfirmDialog
           title="Delete this work group?"
           body={
-            <>
-              <strong className="font-medium text-ink-800">{g.name}</strong> will be gone for good.
-              Groups still assigned to subscriptions can't be deleted.
-            </>
+            <div className="space-y-2">
+              <p>
+                <strong className="font-medium text-ink-800">{g.name}</strong> and its queues will be
+                gone for good. It can't be deleted while subscriptions still use it.
+              </p>
+              <QueuedMessagesWarning groupId={groupId} />
+            </div>
           }
           confirmLabel="Delete work group"
           onConfirm={async () => {
@@ -152,6 +161,17 @@ export function WorkGroupPage() {
             navigate("/work-groups", { replace: true });
           }}
           onClose={() => setDeleting(false)}
+        />
+      )}
+
+      {confirmingRename && draft && (
+        <BusRenameConfirm
+          groupId={groupId}
+          busMessageName={draft.busMessageName}
+          onConfirm={async () => {
+            await save.mutateAsync();
+          }}
+          onClose={() => setConfirmingRename(false)}
         />
       )}
     </div>

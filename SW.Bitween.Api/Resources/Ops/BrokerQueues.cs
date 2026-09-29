@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using EasyNetQ.Management.Client;
 using EasyNetQ.Management.Client.Model;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using SW.Bus;
 using SW.Bus.RabbitMqExtensions;
 
@@ -18,9 +19,13 @@ namespace SW.Bitween.Resources.Ops;
 /// </summary>
 public class BrokerQueues(IBusDashboardDataService dashboardDataService,
     BusOptions busOptions,
-    IMemoryCache memoryCache) : IDisposable
+    IMemoryCache memoryCache,
+    ILogger<BrokerQueues> logger) : IDisposable
 {
     private const string CacheKey = "bitween-all-queues";
+
+    /// <summary>How long a work group change waits for every instance to let go of its old queues.</summary>
+    private static readonly TimeSpan ReleaseWait = TimeSpan.FromSeconds(10);
 
     // One per request: a batch delete makes a call per queue, and a client each would be a
     // connection each.
@@ -62,6 +67,37 @@ public class BrokerQueues(IBusDashboardDataService dashboardDataService,
             .GroupBy(q => Regex.Replace(q.Name, @"\.(retry|bad)$", "", RegexOptions.IgnoreCase),
                 StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Deletes a work group's two lanes after the group is deleted or its bus message name
+    /// changes. Never throws: see <see cref="DeleteReleased"/>.
+    /// </summary>
+    /// <param name="busMessageName">The group's <see cref="Domain.WorkGroup.GetBusMessageName"/> before the change.</param>
+    public Task DeleteWorkGroupLanes(string busMessageName)
+    {
+        // The same names the bus derives from XchangeService's message types.
+        var main = $"{Prefix}.{nameof(XchangeService)}.{busMessageName}".ToLower();
+        return DeleteReleased([main, $"{main}{XchangeService.ResultQueueSuffix}".ToLower()]);
+    }
+
+    /// <summary>
+    /// The change that made these lanes obsolete is already saved, so a broker that can't be
+    /// reached leaves them for the Queue health page rather than failing the request.
+    /// </summary>
+    private async Task DeleteReleased(string[] mainQueues)
+    {
+        try
+        {
+            var held = await DeleteLanes(mainQueues, ReleaseWait);
+            if (held.Count > 0)
+                logger.LogWarning("Still read after {Seconds}s, left for Queue health: {Lanes}",
+                    ReleaseWait.TotalSeconds, string.Join(", ", held));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't delete the queues {Lanes}", string.Join(", ", mainQueues));
+        }
     }
 
     /// <summary>
