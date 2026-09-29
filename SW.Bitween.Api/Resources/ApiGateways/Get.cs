@@ -7,7 +7,8 @@ using SW.Bitween.Model;
 
 namespace SW.Bitween.Resources.ApiGateways
 {
-    public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IGetHandler<int, object>
+    public class Get(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options)
+        : IGetHandler<int, object>
     {
         public async Task<object> Handle(int key)
         {
@@ -30,13 +31,16 @@ namespace SW.Bitween.Resources.ApiGateways
                 Name = gateway.Name,
                 UrlName = gateway.UrlName,
                 Inactive = gateway.Inactive,
+                Authentication = GatewayAuthentication.Read(gateway),
+                DefaultKeyHeader = options.PartnerKeyHeader,
                 PartnersCount = gateway.Partners.Count,
                 Partners = gateway.Partners.Select(p => new ApiGatewayPartnerDto
                 {
                     PartnerId = p.PartnerId,
                     SubscriptionId = p.SubscriptionId,
                     PartnerName = p.Partner.Name,
-                    SubscriptionName = p.Subscription.Name
+                    SubscriptionName = p.Subscription.Name,
+                    PartnerLoginIdentity = p.Partner.LoginIdentity
                 }).ToList()
             };
         }

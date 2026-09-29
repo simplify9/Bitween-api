@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -90,6 +91,8 @@ namespace SW.Bitween.Web
             services.AddScoped<IAdapterInvoker, AdapterInvoker>();
             services.AddScoped<MappingContextFactory>();
             services.AddScoped<XchangeService>();
+            services.AddScoped<GatewayCallers>();
+            services.AddSingleton<IGatewayIssuers, OpenIdGatewayIssuers>();
             services.AddScoped<Resources.Ops.LaneResolver>();
             services.AddScoped<Resources.Ops.BrokerQueues>();
             services.AddScoped<AdapterRequirements>();
@@ -422,6 +425,18 @@ namespace SW.Bitween.Web
                         ValidIssuer = Configuration["Token:Issuer"],
                         ValidAudience = Configuration["Token:Audience"],
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Configuration["Token:Key"]))
+                    };
+                    // A partner calling a gateway sends its key as a bearer token, which is not ours to
+                    // validate: reading it as an admin login fails on every call and logs a failed
+                    // sign-in each time. The gateway checks its own callers.
+                    configureOptions.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            if (context.Request.Path.StartsWithSegments("/api/gateway"))
+                                context.NoResult();
+                            return Task.CompletedTask;
+                        },
                     };
                 });
 

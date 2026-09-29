@@ -40,6 +40,12 @@ namespace SW.Bitween.Domain
         /// </summary>
         public List<string> SecretProperties { get; set; } = new();
 
+        /// <summary>
+        /// The value a JWT gateway's tokens carry for this partner in the gateway's partner claim.
+        /// Unique, so a token names exactly one partner.
+        /// </summary>
+        public string LoginIdentity { get; set; }
+
         readonly HashSet<Subscription> _Subscriptions;
         public IReadOnlyCollection<Subscription> Subscriptions => _Subscriptions;
 

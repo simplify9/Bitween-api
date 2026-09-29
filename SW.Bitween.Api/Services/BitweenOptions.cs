@@ -20,6 +20,7 @@ namespace SW.Bitween
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
             StorageProvider = "S3";
             JwtExpiryMinutes = 60;
+            PartnerKeyHeader = PartnerKeyHeaders.Default;
             BusDefaultQueuePrefetch = 12;
             QueuePrefix = "bitween";
             UseAzureManagedIdentity = false;
@@ -91,6 +92,12 @@ namespace SW.Bitween
         /// </summary>
         public bool DisableEmailPasswordLogin { get; set; }
         public int JwtExpiryMinutes { get; set; }
+
+        /// <summary>
+        /// The header partners send their API key in, system-wide. A gateway can name its own, and
+        /// <c>partnerkey</c> keeps working either way. Read per request.
+        /// </summary>
+        public string PartnerKeyHeader { get; set; }
         public bool ConsumeLegacyEventMessages { get; set; }
         public string QueuePrefix { get; set; }
 

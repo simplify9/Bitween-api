@@ -20,7 +20,7 @@ An API gateway gives partners one HTTP endpoint. Each attached partner is paired
 
 1. Create the gateway with a name and a URL name. The URL name must be lowercase letters and digits, optionally separated by single `-` or `_` characters.
 2. Attach a partner, and pick or create an API gateway subscription for it.
-3. Give the partner an API key on its partner page.
+3. Give the partner a way to prove who it is: an API key on its partner page, or its login server identity if the gateway takes tokens. See [Authentication](#authentication).
 4. Activate the subscription.
 
 ### Calling a gateway
@@ -32,20 +32,50 @@ curl -X POST "https://bitween.example.com/api/gateway/orders/async" \
   -d '{"order": {"id": "SO-1001"}}'
 ```
 
-The body is read as text and stored as the input file, named `{urlName}.json`. The exchange gets the reference `partnerkey: <key name>`.
+The body is read as text and stored as the input file, named `{urlName}.json`. The exchange gets the reference `partnerkey: <key name>`, or `jwt: <identity>` on a gateway that takes tokens.
 
 Bitween checks each call in this order.
 
 | Check | Response when it fails |
 |---|---|
 | A gateway with this URL name exists | 404 |
-| The `partnerkey` header matches a partner's API key | 401 |
+| The caller proves who it is the way the gateway asks. See [Authentication](#authentication) | 401 |
 | That partner is attached to this gateway | 401 |
 | The gateway is active | 503, saying the gateway is deactivated |
 | The attached subscription is active | 404 |
 | The subscription's validator accepts the body | Validation error |
 
 Deactivation is checked after authorization on purpose, so only attached partners learn that the gateway exists.
+
+### Authentication
+
+Each gateway decides how callers prove who they are, in its **Authentication** card. A partner can't pick another way.
+
+**API keys** are the default. The partner sends a key issued on its partner page, in any one of these.
+
+| Where | What |
+|---|---|
+| The key header | The key |
+| `partnerkey` header | The key. Always accepted, whatever the key header is called |
+| `Authorization: Bearer` | The key |
+| Basic auth | Username: the key's name. Password: the key |
+
+The key header is `partnerkey` unless renamed. Set the name for every gateway in **Settings → API behavior**, or give one gateway its own in its Authentication card. A gateway's own name replaces the system-wide one there. Renaming it cuts off partners sending the previous name, so the gateway page asks first.
+
+A key whose name contains a colon can't be sent as Basic auth.
+
+**Tokens from a login server (JWT).** The partner sends `Authorization: Bearer <token>`, signed by the login server the gateway trusts. Bitween checks that:
+
+- the signature matches a public key published at `{login server}/.well-known/openid-configuration`
+- `iss` is the gateway's login server and `aud` is its audience
+- `exp` has not passed
+
+The claim named in the gateway's partner claim, `sub` unless set, must equal a partner's **login server identity**, set on the partner page. Identities are unique.
+
+- A gateway that takes tokens refuses API keys, and a gateway that takes keys refuses tokens.
+- The login server must be an `https://` address. `http://localhost` is allowed for trying it out locally.
+- If the login server can't be reached, calls get 401 and the log says why. Bitween waits at most 10 seconds for it.
+- Keys are cached. A key the login server stops publishing is refused as soon as Bitween reads the new list.
 
 ### Async and sync
 

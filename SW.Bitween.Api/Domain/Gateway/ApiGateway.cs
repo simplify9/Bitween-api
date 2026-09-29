@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Domain.Gateway;
@@ -15,6 +16,24 @@ public class ApiGateway : BaseEntity,IAudited
     /// an afternoon gets rebuilt by hand afterwards, or left running.
     /// </summary>
     public bool Inactive { get; set; }
+
+    /// <summary>
+    /// Chosen by the gateway, not by the caller: once there is more than one way in, the gateway
+    /// has to say which it speaks before anything is looked up. A JWT gateway refuses partner keys.
+    /// </summary>
+    public GatewayAuthMethod AuthMethod { get; set; }
+
+    /// <summary>
+    /// The header this gateway's partners send their key in, when it isn't the system-wide one.
+    /// Null uses that. <c>partnerkey</c> is accepted either way.
+    /// </summary>
+    public string PartnerKeyHeader { get; set; }
+
+    /// <summary>JWT only. See <see cref="ApiGatewayAuthentication"/> for what each one means.</summary>
+    public string JwtIssuer { get; set; }
+    public string JwtAudience { get; set; }
+    public string JwtPartnerClaim { get; set; }
+
     public ICollection<ApiGatewayPartner> Partners { get; set; }
     public DateTime CreatedOn { get; set; }
     public string CreatedBy { get; set; }

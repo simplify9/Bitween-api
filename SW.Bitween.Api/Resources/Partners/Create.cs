@@ -19,6 +19,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
             if (model.AdapterProperties != null)
                 entity.AdapterProperties = model.AdapterProperties;
             entity.SecretProperties = model.SecretProperties?.ToList() ?? [];
+            entity.LoginIdentity = await PartnerLoginIdentity.Validate(dbContext, model.LoginIdentity);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             return entity.Id;

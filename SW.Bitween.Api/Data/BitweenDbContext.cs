@@ -83,6 +83,10 @@ namespace SW.Bitween
                 ag.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 ag.Property(p => p.UrlName).IsRequired().HasMaxLength(200);
                 ag.HasIndex(p => p.UrlName).IsUnique();
+                ag.Property(p => p.JwtIssuer).HasMaxLength(500);
+                ag.Property(p => p.JwtAudience).HasMaxLength(500);
+                ag.Property(p => p.JwtPartnerClaim).HasMaxLength(100);
+                ag.Property(p => p.PartnerKeyHeader).HasMaxLength(100);
                 ag.HasMany(p => p.Partners).WithOne(p => p.ApiGateway).HasForeignKey(p => p.ApiGatewayId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
@@ -231,6 +235,8 @@ namespace SW.Bitween
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.AdapterProperties).StoreAsJson();
                 b.Property(p => p.SecretProperties).StoreAsJson();
+                b.Property(p => p.LoginIdentity).HasMaxLength(500);
+                b.HasIndex(p => p.LoginIdentity).IsUnique();
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
                     .OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>

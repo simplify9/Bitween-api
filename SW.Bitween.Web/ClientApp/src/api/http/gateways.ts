@@ -8,6 +8,8 @@ import type {
   BusGatewayDetail,
   BusGatewayRoute,
   BusGatewayRow,
+  GatewayAuthentication,
+  GatewayAuthMethod,
   InlineSubscriptionDraft,
   MatchGroup,
   Paged,
@@ -27,6 +29,14 @@ interface RawApiGatewayPartner {
   subscriptionId: number;
   partnerName: string;
   subscriptionName: string;
+  partnerLoginIdentity?: string | null;
+}
+interface RawGatewayAuthentication {
+  method: GatewayAuthMethod;
+  keyHeader: string | null;
+  issuer: string | null;
+  audience: string | null;
+  partnerClaim: string | null;
 }
 interface RawApiGateway {
   id: number;
@@ -37,6 +47,9 @@ interface RawApiGateway {
   // Search's list projection includes this too (backend change made alongside
   // this batch) — but keep it optional since Create's bare POST response has none.
   partners: RawApiGatewayPartner[] | null;
+  // Only the detail endpoint sends these.
+  authentication?: RawGatewayAuthentication | null;
+  defaultKeyHeader?: string | null;
 }
 interface RawBusGatewayRoute {
   id: number;
@@ -68,6 +81,7 @@ const toApiGatewayAttachment = (p: RawApiGatewayPartner): ApiGatewayAttachment =
   partnerName: p.partnerName,
   subscriptionId: p.subscriptionId,
   subscriptionName: p.subscriptionName,
+  partnerLoginIdentity: p.partnerLoginIdentity ?? null,
 });
 
 const toApiGatewayRow = (raw: RawApiGateway): ApiGatewayRow => ({
@@ -87,6 +101,14 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
   inactive: raw.inactive ?? false,
   createdOn: "",
   attachments: (raw.partners ?? []).map(toApiGatewayAttachment),
+  authentication: {
+    method: raw.authentication?.method ?? "PartnerKey",
+    keyHeader: raw.authentication?.keyHeader ?? "",
+    issuer: raw.authentication?.issuer ?? "",
+    audience: raw.authentication?.audience ?? "",
+    partnerClaim: raw.authentication?.partnerClaim ?? "",
+  },
+  defaultKeyHeader: raw.defaultKeyHeader ?? "partnerkey",
 });
 
 const toBusGatewayRoute = (r: RawBusGatewayRoute): BusGatewayRoute => ({
@@ -199,16 +221,18 @@ export const gatewayMethods = {
 
   async updateApiGateway(
     id: number,
-    changes: { name: string; urlName: string; inactive: boolean },
+    changes: { name: string; urlName: string; inactive: boolean; authentication?: GatewayAuthentication },
   ): Promise<ApiGateway> {
     // Update replaces the record, so every field it accepts has to be sent back —
     // omitting `inactive` would quietly reactivate a paused gateway on a rename.
+    // Authentication is the exception: left out, the gateway keeps what it has.
     await post(`/apigateways/${id}`, {
       name: changes.name,
       urlName: changes.urlName,
       inactive: changes.inactive,
+      ...(changes.authentication && { authentication: changes.authentication }),
     });
-    return { id, ...changes, createdOn: "" };
+    return { id, name: changes.name, urlName: changes.urlName, inactive: changes.inactive, createdOn: "" };
   },
 
   async deleteApiGateway(id: number): Promise<void> {

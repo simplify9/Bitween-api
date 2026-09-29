@@ -115,6 +115,13 @@ public static class SettingsCatalog
             t => t.Bitween.JwtExpiryMinutes.ToString(CultureInfo.InvariantCulture),
             (t, v) => t.Bitween.JwtExpiryMinutes = Int(v)),
 
+        new("Bitween.PartnerKeyHeader", "API behavior",
+            "Partner key header",
+            "The header partners send their API key in, for every gateway that doesn't name its own. partnerkey always works as well. Partners sending the previous name stop getting through when this changes.",
+            SettingKind.String, false,
+            t => t.Bitween.PartnerKeyHeader,
+            (t, v) => t.Bitween.PartnerKeyHeader = HeaderName(v)),
+
         View("Bitween.CorsOrigins", "API behavior", "Allowed browser origins",
             "The origins allowed to call this API with cookies attached. Read once when the CORS policy is built at startup.",
             SettingKind.String, t => Join(t.Bitween.CorsOrigins)),
@@ -362,6 +369,9 @@ public static class SettingsCatalog
             : throw new FormatException($"'{value}' is not a valid cron expression.");
 
     /// <summary>Anything but an explicit "true" is off — matches how the UI posts checkboxes.</summary>
+    private static string HeaderName(string value) =>
+        PartnerKeyHeaders.Problem(value) is { } problem ? throw new FormatException(problem) : value.Trim();
+
     private static bool Bool(string value) => string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     private static int Int(string value) =>

@@ -12,6 +12,7 @@ import type {
   BusGatewayDetail,
   BusGatewayRow,
   DataSourceProvider,
+  GatewayAuthentication,
   DataSourceDetail,
   DataSourceInspectResult,
   DataSourceRow,
@@ -137,6 +138,7 @@ export interface ApiClient {
     name: string;
     adapterProperties?: Record<string, string>;
     secretProperties?: string[];
+    loginIdentity?: string | null;
   }): Promise<Partner>;
   updatePartner(
     id: number,
@@ -144,6 +146,8 @@ export interface ApiClient {
       name?: string;
       adapterProperties?: Record<string, string>;
       secretProperties?: string[];
+      /** Left out, the stored identity is kept; null clears it. */
+      loginIdentity?: string | null;
     },
   ): Promise<Partner>;
   deletePartner(id: number): Promise<void>;
@@ -314,9 +318,10 @@ export interface ApiClient {
     query: { search: string; offset: number; limit: number },
   ): Promise<Paged<ApiGatewayAttachment>>;
   createApiGateway(input: { name: string; urlName: string }): Promise<ApiGateway>;
+  /** Leave `authentication` out to keep what the gateway has — pausing it must not change who can call. */
   updateApiGateway(
     id: number,
-    changes: { name: string; urlName: string; inactive: boolean },
+    changes: { name: string; urlName: string; inactive: boolean; authentication?: GatewayAuthentication },
   ): Promise<ApiGateway>;
   deleteApiGateway(id: number): Promise<void>;
   /** The subscription is either an existing id or defined inline; the endpoint commits both as one. */

@@ -28,6 +28,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
             entity.Name = model.Name;
             entity.UrlName = model.UrlName;
             entity.Inactive = model.Inactive;
+            if (model.Authentication != null)
+                GatewayAuthentication.Apply(entity, model.Authentication);
 
             await dbContext.SaveChangesAsync();
             return null;

@@ -591,6 +591,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("AuthMethod")
+                        .HasColumnType("int");
+
                     b.Property<string>("CreatedBy")
                         .HasColumnType("longtext");
 
@@ -599,6 +602,18 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<bool>("Inactive")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("JwtAudience")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("JwtIssuer")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("JwtPartnerClaim")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("longtext");
@@ -610,6 +625,10 @@ namespace SW.Bitween.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<string>("PartnerKeyHeader")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("UrlName")
                         .IsRequired()
@@ -860,6 +879,10 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("AdapterProperties")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("LoginIdentity")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -870,6 +893,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("longtext");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LoginIdentity")
+                        .IsUnique();
 
                     b.ToTable("Partners", (string)null);
 
@@ -2212,7 +2238,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasForeignKey("PartnerId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                    b.HasOne("SW.Bitween.Domain.Subscription", "ResponseSubscription")
                         .WithMany()
                         .HasForeignKey("ResponseSubscriptionId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -2256,6 +2282,8 @@ namespace SW.Bitween.MySql.Migrations
                         });
 
                     b.Navigation("Category");
+
+                    b.Navigation("ResponseSubscription");
 
                     b.Navigation("RetryPolicy");
 

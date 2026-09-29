@@ -23,6 +23,13 @@ namespace SW.Bitween.Model
         /// stored", so a form that changed only the partner's name never blanks a password.
         /// </summary>
         public ICollection<string> SecretProperties { get; set; } = [];
+
+        /// <summary>
+        /// Who this partner is to the login servers JWT gateways trust: the value their tokens
+        /// carry in the gateway's partner claim (usually <c>sub</c>). Unique; null for a partner
+        /// that only calls with keys.
+        /// </summary>
+        public string? LoginIdentity { get; set; }
     }
     public class PartnerRow : PartnerUpdate
     {
