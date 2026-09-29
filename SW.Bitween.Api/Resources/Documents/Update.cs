@@ -6,11 +6,12 @@ using SW.PrimitiveTypes;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using SW.Bitween.Resources.Ops;
 
 namespace SW.Bitween.Resources.Documents
 {
     public class Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache, RequestContext requestContext,
-        IBroadcast broadcast) : ICommandHandler<int, DocumentUpdate, object>
+        IBroadcast broadcast, BrokerQueues brokerQueues) : ICommandHandler<int, DocumentUpdate, object>
     {
         public async Task<object> Handle(int key, DocumentUpdate model)
         {
@@ -51,22 +52,11 @@ namespace SW.Bitween.Resources.Documents
                 throw new SWValidationException("INVALID_BUS_TYPE_NAME",
                     "Bus message type name cannot contain spaces.");
 
-            // Ignoring case, for the reason spelled out in Create: the routing key is
-            // lower-cased at both ends, so two names differing only in case are one message.
-            var wanted = (model.BusMessageTypeName ?? string.Empty).ToLower();
-            var busTypeNameDuplicated = await dbContext.Set<Document>()
-                .AsNoTracking()
-                .Where(i => i.Id != key)
-                .Where(i => !string.IsNullOrEmpty(i.BusMessageTypeName))
-                .Where(i => i.BusMessageTypeName.ToLower() == wanted)
-                .AnyAsync();
-
-            if (busTypeNameDuplicated)
-                throw new SWValidationException("DUPLICATED_BUS_TYPE_NAME",
-                    $"Another information type already publishes as '{model.BusMessageTypeName}'. " +
-                    "Names are compared ignoring case, because the bus does.");
+            await BusMessageTypeNames.EnsureFree(dbContext, model.BusMessageTypeName, key);
 
             PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
+
+            var oldBusMessageTypeName = entity.BusMessageTypeName;
 
             // An absent list means none, the same as it does for retry policy groups.
             // Left implicit it threw ArgumentNullException — a 500 for a request the
@@ -87,6 +77,13 @@ namespace SW.Bitween.Resources.Documents
             await dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();
             await broadcast.RefreshConsumers();
+
+            // A new name is a new queue, so the old one goes, and so does sending none: that takes
+            // the type off the bus for good. Turning the bus off with the name kept is a pause, not
+            // a rename: the queue stays, holding what arrives until the bus is turned back on.
+            if (!string.IsNullOrWhiteSpace(oldBusMessageTypeName)
+                && !string.Equals(oldBusMessageTypeName, entity.BusMessageTypeName, System.StringComparison.OrdinalIgnoreCase))
+                await brokerQueues.DeleteInformationTypeLane(oldBusMessageTypeName);
             return null;
         }
     }

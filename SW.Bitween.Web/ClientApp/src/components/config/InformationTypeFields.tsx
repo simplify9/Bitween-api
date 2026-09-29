@@ -1,8 +1,13 @@
-import type { InformationType, InformationTypeDetail, InformationTypeFormat } from "../../api";
+import { useQuery } from "@tanstack/react-query";
+import { api, type InformationType, type InformationTypeDetail, type InformationTypeFormat } from "../../api";
+import { keys } from "../../api/queryKeys";
+import { useSessionCan } from "../../auth/guards";
+import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 import { Button } from "../ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../ui/forms";
 import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
 import { Panel } from "../ui/Panel";
+import { ConfirmDialog } from "../ui/overlays";
 import { BUS_MESSAGE_NAME_PLACEHOLDER, busMessageNameProblem } from "../../lib/busMessageName";
 import { CARRIED_FORMAT_NOTE, formatLabel, INFORMATION_TYPE_FORMATS, readsContent } from "../../lib/informationTypeFormat";
 
@@ -58,7 +63,9 @@ export const informationTypeChanges = (draft: InformationTypeDraft) => ({
   code: draft.code.trim() || undefined,
   format: draft.format,
   busEnabled: draft.busEnabled,
-  busMessageTypeName: draft.busEnabled ? draft.busMessageTypeName.trim() : undefined,
+  // Unticking the bus puts the stored name back (see the checkbox), so with the bus off this is
+  // the name a paused type resumes on, or nothing for a type that was never on it.
+  busMessageTypeName: draft.busMessageTypeName.trim() || undefined,
   duplicateIntervalMinutes: draft.duplicateIntervalMinutes,
   disregardsUnfilteredMessages: draft.disregardsUnfilteredMessages,
   promotedProperties: draft.promotedProperties
@@ -80,6 +87,85 @@ export function informationTypeMissing(draft: InformationTypeDraft): string[] {
   ].filter((m): m is string => typeof m === "string");
 }
 
+/**
+ * Messages in a type's bus queue — retries and dead letters included — from the same live
+ * snapshot Queue health polls. A paused type has no consumer, so its queue is found among the
+ * ones nothing reads. `null` when it can't be known: no right to see queue health, RabbitMQ
+ * management not configured, or not loaded yet.
+ */
+export function useInformationTypeMessages(typeId: number | null): number | null {
+  const canMonitor = useSessionCan("monitoring.view");
+  const rabbitMqConfigured = useRabbitMqManagementConfigured();
+  const { data } = useQuery({
+    queryKey: keys.queueHealth,
+    queryFn: () => api.getQueueHealth(),
+    enabled: typeId !== null && canMonitor && rabbitMqConfigured,
+  });
+  if (typeId === null || !data) return null;
+  const live = data.consumers.find((c) => c.informationTypeId === typeId);
+  if (live) return live.queueCount + live.retryCount + live.failedCount;
+  const paused = data.unattended.find((q) => q.informationTypeId === typeId);
+  return paused ? paused.messages + paused.retryMessages + paused.deadMessages : 0;
+}
+
+/** The messages that go with a type's bus queue, which is deleted along with the type or when it's renamed. */
+export function InformationTypeMessagesWarning({ typeId }: { typeId: number }) {
+  const queued = useInformationTypeMessages(typeId);
+  if (queued === 0) return null;
+  return (
+    <p className={queued === null ? undefined : "font-medium text-danger-700"}>
+      {queued === null
+        ? "Any messages still in it are deleted too."
+        : `${queued === 1 ? "1 message is" : `${queued} messages are`} still in it and will be deleted.`}{" "}
+      They're the incoming messages themselves, so they can't be recovered.
+    </p>
+  );
+}
+
+/**
+ * Whether saving moves the type to a new bus queue: a stored name changed to another one. Case
+ * alone doesn't count, since queue names are lowercase, and turning the bus off isn't a rename.
+ */
+export const renamesBusQueue = (stored: string | undefined, draft: InformationTypeDraft): boolean =>
+  !!stored?.trim() &&
+  draft.busEnabled &&
+  !!draft.busMessageTypeName.trim() &&
+  stored.trim().toLowerCase() !== draft.busMessageTypeName.trim().toLowerCase();
+
+/** Asked before saving a new bus message type name, which moves the type to a new queue. */
+export function BusTypeRenameConfirm({
+  typeId,
+  from,
+  to,
+  onConfirm,
+  onClose,
+}: {
+  typeId: number;
+  from: string;
+  to: string;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const name = (n: string) => <code className="font-mono text-xs text-ink-800">{n}</code>;
+  return (
+    <ConfirmDialog
+      title="Change the bus message type name?"
+      body={
+        <div className="space-y-2">
+          <p>
+            Messages sent as {name(to)} go to a new queue. The queue for {name(from)} is deleted, and
+            anything still sent as {name(from)} is dropped.
+          </p>
+          <InformationTypeMessagesWarning typeId={typeId} />
+        </div>
+      }
+      confirmLabel="Change and save"
+      onConfirm={onConfirm}
+      onClose={onClose}
+    />
+  );
+}
+
 const hasPromotedRows = (draft: InformationTypeDraft) =>
   draft.promotedProperties.some((r) => r.key.trim() || r.value.trim());
 
@@ -90,13 +176,18 @@ export function InformationTypeFields({
   /** The flow that opened this needs the type on the bus, so the choice is made for it. */
   busRequired = false,
   idPrefix = "it",
+  saved,
 }: {
   draft: InformationTypeDraft;
   onChange: (draft: InformationTypeDraft) => void;
   canEdit: boolean;
   busRequired?: boolean;
   idPrefix?: string;
+  /** The type as stored, when editing one: what turning the bus off pauses. */
+  saved?: InformationType;
 }) {
+  const storedName = saved?.busMessageTypeName?.trim() || null;
+  const waiting = useInformationTypeMessages(storedName && !draft.busEnabled ? saved!.id : null);
   const set = <K extends keyof InformationTypeDraft>(key: K, value: InformationTypeDraft[K]) =>
     onChange({ ...draft, [key]: value });
 
@@ -158,13 +249,32 @@ export function InformationTypeFields({
             <Checkbox
               label="Available on the message bus"
               description={
-                busRequired
-                  ? "Required here — what you are configuring reaches this type over the bus."
-                  : "Lets bus gateways listen for this type."
+                busRequired ? (
+                  "Required here — what you are configuring reaches this type over the bus."
+                ) : !storedName ? (
+                  "Lets bus gateways listen for this type."
+                ) : draft.busEnabled ? (
+                  "Lets bus gateways listen for this type. Turning it off pauses it: its queue keeps collecting messages, and they're processed when you turn it back on."
+                ) : (
+                  <>
+                    {saved!.busEnabled ? "Saving pauses it: messages" : "Paused: messages"} sent as{" "}
+                    <code className="font-mono text-xs">{storedName}</code> wait in its queue, and
+                    they're processed when you turn this back on.
+                    {!!waiting && ` ${waiting} ${waiting === 1 ? "is" : "are"} waiting now.`}
+                  </>
+                )
               }
               checked={draft.busEnabled}
               disabled={!canEdit || busRequired}
-              onChange={(e) => set("busEnabled", e.target.checked)}
+              // Off puts the stored name back, so what is saved is a pause of the queue it has,
+              // never a rename hidden behind a field that is no longer shown.
+              onChange={(e) =>
+                onChange({
+                  ...draft,
+                  busEnabled: e.target.checked,
+                  busMessageTypeName: e.target.checked ? draft.busMessageTypeName : (storedName ?? ""),
+                })
+              }
             />
             {draft.busEnabled && (
               <div className="max-w-sm pl-6">

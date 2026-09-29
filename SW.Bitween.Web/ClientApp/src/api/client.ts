@@ -49,6 +49,7 @@ import type {
   PermissionArea,
   PermissionKey,
   QueueHealthSnapshot,
+  UnattendedDeleteResult,
   ReceiveAttemptRow,
   ReceiveOutcome,
   RetryGroup,
@@ -523,6 +524,8 @@ export interface ApiClient {
 
   // — queue health —
   getQueueHealth(): Promise<QueueHealthSnapshot>;
+  /** Deletes unattended lanes (all of each one's queues) and whatever they hold. */
+  deleteUnattendedQueues(queueNames: string[]): Promise<UnattendedDeleteResult>;
 
   // — dashboard —
   getDashboard(): Promise<DashboardData>;

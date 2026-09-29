@@ -274,6 +274,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<AdapterRequirements>();
                     services.AddScoped<AdapterSecretProperties>();
                     services.AddScoped<RetryUsageReport>();
+                    services.AddScoped<Resources.Ops.BrokerQueues>();
                     // Registration ORDER is the routing order: each runtime is asked whether an
                     // adapter is its own, and the classic one claims everything, so it must be asked last.
                     services.AddScoped<IAdapterRuntime, NativeAdapterRuntime>();

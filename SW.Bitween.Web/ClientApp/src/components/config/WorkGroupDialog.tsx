@@ -4,9 +4,10 @@ import { api, type WorkGroup } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
-import { Dialog } from "../ui/overlays";
+import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { suggestSlug } from "../../lib/identifiers";
 import { keys } from "../../api/queryKeys";
+import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 
 /**
  * A work group's editable settings, as one component.
@@ -114,6 +115,77 @@ export function WorkGroupFields({
   );
 }
 
+/**
+ * Messages still in a group's queues — both of its lanes, retries and dead letters included —
+ * from the same live snapshot Queue health polls. `null` when it can't be known: no right to see
+ * queue health, RabbitMQ management not configured, or not loaded yet.
+ */
+export function useQueuedMessages(groupId: number | null): number | null {
+  const canMonitor = useSessionCan("monitoring.view");
+  const rabbitMqConfigured = useRabbitMqManagementConfigured();
+  const { data } = useQuery({
+    queryKey: keys.queueHealth,
+    queryFn: () => api.getQueueHealth(),
+    enabled: groupId !== null && canMonitor && rabbitMqConfigured,
+  });
+  if (groupId === null || !data) return null;
+  return data.consumers
+    .filter((c) => c.workGroupId === groupId)
+    .reduce((n, c) => n + c.queueCount + c.retryCount + c.failedCount, 0);
+}
+
+/**
+ * The messages that go with a group's current queues, which are deleted along with the group or
+ * when its bus message name changes.
+ */
+export function QueuedMessagesWarning({ groupId }: { groupId: number }) {
+  const queued = useQueuedMessages(groupId);
+  if (queued === 0) return null;
+  return (
+    <p className={queued === null ? undefined : "font-medium text-danger-700"}>
+      {queued === null
+        ? "Any messages still in them are deleted too."
+        : `${queued === 1 ? "1 message is" : `${queued} messages are`} still in them and will be deleted.`}{" "}
+      The exchanges behind them stay in Bitween and can be retried from Exchanges.
+    </p>
+  );
+}
+
+/** Whether a new bus message name means new queues. Case alone doesn't: queue names are lowercase. */
+export const renamesQueues = (from: string, to: string): boolean => from.toLowerCase() !== to.toLowerCase();
+
+/** Asked before saving a new bus message name, which moves the group to new queues. */
+export function BusRenameConfirm({
+  groupId,
+  busMessageName,
+  onConfirm,
+  onClose,
+}: {
+  groupId: number;
+  busMessageName: string;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  return (
+    <ConfirmDialog
+      title="Change the bus message name?"
+      body={
+        <div className="space-y-2">
+          <p>
+            This group moves to new queues named after{" "}
+            <code className="font-mono text-xs text-ink-800">{busMessageName}</code>, and its current
+            queues are deleted.
+          </p>
+          <QueuedMessagesWarning groupId={groupId} />
+        </div>
+      }
+      confirmLabel="Change and save"
+      onConfirm={onConfirm}
+      onClose={onClose}
+    />
+  );
+}
+
 const EMPTY: WorkGroupDraft = { name: "", busMessageName: "", prefetch: 10, priority: 5 };
 
 /** A work group, created or edited in place — reached from a subscription's lane picker. */
@@ -130,6 +202,7 @@ export function WorkGroupDialog({
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("workgroups.edit");
   const [draft, setDraft] = useState<WorkGroupDraft | null>(groupId === null ? EMPTY : null);
+  const [confirmingRename, setConfirmingRename] = useState(false);
 
   const existing = useQuery({
     queryKey: keys.workGroups.detail(groupId),
@@ -156,6 +229,9 @@ export function WorkGroupDialog({
       onClose();
     },
   });
+
+  const renaming =
+    groupId !== null && !!existing.data && !!draft && renamesQueues(existing.data.busMessageName, draft.busMessageName);
 
   const missing = draft
     ? [
@@ -184,12 +260,22 @@ export function WorkGroupDialog({
               variant="primary"
               busy={save.isPending}
               disabled={missing.length > 0}
-              onClick={() => save.mutate()}
+              onClick={() => (renaming ? setConfirmingRename(true) : save.mutate())}
             >
               {groupId === null ? "Create work group" : "Save changes"}
             </Button>
           </div>
         </div>
+      )}
+      {confirmingRename && groupId !== null && draft && (
+        <BusRenameConfirm
+          groupId={groupId}
+          busMessageName={draft.busMessageName}
+          onConfirm={async () => {
+            await save.mutateAsync();
+          }}
+          onClose={() => setConfirmingRename(false)}
+        />
       )}
     </Dialog>
   );

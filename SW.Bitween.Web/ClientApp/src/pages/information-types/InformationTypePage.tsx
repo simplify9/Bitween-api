@@ -14,7 +14,10 @@ import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { formatDate } from "../../lib/dates";
 import {
+  BusTypeRenameConfirm,
   InformationTypeFields,
+  InformationTypeMessagesWarning,
+  renamesBusQueue,
   informationTypeChanges,
   informationTypeDirty,
   informationTypeDraftOf,
@@ -36,6 +39,7 @@ export function InformationTypePage() {
 
   const [draft, setDraft] = useState<InformationTypeDraft | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingRename, setConfirmingRename] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -152,7 +156,7 @@ export function InformationTypePage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           {draft && (
-            <InformationTypeFields draft={draft} onChange={setDraft} canEdit={canEdit} />
+            <InformationTypeFields draft={draft} onChange={setDraft} canEdit={canEdit} saved={t} />
           )}
         </div>
 
@@ -201,7 +205,9 @@ export function InformationTypePage() {
         <UnsavedBar
           busy={save.isPending}
           error={save.error?.message}
-          onSave={() => save.mutate()}
+          onSave={() =>
+            draft && renamesBusQueue(t.busMessageTypeName, draft) ? setConfirmingRename(true) : save.mutate()
+          }
           onDiscard={() => setLoaded(false)}
         />
       )}
@@ -210,12 +216,20 @@ export function InformationTypePage() {
         <ConfirmDialog
           title="Delete this information type?"
           body={
-            <>
-              <strong className="font-medium text-ink-800">{t.code ?? t.name}</strong> and its promoted
-              properties will be gone for good — <strong className="font-medium text-ink-800">along with
-              every exchange recorded against it</strong>, and their payloads. A type still carried by a
-              subscription, or listened for by a bus gateway, can't be deleted.
-            </>
+            <div className="space-y-2">
+              <p>
+                <strong className="font-medium text-ink-800">{t.code ?? t.name}</strong> and its promoted
+                properties will be gone for good — <strong className="font-medium text-ink-800">along with
+                every exchange recorded against it</strong>, and their payloads. A type still carried by a
+                subscription, or listened for by a bus gateway, can't be deleted.
+              </p>
+              {t.busMessageTypeName && (
+                <>
+                  <p>Its bus queue is deleted too.</p>
+                  <InformationTypeMessagesWarning typeId={typeId} />
+                </>
+              )}
+            </div>
           }
           confirmLabel="Delete information type"
           onConfirm={async () => {
@@ -224,6 +238,18 @@ export function InformationTypePage() {
             navigate("/information-types", { replace: true });
           }}
           onClose={() => setDeleting(false)}
+        />
+      )}
+
+      {confirmingRename && draft && t.busMessageTypeName && (
+        <BusTypeRenameConfirm
+          typeId={typeId}
+          from={t.busMessageTypeName}
+          to={draft.busMessageTypeName.trim()}
+          onConfirm={async () => {
+            await save.mutateAsync();
+          }}
+          onClose={() => setConfirmingRename(false)}
         />
       )}
     </div>

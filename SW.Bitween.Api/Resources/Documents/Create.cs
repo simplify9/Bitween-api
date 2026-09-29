@@ -32,23 +32,10 @@ namespace SW.Bitween.Resources.Documents
             if (code != null && await dbContext.Set<Document>().AsNoTracking().AnyAsync(d => d.Code == code))
                 throw new SWValidationException("CODE_TAKEN", "This code is already in use.");
 
-            if (model.BusEnabled && !string.IsNullOrEmpty(model.BusMessageTypeName))
-            {
-                // Compared lower-cased, because that is how the bus compares them: both
-                // BasicPublisher and ConsumerDefinition derive the routing key with
-                // ToLower(), so "Foo" and "foo" are one message on the wire. Matching
-                // exactly here let both exist, and then every message published under
-                // either name reached both gateways, silently. ToLower() rather than a
-                // provider-specific collation — this runs on Postgres, MySql and MsSql.
-                var wanted = model.BusMessageTypeName.ToLower();
-                var busTypeNameDuplicated = await dbContext.Set<Document>()
-                    .AsNoTracking()
-                    .AnyAsync(d => d.BusMessageTypeName.ToLower() == wanted);
-                if (busTypeNameDuplicated)
-                    throw new SWValidationException("DUPLICATED_BUS_TYPE_NAME",
-                        $"Another information type already publishes as '{model.BusMessageTypeName}'. " +
-                        "Names are compared ignoring case, because the bus does.");
-            }
+            // Matching exactly here once let "Foo" and "foo" both exist, and then every message
+            // published under either name reached both gateways, silently.
+            if (model.BusEnabled)
+                await BusMessageTypeNames.EnsureFree(dbContext, model.BusMessageTypeName);
 
             PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
 

@@ -1295,9 +1295,9 @@ export interface DeadLetterRow {
 }
 
 /**
- * A queue RabbitMQ has that nothing here reads. Deleting or renaming a work group
- * leaves its queues behind, and every other view on this page is built from what the
- * running process declares — so these are invisible everywhere else.
+ * A queue RabbitMQ has that nothing here reads: a paused information type's, or one left
+ * behind by an older version of Bitween. Every other view on this page is built from what
+ * the running process declares — so these are invisible everywhere else.
  */
 export interface UnattendedQueue {
   queueName: string;
@@ -1306,6 +1306,19 @@ export interface UnattendedQueue {
   deadMessages: number;
   /** Main plus whichever of its retry/dead queues still exist. */
   queues: number;
+  /**
+   * Consumers the broker reports on these queues, from any instance. Above zero means
+   * something still reads it, so it can't be deleted yet.
+   */
+  consumers: number;
+  /** Set when this is the queue of an information type paused on the bus. */
+  informationTypeId: number | null;
+}
+
+/** What a delete of unattended lanes did: a lane that couldn't go is skipped, not fatal. */
+export interface UnattendedDeleteResult {
+  deleted: string[];
+  skipped: { queueName: string; reason: string }[];
 }
 
 export interface QueueAlert {

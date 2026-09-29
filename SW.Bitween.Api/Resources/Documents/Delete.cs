@@ -8,10 +8,12 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain.Gateway;
+using SW.Bitween.Resources.Ops;
 
 namespace SW.Bitween.Resources.Documents
 {
-public class Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
+public class Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache,
+        IBroadcast broadcast, BrokerQueues brokerQueues)
         : IDeleteHandler<int,object>
     {
         async public Task<object> Handle(int key)
@@ -35,6 +37,9 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
                 throw new SWException(
                     "Cannot delete an information type that a bus gateway still listens for. Delete the gateway, or point it at another type, first.");
 
+            var busMessageTypeName = await dbContext.Set<Document>().Where(d => d.Id == key)
+                .Select(d => d.BusMessageTypeName).FirstOrDefaultAsync();
+
             // Exchanges are the deliberate exception. They are this type's history rather than
             // configuration depending on it, and history should not be able to strand a type
             // nobody uses any more — so they go with it.
@@ -53,6 +58,11 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
 
             await transaction.CommitAsync();
             await cache.BroadcastRevoke();
+            // Without this the bus kept consuming a type that no longer exists until a restart.
+            await broadcast.RefreshConsumers();
+            // A paused type still has its name, and its queue: that goes too.
+            if (!string.IsNullOrWhiteSpace(busMessageTypeName))
+                await brokerQueues.DeleteInformationTypeLane(busMessageTypeName);
             return null;
         }
     }

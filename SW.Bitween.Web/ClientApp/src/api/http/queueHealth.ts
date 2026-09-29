@@ -1,6 +1,12 @@
 import type { ApiClient } from "../client";
-import type { QueueHealthSnapshot, QueueLane, QueueSeverity, UnattendedQueue } from "../types";
-import { get } from "./request";
+import type {
+  QueueHealthSnapshot,
+  QueueLane,
+  QueueSeverity,
+  UnattendedDeleteResult,
+  UnattendedQueue,
+} from "../types";
+import { get, post } from "./request";
 
 // ——— backend shapes (camelCase over the wire; severities are PascalCase strings) ———
 type RawSeverity = "Info" | "Warning" | "Critical";
@@ -144,5 +150,9 @@ export const queueHealthMethods = {
           on: a.timestampUtc,
         })),
     };
+  },
+
+  deleteUnattendedQueues(queueNames: string[]): Promise<UnattendedDeleteResult> {
+    return post<UnattendedDeleteResult>("/ops/deleteunattendedqueues", { queueNames });
   },
 } satisfies Partial<ApiClient>;
