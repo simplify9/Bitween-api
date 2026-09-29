@@ -98,11 +98,12 @@ A request without the needed permission gets HTTP 401, the same status as a miss
 
 ## Partners and API keys
 
-Partners authenticate with an API key sent in the `partnerkey` header. API gateways and the legacy exchange endpoints use it.
+Partners authenticate with an API key, sent in the `partnerkey` header, as `Authorization: Bearer <key>`, or as Basic auth with the key's name as username and the key as password. API gateways and the legacy exchange endpoints use it. An API gateway can take tokens from a login server instead. See [Entry points](entry-points.md#authentication).
 
 - Generate a key on the partner page. It is shown once. Afterwards the API returns only its first five characters.
 - Keys must be unique and are stored in plain text.
 - Removing a key revokes it immediately.
+- Basic auth's password is always the generated key, never one someone chose.
 
 The seeded **SYSTEM** partner has a key named `default` whose value is fixed in the source code. That key can post documents of any information type to `POST /api/xchanges/{informationType}`, which feeds the filter. **Replace or remove the SYSTEM partner's key on every instance.**
 

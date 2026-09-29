@@ -22,7 +22,8 @@ The information type with id `10001` is reserved for aggregation output.
 A partner is an external party you exchange data with.
 
 - **Properties** are key/value pairs that adapters reference with `{{partner.KEY}}`, such as a partner's API base URL or account number.
-- **API keys** are named credentials. A caller sends one in the `partnerkey` header to call an API gateway or the legacy exchange endpoint.
+- **API keys** are named credentials. A caller sends one in the `partnerkey` header, as a bearer token or as Basic auth, to call an API gateway or the legacy exchange endpoint.
+- **Login server identity** is the value a login server's tokens carry for this partner. API gateways that take tokens instead of keys use it to know who is calling.
 - The built-in **SYSTEM** partner, id 1, cannot be deleted and cannot own subscriptions. Its key can post documents of any type straight into the filter. See [Security](security.md#partners-and-api-keys).
 
 ## Subscription
