@@ -54,17 +54,9 @@ namespace SW.Bitween
             if (partnerKey != null)
                 return (partnerKey, null);
 
-            // Headers only: the context carries query parameters too, and ?authorization= is not
-            // something any client sends.
-            var authorization = requestContext.Values
-                .Where(item => item.Type == RequestValueType.HttpHeader && item.Name.ToLower() == "authorization")
-                .Select(item => item.Value).FirstOrDefault();
-            var space = authorization?.IndexOf(' ') ?? -1;
-            if (space <= 0)
+            var (scheme, credentials) = ReadAuthorization(requestContext);
+            if (scheme == null)
                 return (null, null);
-
-            var scheme = authorization[..space];
-            var credentials = authorization[(space + 1)..].Trim();
 
             if (scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase))
                 return (credentials, null);
@@ -85,6 +77,18 @@ namespace SW.Bitween
             // The username is everything before the first colon — Basic has no way to escape one.
             var colon = decoded.IndexOf(':');
             return colon < 0 ? (null, null) : (decoded[(colon + 1)..], decoded[..colon]);
+        }
+
+        /// <summary>The Authorization header split into its scheme and credentials; nulls without one.</summary>
+        internal static (string Scheme, string Credentials) ReadAuthorization(RequestContext requestContext)
+        {
+            // Headers only: the context carries query parameters too, and ?authorization= is not
+            // something any client sends.
+            var authorization = requestContext.Values
+                .Where(item => item.Type == RequestValueType.HttpHeader && item.Name.ToLower() == "authorization")
+                .Select(item => item.Value).FirstOrDefault();
+            var space = authorization?.IndexOf(' ') ?? -1;
+            return space <= 0 ? (null, null) : (authorization[..space], authorization[(space + 1)..].Trim());
         }
 
         public static IQueryable<Subscription> Subscriptions(this BitweenDbContext dbContext) =>

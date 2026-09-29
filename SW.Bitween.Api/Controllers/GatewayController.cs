@@ -20,7 +20,8 @@ public class GatewayController(
     BitweenDbContext dbContext,
     RequestContext requestContext,
     IInfolinkCache cache,
-    XchangeService xchangeService) : ControllerBase
+    XchangeService xchangeService,
+    GatewayCallers callers) : ControllerBase
 {
     /// <summary>
     /// <c>{gateway's url name}/sync</c> or <c>/async</c>. The url name can be several segments,
@@ -58,8 +59,8 @@ public class GatewayController(
         if (apiGateway == null)
             return NotFound();
 
-        // Resolve partner using API key
-        var (authorized, partner, keyName) = await dbContext.CheckPartnerAuthorized(requestContext);
+        // Resolve the partner the way this gateway asks callers to prove who they are
+        var (authorized, partner, callerReference) = await callers.Identify(apiGateway, requestContext);
 
         if (!authorized)
             return Unauthorized();
@@ -104,7 +105,7 @@ public class GatewayController(
         await xchangeService.RunValidator(subscription.ValidatorId, validatorProperties,
             xchangeFile);
 
-        var xchangeReferences = new List<string> { $"partnerkey: {keyName}" };
+        var xchangeReferences = new List<string> { callerReference };
         var globalAdapterValuesSets = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
         var xchangeId = await xchangeService.SubmitSubscriptionXchange(subscription.Id, xchangeFile,
             xchangeReferences.ToArray(), partner, globalAdapterValuesSets);

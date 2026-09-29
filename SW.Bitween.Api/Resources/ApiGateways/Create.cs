@@ -21,6 +21,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
                 UrlName = model.UrlName,
                 Inactive = model.Inactive
             };
+            if (model.Authentication != null)
+                GatewayAuthentication.Apply(entity, model.Authentication);
 
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();

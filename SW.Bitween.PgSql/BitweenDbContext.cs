@@ -78,6 +78,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.AdapterProperties).HasColumnType("jsonb");
                 b.Property(p => p.SecretProperties).HasColumnType("jsonb");
+                b.Property(p => p.LoginIdentity).HasMaxLength(500);
+                b.HasIndex(p => p.LoginIdentity).IsUnique();
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
                     .OnDelete(DeleteBehavior.Restrict);
                 b.OwnsMany(p => p.ApiCredentials, apicred =>
@@ -114,6 +116,9 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 ag.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 ag.Property(p => p.UrlName).IsRequired().HasMaxLength(200);
                 ag.HasIndex(p => p.UrlName).IsUnique();
+                ag.Property(p => p.JwtIssuer).HasMaxLength(500);
+                ag.Property(p => p.JwtAudience).HasMaxLength(500);
+                ag.Property(p => p.JwtPartnerClaim).HasMaxLength(100);
                 ag.HasMany(p => p.Partners).WithOne(p => p.ApiGateway).HasForeignKey(p => p.ApiGatewayId)
                     .OnDelete(DeleteBehavior.Restrict);
             });

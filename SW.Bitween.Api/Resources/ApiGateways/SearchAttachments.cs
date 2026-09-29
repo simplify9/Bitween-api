@@ -42,7 +42,8 @@ public class SearchAttachments(BitweenDbContext dbContext, RequestContext reques
                     PartnerId = p.PartnerId,
                     SubscriptionId = p.SubscriptionId,
                     PartnerName = p.Partner.Name,
-                    SubscriptionName = p.Subscription.Name
+                    SubscriptionName = p.Subscription.Name,
+                    PartnerLoginIdentity = p.Partner.LoginIdentity
                 })
                 .ToListAsync();
 

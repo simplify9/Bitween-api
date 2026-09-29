@@ -65,6 +65,9 @@ public sealed class BitweenFixture : IAsyncLifetime
 
     private const int ElasticMqContainerPort = 9324;
 
+    /// <summary>The login server JWT gateways trust in these tests, and what mints their tokens.</summary>
+    public TestLoginServer LoginServer { get; } = new();
+
     // A real SMTP server, because the one thing no unit test can prove about the alert feature is
     // that an actual handshake succeeds. Started here rather than expected on the developer's
     // machine: a test that quietly does nothing when a local service is missing reports a green run
@@ -283,6 +286,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<IAdapterInvoker, AdapterInvoker>();
                     services.AddScoped<MappingContextFactory>();
                     services.AddScoped<XchangeService>();
+                    services.AddScoped<GatewayCallers>();
+                    services.AddSingleton<IGatewayIssuers>(LoginServer);
                     services.AddScoped<RunFlagUpdater>();
                     services.AddScoped<ReceivingJob>();
                     services.AddScoped<AggregationJob>();

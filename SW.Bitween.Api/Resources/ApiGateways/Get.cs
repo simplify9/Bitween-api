@@ -30,13 +30,15 @@ namespace SW.Bitween.Resources.ApiGateways
                 Name = gateway.Name,
                 UrlName = gateway.UrlName,
                 Inactive = gateway.Inactive,
+                Authentication = GatewayAuthentication.Read(gateway),
                 PartnersCount = gateway.Partners.Count,
                 Partners = gateway.Partners.Select(p => new ApiGatewayPartnerDto
                 {
                     PartnerId = p.PartnerId,
                     SubscriptionId = p.SubscriptionId,
                     PartnerName = p.Partner.Name,
-                    SubscriptionName = p.Subscription.Name
+                    SubscriptionName = p.Subscription.Name,
+                    PartnerLoginIdentity = p.Partner.LoginIdentity
                 }).ToList()
             };
         }

@@ -161,6 +161,190 @@ public class ApiGatewayTests(BitweenFixture fixture)
         Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization", value));
     }
 
+    /// <summary>
+    /// A gateway that trusts the test login server, with one partner attached whose identity
+    /// there is returned — plus a second partner with an identity of its own, not attached.
+    /// </summary>
+    private async Task<(string urlName, string identity, string strangerIdentity)> JwtGateway()
+    {
+        var urlName = Unique("jwt").ToLowerInvariant();
+        var identity = Unique("acme-orders");
+        var strangerIdentity = Unique("not-attached");
+
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var partner = new Partner(Unique("Token holder")) { LoginIdentity = identity };
+        var stranger = new Partner(Unique("Stranger")) { LoginIdentity = strangerIdentity };
+        var doc = new Document(null, Unique("Jwt doc"), DocumentFormat.Json);
+        db.AddRange(partner, stranger, doc);
+        await db.SaveChangesAsync();
+
+        var subscription = new Subscription(Unique("Jwt sub"), doc.Id, SubscriptionType.GatewayApiCall)
+            { Inactive = false };
+        db.Add(subscription);
+        await db.SaveChangesAsync();
+
+        db.Add(new ApiGateway
+        {
+            Name = Unique("Jwt gateway"),
+            UrlName = urlName,
+            AuthMethod = GatewayAuthMethod.Jwt,
+            JwtIssuer = TestLoginServer.Issuer,
+            JwtAudience = "bitween",
+            Partners = [new ApiGatewayPartner { PartnerId = partner.Id, SubscriptionId = subscription.Id }],
+        });
+        await db.SaveChangesAsync();
+        return (urlName, identity, strangerIdentity);
+    }
+
+    [Fact]
+    public async Task A_jwt_gateway_takes_a_token_from_its_login_server_as_the_partner_it_names()
+    {
+        var (urlName, identity, _) = await JwtGateway();
+
+        var accepted = Assert.IsType<AcceptedResult>(await CallGateway(urlName, "Authorization",
+            $"Bearer {fixture.LoginServer.Token(identity)}"));
+
+        // The exchange records who called, as it records a key's name for a key.
+        await using var scope = fixture.CreateScope();
+        var xchange = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<Xchange>().AsNoTracking().SingleAsync(x => x.Id == (string)accepted.Location);
+        Assert.Contains($"jwt: {identity}", xchange.References);
+    }
+
+    [Theory]
+    [InlineData("expired")]
+    [InlineData("for-another-system")]
+    [InlineData("from-another-login-server")]
+    [InlineData("forged")]
+    [InlineData("unknown-identity")]
+    [InlineData("partner-not-attached")]
+    public async Task A_jwt_gateway_refuses_any_other_token(string how)
+    {
+        var (urlName, identity, strangerIdentity) = await JwtGateway();
+        var login = fixture.LoginServer;
+        var token = how switch
+        {
+            "expired" => login.Token(identity, expires: DateTime.UtcNow.AddMinutes(-10)),
+            // Signed by the right login server, but issued for some other system — the audience
+            // is the only thing that keeps it out.
+            "for-another-system" => login.Token(identity, audience: "payroll"),
+            "from-another-login-server" => login.Token(identity, issuer: "https://login.elsewhere.test"),
+            "forged" => login.Token(identity, forged: true),
+            "unknown-identity" => login.Token(Unique("nobody")),
+            _ => login.Token(strangerIdentity),
+        };
+
+        Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization", $"Bearer {token}"));
+    }
+
+    [Fact]
+    public async Task A_login_server_that_cannot_be_reached_refuses_the_call_rather_than_failing_it()
+    {
+        // Without its keys no token can be checked, which is a refusal like any other: the caller
+        // gets a 401, not a 500 carrying the reason.
+        var (urlName, identity, _) = await JwtGateway();
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var gateway = await db.Set<ApiGateway>().SingleAsync(g => g.UrlName == urlName);
+            gateway.JwtIssuer = TestLoginServer.UnreachableIssuer;
+            await db.SaveChangesAsync();
+        }
+
+        var token = fixture.LoginServer.Token(identity, issuer: TestLoginServer.UnreachableIssuer);
+        Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization", $"Bearer {token}"));
+    }
+
+    [Fact]
+    public async Task A_jwt_gateway_refuses_partner_keys()
+    {
+        // The gateway says which way in it speaks. Taking keys too would leave the old door open
+        // on a gateway someone moved to tokens precisely to close it.
+        var (urlName, identity, _) = await JwtGateway();
+        var key = Guid.NewGuid().ToString("N");
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var partner = await db.Set<Partner>().SingleAsync(p => p.LoginIdentity == identity);
+            partner.SetApiCredentials([new ApiCredential("orders-prod", key)]);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "partnerkey", key));
+        Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization", $"Bearer {key}"));
+    }
+
+    [Fact]
+    public async Task A_partner_key_gateway_does_not_take_tokens()
+    {
+        var (urlName, _) = await GatewayWithKey();
+        var token = fixture.LoginServer.Token(Unique("acme-orders"));
+
+        Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization", $"Bearer {token}"));
+    }
+
+    [Theory]
+    [InlineData("http://login.example.com", "bitween", "GATEWAY_JWT_ISSUER_INVALID")]   // keys could be swapped in transit
+    [InlineData("login.example.com", "bitween", "GATEWAY_JWT_ISSUER_INVALID")]
+    [InlineData("https://login.example.com", " ", "GATEWAY_JWT_AUDIENCE_REQUIRED")]
+    public async Task A_jwt_gateway_that_could_never_work_or_trusts_too_much_is_refused(
+        string issuer, string audience, string error)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Resources.ApiGateways.Create>(scope.ServiceProvider);
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => handler.Handle(new ApiGatewayCreate
+        {
+            Name = Unique("Jwt"),
+            UrlName = Unique("jwt").ToLowerInvariant(),
+            Authentication = new ApiGatewayAuthentication
+                { Method = GatewayAuthMethod.Jwt, Issuer = issuer, Audience = audience },
+        }));
+        Assert.StartsWith(error, ex.Message);
+    }
+
+    [Fact]
+    public async Task Saving_a_gateway_without_its_authentication_keeps_what_it_has()
+    {
+        // Pausing a gateway saves it with only its name, url name and on/off. Reading "no
+        // authentication" as "partner keys" would quietly reopen a JWT gateway to keys.
+        var (urlName, _, _) = await JwtGateway();
+        int id;
+        await using (var scope = fixture.CreateScope())
+            id = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+                .Set<ApiGateway>().Where(g => g.UrlName == urlName).Select(g => g.Id).SingleAsync();
+
+        await using (var scope = fixture.CreateScope())
+        {
+            scope.Superuser();
+            var handler = ActivatorUtilities.CreateInstance<Resources.ApiGateways.Update>(scope.ServiceProvider);
+            await handler.Handle(id, new ApiGatewayUpdate { Name = Unique("Paused"), UrlName = urlName, Inactive = true });
+        }
+
+        await using var check = fixture.CreateScope();
+        var gateway = await check.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<ApiGateway>().AsNoTracking().SingleAsync(g => g.Id == id);
+        Assert.Equal(GatewayAuthMethod.Jwt, gateway.AuthMethod);
+        Assert.Equal(TestLoginServer.Issuer, gateway.JwtIssuer);
+    }
+
+    [Fact]
+    public async Task Two_partners_cannot_share_a_login_identity()
+    {
+        // A JWT gateway finds the partner by this value alone.
+        var identity = Unique("shared");
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var create = ActivatorUtilities.CreateInstance<Resources.Partners.Create>(scope.ServiceProvider);
+        await create.Handle(new PartnerCreate { Name = Unique("First"), LoginIdentity = identity });
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() =>
+            create.Handle(new PartnerCreate { Name = Unique("Second"), LoginIdentity = $"  {identity} " }));
+        Assert.StartsWith("LOGIN_IDENTITY_TAKEN", ex.Message);
+    }
+
     [Theory]
     [InlineData("order sync")]      // the one that actually happens — a space
     [InlineData("Order-Sync")]      // upper case, which the route match is not

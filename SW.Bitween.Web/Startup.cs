@@ -91,6 +91,8 @@ namespace SW.Bitween.Web
             services.AddScoped<IAdapterInvoker, AdapterInvoker>();
             services.AddScoped<MappingContextFactory>();
             services.AddScoped<XchangeService>();
+            services.AddScoped<GatewayCallers>();
+            services.AddSingleton<IGatewayIssuers, OpenIdGatewayIssuers>();
             services.AddScoped<Resources.Ops.LaneResolver>();
             services.AddScoped<Resources.Ops.BrokerQueues>();
             services.AddScoped<AdapterRequirements>();
