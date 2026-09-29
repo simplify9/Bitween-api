@@ -11,19 +11,21 @@ namespace SW.Bitween
     static class BitweenDbContextExtensions
     {
         public static async Task<(Partner Partner, string KeyName)> AuthorizePartner(this BitweenDbContext dbContext,
-            RequestContext requestContext)
+            RequestContext requestContext, string keyHeader)
         {
-            var (partnerAuthorized, partner, keyName) = await dbContext.CheckPartnerAuthorized(requestContext);
+            var (partnerAuthorized, partner, keyName) = await dbContext.CheckPartnerAuthorized(requestContext, keyHeader);
             return !partnerAuthorized
                 ? throw new SWUnauthorizedException("Invalid or missing partner key")
                 : (partner, keyName);
         }
 
+        /// <param name="keyHeader">The header named for keys, by the gateway or system-wide.</param>
         public static async Task<(bool Authorized, Partner Partner, string KeyName)> CheckPartnerAuthorized(
             this BitweenDbContext dbContext,
-            RequestContext requestContext)
+            RequestContext requestContext,
+            string keyHeader)
         {
-            var (partnerKey, keyName) = ReadPartnerKey(requestContext);
+            var (partnerKey, keyName) = ReadPartnerKey(requestContext, keyHeader);
             if (string.IsNullOrEmpty(partnerKey))
                 return (false, null, null);
 
@@ -48,13 +50,20 @@ namespace SW.Bitween
         }
 
         /// <summary>
-        /// The same key, from any of three places: our own <c>partnerkey</c> header, a bearer token,
-        /// or Basic auth. Basic carries the key as its password and the key's name as its username,
-        /// so the name comes back too, to be checked against the key it found.
+        /// The same key, from any of these places: the header named for keys, <c>partnerkey</c>
+        /// (always, so renaming the header cuts no one off), a bearer token, or Basic auth. Basic
+        /// carries the key as its password and the key's name as its username, so the name comes
+        /// back too, to be checked against the key it found.
         /// </summary>
-        static (string Key, string KeyName) ReadPartnerKey(RequestContext requestContext)
+        static (string Key, string KeyName) ReadPartnerKey(RequestContext requestContext, string keyHeader)
         {
-            var partnerKey = requestContext.Values.Where(item => item.Name.ToLower() == "partnerkey")
+            var named = string.IsNullOrWhiteSpace(keyHeader) ? null : keyHeader.Trim().ToLowerInvariant();
+            var partnerKey = named == null || named == PartnerKeyHeaders.Default
+                ? null
+                : requestContext.Values
+                    .Where(item => item.Type == RequestValueType.HttpHeader && item.Name.ToLower() == named)
+                    .Select(item => item.Value).FirstOrDefault();
+            partnerKey ??= requestContext.Values.Where(item => item.Name.ToLower() == PartnerKeyHeaders.Default)
                 .Select(item => item.Value).FirstOrDefault();
             if (partnerKey != null)
                 return (partnerKey, null);

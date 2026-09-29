@@ -33,6 +33,7 @@ interface RawApiGatewayPartner {
 }
 interface RawGatewayAuthentication {
   method: GatewayAuthMethod;
+  keyHeader: string | null;
   issuer: string | null;
   audience: string | null;
   partnerClaim: string | null;
@@ -46,8 +47,9 @@ interface RawApiGateway {
   // Search's list projection includes this too (backend change made alongside
   // this batch) — but keep it optional since Create's bare POST response has none.
   partners: RawApiGatewayPartner[] | null;
-  // Only the detail endpoint sends it.
+  // Only the detail endpoint sends these.
   authentication?: RawGatewayAuthentication | null;
+  defaultKeyHeader?: string | null;
 }
 interface RawBusGatewayRoute {
   id: number;
@@ -101,10 +103,12 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
   attachments: (raw.partners ?? []).map(toApiGatewayAttachment),
   authentication: {
     method: raw.authentication?.method ?? "PartnerKey",
+    keyHeader: raw.authentication?.keyHeader ?? "",
     issuer: raw.authentication?.issuer ?? "",
     audience: raw.authentication?.audience ?? "",
     partnerClaim: raw.authentication?.partnerClaim ?? "",
   },
+  defaultKeyHeader: raw.defaultKeyHeader ?? "partnerkey",
 });
 
 const toBusGatewayRoute = (r: RawBusGatewayRoute): BusGatewayRoute => ({

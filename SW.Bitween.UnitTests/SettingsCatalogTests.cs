@@ -91,4 +91,21 @@ public class SettingsCatalogTests
         Assert.AreEqual(SettingAccess.Editable, definition.Access);
         Assert.AreEqual("0 * * * * ?", SettingsService.DefaultOf(definition));
     }
+
+    [TestMethod]
+    public void The_partner_key_header_is_editable_and_stays_partnerkey_by_default()
+    {
+        var definition = SettingsCatalog.Find("Bitween.PartnerKeyHeader");
+
+        // Read per request by the gateway and the legacy exchange endpoints, so it applies live.
+        Assert.AreEqual("API behavior", definition.Section);
+        Assert.AreEqual(SettingAccess.Editable, definition.Access);
+        Assert.AreEqual("partnerkey", SettingsService.DefaultOf(definition));
+
+        var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
+        definition.Write(target, " X-Api-Key ");
+        Assert.AreEqual("X-Api-Key", target.Bitween.PartnerKeyHeader);
+        // Already carries Bearer and Basic; a key sent in it would be read as one of those.
+        Assert.ThrowsException<System.FormatException>(() => definition.Write(target, "Authorization"));
+    }
 }

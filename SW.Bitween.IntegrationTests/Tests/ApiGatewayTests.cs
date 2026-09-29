@@ -161,6 +161,76 @@ public class ApiGatewayTests(BitweenFixture fixture)
         Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization", value));
     }
 
+    /// <summary>Runs <paramref name="test"/> with the system-wide key header set, then puts it back.</summary>
+    private async Task WithKeyHeader(string header, Func<Task> test)
+    {
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        var was = options.PartnerKeyHeader;
+        options.PartnerKeyHeader = header;
+        try
+        {
+            await test();
+        }
+        finally
+        {
+            options.PartnerKeyHeader = was;
+        }
+    }
+
+    [Fact]
+    public async Task The_key_header_named_in_settings_takes_the_key_and_partnerkey_still_does()
+    {
+        var (urlName, key) = await GatewayWithKey();
+
+        await WithKeyHeader("X-Api-Key", async () =>
+        {
+            Assert.IsType<AcceptedResult>(await CallGateway(urlName, "x-api-key", key));   // header names ignore case
+            // Renaming the header mustn't cut off partners still sending the old one.
+            Assert.IsType<AcceptedResult>(await CallGateway(urlName, "partnerkey", key));
+            Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "X-Other-Key", key));
+        });
+    }
+
+    [Fact]
+    public async Task A_gateway_can_name_its_own_key_header()
+    {
+        var (urlName, key) = await GatewayWithKey();
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var gateway = await db.Set<ApiGateway>().SingleAsync(g => g.UrlName == urlName);
+            gateway.PartnerKeyHeader = "X-Orders-Key";
+            await db.SaveChangesAsync();
+        }
+
+        await WithKeyHeader("X-Api-Key", async () =>
+        {
+            Assert.IsType<AcceptedResult>(await CallGateway(urlName, "X-Orders-Key", key));
+            Assert.IsType<AcceptedResult>(await CallGateway(urlName, "partnerkey", key));
+            // The gateway's own name replaces the system-wide one rather than adding to it.
+            Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "X-Api-Key", key));
+        });
+    }
+
+    [Theory]
+    [InlineData("Authorization")]   // already carries Bearer and Basic
+    [InlineData("Wait-Period")]     // the gateway reads it for sync calls
+    [InlineData("x api key")]
+    public async Task A_key_header_that_would_be_read_as_something_else_is_refused(string header)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Resources.ApiGateways.Create>(scope.ServiceProvider);
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => handler.Handle(new ApiGatewayCreate
+        {
+            Name = Unique("Header"),
+            UrlName = Unique("header").ToLowerInvariant(),
+            Authentication = new ApiGatewayAuthentication { Method = GatewayAuthMethod.PartnerKey, KeyHeader = header },
+        }));
+        Assert.StartsWith("GATEWAY_KEY_HEADER_INVALID", ex.Message);
+    }
+
     /// <summary>
     /// A gateway that trusts the test login server, with one partner attached whose identity
     /// there is returned — plus a second partner with an identity of its own, not attached.

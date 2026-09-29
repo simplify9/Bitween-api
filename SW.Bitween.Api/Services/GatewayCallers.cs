@@ -17,7 +17,11 @@ namespace SW.Bitween;
 /// it. Whatever the method, it ends at one partner: partner values, global values and the
 /// exchange's references all depend on having one.
 /// </summary>
-public class GatewayCallers(BitweenDbContext dbContext, IGatewayIssuers issuers, ILogger<GatewayCallers> logger)
+public class GatewayCallers(
+    BitweenDbContext dbContext,
+    IGatewayIssuers issuers,
+    BitweenOptions options,
+    ILogger<GatewayCallers> logger)
 {
     /// <summary>
     /// Signatures made with a private key only the login server holds. The shared-secret kind
@@ -37,7 +41,8 @@ public class GatewayCallers(BitweenDbContext dbContext, IGatewayIssuers issuers,
     {
         if (gateway.AuthMethod != GatewayAuthMethod.Jwt)
         {
-            var (authorized, keyHolder, keyName) = await dbContext.CheckPartnerAuthorized(requestContext);
+            var (authorized, keyHolder, keyName) = await dbContext.CheckPartnerAuthorized(requestContext,
+                gateway.PartnerKeyHeader ?? options.PartnerKeyHeader);
             return (authorized, keyHolder, $"partnerkey: {keyName}");
         }
 

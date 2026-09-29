@@ -782,6 +782,8 @@ export interface ApiGatewayAttachment {
 export type GatewayAuthMethod = "PartnerKey" | "Jwt";
 export interface GatewayAuthentication {
   method: GatewayAuthMethod;
+  /** PartnerKey: the header keys are sent in on this gateway; empty uses the system-wide one. */
+  keyHeader: string;
   /** Jwt: the login server, exactly as its tokens name it in `iss`. */
   issuer: string;
   /** Jwt: the `aud` a token must carry, so tokens meant for other systems are refused. */
@@ -804,6 +806,8 @@ export interface ApiGatewayRow extends ApiGateway {
 export interface ApiGatewayDetail extends ApiGateway {
   attachments: ApiGatewayAttachment[];
   authentication: GatewayAuthentication;
+  /** The system-wide key header (Settings → API behavior), used while `keyHeader` is empty. */
+  defaultKeyHeader: string;
 }
 
 // ——— Bus gateways ———

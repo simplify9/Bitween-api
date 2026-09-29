@@ -8,7 +8,8 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.Xchanges
 {
     [Unprotect]
-public class Get(BitweenDbContext dbContext, RequestContext requestContext, XchangeService xchangeService)
+public class Get(BitweenDbContext dbContext, RequestContext requestContext, XchangeService xchangeService,
+    BitweenOptions options)
         : IGetHandler<string,object>
     {
         private readonly BitweenDbContext dbContext = dbContext;
@@ -17,7 +18,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Xcha
 
         async public Task<object> Handle(string key)//, bool lookup = false)
         {
-            var par = await dbContext.AuthorizePartner(requestContext);
+            var par = await dbContext.AuthorizePartner(requestContext, options.PartnerKeyHeader);
 
             if (par.Partner.Id == Partner.SystemId)
             {

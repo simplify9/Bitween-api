@@ -36,6 +36,12 @@ namespace SW.Bitween.Model
         public GatewayAuthMethod Method { get; set; }
 
         /// <summary>
+        /// Partner keys only: the header partners send their key in, overriding the system-wide
+        /// one. Empty uses that. <c>partnerkey</c> is accepted either way.
+        /// </summary>
+        public string? KeyHeader { get; set; }
+
+        /// <summary>
         /// JWT only: the login server, exactly as its tokens name it in <c>iss</c>. Its public
         /// keys are read from <c>{issuer}/.well-known/openid-configuration</c>.
         /// </summary>
@@ -55,6 +61,12 @@ namespace SW.Bitween.Model
     {
         public int Id { get; set; }
         public int? PartnersCount { get; set; }
+
+        /// <summary>
+        /// Detail only: the system-wide key header, which applies while
+        /// <see cref="ApiGatewayAuthentication.KeyHeader"/> is empty.
+        /// </summary>
+        public string? DefaultKeyHeader { get; set; }
     }
 
     public class ApiGatewayUpdate : ApiGatewayCreate

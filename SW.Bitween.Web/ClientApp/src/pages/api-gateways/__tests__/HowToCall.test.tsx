@@ -18,6 +18,7 @@ const openGateway = (
   authentication: JsonBodyType = null,
   attachments: JsonBodyType[] = [],
   extra: RequestHandler[] = [],
+  defaultKeyHeader = "partnerkey",
 ) =>
   renderApp("/api-gateways/15", {
     handlers: [
@@ -30,6 +31,7 @@ const openGateway = (
         inactive: false,
         partners: attachments,
         authentication,
+        defaultKeyHeader,
       }),
       json("/apigateways/attachments", { result: attachments, totalCount: attachments.length }),
       ...["/subscriptions", "/documents", "/partners", "/workgroups", "/retrypolicies", "/audit"].map((p) => none(p)),
@@ -104,9 +106,42 @@ describe("an API gateway's page", () => {
     await expect.poll(() => sent).not.toBeNull();
     expect(sent!.authentication).toEqual({
       method: "Jwt",
+      keyHeader: "",
       issuer: "https://login.acme.example",
       audience: "bitween",
       partnerClaim: "",
     });
+  });
+
+  it("shows the key header in effect, and a gateway can name its own", async () => {
+    let sent: Record<string, unknown> | null = null;
+    const { user } = openGateway(
+      { method: "PartnerKey", keyHeader: null, issuer: null, audience: null, partnerClaim: null },
+      [],
+      [
+        http.post(apiPath("/apigateways/15"), async ({ request }) => {
+          sent = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json(null);
+        }),
+      ],
+      "X-Api-Key",
+    );
+
+    // The system-wide name applies until the gateway names its own.
+    const ways = within(await screen.findByLabelText("Ways to send the key"));
+    expect(ways.getByText("X-Api-Key: <key>")).toBeVisible();
+    expect(screen.getByLabelText("Key header")).toHaveAttribute("placeholder", "X-Api-Key");
+
+    await user.type(screen.getByLabelText("Key header"), "X-Orders-Key");
+    expect(ways.getByText("X-Orders-Key: <key>")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    // Partners already sending the old custom name are cut off; partnerkey keeps working.
+    const confirm = within(await screen.findByRole("dialog", { name: "Change the key header?" }));
+    expect(confirm.getByText(/will get 401s/)).toBeVisible();
+    await user.click(confirm.getByRole("button", { name: "Save changes" }));
+
+    await expect.poll(() => sent).not.toBeNull();
+    expect((sent!.authentication as Record<string, unknown>).keyHeader).toBe("X-Orders-Key");
   });
 });

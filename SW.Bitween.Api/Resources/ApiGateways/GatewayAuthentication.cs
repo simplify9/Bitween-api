@@ -18,6 +18,7 @@ internal static class GatewayAuthentication
     public static ApiGatewayAuthentication Read(ApiGateway gateway) => new()
     {
         Method = gateway.AuthMethod,
+        KeyHeader = gateway.PartnerKeyHeader,
         Issuer = gateway.JwtIssuer,
         Audience = gateway.JwtAudience,
         PartnerClaim = gateway.JwtPartnerClaim,
@@ -30,6 +31,10 @@ internal static class GatewayAuthentication
 
         var issuer = Trimmed(model.Issuer);
         var audience = Trimmed(model.Audience);
+        var keyHeader = Trimmed(model.KeyHeader);
+
+        if (keyHeader != null && PartnerKeyHeaders.Problem(keyHeader) is { } problem)
+            throw new SWValidationException("GATEWAY_KEY_HEADER_INVALID", problem);
 
         if (model.Method == GatewayAuthMethod.Jwt)
         {
@@ -44,6 +49,7 @@ internal static class GatewayAuthentication
         }
 
         gateway.AuthMethod = model.Method;
+        gateway.PartnerKeyHeader = keyHeader;
         gateway.JwtIssuer = issuer;
         gateway.JwtAudience = audience;
         gateway.JwtPartnerClaim = Trimmed(model.PartnerClaim);

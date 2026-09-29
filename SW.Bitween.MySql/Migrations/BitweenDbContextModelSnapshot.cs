@@ -626,6 +626,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<string>("PartnerKeyHeader")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
                     b.Property<string>("UrlName")
                         .IsRequired()
                         .HasMaxLength(200)

@@ -4,7 +4,7 @@
 
 - The base path is `/api`. Swagger UI is at `/swagger`, with the spec at `/api/swagger.json`.
 - Admin endpoints need `Authorization: Bearer <jwt>` from [sign-in](security.md#sign-in), plus the permission listed.
-- Partner endpoints need a partner key instead: the `partnerkey` header, `Authorization: Bearer <key>`, or Basic auth. An API gateway set to take tokens needs `Authorization: Bearer <token>` from its login server.
+- Partner endpoints need a partner key instead: the key header (`partnerkey` unless renamed, and `partnerkey` always works), `Authorization: Bearer <key>`, or Basic auth. An API gateway set to take tokens needs `Authorization: Bearer <token>` from its login server.
 - Responses use camelCase property names. Requests are accepted in any casing. Enums are strings, and numbers are accepted too.
 - Adapter and partner property sets are lists of `{ "key": "...", "value": "..." }`.
 
@@ -148,7 +148,7 @@ Adapter descriptions are cached per node, so a newly uploaded package version ca
 |---|---|
 | `GET /api/apigateways`, `GET /api/apigateways/{id}` | `api-gateways.view` |
 | `GET /api/apigateways/attachments?apiGatewayId=&search=&offset=&limit=` | `api-gateways.view` |
-| `POST /api/apigateways` | `api-gateways.create`. `{ name, urlName, inactive, authentication? }`. `authentication` is `{ method: "PartnerKey" \| "Jwt", issuer, audience, partnerClaim }`, and defaults to partner keys. |
+| `POST /api/apigateways` | `api-gateways.create`. `{ name, urlName, inactive, authentication? }`. `authentication` is `{ method: "PartnerKey" \| "Jwt", keyHeader, issuer, audience, partnerClaim }`, and defaults to partner keys. An empty `keyHeader` uses the one in Settings. |
 | `POST /api/apigateways/{id}` | `api-gateways.edit`. Same body. Leaving `authentication` out keeps what the gateway has. |
 | `DELETE /api/apigateways/{id}` | `api-gateways.delete` |
 | `POST /api/apigateways/{id}/addpartner` | `api-gateways.edit`. `{ partnerId, subscriptionId }` or `{ partnerId, newIntegration }` |

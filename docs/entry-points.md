@@ -55,9 +55,12 @@ Each gateway decides how callers prove who they are, in its **Authentication** c
 
 | Where | What |
 |---|---|
-| `partnerkey` header | The key |
+| The key header | The key |
+| `partnerkey` header | The key. Always accepted, whatever the key header is called |
 | `Authorization: Bearer` | The key |
 | Basic auth | Username: the key's name. Password: the key |
+
+The key header is `partnerkey` unless renamed. Set the name for every gateway in **Settings → API behavior**, or give one gateway its own in its Authentication card. A gateway's own name replaces the system-wide one there. Renaming it cuts off partners sending the previous name, so the gateway page asks first.
 
 A key whose name contains a colon can't be sent as Basic auth.
 

@@ -24,11 +24,14 @@ const ATTACHMENTS_PAGE_SIZE = 10;
  * system can send. Basic auth splits the username off at the first colon, so it can't carry a key
  * whose name has one.
  */
-const KEY_USAGE = [
+const keyUsage = (header: string) => [
   {
     label: "Header",
-    tip: "Bitween's own header. Works from any system that can add a custom header.",
-    value: "partnerkey: <key>",
+    tip:
+      header.toLowerCase() === "partnerkey"
+        ? "Works from any system that can add a custom header."
+        : "Works from any system that can add a custom header. partnerkey: <key> works too, so partners using the old name aren't cut off.",
+    value: `${header}: <key>`,
   },
   {
     label: "Bearer token",
@@ -49,13 +52,18 @@ const AUTH_METHODS = [
 
 const trimmedAuth = (a: GatewayAuthentication): GatewayAuthentication => ({
   method: a.method,
+  keyHeader: a.keyHeader.trim(),
   issuer: a.issuer.trim(),
   audience: a.audience.trim(),
   partnerClaim: a.partnerClaim.trim(),
 });
 
 /** What the server refuses too; checked here so the field says so before a save is tried. */
-const authProblems = (a: GatewayAuthentication): { issuer?: string; audience?: string } => {
+const authProblems = (a: GatewayAuthentication): { keyHeader?: string; issuer?: string; audience?: string } => {
+  const keyHeader = a.keyHeader.trim();
+  // An HTTP token; the server also refuses names that already mean something, like Authorization.
+  if (keyHeader && !/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,100}$/.test(keyHeader))
+    return { keyHeader: "Letters, digits and - or _ only, with no spaces." };
   if (a.method !== "Jwt") return {};
   const issuer = a.issuer.trim();
   let url: URL | null = null;
@@ -124,6 +132,7 @@ export function ApiGatewayPage() {
   const [urlName, setUrlName] = useState("");
   const [auth, setAuth] = useState<GatewayAuthentication>({
     method: "PartnerKey",
+    keyHeader: "",
     issuer: "",
     audience: "",
     partnerClaim: "",
@@ -189,6 +198,14 @@ export function ApiGatewayPage() {
   // The saved method, not the draft: the table shows who can call the gateway as it stands.
   const takesTokens = g.authentication.method === "Jwt";
   const claim = auth.partnerClaim.trim() || "sub";
+  const keyHeader = auth.keyHeader.trim() || g.defaultKeyHeader;
+  const savedKeyHeader = g.authentication.keyHeader.trim() || g.defaultKeyHeader;
+  // partnerkey always works, so only partners sending a name of our choosing can be cut off.
+  const keyHeaderChanged =
+    !methodChanged &&
+    auth.method === "PartnerKey" &&
+    keyHeader.toLowerCase() !== savedKeyHeader.toLowerCase() &&
+    savedKeyHeader.toLowerCase() !== "partnerkey";
 
   return (
     <div className="pb-24">
@@ -257,6 +274,19 @@ export function ApiGatewayPage() {
                 onChange={(e) => setAuth({ ...auth, method: e.target.value as GatewayAuthentication["method"] })}
               />
             </Field>
+            {auth.method === "PartnerKey" && (
+              <Field label="Key header" htmlFor="ag-key-header" error={authProblem.keyHeader}>
+                <TextInput
+                  id="ag-key-header"
+                  value={auth.keyHeader}
+                  disabled={!canEdit}
+                  className="font-mono"
+                  placeholder={g.defaultKeyHeader}
+                  title={`The header partners send their key in. Leave empty to use the system-wide one (${g.defaultKeyHeader}), set in Settings under API behavior. partnerkey always works too.`}
+                  onChange={(e) => setAuth({ ...auth, keyHeader: e.target.value })}
+                />
+              </Field>
+            )}
             {auth.method === "Jwt" && (
               <>
                 <Field label="Login server" htmlFor="ag-jwt-issuer" error={authProblem.issuer}>
@@ -361,7 +391,7 @@ export function ApiGatewayPage() {
                   aria-label="Ways to send the key"
                   className="mt-2 divide-y divide-ink-100 rounded-lg border border-ink-200"
                 >
-                  {KEY_USAGE.map((w) => (
+                  {keyUsage(keyHeader).map((w) => (
                     <div key={w.label} className="flex items-baseline gap-3 px-3 py-2">
                       <dt title={w.tip} className="w-24 shrink-0 cursor-help text-[12px] text-ink-600">
                         {w.label}
@@ -552,12 +582,14 @@ export function ApiGatewayPage() {
       {canEdit && dirty && (
         <UnsavedBar
           busy={save.isPending}
-          error={urlProblem ?? authProblem.issuer ?? authProblem.audience ?? save.error?.message}
+          error={
+            urlProblem ?? authProblem.keyHeader ?? authProblem.issuer ?? authProblem.audience ?? save.error?.message
+          }
           onSave={() => {
-            if (urlProblem || authProblem.issuer || authProblem.audience) return;
-            // Both cut partners off: the URL is what they hold, and the method is how they prove
-            // who they are.
-            if (urlChanged || methodChanged) setConfirmingSave(true);
+            if (urlProblem || authProblem.keyHeader || authProblem.issuer || authProblem.audience) return;
+            // Each cuts partners off: the URL is what they hold, and the method and key header are
+            // how they prove who they are.
+            if (urlChanged || methodChanged || keyHeaderChanged) setConfirmingSave(true);
             else save.mutate();
           }}
           onDiscard={() => setLoaded(false)}
@@ -586,11 +618,13 @@ export function ApiGatewayPage() {
       {confirmingSave && (
         <ConfirmDialog
           title={
-            urlChanged && methodChanged
-              ? "Change this gateway's URL and how partners authenticate?"
+            [urlChanged, methodChanged, keyHeaderChanged].filter(Boolean).length > 1
+              ? "Save these changes?"
               : urlChanged
                 ? "Change this gateway's URL?"
-                : "Change how partners authenticate?"
+                : methodChanged
+                  ? "Change how partners authenticate?"
+                  : "Change the key header?"
           }
           body={
             <div className="space-y-2">
@@ -609,9 +643,17 @@ export function ApiGatewayPage() {
                     : "Tokens from the login server stop being accepted. Partners will need an API key."}
                 </p>
               )}
+              {keyHeaderChanged && (
+                <p>
+                  Partners sending their key in{" "}
+                  <code className="font-mono text-[12px]">{savedKeyHeader}</code> will get 401s.{" "}
+                  <code className="font-mono text-[12px]">{keyHeader}</code> and{" "}
+                  <code className="font-mono text-[12px]">partnerkey</code> work.
+                </p>
+              )}
             </div>
           }
-          confirmLabel={urlChanged && !methodChanged ? "Change URL" : "Save changes"}
+          confirmLabel={urlChanged && !methodChanged && !keyHeaderChanged ? "Change URL" : "Save changes"}
           onConfirm={async () => {
             await save.mutateAsync();
           }}

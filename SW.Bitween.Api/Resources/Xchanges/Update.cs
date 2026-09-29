@@ -32,7 +32,7 @@ namespace SW.Bitween.Resources.Xchanges
             if (document is null)
                 throw new SWNotFoundException("Document");
 
-            var par = await dbContext.AuthorizePartner(requestContext);
+            var par = await dbContext.AuthorizePartner(requestContext, BitweenSettings.PartnerKeyHeader);
 
             var subs = (await cache.ListSubscriptionsByDocumentAsync(document.Id))
                 .Where(i => i.PartnerId == par.Partner.Id)

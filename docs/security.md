@@ -98,7 +98,7 @@ A request without the needed permission gets HTTP 401, the same status as a miss
 
 ## Partners and API keys
 
-Partners authenticate with an API key, sent in the `partnerkey` header, as `Authorization: Bearer <key>`, or as Basic auth with the key's name as username and the key as password. API gateways and the legacy exchange endpoints use it. An API gateway can take tokens from a login server instead. See [Entry points](entry-points.md#authentication).
+Partners authenticate with an API key, sent in the key header (`partnerkey` unless renamed in Settings or on the gateway, and `partnerkey` is always accepted too), as `Authorization: Bearer <key>`, or as Basic auth with the key's name as username and the key as password. API gateways and the legacy exchange endpoints use it. An API gateway can take tokens from a login server instead. See [Entry points](entry-points.md#authentication).
 
 - Generate a key on the partner page. It is shown once. Afterwards the API returns only its first five characters.
 - Keys must be unique and are stored in plain text.

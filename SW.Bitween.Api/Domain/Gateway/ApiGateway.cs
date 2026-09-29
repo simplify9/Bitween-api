@@ -23,6 +23,12 @@ public class ApiGateway : BaseEntity,IAudited
     /// </summary>
     public GatewayAuthMethod AuthMethod { get; set; }
 
+    /// <summary>
+    /// The header this gateway's partners send their key in, when it isn't the system-wide one.
+    /// Null uses that. <c>partnerkey</c> is accepted either way.
+    /// </summary>
+    public string PartnerKeyHeader { get; set; }
+
     /// <summary>JWT only. See <see cref="ApiGatewayAuthentication"/> for what each one means.</summary>
     public string JwtIssuer { get; set; }
     public string JwtAudience { get; set; }
