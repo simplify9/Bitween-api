@@ -160,9 +160,11 @@ public class BrokerQueues(IBusDashboardDataService dashboardDataService,
         {
             return true;
         }
-        catch (UnexpectedHttpStatusCodeException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
+        // The if-unused refusal. The broker answers it as a 400 whose reason ends "in use", which
+        // the message carries; any other 400 is a real failure, not something to wait out.
+        catch (UnexpectedHttpStatusCodeException ex) when (ex.StatusCode == HttpStatusCode.BadRequest
+            && ex.Message.Contains(" in use", StringComparison.OrdinalIgnoreCase))
         {
-            // The broker's "in use": the if-unused check refused it.
             return false;
         }
     }

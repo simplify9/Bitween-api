@@ -34,7 +34,8 @@ namespace SW.Bitween.Model
         public bool BusEnabled { get; set; }
         /// <summary>
         /// Only meaningful when BusEnabled. Kept while the bus is off, which pauses the type: its
-        /// queue stays and fills, and turning the bus back on resumes it.
+        /// queue stays and fills, and turning the bus back on resumes it. Sent empty, the type is
+        /// off the bus for good, and its queue is deleted.
         /// </summary>
         public string? BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }

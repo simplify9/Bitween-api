@@ -78,10 +78,10 @@ namespace SW.Bitween.Resources.Documents
             await BitweenCache.BroadcastRevoke();
             await broadcast.RefreshConsumers();
 
-            // A new name is a new queue, so the old one goes. Turning the bus off isn't a rename:
-            // the name and its queue stay, holding what arrives until the bus is turned back on.
+            // A new name is a new queue, so the old one goes, and so does sending none: that takes
+            // the type off the bus for good. Turning the bus off with the name kept is a pause, not
+            // a rename: the queue stays, holding what arrives until the bus is turned back on.
             if (!string.IsNullOrWhiteSpace(oldBusMessageTypeName)
-                && !string.IsNullOrWhiteSpace(entity.BusMessageTypeName)
                 && !string.Equals(oldBusMessageTypeName, entity.BusMessageTypeName, System.StringComparison.OrdinalIgnoreCase))
                 await brokerQueues.DeleteInformationTypeLane(oldBusMessageTypeName);
             return null;

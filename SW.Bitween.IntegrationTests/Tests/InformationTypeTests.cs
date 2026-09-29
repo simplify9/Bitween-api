@@ -217,7 +217,7 @@ public class InformationTypeTests(BitweenFixture fixture)
         await Update(id, new DocumentUpdate { Name = Unique("Bus off"), BusEnabled = false });
 
         // Keeping the name is what pauses a type, and that is the caller's to ask for by sending
-        // it. A caller that sends none is taking the type off the bus for good.
+        // it. A caller that sends none is taking the type off the bus for good, queue and all.
         var stored = await Stored(id);
         Assert.False(stored.BusEnabled);
         Assert.True(string.IsNullOrEmpty(stored.BusMessageTypeName));
