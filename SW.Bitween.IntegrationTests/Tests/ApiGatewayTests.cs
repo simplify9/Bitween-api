@@ -1,8 +1,15 @@
+using System;
+using System.IO;
 using System.Linq;
+using System.Security.Claims;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SW.Bitween.Controllers;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.IntegrationTests.Fixtures;
@@ -62,6 +69,96 @@ public class ApiGatewayTests(BitweenFixture fixture)
         await db.SaveChangesAsync();
 
         return (partner.Id, document.Id, subscription.Id);
+    }
+
+    /// <summary>A gateway with one partner attached, holding one key named <c>orders-prod</c>.</summary>
+    private async Task<(string urlName, string key)> GatewayWithKey()
+    {
+        var urlName = Unique("keyed").ToLowerInvariant();
+        var key = Guid.NewGuid().ToString("N");
+
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var partner = new Partner(Unique("Key holder"));
+        partner.SetApiCredentials([new ApiCredential("orders-prod", key)]);
+        var doc = new Document(null, Unique("Keyed doc"), DocumentFormat.Json);
+        db.AddRange(partner, doc);
+        await db.SaveChangesAsync();
+
+        var subscription = new Subscription(Unique("Keyed sub"), doc.Id, SubscriptionType.GatewayApiCall)
+            { Inactive = false };
+        db.Add(subscription);
+        await db.SaveChangesAsync();
+
+        db.Add(new ApiGateway
+        {
+            Name = Unique("Keyed gateway"),
+            UrlName = urlName,
+            Partners = [new ApiGatewayPartner { PartnerId = partner.Id, SubscriptionId = subscription.Id }],
+        });
+        await db.SaveChangesAsync();
+        return (urlName, key);
+    }
+
+    private async Task<IActionResult> CallGateway(string urlName, string header, string value)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        scope.ServiceProvider.GetRequiredService<RequestContext>().Set(
+            new ClaimsPrincipal(new ClaimsIdentity()),
+            [new RequestValue(header, value, RequestValueType.HttpHeader)]);
+
+        var controller = ActivatorUtilities.CreateInstance<GatewayController>(scope.ServiceProvider);
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("{}"));
+        return await controller.Post($"{urlName}/async");
+    }
+
+    private static string Basic(string username, string password) =>
+        "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
+
+    [Theory]
+    [InlineData("partnerkey")]
+    [InlineData("bearer")]
+    [InlineData("basic")]
+    public async Task A_partner_key_is_accepted_in_any_of_the_three_places(string how)
+    {
+        // Many clients can only fill in a bearer token or a username and password, and cannot
+        // add a header of our own naming. It is the same key either way, so it opens the same door.
+        var (urlName, key) = await GatewayWithKey();
+        var (header, value) = how switch
+        {
+            "partnerkey" => ("partnerkey", key),
+            "bearer" => ("Authorization", $"Bearer {key}"),
+            _ => ("Authorization", Basic("orders-prod", key)),
+        };
+
+        Assert.IsType<AcceptedResult>(await CallGateway(urlName, header, value));
+    }
+
+    [Theory]
+    [InlineData("bearer-wrong-key")]
+    [InlineData("bearer-empty")]
+    [InlineData("basic-wrong-username")]
+    [InlineData("basic-key-as-username")]
+    [InlineData("basic-not-base64")]
+    [InlineData("other-scheme")]
+    public async Task A_partner_key_sent_any_other_way_is_refused(string how)
+    {
+        var (urlName, key) = await GatewayWithKey();
+        var value = how switch
+        {
+            "bearer-wrong-key" => $"Bearer {Guid.NewGuid():N}",
+            "bearer-empty" => "Bearer ",
+            // The password alone would find the partner, but a username naming some other key
+            // means the client is set up wrong — better refused now than accepted by accident.
+            "basic-wrong-username" => Basic("orders-test", key),
+            "basic-key-as-username" => Basic(key, ""),
+            "basic-not-base64" => "Basic not*base64",
+            _ => $"Digest {key}",
+        };
+
+        Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization", value));
     }
 
     [Theory]
