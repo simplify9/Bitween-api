@@ -32,14 +32,16 @@ export interface PartnerDraft {
   properties: KvRow[];
   /** Property names whose values the API hides; their values ride along as the sentinel. */
   secretProperties: string[];
+  loginIdentity: string;
 }
 
 export const partnerDraftOf = (
-  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties">,
+  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties" | "loginIdentity">,
 ): PartnerDraft => ({
   name: p.name,
   properties: toRows(p.adapterProperties),
   secretProperties: [...p.secretProperties],
+  loginIdentity: p.loginIdentity ?? "",
 });
 
 export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean =>
@@ -48,7 +50,8 @@ export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean 
   // Locking a property changes nothing about its value, so the value comparison above
   // cannot see it — without this the save bar never appears for a lock on its own.
   JSON.stringify([...draft.secretProperties].sort()) !==
-    JSON.stringify([...saved.secretProperties].sort());
+    JSON.stringify([...saved.secretProperties].sort()) ||
+  draft.loginIdentity.trim() !== saved.loginIdentity.trim();
 
 /** What the host sends to `updatePartner`. */
 export const partnerChanges = (draft: PartnerDraft) => ({
@@ -58,6 +61,7 @@ export const partnerChanges = (draft: PartnerDraft) => ({
   secretProperties: draft.secretProperties.filter((n) =>
     draft.properties.some((r) => r.key.trim().toLowerCase() === n.toLowerCase()),
   ),
+  loginIdentity: draft.loginIdentity.trim() || null,
 });
 
 export function PartnerFields({
@@ -137,6 +141,28 @@ export function PartnerFields({
             );
           }}
         />
+      </Panel>
+
+      <Panel
+        title="Login server identity"
+        description="For gateways that take tokens from a login server instead of API keys."
+      >
+        <div className="max-w-md">
+          <Field
+            label="Identity"
+            htmlFor="pf-login-identity"
+            hint="The value this partner's tokens carry in the gateway's partner claim (usually sub). Their IT team can tell you. Leave empty if the partner only calls with API keys."
+          >
+            <TextInput
+              id="pf-login-identity"
+              value={draft.loginIdentity}
+              disabled={!canEdit}
+              className="font-mono"
+              placeholder="e.g. acme-orders"
+              onChange={(e) => onChange({ ...draft, loginIdentity: e.target.value })}
+            />
+          </Field>
+        </div>
       </Panel>
 
       <Panel

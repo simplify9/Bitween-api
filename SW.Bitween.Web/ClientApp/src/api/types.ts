@@ -224,6 +224,11 @@ export interface Partner {
    * unchanged to mean "keep what is stored"; only a value the operator retypes is ever sent.
    */
   secretProperties: string[];
+  /**
+   * The value a login server's tokens carry for this partner, for gateways that take tokens.
+   * Only the detail endpoint returns it, so lists leave it out.
+   */
+  loginIdentity?: string | null;
   /** The built-in SYSTEM partner can't be renamed or deleted. */
   isSystem: boolean;
   createdOn: string;
@@ -770,6 +775,19 @@ export interface ApiGatewayAttachment {
   partnerName: string;
   subscriptionId: number;
   subscriptionName: string;
+  /** null when the partner has none — it can't call a gateway that takes tokens. */
+  partnerLoginIdentity: string | null;
+}
+/** How a gateway's callers prove who they are: the gateway chooses, not the caller. */
+export type GatewayAuthMethod = "PartnerKey" | "Jwt";
+export interface GatewayAuthentication {
+  method: GatewayAuthMethod;
+  /** Jwt: the login server, exactly as its tokens name it in `iss`. */
+  issuer: string;
+  /** Jwt: the `aud` a token must carry, so tokens meant for other systems are refused. */
+  audience: string;
+  /** Jwt: the claim holding the partner's login server identity; empty means `sub`. */
+  partnerClaim: string;
 }
 export interface ApiGateway {
   id: number;
@@ -785,6 +803,7 @@ export interface ApiGatewayRow extends ApiGateway {
 }
 export interface ApiGatewayDetail extends ApiGateway {
   attachments: ApiGatewayAttachment[];
+  authentication: GatewayAuthentication;
 }
 
 // ——— Bus gateways ———
