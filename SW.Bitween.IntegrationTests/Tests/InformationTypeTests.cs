@@ -205,7 +205,7 @@ public class InformationTypeTests(BitweenFixture fixture)
     }
 
     [Fact]
-    public async Task Turning_the_bus_off_drops_the_message_name_with_it()
+    public async Task Turning_the_bus_off_with_no_name_drops_it()
     {
         var id = await Create(new DocumentCreate
         {
@@ -216,10 +216,50 @@ public class InformationTypeTests(BitweenFixture fixture)
 
         await Update(id, new DocumentUpdate { Name = Unique("Bus off"), BusEnabled = false });
 
-        // A name left behind on a disabled type still occupies the namespace, so the next type
-        // that wants it is refused for a reason nothing on screen explains.
+        // Keeping the name is what pauses a type, and that is the caller's to ask for by sending
+        // it. A caller that sends none is taking the type off the bus for good.
         var stored = await Stored(id);
         Assert.False(stored.BusEnabled);
         Assert.True(string.IsNullOrEmpty(stored.BusMessageTypeName));
+    }
+
+    [Fact]
+    public async Task Turning_the_bus_off_with_its_name_pauses_it()
+    {
+        var busName = Unique("PausedMessage");
+        var id = await Create(new DocumentCreate
+        {
+            Name = Unique("Bus paused"),
+            BusEnabled = true,
+            BusMessageTypeName = busName,
+        });
+
+        await Update(id, new DocumentUpdate { Name = Unique("Bus paused"), BusEnabled = false, BusMessageTypeName = busName });
+
+        // The name is what finds its queue again when the bus is turned back on.
+        var stored = await Stored(id);
+        Assert.False(stored.BusEnabled);
+        Assert.Equal(busName, stored.BusMessageTypeName);
+    }
+
+    [Fact]
+    public async Task A_paused_type_keeps_its_name_from_other_types_and_says_so()
+    {
+        var busName = Unique("HeldMessage");
+        var holderName = Unique("Bus holder");
+        var holder = await Create(new DocumentCreate { Name = holderName, BusEnabled = true, BusMessageTypeName = busName });
+        await Update(holder, new DocumentUpdate { Name = holderName, BusEnabled = false, BusMessageTypeName = busName });
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Create(new DocumentCreate
+        {
+            Name = Unique("Bus taker"),
+            BusEnabled = true,
+            BusMessageTypeName = busName,
+        }));
+
+        // Its queue is still collecting messages for it, which a second type on the name would
+        // consume. And "already publishes" is not what a paused type is doing, so it says which.
+        Assert.StartsWith("DUPLICATED_BUS_TYPE_NAME", ex.Message);
+        Assert.Contains($"'{holderName}' is paused on the bus", ex.Message);
     }
 }

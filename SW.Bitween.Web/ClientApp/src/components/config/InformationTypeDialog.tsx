@@ -6,8 +6,10 @@ import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Dialog } from "../ui/overlays";
 import { keys } from "../../api/queryKeys";
 import {
+  BusTypeRenameConfirm,
   EMPTY_INFORMATION_TYPE,
   InformationTypeFields,
+  renamesBusQueue,
   informationTypeChanges,
   informationTypeDirty,
   informationTypeDraftOf,
@@ -50,6 +52,7 @@ export function InformationTypeDialog({
   const seed = { ...EMPTY_INFORMATION_TYPE, busEnabled: busRequired };
   const [draft, setDraft] = useState<InformationTypeDraft | null>(typeId === null ? seed : null);
   const [saved, setSaved] = useState<InformationTypeDraft | null>(typeId === null ? seed : null);
+  const [confirmingRename, setConfirmingRename] = useState(false);
 
   useEffect(() => {
     if (existing.data && draft === null) {
@@ -106,6 +109,7 @@ export function InformationTypeDialog({
             canEdit={canEdit}
             busRequired={busRequired}
             idPrefix="itd"
+            saved={existing.data}
           />
 
           <FormError>{save.error?.message}</FormError>
@@ -122,12 +126,27 @@ export function InformationTypeDialog({
               variant="primary"
               busy={save.isPending}
               disabled={missing.length > 0 || (typeId !== null && !dirty)}
-              onClick={() => save.mutate()}
+              onClick={() =>
+                typeId !== null && renamesBusQueue(existing.data?.busMessageTypeName, draft)
+                  ? setConfirmingRename(true)
+                  : save.mutate()
+              }
             >
               {typeId === null ? "Create information type" : "Save changes"}
             </Button>
           </div>
         </div>
+      )}
+      {confirmingRename && typeId !== null && draft && existing.data?.busMessageTypeName && (
+        <BusTypeRenameConfirm
+          typeId={typeId}
+          from={existing.data.busMessageTypeName}
+          to={draft.busMessageTypeName.trim()}
+          onConfirm={async () => {
+            await save.mutateAsync();
+          }}
+          onClose={() => setConfirmingRename(false)}
+        />
       )}
     </Dialog>
   );

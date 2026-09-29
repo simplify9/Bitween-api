@@ -24,7 +24,7 @@ public class BrokerQueues(IBusDashboardDataService dashboardDataService,
 {
     private const string CacheKey = "bitween-all-queues";
 
-    /// <summary>How long a work group change waits for every instance to let go of its old queues.</summary>
+    /// <summary>How long a work group or information type change waits for every instance to let go of its old queues.</summary>
     private static readonly TimeSpan ReleaseWait = TimeSpan.FromSeconds(10);
 
     // One per request: a batch delete makes a call per queue, and a client each would be a
@@ -69,6 +69,10 @@ public class BrokerQueues(IBusDashboardDataService dashboardDataService,
             .ToList();
     }
 
+    /// <summary>An information type's front-door queue, as the bus names it from <see cref="BusService"/>'s message types.</summary>
+    public string InformationTypeQueue(string busMessageTypeName) =>
+        $"{Prefix}.{nameof(BusService)}.{busMessageTypeName}".ToLower();
+
     /// <summary>
     /// Deletes a work group's two lanes after the group is deleted or its bus message name
     /// changes. Never throws: see <see cref="DeleteReleased"/>.
@@ -80,6 +84,13 @@ public class BrokerQueues(IBusDashboardDataService dashboardDataService,
         var main = $"{Prefix}.{nameof(XchangeService)}.{busMessageName}".ToLower();
         return DeleteReleased([main, $"{main}{XchangeService.ResultQueueSuffix}".ToLower()]);
     }
+
+    /// <summary>
+    /// Deletes an information type's queue after the type is deleted or renamed on the bus.
+    /// Never throws: see <see cref="DeleteReleased"/>.
+    /// </summary>
+    public Task DeleteInformationTypeLane(string busMessageTypeName) =>
+        DeleteReleased([InformationTypeQueue(busMessageTypeName)]);
 
     /// <summary>
     /// The change that made these lanes obsolete is already saved, so a broker that can't be

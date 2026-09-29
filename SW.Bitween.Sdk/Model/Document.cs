@@ -32,7 +32,10 @@ namespace SW.Bitween.Model
         /// <summary>Required; the server rejects a create without it.</summary>
         public string Name { get; set; } = null!;
         public bool BusEnabled { get; set; }
-        /// <summary>Only meaningful when BusEnabled; null otherwise.</summary>
+        /// <summary>
+        /// Only meaningful when BusEnabled. Kept while the bus is off, which pauses the type: its
+        /// queue stays and fills, and turning the bus back on resumes it.
+        /// </summary>
         public string? BusMessageTypeName { get; set; }
         public int DuplicateInterval { get; set; }
 

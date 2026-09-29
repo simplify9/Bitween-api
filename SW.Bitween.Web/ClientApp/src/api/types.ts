@@ -1311,6 +1311,8 @@ export interface UnattendedQueue {
    * something still reads it, so it can't be deleted yet.
    */
   consumers: number;
+  /** Set when this is the queue of an information type paused on the bus. */
+  informationTypeId: number | null;
 }
 
 /** What a delete of unattended lanes did: a lane that couldn't go is skipped, not fatal. */

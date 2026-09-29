@@ -1,5 +1,7 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.PrimitiveTypes;
 
@@ -15,13 +17,18 @@ namespace SW.Bitween.Resources.Ops;
 /// something still reads it — a listener that outlived its work group, or another instance
 /// running different code during a deploy — so it isn't safe to delete.
 /// </param>
+/// <param name="InformationTypeId">
+/// Set when the lane is the queue of an information type paused on the bus: the type keeps its
+/// name and its queue, but has no consumer while paused, so its queue is listed here.
+/// </param>
 public record UnattendedQueueView(
     string QueueName,
     long Messages,
     long RetryMessages,
     long DeadMessages,
     int Queues,
-    long Consumers);
+    long Consumers,
+    int? InformationTypeId);
 
 /// <summary>
 /// Queues that exist in RabbitMQ under this instance's prefix that nothing here consumes.
@@ -44,6 +51,13 @@ public class UnattendedQueues(BrokerQueues brokerQueues,
 
         var lanes = await brokerQueues.FindUnattendedLanes();
 
+        var pausedTypes = (await dbContext.Set<Document>().AsNoTracking()
+                .Where(d => !d.BusEnabled && d.BusMessageTypeName != null && d.BusMessageTypeName != "")
+                .Select(d => new { d.Id, d.BusMessageTypeName })
+                .ToListAsync())
+            .GroupBy(d => brokerQueues.InformationTypeQueue(d.BusMessageTypeName), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+
         return lanes
             .Select(lane => new UnattendedQueueView(
                 lane.Key,
@@ -51,7 +65,8 @@ public class UnattendedQueues(BrokerQueues brokerQueues,
                 lane.Where(q => BrokerQueues.IsRetry(q.Name)).Sum(q => q.Messages),
                 lane.Where(q => BrokerQueues.IsBad(q.Name)).Sum(q => q.Messages),
                 lane.Count(),
-                lane.Sum(q => (long)q.Consumers)))
+                lane.Sum(q => (long)q.Consumers),
+                pausedTypes.TryGetValue(lane.Key, out var typeId) ? typeId : null))
             .OrderByDescending(l => l.Messages + l.RetryMessages + l.DeadMessages)
             .ThenBy(l => l.QueueName)
             .ToArray();

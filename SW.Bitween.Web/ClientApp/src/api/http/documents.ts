@@ -118,7 +118,8 @@ const documentBody = (t: Omit<InformationType, "id" | "createdOn">) => ({
   name: t.name,
   documentFormat: t.format,
   busEnabled: t.busEnabled,
-  busMessageTypeName: t.busEnabled ? t.busMessageTypeName : undefined,
+  // Sent with the bus off too: the name is what a paused type resumes on.
+  busMessageTypeName: t.busMessageTypeName || undefined,
   duplicateInterval: t.duplicateIntervalMinutes,
   disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
   promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
