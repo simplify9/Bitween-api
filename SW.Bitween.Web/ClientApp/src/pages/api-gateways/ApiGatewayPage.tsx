@@ -184,6 +184,8 @@ export function ApiGatewayPage() {
   const authProblem = authProblems(auth);
   const urlChanged = finishUrlName(urlName) !== g.urlName;
   const methodChanged = auth.method !== g.authentication.method;
+  const callChanged =
+    urlChanged || JSON.stringify(trimmedAuth(auth)) !== JSON.stringify(trimmedAuth(g.authentication));
   // The saved method, not the draft: the table shows who can call the gateway as it stands.
   const takesTokens = g.authentication.method === "Jwt";
   const claim = auth.partnerClaim.trim() || "sub";
@@ -302,6 +304,16 @@ export function ApiGatewayPage() {
           <div className="mt-4 border-t border-ink-100 pt-4">
             <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
               How a partner calls it
+              {/* It previews the draft, so an admin copying it before saving would hand out a
+                  call the gateway doesn't take yet. */}
+              {callChanged && (
+                <span
+                  className="ml-2 tracking-normal text-warn-700 normal-case"
+                  title="Partners can't call it this way until you save."
+                >
+                  — with your unsaved changes
+                </span>
+              )}
             </p>
             {auth.method === "Jwt" ? (
               <>

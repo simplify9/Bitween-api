@@ -35,7 +35,12 @@ namespace SW.Bitween
             if (par == null)
                 return (false, null, null);
 
-            var credential = par.ApiCredentials.Single(c => c.Key == partnerKey);
+            // The database may compare without regard to case (SQL Server and MySQL often do), so
+            // the row found can hold a key that only matches ignoring case. Keys are exact.
+            var credential = par.ApiCredentials
+                .SingleOrDefault(c => string.Equals(c.Key, partnerKey, StringComparison.Ordinal));
+            if (credential == null)
+                return (false, null, null);
             if (keyName != null && !string.Equals(keyName, credential.Name, StringComparison.OrdinalIgnoreCase))
                 return (false, null, null);
 

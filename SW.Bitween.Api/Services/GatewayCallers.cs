@@ -64,9 +64,11 @@ public class GatewayCallers(BitweenDbContext dbContext, IGatewayIssuers issuers,
         if (!"Bearer".Equals(scheme, StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(token))
             return null;
 
-        var keys = issuers.For(gateway.JwtIssuer);
+        BaseConfigurationManager keys;
         try
         {
+            // Inside the try too: a gateway row edited by hand can be JWT with no login server.
+            keys = issuers.For(gateway.JwtIssuer);
             // Read from the cache after the first time. Asked for here only so that a login server
             // we can't reach is logged as that: the token check swallows the failure and reports
             // it as a token signed with no keys, which sends whoever reads it after the partner.

@@ -81,7 +81,13 @@ describe("an API gateway's page", () => {
       }),
     ]);
 
-    await user.selectOptions(await screen.findByLabelText("Partners send"), "Jwt");
+    expect(await screen.findByText("How a partner calls it")).toBeVisible();
+    expect(screen.queryByText(/with your unsaved changes/)).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Partners send"), "Jwt");
+    // The instructions now describe a call the gateway won't take until this is saved.
+    expect(screen.getByText(/with your unsaved changes/)).toBeVisible();
+
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     expect(sent).toBeNull();
     expect(screen.getAllByText(/A full https:\/\/ address/).length).toBeGreaterThan(0);

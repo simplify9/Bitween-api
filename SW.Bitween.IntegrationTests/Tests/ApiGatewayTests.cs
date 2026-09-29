@@ -257,6 +257,23 @@ public class ApiGatewayTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task A_jwt_gateway_with_no_login_server_refuses_the_call_rather_than_failing_it()
+    {
+        // The API never saves one, but a row edited by hand can be JWT with no login server.
+        var (urlName, identity, _) = await JwtGateway();
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var gateway = await db.Set<ApiGateway>().SingleAsync(g => g.UrlName == urlName);
+            gateway.JwtIssuer = null;
+            await db.SaveChangesAsync();
+        }
+
+        Assert.IsType<UnauthorizedResult>(await CallGateway(urlName, "Authorization",
+            $"Bearer {fixture.LoginServer.Token(identity)}"));
+    }
+
+    [Fact]
     public async Task A_jwt_gateway_refuses_partner_keys()
     {
         // The gateway says which way in it speaks. Taking keys too would leave the old door open
