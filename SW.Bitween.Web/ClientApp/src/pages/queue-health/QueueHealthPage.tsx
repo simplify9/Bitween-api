@@ -1,12 +1,21 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, OctagonAlert, Unplug } from "lucide-react";
-import { api, type ConsumerHealth, type QueueLane, type QueueSeverity } from "../../api";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, OctagonAlert, Trash2, Unplug } from "lucide-react";
+import {
+  api,
+  type ConsumerHealth,
+  type QueueLane,
+  type QueueSeverity,
+  type UnattendedDeleteResult,
+  type UnattendedQueue,
+} from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { queueHealthTitle } from "../../components/config/shared";
 import { Panel } from "../../components/ui/Panel";
+import { ConfirmDialog } from "../../components/ui/overlays";
+import { useSessionCan } from "../../auth/guards";
 import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
@@ -126,8 +135,6 @@ export function QueueHealthPage() {
   if (isLoading || !data) return <LoadingBlock label="Reading queue statistics…" />;
 
   const { summary, consumers, retryBacklog, deadLetters, unattended, alerts } = data;
-  const unattendedMessages = unattended.reduce((n, q) => n + q.messages + q.retryMessages + q.deadMessages, 0);
-  const unattendedQueueCount = unattended.reduce((n, q) => n + q.queues, 0);
 
   // Same order inside every lane, so Work and Notifications line up row for row and
   // you can read one group's pair across the two sections. Anything that resolved to
@@ -301,60 +308,7 @@ export function QueueHealthPage() {
       </Panel>
 
       {/* — queues nothing declares — */}
-      {unattended.length > 0 && (
-        <Panel
-          title="Nobody is reading these"
-          description="Queues RabbitMQ still has that nothing here consumes. Deleting or renaming a work group or an information type leaves its queues behind, and every other view on this page is built from what this instance declares — so these appear nowhere else."
-          className="mb-4"
-        >
-          <p className="mb-3 text-[13px] text-ink-600">
-            <span className="font-medium text-ink-900">
-              {unattended.length} {unattended.length === 1 ? "lane" : "lanes"}
-            </span>{" "}
-            ({unattendedQueueCount} queues), holding{" "}
-            <span className={unattendedMessages > 0 ? "font-medium text-warn-700" : "font-medium text-ink-900"}>
-              {unattendedMessages} {unattendedMessages === 1 ? "message" : "messages"}
-            </span>
-            . Empty ones are only clutter; anything holding messages is stuck where nothing will
-            pick it up.
-          </p>
-          {/* Capped height rather than a disclosure: a long list stays scrollable and the
-              rows holding messages sort to the top, where they are seen without a click. */}
-          <div className="max-h-80 overflow-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="sticky top-0 bg-white">
-                <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
-                  <th className="py-2 pr-2">Queue</th>
-                  <th className="px-2 py-2 text-right">Queued</th>
-                  <th className="px-2 py-2 text-right">Retrying</th>
-                  <th className="px-2 py-2 text-right">Dead</th>
-                </tr>
-              </thead>
-              <tbody className="tabular-nums">
-                {/* Toned per cell, matching the lanes table: a lane with 57 dead and nothing
-                    queued should draw the eye to Dead, not to a highlighted zero. */}
-                {unattended.map((q) => (
-                  <tr key={q.queueName} className="border-b border-ink-50 last:border-0">
-                    <td className="py-1.5 pr-3">
-                      <code className="font-mono text-xs text-ink-600">{q.queueName}</code>
-                      {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-400">+{q.queues - 1}</span>}
-                    </td>
-                    <td className={`px-2 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
-                      {q.messages}
-                    </td>
-                    <td className={`px-2 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
-                      {q.retryMessages}
-                    </td>
-                    <td className={`px-2 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-400"}`}>
-                      {q.deadMessages}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Panel>
-      )}
+      {unattended.length > 0 && <UnattendedPanel unattended={unattended} />}
 
       {/* — backlogs — */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -407,5 +361,227 @@ export function QueueHealthPage() {
         </Panel>
       </div>
     </div>
+  );
+}
+
+type MessageCounts = Pick<UnattendedQueue, "messages" | "retryMessages" | "deadMessages">;
+
+/** "3 queued, 1 retrying and 57 dead", leaving out the zeros. */
+const messageBreakdown = (q: MessageCounts): string => {
+  const parts = [
+    q.messages > 0 && `${q.messages} queued`,
+    q.retryMessages > 0 && `${q.retryMessages} retrying`,
+    q.deadMessages > 0 && `${q.deadMessages} dead`,
+  ].filter((p): p is string => typeof p === "string");
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : parts[0];
+};
+
+function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
+  const queryClient = useQueryClient();
+  const canOperate = useSessionCan("monitoring.operate");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
+  const [outcome, setOutcome] = useState<UnattendedDeleteResult | null>(null);
+
+  const unattendedMessages = unattended.reduce((n, q) => n + q.messages + q.retryMessages + q.deadMessages, 0);
+  const unattendedQueueCount = unattended.reduce((n, q) => n + q.queues, 0);
+
+  // A lane something still reads can't be deleted, so it can't be ticked. Filtering the ticks
+  // through the current list also drops any whose lane has gone, or been picked up, since.
+  const deletable = unattended.filter((q) => q.consumers === 0);
+  const selected = deletable.filter((q) => picked.has(q.queueName));
+  const allSelected = deletable.length > 0 && selected.length === deletable.length;
+  const totals = selected.reduce(
+    (t, q) => ({
+      messages: t.messages + q.messages,
+      retryMessages: t.retryMessages + q.retryMessages,
+      deadMessages: t.deadMessages + q.deadMessages,
+      queues: t.queues + q.queues,
+    }),
+    { messages: 0, retryMessages: 0, deadMessages: 0, queues: 0 },
+  );
+  const selectedMessages = totals.messages + totals.retryMessages + totals.deadMessages;
+
+  const toggle = (name: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+
+  return (
+    <Panel
+      title="Nobody is reading these"
+      description="Queues RabbitMQ still has that nothing here consumes: a paused information type's, or ones an older version of Bitween left behind when a work group or information type was deleted or renamed. Every other view on this page is built from what this instance declares, so these appear nowhere else."
+      className="mb-4"
+    >
+      <p className="mb-3 text-[13px] text-ink-600">
+        <span className="font-medium text-ink-900">
+          {unattended.length} {unattended.length === 1 ? "lane" : "lanes"}
+        </span>{" "}
+        ({unattendedQueueCount} queues), holding{" "}
+        <span className={unattendedMessages > 0 ? "font-medium text-warn-700" : "font-medium text-ink-900"}>
+          {unattendedMessages} {unattendedMessages === 1 ? "message" : "messages"}
+        </span>
+        . Empty ones are only clutter; anything holding messages is stuck where nothing will
+        pick it up.
+      </p>
+
+      {outcome && (
+        <div className="mb-3 flex items-start justify-between gap-3 rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-700">
+          <div>
+            <p>
+              Deleted {outcome.deleted.length} {outcome.deleted.length === 1 ? "lane" : "lanes"}.
+              {outcome.skipped.length > 0 && ` Skipped ${outcome.skipped.length}:`}
+            </p>
+            {outcome.skipped.length > 0 && (
+              <ul className="mt-1 space-y-0.5">
+                {outcome.skipped.map((s) => (
+                  <li key={s.queueName}>
+                    <code className="font-mono text-xs">{s.queueName}</code> — {s.reason}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => setOutcome(null)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      {canOperate && selected.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 px-3 py-2">
+          <span className="text-sm text-ink-700">
+            <strong className="font-semibold">{selected.length}</strong> selected
+            {selectedMessages > 0 && (
+              <span className="text-warn-700">
+                {" "}
+                — holding {selectedMessages} {selectedMessages === 1 ? "message" : "messages"}
+              </span>
+            )}
+          </span>
+          <span className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>
+              Clear
+            </Button>
+            <Button size="sm" variant="danger" onClick={() => setConfirming(true)}>
+              <Trash2 className="size-3.5" aria-hidden />
+              Delete selected…
+            </Button>
+          </span>
+        </div>
+      )}
+
+      {/* Capped height rather than a disclosure: a long list stays scrollable and the
+          rows holding messages sort to the top, where they are seen without a click. */}
+      <div className="max-h-80 overflow-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="sticky top-0 bg-white">
+            <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              {canOperate && (
+                <th className="w-7 py-2">
+                  <input
+                    type="checkbox"
+                    aria-label="Select every lane that can be deleted"
+                    title="Select every lane that can be deleted"
+                    className="size-3.5 cursor-pointer accent-crimson-600"
+                    checked={allSelected}
+                    disabled={deletable.length === 0}
+                    onChange={() =>
+                      setPicked(allSelected ? new Set() : new Set(deletable.map((q) => q.queueName)))
+                    }
+                  />
+                </th>
+              )}
+              <th className="py-2 pr-2">Queue</th>
+              <th className="px-2 py-2 text-right">Queued</th>
+              <th className="px-2 py-2 text-right">Retrying</th>
+              <th className="px-2 py-2 text-right">Dead</th>
+            </tr>
+          </thead>
+          <tbody className="tabular-nums">
+            {/* Toned per cell, matching the lanes table: a lane with 57 dead and nothing
+                queued should draw the eye to Dead, not to a highlighted zero. */}
+            {unattended.map((q) => (
+              <tr key={q.queueName} className="border-b border-ink-50 last:border-0">
+                {canOperate && (
+                  <td className="py-1.5">
+                    {q.consumers === 0 && (
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${q.queueName}`}
+                        className="size-3.5 cursor-pointer accent-crimson-600"
+                        checked={picked.has(q.queueName)}
+                        onChange={() => toggle(q.queueName)}
+                      />
+                    )}
+                  </td>
+                )}
+                <td className="py-1.5 pr-3">
+                  <code className="font-mono text-xs text-ink-600">{q.queueName}</code>
+                  {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-400">+{q.queues - 1}</span>}
+                  {q.consumers > 0 && (
+                    <Badge
+                      className="ml-2"
+                      title="Something still has a listener on these queues, so they can't be deleted yet."
+                    >
+                      In use
+                    </Badge>
+                  )}
+                </td>
+                <td className={`px-2 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                  {q.messages}
+                </td>
+                <td className={`px-2 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                  {q.retryMessages}
+                </td>
+                <td className={`px-2 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-400"}`}>
+                  {q.deadMessages}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {confirming && selected.length > 0 && (
+        <ConfirmDialog
+          title={selected.length === 1 ? "Delete these queues?" : `Delete ${selected.length} lanes?`}
+          body={
+            <div className="space-y-2">
+              <p>
+                {selected.length === 1 ? (
+                  <>
+                    <code className="font-mono text-xs text-ink-800">{selected[0].queueName}</code>
+                    {selected[0].queues > 1 &&
+                      ` and its ${selected[0].queues - 1} retry/dead ${selected[0].queues === 2 ? "queue" : "queues"}`}
+                  </>
+                ) : (
+                  `${selected.length} lanes (${totals.queues} queues)`
+                )}{" "}
+                will be deleted from RabbitMQ.
+              </p>
+              {selectedMessages > 0 ? (
+                <p className="font-medium text-danger-700">
+                  {selectedMessages === 1 ? "They still hold 1 message" : `They still hold ${selectedMessages} messages`} (
+                  {messageBreakdown(totals)}), which will be deleted with them.
+                </p>
+              ) : (
+                <p>{selected.length === 1 ? "They're empty." : "They're all empty."}</p>
+              )}
+            </div>
+          }
+          confirmLabel={selected.length === 1 ? "Delete queues" : `Delete ${selected.length} lanes`}
+          onConfirm={async () => {
+            setOutcome(await api.deleteUnattendedQueues(selected.map((q) => q.queueName)));
+            setPicked(new Set());
+            await queryClient.invalidateQueries({ queryKey: keys.queueHealth });
+          }}
+          onClose={() => setConfirming(false)}
+        />
+      )}
+    </Panel>
   );
 }

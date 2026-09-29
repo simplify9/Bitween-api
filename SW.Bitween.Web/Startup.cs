@@ -91,6 +91,7 @@ namespace SW.Bitween.Web
             services.AddScoped<MappingContextFactory>();
             services.AddScoped<XchangeService>();
             services.AddScoped<Resources.Ops.LaneResolver>();
+            services.AddScoped<Resources.Ops.BrokerQueues>();
             services.AddScoped<AdapterRequirements>();
             services.AddHttpContextAccessor();
 
