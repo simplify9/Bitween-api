@@ -375,10 +375,20 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
             });
 
+            modelBuilder.Entity<NotificationChannel>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.HasIndex(p => p.Name).IsUnique();
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.HandlerProperties).StoreAsJson();
+            });
+
             modelBuilder.Entity<XchangeNotification>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+                b.HasIndex(p => new { p.ChannelId, p.FinishedOn });
             });
 
             modelBuilder.Entity<Account>(b =>
@@ -504,6 +514,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     cp => cp == null ? null : JsonSerializer.Serialize(cp, _polymorphicOpts),
                     json => json == null ? null : JsonSerializer.Deserialize<CustomRetryPolicy>(json, _polymorphicOpts)
                 );
+                b.Property(s => s.Notifications).StoreAsJson();
             });
 
             modelBuilder.Entity<DelayedRetry>(b =>

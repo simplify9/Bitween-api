@@ -11,9 +11,26 @@ import { Checkbox, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 import { keys } from "../../api/queryKeys";
+import { NotificationChannelsPanel } from "./NotificationChannelsPanel";
 
-/** Sections, in the order the backend catalog lists them. */
-const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section))];
+/**
+ * Not a catalog section: channels are records with their own dialog, not key/value settings.
+ * Listed with the sections all the same, because they are instance-wide configuration and this
+ * is where an administrator looks for it.
+ */
+const CHANNELS_SECTION = "Notification channels";
+
+/**
+ * Sections, in the order the backend catalog lists them, with channels placed after reliability —
+ * what a retry alert is sent through sits next to when retries run.
+ */
+const sectionsOf = (rows: SettingRow[], withChannels: boolean): string[] => {
+  const sections = [...new Set(rows.map((r) => r.section))];
+  if (!withChannels) return sections;
+  const after = sections.indexOf("Reliability & jobs");
+  sections.splice(after === -1 ? sections.length : after + 1, 0, CHANNELS_SECTION);
+  return sections;
+};
 
 /**
  * The one section with a reset-the-lot button, and deliberately the only one.
@@ -227,12 +244,13 @@ function SettingRowEditor({
  */
 export function SettingsPage() {
   const canEdit = useSessionCan("settings.edit");
+  const canViewChannels = useSessionCan("notifiers.view");
   const queryClient = useQueryClient();
   const { data: rows, isLoading } = useQuery({ queryKey: keys.settings.list, queryFn: () => api.listSettings() });
   const draft = useSettingsDraft();
 
   const [searchParams] = useSearchParams();
-  const sections = sectionsOf(rows ?? []);
+  const sections = sectionsOf(rows ?? [], canViewChannels);
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
   // Real links, so a section is a URL an administrator can paste into a ticket.
@@ -350,7 +368,7 @@ export function SettingsPage() {
               <h2 className="text-[15px] font-semibold text-ink-900">{section}</h2>
               {/* Stages a reset per row rather than writing: the draft previews the stock
                   branding across the whole app, and Discard puts it all back untouched. */}
-              {resettable.length > 0 && (
+              {section !== CHANNELS_SECTION && resettable.length > 0 && (
                 <Button size="sm" onClick={() => resettable.forEach((r) => settingsDraft.stage(r, null))}>
                   <RotateCcw className="size-3.5" aria-hidden />
                   Reset all to default
@@ -364,15 +382,19 @@ export function SettingsPage() {
               </p>
             )}
           </div>
-          <div className="divide-y divide-ink-100">
-            {sectionRows.map((row) =>
-              row.access === "editable" ? (
-                <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
-              ) : (
-                <EnvironmentSettingRow key={row.key} row={row} />
-              ),
-            )}
-          </div>
+          {section === CHANNELS_SECTION ? (
+            <NotificationChannelsPanel />
+          ) : (
+            <div className="divide-y divide-ink-100">
+              {sectionRows.map((row) =>
+                row.access === "editable" ? (
+                  <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
+                ) : (
+                  <EnvironmentSettingRow key={row.key} row={row} />
+                ),
+              )}
+            </div>
+          )}
         </div>
       </div>
 

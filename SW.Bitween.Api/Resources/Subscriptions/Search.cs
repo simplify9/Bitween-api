@@ -82,6 +82,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     ResponseSubscriptionId = subscriber.ResponseSubscriptionId,
                     ResponseMessageTypeName = subscriber.ResponseMessageTypeName,
                     RunOnBadResponses = subscriber.RunOnBadResponses,
+                    Notifications = subscriber.Notifications,
                 };
 
             query = query.AsNoTracking().AsQueryable();

@@ -20,7 +20,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     FilterService filterService,
     ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
     IPublish publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
-    IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery) :
+    IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery,
+    NotificationChannelSender channelSender) :
     // IConsume<ApiXchangeCreatedEvent>,
     // IConsume<InternalXchangeCreatedEvent>,
     // IConsume<AggregateXchangeCreatedEvent>,
@@ -797,6 +798,64 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                     break;
             }
         }
+
+        await NotifyThroughChannels(xchange, xchangeResult);
+    }
+
+    /// <summary>
+    /// Sends the subscription's own notifications — the ones set on the subscription, each naming
+    /// a channel and the outcomes it cares about. Runs after the legacy notifiers, which still fire.
+    /// </summary>
+    private async Task NotifyThroughChannels(Xchange xchange, XchangeResult xchangeResult)
+    {
+        if (xchange.SubscriptionId == null) return;
+
+        // The cache holds active subscriptions only, and an exchange can finish just after its
+        // subscription was switched off. What it was set to notify still applies to that exchange.
+        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange.SubscriptionId.Value)
+                           ?? await dbContext.Set<Subscription>().AsNoTracking()
+                               .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId.Value);
+
+        var channelIds = (subscription?.Notifications ?? [])
+            .Where(n => xchangeResult.Success
+                ? xchangeResult.ResponseBad ? n.OnBadResult : n.OnSuccess
+                : n.OnFailure)
+            .Select(n => n.ChannelId)
+            .Distinct()
+            .ToList();
+        if (channelIds.Count == 0) return;
+
+        var payload = await BuildResultNotification(xchange, xchangeResult, subscription!.Name);
+        foreach (var channelId in channelIds)
+        {
+            var outcome = await channelSender.Send(channelId, payload, xchangeResult.Id,
+                xchange.CorrelationId ?? xchange.Id);
+            dbContext.Add(XchangeNotification.ForChannel(xchangeResult.Id, channelId, outcome.ChannelName,
+                outcome.Error));
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
+    private async Task<XchangeResultNotification> BuildResultNotification(Xchange xchange,
+        XchangeResult xchangeResult, string subscriptionName)
+    {
+        var document = await BitweenCache.DocumentByIdAsync(xchange.DocumentId);
+        return new XchangeResultNotification
+        {
+            Id = xchangeResult.Id,
+            Exception = xchangeResult.Exception,
+            Success = xchangeResult.Success,
+            FinishedOn = xchangeResult.FinishedOn,
+            OutputBad = xchangeResult.OutputBad,
+            ResponseBad = xchangeResult.ResponseBad,
+            StartedOn = xchange.StartedOn,
+            SubscriptionName = subscriptionName,
+            SubscriptionId = xchange.SubscriptionId!.Value,
+            DocumentName = document.Name,
+            DocumentId = document.Id,
+            CorrelationId = xchange.CorrelationId
+        };
     }
 
     private async Task NotifyResult(Notifier notifier, XchangeResult xchangeResult, string correlationId)
@@ -807,23 +866,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         var xchange = await dbContext.FindAsync<Xchange>(xchangeResult.Id);
         var subscription = await BitweenCache.SubscriptionByIdAsync(xchange!.SubscriptionId!.Value);
-        var document = await BitweenCache.DocumentByIdAsync(xchange.DocumentId);
-
-        var notificationData = new XchangeResultNotification
-        {
-            Id = xchangeResult.Id,
-            Exception = xchangeResult.Exception,
-            Success = xchangeResult.Success,
-            FinishedOn = xchangeResult.FinishedOn,
-            OutputBad = xchangeResult.OutputBad,
-            ResponseBad = xchangeResult.ResponseBad,
-            StartedOn = xchange.StartedOn,
-            SubscriptionName = subscription.Name,
-            SubscriptionId = subscription.Id,
-            DocumentName = document.Name,
-            DocumentId = document.Id,
-            CorrelationId = xchange.CorrelationId
-        };
+        var notificationData = await BuildResultNotification(xchange, xchangeResult, subscription.Name);
 
         var handlerProperties = notifier.HandlerProperties.ToDictionary();
         handlerProperties["xchangeid"] = xchangeResult.Id;

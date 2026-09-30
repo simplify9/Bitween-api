@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
@@ -14,8 +14,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.RetryPolicies.Edit);
         RetryGroupValidation.EnsureCanFire(model.Groups);
-        RetryGroupValidation.EnsureAlertTransportIsSecure(
-            model.AlertHandlerId, model.AlertHandlerProperties);
+        await RetryGroupValidation.EnsureAlertChannelsExist(dbContext,
+            [model.AlertChannelId, ..RetryGroupValidation.AlertChannelIds(model.Groups)]);
 
         var entity = await dbContext.FindAsync<RetryPolicy>(key);
 
@@ -32,22 +32,9 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         // events — nothing reaches the bus before the commit.
         await using var transaction = await dbContext.Database.BeginTransactionAsync();
 
-        // Secrets came out of Get masked, so put them back from what this same level already holds.
-        // A group matched by id, because a group added in this very save has nothing to restore from.
-        foreach (var group in model.Groups ?? [])
-        {
-            var storedGroup = entity.Groups.FirstOrDefault(g => g.Id == group.Id);
-            AdapterSecretProperties.MergeInPlace(
-                storedGroup?.AlertHandlerProperties, group.AlertHandlerProperties);
-        }
-
-        var storedPolicyProperties = entity.AlertHandlerProperties;
-
         entity.Name = model.Name;
         entity.Groups = model.Groups ?? [];
-        entity.AlertHandlerId = model.AlertHandlerId;
-        entity.AlertHandlerProperties =
-            AdapterSecretProperties.Merge(storedPolicyProperties, model.AlertHandlerProperties);
+        entity.AlertChannelId = model.AlertChannelId;
         await dbContext.SaveChangesAsync();
 
         if (removedGroupIds.Count > 0)

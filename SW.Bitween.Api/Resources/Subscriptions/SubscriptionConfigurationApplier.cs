@@ -1,9 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
+using SW.Bitween.Resources.RetryPolicies;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.Subscriptions;
@@ -77,6 +78,30 @@ internal static class SubscriptionConfigurationApplier
                 $"Retry policy {model.RetryPolicyId} was not found.");
 
         entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
+
+        // Null leaves them as they are, so a caller that has never heard of notifications — an
+        // older client, a script — does not wipe them by saving something else.
+        if (model.Notifications != null)
+        {
+            await EnsureNotificationsCanSend(dbContext, model.Notifications);
+            entity.SetNotifications(model.Notifications);
+        }
+    }
+
+    private static async Task EnsureNotificationsCanSend(BitweenDbContext dbContext,
+        ICollection<SubscriptionNotification> notifications)
+    {
+        if (notifications.Any(n => !n.OnFailure && !n.OnBadResult && !n.OnSuccess))
+            throw new SWValidationException("NOTIFICATION_NO_OUTCOME",
+                "A notification has no outcome to send on. Tick at least one of failure, bad result " +
+                "or success, or remove it.");
+
+        if (notifications.GroupBy(n => n.ChannelId).Any(g => g.Count() > 1))
+            throw new SWValidationException("NOTIFICATION_CHANNEL_REPEATED",
+                "The same channel is listed twice. Tick every outcome it should send on in one row.");
+
+        await RetryGroupValidation.EnsureAlertChannelsExist(dbContext,
+            notifications.Select(n => (int?)n.ChannelId).ToArray());
     }
 
     private static Dictionary<string, string> MergeWithOriginal(

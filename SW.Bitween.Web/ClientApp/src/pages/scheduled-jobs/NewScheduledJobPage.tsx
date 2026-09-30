@@ -140,6 +140,8 @@ export function NewScheduledJobPage() {
   // are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Set once it exists, on its own page.
+    notifications: [],
     // Aggregation only, and this page never creates one.
     aggregationTarget: "Input",
     enabled: draft.enable,

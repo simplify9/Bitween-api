@@ -68,13 +68,23 @@ public class RetryGroup
     public RetryAlertMode AlertMode { get; init; } = RetryAlertMode.Inherit;
 
     /// <summary>
-    /// Adapter that delivers this group's alert. Required when <see cref="AlertMode"/> is
-    /// <see cref="RetryAlertMode.Send"/>, ignored otherwise.
+    /// The notification channel that delivers this group's alert. Required when
+    /// <see cref="AlertMode"/> is <see cref="RetryAlertMode.Send"/>, ignored otherwise.
     /// </summary>
-    public string? AlertHandlerId { get; init; }
+    /// <remarks>
+    /// Settable, unlike the rest of the group, only so the one-time move of
+    /// <see cref="AlertHandlerId"/> onto a channel can rewrite a stored group in place.
+    /// </remarks>
+    public int? AlertChannelId { get; set; }
 
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
-    public Dictionary<string, string>? AlertHandlerProperties { get; init; }
+    /// <summary>
+    /// Retired: alerts go through <see cref="AlertChannelId"/>. Read once, on the first boot after
+    /// channels existed, to turn the handler into a channel, and refused on save from then on.
+    /// </summary>
+    public string? AlertHandlerId { get; set; }
+
+    /// <summary>Retired along with <see cref="AlertHandlerId"/>.</summary>
+    public Dictionary<string, string>? AlertHandlerProperties { get; set; }
 }
 
 /// <summary>

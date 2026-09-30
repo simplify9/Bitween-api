@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,7 +40,7 @@ namespace SW.Bitween.Web
                 throw;
             }
 
-            host.ApplyStoredSettings().Run();
+            host.MoveRetryAlertsToChannels().ApplyStoredSettings().Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>

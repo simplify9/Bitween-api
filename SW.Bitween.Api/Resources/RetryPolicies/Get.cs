@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
@@ -8,15 +8,13 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.RetryPolicies;
 
-public class Get(BitweenDbContext dbContext, RequestContext requestContext, AdapterSecretProperties secrets)
+public class Get(BitweenDbContext dbContext, RequestContext requestContext)
     : IGetHandler<int, object>
 {
     public async Task<object> Handle(int key)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.RetryPolicies.View);
 
-        // Materialize first: AlertHandlerProperties is a JSON-converted dictionary, and EF cannot
-        // translate a further .ToDictionary() over it into SQL inside a projection.
         var policy = await dbContext.Set<RetryPolicy>()
             .AsNoTracking()
             .Search("Id", key)
@@ -24,18 +22,11 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Adap
 
         if (policy == null) return null;
 
-        // Every level that can carry a handler can carry that handler's password, so every level is
-        // masked. Groups are edited in place by the caller, which is what Update then merges back.
-        foreach (var group in policy.Groups)
-            await secrets.MaskInPlace(group.AlertHandlerId, group.AlertHandlerProperties);
-
         return new RetryPolicyUpdate
         {
             Name = policy.Name,
             Groups = policy.Groups,
-            AlertHandlerId = policy.AlertHandlerId,
-            AlertHandlerProperties =
-                await secrets.Mask(policy.AlertHandlerId, policy.AlertHandlerProperties)
+            AlertChannelId = policy.AlertChannelId
         };
     }
 }

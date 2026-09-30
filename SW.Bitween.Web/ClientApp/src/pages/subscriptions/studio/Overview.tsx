@@ -12,6 +12,7 @@ import { ReceiveAttemptsPanel, type AttemptKind } from "./ReceiveAttemptsPanel";
 import { RetryBudget } from "./RetryBudget";
 import { Fact } from "./Fact";
 import { LaneAndRetry } from "./LaneAndRetry";
+import { NotificationsPanel } from "./NotificationsPanel";
 import type { Draft, EntryPoint } from "./model";
 import { keys } from "../../../api/queryKeys";
 
@@ -264,6 +265,12 @@ export function Overview({
         </div>
 
         <div className="min-w-0 space-y-5">
+          <NotificationsPanel
+            value={draft.notifications}
+            onChange={(notifications) => set("notifications", notifications)}
+            canEdit={canEdit}
+          />
+
           {attemptKind === null && (
             <Can permission="exchanges.view">
               <Panel title="Recent exchanges" description="Latest traffic through this subscription.">
@@ -273,7 +280,7 @@ export function Overview({
           )}
 
           {s.watchingNotifiers.length > 0 && (
-            <Panel title="Watched by" description="Notifiers alerting on this subscription's outcomes.">
+            <Panel title="Legacy notifiers" description="Notifiers made before channels, still alerting on this subscription's outcomes.">
               <MiniTable
                 rows={s.watchingNotifiers}
                 rowKey={(n) => n.id}

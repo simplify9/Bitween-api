@@ -1,8 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using SW.Bitween.Model;
-using SW.Bitween.NativeAdapters.SmtpHandler;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.RetryPolicies;
@@ -44,13 +46,13 @@ public static class RetryGroupValidation
                     "delay, or change the action to block.");
 
             // An overriding level replaces the one above it rather than merging into it, so a group
-            // set to Send with no handler would silence the policy's alert instead of redirecting it.
-            if (group.AlertMode == RetryAlertMode.Send && string.IsNullOrWhiteSpace(group.AlertHandlerId))
-                throw new SWValidationException("RETRY_GROUP_ALERT_NO_HANDLER",
-                    $"Group '{group.Name}' is set to send its own budget alert but has no handler. " +
-                    "Choose a handler, or set the alert back to inherit.");
+            // set to Send with no channel would silence the policy's alert instead of redirecting it.
+            if (group.AlertMode == RetryAlertMode.Send && group.AlertChannelId == null)
+                throw new SWValidationException("RETRY_GROUP_ALERT_NO_CHANNEL",
+                    $"Group '{group.Name}' is set to send its own budget alert but has no channel. " +
+                    "Choose a notification channel, or set the alert back to inherit.");
 
-            EnsureAlertTransportIsSecure(group.AlertHandlerId, group.AlertHandlerProperties);
+            EnsureNoAlertHandler(group.AlertHandlerId);
         }
     }
 
@@ -58,51 +60,46 @@ public static class RetryGroupValidation
     /// Rejects an alert override that claims to send but names nothing to send with — the same trap
     /// as <see cref="EnsureCanFire"/> guards at group level.
     /// </summary>
-    public static void EnsureAlertCanSend(RetryAlertMode mode, string handlerId)
+    public static void EnsureAlertCanSend(RetryAlertMode mode, int? channelId)
     {
-        if (mode == RetryAlertMode.Send && string.IsNullOrWhiteSpace(handlerId))
-            throw new SWValidationException("RETRY_ALERT_NO_HANDLER",
-                "This override is set to send its own budget alert but has no handler. " +
-                "Choose a handler, or set it back to inherit.");
+        if (mode == RetryAlertMode.Send && channelId == null)
+            throw new SWValidationException("RETRY_ALERT_NO_CHANNEL",
+                "This override is set to send its own budget alert but has no channel. " +
+                "Choose a notification channel, or set it back to inherit.");
     }
 
     /// <summary>
-    /// Rejects mail alert settings that would hand the password to an unencrypted connection.
+    /// Refuses the handler a group used to carry. Alerts go through a channel now, and a handler
+    /// accepted here would be stored and never used.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The handler refuses this at send time too, which is the guarantee that matters — properties
-    /// can also arrive straight through the API or out of a global values set. Catching it here is
-    /// so the person configuring it finds out when they save, rather than from a missing alert and a
-    /// line in the log days later.
-    /// </para>
-    /// <para>
-    /// Only the mail handler is named, because only it has a password. A general answer belongs in
-    /// the adapter contract — an adapter saying which of its own settings conflict — not here.
-    /// </para>
-    /// </remarks>
-    public static void EnsureAlertTransportIsSecure(
-        string handlerId, IReadOnlyDictionary<string, string> properties)
+    private static void EnsureNoAlertHandler(string handlerId)
     {
-        if (properties == null || properties.Count == 0) return;
-        if (!nameof(NativeSmtpHandler).Equals(handlerId, StringComparison.OrdinalIgnoreCase)) return;
-
-        // A masked password counts as set: the sentinel means one is stored, not that the field is
-        // empty. Only an explicit "false" turns encryption off — absent means the adapter's own
-        // default, which is on.
-        var password = Value(properties, nameof(SmtpHandlerInput.Password));
-        var useTls = Value(properties, nameof(SmtpHandlerInput.UseTls));
-
-        if (string.IsNullOrWhiteSpace(password)) return;
-        if (!bool.TryParse(useTls, out var encrypted) || encrypted) return;
-
-        throw new SWValidationException("ALERT_PASSWORD_WITHOUT_TLS",
-            "This alert would send its mail password over an unencrypted connection. " +
-            "Turn UseTls on, or clear the password if the relay does not need one.");
+        if (!string.IsNullOrWhiteSpace(handlerId))
+            throw new SWValidationException("RETRY_ALERT_HANDLER_RETIRED",
+                "Alerts are sent through notification channels now. Set alertChannelId instead of " +
+                "alertHandlerId.");
     }
 
-    private static string Value(IReadOnlyDictionary<string, string> properties, string key) =>
-        properties.FirstOrDefault(kv => kv.Key.Equals(key, StringComparison.OrdinalIgnoreCase)).Value;
+    /// <summary>Refuses a channel id that names no channel.</summary>
+    public static async Task EnsureAlertChannelsExist(BitweenDbContext dbContext, params int?[] channelIds)
+    {
+        var wanted = channelIds.Where(id => id != null).Select(id => id!.Value).Distinct().ToList();
+        if (wanted.Count == 0) return;
+
+        var found = await dbContext.Set<NotificationChannel>()
+            .Where(c => wanted.Contains(c.Id))
+            .Select(c => c.Id)
+            .ToListAsync();
+
+        var missing = wanted.Except(found).ToList();
+        if (missing.Count > 0)
+            throw new SWValidationException("NOTIFICATION_CHANNEL_NOT_FOUND",
+                $"Notification channel {string.Join(", ", missing)} was not found.");
+    }
+
+    /// <summary>Every channel a set of groups sends through.</summary>
+    public static int?[] AlertChannelIds(IEnumerable<RetryGroup> groups) =>
+        (groups ?? []).Select(g => g.AlertChannelId).ToArray();
 
     private static string SupportedMatchersFor(XchangeResultType resultType) => resultType switch
     {

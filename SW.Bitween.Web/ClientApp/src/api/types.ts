@@ -320,9 +320,8 @@ export type RetryDelay =
  * Whether a level of the alert hierarchy names its own destination or defers upward.
  *
  * Resolved most-specific-first per subscription and group: the pair's own override, then
- * the group, then the policy. A level that sends **replaces** the one above rather than
- * merging with it, so whichever level wins has to carry the handler and every property
- * it needs.
+ * the group, then the policy. A level that sends **replaces** the one above: whichever
+ * level wins names the one notification channel the alert goes through.
  */
 export type RetryAlertMode = "Inherit" | "Send" | "Silent";
 
@@ -332,8 +331,7 @@ export type RetryAlertLevel = "SubscriptionGroup" | "Group" | "Policy";
 /** A destination for budget-exhausted alerts, as configured at one level. */
 export interface RetryAlertConfig {
   alertMode: RetryAlertMode;
-  alertHandlerId: string | null;
-  alertHandlerProperties: Record<string, string>;
+  alertChannelId: number | null;
 }
 
 export interface RetryGroup {
@@ -351,8 +349,7 @@ export interface RetryGroup {
   notes?: string;
   /** Where this group's budget-exhausted alert goes, for every subscription using the policy. */
   alertMode: RetryAlertMode;
-  alertHandlerId: string | null;
-  alertHandlerProperties: Record<string, string>;
+  alertChannelId: number | null;
 }
 
 export interface RetryPolicy {
@@ -360,9 +357,8 @@ export interface RetryPolicy {
   name: string;
   groups: RetryGroup[];
   createdOn: string;
-  /** The policy-wide alert destination, inherited by every group that doesn't name its own. */
-  alertHandlerId: string | null;
-  alertHandlerProperties: Record<string, string>;
+  /** The policy-wide alert channel, inherited by every group that doesn't name its own. */
+  alertChannelId: number | null;
 }
 export interface RetryPolicyListRow {
   id: number;
@@ -411,9 +407,8 @@ export interface RetryUsageRow {
   exhausted: boolean;
   /** Null when the pair has never failed — also how you know there is no counter to reset. */
   lastAttemptOn: string | null;
-  /** Where the alert actually goes, or null when nothing sends for this pair. */
-  resolvedHandlerId: string | null;
-  resolvedHandlerProperties: Record<string, string>;
+  /** The channel the alert actually goes through, or null when nothing sends for this pair. */
+  resolvedChannelId: number | null;
   resolvedFrom: RetryAlertLevel | null;
   /** Which level deliberately switched the alert off — a decision, as against an oversight. */
   silencedAt: RetryAlertLevel | null;
@@ -480,6 +475,46 @@ export interface NotificationEntry {
 
 export interface NotifierDetail extends Notifier {
   recentNotifications: NotificationEntry[];
+}
+
+/**
+ * Somewhere Bitween can send a notification: a handler adapter (built in or custom) and
+ * everything it needs to deliver. Set up once in Settings; every place that notifies picks one.
+ */
+export interface NotificationChannel {
+  id: number;
+  name: string;
+  handlerId: string;
+  handlerProperties: Record<string, string>;
+}
+
+export type NotificationChannelUseKind = "Subscription" | "RetryPolicy" | "RetryGroup" | "RetryAlertOverride";
+
+/** One place that sends through a channel. */
+export interface NotificationChannelUse {
+  kind: NotificationChannelUseKind;
+  subscriptionId: number | null;
+  retryPolicyId: number | null;
+  name: string;
+}
+
+export interface NotificationChannelRow {
+  id: number;
+  name: string;
+  handlerId: string;
+  usedBy: NotificationChannelUse[];
+}
+
+export interface NotificationChannelDetail extends NotificationChannel {
+  usedBy: NotificationChannelUse[];
+}
+
+/** When a subscription's finished exchanges are reported, and through which channel. */
+export interface SubscriptionNotification {
+  channelId: number;
+  onFailure: boolean;
+  onBadResult: boolean;
+  onSuccess: boolean;
 }
 
 // ——— Subscriptions (subscriptions) ———
@@ -629,6 +664,8 @@ export interface Subscription {
   responseMessageTypeName: string | null;
   /** Response type only: also run when the delivery that fed it came back bad. */
   runOnBadResponses: boolean;
+  /** Which finished exchanges are reported, and through which notification channel. */
+  notifications: SubscriptionNotification[];
   /**
    * Aggregation only: whose exchanges get rolled up. Fixed at creation — the backend
    * property has a private setter and the configuration applier deliberately skips it,

@@ -226,6 +226,12 @@ namespace SW.Bitween.Model
         /// </summary>
         public bool RunOnBadResponses { get; set; }
 
+        /// <summary>
+        /// Which finished exchanges are reported, and through which notification channel. Null
+        /// leaves what is stored alone; an empty list clears it.
+        /// </summary>
+        public ICollection<SubscriptionNotification>? Notifications { get; set; }
+
         public int? RetryPolicyId { get; set; }
         public CustomRetryPolicy? CustomRetryPolicy { get; set; }
 

@@ -128,6 +128,13 @@ export const keys = {
     detail: (id: string) => ["value-sets", "detail", id] as const,
   },
 
+  notificationChannels: {
+    all: ["notification-channels"] as const,
+    list: ["notification-channels", "list"] as const,
+    lookup: ["notification-channels", "lookup"] as const,
+    detail: (id: number | string) => ["notification-channels", "detail", id] as const,
+  },
+
   notifiers: {
     all: ["notifiers"] as const,
     list: ["notifiers", "list"] as const,
@@ -213,6 +220,7 @@ export function applyQueryDefaults(queryClient: QueryClient): void {
     keys.retryPolicies.all,
     keys.valueSets.all,
     keys.notifiers.all,
+    keys.notificationChannels.all,
     keys.roles.all,
     keys.users.all,
     keys.apiGateways.all,

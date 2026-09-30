@@ -7,10 +7,11 @@ import { Can, useSessionCan } from "../../auth/guards";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
+import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
-import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { NotificationChannelPicker } from "../../components/config/pickers";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
 import { GroupDialog } from "./GroupDialog";
 import { UsagePanel } from "./UsagePanel";
 import { BackLink } from "../../components/ui/BackLink";
@@ -116,106 +117,45 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
 }
 
 /**
- * The policy-wide alert, summarised — with its adapter form behind a dialog.
- *
- * Left open, a mail handler's thirteen fields filled the whole column and left the groups
- * table sitting beside a void; two columns of them inside a 360px rail wrapped every address
- * onto three lines. It is also set once and rarely revisited, where everything around it is
- * read on every visit, so it had the run of the page on the strength of being the longest
- * form rather than the most useful one.
- *
- * A dialog makes the three levels consistent too: a group routes its own alert in the group
- * dialog, one subscription-and-group pair in the override dialog, and the policy default here.
- * All three stage into the same save bar.
+ * The policy-wide alert: which notification channel it goes through, staged into the page's save
+ * bar like everything else. A group routes its own alert in the group dialog, and one
+ * subscription-and-group pair in the override dialog.
  */
 function PolicyAlertCard({
-  handlerId,
-  properties,
+  channelId,
   groups,
   canEdit,
   onChange,
 }: {
-  handlerId: string | null;
-  properties: Record<string, string>;
+  channelId: number | null;
   groups: RetryGroup[];
   canEdit: boolean;
-  onChange: (handlerId: string | null, properties: Record<string, string>) => void;
+  onChange: (channelId: number | null) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draftId, setDraftId] = useState(handlerId);
-  const [draftProps, setDraftProps] = useState(properties);
+  const channels = useNotificationChannelNames();
+  const channelName = channels.data?.find((c) => c.id === channelId)?.name;
 
   // Only a group that retries within a total can exhaust a budget, so only those can inherit an alert.
   const canAlert = groups.filter((g) => g.action === "Allow" && g.budget?.maxAttemptsTotal !== null);
   const inheriting = canAlert.filter((g) => g.alertMode === "Inherit");
 
-  const open = () => {
-    setDraftId(handlerId);
-    setDraftProps(properties);
-    setEditing(true);
-  };
-
   return (
     <Panel
       title="Budget-exhausted alert"
       description="Sent when a group stops retrying. Groups and single subscriptions can each route their own instead."
-      action={
-        canEdit ? (
-          <Button size="sm" onClick={open}>
-            {handlerId ? "Change" : "Set up"}
-          </Button>
-        ) : undefined
-      }
     >
-      {handlerId ? (
-        <>
-          <p className="font-mono text-[13px] text-ink-800">{handlerId}</p>
-          <p className="mt-1 text-[13px] text-ink-500">
-            {inheriting.length === 0
-              ? "No group inherits it — each one routes its own alert, or is silent."
-              : `${inheriting.length} of ${canAlert.length} ${canAlert.length === 1 ? "group sends" : "groups send"} here.`}
-          </p>
-        </>
+      {canEdit ? (
+        <NotificationChannelPicker value={channelId} onChange={onChange} clearLabel="No alert" />
       ) : (
-        <p className="text-[13px] text-ink-500">
-          No alert. Nothing is sent when a budget runs out, unless a group or a single
-          subscription routes one itself.
-        </p>
+        <p className="text-[13px] text-ink-800">{channelName ?? (channelId === null ? "No alert" : "…")}</p>
       )}
-
-      {editing && (
-        <Dialog title="Budget-exhausted alert" onClose={() => setEditing(false)} wide>
-          <div className="space-y-4">
-            <p className="text-[13px] text-ink-500">
-              Where this policy sends an alert when any of its groups stops retrying. Saved with
-              the rest of the page.
-            </p>
-            <AdapterConfig
-              kind="handler"
-              adapterId={draftId}
-              properties={draftProps}
-              disabled={false}
-              noneLabel="No alert — nothing is sent when a budget runs out"
-              onChange={(id, props) => {
-                setDraftId(id);
-                setDraftProps(props);
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setEditing(false)}>Cancel</Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  onChange(draftId, draftProps);
-                  setEditing(false);
-                }}
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        </Dialog>
-      )}
+      <p className="mt-2 text-[13px] text-ink-500">
+        {channelId === null
+          ? "Nothing is sent when a budget runs out, unless a group or a single subscription routes one itself."
+          : inheriting.length === 0
+            ? "No group inherits it — each one routes its own alert, or is silent."
+            : `${inheriting.length} of ${canAlert.length} ${canAlert.length === 1 ? "group sends" : "groups send"} here.`}
+      </p>
     </Panel>
   );
 }
@@ -226,6 +166,7 @@ export function RetryPolicyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("retry-policies.edit");
+  const channelNames = useNotificationChannelNames();
 
   const policy = useQuery({
     queryKey: keys.retryPolicies.detail(policyId),
@@ -235,8 +176,7 @@ export function RetryPolicyPage() {
 
   const [name, setName] = useState("");
   const [groups, setGroups] = useState<RetryGroup[] | null>(null);
-  const [alertHandlerId, setAlertHandlerId] = useState<string | null>(null);
-  const [alertProps, setAlertProps] = useState<Record<string, string>>({});
+  const [alertChannelId, setAlertChannelId] = useState<number | null>(null);
   const [editingGroup, setEditingGroup] = useState<RetryGroup | "new" | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -245,8 +185,7 @@ export function RetryPolicyPage() {
     if (!loaded && policy.data) {
       setName(policy.data.name);
       setGroups(structuredClone(policy.data.groups));
-      setAlertHandlerId(policy.data.alertHandlerId);
-      setAlertProps(structuredClone(policy.data.alertHandlerProperties));
+      setAlertChannelId(policy.data.alertChannelId);
       setLoaded(true);
     }
   }, [policy.data, loaded]);
@@ -256,18 +195,16 @@ export function RetryPolicyPage() {
     return (
       name !== policy.data.name ||
       JSON.stringify(groups) !== JSON.stringify(policy.data.groups) ||
-      alertHandlerId !== policy.data.alertHandlerId ||
-      JSON.stringify(alertProps) !== JSON.stringify(policy.data.alertHandlerProperties)
+      alertChannelId !== policy.data.alertChannelId
     );
-  }, [policy.data, name, groups, alertHandlerId, alertProps]);
+  }, [policy.data, name, groups, alertChannelId]);
 
   const save = useMutation({
     mutationFn: () =>
       api.updateRetryPolicy(policyId, {
         name,
         groups: groups ?? [],
-        alertHandlerId,
-        alertHandlerProperties: alertProps,
+        alertChannelId,
       }),
     onSuccess: async () => {
       // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
@@ -416,11 +353,13 @@ export function RetryPolicyPage() {
                       </span>
                     ) : g.alertMode === "Silent" ? (
                       <span className="text-[13px] text-ink-500">Silent</span>
-                    ) : g.alertMode === "Send" && g.alertHandlerId ? (
-                      <span className="block truncate font-mono text-xs text-ink-700">{g.alertHandlerId}</span>
+                    ) : g.alertMode === "Send" && g.alertChannelId !== null ? (
+                      <span className="block truncate text-[13px] text-ink-700">
+                        {channelNames.data?.find((c) => c.id === g.alertChannelId)?.name ?? "…"}
+                      </span>
                     ) : (
                       <span className="text-[13px] text-ink-400 italic">
-                        {alertHandlerId ? "Inherited" : "Nobody"}
+                        {alertChannelId !== null ? "Inherited" : "Nobody"}
                       </span>
                     ),
                 },
@@ -455,14 +394,10 @@ export function RetryPolicyPage() {
 
         <div className="min-w-0 space-y-5">
           <PolicyAlertCard
-            handlerId={alertHandlerId}
-            properties={alertProps}
+            channelId={alertChannelId}
             groups={sortedGroups}
             canEdit={canEdit}
-            onChange={(id, props) => {
-              setAlertHandlerId(id);
-              setAlertProps(props);
-            }}
+            onChange={setAlertChannelId}
           />
         </div>
       </div>
@@ -487,7 +422,7 @@ export function RetryPolicyPage() {
           initial={editingGroup === "new" ? undefined : editingGroup}
           onSubmit={upsertGroup}
           onClose={() => setEditingGroup(null)}
-          policyAlertHandlerId={alertHandlerId}
+          policyAlertChannelId={alertChannelId}
         />
       )}
 

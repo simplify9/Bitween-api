@@ -1,7 +1,6 @@
 import {
   Activity,
   ArrowLeftRight,
-  BellRing,
   Cable,
   Database,
   CalendarClock,
@@ -97,9 +96,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Global values", path: "/global-values", icon: SlidersHorizontal, permissions: ["global-values.view"] },
       { label: "Work groups", path: "/work-groups", icon: Layers, permissions: ["workgroups.view"] },
       { label: "Retry policies", path: "/retry-policies", icon: RotateCcw, permissions: ["retry-policies.view"] },
-      // Directly under retry policies: both are about what happens when something goes
-      // wrong, and a budget-exhausted alert is delivered by a notifier.
-      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
+      // No Notifiers entry: notifications are set on each subscription through a channel from
+      // Settings, and the legacy notifiers are reached from that Settings section.
     ],
   },
   {

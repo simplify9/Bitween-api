@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
@@ -12,20 +12,14 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.RetryPolicies.Create);
         RetryGroupValidation.EnsureCanFire(model.Groups);
-        RetryGroupValidation.EnsureAlertTransportIsSecure(
-            model.AlertHandlerId, model.AlertHandlerProperties);
-
-        // A new policy has nothing stored behind a sentinel, so any that arrives — from a policy
-        // copied out of Get, say — is dropped rather than saved as the literal password.
-        foreach (var group in model.Groups ?? [])
-            AdapterSecretProperties.MergeInPlace(null, group.AlertHandlerProperties);
+        await RetryGroupValidation.EnsureAlertChannelsExist(dbContext,
+            [model.AlertChannelId, ..RetryGroupValidation.AlertChannelIds(model.Groups)]);
 
         var entity = new RetryPolicy
         {
             Name = model.Name,
             Groups = model.Groups ?? [],
-            AlertHandlerId = model.AlertHandlerId,
-            AlertHandlerProperties = AdapterSecretProperties.Merge(null, model.AlertHandlerProperties)
+            AlertChannelId = model.AlertChannelId
         };
         dbContext.Add(entity);
         await dbContext.SaveChangesAsync();

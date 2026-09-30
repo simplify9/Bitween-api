@@ -152,7 +152,7 @@ afterEach(() => {
 });
 
 describe("the settings page", () => {
-  it("lists a section per catalog section, in catalog order, with no restart-required rows", async () => {
+  it("lists a section per catalog section, in catalog order, with channels after reliability", async () => {
     openSettings();
 
     const links = (await sectionNav()).getAllByRole("link");
@@ -162,6 +162,8 @@ describe("the settings page", () => {
       "Single sign-on (Microsoft)",
       "Adapters",
       "Reliability & jobs",
+      // Not a catalog section: channels are records with their own dialog.
+      "Notification channels",
       "Messaging",
       "Database",
       "Security",

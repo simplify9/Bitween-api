@@ -1,5 +1,4 @@
-using System.Collections.Generic;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 
@@ -10,29 +9,28 @@ public class RetryAlertResolverTests
 {
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
-    private static RetryGroup Group(RetryAlertMode mode = RetryAlertMode.Inherit, string handler = null) =>
+    private const int PolicyChannel = 1, GroupChannel = 2, OverrideChannel = 3;
+
+    private static RetryGroup Group(RetryAlertMode mode = RetryAlertMode.Inherit, int? channel = null) =>
         new()
         {
             Name = "timeouts",
             AppliesTo = [XchangeResultType.Error],
             AlertMode = mode,
-            AlertHandlerId = handler,
-            AlertHandlerProperties = handler == null ? null : new Dictionary<string, string> { ["to"] = "group@x" }
+            AlertChannelId = channel
         };
 
-    private static RetryPolicy Policy(string handler = null) => new()
+    private static RetryPolicy Policy(int? channel = null) => new()
     {
         Name = "policy",
-        AlertHandlerId = handler,
-        AlertHandlerProperties = handler == null ? null : new Dictionary<string, string> { ["to"] = "policy@x" }
+        AlertChannelId = channel
     };
 
-    private static RetryAlertOverride Override(RetryAlertMode mode, string handler = null) => new()
+    private static RetryAlertOverride Override(RetryAlertMode mode, int? channel = null) => new()
     {
         SubscriptionId = 1,
         AlertMode = mode,
-        AlertHandlerId = handler,
-        AlertHandlerProperties = handler == null ? null : new Dictionary<string, string> { ["to"] = "sub@x" }
+        AlertChannelId = channel
     };
 
     // ─── Nothing configured ─────────────────────────────────────────────────────
@@ -48,12 +46,11 @@ public class RetryAlertResolverTests
     [TestMethod]
     public void PolicyOnly_ResolvesToPolicy()
     {
-        var target = RetryAlertResolver.Resolve(null, Group(), Policy("native.smtp"));
+        var target = RetryAlertResolver.Resolve(null, Group(), Policy(PolicyChannel));
 
         Assert.IsNotNull(target);
-        Assert.AreEqual("native.smtp", target.HandlerId);
+        Assert.AreEqual(PolicyChannel, target.ChannelId);
         Assert.AreEqual(RetryAlertLevel.Policy, target.Level);
-        Assert.AreEqual("policy@x", target.HandlerProperties["to"]);
     }
 
     // ─── Group level ────────────────────────────────────────────────────────────
@@ -62,26 +59,24 @@ public class RetryAlertResolverTests
     public void GroupSend_ReplacesPolicyEntirely()
     {
         var target = RetryAlertResolver.Resolve(null,
-            Group(RetryAlertMode.Send, "native.teams"), Policy("native.smtp"));
+            Group(RetryAlertMode.Send, GroupChannel), Policy(PolicyChannel));
 
-        Assert.AreEqual("native.teams", target.HandlerId);
+        Assert.AreEqual(GroupChannel, target.ChannelId);
         Assert.AreEqual(RetryAlertLevel.Group, target.Level);
-        // Replace, not merge: nothing of the policy's own properties survives.
-        Assert.AreEqual("group@x", target.HandlerProperties["to"]);
     }
 
     [TestMethod]
     public void GroupSilent_SuppressesPolicyAlert()
     {
         Assert.IsNull(RetryAlertResolver.Resolve(null,
-            Group(RetryAlertMode.Silent), Policy("native.smtp")));
+            Group(RetryAlertMode.Silent), Policy(PolicyChannel)));
     }
 
     [TestMethod]
     public void GroupInherit_FallsThroughToPolicy()
     {
         var target = RetryAlertResolver.Resolve(null,
-            Group(RetryAlertMode.Inherit), Policy("native.smtp"));
+            Group(RetryAlertMode.Inherit), Policy(PolicyChannel));
 
         Assert.AreEqual(RetryAlertLevel.Policy, target.Level);
     }
@@ -92,13 +87,12 @@ public class RetryAlertResolverTests
     public void SubscriptionOverrideSend_WinsOverGroupAndPolicy()
     {
         var target = RetryAlertResolver.Resolve(
-            Override(RetryAlertMode.Send, "native.webhook"),
-            Group(RetryAlertMode.Send, "native.teams"),
-            Policy("native.smtp"));
+            Override(RetryAlertMode.Send, OverrideChannel),
+            Group(RetryAlertMode.Send, GroupChannel),
+            Policy(PolicyChannel));
 
-        Assert.AreEqual("native.webhook", target.HandlerId);
+        Assert.AreEqual(OverrideChannel, target.ChannelId);
         Assert.AreEqual(RetryAlertLevel.SubscriptionGroup, target.Level);
-        Assert.AreEqual("sub@x", target.HandlerProperties["to"]);
     }
 
     [TestMethod]
@@ -106,8 +100,8 @@ public class RetryAlertResolverTests
     {
         Assert.IsNull(RetryAlertResolver.Resolve(
             Override(RetryAlertMode.Silent),
-            Group(RetryAlertMode.Send, "native.teams"),
-            Policy("native.smtp")));
+            Group(RetryAlertMode.Send, GroupChannel),
+            Policy(PolicyChannel)));
     }
 
     [TestMethod]
@@ -115,8 +109,8 @@ public class RetryAlertResolverTests
     {
         var target = RetryAlertResolver.Resolve(
             Override(RetryAlertMode.Inherit),
-            Group(RetryAlertMode.Send, "native.teams"),
-            Policy("native.smtp"));
+            Group(RetryAlertMode.Send, GroupChannel),
+            Policy(PolicyChannel));
 
         Assert.AreEqual(RetryAlertLevel.Group, target.Level);
     }
@@ -127,7 +121,7 @@ public class RetryAlertResolverTests
     public void InlineCustomPolicy_HasNoPolicyLevel_ButGroupStillSends()
     {
         // A subscription with a CustomRetryPolicy has no policy row at all.
-        var target = RetryAlertResolver.Resolve(null, Group(RetryAlertMode.Send, "native.teams"), null);
+        var target = RetryAlertResolver.Resolve(null, Group(RetryAlertMode.Send, GroupChannel), null);
 
         Assert.AreEqual(RetryAlertLevel.Group, target.Level);
     }
@@ -142,20 +136,20 @@ public class RetryAlertResolverTests
     public void MissingGroup_StillFallsBackToPolicy()
     {
         // The group was removed from the policy between the failure and the send.
-        var target = RetryAlertResolver.Resolve(null, null, Policy("native.smtp"));
+        var target = RetryAlertResolver.Resolve(null, null, Policy(PolicyChannel));
 
         Assert.AreEqual(RetryAlertLevel.Policy, target.Level);
     }
 
     [TestMethod]
-    public void SendWithNoHandler_FallsThroughRatherThanSilencing()
+    public void SendWithNoChannel_FallsThroughRatherThanSilencing()
     {
         // Validation rejects this on save, so it only exists on rows written before that guard.
         // Falling through is more useful than silently sending nothing.
         var target = RetryAlertResolver.Resolve(
             Override(RetryAlertMode.Send),
             Group(RetryAlertMode.Send),
-            Policy("native.smtp"));
+            Policy(PolicyChannel));
 
         Assert.AreEqual(RetryAlertLevel.Policy, target.Level);
     }

@@ -187,6 +187,8 @@ export function NewGatewaySubscriptionPage() {
   // set (there is no receiver, schedule or filter on this type) are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Set once it exists, on its own page.
+    notifications: [],
     // Aggregation only, and this page never creates one.
     aggregationTarget: "Input",
     receiverId: null,

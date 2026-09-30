@@ -3,6 +3,7 @@ using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 
 namespace SW.Bitween.Domain;
@@ -112,6 +113,9 @@ public class Subscription : BaseEntity
     public string ResponseMessageTypeName { get; set; }
     /// <summary>Response type only; see <see cref="SubscriptionConfiguration.RunOnBadResponses"/>.</summary>
     public bool RunOnBadResponses { get; set; }
+
+    /// <summary>Which finished exchanges are reported, and through which channel.</summary>
+    public List<SubscriptionNotification> Notifications { get; private set; } = [];
     public int? AggregationForId { get; private set; }
     public XchangeFileType AggregationTarget { get; set; }
     public DateTime? AggregateOn { get; private set; }
@@ -200,6 +204,11 @@ public class Subscription : BaseEntity
             RetryPolicyId = retryPolicyId;
             CustomRetryPolicy = null;
         }
+    }
+
+    public void SetNotifications(IEnumerable<SubscriptionNotification> notifications)
+    {
+        Notifications = notifications?.ToList() ?? [];
     }
 
     public void Pause()

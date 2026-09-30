@@ -63,7 +63,7 @@ export function RetryBudget({ subscriptionId, canEdit }: { subscriptionId: numbe
           )}
         </p>
         <span className="flex shrink-0 items-center gap-3">
-          {stopped.some((r) => r.resolvedHandlerId === null) && (
+          {stopped.some((r) => r.resolvedChannelId === null) && (
             <span className="text-[13px]">Nobody was alerted.</span>
           )}
           <Link

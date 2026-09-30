@@ -5,6 +5,7 @@ import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { AlertRouting } from "./AlertRouting";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
 
 const DEFAULT_MATCHER: RetryMatcher = { type: "contains", value: "", caseSensitive: false };
 
@@ -162,13 +163,13 @@ export function GroupDialog({
   initial,
   onSubmit,
   onClose,
-  policyAlertHandlerId,
+  policyAlertChannelId,
 }: {
   initial?: RetryGroup;
   onSubmit: (group: RetryGroup) => void;
   onClose: () => void;
   /** The policy default this group inherits when it doesn't route its own alert. */
-  policyAlertHandlerId: string | null;
+  policyAlertChannelId: number | null;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [priority, setPriority] = useState(initial?.priority ?? 10);
@@ -185,10 +186,10 @@ export function GroupDialog({
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [alert, setAlert] = useState<RetryAlertConfig>({
     alertMode: initial?.alertMode ?? "Inherit",
-    alertHandlerId: initial?.alertHandlerId ?? null,
-    alertHandlerProperties: initial?.alertHandlerProperties ?? {},
+    alertChannelId: initial?.alertChannelId ?? null,
   });
   const [error, setError] = useState("");
+  const channelNames = useNotificationChannelNames();
 
   const toggleAppliesTo = (t: RetryResultType) =>
     setAppliesTo((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
@@ -212,8 +213,8 @@ export function GroupDialog({
     // describe one that way while this refuses to make another.
     if (matchers.length === 0)
       return setError("Add at least one condition — a group with none is rejected when you save.");
-    if (action === "Allow" && !noTotal && alert.alertMode === "Send" && !alert.alertHandlerId)
-      return setError("Pick how the budget-exhausted alert is delivered, or choose Inherit.");
+    if (action === "Allow" && !noTotal && alert.alertMode === "Send" && alert.alertChannelId === null)
+      return setError("Pick the channel the budget-exhausted alert goes through, or choose Inherit.");
     onSubmit({
       id: initial?.id ?? crypto.randomUUID(),
       name: name.trim(),
@@ -228,7 +229,7 @@ export function GroupDialog({
       // Saving routing for it would leave a setting on screen that cannot ever fire.
       ...(action === "Allow" && !noTotal
         ? alert
-        : { alertMode: "Inherit" as const, alertHandlerId: null, alertHandlerProperties: {} }),
+        : { alertMode: "Inherit" as const, alertChannelId: null }),
     });
     onClose();
   };
@@ -393,9 +394,13 @@ export function GroupDialog({
               value={alert}
               onChange={setAlert}
               inherited={
-                policyAlertHandlerId ? (
+                policyAlertChannelId !== null ? (
                   <>
-                    Sends through the policy default, <code className="font-mono">{policyAlertHandlerId}</code>.
+                    Sends through the policy default,{" "}
+                    <span className="font-medium text-ink-700">
+                      {channelNames.data?.find((c) => c.id === policyAlertChannelId)?.name ?? "…"}
+                    </span>
+                    .
                   </>
                 ) : (
                   "The policy sends no alert, so nothing is sent — unless a single subscription overrides it."

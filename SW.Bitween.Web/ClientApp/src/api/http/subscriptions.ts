@@ -17,6 +17,7 @@ import {
   type ReceiveOutcome,
   type Schedule,
   type ScheduleHealth,
+  type SubscriptionNotification,
 } from "../types";
 import { schedulesSummary } from "../../lib/schedules";
 import { documentMethods } from "./documents";
@@ -93,6 +94,7 @@ interface RawSubscription {
   responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
   runOnBadResponses?: boolean;
+  notifications?: SubscriptionNotification[] | null;
   receiveOn: string | null;
   aggregateOn: string | null;
   pausedOn: string | null;
@@ -173,6 +175,7 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     responseSubscriptionId: raw.responseSubscriptionId ?? null,
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
     runOnBadResponses: raw.runOnBadResponses ?? false,
+    notifications: raw.notifications ?? [],
     aggregationForId: raw.aggregationForId ?? null,
     aggregationTarget: raw.aggregationTarget ?? "Input",
     isRunning: raw.isRunning ?? false,
@@ -216,6 +219,7 @@ type UpdatableFields = Partial<
     | "responseSubscriptionId"
     | "responseMessageTypeName"
     | "runOnBadResponses"
+    | "notifications"
     | "aggregationTarget"
   >
 > & {
@@ -265,6 +269,7 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
     responseMessageTypeName:
       changes.responseMessageTypeName !== undefined ? changes.responseMessageTypeName : current.responseMessageTypeName,
     runOnBadResponses: changes.runOnBadResponses ?? current.runOnBadResponses ?? false,
+    notifications: changes.notifications ?? current.notifications ?? [],
     newResponseSubscription: newResponseSubscriptionBody(changes.newResponseSubscription),
     temporary: current.temporary,
     aggregationTarget:

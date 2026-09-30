@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -115,6 +115,7 @@ public class CacheRevocationTests(BitweenFixture fixture)
         public Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId) => throw new NotSupportedException();
         public Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId) => throw new NotSupportedException();
         public Task<Notifier[]> ListNotifiersAsync() => throw new NotSupportedException();
+        public Task<NotificationChannel> NotificationChannelByIdAsync(int channelId) => throw new NotSupportedException();
         public Task<Subscription> SubscriptionByIdAsync(int subscriptionId) => throw new NotSupportedException();
         public Task<Document> DocumentByIdAsync(int documentId) => throw new NotSupportedException();
         public Task<Document> DocumentByNameAsync(string documentName) => throw new NotSupportedException();

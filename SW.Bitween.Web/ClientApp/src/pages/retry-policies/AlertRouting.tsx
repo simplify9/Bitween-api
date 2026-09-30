@@ -1,21 +1,19 @@
 import type { ReactNode } from "react";
 import type { RetryAlertConfig, RetryAlertMode } from "../../api";
-import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { NotificationChannelPicker } from "../../components/config/pickers";
 
 /**
  * Where a "retry budget ran out" alert goes, as set at one level of the hierarchy.
  *
  * Three levels decide between them — the policy, a group, and one subscription-and-group pair —
- * resolved most specific first. A level that sends **replaces** the level above rather than
- * merging into it, so whichever one wins has to carry the handler *and* every property it needs.
- * That is why each level offers the whole adapter form and not just a handler name: a handler
- * copied down without its settings saves an alert that only fails at send time, hours later,
- * with nobody watching.
+ * resolved most specific first. A level that sends **replaces** the level above: it names the
+ * one notification channel the alert goes through. Channels carry their own delivery settings,
+ * set up once in Settings, so a level only has to say which.
  */
 
 const MODES: { value: RetryAlertMode; label: string; hint: string }[] = [
   { value: "Inherit", label: "Inherit", hint: "Use whatever the level above sends." },
-  { value: "Send", label: "Send here", hint: "Send through this level's own handler instead." },
+  { value: "Send", label: "Send here", hint: "Send through this level's own channel instead." },
   { value: "Silent", label: "Silent", hint: "Send nothing, even if a level above would." },
 ];
 
@@ -35,7 +33,7 @@ export function AlertRouting({
   disabled?: boolean;
 }) {
   const setMode = (mode: RetryAlertMode) => {
-    // Leaving Send keeps the handler in state but stops sending it, so flipping to Silent to
+    // Leaving Send keeps the channel in state but stops sending to it, so flipping to Silent to
     // hush an alert overnight and back again doesn't cost you the configuration.
     if (mode === "Send") return onChange({ ...value, alertMode: "Send" });
     onChange({ ...value, alertMode: mode });
@@ -71,17 +69,11 @@ export function AlertRouting({
       </p>
 
       {value.alertMode === "Send" && (
-        <div className="rounded-xl bg-ink-50 p-4">
-          <AdapterConfig
-            kind="handler"
-            adapterId={value.alertHandlerId}
-            properties={value.alertHandlerProperties}
+        <div className="max-w-sm">
+          <NotificationChannelPicker
+            value={value.alertChannelId}
             disabled={disabled}
-            required
-            noneLabel="Pick how the alert is delivered"
-            onChange={(alertHandlerId, alertHandlerProperties) =>
-              onChange({ ...value, alertHandlerId, alertHandlerProperties })
-            }
+            onChange={(alertChannelId) => onChange({ ...value, alertChannelId })}
           />
         </div>
       )}

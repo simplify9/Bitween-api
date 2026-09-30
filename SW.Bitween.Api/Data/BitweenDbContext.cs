@@ -306,6 +306,7 @@ namespace SW.Bitween
                 b.HasOne(i => i.RetryPolicy).WithMany().HasForeignKey(i => i.RetryPolicyId).IsRequired(false)
                     .OnDelete(DeleteBehavior.SetNull);
                 b.Property(p => p.CustomRetryPolicy).StoreAsJson();
+                b.Property(p => p.Notifications).StoreAsJson();
                 b.Property(p => p.MatchExpression).HasMatchExpressionConversion();
             });
 
@@ -412,6 +413,7 @@ namespace SW.Bitween
                 b.ToTable("XchangeNotifications");
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+                b.HasIndex(p => new { p.ChannelId, p.FinishedOn });
             });
 
             modelBuilder.Entity<XchangeDelivery>(b =>
@@ -458,6 +460,16 @@ namespace SW.Bitween
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.RunOnSubscriptions).IsSeparatorDelimited();
+            });
+
+            modelBuilder.Entity<NotificationChannel>(b =>
+            {
+                b.ToTable("NotificationChannels");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.HasIndex(p => p.Name).IsUnique();
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.HandlerProperties).StoreAsJson();
             });
 
             modelBuilder.Entity<Account>(b =>

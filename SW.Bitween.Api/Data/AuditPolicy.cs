@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -53,6 +53,7 @@ public static class AuditPolicy
         typeof(RetryPolicy),
         typeof(RetryAlertOverride),
         typeof(Notifier),
+        typeof(NotificationChannel),
         typeof(GlobalAdapterValuesSet),
         typeof(Setting),
         typeof(Account),
@@ -79,6 +80,7 @@ public static class AuditPolicy
         ],
         [typeof(Partner)] = [nameof(Partner.AdapterProperties)],
         [typeof(Notifier)] = [nameof(Notifier.HandlerProperties)],
+        [typeof(NotificationChannel)] = [nameof(NotificationChannel.HandlerProperties)],
         [typeof(RetryPolicy)] = [nameof(RetryPolicy.AlertHandlerProperties)],
         [typeof(RetryAlertOverride)] = [nameof(RetryAlertOverride.AlertHandlerProperties)],
 

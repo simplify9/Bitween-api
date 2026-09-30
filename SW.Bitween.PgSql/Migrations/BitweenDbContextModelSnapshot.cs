@@ -948,6 +948,58 @@ namespace SW.Bitween.PgSql.Migrations
                     b.ToTable("global_adapter_values_set", "infolink");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.NotificationChannel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("HandlerId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("handler_id");
+
+                    b.Property<string>("HandlerProperties")
+                        .HasColumnType("text")
+                        .HasColumnName("handler_properties");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notification_channel");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_notification_channel_name");
+
+                    b.ToTable("notification_channel", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
                 {
                     b.Property<int>("Id")
@@ -1142,6 +1194,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("group_id");
 
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("alert_channel_id");
+
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -1197,6 +1253,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("alert_channel_id");
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
@@ -1357,6 +1417,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
+
+                    b.Property<string>("Notifications")
+                        .HasColumnType("text")
+                        .HasColumnName("notifications");
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("integer")
@@ -1683,6 +1747,10 @@ namespace SW.Bitween.PgSql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("channel_id");
+
                     b.Property<string>("Exception")
                         .HasColumnType("text")
                         .HasColumnName("exception");
@@ -1711,6 +1779,9 @@ namespace SW.Bitween.PgSql.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_xchange_notification");
+
+                    b.HasIndex("ChannelId", "FinishedOn")
+                        .HasDatabaseName("ix_xchange_notification_channel_id_finished_on");
 
                     b.ToTable("xchange_notification", "infolink");
                 });

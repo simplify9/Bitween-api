@@ -12,6 +12,7 @@ import { globalValuesMethods } from "./globalValues";
 import { subscriptionMethods } from "./subscriptions";
 import { mapperMethods } from "./mappers";
 import { notifierMethods } from "./notifiers";
+import { notificationChannelMethods } from "./notificationChannels";
 import { partnerMethods } from "./partners";
 import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
@@ -44,6 +45,7 @@ const wired: Partial<ApiClient> = {
   ...dataSourceMethods,
   ...mapperMethods,
   ...notifierMethods,
+  ...notificationChannelMethods,
   ...teamMethods,
   ...settingsMethods,
 };

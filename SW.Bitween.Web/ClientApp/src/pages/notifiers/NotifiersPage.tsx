@@ -1,67 +1,14 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellRing, Plus, Search } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { BellRing, Search } from "lucide-react";
 import { api } from "../../api";
-import { Can } from "../../auth/guards";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Field, TextInput } from "../../components/ui/forms";
-import { Dialog } from "../../components/ui/overlays";
+import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
-
-function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-
-  const create = useMutation({
-    mutationFn: () => api.createNotifier({ name }),
-    onSuccess: (notifier) => {
-      void queryClient.invalidateQueries({ queryKey: keys.notifiers.all });
-      // replace, not push: the ?new=1 entry this dialog opened on is still behind us,
-      // and Back onto it would reopen the form that was just submitted.
-      navigate(`/notifiers/${notifier.id}`, { replace: true });
-    },
-  });
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    create.mutate();
-  };
-
-  return (
-    <Dialog title="New notifier" onClose={onClose}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field
-          label="Name"
-          htmlFor="nn-name"
-          hint="Triggers, channel and watched subscriptions are set on the notifier's page."
-        >
-          <TextInput
-            id="nn-name"
-            required
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Ops email on failures"
-          />
-        </Field>
-        <FormError>{create.error?.message}</FormError>
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={create.isPending}>
-            Create notifier
-          </Button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}
 
 const PAGE_SIZE = 25;
 
@@ -69,7 +16,6 @@ export function NotifiersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
-  const creating = searchParams.get("new") === "1";
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
   const notifiers = useQuery({
@@ -102,30 +48,31 @@ export function NotifiersPage() {
   return (
     <div>
       <PageHeader
-        title="Notifiers"
-        description="Alerts sent to your team when watched subscriptions fail — or succeed."
+        title="Legacy notifiers"
+        description="Notifiers made before notification channels. They still run and can be edited, but no new ones can be made."
         help={{
-          title: "How notifiers work",
+          title: "What replaced them",
           body: (
             <>
               <p>
-                A notifier <strong>watches</strong> a set of subscriptions. Whenever one of them
-                finishes an exchange with an outcome the notifier cares about — failed, bad result
-                or success — a notification goes out through its channel (email, Teams, …).
+                Notifications are now set on each subscription: pick a <strong>notification channel</strong> and
+                the outcomes to send on. Channels are set up once in Settings and shared by every subscription
+                and retry policy that uses them.
               </p>
               <p>
-                A notifier that watches no subscriptions never sends anything. Every delivery
-                attempt is recorded on the notifier's page.
+                A legacy notifier <strong>watches</strong> a set of subscriptions and sends through its own
+                handler. One that watches nothing never sends anything.
               </p>
             </>
           ),
         }}
         actions={
-          <Can permission="notifiers.create">
-            <Button variant="primary" onClick={() => setParam("new", "1")}>
-              <Plus className="size-4" /> New notifier
-            </Button>
-          </Can>
+          <Link
+            to={`/settings?section=${encodeURIComponent("Notification channels")}`}
+            className="text-[13px] font-medium text-crimson-700 hover:underline"
+          >
+            Notification channels
+          </Link>
         }
       />
 
@@ -144,8 +91,8 @@ export function NotifiersPage() {
       {notifiers.isPending ? (
         <LoadingBlock label="Loading notifiers…" />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<BellRing />} title={q ? "No notifiers match" : "No notifiers yet"}>
-          {q ? "Try a different search." : "Create a notifier to get alerted when subscriptions fail."}
+        <EmptyState icon={<BellRing />} title={q ? "No notifiers match" : "No legacy notifiers"}>
+          {q ? "Try a different search." : "Set notifications on a subscription instead, through a notification channel."}
         </EmptyState>
       ) : (
         <Table
@@ -195,8 +142,6 @@ export function NotifiersPage() {
           ]}
         />
       )}
-
-      {creating && <CreateNotifierDialog onClose={() => setParam("new", null)} />}
     </div>
   );
 }

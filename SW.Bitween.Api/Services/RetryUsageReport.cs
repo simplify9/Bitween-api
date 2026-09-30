@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +14,10 @@ namespace SW.Bitween;
 /// <remarks>
 /// Shared because the same pairs are asked about from two directions: a policy wants every
 /// subscription using it, and a subscription wants its own, whether its policy is a shared one or an
-/// inline <c>CustomRetryPolicy</c> that no policy id can reach. Two copies of alert resolution and
-/// secret masking would drift, and the half that drifted would be the half that leaks.
+/// inline <c>CustomRetryPolicy</c> that no policy id can reach. Two copies of alert resolution would
+/// drift.
 /// </remarks>
-public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretProperties secrets)
+public class RetryUsageReport(BitweenDbContext dbContext)
 {
     /// <summary>
     /// One row per subscription and per group that could actually exhaust.
@@ -129,12 +129,8 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
                     ? alert.Exception
                     : null,
                 AlertMode = subscriptionOverride?.AlertMode ?? RetryAlertMode.Inherit,
-                OverrideHandlerId = subscriptionOverride?.AlertHandlerId,
-                OverrideHandlerProperties = await secrets.Mask(
-                    subscriptionOverride?.AlertHandlerId, subscriptionOverride?.AlertHandlerProperties),
-                ResolvedHandlerId = target?.HandlerId,
-                ResolvedHandlerProperties = await secrets.Mask(
-                    target?.HandlerId, target?.HandlerProperties),
+                OverrideChannelId = subscriptionOverride?.AlertChannelId,
+                ResolvedChannelId = target?.ChannelId,
                 ResolvedFrom = target?.Level,
                 SilencedAt = target == null ? silencedAt : null
             });
@@ -143,7 +139,7 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
         return rows
             // Worst first: stopped retrying, then alerting nowhere, then whatever has spent most.
             .OrderByDescending(r => r.Exhausted)
-            .ThenBy(r => r.ResolvedHandlerId != null)
+            .ThenBy(r => r.ResolvedChannelId != null)
             .ThenByDescending(r => r.AttemptsUsed)
             .ThenBy(r => r.SubscriptionName)
             .ThenBy(r => r.GroupName)

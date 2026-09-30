@@ -130,6 +130,8 @@ function NewResponseSubscription() {
   // are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Set once it exists, on its own page.
+    notifications: [],
     enabled: draft.enable,
     aggregationTarget: "Input",
     receiverId: null,

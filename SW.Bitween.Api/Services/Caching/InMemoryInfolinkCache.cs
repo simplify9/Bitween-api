@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -58,6 +58,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
                 .AsNoTracking().Where(i => !i.Inactive).ToArrayAsync();
             var cachedDocuments = await repo.Set<Document>().AsNoTracking().ToArrayAsync();
             var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
+            var cachedChannels = await repo.Set<NotificationChannel>().AsNoTracking().ToArrayAsync();
             var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
             var cachedGlobalValues = await repo.Set<GlobalAdapterValuesSet>().AsNoTracking().ToArrayAsync();
             var cachedBusGateways = await repo.Set<BusGateway>().Include(g => g.Routes).AsNoTracking().ToArrayAsync();
@@ -73,6 +74,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
 
             _cache.Set(nameof(Subscription), cachedSubscriptions, span);
             _cache.Set(nameof(Notifier), cachedNotifiers, span);
+            _cache.Set(nameof(NotificationChannel), cachedChannels, span);
             _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
             _cache.Set(nameof(GlobalAdapterValuesSet), cachedGlobalValues, span);
             _cache.Set(nameof(BusGateway), cachedBusGateways, span);
@@ -118,6 +120,17 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         }
 
         return cachedNotifiers;
+    }
+
+    public async Task<NotificationChannel> NotificationChannelByIdAsync(int channelId)
+    {
+        if (!_cache.TryGetValue(nameof(NotificationChannel), out NotificationChannel[] cachedChannels))
+        {
+            await Load();
+            cachedChannels = _cache.Get<NotificationChannel[]>(nameof(NotificationChannel));
+        }
+
+        return cachedChannels.FirstOrDefault(c => c.Id == channelId);
     }
 
     public async Task<Subscription> SubscriptionByIdAsync(int subscriptionId)
@@ -235,6 +248,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
 
         _cache.Remove(nameof(Subscription));
         _cache.Remove(nameof(Notifier));
+        _cache.Remove(nameof(NotificationChannel));
         _cache.Remove(nameof(Document));
         _cache.Remove(nameof(WorkGroup));
         _cache.Remove(nameof(BusGateway));

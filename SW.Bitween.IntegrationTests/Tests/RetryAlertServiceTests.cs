@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -60,6 +60,32 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
         return doc.RootElement.GetProperty("total").GetInt32();
     }
 
+    /// <summary>A channel that mails MailHog, visible to the sender straight away.</summary>
+    private async Task<int> MailHogChannel(AsyncServiceScope scope)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var channel = new NotificationChannel
+        {
+            Name = $"MailHog {Guid.NewGuid():N}",
+            HandlerId = "NativeSmtpHandler",
+            HandlerProperties = new Dictionary<string, string>
+            {
+                ["Host"] = "localhost",
+                ["Port"] = fixture.MailHogSmtpPort.ToString(),
+                ["UseTls"] = "false",
+                ["From"] = "bitween-alerts@example.com",
+                ["To"] = "ops@example.com",
+                ["Subject"] = "Retries stopped for {{ SubscriptionName }}",
+                ["Body"] = "{{ GroupName }} used all {{ MaxAttemptsTotal }} retries."
+            }
+        };
+        db.Add(channel);
+        await db.SaveChangesAsync();
+        // Written straight to the table, so the cache the sender reads has not heard of it.
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        return channel.Id;
+    }
+
     [Fact]
     public async Task Exhausted_budget_alert_arrives_in_MailHog_with_the_group_and_subscription_named()
     {
@@ -75,6 +101,8 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
 
         // A group whose own alert config points at MailHog directly — the narrowest level, so the
         // resolver has nothing to fall through to and the test proves that level specifically.
+        var channelId = await MailHogChannel(scope);
+
         var groupId = Guid.NewGuid();
         var policy = new RetryPolicy
         {
@@ -95,17 +123,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
                         DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
                     },
                     AlertMode = RetryAlertMode.Send,
-                    AlertHandlerId = "NativeSmtpHandler",
-                    AlertHandlerProperties = new Dictionary<string, string>
-                    {
-                        ["Host"] = "localhost",
-                        ["Port"] = fixture.MailHogSmtpPort.ToString(),
-                        ["UseTls"] = "false",
-                        ["From"] = "bitween-alerts@example.com",
-                        ["To"] = "ops@example.com",
-                        ["Subject"] = "Retries stopped for {{ SubscriptionName }}",
-                        ["Body"] = "{{ GroupName }} used all {{ MaxAttemptsTotal }} retries."
-                    }
+                    AlertChannelId = channelId
                 }
             ]
         };
@@ -192,6 +210,8 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
+        var channelId = await MailHogChannel(scope);
+
         var groupId = Guid.NewGuid();
         var policy = new RetryPolicy
         {
@@ -212,17 +232,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
                         DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
                     },
                     AlertMode = RetryAlertMode.Send,
-                    AlertHandlerId = "NativeSmtpHandler",
-                    AlertHandlerProperties = new Dictionary<string, string>
-                    {
-                        ["Host"] = "localhost",
-                        ["Port"] = fixture.MailHogSmtpPort.ToString(),
-                        ["UseTls"] = "false",
-                        ["From"] = "bitween-alerts@example.com",
-                        ["To"] = "ops@example.com",
-                        ["Subject"] = "Retries stopped for {{ SubscriptionName }}",
-                        ["Body"] = "{{ GroupName }} used all {{ MaxAttemptsTotal }} retries."
-                    }
+                    AlertChannelId = channelId
                 }
             ]
         };
@@ -241,7 +251,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
 
         // Stands in for a first attempt that threw — a dropped connection, a refused relay. Written
         // directly because what matters is the row it leaves behind, not how the send failed.
-        db.Add(XchangeNotification.ForRetryBudgetAlert(xchange.Id, "System.Net.Sockets.SocketException: refused"));
+        db.Add(XchangeNotification.ForRetryBudgetAlert(xchange.Id, channelId, "System.Net.Sockets.SocketException: refused"));
         await db.SaveChangesAsync();
 
         var xchangeResult = new XchangeResult(xchange.Id, null, null, exception: "timeout");

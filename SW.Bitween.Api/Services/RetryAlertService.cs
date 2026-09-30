@@ -1,14 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
-using SW.Bitween.Services.Adapters;
 
 namespace SW.Bitween;
 
@@ -23,7 +19,7 @@ namespace SW.Bitween;
 /// </remarks>
 public class RetryAlertService(
     BitweenDbContext dbContext,
-    IAdapterInvoker adapterInvoker,
+    NotificationChannelSender channelSender,
     ILogger<RetryAlertService> logger) : IConsume<RetryBudgetExhaustedEvent>
 {
     public async Task Process(RetryBudgetExhaustedEvent message)
@@ -94,40 +90,25 @@ public class RetryAlertService(
     }
 
     /// <summary>
-    /// Invokes the resolved handler and records the attempt either way.
+    /// Sends through the resolved channel and records the attempt either way.
     /// </summary>
     /// <remarks>
-    /// A throw is logged rather than propagated, and the failure is recorded so someone can answer
-    /// "did the alert actually go out?". Because the guard above only counts a successful row, a
-    /// failed send leaves the way open for a redelivery to try again rather than closing it.
+    /// A failure is logged rather than thrown, and recorded so someone can answer "did the alert
+    /// actually go out?". Because the guard above only counts a successful row, a failed send
+    /// leaves the way open for a redelivery to try again rather than closing it.
     /// </remarks>
     private async Task Send(RetryAlertTarget target, RetryBudgetExhaustedNotification notification,
         string xchangeId)
     {
-        var handlerProperties = new Dictionary<string, string>(
-            target.HandlerProperties ?? new Dictionary<string, string>())
-        {
-            ["xchangeid"] = xchangeId
-        };
+        var outcome = await channelSender.Send(target.ChannelId, notification, xchangeId,
+            notification.CorrelationId);
 
-        var payload = new XchangeFile(JsonConvert.SerializeObject(notification), xchangeId);
+        if (outcome.Error != null)
+            logger.LogError(
+                "Retry budget alert for xchange {XchangeId} could not be delivered through channel {ChannelId}: {Error}",
+                xchangeId, target.ChannelId, outcome.Error);
 
-        try
-        {
-            await adapterInvoker.InvokeAsync<XchangeFile>(
-                target.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle), payload,
-                handlerProperties, notification.CorrelationId ?? xchangeId);
-
-            dbContext.Add(XchangeNotification.ForRetryBudgetAlert(xchangeId));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex,
-                "Retry budget alert for xchange {XchangeId} could not be delivered through {HandlerId}.",
-                xchangeId, target.HandlerId);
-            dbContext.Add(XchangeNotification.ForRetryBudgetAlert(xchangeId, ex.ToString()));
-        }
-
+        dbContext.Add(XchangeNotification.ForRetryBudgetAlert(xchangeId, target.ChannelId, outcome.Error));
         await dbContext.SaveChangesAsync();
     }
 }

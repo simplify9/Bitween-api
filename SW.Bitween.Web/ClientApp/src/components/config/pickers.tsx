@@ -8,6 +8,8 @@ import { SearchSelect } from "../ui/SearchSelect";
 import { InformationTypeDialog } from "./InformationTypeDialog";
 import { SubscriptionDialog } from "./SubscriptionDialog";
 import { PartnerDialog } from "./PartnerDialog";
+import { NotificationChannelDialog } from "./NotificationChannelDialog";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
 import { useSubscriptionsCache } from "./shared";
 import { keys } from "../../api/queryKeys";
 import { formatLabel } from "../../lib/informationTypeFormat";
@@ -274,6 +276,65 @@ export function PartnerPicker({
           partnerId={dialog}
           onClose={() => setDialog(undefined)}
           onSaved={(partnerId) => onChange(partnerId)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pick-one notification channel. Channels are set up in Settings, but creating or amending one
+ * opens here in a dialog, so picking one never means leaving the page.
+ */
+export function NotificationChannelPicker({
+  value,
+  onChange,
+  clearLabel,
+  disabled = false,
+  id,
+  size,
+}: {
+  value: number | null;
+  onChange: (id: number | null) => void;
+  /** When set, an empty choice with this label is offered — e.g. "No alert". */
+  clearLabel?: string;
+  disabled?: boolean;
+  id?: string;
+  size?: "sm" | "md";
+}) {
+  const channels = useNotificationChannelNames();
+  const canCreate = useSessionCan("notifiers.create");
+  const canEdit = useSessionCan("notifiers.edit");
+  /** undefined = closed, null = creating, number = editing that channel. */
+  const [dialog, setDialog] = useState<number | null | undefined>(undefined);
+
+  return (
+    <div>
+      <SearchSelect
+        id={id}
+        size={size}
+        aria-label="Notification channel"
+        value={value === null ? "" : String(value)}
+        disabled={disabled || channels.isPending}
+        onChange={(v) => onChange(v === "" ? null : Number(v))}
+        placeholder="Pick a channel…"
+        clearLabel={clearLabel}
+        options={(channels.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
+      />
+      {!disabled && (
+        <PickerLinks
+          createLabel="New channel"
+          actions={[
+            ...(canEdit && value !== null ? [{ label: "Edit it", onAct: () => setDialog(value) }] : []),
+            ...(canCreate ? [{ label: "New channel", icon: true, onAct: () => setDialog(null) }] : []),
+          ]}
+        />
+      )}
+      {dialog !== undefined && (
+        <NotificationChannelDialog
+          channelId={dialog}
+          onClose={() => setDialog(undefined)}
+          onSaved={(channelId) => onChange(channelId)}
         />
       )}
     </div>

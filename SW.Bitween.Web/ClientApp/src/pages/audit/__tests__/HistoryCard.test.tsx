@@ -116,7 +116,8 @@ const areas: {
     entityName: "RetryPolicy",
     entityKey: "13",
     handlers: [
-      json("/retrypolicies/13", { name: "Default", groups: [], alertHandlerId: null, alertHandlerProperties: null }),
+      json("/retrypolicies/13", { name: "Default", groups: [], alertChannelId: null }),
+      json("/notificationchannels", {}),
       none("/subscriptions"),
       http.post(apiPath("/retrypolicies/13/usage"), () => HttpResponse.json([])),
     ],

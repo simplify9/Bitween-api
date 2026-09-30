@@ -160,6 +160,8 @@ export function NewAggregationPage() {
   const studioDraft: StudioDraft = {
     ...draft,
     enabled: draft.enable,
+    // Set once it exists, on its own page.
+    notifications: [],
     // An aggregation is fed by its source, not by a receiver, and has no Validation
     // stage — see stages.ts.
     receiverId: null,

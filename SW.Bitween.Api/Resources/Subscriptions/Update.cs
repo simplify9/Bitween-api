@@ -38,7 +38,11 @@ namespace SW.Bitween.Resources.Subscriptions
                     $"Retry policy {model.RetryPolicyId} was not found.");
 
             if (model.CustomRetryPolicy != null)
+            {
                 RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
+                await RetryGroupValidation.EnsureAlertChannelsExist(_dbContext,
+                    RetryGroupValidation.AlertChannelIds(model.CustomRetryPolicy.Groups));
+            }
 
             // Everything a person configures, through the same code the create handler runs.
             await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model);
