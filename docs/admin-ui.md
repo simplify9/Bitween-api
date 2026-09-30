@@ -44,7 +44,7 @@ Selecting a stage opens its editor. Adapter stages pick an adapter and fill in i
 
 When a stage uses a database or broker adapter, it also binds the subscription to a data source and picks the statement and operation, the receive mode and batch size, or where to publish. See [Databases](databases.md) and [External brokers](external-brokers.md).
 
-With no stage selected, the overview shows health, next and last run, work group, retry policy, a retry budget banner once a budget is spent, receive attempts or recent runs, recent exchanges and change history. Header buttons pause or resume, receive or roll up now, create an aggregation of this subscription, and delete it.
+With no stage selected, the overview shows health, next and last run, work group, retry policy, a retry budget banner once a budget is spent, receive attempts or recent runs, recent exchanges, notifications and change history. The **Notifications** card picks channels and the outcomes each sends on; a new channel can be made there without leaving the page. Header buttons pause or resume, receive or roll up now, create an aggregation of this subscription, and delete it.
 
 Edits stay a draft until saved from the bar at the bottom of the page.
 
@@ -56,15 +56,14 @@ Edits stay a draft until saved from the bar at the bottom of the page.
 | **Information types** | Name, code, format, promoted properties, bus availability and message type name, and what uses each type. |
 | **Global values** | Value sets, and the subscriptions that reference each key. |
 | **Work groups** | Queue settings and live throughput per lane. |
-| **Retry policies** | Groups, conditions, budgets and alert routing. The usage panel shows spent budgets per subscription, and the test panel runs the draft policy against sample errors. |
-| **Notifiers** | When to send, which handler sends, which subscriptions to watch, and recent deliveries. |
+| **Retry policies** | Groups, conditions, budgets and which notification channel each alert goes through. The usage panel shows spent budgets per subscription, and the test panel runs the draft policy against sample errors. |
 
 ## Administration
 
 | Page | What it does |
 |---|---|
 | **Team** | Members: add, assign roles, set a password, unlock, disable and remove. Roles: a permission matrix with a live preview of the navigation the role would see. |
-| **Settings** | Runtime settings by section, including branding with an instant preview. Values owned by the environment are shown read-only. |
+| **Settings** | Runtime settings by section, including branding with an instant preview. Values owned by the environment are shown read-only. The **Notification channels** section lists, creates and edits channels, shows who uses each, and links to any legacy notifiers. |
 | **Audit trail** | Every configuration change with its old and new values. |
 
 The **Dashboard** opens from the logo, and includes failures still to act on and the retry chains that keep failing. **Profile** lets members change their display name and password.

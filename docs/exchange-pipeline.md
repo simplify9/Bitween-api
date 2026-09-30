@@ -30,7 +30,7 @@ sequenceDiagram
   end
   X->>DB: Save result and any scheduled retry
   DB-->>Q: Publish result id on the -Result lane
-  Q->>X: Run notifiers
+  Q->>X: Send notifications
 ```
 
 Every stage runs its adapter through the same invoker, whether the adapter is native, resident or classic. A stage bound to a [data source](data-sources.md) runs through that connection.
@@ -123,7 +123,7 @@ Retry evaluation can never cost the result. If evaluation itself fails, the erro
 
 ## 8. Notifications
 
-Saving the result publishes its id on the work group's `-Result` lane. There, each active notifier that watches the exchange's subscription runs when the outcome matches its settings. See [Notifiers](retries-and-alerts.md#notifiers).
+Saving the result publishes its id on the work group's `-Result` lane. There, each of the subscription's notifications whose outcome matches sends through its channel, and so does each active legacy notifier watching the subscription. See [Subscription notifications](retries-and-alerts.md#subscription-notifications).
 
 ## Pausing
 

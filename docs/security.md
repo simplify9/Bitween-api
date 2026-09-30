@@ -62,7 +62,7 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Subscriptions | `partners` | view, create, edit, delete |
 | Subscriptions | `documents` | view, create, edit, delete |
 | Subscriptions | `global-values` | view, create, edit, delete |
-| Subscriptions | `notifiers` | view, create, edit, delete |
+| Subscriptions | `notifiers` | view, create, edit, delete. Covers notification channels and legacy notifiers. |
 | Subscriptions | `api-gateways` | view, create, edit, delete |
 | Subscriptions | `bus-gateways` | view, create, edit, delete |
 | Configuration | `data-sources` | view, create, edit, delete, operate |
@@ -146,7 +146,7 @@ Every response carries these headers.
 
 ## Audit trail
 
-Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notifiers, global value sets, settings, accounts, roles and role assignments.
+Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notification channels, notifiers, global value sets, settings, accounts, roles and role assignments.
 
 Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited.
 

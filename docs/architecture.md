@@ -84,7 +84,7 @@ Bitween keeps configuration and runtime records in one relational database, thro
 
 | Area | Tables |
 |---|---|
-| Configuration | Documents, Partners, PartnerApiCredentials, Subscriptions, SubscriptionSchedules, SubscriptionCategories, WorkGroups, GlobalAdapterValuesSets, ApiGateways, ApiGatewayPartners, BusGateways, BusGatewayRoutes, RetryPolicies, RetryAlertOverrides, Notifiers, Settings, DataSources, DataSourceStatements |
+| Configuration | Documents, Partners, PartnerApiCredentials, Subscriptions, SubscriptionSchedules, SubscriptionCategories, WorkGroups, GlobalAdapterValuesSets, ApiGateways, ApiGatewayPartners, BusGateways, BusGatewayRoutes, RetryPolicies, RetryAlertOverrides, NotificationChannels, Notifiers, Settings, DataSources, DataSourceStatements |
 | Runtime | Xchanges, XchangeResults, XchangePromotedProperties, XchangeAggregations, XchangeNotifications, OnHoldXchanges, DelayedRetries, RetryGroupUsages, ReceiveAttempts, InboundMessages, AdapterStates, ClusterLeases |
 | Identity | Accounts, Roles, AccountRoles, RefreshTokens |
 | Audit | AuditEntries |
@@ -96,7 +96,7 @@ RabbitMQ carries all asynchronous work. Queue names are lower-cased and built fr
 | Lane | Consumer | Message name | Carries |
 |---|---|---|---|
 | Work | `XchangeService` | `{workGroupId}{busMessageName}`, or `0Ungrouped` | Exchange ids to process |
-| Notifications | `XchangeService` | The work lane's name plus `-Result` | Result ids for notifiers |
+| Notifications | `XchangeService` | The work lane's name plus `-Result` | Result ids for notifications |
 | Front door | `BusService` | Each bus-enabled information type's message type name | Documents from other systems |
 | Control | `XchangeService` | `SubscriptionUnpausedEvent` | Releasing on-hold exchanges |
 | Control | `RetryAlertService` | `RetryBudgetExhaustedEvent` | Budget alerts |
@@ -130,7 +130,7 @@ Files are uploaded as public objects unless the **Keep exchange files private** 
 
 ## Caching
 
-Information types, active subscriptions, notifiers, work groups, global value sets and bus gateway routes are cached in memory for 10 minutes. Every change made through the API broadcasts a revoke over the bus, and each instance then drops its cache and reloads settings. If the broadcast fails, the change is still saved, but other instances can serve old values until their cache expires.
+Information types, active subscriptions, notification channels, legacy notifiers, work groups, global value sets and bus gateway routes are cached in memory for 10 minutes. Every change made through the API broadcasts a revoke over the bus, and each instance then drops its cache and reloads settings. If the broadcast fails, the change is still saved, but other instances can serve old values until their cache expires.
 
 Inactive subscriptions are not cached, so no entry point can start them.
 

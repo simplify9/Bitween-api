@@ -104,7 +104,7 @@ Exchange rows outlive their files. Retrying an exchange whose input file has exp
 | An API gateway returns 503 | The gateway is deactivated |
 | A scheduled job never runs | Check schedule health for Stuck or Not scheduled, and that the subscription is active |
 | A mapper fails parsing JSON on XML input | The subscription uses a mapper other than the rules-based mapper |
-| `{{partner.KEY}}` appears literally in a request | The partner has no such property, or the adapter is a receiver or notifier, which get no partner values |
+| `{{partner.KEY}}` appears literally in a request | The partner has no such property, or the adapter is a receiver or notification channel, which get no partner values |
 | Sync gateway calls hang | The sync wait never times out for a `Wait-Period` of 8 or more, including the default |
 | Retry is refused with `ALREADY_RETRIED` | That exchange was already retried. Retry its newest attempt. |
 | A data source shows no live data, or statements save as *not checked* | The request reached a node that does not run the adapter, or `Bitween__BusProvidersEnabled` is off |

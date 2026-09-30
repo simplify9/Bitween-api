@@ -9,7 +9,7 @@ Adapters do the work at each stage of a subscription. Bitween has four kinds.
 | Mapper | Transforms the input | `IInfolinkHandler`: `Handle(file)` returns the output |
 | Handler | Delivers and returns an optional response | `IInfolinkHandler`: `Handle(file)` returns the response |
 
-The contracts come from `SimplyWorks.PrimitiveTypes`. The payload is an `XchangeFile` with text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notifiers and retry alerts reuse handler adapters.
+The contracts come from `SimplyWorks.PrimitiveTypes`. The payload is an `XchangeFile` with text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notification channels reuse handler adapters, built in or custom, for subscription notifications and retry alerts.
 
 ## Native and custom adapters
 
@@ -23,7 +23,7 @@ An id starting with `native`, ignoring case, is a native adapter. For any other 
 
 Each adapter declares its properties. The UI shows which are required, which are secret, and each one's description and default.
 
-- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notifier properties get neither.
+- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notification channel properties get neither.
 - **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property.
 - **Required properties** are checked when a subscription is saved. A blank value counts as missing.
 - **`xchangeid`** is added to mapper and handler properties at run time.

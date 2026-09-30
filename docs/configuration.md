@@ -120,6 +120,8 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 
 The retry poll cron is validated before it is saved, and saving it reschedules the retry job.
 
+The page also has a **Notification channels** section. Channels are records rather than settings: they have their own table, save from their own dialog, and are covered by the `notifiers` permissions rather than `settings`. See [Notification channels](retries-and-alerts.md#notification-channels).
+
 `GET /api/settings/config` needs no sign-in. It returns the Microsoft sign-in values, whether email and password sign-in is disabled, whether RabbitMQ management is configured, and the theme. The sign-in page loads it.
 
 ## Helm values

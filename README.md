@@ -12,7 +12,7 @@ One .NET 10 service hosts everything: the REST API, the partner-facing gateway e
 - **One pipeline.** Every message becomes an *exchange* that runs through the same stages: filter, map, deliver, route the response.
 - **Adapters for each stage.** Built-in adapters cover HTTP, S3, Azure Blob, SFTP/FTP, POP3 and SMTP, plus a visual rules-based mapper for JSON and XML. Anything else can be a custom adapter that runs out of process.
 - **Long-lived connections.** Data sources hold connections to RabbitMQ and Amazon SQS brokers and to PostgreSQL, MySQL, SQL Server and Oracle databases, so deliveries can publish messages or run SQL.
-- **Reliability built in.** Retry policies match failures and retry them with a delay and a shared budget. Every exchange's retries form a chain you can follow. Exhausted budgets raise alerts, and notifiers report results.
+- **Reliability built in.** Retry policies match failures and retry them with a delay and a shared budget. Every exchange's retries form a chain you can follow. Exhausted budgets raise alerts, and subscriptions report their results, both through notification channels set up once in Settings.
 - **Operable.** Queue health straight from RabbitMQ, data source health, schedule health, run history, receive attempts, a dashboard and an audit trail of every configuration change.
 - **Administered in the browser.** Roles with fine-grained permissions, Microsoft sign-in, and settings and branding that change at runtime.
 
@@ -41,7 +41,7 @@ flowchart LR
   X -->|work group queue| P --> R
   P -->|delivery| OUT[Partner systems]
   P -->|publish or SQL| EXT
-  R -->|notifiers and alerts| N[Handler adapters]
+  R -->|notifications and alerts| N[Notification channels]
   X -. files .-> S[(Object storage)]
   R -. rows .-> DB[(Bitween database)]
 ```
@@ -116,7 +116,7 @@ The database schema is created on first start. Change the administrator password
 | [Data sources](docs/data-sources.md) | Long-lived connections: enabling them, placement, health and resource limits |
 | [External brokers](docs/external-brokers.md) | Reading from and publishing to a customer's RabbitMQ or Amazon SQS |
 | [Databases](docs/databases.md) | PostgreSQL, MySQL, SQL Server and Oracle: statements, polling and writing |
-| [Retries and alerts](docs/retries-and-alerts.md) | Manual and bulk retry, retry chains, retry policies, budgets, alerts and notifiers |
+| [Retries and alerts](docs/retries-and-alerts.md) | Manual and bulk retry, retry chains, retry policies, budgets, alerts, notification channels and notifications |
 | [Scheduling](docs/scheduling.md) | Schedules, jobs, run history and schedule health |
 | [Security](docs/security.md) | Sign-in, tokens, roles and permissions, partner keys, hardening, audit |
 | [Configuration](docs/configuration.md) | Every configuration key, runtime setting and Helm value |

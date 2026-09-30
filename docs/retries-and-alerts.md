@@ -47,7 +47,7 @@ A policy is a list of groups. When an exchange fails, the first group that appli
 | `matchers` | Conditions. Any one of them selects the group. |
 | `action` | `Allow` retries within the budget. `Block` stops retries for the failures it matches. |
 | `budget` | Required for `Allow`. Holds the per-message limit, the shared total and the delay strategy. |
-| `alertMode`, `alertHandlerId`, `alertHandlerProperties` | Where the budget-exhausted alert goes. |
+| `alertMode`, `alertChannelId` | Where the budget-exhausted alert goes: the [notification channel](#notification-channels) it is sent through. |
 
 For `Error`, matchers look at the full exception text. For `BadResult`, they look at the response body.
 
@@ -133,8 +133,8 @@ A policy is refused when a group:
 - has no result type or no matchers;
 - has matchers that cannot apply to its result types;
 - allows retries without a budget;
-- sends alerts without a handler;
-- sends alerts through `NativeSmtpHandler` with a password and TLS turned off.
+- sends alerts without a notification channel, or names a channel that does not exist;
+- still carries its own `alertHandlerId`. Alerts go through channels now.
 
 Deleting a policy is refused while a subscription uses it. Removing a group deletes its usage counters and alert overrides.
 
@@ -166,7 +166,7 @@ The Scheduled retries page lists waiting retries. **Run now**, `POST /api/delaye
 
 ## Budget-exhausted alerts
 
-When a group's shared total runs out, Bitween sends one alert through a handler adapter. The most specific level that decides wins.
+When a group's shared total runs out, Bitween sends one alert through a [notification channel](#notification-channels). The most specific level that decides wins.
 
 | Level | Where it is set |
 |---|---|
@@ -174,9 +174,11 @@ When a group's shared total runs out, Bitween sends one alert through a handler 
 | Group | The group's alert settings |
 | Policy | The policy-wide alert card. Inline policies have no policy level. |
 
-At each level, `Silent` stops the alert, `Send` with a handler sends it there, and `Inherit` defers to the level above. `Send` without a handler also defers. When no level decides, nobody is alerted.
+At each level, `Silent` stops the alert, `Send` with a channel sends it there, and `Inherit` defers to the level above. `Send` without a channel also defers. When no level decides, nobody is alerted.
 
-The handler receives a JSON document with the exchange id, subscription id and name, information type name, correlation id, policy name, group name, total budget, blocked reason, exception and time.
+Alerts set up before channels existed carried their own handler at each level. On the first start after upgrading, each different handler setup becomes one channel named *Retry alert: …*, and every level that used it points at that channel.
+
+The channel's handler receives a JSON document with the exchange id, subscription id and name, information type name, correlation id, policy name, group name, total budget, blocked reason, exception and time.
 
 Each delivery is recorded as a notification named *Retry budget alert*. Once one delivery succeeds, a redelivered event does not send a second alert.
 
@@ -193,20 +195,48 @@ The policy page's usage panel shows, per subscription and group, the attempts us
 | Usage for one subscription | `POST /api/subscriptions/{id}/retryusage` | `subscriptions.view` |
 | Reset usage for one subscription | `POST /api/subscriptions/{id}/resetretryusage` | `subscriptions.operate` |
 
-## Notifiers
+## Notification channels
 
-A notifier runs a handler adapter after exchanges of chosen subscriptions finish.
+A notification channel is where a notification goes and everything needed to deliver it. It is a handler adapter, built in or custom, with its properties: the mail relay and its login, the recipients, a webhook URL. Channels are set up once in **Settings › Notification channels**, and every place that notifies picks one by name:
 
-| Field | Meaning |
+- a subscription's own notifications, below;
+- a retry policy's budget-exhausted alerts, at the policy, group or single-subscription level.
+
+A channel is complete. The places that use it only choose when to send, so every use of a channel sends exactly what it holds. For different recipients, make another channel.
+
+- Names are unique.
+- Secret properties come back masked. Saving the mask keeps the stored value, but only while the handler stays the same. After a handler change, type the secret again.
+- A mail channel with a password and `UseTls` off is refused.
+- A channel that anything still uses cannot be deleted. The Settings list shows who uses each one.
+- Channel properties do not resolve partner or global tokens.
+
+| Action | Endpoint | Permission |
+|---|---|---|
+| List channels, with who uses each | `GET /api/notificationchannels` | `notifiers.view` |
+| Channel names for pickers | `GET /api/notificationchannels?lookup=true` | signed in |
+| One channel | `GET /api/notificationchannels/{id}` | `notifiers.view` |
+| Create | `POST /api/notificationchannels` `{ name, handlerId, handlerProperties }` | `notifiers.create` |
+| Change | `POST /api/notificationchannels/{id}` | `notifiers.edit` |
+| Delete | `DELETE /api/notificationchannels/{id}` | `notifiers.delete` |
+
+## Subscription notifications
+
+A subscription's **Notifications** card sends a notification when its exchanges finish. Each row picks a channel and the outcomes it sends on, so failures can go to one team and successes to another.
+
+| Outcome | Sends when |
 |---|---|
-| Name | |
-| Handler and properties | Any handler adapter, such as `NativeSmtpHandler` or `NativeHttpHandler` |
-| Run on successful result | Fires for successes with a good response |
-| Run on bad result | Fires for successes whose response was flagged bad |
-| Run on failed result | Fires for failures |
-| Watches | The subscriptions it listens to. A notifier that watches nothing never fires. |
-| Inactive | Switches it off |
+| Fails | The exchange threw |
+| Bad result | The exchange finished, but its response was flagged bad |
+| Succeeds | The exchange finished with a good response |
 
-The handler receives a JSON document describing the result, with PascalCase fields: `Id`, `Success`, `Exception`, `StartedOn`, `FinishedOn`, `OutputBad`, `ResponseBad`, `SubscriptionId`, `SubscriptionName`, `DocumentId`, `DocumentName` and `CorrelationId`. Its properties also get `xchangeid`. Partner and global tokens are not resolved in notifier properties.
+In the API these are the subscription's `notifications`, a list of `{ channelId, onFailure, onBadResult, onSuccess }`. Leaving `notifications` out of an update keeps what is stored, and an empty list clears it. A row with no outcome, or a channel listed twice, is refused.
 
-Each run is recorded with its outcome and any error. The notifier page lists recent notifications, and `GET /api/notifications` searches them. Notifiers run on each work group's `-Result` queue, separate from exchange processing.
+The handler receives a JSON document describing the result, with PascalCase fields: `Id`, `Success`, `Exception`, `StartedOn`, `FinishedOn`, `OutputBad`, `ResponseBad`, `SubscriptionId`, `SubscriptionName`, `DocumentId`, `DocumentName` and `CorrelationId`. Its properties also get `xchangeid`.
+
+Each send is recorded with the channel's name, its outcome and any error, and `GET /api/notifications` searches them. Notifications run on each work group's `-Result` queue, separate from exchange processing.
+
+## Legacy notifiers
+
+Notifiers made before channels still run, alongside the subscriptions' own notifications. They can be viewed, changed and deleted from the link in **Settings › Notification channels**, but the page no longer offers new ones. A subscription shows the legacy notifiers that watch it.
+
+A legacy notifier watches a list of subscriptions and sends through its own handler when an outcome it cares about happens. One that watches nothing never sends. Its handler gets the same JSON document as a channel does.

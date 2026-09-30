@@ -213,7 +213,12 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/retrypolicies/{id}/attempts` | `retry-policies.view` |
 | `POST /api/retrypolicies/{id}/resetusage` | `retry-policies.edit` |
 | `POST /api/retrypolicies/{id}/savealertoverride` | `retry-policies.edit` |
-| `GET /api/notifiers`, `GET /api/notifiers/{id}` | `notifiers.view` |
+| `GET /api/notificationchannels`, `GET /api/notificationchannels/{id}` | `notifiers.view`. Each channel lists who uses it. |
+| `GET /api/notificationchannels?lookup=true` | signed in, no permission checked. Id and name pairs for pickers. |
+| `POST /api/notificationchannels` | `notifiers.create`. `{ name, handlerId, handlerProperties }` |
+| `POST /api/notificationchannels/{id}` | `notifiers.edit` |
+| `DELETE /api/notificationchannels/{id}` | `notifiers.delete`. Refused while anything uses the channel. |
+| `GET /api/notifiers`, `GET /api/notifiers/{id}` | `notifiers.view`. Legacy notifiers. |
 | `POST /api/notifiers` | `notifiers.create` |
 | `POST /api/notifiers/{id}` | `notifiers.edit` |
 | `DELETE /api/notifiers/{id}` | `notifiers.delete` |

@@ -48,7 +48,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | The S3 receiver's folder prefix has no trailing slash. The S3 upload handler ignores the folder when a file name is set. | `NativeS3Receiver.cs`, `NativeS3UploadHandler.cs` |
 | POP3 receivers use port 995 only, and read only the first attachment. | `Pop3Receiver`, `RebexPop3Receiver` |
 | Property values that fail to convert fall back to the default silently. | `NativeAdapters/ReflectionExtensions.cs` |
-| Notifier properties do not resolve partner or global tokens. | `XchangeService.NotifyResult` |
+| Notification channel and legacy notifier properties do not resolve partner or global tokens. | `NotificationChannelSender`, `XchangeService.NotifyResult` |
 
 ## Data sources
 
