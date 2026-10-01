@@ -15,6 +15,14 @@ The Exchanges page filters by status, subscription, partner, information type, e
 
 Expanding an exchange shows each stage's file, the exception, its retry chain, the aggregation family, and buttons to retry or to run a waiting retry now. An exchange that was already retried links to its later attempt instead of offering Retry.
 
+## Exporting exchange files
+
+Tick exchanges on the Exchanges page, or select everything a filter matches, and choose **Export files** to download their files as one zip. It needs only `exchanges.view`.
+
+- Each exchange gets a folder named like its archive: the main promoted value, then the id (`Amman_3f2a…`). It holds `input`, `mapped` and `handled`, whichever the exchange has, with the extension of the file's name or content type.
+- Files that storage no longer has, such as ones a retention rule deleted, are listed in `missing.txt` with the reason. The rest of the zip still comes.
+- One export takes at most 500 exchanges. Narrow the filter for a larger set.
+
 ## Reading an exchange's state
 
 | What you see | What it means | What to do |
@@ -83,14 +91,21 @@ Messages worth watching for:
 
 | Data | Retention |
 |---|---|
-| Exchange files | The storage lifecycle of the document prefix, 30 days by default on S3 and Oracle |
-| Exchanges, results, notifications | Kept indefinitely. No cleanup job exists. |
+| Exchange files | The bucket's rule for the prefix they were written under: 30 days under `temp30/`. On Azure only once the account's lifecycle policy is configured, see [Deployment](deployment.md#object-storage). |
+| Exchanges, results, promoted properties, notifications | **Keep exchanges (days)** on the Settings page. 0, the default, keeps them for ever. |
+| Archived exchanges | Kept for ever, unless a bucket rule covers the archive prefix |
 | Receive attempts | `Bitween:ReceiveAttemptRetentionDays`, 30 days by default |
 | Broker deduplication keys | Each data source's window, 30 days by default |
 | Scheduler execution history | Managed by the scheduler library |
 | Audit entries | Kept indefinitely |
 
-Exchange rows outlive their files. Retrying an exchange whose input file has expired fails, and a waiting retry for it is dropped with a reason.
+The retention job runs on the **Retention schedule** setting, 04:00 daily by default. It removes exchanges that started more than **Keep exchanges (days)** ago, oldest first and in small batches. An exchange waiting for a scheduled retry is kept.
+
+With **Archive before deleting** on, the default, each exchange is first written to `archive/{prefix}/{subscription id}/yyyy/MM/dd/{main value}_{exchange id}.json`. `{prefix}` is the document prefix without its `tempN/` part, and the main value is the exchange's value for the first promoted property of its information type; without one the file is named by the id alone. The file holds the exchange's details, its promoted properties, result and notifications, and the contents of its files while storage still has them. Handler and mapper properties are left out, because they can hold resolved secrets. If an exchange can't be archived, the run stops and keeps it for the next run.
+
+The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, how many exchanges are listed without their files, and warnings such as exchanges that outlive their files, archives that come too late to hold them, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
+
+Exchange rows can outlive their files. Opening such a file says it was deleted by the retention policy, and so does retrying an exchange whose input has gone. A waiting retry for one is dropped with a reason.
 
 ## Common problems
 

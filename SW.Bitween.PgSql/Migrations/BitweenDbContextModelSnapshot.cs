@@ -652,7 +652,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnName("name");
 
                     b.Property<string>("PromotedProperties")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("json")
                         .HasColumnName("promoted_properties");
 
                     b.Property<DateTime?>("RetiredOn")
@@ -1535,6 +1535,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("document_id");
 
+                    b.Property<string>("FilesPrefix")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("files_prefix");
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -1711,6 +1716,9 @@ namespace SW.Bitween.PgSql.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_xchange_notification");
+
+                    b.HasIndex("XchangeId")
+                        .HasDatabaseName("ix_xchange_notification_xchange_id");
 
                     b.ToTable("xchange_notification", "infolink");
                 });

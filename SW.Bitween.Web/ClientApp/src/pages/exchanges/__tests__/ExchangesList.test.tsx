@@ -1,6 +1,6 @@
 import { cleanup, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
 
 /**
@@ -249,5 +249,93 @@ describe("the exchanges list", () => {
     expect(list.asked.at(-1)?.get("page")).toBe("1");
     expect(screen.getAllByText("True").length).toBeGreaterThan(0);
     expect(screen.queryByText("Unexpected Application Error")).not.toBeInTheDocument();
+  });
+
+  /**
+   * The files of a selection as one zip. Only reading is involved, so someone who can see exchanges
+   * but not retry them can still tick rows and export.
+   */
+  describe("export files", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      Reflect.deleteProperty(URL, "createObjectURL");
+      Reflect.deleteProperty(URL, "revokeObjectURL");
+    });
+
+    it("lets a viewer download the ticked rows' files, without offering a retry", async () => {
+      const exported: unknown[] = [];
+      URL.createObjectURL = vi.fn(() => "blob:export");
+      URL.revokeObjectURL = vi.fn();
+      const saved: string[] = [];
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+        saved.push(this.download);
+      });
+
+      const { user } = renderApp("/exchanges", {
+        as: { permissions: ["exchanges.view"] },
+        handlers: [
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+          http.post(apiPath("/xchanges/export"), async ({ request }) => {
+            exported.push(await request.json());
+            // Bytes, not a Blob: jsdom's Blob can't be streamed into a response.
+            return new HttpResponse(new Uint8Array([0x50, 0x4b]), {
+              headers: {
+                "Content-Type": "application/zip",
+                "Content-Disposition": "attachment; filename=exchanges-2026-10-01-101500.zip",
+              },
+            });
+          }),
+        ],
+      });
+
+      await screen.findAllByRole("checkbox", { name: /^Select (?!all\b)/ });
+      await user.click(rowCheckboxes()[0]);
+      await user.click(rowCheckboxes()[2]);
+
+      expect(screen.queryByRole("button", { name: "Retry selected…" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Export files" }));
+
+      await vi.waitFor(() => expect(saved).toEqual(["exchanges-2026-10-01-101500.zip"]));
+      expect(exported).toEqual([{ ids: [exchange(0).id, exchange(2).id] }]);
+    });
+
+    it("over an unfiltered list, select all matching still sends a filter that matches everything", async () => {
+      const exported: unknown[] = [];
+      URL.createObjectURL = vi.fn(() => "blob:export");
+      URL.revokeObjectURL = vi.fn();
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+      const { user } = renderApp("/exchanges", {
+        handlers: [
+          exchanges({ total: 30 }).handler,
+          ...filterOptions,
+          http.post(apiPath("/xchanges/export"), async ({ request }) => {
+            exported.push(await request.json());
+            return new HttpResponse(new Uint8Array([0x50, 0x4b]), { headers: { "Content-Type": "application/zip" } });
+          }),
+        ],
+      });
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select all on this page" }));
+      await user.click(screen.getByRole("button", { name: "Select all 30 matching this filter" }));
+      await user.click(screen.getByRole("button", { name: "Export files" }));
+
+      // An empty filter would read as no filter, and select nothing.
+      await vi.waitFor(() => expect(exported).toEqual([{ filter: "filter=LatestOnly%3A1%3Afalse", excludeIds: [] }]));
+    });
+
+    it("past the limit, says why it can't rather than failing on the server", async () => {
+      const { user } = renderApp("/exchanges?status=failed", {
+        handlers: [exchanges({ total: 600 }).handler, ...filterOptions],
+      });
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select all on this page" }));
+      await user.click(screen.getByRole("button", { name: "Select all 600 matching this filter" }));
+
+      const button = screen.getByRole("button", { name: "Export files" });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("title", expect.stringContaining("at most 500 exchanges"));
+    });
   });
 });

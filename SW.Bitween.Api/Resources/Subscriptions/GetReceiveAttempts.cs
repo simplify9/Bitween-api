@@ -49,13 +49,14 @@ public class GetReceiveAttempts(BitweenDbContext dbContext, RequestContext reque
             from r in xr.DefaultIfEmpty()
             join p in dbContext.Set<XchangePromotedProperties>() on x.Id equals p.Id into xp
             from p in xp.DefaultIfEmpty()
+            join d in dbContext.Set<Document>() on x.DocumentId equals d.Id
             where exchangeIds.Contains(x.Id)
             select new ReceiveAttemptExchangeRef
             {
                 Id = x.Id,
                 Status = r.Success,
                 ResponseBad = r.ResponseBad,
-                PromotedProperties = p == null ? null : p.Properties.ToDictionary(),
+                PromotedProperties = p == null ? null : p.Properties.InDefinedOrder(d.PromotedProperties),
             }
         ).ToDictionaryAsync(e => e.Id);
 

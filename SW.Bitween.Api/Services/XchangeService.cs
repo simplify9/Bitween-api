@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -20,7 +21,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     FilterService filterService,
     ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
     IPublish publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
-    IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery) :
+    IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery,
+    FileLinks fileLinks, StorageRetention storageRetention) :
     // IConsume<ApiXchangeCreatedEvent>,
     // IConsume<InternalXchangeCreatedEvent>,
     // IConsume<AggregateXchangeCreatedEvent>,
@@ -68,8 +70,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         bool manualRetry = false)
     {
         await EnsureNotAlreadyRetried(xchange.Id);
+        if (xchange.DocumentId == Document.AggregationDocumentId) file = WithServedLinks(file);
         var newXchange = new Xchange(xchange, file, workGroup, manualRetry);
-        await AddFile(newXchange.Id, XchangeFileType.Input, file);
+        await AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
     }
 
@@ -77,13 +80,53 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         string[] references = null, Dictionary<string, int> groupAttemptCounts = null, bool manualRetry = false)
     {
         await EnsureNotAlreadyRetried(xchange.Id);
+        if (xchange.DocumentId == Document.AggregationDocumentId) file = WithServedLinks(file);
         var partnerId = xchange.PartnerId ?? subscription.PartnerId;
         var partner = partnerId.HasValue ? await dbContext.FindAsync<Partner>(partnerId.Value) : null;
         var globalAdapterValuesSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
         var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets,
             groupAttemptCounts, manualRetry);
-        await AddFile(newXchange.Id, XchangeFileType.Input, file);
+        await AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
+    }
+
+    private static readonly Regex ExchangeFileKey = new("/[0-9a-f]{32}/(input|output|response)$");
+
+    /// <summary>
+    /// A roll-up made before Bitween served its own file links lists storage URLs, which stop opening once
+    /// the bucket is private. Retrying one — with its old properties or reset ones — swaps each URL of an
+    /// exchange file in Bitween's bucket for a link Bitween serves, so the handler reading it still gets
+    /// every file. Anything else is left as it was.
+    /// </summary>
+    private XchangeFile WithServedLinks(XchangeFile rollUp)
+    {
+        List<string> urls;
+        try
+        {
+            urls = JsonConvert.DeserializeObject<List<string>>(rollUp.Data);
+        }
+        catch (JsonException)
+        {
+            return rollUp;
+        }
+
+        // What the storage puts in front of a key differs by provider, so it's read off a URL of its own.
+        const string marker = "bitween-key";
+        var markerUrl = cloudFiles.GetUrl(marker);
+        if (urls == null || !markerUrl.EndsWith(marker, StringComparison.Ordinal)) return rollUp;
+        var storageBase = markerUrl[..^marker.Length];
+
+        var swapped = false;
+        for (var i = 0; i < urls.Count; i++)
+        {
+            if (urls[i]?.StartsWith(storageBase, StringComparison.Ordinal) != true) continue;
+            var key = Uri.UnescapeDataString(urls[i][storageBase.Length..]);
+            if (!ExchangeFileKey.IsMatch(key) || fileLinks.LinkTo(key, forAdapter: true) is not { } link) continue;
+            urls[i] = link;
+            swapped = true;
+        }
+
+        return swapped ? new XchangeFile(JsonConvert.SerializeObject(urls), rollUp.Filename, rollUp.BadData) : rollUp;
     }
 
     public async Task<Xchange> CreateXchange(Document document, WorkGroup workGroup, XchangeFile file,
@@ -91,7 +134,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         string correlationId = null)
     {
         var xchange = new Xchange(document.Id, workGroup, file, references, SubscriptionType.Internal, correlationId);
-        await AddFile(xchange.Id, XchangeFileType.Input, file);
+        await AddInputFile(xchange, file);
         dbContext.Add(xchange);
         return xchange;
     }
@@ -119,7 +162,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
             globalAdapterValuesSets);
-        await AddFile(xchange.Id, XchangeFileType.Input, file);
+        await AddInputFile(xchange, file);
         dbContext.Add(xchange);
         return xchange;
     }
@@ -196,7 +239,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         try
         {
-            return new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
+            return new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
         }
         catch (Exception ex)
         {
@@ -349,7 +392,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             throw new BitweenException(
                 $"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
         else
-            await AddFile(xchange.Id, XchangeFileType.Output, xchangeFile);
+            await AddFile(xchange, XchangeFileType.Output, xchangeFile);
         return xchangeFile;
     }
 
@@ -378,7 +421,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             handlerProperties, xchange.CorrelationId ?? xchange.Id);
 
         if (xchangeFile != null)
-            await AddFile(xchange.Id, XchangeFileType.Response, xchangeFile);
+            await AddFile(xchange, XchangeFileType.Response, xchangeFile);
         return xchangeFile;
     }
 
@@ -434,61 +477,127 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     //     return (T)adapter;
     // }
 
-    private async Task AddFile(string xchangeId, XchangeFileType type, XchangeFile file)
+    /// <summary>
+    /// Writes a new exchange's input under the document prefix in force now, and records that prefix on
+    /// the exchange so its later files go next to it and a change of prefix never loses track of them.
+    /// </summary>
+    private Task AddInputFile(Xchange xchange, XchangeFile file)
     {
-        var key = GetFileKey(xchangeId, type);
+        xchange.StoreFilesUnder(BitweenSettings.DocumentPrefix);
+        return AddFile(xchange, XchangeFileType.Input, file);
+    }
+
+    private async Task AddFile(Xchange xchange, XchangeFileType type, XchangeFile file)
+    {
+        var key = FileKey(xchange, type);
         try
         {
-            await cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings
-            {
-                Public = !BitweenSettings.AreXChangeFilesPrivate,
-                Key = key
-            });
-            logger.LogDebug("Wrote the {FileType} file of xchange {XchangeId} to {Key}.", type, xchangeId, key);
+            // Always private. Readers without a Bitween login get a sealed link from FileLinks instead
+            // of a storage URL, which only ever opened because the file was public.
+            await cloudFiles.WriteTextAsync(file.Data, new WriteFileSettings { Key = key });
+            logger.LogDebug("Wrote the {FileType} file of xchange {XchangeId} to {Key}.", type, xchange.Id, key);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Could not write the {FileType} file of xchange {XchangeId} to {Key}.",
-                type, xchangeId, key);
+                type, xchange.Id, key);
             throw;
         }
     }
 
-    public string GetFileUrl(string xchangeId, XchangeFileType type)
+    /// <summary>
+    /// The prefix an exchange's files were written under: the one it recorded, or for an exchange from
+    /// before exchanges recorded one, the prefix in force back then.
+    /// </summary>
+    public string FilesPrefixOf(string recordedPrefix) =>
+        recordedPrefix ?? BitweenSettings.LegacyDocumentPrefix ?? BitweenSettings.DocumentPrefix;
+
+    public string FileKey(Xchange xchange, XchangeFileType type) => FileKey(xchange.Id, xchange.FilesPrefix, type);
+
+    public string FileKey(string xchangeId, string recordedPrefix, XchangeFileType type) =>
+        $"{FilesPrefixOf(recordedPrefix)}/{xchangeId}/{type.ToString().ToLower()}";
+
+    /// <summary>The key of a file the exchange has, or <c>null</c> when it has none: an empty size means it was never written.</summary>
+    public string FileKey(string xchangeId, string recordedPrefix, int? fileSize, XchangeFileType type) =>
+        fileSize is null or 0 ? null : FileKey(xchangeId, recordedPrefix, type);
+
+    /// <summary>
+    /// A link to an exchange file for a reader without a login (see <see cref="FileLinks"/>). Falls back to
+    /// the storage URL when there's no address to build a link on, which only opens a file written while
+    /// exchange files were still public.
+    /// </summary>
+    public string FileUrl(string xchangeId, string recordedPrefix, XchangeFileType type)
     {
-        return cloudFiles.GetUrl(GetFileKey(xchangeId, type));
+        var key = FileKey(xchangeId, recordedPrefix, type);
+        return fileLinks.LinkTo(key) ?? cloudFiles.GetUrl(key);
     }
 
-    public string GetFileUrl(string xchangeId, int? fileSize, XchangeFileType type)
-    {
-        return fileSize is null or 0 ? null : cloudFiles.GetUrl(GetFileKey(xchangeId, type));
-    }
+    /// <summary><see cref="FileUrl(string,string,XchangeFileType)"/> for a file the exchange has, <c>null</c> for one it doesn't.</summary>
+    public string FileUrl(string xchangeId, string recordedPrefix, int? fileSize, XchangeFileType type) =>
+        fileSize is null or 0 ? null : FileUrl(xchangeId, recordedPrefix, type);
 
-    public string GetFileKey(string xchangeId, int? fileSize, XchangeFileType type)
+    /// <summary>
+    /// The exchange a storage key belongs to, and which of its files it is — <c>null</c> when the key
+    /// isn't exactly where one of an exchange's files lives. How a request naming a raw key is held to
+    /// exchange files and nothing else in the bucket.
+    /// </summary>
+    public async Task<(Xchange Xchange, XchangeFileType Type)?> FindFileOwner(string key)
     {
-        if (fileSize is null or 0)
+        var parts = key?.Split('/');
+        if (parts is not { Length: >= 3 } || !Enum.TryParse<XchangeFileType>(parts[^1], true, out var type))
             return null;
-        return $"{BitweenSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
+
+        var id = parts[^2];
+        var xchange = await dbContext.Set<Xchange>().AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        return xchange != null && FileKey(xchange, type) == key ? (xchange, type) : null;
     }
 
-    private string GetFileKey(string xchangeId, XchangeFileType type)
+    public async Task<string> GetFile(string xchangeId, XchangeFileType type) =>
+        await GetFile(await dbContext.FindAsync<Xchange>(xchangeId)
+                      ?? throw new BitweenException($"Xchange '{xchangeId}' not found."), type);
+
+    /// <summary>Reads one of an exchange's files whole; see <see cref="OpenFile"/>.</summary>
+    public async Task<string> GetFile(Xchange xchange, XchangeFileType type)
     {
-        return $"{BitweenSettings.DocumentPrefix}/{xchangeId}/{type.ToString().ToLower()}";
+        await using var cloudStream = await OpenFile(xchange, type);
+        using var reader = new StreamReader(cloudStream);
+        return await reader.ReadToEndAsync();
     }
 
-    public async Task<string> GetFile(string xchangeId, XchangeFileType type)
+    /// <summary>
+    /// Opens one of an exchange's files to read. A file that isn't there any more is reported as such —
+    /// deleted by the bucket's retention rule when one covers it and the exchange is old enough, or else
+    /// missing — rather than as the storage provider's own error.
+    /// </summary>
+    public async Task<Stream> OpenFile(Xchange xchange, XchangeFileType type)
     {
-        var key = GetFileKey(xchangeId, type);
+        var key = FileKey(xchange, type);
         try
         {
-            await using var cloudStream = await cloudFiles.OpenReadAsync(key);
-            using var reader = new StreamReader(cloudStream);
-            return await reader.ReadToEndAsync();
+            return await cloudFiles.OpenReadAsync(key);
+        }
+        catch (Exception ex) when (StorageErrors.IsNotFound(ex))
+        {
+            var rules = await storageRetention.GetAsync();
+            var rule = rules.RuleFor(key);
+            if (rule != null && (DateTime.UtcNow - xchange.StartedOn).TotalDays >= rule.Days)
+            {
+                logger.LogInformation("The {FileType} file of xchange {XchangeId} was deleted by the retention rule for {Prefix}.",
+                    type, xchange.Id, rule.Prefix);
+                throw new SWValidationException("FILE_EXPIRED",
+                    $"This file was deleted by the storage retention policy: files under {rule.Prefix} are kept " +
+                    $"{rule.Days} days, and this exchange started on {xchange.StartedOn:yyyy-MM-dd}.");
+            }
+
+            logger.LogError(ex, "The {FileType} file of xchange {XchangeId} is missing from {Key}.", type, xchange.Id, key);
+            throw new SWValidationException("FILE_MISSING", rules.Problem == null
+                ? "This file isn't in storage. No retention rule explains it, so it was removed some other way."
+                : "This file isn't in storage. The bucket's deletion rules couldn't be read, so whether one removed it can't be told.");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Could not read the {FileType} file of xchange {XchangeId} from {Key}.",
-                type, xchangeId, key);
+                type, xchange.Id, key);
             throw;
         }
     }
@@ -505,7 +614,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         try
         {
-            var inputFile = new XchangeFile(await GetFile(xchange.Id, XchangeFileType.Input), xchange.InputName);
+            var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
             var result = await filterService.Filter(xchange.DocumentId, inputFile);
 
             dbContext.Add(new XchangePromotedProperties(xchange.Id, result));

@@ -118,15 +118,17 @@ A data source is a broker or database connection held by a resident adapter. On 
 
 ## Storage
 
-Exchange files are written as text to object storage under this key.
+Exchange files are written as private text objects under this key.
 
 ```
-{Bitween:DocumentPrefix}/{exchangeId}/{input|output|response}
+{prefix}/{exchangeId}/{input|output|response}
 ```
 
-The default prefix is `temp30/Bitweendocs`. The S3 and Oracle storage libraries add lifecycle rules that expire objects under `temp1/`, `temp7/`, `temp30/` and `temp365/`, so the default keeps payloads for 30 days.
+`{prefix}` is `Bitween:DocumentPrefix` as it was when the exchange was created, recorded on the exchange (`FilesPrefix`), so the setting can change without losing files already written. Exchanges from before that column use the prefix recorded the first time this version started, kept in the `Settings` table as `Bitween.LegacyDocumentPrefix`.
 
-Files are uploaded as public objects unless the **Keep exchange files private** setting is on. Custom adapter packages live under `Bitween:AdapterPath`.
+The default prefix is `temp30/Bitweendocs`. The storage libraries keep delete rules for `temp1/`, `temp7/`, `temp30/` and `temp365/` on the bucket, so the default keeps files for 30 days. They're read back through `ICloudFilesLifecycle` for the Settings page and to explain a missing file.
+
+Readers without a Bitween login get links Bitween serves itself: an aggregation's handler, a partner reading its exchange result, an API client reading the exchange list. A link is `{address}/api/files/{seal}/{storage key}`, where the address is the Public address, else the one the request came in on, else (a scheduled job) the instance's own, such as `http://localhost:8080`. The seal is an HMAC of the storage key with a key derived from `Token:Key`, so a link opens its own file and no other, and nothing is stored per link. Custom adapter packages live under `Bitween:AdapterPath`.
 
 ## Caching
 

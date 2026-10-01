@@ -52,7 +52,39 @@ namespace SW.Bitween
         /// </para>
         /// </remarks>
         public bool ExposeApiDocs { get; set; }
+        /// <summary>
+        /// Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix
+        /// decides how long they're kept (<c>temp30/…</c> is 30 days). Each exchange records the prefix
+        /// it was written under, so a change only affects exchanges created after it.
+        /// </summary>
         public string DocumentPrefix { get; set; }
+
+        /// <summary>
+        /// The prefix exchange files were written under before each exchange recorded its own. Remembered
+        /// once, the first time this version starts, so those files stay reachable after
+        /// <see cref="DocumentPrefix"/> changes. Kept in the Settings table but not a setting anyone edits.
+        /// </summary>
+        public string LegacyDocumentPrefix { get; set; }
+
+        /// <summary>
+        /// The address partners and adapters reach this instance on, e.g. <c>https://bitween.example.com</c>.
+        /// File links for readers without a login are built on it. Without it a request falls back to the
+        /// address it came in on, and an aggregation can't run: it has no request to take one from.
+        /// </summary>
+        public string PublicUrl { get; set; }
+
+        /// <summary>Days an exchange is kept before the retention job removes it. 0 keeps exchanges for ever.</summary>
+        public int ExchangeRetentionDays { get; set; }
+
+        /// <summary>Whether the retention job copies each exchange, files included, to the archive before deleting it.</summary>
+        public bool ArchiveExchanges { get; set; } = true;
+
+        /// <summary>
+        /// Quartz cron expression for <c>ExchangeRetentionJob</c>. Daily at 4am by default, after the other
+        /// nightly clean-ups. Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
+        /// </summary>
+        public string ExchangeRetentionCron { get; set; } = "0 0 4 * * ?";
+
         public int ServerlessCommandTimeout { get; set; }
 
         /// <summary>
@@ -73,7 +105,6 @@ namespace SW.Bitween
 
         /// <summary>When to forget dedupe keys past their data source's window. Nightly by default.</summary>
         public string InboundMessagePruneCron { get; set; }
-        public bool AreXChangeFilesPrivate { get; set; } = false;
         public int? ApiCallSubscriptionResponseAcceptedStatusCode { get; set; }
 
         public string StorageProvider { get; set; }

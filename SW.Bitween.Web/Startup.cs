@@ -91,6 +91,11 @@ namespace SW.Bitween.Web
             services.AddScoped<IAdapterInvoker, AdapterInvoker>();
             services.AddScoped<MappingContextFactory>();
             services.AddScoped<XchangeService>();
+            services.AddSingleton<FileLinks>();
+            services.AddSingleton<StorageRetention>();
+            services.AddSingleton<StorageAccess>();
+            services.AddScoped<ExchangeArchive>();
+            services.AddScoped<RetentionPlanner>();
             services.AddScoped<GatewayCallers>();
             services.AddSingleton<IGatewayIssuers, OpenIdGatewayIssuers>();
             services.AddScoped<Resources.Ops.LaneResolver>();
@@ -152,6 +157,8 @@ namespace SW.Bitween.Web
             {
                 case "AS":
                     services.AddAsCloudFiles();
+                    // Azure decides privacy per container, and the storage library creates it public.
+                    services.AddHostedService<PrivateAzureContainer>();
                     break;
                 case "OC":
                     services.AddOracleCloudFiles();
@@ -602,7 +609,8 @@ namespace SW.Bitween.Web
         /// across every address; this counts them per address across every account.
         /// </para>
         /// <para>
-        /// Both numbers can be overridden through <c>Bitween:RateLimits</c>, and are unchanged wherever
+        /// Each number can be overridden through <c>Bitween:RateLimits</c> (<c>SignInPerMinute</c>,
+        /// <c>RequestsPerMinute</c>, <c>FileLinksPerMinute</c>), and is unchanged wherever
         /// that is not set. The end-to-end suite needs it: it drives the UI far faster than a person,
         /// all as one account, and spends the per-account budget several times over in a run.
         /// </para>
@@ -612,6 +620,7 @@ namespace SW.Bitween.Web
             var limits = Configuration.GetSection("Bitween:RateLimits");
             var signInLimit = limits.GetValue("SignInPerMinute", 10);
             var requestLimit = limits.GetValue("RequestsPerMinute", 600);
+            var fileLinkLimit = limits.GetValue("FileLinksPerMinute", 60000);
 
             services.AddRateLimiter(options =>
             {
@@ -625,6 +634,18 @@ namespace SW.Bitween.Web
                             _ => new FixedWindowRateLimiterOptions
                             {
                                 PermitLimit = signInLimit,
+                                Window = TimeSpan.FromMinutes(1)
+                            });
+
+                    // File links have a budget of their own: an aggregation's handler downloads every
+                    // link in a roll-up — up to 10,000 — and the storage URLs they replace had no limit.
+                    // Still bounded, and a bad seal is turned away before storage is touched.
+                    if (context.Request.Path.StartsWithSegments("/" + FileLinks.RoutePrefix))
+                        return RateLimitPartition.GetFixedWindowLimiter(
+                            $"files:{ClientAddress(context)}",
+                            _ => new FixedWindowRateLimiterOptions
+                            {
+                                PermitLimit = fileLinkLimit,
                                 Window = TimeSpan.FromMinutes(1)
                             });
 

@@ -1,7 +1,7 @@
 import { cleanup, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
-import type { SettingRow } from "../../../api";
+import type { RetentionStatus, SettingRow } from "../../../api";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
 import { server } from "../../../__tests__/support/server";
 import { settingsDraft } from "../../../lib/settingsDraft";
@@ -40,11 +40,18 @@ const environment = (
 /** A few rows from each section, in catalog order — which is the order the page lists them in. */
 const ROWS: SettingRow[] = [
   editable({
-    key: "Bitween.AreXChangeFilesPrivate",
+    key: "Bitween.DocumentPrefix",
     section: "Documents & storage",
-    label: "Keep exchange files private",
-    kind: "boolean",
-    defaultValue: "false",
+    label: "Exchange files prefix",
+    kind: "string",
+    defaultValue: "temp30/Bitweendocs",
+  }),
+  editable({
+    key: "Bitween.ExchangeRetentionDays",
+    section: "Documents & storage",
+    label: "Keep exchanges (days)",
+    kind: "number",
+    defaultValue: "0",
   }),
   editable({
     key: "Bitween.JwtExpiryMinutes",
@@ -129,8 +136,38 @@ const ROWS: SettingRow[] = [
   }),
 ];
 
+/** What Retention.Get sends for a bucket with the temp rules and exchanges kept for ever. */
+const retention = (overrides: Partial<RetentionStatus> = {}): RetentionStatus => ({
+  storage: {
+    provider: "S3",
+    bucket: "bitween",
+    problem: null,
+    rules: [
+      { id: "temp7", prefix: "temp7/", days: 7, enabled: true },
+      { id: "temp30", prefix: "temp30/", days: 30, enabled: true },
+    ],
+  },
+  files: { prefix: "temp30/Bitweendocs", days: 30, rulePrefix: "temp30/" },
+  legacyFiles: null,
+  archive: { prefix: "archive/Bitweendocs", days: null, rulePrefix: null },
+  exchanges: {
+    retentionDays: 0,
+    archive: true,
+    cron: "0 0 4 * * ?",
+    nextRun: "2026-10-01T04:00:00Z",
+    dueNow: null,
+    withoutFiles: 12,
+    countCap: 100000,
+    oldest: "2026-01-01T00:00:00Z",
+  },
+  publicUrl: "https://bitween.test",
+  notices: [{ level: "info", code: "KEEP_FOREVER", message: "Exchanges are kept for ever: nothing removes them from the database." }],
+  ...overrides,
+});
+
 const pageHandlers = [
   http.get(apiPath("/settings"), () => HttpResponse.json(ROWS)),
+  http.get(apiPath("/retention"), () => HttpResponse.json(retention())),
   // The history card underneath; nothing has changed on this instance yet.
   http.get(apiPath("/audit"), () => HttpResponse.json({ result: [], totalCount: 0 })),
 ];
@@ -202,6 +239,55 @@ describe("the settings page", () => {
     expect(toggle).not.toBeChecked();
     expect(screen.getByText("Microsoft sign-in only")).toBeVisible();
     expect(screen.queryByText("Environment")).not.toBeInTheDocument();
+  });
+
+  it("says what the retention settings do, and says it again before a change is saved", async () => {
+    let previewed: unknown;
+    let saved: unknown;
+    const warning = "Exchanges older than 30 days are listed without their files: they can't be opened or retried.";
+    server.use(
+      http.post(apiPath("/retention/preview"), async ({ request }) => {
+        previewed = await request.json();
+        return HttpResponse.json(
+          retention({
+            exchanges: { ...retention().exchanges, retentionDays: 90, dueNow: 3 },
+            notices: [{ level: "warning", code: "OUTLIVE_FILES", message: warning }],
+          }),
+        );
+      }),
+      http.post(apiPath("/settings/Bitween.ExchangeRetentionDays"), async ({ request }) => {
+        saved = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { user } = openSettings("Documents & storage");
+
+    // The saved state, and the bucket's own rules with the one exchange files fall under marked.
+    expect(await screen.findByText("What these settings do")).toBeVisible();
+    expect(screen.getByText(/nothing removes them from the database/)).toBeVisible();
+    const rules = within(screen.getByRole("table"));
+    expect(rules.getByText("temp30/")).toBeVisible();
+    expect(rules.getByText("Exchange files")).toBeVisible();
+
+    // A staged change is previewed straight away, before anything is saved…
+    const daysBox = screen.getByRole("spinbutton", { name: "Keep exchanges (days)" });
+    await user.clear(daysBox);
+    await user.type(daysBox, "90");
+    await user.tab();
+    expect(await screen.findByText("What your unsaved changes would do")).toBeVisible();
+    expect(await screen.findByText(warning)).toBeVisible();
+    expect(previewed).toMatchObject({ exchangeRetentionDays: 90, documentPrefix: "temp30/Bitweendocs" });
+
+    // …and saving asks first, with the same consequences, rather than writing on the spot.
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Save the retention changes?")).toBeVisible();
+    expect(dialog.getByText(warning)).toBeVisible();
+    expect(saved).toBeUndefined();
+
+    await user.click(dialog.getByRole("button", { name: "Save changes" }));
+    await screen.findByText("What these settings do");
+    expect(saved).toEqual({ value: "90" });
   });
 
   it("keeps an invalid retry schedule as an unsaved draft when the backend refuses it", async () => {
