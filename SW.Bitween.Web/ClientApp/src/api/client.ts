@@ -519,6 +519,8 @@ export interface ApiClient {
   /** Retries many; exchanges with a pending auto-retry are skipped, not failed. */
   bulkRetryExchanges(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
   previewBulkRetry(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
+  /** The selection's input, mapped and handled files as one zip, a folder per exchange. */
+  exportExchangeFiles(selection: BulkRetrySelection): Promise<{ blob: Blob; fileName: string }>;
   getRetryTree(id: string): Promise<RetryTree>;
   /** Manually injects a payload, addressed at a subscription or an information type. */
   createExchange(input: {

@@ -556,19 +556,25 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         await GetFile(await dbContext.FindAsync<Xchange>(xchangeId)
                       ?? throw new BitweenException($"Xchange '{xchangeId}' not found."), type);
 
-    /// <summary>
-    /// Reads one of an exchange's files. A file that isn't there any more is reported as such — deleted by
-    /// the bucket's retention rule when one covers it and the exchange is old enough, or else missing —
-    /// rather than as the storage provider's own error.
-    /// </summary>
+    /// <summary>Reads one of an exchange's files whole; see <see cref="OpenFile"/>.</summary>
     public async Task<string> GetFile(Xchange xchange, XchangeFileType type)
+    {
+        await using var cloudStream = await OpenFile(xchange, type);
+        using var reader = new StreamReader(cloudStream);
+        return await reader.ReadToEndAsync();
+    }
+
+    /// <summary>
+    /// Opens one of an exchange's files to read. A file that isn't there any more is reported as such —
+    /// deleted by the bucket's retention rule when one covers it and the exchange is old enough, or else
+    /// missing — rather than as the storage provider's own error.
+    /// </summary>
+    public async Task<Stream> OpenFile(Xchange xchange, XchangeFileType type)
     {
         var key = FileKey(xchange, type);
         try
         {
-            await using var cloudStream = await cloudFiles.OpenReadAsync(key);
-            using var reader = new StreamReader(cloudStream);
-            return await reader.ReadToEndAsync();
+            return await cloudFiles.OpenReadAsync(key);
         }
         catch (Exception ex) when (StorageErrors.IsNotFound(ex))
         {

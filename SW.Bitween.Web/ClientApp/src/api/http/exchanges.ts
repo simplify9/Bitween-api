@@ -11,7 +11,7 @@ import type {
   ScheduledRetryRow,
 } from "../types";
 import { partnerMethods } from "./partners";
-import { get, post } from "./request";
+import { download, get, post } from "./request";
 import { searchyQueryString } from "./searchQuery";
 
 // ——— backend shapes (camelCase over the wire) ———
@@ -219,26 +219,32 @@ function buildScheduledRetryQuery(query: ScheduledRetryQuery): string {
 }
 
 /**
- * Both bulk-retry endpoints take the same request, so the preview cannot describe a different
- * selection than the retry acts on. The filter goes over as the same query-string fragment the
- * list itself sends, percent-encoded the way the backend's parser expects (see
+ * A selection as the bulk endpoints take it. The filter goes over as the same query-string
+ * fragment the list itself sends, percent-encoded the way the backend's parser expects (see
  * `searchyQueryString`), and the backend re-runs it — the client never has to enumerate ids it
  * has not loaded.
+ */
+const selectionBody = (selection: BulkRetrySelection) => {
+  if ("ids" in selection) return { ids: selection.ids };
+
+  // With no filters set, "everything" still has to go over as a filter: an empty one reads as no
+  // filter at all, and the selection would fall back to the ticked ids, which are none. Asking for
+  // every attempt, not only the newest, matches everything without narrowing it.
+  const filters = buildExchangeFilters(selection.matching);
+  if (!filters.toString()) filters.append("filter", "LatestOnly:1:false");
+  return { filter: searchyQueryString(filters), excludeIds: selection.excludeIds };
+};
+
+/**
+ * Both bulk-retry endpoints take the same request, so the preview cannot describe a different
+ * selection than the retry acts on.
  */
 async function postBulkRetry(
   url: string,
   selection: BulkRetrySelection,
   reset: boolean,
 ): Promise<BulkRetryPlan> {
-  const body =
-    "ids" in selection
-      ? { ids: selection.ids }
-      : {
-          filter: searchyQueryString(buildExchangeFilters(selection.matching)),
-          excludeIds: selection.excludeIds,
-        };
-
-  const plan = await post<RawBulkRetryPlan>(url, { ...body, reason: "Bulk retry", reset });
+  const plan = await post<RawBulkRetryPlan>(url, { ...selectionBody(selection), reason: "Bulk retry", reset });
   return {
     selected: plan.selected,
     willRetry: plan.willRetry,
@@ -311,6 +317,12 @@ export const exchangeMethods = {
   /** Runs the retry and reports what it actually did, in the same shape as the preview. */
   bulkRetryExchanges(selection: BulkRetrySelection, { reset }: { reset: boolean }): Promise<BulkRetryPlan> {
     return postBulkRetry("/xchanges/bulkretry", selection, reset);
+  },
+
+  /** The selected exchanges' files as one zip, built and streamed by the server. */
+  async exportExchangeFiles(selection: BulkRetrySelection): Promise<{ blob: Blob; fileName: string }> {
+    const { blob, fileName } = await download("/xchanges/export", selectionBody(selection));
+    return { blob, fileName: fileName ?? "exchanges.zip" };
   },
 
   async createExchange(input: {

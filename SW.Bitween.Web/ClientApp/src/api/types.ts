@@ -1191,8 +1191,8 @@ export interface RetryTree {
 }
 
 /**
- * Which exchanges a bulk retry is about: the rows someone ticked, or a whole filter's worth
- * minus the ones they unticked.
+ * Which exchanges a bulk retry or a files export is about: the rows someone ticked, or a whole
+ * filter's worth minus the ones they unticked.
  */
 export type BulkRetrySelection =
   | { ids: string[] }

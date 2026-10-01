@@ -113,6 +113,29 @@ export interface RequestOptions {
  * cookie rides along, and on 401 attempts a single silent refresh + retry.
  */
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await send(path, opts);
+
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  if (!text) return undefined as T;
+  // Some endpoints return a bare string as text/plain (e.g. /partners/generatekey),
+  // which isn't valid JSON — only parse when the response actually is JSON.
+  const isJson = res.headers.get("content-type")?.includes("application/json") ?? false;
+  return (isJson ? JSON.parse(text) : text) as T;
+}
+
+/**
+ * A file the server builds from a POST, such as a zip, with the name it gave the file. Goes through
+ * the same sign-in handling as `request`; a refusal still comes back as the usual error.
+ */
+export async function download(path: string, body: unknown): Promise<{ blob: Blob; fileName: string | null }> {
+  const res = await send(path, { method: "POST", body });
+  const fileName = /filename="?([^";]+)"?/i.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? null;
+  return { blob: await res.blob(), fileName };
+}
+
+/** Sends a request and returns the successful response; see `request`. */
+async function send(path: string, opts: RequestOptions): Promise<Response> {
   const token = getToken();
   const method = opts.method ?? "GET";
   // Backend command handlers (POST) bind a JSON body, so they always need
@@ -133,7 +156,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
 
   if (res.status === 401 && !opts._retried) {
     const refreshed = await silentRefresh();
-    if (refreshed) return request<T>(path, { ...opts, _retried: true });
+    if (refreshed) return send(path, { ...opts, _retried: true });
     clearToken();
     // Tell the app, not only the caller. Every page with a read in flight is about
     // to render its own small error, and a page's error state cannot end a session.
@@ -142,14 +165,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   }
 
   if (!res.ok) throw await toApiError(res);
-
-  if (res.status === 204) return undefined as T;
-  const text = await res.text();
-  if (!text) return undefined as T;
-  // Some endpoints return a bare string as text/plain (e.g. /partners/generatekey),
-  // which isn't valid JSON — only parse when the response actually is JSON.
-  const isJson = res.headers.get("content-type")?.includes("application/json") ?? false;
-  return (isJson ? JSON.parse(text) : text) as T;
+  return res;
 }
 
 export const get = <T>(path: string): Promise<T> => request<T>(path);

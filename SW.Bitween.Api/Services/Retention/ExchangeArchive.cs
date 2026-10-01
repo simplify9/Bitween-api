@@ -62,12 +62,17 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
         $"{prefix}/{xchange.SubscriptionId?.ToString(CultureInfo.InvariantCulture) ?? "no-subscription"}/" +
         $"{xchange.StartedOn.ToString("yyyy'/'MM'/'dd", CultureInfo.InvariantCulture)}/{FileName(mainValue, xchange.Id)}";
 
-    /// <summary>The main value made safe for a storage key, then the id; the id alone when there's no value.</summary>
-    public static string FileName(string mainValue, string xchangeId)
+    public static string FileName(string mainValue, string xchangeId) => $"{BaseName(mainValue, xchangeId)}.json";
+
+    /// <summary>
+    /// The main value made safe for a storage key, then the id; the id alone when there's no value. Also
+    /// names each exchange's folder in a files export, so the two read alike.
+    /// </summary>
+    public static string BaseName(string mainValue, string xchangeId)
     {
         var safe = Regex.Replace(mainValue ?? string.Empty, "[^A-Za-z0-9._-]+", "-").Trim('-', '.');
         if (safe.Length > 80) safe = safe[..80].TrimEnd('-', '.');
-        return safe.Length == 0 ? $"{xchangeId}.json" : $"{safe}_{xchangeId}.json";
+        return safe.Length == 0 ? xchangeId : $"{safe}_{xchangeId}";
     }
 
     /// <summary>

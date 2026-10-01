@@ -15,6 +15,14 @@ The Exchanges page filters by status, subscription, partner, information type, e
 
 Expanding an exchange shows each stage's file, the exception, its retry chain, the aggregation family, and buttons to retry or to run a waiting retry now. An exchange that was already retried links to its later attempt instead of offering Retry.
 
+## Exporting exchange files
+
+Tick exchanges on the Exchanges page, or select everything a filter matches, and choose **Export files** to download their files as one zip. It needs only `exchanges.view`.
+
+- Each exchange gets a folder named like its archive: the main promoted value, then the id (`Amman_3f2a…`). It holds `input`, `mapped` and `handled`, whichever the exchange has, with the extension of the file's name or content type.
+- Files that storage no longer has, such as ones a retention rule deleted, are listed in `missing.txt` with the reason. The rest of the zip still comes.
+- One export takes at most 500 exchanges. Narrow the filter for a larger set.
+
 ## Reading an exchange's state
 
 | What you see | What it means | What to do |
