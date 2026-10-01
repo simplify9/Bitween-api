@@ -1264,6 +1264,10 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("FilesPrefix")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1411,6 +1415,8 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("XchangeId");
 
                     b.ToTable("XchangeNotifications", (string)null);
                 });

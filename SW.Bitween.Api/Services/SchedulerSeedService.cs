@@ -40,6 +40,10 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
             () => scheduleRepo.Schedule<InboundMessagePruneJob>(options.InboundMessagePruneCron),
             nameof(InboundMessagePruneJob), stoppingToken);
         await ScheduleWithRetry(() => scheduleRepo.Schedule<ReceiveAttemptCleanupJob>(options.ReceiveAttemptCleanupCron), nameof(ReceiveAttemptCleanupJob), stoppingToken);
+        // Always scheduled; it does nothing while exchange retention is 0, so turning retention on in
+        // Settings needs no re-scheduling.
+        await ScheduleWithRetry(() => scheduleRepo.Schedule<ExchangeRetentionJob>(options.ExchangeRetentionCron),
+            nameof(ExchangeRetentionJob), stoppingToken);
 
         var subscriptions = await dbContext.Set<Subscription>()
             .Where(s =>

@@ -24,6 +24,14 @@ namespace SW.Bitween.Services;
 /// </summary>
 public class SettingsService
 {
+    /// <summary>
+    /// The one row that isn't a catalog setting: the document prefix in force the first time this
+    /// version started. Exchanges written before exchanges recorded their own prefix still live under
+    /// it, so it must outlast any later change of <see cref="BitweenOptions.DocumentPrefix"/>.
+    /// Nobody edits it; it isn't listed on the settings page.
+    /// </summary>
+    public const string LegacyDocumentPrefixKey = "Bitween.LegacyDocumentPrefix";
+
     /// <summary>Pristine options — never mutated, only read, to answer "what ships in the box?".</summary>
     private static readonly SettingsTarget CodeDefaults = new(new BitweenOptions(), new ThemeOptions());
 
@@ -122,6 +130,9 @@ public class SettingsService
         var rows = await dbContext.Set<Setting>().AsNoTracking()
             .ToDictionaryAsync(s => s.Id, s => s.Value, StringComparer.OrdinalIgnoreCase);
 
+        if (rows.TryGetValue(LegacyDocumentPrefixKey, out var legacyPrefix))
+            _target.Bitween.LegacyDocumentPrefix = legacyPrefix;
+
         foreach (var definition in SettingsCatalog.All)
         {
             // Environment-owned settings stay that way even if a row is hand-inserted for one.
@@ -141,6 +152,32 @@ public class SettingsService
                     "different {Option}. Leaving the running value untouched.",
                     definition.Key, nameof(BitweenOptions.SettingsEncryptionKey));
             }
+        }
+    }
+
+    /// <summary>
+    /// Writes <see cref="LegacyDocumentPrefixKey"/> the first time this version starts — before anyone
+    /// could have changed the prefix, so it's the one every earlier exchange was written under. Runs
+    /// after <see cref="Reload"/>, which has just applied the prefix imported from configuration.
+    /// </summary>
+    public async Task RememberLegacyDocumentPrefix(BitweenDbContext dbContext)
+    {
+        if (await dbContext.Set<Setting>().AnyAsync(s => s.Id == LegacyDocumentPrefixKey)) return;
+
+        var prefix = _target.Bitween.DocumentPrefix;
+        dbContext.Add(new Setting { Id = LegacyDocumentPrefixKey, Value = prefix });
+        try
+        {
+            await dbContext.SaveChangesAsync();
+            _target.Bitween.LegacyDocumentPrefix = prefix;
+            _logger.LogInformation("Exchanges created before this version keep their files under {Prefix}.", prefix);
+        }
+        catch (DbUpdateException ex)
+        {
+            // Another instance booting at the same moment wrote it first; its value is the same one.
+            _logger.LogWarning(ex, "The legacy document prefix was recorded by another instance.");
+            dbContext.ChangeTracker.Clear();
+            await Reload(dbContext);
         }
     }
 

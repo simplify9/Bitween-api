@@ -9,11 +9,16 @@ import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
+import { ConfirmDialog } from "../../components/ui/overlays";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 import { keys } from "../../api/queryKeys";
+import { RETENTION_SECTION, retentionProposal, useRetention } from "../../lib/retention";
+import { NoticeList, RetentionPanel } from "./RetentionPanel";
 
 /** Sections, in the order the backend catalog lists them. */
 const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section))];
+
+const sectionOf = (rows: SettingRow[], key: string) => rows.find((r) => r.key === key)?.section;
 
 /**
  * The one section with a reset-the-lot button, and deliberately the only one.
@@ -230,11 +235,19 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const { data: rows, isLoading } = useQuery({ queryKey: keys.settings.list, queryFn: () => api.listSettings() });
   const draft = useSettingsDraft();
+  const [confirmingRetention, setConfirmingRetention] = useState(false);
 
   const [searchParams] = useSearchParams();
   const sections = sectionsOf(rows ?? []);
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
+  // Deleting exchanges, or changing where files go and so how long they last, is said out loud
+  // before it's saved — the same preview the panel shows, now as the thing being confirmed.
+  const retention = useRetention(
+    rows ?? [],
+    draft,
+    section === RETENTION_SECTION || retentionProposal(rows ?? [], draft) !== null,
+  );
   // Real links, so a section is a URL an administrator can paste into a ticket.
   // Replacing rather than pushing: switching section isn't a step you want Back to undo.
   const searchFor = (s: string) => {
@@ -364,6 +377,7 @@ export function SettingsPage() {
               </p>
             )}
           </div>
+          {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} canEdit={canEdit} />}
           <div className="divide-y divide-ink-100">
             {sectionRows.map((row) =>
               row.access === "editable" ? (
@@ -386,8 +400,34 @@ export function SettingsPage() {
         <UnsavedBar
           busy={saveAll.isPending}
           error={saveAll.error?.message}
-          onSave={() => saveAll.mutate()}
+          onSave={() =>
+            retentionProposal(rows, draft) !== null ? setConfirmingRetention(true) : saveAll.mutate()
+          }
           onDiscard={() => settingsDraft.discardAll()}
+        />
+      )}
+
+      {confirmingRetention && (
+        <ConfirmDialog
+          title="Save the retention changes?"
+          body={
+            <div className="space-y-3">
+              <p>This is what the new settings will do once they're saved:</p>
+              {retention.previewing && retention.status && !retention.loading ? (
+                <NoticeList notices={retention.status.notices} />
+              ) : (
+                <p className="text-ink-500">Working out what they'd do…</p>
+              )}
+              {dirtyCount > Object.keys(draft).filter((k) => sectionOf(rows, k) === RETENTION_SECTION).length && (
+                <p className="text-ink-500">Your other unsaved settings are saved with them.</p>
+              )}
+            </div>
+          }
+          confirmLabel="Save changes"
+          onConfirm={async () => {
+            await saveAll.mutateAsync();
+          }}
+          onClose={() => setConfirmingRetention(false)}
         />
       )}
     </div>

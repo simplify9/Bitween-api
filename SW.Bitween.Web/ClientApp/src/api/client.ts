@@ -68,6 +68,8 @@ import type {
   ScheduledRetryRow,
   ScheduleHealth,
   Session,
+  RetentionProposal,
+  RetentionStatus,
   SettingRow,
   User,
   WorkGroup,
@@ -483,6 +485,10 @@ export interface ApiClient {
 
   // — settings —
   listSettings(): Promise<SettingRow[]>;
+  /** How long exchanges and their files are kept under the saved settings. `refresh` re-reads the bucket's rules. */
+  getRetention(refresh?: boolean): Promise<RetentionStatus>;
+  /** The same, for settings not saved yet. Changes nothing. */
+  previewRetention(proposal: RetentionProposal): Promise<RetentionStatus>;
   /** `value: null` resets the setting back to its default. */
   updateSetting(key: string, value: string | null): Promise<void>;
 

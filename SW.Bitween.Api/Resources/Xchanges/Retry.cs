@@ -30,7 +30,7 @@ namespace SW.Bitween.Resources.Xchanges
                     "An auto-retry is already scheduled for this exchange. Use \"Run Now\" to execute it immediately instead of retrying manually.");
 
             var xchange = await dbContext.FindAsync<Xchange>(key);
-            var inputFileData = await xchangeService.GetFile(xchange.Id, XchangeFileType.Input);
+            var inputFileData = await xchangeService.GetFile(xchange, XchangeFileType.Input);
             var xchangeFile = new XchangeFile(inputFileData, xchange.InputName);
             var subscription = await dbContext.Subscriptions().FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
             if (xchangeRetry.Reset)

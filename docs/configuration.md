@@ -39,7 +39,9 @@ intended response to a key you no longer trust.
 | `UseAzureManagedIdentity` | `false` | Authenticate to Azure SQL or Azure Database for PostgreSQL with a managed identity. |
 | `AzureManagedIdentityClientId` | | Client id of a user-assigned identity. Falls back to `AZURE_CLIENT_ID` or `MSI_CLIENT_ID`. |
 | `StorageProvider` | `S3` | `S3`, `AS` for Azure Blob, `OC` for Oracle Cloud, or `Local`. `Local` is refused outside Development. |
-| `DocumentPrefix` | `temp30/Bitweendocs` | Storage key prefix for exchange files. Changing it leaves existing files unreachable. |
+| `DocumentPrefix` | `temp30/Bitweendocs` | First value of the runtime setting: the storage key prefix new exchange files are written under. |
+| `PublicUrl` | | First value of the runtime setting. |
+| `ExchangeRetentionDays`, `ArchiveExchanges`, `ExchangeRetentionCron` | `0`, `true`, `0 0 4 * * ?` | First values of the retention settings. |
 | `AdapterPath` | `adapters` | Storage key prefix for custom adapter packages. |
 | `ServerlessCommandTimeout` | `300` | Seconds a custom adapter may run. |
 | `BusProvidersEnabled` | `false` | Run data source adapters, for brokers and databases, on this node. See [Data sources](data-sources.md). |
@@ -53,7 +55,6 @@ intended response to a key you no longer trust.
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings in the database. |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |
-| `AreXChangeFilesPrivate` | `false` | First value of the runtime setting. |
 | `ApiCallSubscriptionResponseAcceptedStatusCode` | `202` | First value of the runtime setting. |
 | `JwtExpiryMinutes` | `60` | First value of the runtime setting. |
 | `MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | | First values of the Microsoft sign-in settings. |
@@ -72,9 +73,11 @@ Storage credentials live in the `CloudFiles` section and are read by the `Simply
 | Provider | Keys |
 |---|---|
 | `S3` | `AccessKeyId`, `SecretAccessKey`, `ServiceUrl`, `BucketName` |
-| `AS` | `AccountName`, `AccessKeyId`, `SecretAccessKey`, `ServiceUrl`, `BucketName`, `Managed`, `ManagedIdentityClientId`, `PublicServiceUrl` |
+| `AS` | `AccountName`, `AccessKeyId`, `SecretAccessKey`, `ServiceUrl`, `BucketName`, `Managed`, `ManagedIdentityClientId`, `PublicServiceUrl`, and for deleting files by age `SubscriptionId`, `ResourceGroupName`, optionally `StorageAccountName` |
 | `OC` | `TenantId`, `FingerPrint`, `UserId`, `RSAKey`, `Region`, `NamespaceName`, `BucketName` |
 | `Local` | `BucketName`, and optionally `StoragePath` |
+
+Azure keeps deletion rules in the storage account's lifecycle management policy, which is reached through Azure Resource Manager rather than the blob endpoint. With `SubscriptionId` and `ResourceGroupName` set, the storage library creates the temp-prefix rules at startup and the Settings page reads them. The managed identity, or a service principal in `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`, needs `Microsoft.Storage/storageAccounts/managementPolicies/read` and `write`, for example through the Storage Account Contributor role. Without them the rules aren't created on Azure, and any policy set up by hand can't be read.
 
 ## Logging
 
@@ -99,8 +102,11 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 
 | Setting | Section | Editable | Default |
 |---|---|---|---|
-| `Bitween.AreXChangeFilesPrivate` | Documents & storage | Yes | `false` |
-| `Bitween.DocumentPrefix` | Documents & storage | Read-only | `temp30/Bitweendocs` |
+| `Bitween.DocumentPrefix` | Documents & storage | Yes | `temp30/Bitweendocs` |
+| `Bitween.ExchangeRetentionDays` | Documents & storage | Yes | `0`, keep for ever |
+| `Bitween.ArchiveExchanges` | Documents & storage | Yes | `true` |
+| `Bitween.ExchangeRetentionCron` | Documents & storage | Yes | `0 0 4 * * ?` |
+| `Bitween.PublicUrl` | Documents & storage | Yes | empty |
 | `Bitween.ApiCallSubscriptionResponseAcceptedStatusCode` | API behavior | Yes | `202` |
 | `Bitween.JwtExpiryMinutes` | API behavior | Yes | `60` |
 | `Bitween.CorsOrigins` | API behavior | Read-only | empty |
@@ -118,7 +124,9 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Theme.PrimaryColor` | Brand & theme | Yes | `#e3311d` |
 | `Theme.CompanyName`, `TabTitle`, `TabIcon`, `LoginLogo`, `BitweenLogo`, `BitweenHeaderIcon`, `BitweenText`, `ShowFooter`, `LinkedinLink`, `GithubLink`, `WebsiteLink`, `AllRightsReserved`, `CopyRightsIcon` | Brand & theme | Yes | Simplify9 branding |
 
-The retry poll cron is validated before it is saved, and saving it reschedules the retry job.
+The retry poll and retention crons are validated before they're saved, and saving one reschedules its job. A document prefix must be folder names of letters, digits, dots, dashes and underscores, and no folder can be only dots (`.` or `..`). Each exchange keeps the prefix its files were written under, so changing it only affects new exchanges. The public address must be a full `https://` address; exchange file links are built on it. Without it, aggregation roll-ups link through the instance's own address, which only adapters running in Bitween can open.
+
+`GET /api/retention` and `POST /api/retention/preview` describe what the retention settings do, as saved or as proposed. The Settings page uses them.
 
 `GET /api/settings/config` needs no sign-in. It returns the Microsoft sign-in values, whether email and password sign-in is disabled, whether RabbitMQ management is configured, and the theme. The sign-in page loads it.
 
@@ -135,7 +143,7 @@ The chart in `charts/default` maps values to environment variables. Values marke
 | `useAzureManagedIdentity` | `Bitween__UseAzureManagedIdentity` |
 | `documentPrefix` | `Bitween__DocumentPrefix` |
 | `storageProvider` | `Bitween__StorageProvider` |
-| `areXChangeFilesPrivate` | `Bitween__AreXChangeFilesPrivate` |
+| `publicUrl` | `Bitween__PublicUrl` |
 | `busDefaultQueuePrefetch` | `Bitween__BusDefaultQueuePrefetch` |
 | `serverlessCommandTimeout` | `Bitween__ServerlessCommandTimeout` |
 | `msalClientId`, `msalRedirectUri`, `msalTenantId` | `Bitween__MsalClientId`, `Bitween__MsalRedirectUri`, `Bitween__MsalTenantId` |

@@ -72,6 +72,9 @@ spec:
             - name: Bitween__AdminDatabaseName
               value: {{ .Values.adminDb }}
 
+            # Seeds the Settings table on the first boot only, like Bitween__PublicUrl below. Each
+            # exchange keeps the prefix its files were written under, so it can be changed later
+            # under Settings → Documents & storage.
             - name: Bitween__DocumentPrefix
               value: {{ .Values.documentPrefix }}
 
@@ -92,8 +95,11 @@ spec:
 
             # Seeds the Settings table on the first boot only — after that the app reads the table
             # and ignores this value. Change it under Settings → Documents & storage instead.
-            - name: Bitween__AreXChangeFilesPrivate
-              value: "{{ .Values.areXChangeFilesPrivate }}"
+            # The address partners reach this instance on; links to exchange files are built on it.
+            # Optional: without it, aggregation roll-ups link through the instance's own address,
+            # which adapters running in Bitween can open.
+            - name: Bitween__PublicUrl
+              value: {{ .Values.publicUrl | quote }}
 
             - name: Bitween__UseAzureManagedIdentity
               value: "{{ .Values.useAzureManagedIdentity }}"
@@ -142,7 +148,7 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: db
 
-            # As with Bitween__AreXChangeFilesPrivate above, these three seed the Settings table on
+            # As with Bitween__PublicUrl above, these three seed the Settings table on
             # the first boot only. Editing them later has no effect — change Microsoft sign-on
             # under Settings → Single sign-on (Microsoft).
             - name: Bitween__MsalClientId

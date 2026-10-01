@@ -30,7 +30,7 @@ namespace SW.Bitween
 
         /// <summary>
         /// An exchange's promoted values in the order its information type lists the properties — the
-        /// order they're shown in. The stored values can't
+        /// order they're shown in, and the first one names an archived exchange. The stored values can't
         /// be trusted to keep it (Postgres re-sorts a jsonb object's keys), and the type's order can
         /// change after the exchange ran. Values for properties the type no longer has go last.
         /// </summary>

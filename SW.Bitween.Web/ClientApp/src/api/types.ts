@@ -1059,6 +1059,59 @@ export interface SettingRow {
   access: SettingAccess;
 }
 
+// ——— Retention ———
+
+/** Retention settings to preview before saving; anything left out keeps its current value. */
+export interface RetentionProposal {
+  documentPrefix?: string;
+  exchangeRetentionDays?: number;
+  archiveExchanges?: boolean;
+  exchangeRetentionCron?: string;
+  publicUrl?: string;
+}
+
+export interface StorageRule {
+  id: string | null;
+  prefix: string;
+  days: number;
+  enabled: boolean;
+}
+
+/** How long the bucket keeps files under one prefix: `days` null when no rule deletes them by age. */
+export interface PrefixRetention {
+  prefix: string;
+  days: number | null;
+  rulePrefix: string | null;
+}
+
+export interface RetentionNotice {
+  level: "warning" | "info";
+  code: string;
+  message: string;
+}
+
+/** What the retention settings do, now or as proposed. */
+export interface RetentionStatus {
+  storage: { provider: string | null; bucket: string | null; problem: string | null; rules: StorageRule[] };
+  files: PrefixRetention;
+  /** Where exchanges from before prefixes were recorded keep their files, when that differs. */
+  legacyFiles: PrefixRetention | null;
+  archive: PrefixRetention;
+  exchanges: {
+    retentionDays: number;
+    archive: boolean;
+    cron: string;
+    nextRun: string | null;
+    dueNow: number | null;
+    withoutFiles: number | null;
+    /** Counts stop here; a count equal to it means "at least". */
+    countCap: number;
+    oldest: string | null;
+  };
+  publicUrl: string | null;
+  notices: RetentionNotice[];
+}
+
 // ——— Exchanges ———
 
 /**

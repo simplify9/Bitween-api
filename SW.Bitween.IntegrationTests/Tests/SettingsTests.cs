@@ -27,7 +27,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
 {
     private const string SecretKey = "Bitween.RebexLicenseKey";
     private const string EditableKey = "Bitween.JwtExpiryMinutes";
-    private const string EnvironmentOwnedKey = "Bitween.DocumentPrefix";
+    private const string EnvironmentOwnedKey = "Bitween.QueuePrefix";
     private const string CronKey = "Bitween.RetryJobCron";
 
     private readonly Dictionary<string, string> _originals = new();
@@ -130,7 +130,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
 
         // The page lists these so an administrator can see them, which makes it easy to try
         // editing one. Accepting the write would report success for a change that can never
-        // take effect — and for this key, one that would strand everything already stored.
+        // take effect.
         Assert.StartsWith("SETTING_NOT_EDITABLE", ex.Message);
         Assert.Null(await RawStored(EnvironmentOwnedKey));
     }

@@ -63,7 +63,8 @@ See [Entry points](entry-points.md) for status codes.
 | `POST /api/xchanges/{id}/retry` | `exchanges.operate` | `{ reason, reset }` |
 | `POST /api/xchanges/bulkretrypreview` | `exchanges.operate` | Plan a bulk retry without running it |
 | `POST /api/xchanges/bulkretry` | `exchanges.operate` | Run a bulk retry |
-| `GET /api/bitweendocs?documentKey=` | none | Read a stored file |
+| `GET /api/bitweendocs?documentKey=` | `exchanges.view` | Read one of an exchange's files. Other keys are refused. |
+| `GET /api/files/{seal}/{key}` | none, the seal | An exchange file for a reader without a login, served as `text/plain` |
 | `GET /api/delayedretries` | `exchanges.view` or `dashboard.view` | Searchy. Waiting automatic retries. |
 | `POST /api/delayedretries/{id}/runnow` | `exchanges.operate` | Run a waiting retry now |
 
@@ -238,6 +239,8 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `GET /api/settings` | `settings.view` |
 | `POST /api/settings/{key}` | `settings.edit`. `{ value }` |
 | `DELETE /api/settings/{key}` | `settings.edit`. Resets to the product default. |
+| `GET /api/retention?refresh=` | `settings.view`. What the retention settings do; `refresh=true` reads the bucket's rules again. |
+| `POST /api/retention/preview` | `settings.view`. The same for proposed values, without saving them. |
 | `GET /api/audit?offset=&limit=&entityName=&entityKey=&userId=&correlationId=&from=&to=` | `audit.view` |
 
 ## Monitoring

@@ -41,7 +41,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Code).HasMaxLength(50);
                 b.Property(p => p.BusMessageTypeName).HasMaxLength(500);
                 // json, not jsonb: jsonb re-sorts an object's keys, and the order of promoted properties
-                // is the order they're shown in.
+                // is the order they're shown in and the first one names archived exchanges.
                 b.Property(p => p.PromotedProperties).StoreAsJson().HasColumnType("json");
                 b.Property(p => p.DisregardsUnfilteredMessages).IsRequired(false);
                 b.HasIndex(p => p.Name).IsUnique();
@@ -305,6 +305,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.MapperProperties).HasColumnType("jsonb");
                 b.Property(p => p.InputContentType).HasMaxLength(200);
                 b.Property(p => p.ResponseMessageTypeName).HasMaxLength(500);
+                b.Property(p => p.FilesPrefix).HasMaxLength(200);
 
                 b.HasIndex(i => i.InputHash);
                 b.HasIndex(i => i.SubscriptionId);
@@ -381,6 +382,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+                // Retention deletes an exchange's notifications by exchange id.
+                b.HasIndex(p => p.XchangeId);
             });
 
             modelBuilder.Entity<Account>(b =>

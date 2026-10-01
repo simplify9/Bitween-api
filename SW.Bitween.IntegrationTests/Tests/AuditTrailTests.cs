@@ -159,11 +159,11 @@ public class AuditTrailTests(BitweenFixture fixture)
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
         db.Set<Setting>().Add(new Setting { Id = "Bitween.RebexLicenseKey", Value = "licence-key-should-never-be-stored" });
-        db.Set<Setting>().Add(new Setting { Id = "Bitween.AreXChangeFilesPrivate", Value = "true" });
+        db.Set<Setting>().Add(new Setting { Id = "Bitween.ArchiveExchanges", Value = "true" });
         await db.SaveChangesAsync();
 
         var secret = await SingleEntryFor(db, nameof(Setting), "Bitween.RebexLicenseKey");
-        var plain = await SingleEntryFor(db, nameof(Setting), "Bitween.AreXChangeFilesPrivate");
+        var plain = await SingleEntryFor(db, nameof(Setting), "Bitween.ArchiveExchanges");
 
         Assert.DoesNotContain("licence-key-should-never-be-stored", secret.Changes);
         Assert.DoesNotContain(nameof(Setting.Value), secret.Changes);

@@ -327,7 +327,7 @@ export function InformationTypeFields({
               first: {
                 label: "Main",
                 title:
-                  "The main property: shown first on the Exchanges page.",
+                  "The main property: shown first on the Exchanges page, and its value names the exchange's file when the retention job archives it.",
               },
             }}
             keyLabel="Friendly name"

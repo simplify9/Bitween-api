@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
+import { server } from "../../../__tests__/support/server";
 
 /**
  * The exchange drawer's Raw/Formatted toggle.
@@ -54,13 +55,21 @@ const EXCHANGE = {
 
 const NONE = { result: [], totalCount: 0 };
 
-function openExchanges(documents = DOCUMENTS) {
+const EXPIRED_FILE = Symbol("expired");
+
+/** What Bitween.Docs answers for a file the bucket's retention rule has already deleted. */
+const EXPIRED =
+  "This file was deleted by the storage retention policy: files under temp30/ are kept 30 days, and this exchange started on 2026-08-01.";
+
+function openExchanges(documents: Record<string, string | typeof EXPIRED_FILE> = DOCUMENTS) {
   return renderApp(`/exchanges?ids=${EXCHANGE_ID}`, {
     handlers: [
       http.get(apiPath("/xchanges"), () => HttpResponse.json({ result: [EXCHANGE], totalCount: 1 })),
       http.get(apiPath("/bitweendocs"), ({ request }) => {
         const key = new URL(request.url).searchParams.get("documentKey")!;
-        return HttpResponse.json({ key, data: documents[key] });
+        return documents[key] === EXPIRED_FILE
+          ? HttpResponse.json({ FILE_EXPIRED: [EXPIRED] }, { status: 400 })
+          : HttpResponse.json({ key, data: documents[key] });
       }),
       // The filters' options, none of which this is about.
       http.get(apiPath("/subscriptions"), () => HttpResponse.json(NONE)),
@@ -94,5 +103,23 @@ describe("an exchange's document", () => {
     // The same document, one line again, and no token spans anywhere in it.
     expect(pane()).toHaveTextContent(MINIFIED_JSON, { normalizeWhitespace: false });
     expect(pane().querySelectorAll("span")).toHaveLength(0);
+  });
+
+  it("says a file was deleted by the retention policy rather than that it failed", async () => {
+    let asked = 0;
+    const { user } = openExchanges({ ...DOCUMENTS, "out-1": EXPIRED_FILE } as never);
+    server.events.on("request:start", ({ request }) => {
+      if (request.url.includes("documentKey=out-1")) asked++;
+    });
+
+    const row = (await screen.findAllByRole("row"))[1];
+    await user.click(within(row).getAllByRole("cell").at(-1)!);
+
+    // The drawer opens on the mapped stage, whose file the bucket has already deleted.
+    expect(await screen.findByText(EXPIRED)).toBeVisible();
+    expect(screen.queryByText("Failed to load this document.")).not.toBeInTheDocument();
+    // Asked once: a deleted file stays deleted, so there's nothing to retry.
+    expect(asked).toBe(1);
+    server.events.removeAllListeners();
   });
 });

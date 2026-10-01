@@ -186,6 +186,9 @@ public sealed class BitweenFixture : IAsyncLifetime
                         // A passphrase has to exist or secret settings refuse to be stored at
                         // all, which would make the encryption path untestable.
                         SettingsEncryptionKey = "integration-test-settings-passphrase",
+                        // What an aggregation builds its file links on; a scheduled job has no
+                        // request to take an address from.
+                        PublicUrl = "https://bitween.test",
                     });
 
                     services.AddSingleton(new ThemeOptions());
@@ -286,6 +289,12 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<IAdapterInvoker, AdapterInvoker>();
                     services.AddScoped<MappingContextFactory>();
                     services.AddScoped<XchangeService>();
+                    services.AddSingleton<FileLinks>();
+                    services.AddSingleton<StorageRetention>();
+                    services.AddSingleton<StorageAccess>();
+                    services.AddScoped<ExchangeArchive>();
+                    services.AddScoped<RetentionPlanner>();
+                    services.AddScoped<ExchangeRetentionJob>();
                     services.AddScoped<GatewayCallers>();
                     services.AddSingleton<IGatewayIssuers>(LoginServer);
                     services.AddScoped<RunFlagUpdater>();

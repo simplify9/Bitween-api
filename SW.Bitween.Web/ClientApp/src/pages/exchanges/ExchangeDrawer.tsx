@@ -90,12 +90,18 @@ function DocumentPreview({
   content,
   loading,
   errored,
+  errorMessage,
 }: {
   name: string;
   size: number;
   content: string | undefined;
   loading: boolean;
   errored: boolean;
+  /**
+   * The server's reason, when it gave one — above all a file the bucket's retention rule has
+   * already deleted, which is expected rather than a fault and says so.
+   */
+  errorMessage?: string | null;
 }) {
   const [raw, setRaw] = useState(false);
 
@@ -107,7 +113,7 @@ function DocumentPreview({
   const body = loading
     ? "Loading…"
     : errored
-      ? "Failed to load this document."
+      ? (errorMessage ?? "Failed to load this document.")
       : ((raw ? null : formatted) ?? head);
 
   // Some records store a size of 0, which reads as a lie sitting next to four
@@ -175,6 +181,9 @@ function DocumentPreview({
 
 const STAGE_ORDER: ExchangeDocStage[] = ["Input", "Mapped", "Handled"];
 
+/** Answers about a document that another request won't change. */
+const GONE_FOR_GOOD = new Set(["FILE_EXPIRED", "FILE_MISSING", "NOT_FOUND"]);
+
 /**
  * The expanded exchange row: the pipeline journey with per-stage documents,
  * the failure (when there is one), full metadata and the retry actions.
@@ -203,10 +212,14 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
     data: activeContent,
     isLoading: activeLoading,
     isError: activeErrored,
+    error: activeError,
   } = useQuery({
     queryKey: keys.exchanges.document(activeKey),
     queryFn: () => api.getExchangeDocument(activeKey!),
     enabled: activeKey !== null,
+    // A file the bucket deleted stays deleted; asking again only keeps "Loading…" up for the backoff.
+    retry: (failures, error) =>
+      !(error instanceof ApiRequestError && GONE_FOR_GOOD.has(error.code)) && failures < 3,
   });
 
   // The same query the chain below reads, so asking here costs nothing extra — and only asked
@@ -291,6 +304,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           content={activeContent}
           loading={activeLoading}
           errored={activeErrored}
+          errorMessage={activeError instanceof ApiRequestError ? activeError.message : null}
         />
       )}
 

@@ -24,6 +24,7 @@ public static class SettingsHostExtensions
             var dbContext = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
             settings.ImportMissing(dbContext).GetAwaiter().GetResult();
             settings.Reload(dbContext).GetAwaiter().GetResult();
+            settings.RememberLegacyDocumentPrefix(dbContext).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
