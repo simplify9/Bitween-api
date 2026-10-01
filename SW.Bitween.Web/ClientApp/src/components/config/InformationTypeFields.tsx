@@ -318,11 +318,18 @@ export function InformationTypeFields({
           title="Promoted properties"
           description={`Values pulled out of each payload by ${
             draft.format === "Json" ? "JSON path" : "XML path"
-          } — routes and filters match on them.`}
+          } — routes and filters match on them. They're shown in this order on the Exchanges page; drag to change it.`}
         >
           <KeyValueEditor
             rows={draft.promotedProperties}
             onChange={(promotedProperties) => set("promotedProperties", promotedProperties)}
+            reorderable={{
+              first: {
+                label: "Main",
+                title:
+                  "The main property: shown first on the Exchanges page.",
+              },
+            }}
             keyLabel="Friendly name"
             valueLabel={draft.format === "Xml" ? "XML path" : "JSON path"}
             keyPlaceholder="OrderNumber"

@@ -53,7 +53,7 @@ Edits stay a draft until saved from the bar at the bottom of the page.
 | Page | What it does |
 |---|---|
 | **Data sources** | Broker and database connections. Settings forms are built from the adapter. Test a connection, watch live health, and for databases manage SQL statements with save-time checks and browse the schema. |
-| **Information types** | Name, code, format, promoted properties, bus availability and message type name, and what uses each type. |
+| **Information types** | Name, code, format, promoted properties, bus availability and message type name, and what uses each type. Promoted properties are dragged into order, which is the order lists show them in. |
 | **Global values** | Value sets, and the subscriptions that reference each key. |
 | **Work groups** | Queue settings and live throughput per lane. |
 | **Retry policies** | Groups, conditions, budgets and alert routing. The usage panel shows spent budgets per subscription, and the test panel runs the draft policy against sample errors. |

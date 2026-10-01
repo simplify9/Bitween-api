@@ -123,6 +123,7 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
             from delayed in dr.DefaultIfEmpty()
             join promoted in _dbContext.Set<XchangePromotedProperties>() on xchange.Id equals promoted.Id into xp
             from promoted in xp.DefaultIfEmpty()
+            join document in _dbContext.Set<Document>() on xchange.DocumentId equals document.Id
             where ids.Contains(xchange.Id)
             orderby xchange.StartedOn
             select new XchangeRetryNode
@@ -137,7 +138,7 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
                 ManualRetry = xchange.ManualRetry,
                 ScheduledRetryOn = delayed != null ? delayed.On : (System.DateTime?)null,
                 RetryBlockedReason = result.RetryBlockedReason,
-                PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary()
+                PromotedProperties = promoted == null ? null : promoted.Properties.InDefinedOrder(document.PromotedProperties)
             }).AsNoTracking().ToListAsync();
 
         return new XchangeRetryTree

@@ -208,11 +208,16 @@ internal sealed class BulkRetryPlanner
         if (named.Count == 0)
             return new Dictionary<string, IDictionary<string, string>>();
 
-        var rows = await _dbContext.Set<XchangePromotedProperties>().AsNoTracking()
-            .Where(p => named.Contains(p.Id))
-            .ToListAsync();
+        var rows = await (
+            from promoted in _dbContext.Set<XchangePromotedProperties>()
+            join xchange in _dbContext.Set<Xchange>() on promoted.Id equals xchange.Id
+            join document in _dbContext.Set<Document>() on xchange.DocumentId equals document.Id
+            where named.Contains(promoted.Id)
+            select new { promoted.Id, promoted.Properties, Definition = document.PromotedProperties }
+        ).AsNoTracking().ToListAsync();
 
-        return rows.ToDictionary(r => r.Id, r => (IDictionary<string, string>)r.Properties.ToDictionary());
+        return rows.ToDictionary(r => r.Id,
+            r => (IDictionary<string, string>)r.Properties.InDefinedOrder(r.Definition));
     }
 
     private sealed class SelectionState

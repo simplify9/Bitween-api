@@ -40,7 +40,9 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
                 b.Property(p => p.Code).HasMaxLength(50);
                 b.Property(p => p.BusMessageTypeName).HasMaxLength(500);
-                b.Property(p => p.PromotedProperties).StoreAsJson().HasColumnType("jsonb");
+                // json, not jsonb: jsonb re-sorts an object's keys, and the order of promoted properties
+                // is the order they're shown in.
+                b.Property(p => p.PromotedProperties).StoreAsJson().HasColumnType("json");
                 b.Property(p => p.DisregardsUnfilteredMessages).IsRequired(false);
                 b.HasIndex(p => p.Name).IsUnique();
                 b.HasIndex(p => p.Code).IsUnique();

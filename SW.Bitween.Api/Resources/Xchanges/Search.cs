@@ -69,7 +69,7 @@ namespace SW.Bitween.Resources.Xchanges
                             OutputKey = xchangeService.GetFileKey(xchange.Id, result.OutputSize, XchangeFileType.Output),
                             ResponseKey = xchangeService.GetFileKey(xchange.Id, result.ResponseSize, XchangeFileType.Response),
                             Duration = xchange.StartedOn.Elapsed(result.FinishedOn),
-                            PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary(),
+                            PromotedProperties = promoted == null ? null : promoted.Properties.InDefinedOrder(document.PromotedProperties),
                             PromotedPropertiesRaw = promoted == null ? null : promoted.PropertiesRaw,
                             RetryFor = xchange.RetryFor,
                             AggregationXchangeId = agg.AggregationXchangeId,

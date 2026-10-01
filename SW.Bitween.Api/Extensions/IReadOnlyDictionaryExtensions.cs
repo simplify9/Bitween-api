@@ -28,6 +28,26 @@ namespace SW.Bitween
             }).ToList();
         }
 
+        /// <summary>
+        /// An exchange's promoted values in the order its information type lists the properties — the
+        /// order they're shown in. The stored values can't
+        /// be trusted to keep it (Postgres re-sorts a jsonb object's keys), and the type's order can
+        /// change after the exchange ran. Values for properties the type no longer has go last.
+        /// </summary>
+        public static Dictionary<string, string> InDefinedOrder(this IReadOnlyDictionary<string, string> values,
+            IReadOnlyDictionary<string, string> definition)
+        {
+            if (values == null) return null;
+
+            var ordered = new Dictionary<string, string>();
+            foreach (var name in definition?.Keys ?? Enumerable.Empty<string>())
+                if (values.TryGetValue(name, out var value))
+                    ordered[name] = value;
+            foreach (var (name, value) in values)
+                ordered.TryAdd(name, value);
+            return ordered;
+        }
+
         public static string SafeGetValue(this IReadOnlyDictionary<string, string> dict, string key)
         {
             return dict.TryGetValue(key, out var value) ? value : "";

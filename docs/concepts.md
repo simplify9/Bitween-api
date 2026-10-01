@@ -10,7 +10,7 @@ An information type describes one kind of business document, such as a purchase 
 |---|---|
 | Name, code | A display name and an optional unique short code. |
 | Format | `Json` or `Xml`. Decides how promoted properties and match expressions read the payload. |
-| Promoted properties | Named paths into the payload, such as `orderId` pointing at `order.id` in JSON or an XPath in XML. Their values are extracted from every exchange, shown in lists and searchable. |
+| Promoted properties | Named paths into the payload, such as `orderId` pointing at `order.id` in JSON or an XPath in XML. Their values are extracted from every exchange, shown in lists in the type's order and searchable. |
 | Available on the bus, bus message type name | When enabled, Bitween consumes RabbitMQ messages published under this name and treats each one as a document of this type. The name cannot contain spaces and must be unique ignoring case. |
 | Disregard unfiltered messages | When on, documents arriving on the bus are filtered straight away. Only matching subscriptions get exchanges, and no document-level exchange is recorded. |
 | Duplicate interval | Stored and shown, but not enforced by the current code. |
