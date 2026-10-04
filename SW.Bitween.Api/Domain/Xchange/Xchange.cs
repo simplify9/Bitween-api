@@ -124,5 +124,16 @@ namespace SW.Bitween.Domain
         public bool ManualRetry { get; private set; }
 
         public string CorrelationId { get; set; }
+
+        /// <summary>
+        /// The storage prefix this exchange's files are written under: <c>Bitween:DocumentPrefix</c> as it
+        /// stood when the exchange was created, so changing that setting never loses track of files
+        /// already written. Null on exchanges from before it was recorded, whose files are under the
+        /// prefix that was in use then (<see cref="BitweenOptions.LegacyDocumentPrefix"/>).
+        /// </summary>
+        public string FilesPrefix { get; private set; }
+
+        /// <summary>Records where this exchange's files go. Set once, before the first file is written.</summary>
+        public void StoreFilesUnder(string prefix) => FilesPrefix = prefix;
     }
 }

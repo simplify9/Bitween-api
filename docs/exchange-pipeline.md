@@ -56,7 +56,7 @@ Processing starts by reading the input in the information type's format.
 - **JSON** payloads are read with JSON path expressions. Only a JSON object can be read, so a payload whose root is an array yields no promoted properties and matches no filter.
 - **XML** payloads are read with XPath, after decoding HTML entities and removing characters XML does not allow. A payload that is not valid XML fails the exchange.
 
-Promoted property values are stored as sent. Search compares them ignoring case.
+Promoted property values are stored as sent. Search compares them ignoring case. Lists show them in the order the information type lists its properties, and the first one also names an exchange's archive file.
 
 For a document-level exchange, the filter also decides where the document goes.
 
@@ -136,16 +136,18 @@ API gateway calls, legacy API calls, scheduled job runs, aggregations and exchan
 An aggregation subscription runs on a schedule. Each run does the following.
 
 1. Selects up to 10,000 successful exchanges of the source subscription that have not been aggregated yet.
-2. Builds a JSON array holding the URL of one file of each exchange: input, output or response, as configured.
+2. Builds a JSON array holding a link to one file of each exchange: input, output or response, as configured.
 3. Creates one exchange on the aggregation subscription with that array as its input, and links each source exchange to it.
 
-The new exchange then runs through the normal pipeline, so the aggregation's own mapper and handler process the list. Because file URLs are used, the files must be reachable by whatever processes the list.
+The new exchange then runs through the normal pipeline, so the aggregation's own mapper and handler process the list. The links are served by Bitween and open without a login, so whatever processes the list can download each file. They're built on the public address the chart sets from its host name, so a partner handed the list can open them. Without one they use the instance's own address (`http://localhost:8080` in the container), which adapters running in Bitween can open but nothing outside it can. With neither address, the run fails instead of listing links nothing can open. A roll-up made by an earlier version lists storage URLs instead; retrying it swaps them for Bitween links.
 
 The first run of a new aggregation collects everything the source subscription has ever produced. The UI therefore creates aggregations disabled by default.
 
+Retention doesn't wait for aggregations: an exchange removed before an aggregation runs is never rolled up. An aggregation whose schedule can wait longer between runs than **Keep exchanges (days)** shows a warning under its schedule, and the Settings page names it when retention is changed.
+
 ## Files and URLs
 
-Exchange lists return a URL and a storage key for each file that has content. The UI reads file content through `GET /api/bitweendocs?documentKey=...`.
+Exchange lists return a link and a storage key for each file that has content. The link is served by Bitween, see [Architecture](architecture.md#storage). The UI reads file content through `GET /api/bitweendocs?documentKey=...`, which needs `exchanges.view`.
 
 ## Limits
 

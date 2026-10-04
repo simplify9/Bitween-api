@@ -44,18 +44,20 @@ public class AggregationJob(
                 from agg in xa.DefaultIfEmpty()
                 where result.Success == true && agg == null &&
                       xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
-                select xchange.Id;
+                select new { xchange.Id, xchange.FilesPrefix };
 
             var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();
 
             if (targetXchangeList.Count > 0)
             {
-                var urlList = targetXchangeList.Select(id =>
-                    xchangeService.GetFileUrl(id, aggSub.AggregationTarget));
+                // Still a list of links, so the handlers written for it keep working, but links Bitween
+                // serves: exchange files are private in storage.
+                var urlList = targetXchangeList.Select(x =>
+                    xchangeService.AdapterFileUrl(x.Id, x.FilesPrefix, aggSub.AggregationTarget)).ToList();
                 var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
                 var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
                 dbContext.Add(aggXchange);
-                targetXchangeList.ForEach(id => dbContext.Add(new XchangeAggregation(id, aggXchange.Id)));
+                targetXchangeList.ForEach(x => dbContext.Add(new XchangeAggregation(x.Id, aggXchange.Id)));
                 outcome = ReceiveOutcome.Received;
                 createdExchangeIds = [aggXchange.Id];
             }

@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Layers, Plus, RotateCcw, X } from "lucide-react";
-import { api, type BulkRetrySelection, type ExchangeQuery, type ExchangeStatus } from "../../api";
+import { ChevronDown, ChevronRight, Download, Layers, Plus, RotateCcw, X } from "lucide-react";
+import { api, type BulkRetrySelection, type ExchangeQuery, type ExchangeStatus, type ExportFilesCheck } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { Select, TextInput } from "../../components/ui/forms";
+import { ConfirmDialog } from "../../components/ui/overlays";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { timeAgo, timeUntil, duration } from "../../lib/dates";
@@ -26,6 +27,23 @@ const STATUSES: ExchangeStatus[] = ["processing", "success", "badResponse", "fai
  * Kept in step with `CountCap` in Xchanges/Search.cs.
  */
 const COUNT_CAP = 10_000;
+
+/** The most exchanges one files export takes: `XchangeExportController.Limit` on the server. */
+const EXPORT_LIMIT = 500;
+
+const exchangesCount = (n: number) => (n === 1 ? "1 exchange" : `${n.toLocaleString()} exchanges`);
+
+/** Why some of an export's exchanges come without files; said before it downloads. */
+function filesGoneText({ count, withoutFiles, keptDays }: ExportFilesCheck): string {
+  const kept = keptDays === null ? "" : ` (${keptDays} days)`;
+  if (withoutFiles >= count)
+    return count === 1
+      ? `The selected exchange is older than storage keeps files${kept}, so there's nothing to export.`
+      : `All ${exchangesCount(count)} selected are older than storage keeps files${kept}, so there's nothing to export.`;
+  return `${withoutFiles.toLocaleString()} of the ${exchangesCount(count)} selected ${
+    withoutFiles === 1 ? "is" : "are"
+  } older than storage keeps files${kept}, so the zip won't have ${withoutFiles === 1 ? "its" : "their"} files.`;
+}
 
 const REFRESH_OPTIONS = [
   { value: "0", label: "Refresh: off" },
@@ -205,6 +223,37 @@ export function ExchangesPage() {
           ".",
       );
       void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
+    },
+  });
+
+  // Asked first, so someone hears that some exchanges are past the files storage keeps before choosing to
+  // download, rather than from a list inside the zip. Nothing missing: it downloads straight away.
+  const [exportCheck, setExportCheck] = useState<ExportFilesCheck | null>(null);
+  const [nothingToExport, setNothingToExport] = useState<string | null>(null);
+  const checkExport = useMutation({
+    mutationFn: () => api.checkExchangeFilesExport(selection),
+    onMutate: () => setNothingToExport(null),
+    onSuccess: (check) => {
+      if (check.withoutFiles === 0) exportFiles.mutate();
+      else if (check.withoutFiles >= check.count) setNothingToExport(filesGoneText(check));
+      else setExportCheck(check);
+    },
+  });
+
+  /** The zip comes back whole and is saved from memory: the endpoint needs the sign-in header, which a plain link can't send. */
+  const exportFiles = useMutation({
+    mutationFn: () => api.exportExchangeFiles(selection),
+    onSuccess: ({ blob, fileName }) => {
+      // In the document while clicked, and revoked a while later: Firefox and Safari ignore a click on a
+      // detached link, and start the download after the click returns, so an address revoked at once fails it.
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     },
   });
 
@@ -428,7 +477,7 @@ export function ExchangesPage() {
             <thead>
               <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
                 <th className="w-10 py-2.5 pl-4">
-                  <Can permission="exchanges.operate">
+                  <Can permission="exchanges.view">
                     <input
                       type="checkbox"
                       aria-label="Select all on this page"
@@ -472,7 +521,7 @@ export function ExchangesPage() {
                     className="cursor-pointer border-b border-ink-50 transition-colors last:border-0 hover:bg-ink-50/60"
                   >
                     <td className="py-1.5 pl-4" onClick={(e) => e.stopPropagation()}>
-                      <Can permission="exchanges.operate">
+                      <Can permission="exchanges.view">
                         <input
                           type="checkbox"
                           aria-label={`Select ${x.id}`}
@@ -617,12 +666,34 @@ export function ExchangesPage() {
               <Button size="sm" variant="ghost" onClick={clearSelection}>
                 Clear
               </Button>
-              <Button size="sm" variant="primary" onClick={() => setBulkConfirm(true)}>
-                <RotateCcw className="size-3.5" aria-hidden />
-                Retry selected…
+              <Button
+                size="sm"
+                busy={checkExport.isPending || exportFiles.isPending}
+                disabled={selectedCount > EXPORT_LIMIT}
+                onClick={() => checkExport.mutate()}
+                title={
+                  selectedCount > EXPORT_LIMIT
+                    ? `One export takes at most ${EXPORT_LIMIT} exchanges. Narrow the filter or tick fewer rows.`
+                    : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
+                }
+              >
+                <Download className="size-3.5" aria-hidden />
+                Export files
               </Button>
+              <Can permission="exchanges.operate">
+                <Button size="sm" variant="primary" onClick={() => setBulkConfirm(true)}>
+                  <RotateCcw className="size-3.5" aria-hidden />
+                  Retry selected…
+                </Button>
+              </Can>
             </span>
           </div>
+
+          {(checkExport.error ?? exportFiles.error ?? nothingToExport) && (
+            <p role="alert" className="text-[13px] text-danger-700">
+              {(checkExport.error ?? exportFiles.error)?.message ?? nothingToExport}
+            </p>
+          )}
 
           {/* The whole page is ticked but there is more behind it — the one moment where
               "select all matching" is what someone actually wants, so it is offered there
@@ -644,6 +715,19 @@ export function ExchangesPage() {
             </p>
           )}
         </div>
+      )}
+
+      {exportCheck && (
+        <ConfirmDialog
+          title="Some files are gone"
+          body={filesGoneText(exportCheck)}
+          confirmLabel={`Export the other ${exchangesCount(exportCheck.count - exportCheck.withoutFiles)}`}
+          confirmVariant="primary"
+          onConfirm={async () => {
+            await exportFiles.mutateAsync();
+          }}
+          onClose={() => setExportCheck(null)}
+        />
       )}
 
       {bulkConfirm && (

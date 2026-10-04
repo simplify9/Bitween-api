@@ -9,6 +9,7 @@ import { SearchSelect } from "../../components/ui/SearchSelect";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { AggregationFields } from "../../components/config/AggregationFields";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
+import { AggregationRetentionWarning } from "../../components/config/AggregationRetentionWarning";
 import { PartnerPicker } from "../../components/config/pickers";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { api, type AggregationTarget, type Schedule } from "../../api";
@@ -222,6 +223,7 @@ export function NewAggregationPage() {
               onChange={(schedules) => update({ schedules })}
               disabled={false}
             />
+            <AggregationRetentionWarning schedules={draft.schedules} />
           </Panel>
         );
       case "transformation":

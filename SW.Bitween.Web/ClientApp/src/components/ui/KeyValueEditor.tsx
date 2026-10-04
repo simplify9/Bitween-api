@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, GripVertical, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import { SECRET_SENTINEL } from "../../api";
 import { Button } from "./basics";
 
@@ -160,7 +160,8 @@ function ReferenceToken({ token }: { token: string }) {
  * row (e.g. {{partner.KEY}}); `rowDetails` renders a per-row note under it
  * (e.g. "where is this used?"), always visible. `secrets` adds a lock column:
  * a locked value never leaves the server, so it reads back as the sentinel and
- * shows as dots until someone replaces it.
+ * shows as dots until someone replaces it. `reorderable` adds a drag handle to each row — also
+ * moved with the arrow keys — for editors whose order means something.
  */
 export function KeyValueEditor({
   rows,
@@ -176,6 +177,7 @@ export function KeyValueEditor({
   valueWidthClass = "w-56 sm:w-72 lg:w-96",
   rowDetails,
   secrets,
+  reorderable,
 }: {
   rows: KvRow[];
   onChange: (rows: KvRow[]) => void;
@@ -192,8 +194,32 @@ export function KeyValueEditor({
   rowDetails?: (row: KvRow) => ReactNode | null;
   /** Omit entirely for editors whose values are never secrets. */
   secrets?: { names: string[]; onChange: (names: string[]) => void };
+  /** Rows can be put in order; `first` names what the first row is, for editors where it's special. */
+  reorderable?: { first?: { label: string; title: string } };
 }) {
   const [focusLast, setFocusLast] = useState(false);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dropAt, setDropAt] = useState<number | null>(null);
+  const handles = useRef<(HTMLButtonElement | null)[]>([]);
+  const [focusHandle, setFocusHandle] = useState<number | null>(null);
+
+  // Rows are keyed by position, so after a keyboard move the handle under the cursor belongs to a
+  // different row; focus follows the row that moved.
+  useEffect(() => {
+    if (focusHandle === null) return;
+    handles.current[focusHandle]?.focus();
+    setFocusHandle(null);
+  }, [focusHandle, rows]);
+
+  const move = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= rows.length) return;
+    const next = [...rows];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  };
+
+  const ordering = !!reorderable && editable && rows.length > 1;
 
   // Names are compared case-insensitively, matching how the resolver looks a key up.
   const isSecret = (key: string) =>
@@ -223,7 +249,7 @@ export function KeyValueEditor({
     return <p className="text-sm text-ink-500">{emptyText}</p>;
   }
 
-  const columns = 2 + (token ? 1 : 0) + (secrets ? 1 : 0) + (editable ? 1 : 0);
+  const columns = 2 + (ordering ? 1 : 0) + (token ? 1 : 0) + (secrets ? 1 : 0) + (editable ? 1 : 0);
 
   return (
     <div>
@@ -231,6 +257,11 @@ export function KeyValueEditor({
         <table className="table-fixed text-sm">
           <thead>
             <tr className="text-left text-xs text-ink-500">
+              {ordering && (
+                <th className="w-7 pb-1.5" title="Drag a row by its handle, or focus the handle and use the arrow keys">
+                  <span className="sr-only">Order</span>
+                </th>
+              )}
               <th className={`${keyWidthClass} pb-1.5 pr-3 font-medium`}>{keyLabel}</th>
               <th className={`${valueWidthClass} pb-1.5 pr-3 font-medium`}>{valueLabel}</th>
               {token && <th className="hidden w-56 pb-1.5 pr-3 font-medium xl:table-cell">Reference</th>}
@@ -245,7 +276,63 @@ export function KeyValueEditor({
           <tbody>
             {rows.map((row, i) => (
               <Fragment key={i}>
-                <tr className="align-top">
+                <tr
+                  className={`align-top ${
+                    dropAt === i && dragFrom !== null && dragFrom !== i ? "bg-crimson-50 outline-2 outline-crimson-200" : ""
+                  } ${dragFrom === i ? "opacity-50" : ""}`}
+                  onDragOver={(e) => {
+                    if (dragFrom === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDropAt(i);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragFrom !== null) move(dragFrom, i);
+                    setDragFrom(null);
+                    setDropAt(null);
+                  }}
+                >
+                  {ordering && (
+                    <td className="pt-1.5 pb-1">
+                      <button
+                        type="button"
+                        ref={(el) => {
+                          handles.current[i] = el;
+                        }}
+                        draggable
+                        onDragStart={(e) => {
+                          setDragFrom(i);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", String(i));
+                          const tr = e.currentTarget.closest("tr");
+                          if (tr) e.dataTransfer.setDragImage(tr, 12, 12);
+                        }}
+                        onDragEnd={() => {
+                          setDragFrom(null);
+                          setDropAt(null);
+                        }}
+                        onKeyDown={(e) => {
+                          const to = e.key === "ArrowUp" ? i - 1 : e.key === "ArrowDown" ? i + 1 : null;
+                          if (to === null || to < 0 || to >= rows.length) return;
+                          e.preventDefault();
+                          move(i, to);
+                          setFocusHandle(to);
+                        }}
+                        aria-label={`Move ${row.key.trim() || `row ${i + 1}`} (position ${i + 1} of ${rows.length}); use the arrow keys`}
+                        title={
+                          i === 0 && reorderable?.first
+                            ? `${reorderable.first.title} Drag, or use the arrow keys, to change the order.`
+                            : "Drag to change the order, or focus this and use the arrow keys."
+                        }
+                        className={`flex h-7 w-6 cursor-grab items-center justify-center rounded-md hover:bg-ink-100 active:cursor-grabbing ${
+                          i === 0 && reorderable?.first ? "text-crimson-600" : "text-ink-300 hover:text-ink-500"
+                        }`}
+                      >
+                        <GripVertical className="size-3.5" aria-hidden />
+                      </button>
+                    </td>
+                  )}
                   <td className="py-1 pr-3">
                     <input
                       value={row.key}
@@ -256,6 +343,11 @@ export function KeyValueEditor({
                       aria-label={`${keyLabel} ${i + 1}`}
                       className={`${cellInput} font-medium`}
                     />
+                    {i === 0 && reorderable?.first && (
+                      <span className="mt-0.5 block text-[11px] font-medium text-crimson-700" title={reorderable.first.title}>
+                        {reorderable.first.label}
+                      </span>
+                    )}
                   </td>
                   <td className="py-1 pr-3">
                     {secrets && (isSecret(row.key) || row.value === SECRET_SENTINEL) ? (

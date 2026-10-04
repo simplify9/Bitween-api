@@ -72,6 +72,8 @@ spec:
             - name: Bitween__AdminDatabaseName
               value: {{ .Values.adminDb }}
 
+            # Seeds the Settings table on the first boot only. Each exchange keeps the prefix its
+            # files were written under, so it can be changed later under Settings → Documents & storage.
             - name: Bitween__DocumentPrefix
               value: {{ .Values.documentPrefix }}
 
@@ -90,10 +92,26 @@ spec:
             - name: Bitween__StorageProvider
               value: {{ .Values.storageProvider }}
 
-            # Seeds the Settings table on the first boot only — after that the app reads the table
-            # and ignores this value. Change it under Settings → Documents & storage instead.
-            - name: Bitween__AreXChangeFilesPrivate
-              value: "{{ .Values.areXChangeFilesPrivate }}"
+            # The address partners reach this instance on, taken from the host name the Ingress or
+            # HTTPRoute serves: an aggregation's handler may pass its roll-up's file links to a
+            # partner, who has to be able to open them. https unless the Ingress has no TLS for it.
+            {{- $publicHost := "" }}
+            {{- $publicScheme := "https" }}
+            {{- if .Values.gateway.enabled }}
+            {{- $publicHost = first (.Values.gateway.hostnames | default list) }}
+            {{- else if .Values.ingress.enabled }}
+            {{- $publicHost = first (.Values.ingress.hosts | default list) }}
+            {{- $publicScheme = "http" }}
+            {{- range .Values.ingress.tls }}
+            {{- if has $publicHost (.hosts | default list) }}
+            {{- $publicScheme = "https" }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- if and $publicHost (not (hasPrefix "*" $publicHost)) }}
+            - name: Bitween__PublicUrl
+              value: {{ printf "%s://%s" $publicScheme $publicHost | quote }}
+            {{- end }}
 
             - name: Bitween__UseAzureManagedIdentity
               value: "{{ .Values.useAzureManagedIdentity }}"
@@ -142,7 +160,7 @@ spec:
                   name: {{ template "project.fullname" . }}
                   key: db
 
-            # As with Bitween__AreXChangeFilesPrivate above, these three seed the Settings table on
+            # As with Bitween__DocumentPrefix above, these three seed the Settings table on
             # the first boot only. Editing them later has no effect — change Microsoft sign-on
             # under Settings → Single sign-on (Microsoft).
             - name: Bitween__MsalClientId

@@ -89,16 +89,39 @@ public static class SettingsCatalog
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
         // ——— Documents & storage ———
-        new("Bitween.AreXChangeFilesPrivate", "Documents & storage",
-            "Keep exchange files private",
-            "Turn this on if you want generated exchange files kept private and served through short-lived signed links instead of public URLs.",
-            SettingKind.Boolean, false,
-            t => Str(t.Bitween.AreXChangeFilesPrivate),
-            (t, v) => t.Bitween.AreXChangeFilesPrivate = Bool(v)),
+        // Exchange files are always private now; there's no switch for it. Readers without a login
+        // get sealed links (see FileLinks).
+        new("Bitween.DocumentPrefix", "Documents & storage",
+            "Exchange files prefix",
+            "Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix decides how long they're kept — temp30/… keeps them 30 days. Each exchange keeps the prefix it was written under, so a change only applies to exchanges created after it.",
+            SettingKind.String, false,
+            t => t.Bitween.DocumentPrefix,
+            (t, v) => t.Bitween.DocumentPrefix = StoragePrefix(v)),
 
-        View("Bitween.DocumentPrefix", "Documents & storage", "Document prefix",
-            "The cloud-storage key prefix every exchange document is written under. Fixed per environment — changing it would leave everything already stored unreachable.",
-            SettingKind.String, t => t.Bitween.DocumentPrefix),
+        new("Bitween.ExchangeRetentionDays", "Documents & storage",
+            "Keep exchanges (days)",
+            "How long exchanges stay on the Exchanges page before the retention job removes them. 0 keeps them for ever.",
+            SettingKind.Number, false,
+            t => t.Bitween.ExchangeRetentionDays.ToString(CultureInfo.InvariantCulture),
+            (t, v) => t.Bitween.ExchangeRetentionDays = NonNegativeInt(v)),
+
+        new("Bitween.ArchiveExchanges", "Documents & storage",
+            "Archive before deleting",
+            "Copies each exchange — its details, and its files while storage still has them — to the archive before the retention job deletes it.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.ArchiveExchanges),
+            (t, v) => t.Bitween.ArchiveExchanges = Bool(v)),
+
+        new("Bitween.ExchangeRetentionCron", "Documents & storage",
+            "Retention schedule",
+            "When the retention job runs, as a cron expression: second minute hour day-of-month month day-of-week. Once a day by default. Saving re-schedules the job straight away.",
+            SettingKind.String, false,
+            t => t.Bitween.ExchangeRetentionCron,
+            (t, v) => t.Bitween.ExchangeRetentionCron = Cron(v))
+        {
+            OnChange = sp => sp.GetRequiredService<IScheduleRepository>()
+                .Schedule<ExchangeRetentionJob>(sp.GetRequiredService<BitweenOptions>().ExchangeRetentionCron)
+        },
 
         // ——— API behavior ———
         new("Bitween.ApiCallSubscriptionResponseAcceptedStatusCode", "API behavior",
@@ -379,6 +402,29 @@ public static class SettingsCatalog
             ? parsed
             : throw new FormatException($"'{value}' is not a whole number.");
 
+    private static int NonNegativeInt(string value) =>
+        Int(value) is var parsed and >= 0 ? parsed : throw new FormatException($"'{value}' can't be below 0.");
+
+    /// <summary>
+    /// A storage prefix: folder names of letters, digits, dots, dashes and underscores, joined by
+    /// slashes. Anything else would need escaping in the file links, which end in the storage key.
+    /// </summary>
+    private static string StoragePrefix(string value)
+    {
+        var prefix = (value ?? string.Empty).Trim().Trim('/');
+        if (prefix.Length == 0) throw new FormatException("The prefix can't be empty.");
+        if (prefix.Length > 150) throw new FormatException("Keep the prefix under 150 characters.");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(prefix, "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$"))
+            throw new FormatException(
+                "Use folder names of letters, digits, dots, dashes and underscores, separated by slashes.");
+        // "." and ".." are steps to anything that resolves the key as a path — a file link opened in a
+        // browser, say — and would put the archive outside archive/.
+        return prefix.Split('/').Any(folder => folder.Trim('.').Length == 0)
+            ? throw new FormatException("A folder name can't be only dots.")
+            : prefix;
+    }
+
+    /// <summary>Empty clears it. Otherwise an absolute http(s) address with nothing after the host and path.</summary>
     private static int? NullableInt(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : Int(value);
 }

@@ -370,6 +370,7 @@ namespace SW.Bitween
                 b.Property(p => p.MapperProperties).StoreAsJson();
                 b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
+                b.Property(p => p.FilesPrefix).HasMaxLength(200);
 
 
                 b.HasIndex(i => i.InputHash);
@@ -412,6 +413,8 @@ namespace SW.Bitween
                 b.ToTable("XchangeNotifications");
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
+                // Retention deletes an exchange's notifications by exchange id.
+                b.HasIndex(p => p.XchangeId);
             });
 
             modelBuilder.Entity<XchangeDelivery>(b =>

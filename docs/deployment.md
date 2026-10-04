@@ -77,8 +77,10 @@ For a user-assigned identity, set `Bitween__AzureManagedIdentityClientId` or `AZ
 
 Set `Bitween:StorageProvider` and the matching `CloudFiles` keys. See [Configuration](configuration.md#storage).
 
-- With the default `temp30/` document prefix, the S3 and Oracle storage libraries expire exchange files after 30 days. Choose `temp1/`, `temp7/` or `temp365/` for other retention, or a prefix outside those to keep files.
-- For Azure Blob, configure retention on the storage account.
+- With the default `temp30/` document prefix, the storage libraries expire exchange files after 30 days. Choose `temp1/`, `temp7/` or `temp365/` for other retention, or a prefix outside those to keep files. The prefix can be changed later on the Settings page.
+- For Azure Blob, set `CloudFiles__SubscriptionId` and `CloudFiles__ResourceGroupName`, and give the identity a role that can manage the account's lifecycle policy. The rules are then created at startup. Without them the rules aren't created, and the Settings page can't show any set up by hand. See [Configuration](configuration.md#storage).
+- Keep the bucket private: Bitween reads and writes with its own credentials and serves file links itself. On Azure it switches its container to private at startup; with a managed identity, give it a role that can change the container's access level, or set it to Private yourself.
+- The chart sets Bitween's public address from its first host name (`ingress.hosts`, or `gateway.hostnames`), `https` unless the Ingress has no TLS for it. Exchange file links are built on it, so a partner handed a roll-up's links can open them. Without a host, roll-ups link through the instance's own address, which only adapters running in Bitween can open.
 - `Local` writes files to disk and only starts in Development.
 
 ## RabbitMQ

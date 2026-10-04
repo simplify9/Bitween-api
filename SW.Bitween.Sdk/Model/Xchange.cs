@@ -39,7 +39,18 @@ namespace SW.Bitween.Model
         public bool Reset { get; set; }
     }
 
-    public class XchangeBulkRetry : XchangeRetry
+    /// <summary>
+    /// Which exchanges a bulk action covers: a hand-picked list, or everything a search filter
+    /// matches minus the rows unticked after selecting it.
+    /// </summary>
+    public interface IXchangeSelection
+    {
+        List<string>? Ids { get; }
+        string? Filter { get; }
+        List<string>? ExcludeIds { get; }
+    }
+
+    public class XchangeBulkRetry : XchangeRetry, IXchangeSelection
     {
         /// <summary>
         /// The exchanges the caller picked by hand. Ignored when <see cref="Filter"/> is set.
@@ -59,6 +70,35 @@ namespace SW.Bitween.Model
         /// selecting everything.
         /// </summary>
         public List<string> ExcludeIds { get; set; }
+    }
+
+    /// <summary>
+    /// The exchanges whose files go into one zip, chosen the same way as a bulk retry's. Nullable, unlike
+    /// the bulk retry's: this one is bound by MVC, which would otherwise require all three.
+    /// </summary>
+    public class XchangeFilesExport : IXchangeSelection
+    {
+        /// <inheritdoc cref="XchangeBulkRetry.Ids"/>
+        public List<string>? Ids { get; set; }
+
+        /// <inheritdoc cref="XchangeBulkRetry.Filter"/>
+        public string? Filter { get; set; }
+
+        /// <inheritdoc cref="XchangeBulkRetry.ExcludeIds"/>
+        public List<string>? ExcludeIds { get; set; }
+    }
+
+    /// <summary>What an export would hold, shown before it's downloaded.</summary>
+    public class XchangeFilesExportCheck
+    {
+        /// <summary>Exchanges the export takes.</summary>
+        public int Count { get; set; }
+
+        /// <summary>Of those, the ones older than the bucket's rule keeps their files: the zip won't have them.</summary>
+        public int WithoutFiles { get; set; }
+
+        /// <summary>How many days that rule keeps files, when one rule covers them all; otherwise null.</summary>
+        public int? KeptDays { get; set; }
     }
 
     /// <summary>

@@ -1059,6 +1059,63 @@ export interface SettingRow {
   access: SettingAccess;
 }
 
+// ——— Retention ———
+
+/** Retention settings to preview before saving; anything left out keeps its current value. */
+export interface RetentionProposal {
+  documentPrefix?: string;
+  exchangeRetentionDays?: number;
+  archiveExchanges?: boolean;
+  exchangeRetentionCron?: string;
+}
+
+export interface StorageRule {
+  id: string | null;
+  prefix: string;
+  days: number;
+  enabled: boolean;
+}
+
+/** How long the bucket keeps files under one prefix: `days` null when no rule deletes them by age. */
+export interface PrefixRetention {
+  prefix: string;
+  days: number | null;
+  rulePrefix: string | null;
+}
+
+export interface RetentionNotice {
+  level: "warning" | "info";
+  code: string;
+  message: string;
+}
+
+/** What the retention settings do, now or as proposed. */
+export interface RetentionStatus {
+  storage: { provider: string | null; bucket: string | null; problem: string | null; rules: StorageRule[] };
+  files: PrefixRetention;
+  /** Where exchanges from before prefixes were recorded keep their files, when that differs. */
+  legacyFiles: PrefixRetention | null;
+  archive: PrefixRetention;
+  exchanges: {
+    retentionDays: number;
+    archive: boolean;
+    cron: string;
+    nextRun: string | null;
+    dueNow: number | null;
+    withoutFiles: number | null;
+    /** Counts stop here; a count equal to it means "at least". */
+    countCap: number;
+    oldest: string | null;
+  };
+  notices: RetentionNotice[];
+}
+
+/** Whether retention removes exchanges before an aggregation with given schedules collects them. */
+export interface AggregationRetentionCheck {
+  /** Null when it won't. */
+  warning: string | null;
+}
+
 // ——— Exchanges ———
 
 /**
@@ -1138,8 +1195,8 @@ export interface RetryTree {
 }
 
 /**
- * Which exchanges a bulk retry is about: the rows someone ticked, or a whole filter's worth
- * minus the ones they unticked.
+ * Which exchanges a bulk retry or a files export is about: the rows someone ticked, or a whole
+ * filter's worth minus the ones they unticked.
  */
 export type BulkRetrySelection =
   | { ids: string[] }
@@ -1156,6 +1213,15 @@ export interface RetrySkip {
   /** The exchange the skip is about — the one selected, or the attempt that stood in for it. */
   id: string;
   reason: string;
+}
+
+/** What a files export would hold, asked before it downloads. */
+export interface ExportFilesCheck {
+  count: number;
+  /** Exchanges older than storage keeps their files: the zip won't have them. */
+  withoutFiles: number;
+  /** The days storage keeps files, when one rule covers all of those; otherwise null. */
+  keptDays: number | null;
 }
 
 /** What a bulk retry will do, or (returned by the retry itself) what it did. */

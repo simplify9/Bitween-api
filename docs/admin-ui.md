@@ -53,7 +53,7 @@ Edits stay a draft until saved from the bar at the bottom of the page.
 | Page | What it does |
 |---|---|
 | **Data sources** | Broker and database connections. Settings forms are built from the adapter. Test a connection, watch live health, and for databases manage SQL statements with save-time checks and browse the schema. |
-| **Information types** | Name, code, format, promoted properties, bus availability and message type name, and what uses each type. |
+| **Information types** | Name, code, format, promoted properties, bus availability and message type name, and what uses each type. Promoted properties are dragged into order, which is the order lists show them in; the first names archived exchanges. |
 | **Global values** | Value sets, and the subscriptions that reference each key. |
 | **Work groups** | Queue settings and live throughput per lane. |
 | **Retry policies** | Groups, conditions, budgets and alert routing. The usage panel shows spent budgets per subscription, and the test panel runs the draft policy against sample errors. |
@@ -64,7 +64,7 @@ Edits stay a draft until saved from the bar at the bottom of the page.
 | Page | What it does |
 |---|---|
 | **Team** | Members: add, assign roles, set a password, unlock, disable and remove. Roles: a permission matrix with a live preview of the navigation the role would see. |
-| **Settings** | Runtime settings by section, including branding with an instant preview. Values owned by the environment are shown read-only. |
+| **Settings** | Runtime settings by section, including branding with an instant preview. Values owned by the environment are shown read-only. Documents & storage shows the bucket's deletion rules and what the retention settings do, and asks before saving a change to them. |
 | **Audit trail** | Every configuration change with its old and new values. |
 
 The **Dashboard** opens from the logo, and includes failures still to act on and the retry chains that keep failing. **Profile** lets members change their display name and password.

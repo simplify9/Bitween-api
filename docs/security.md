@@ -115,7 +115,14 @@ The seeded **SYSTEM** partner has a key named `default` whose value is fixed in 
 
 ## Exchange files
 
-Exchange files are uploaded as public objects unless the **Keep exchange files private** setting is on. `GET /api/bitweendocs?documentKey=...`, which the UI uses to show file content, needs no sign-in and returns the content of any storage key it is given.
+Exchange files are always written as private objects, so a storage URL doesn't open them. Files written by earlier versions keep the public access they were written with until the bucket deletes them.
+
+- `GET /api/bitweendocs?documentKey=...`, which the UI uses to show file content, needs `exchanges.view`, and only reads a key that is exactly one of an exchange's files.
+- Readers without a login use links Bitween serves at `/api/files/{seal}/{storage key}`: aggregation roll-ups, a partner's exchange result, the URLs in the exchange list. Anyone holding a link can read that one file, as with the public URL it replaces, until the bucket deletes the file. The seal can't be forged or moved to another file without `Token:Key`, and changing that key invalidates every link.
+- File links have their own rate limit per client address, `Bitween:RateLimits:FileLinksPerMinute`, 60,000 by default, because an aggregation's handler downloads every link in a roll-up.
+- On Azure, where the container decides privacy for every file in it, Bitween switches its container to private at startup, keeping its stored access policies. Storage URLs handed out before that stop opening.
+- The Settings page checks, every few minutes, whether a file Bitween writes opens straight from the bucket without credentials, and warns when it does, on every provider.
+- A roll-up made before Bitween served its own links lists storage URLs. Retrying it swaps each URL of an exchange file for a Bitween link, so the handler still gets every file.
 
 ## Data sources
 
@@ -160,7 +167,7 @@ The trail is written in the same transaction as the change, and no API edits or 
 3. Replace or remove the SYSTEM partner's API key.
 4. Set `Token__Key` to a long random secret, and choose your own `Token__Issuer` and `Token__Audience`.
 5. Set `Bitween__SettingsEncryptionKey` before saving a Rebex license key.
-6. Turn on **Keep exchange files private** when payloads are sensitive, and block `/api/bitweendocs` at the edge if members' browsers are the only intended readers.
+6. Give the chart's Ingress a TLS entry for its host, so file links are built on an https address, and treat roll-ups and exchange results as holding the files themselves: a link opens its file without a login. Over plain http a link and its file can be read on the way.
 7. Serve Bitween over HTTPS. The refresh cookie is always marked `Secure`.
 8. Connect data sources with least-privilege logins, and never with DDL rights on Oracle.
 9. Review [Known limitations](caveats.md#security).

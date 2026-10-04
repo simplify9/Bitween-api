@@ -38,7 +38,7 @@ namespace SW.Bitween.Resources.DelayedRetries
                             DocumentName = document.Name,
                             Exception = result.Exception,
                             StartedOn = xchange.StartedOn,
-                            PromotedProperties = promoted == null ? null : promoted.Properties.ToDictionary(),
+                            PromotedProperties = promoted == null ? null : promoted.Properties.InDefinedOrder(document.PromotedProperties),
                             RetryPolicyId = subscriber.RetryPolicyId,
                             RetryPolicyName = subscriber.RetryPolicy.Name
                         };

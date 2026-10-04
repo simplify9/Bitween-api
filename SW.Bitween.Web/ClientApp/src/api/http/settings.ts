@@ -1,6 +1,7 @@
 import type { ApiClient } from "../client";
-import type { SettingRow } from "../types";
+import type { AggregationRetentionCheck, RetentionProposal, RetentionStatus, Schedule, SettingRow } from "../types";
 import { get, post, request } from "./request";
+import { toRawSchedules } from "./subscriptionBody";
 
 export const settingsMethods = {
   /**
@@ -10,6 +11,18 @@ export const settingsMethods = {
    */
   listSettings(): Promise<SettingRow[]> {
     return get<SettingRow[]>("/settings");
+  },
+
+  getRetention(refresh = false): Promise<RetentionStatus> {
+    return get<RetentionStatus>(`/retention${refresh ? "?refresh=true" : ""}`);
+  },
+
+  previewRetention(proposal: RetentionProposal): Promise<RetentionStatus> {
+    return post<RetentionStatus>("/retention/preview", proposal);
+  },
+
+  checkAggregationRetention(schedules: Schedule[]): Promise<AggregationRetentionCheck> {
+    return post<AggregationRetentionCheck>("/retention/aggregation", { schedules: toRawSchedules(schedules) });
   },
 
   /** A null value resets the setting, which is a DELETE rather than a write. */

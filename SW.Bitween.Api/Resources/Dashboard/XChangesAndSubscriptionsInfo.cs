@@ -46,7 +46,7 @@ public class XChangesAndSubscriptionsInfo(BitweenDbContext dbContext, XchangeSer
                 result.FinishedOn,
                 result.ResponseBad,
                 result.Exception,
-                ResponseFileKey = xchangeService.GetFileKey(xchange.Id, result.ResponseSize, XchangeFileType.Response),
+                ResponseFileKey = xchangeService.FileKey(xchange.Id, xchange.FilesPrefix, result.ResponseSize, XchangeFileType.Response),
             };
 
         var latestFailedxCahanges = await latestFailedQ

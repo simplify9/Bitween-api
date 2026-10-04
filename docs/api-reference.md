@@ -63,7 +63,10 @@ See [Entry points](entry-points.md) for status codes.
 | `POST /api/xchanges/{id}/retry` | `exchanges.operate` | `{ reason, reset }` |
 | `POST /api/xchanges/bulkretrypreview` | `exchanges.operate` | Plan a bulk retry without running it |
 | `POST /api/xchanges/bulkretry` | `exchanges.operate` | Run a bulk retry |
-| `GET /api/bitweendocs?documentKey=` | none | Read a stored file |
+| `POST /api/xchanges/export` | `exchanges.view` | The selected exchanges' files as one zip |
+| `POST /api/xchanges/export/check` | `exchanges.view` | How many of the selected exchanges are older than storage keeps their files, asked before exporting |
+| `GET /api/bitweendocs?documentKey=` | `exchanges.view` | Read one of an exchange's files. Other keys are refused. |
+| `GET /api/files/{seal}/{key}` | none, the seal | An exchange file for a reader without a login, served as `text/plain` |
 | `GET /api/delayedretries` | `exchanges.view` or `dashboard.view` | Searchy. Waiting automatic retries. |
 | `POST /api/delayedretries/{id}/runnow` | `exchanges.operate` | Run a waiting retry now |
 
@@ -75,6 +78,8 @@ Exchange search filters, besides ordinary fields:
 | `LatestOnly:1:true` | Only the newest attempt of each retry chain |
 
 Bulk retry takes `{ ids, filter, excludeIds, reason, reset }`. `filter` is the same query-string fragment the search takes, such as `filter=StatusFilter:1:3&filter=LatestOnly:1:true`, and it replaces `ids` when present. The plan returned by both endpoints lists how many were selected and will be retried, attempts substituted with the end of their chain, and skipped exchanges with reasons. At most 500 exchanges can be retried at once.
+
+Export takes `{ ids, filter, excludeIds }`, chosen the same way, and streams back a zip (`application/zip`) with a folder per exchange and a `missing.txt` listing files that storage no longer has. At most 500 exchanges go in one zip; a larger selection is refused with `TOO_MANY`. `export/check` takes the same body and returns `{ count, withoutFiles, keptDays }`: how many exchanges the zip would take, how many of them are older than the bucket's rule keeps files, and that rule's days when one covers them all.
 
 The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `retryFor`, promoted properties, times, status, exception, whether it was manual, and any scheduled retry or blocked reason. It stops at 100 levels or 500 attempts.
 
@@ -238,6 +243,8 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `GET /api/settings` | `settings.view` |
 | `POST /api/settings/{key}` | `settings.edit`. `{ value }` |
 | `DELETE /api/settings/{key}` | `settings.edit`. Resets to the product default. |
+| `GET /api/retention?refresh=` | `settings.view`. What the retention settings do; `refresh=true` reads the bucket's rules again. |
+| `POST /api/retention/preview` | `settings.view`. The same for proposed values, without saving them. |
 | `GET /api/audit?offset=&limit=&entityName=&entityKey=&userId=&correlationId=&from=&to=` | `audit.view` |
 
 ## Monitoring

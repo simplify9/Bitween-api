@@ -32,10 +32,11 @@ Saving a subscription replaces its Quartz triggers, and deactivating it removes 
 | Retry job | The **Retry poll schedule** setting, every minute by default | Runs due automatic retries, dropping any whose exchange was already retried |
 | Receive attempt cleanup | `Bitween:ReceiveAttemptCleanupCron`, 03:00 UTC daily by default | Deletes receive attempts older than `Bitween:ReceiveAttemptRetentionDays`, 30 days by default |
 | Inbound message prune | `Bitween:InboundMessagePruneCron`, 03:30 UTC daily by default | Deletes broker deduplication keys older than each data source's window |
+| Exchange retention | The **Retention schedule** setting, 04:00 daily by default | Archives and removes exchanges older than **Keep exchanges (days)**. Does nothing while that is 0. See [Data retention](operations.md#data-retention). |
 
 A job never runs concurrently with itself on one scheduler, and missed fires are skipped rather than caught up.
 
-At startup, a background service registers the retry and cleanup jobs, then the triggers of every active scheduled subscription. Registration is idempotent.
+At startup, a background service registers the retry, cleanup and retention jobs, then the triggers of every active scheduled subscription. Registration is idempotent.
 
 ### Running flag
 
