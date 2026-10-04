@@ -128,7 +128,7 @@ Exchange files are written as private text objects under this key.
 
 The default prefix is `temp30/Bitweendocs`. The storage libraries keep delete rules for `temp1/`, `temp7/`, `temp30/` and `temp365/` on the bucket, so the default keeps files for 30 days. They're read back through `ICloudFilesLifecycle` for the Settings page and to explain a missing file.
 
-Readers without a Bitween login get links Bitween serves itself: an aggregation's handler, a partner reading its exchange result, an API client reading the exchange list. A link is `{address}/api/files/{seal}/{storage key}`, where the address is the Public address, else the one the request came in on, else (a scheduled job) the instance's own, such as `http://localhost:8080`. The seal is an HMAC of the storage key with a key derived from `Token:Key`, so a link opens its own file and no other, and nothing is stored per link. Custom adapter packages live under `Bitween:AdapterPath`.
+Readers without a Bitween login get links Bitween serves itself: an aggregation's handler, a partner reading its exchange result, an API client reading the exchange list. A link is `{address}/api/files/{seal}/{storage key}`, where the address is the public address the chart sets from its host name, else the one the request came in on, else (a scheduled job) the instance's own, such as `http://localhost:8080`. The seal is an HMAC of the storage key with a key derived from `Token:Key`, so a link opens its own file and no other, and nothing is stored per link. Custom adapter packages live under `Bitween:AdapterPath`.
 
 ## Caching
 

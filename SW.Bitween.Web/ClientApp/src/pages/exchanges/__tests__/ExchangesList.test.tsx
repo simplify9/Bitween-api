@@ -256,6 +256,10 @@ describe("the exchanges list", () => {
    * but not retry them can still tick rows and export.
    */
   describe("export files", () => {
+    /** The question asked before each download: how many exchanges come without their files. */
+    const exportCheck = (withoutFiles = 0, count = 2, keptDays: number | null = 30) =>
+      http.post(apiPath("/xchanges/export/check"), () => HttpResponse.json({ count, withoutFiles, keptDays }));
+
     afterEach(() => {
       vi.restoreAllMocks();
       Reflect.deleteProperty(URL, "createObjectURL");
@@ -276,6 +280,7 @@ describe("the exchanges list", () => {
         handlers: [
           exchanges({ total: 3 }).handler,
           ...filterOptions,
+          exportCheck(),
           http.post(apiPath("/xchanges/export"), async ({ request }) => {
             exported.push(await request.json());
             // Bytes, not a Blob: jsdom's Blob can't be streamed into a response.
@@ -310,6 +315,7 @@ describe("the exchanges list", () => {
         handlers: [
           exchanges({ total: 30 }).handler,
           ...filterOptions,
+          exportCheck(0, 30),
           http.post(apiPath("/xchanges/export"), async ({ request }) => {
             exported.push(await request.json());
             return new HttpResponse(new Uint8Array([0x50, 0x4b]), { headers: { "Content-Type": "application/zip" } });
@@ -323,6 +329,63 @@ describe("the exchanges list", () => {
 
       // An empty filter would read as no filter, and select nothing.
       await vi.waitFor(() => expect(exported).toEqual([{ filter: "filter=LatestOnly%3A1%3Afalse", excludeIds: [] }]));
+    });
+
+    it("says first when some exchanges are past the files storage keeps, and exports the rest on confirm", async () => {
+      const exported: unknown[] = [];
+      URL.createObjectURL = vi.fn(() => "blob:export");
+      URL.revokeObjectURL = vi.fn();
+      vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+      const { user } = renderApp("/exchanges", {
+        handlers: [
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+          exportCheck(1, 3),
+          http.post(apiPath("/xchanges/export"), async ({ request }) => {
+            exported.push(await request.json());
+            return new HttpResponse(new Uint8Array([0x50, 0x4b]), { headers: { "Content-Type": "application/zip" } });
+          }),
+        ],
+      });
+
+      await screen.findAllByRole("checkbox", { name: /^Select (?!all\b)/ });
+      for (const box of rowCheckboxes()) await user.click(box);
+      await user.click(screen.getByRole("button", { name: "Export files" }));
+
+      const dialog = await screen.findByRole("dialog", { name: "Some files are gone" });
+      expect(dialog).toHaveTextContent(
+        "1 of the 3 exchanges selected is older than storage keeps files (30 days), so the zip won't have its files.",
+      );
+      expect(exported).toEqual([]);
+
+      await user.click(within(dialog).getByRole("button", { name: "Export the other 2 exchanges" }));
+      await vi.waitFor(() => expect(exported).toHaveLength(1));
+    });
+
+    it("downloads nothing when none of the selection has files left, and says why", async () => {
+      let exported = false;
+      const { user } = renderApp("/exchanges", {
+        handlers: [
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+          exportCheck(1, 1),
+          http.post(apiPath("/xchanges/export"), () => {
+            exported = true;
+            return new HttpResponse(null, { status: 500 });
+          }),
+        ],
+      });
+
+      await screen.findAllByRole("checkbox", { name: /^Select (?!all\b)/ });
+      await user.click(rowCheckboxes()[0]);
+      await user.click(screen.getByRole("button", { name: "Export files" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "The selected exchange is older than storage keeps files (30 days), so there's nothing to export.",
+      );
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(exported).toBe(false);
     });
 
     it("past the limit, says why it can't rather than failing on the server", async () => {

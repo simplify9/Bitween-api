@@ -53,7 +53,7 @@ public class AggregationJob(
                 // Still a list of links, so the handlers written for it keep working, but links Bitween
                 // serves: exchange files are private in storage.
                 var urlList = targetXchangeList.Select(x =>
-                    xchangeService.FileUrl(x.Id, x.FilesPrefix, aggSub.AggregationTarget));
+                    xchangeService.AdapterFileUrl(x.Id, x.FilesPrefix, aggSub.AggregationTarget)).ToList();
                 var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
                 var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
                 dbContext.Add(aggXchange);

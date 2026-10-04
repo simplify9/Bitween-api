@@ -10,7 +10,6 @@ public class RetentionProposal
     public int? ExchangeRetentionDays { get; set; }
     public bool? ArchiveExchanges { get; set; }
     public string? ExchangeRetentionCron { get; set; }
-    public string? PublicUrl { get; set; }
 }
 
 public class RetentionStatusRequest
@@ -37,8 +36,6 @@ public class RetentionStatus
     public PrefixRetention Archive { get; set; } = null!;
 
     public ExchangeRetentionInfo Exchanges { get; set; } = null!;
-
-    public string? PublicUrl { get; set; }
 
     /// <summary>What the settings mean in practice, worst first: warnings, then plain consequences.</summary>
     public List<RetentionNotice> Notices { get; set; } = new();
@@ -98,6 +95,18 @@ public class ExchangeRetentionInfo
     public int CountCap { get; set; }
 
     public DateTime? Oldest { get; set; }
+}
+
+/// <summary>Aggregation schedules to check against how long exchanges are kept, before they're saved.</summary>
+public class AggregationRetentionRequest
+{
+    public List<ScheduleView> Schedules { get; set; } = new();
+}
+
+public class AggregationRetentionCheck
+{
+    /// <summary>Why exchanges would be removed before this aggregation collects them; null when they won't be.</summary>
+    public string? Warning { get; set; }
 }
 
 public class RetentionNotice

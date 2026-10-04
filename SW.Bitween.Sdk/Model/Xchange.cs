@@ -88,6 +88,19 @@ namespace SW.Bitween.Model
         public List<string>? ExcludeIds { get; set; }
     }
 
+    /// <summary>What an export would hold, shown before it's downloaded.</summary>
+    public class XchangeFilesExportCheck
+    {
+        /// <summary>Exchanges the export takes.</summary>
+        public int Count { get; set; }
+
+        /// <summary>Of those, the ones older than the bucket's rule keeps their files: the zip won't have them.</summary>
+        public int WithoutFiles { get; set; }
+
+        /// <summary>How many days that rule keeps files, when one rule covers them all; otherwise null.</summary>
+        public int? KeptDays { get; set; }
+    }
+
     /// <summary>
     /// What a bulk retry is about to do, so it can be shown before it is run. Returned by the
     /// preview and again by the retry itself, where the counts are what actually happened.

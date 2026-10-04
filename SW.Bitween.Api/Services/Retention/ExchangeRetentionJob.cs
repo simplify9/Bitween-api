@@ -79,10 +79,13 @@ public static class ExchangeRetention
 {
     /// <summary>
     /// Exchanges that started before <paramref name="cutoff"/>, oldest first. One still waiting for a
-    /// scheduled retry stays: removing it would silently cancel the retry.
+    /// scheduled retry stays: removing it would silently cancel the retry. So does one a newer retry
+    /// still points at, until that retry goes too, so a retry never loses the attempt it came from.
     /// </summary>
     public static IQueryable<Xchange> DueBefore(BitweenDbContext dbContext, DateTime cutoff) =>
         dbContext.Set<Xchange>()
-            .Where(x => x.StartedOn < cutoff && !dbContext.Set<DelayedRetry>().Any(d => d.Id == x.Id))
+            .Where(x => x.StartedOn < cutoff
+                        && !dbContext.Set<DelayedRetry>().Any(d => d.Id == x.Id)
+                        && !dbContext.Set<Xchange>().Any(retry => retry.RetryFor == x.Id))
             .OrderBy(x => x.StartedOn);
 }

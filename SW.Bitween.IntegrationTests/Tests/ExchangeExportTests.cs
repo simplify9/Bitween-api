@@ -94,6 +94,30 @@ public class ExchangeExportTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Before_the_download_it_says_how_many_exchanges_are_older_than_storage_keeps_their_files()
+    {
+        _options.DocumentPrefix = $"temp30/{Unique("check")}";
+        var document = await InformationType();
+        var expired = await CreateExchange(document, "{\"old\":true}", "old.json");
+        var kept = await CreateExchange(document, "{\"new\":true}", "new.json");
+        await Backdate(expired.Id, days: 45);
+
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var controller = ActivatorUtilities.CreateInstance<XchangeExportController>(scope.ServiceProvider,
+            ExchangeFilesTests.RetentionOver(new CloudFilesLifecycleRule { Id = "temp30", Prefix = "temp30/", Days = 30, Enabled = true }));
+
+        var check = Assert.IsType<XchangeFilesExportCheck>(Assert.IsType<OkObjectResult>(
+            await controller.Check(new XchangeFilesExport { Ids = [expired.Id, kept.Id] })).Value);
+        Assert.Equal(2, check.Count);
+        Assert.Equal(1, check.WithoutFiles);
+        Assert.Equal(30, check.KeptDays);
+
+        // Refused the way the export itself would be.
+        Assert.IsType<BadRequestObjectResult>(await controller.Check(new XchangeFilesExport { Ids = [] }));
+    }
+
+    [Fact]
     public async Task Select_all_matching_exports_what_the_filter_matches_minus_the_unticked_rows()
     {
         var document = await InformationType();

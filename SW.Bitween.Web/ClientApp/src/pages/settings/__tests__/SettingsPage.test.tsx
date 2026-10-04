@@ -160,7 +160,6 @@ const retention = (overrides: Partial<RetentionStatus> = {}): RetentionStatus =>
     countCap: 100000,
     oldest: "2026-01-01T00:00:00Z",
   },
-  publicUrl: "https://bitween.test",
   notices: [{ level: "info", code: "KEEP_FOREVER", message: "Exchanges are kept for ever: nothing removes them from the database." }],
   ...overrides,
 });
@@ -288,6 +287,35 @@ describe("the settings page", () => {
     await user.click(dialog.getByRole("button", { name: "Save changes" }));
     await screen.findByText("What these settings do");
     expect(saved).toEqual({ value: "90" });
+  });
+
+  it("won't save a retention change until the preview answers for that change", async () => {
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    const warning = "Exchanges older than 30 days are listed without their files: they can't be opened or retried.";
+    server.use(
+      http.post(apiPath("/retention/preview"), async () => {
+        await answered;
+        return HttpResponse.json(retention({ notices: [{ level: "warning", code: "OUTLIVE_FILES", message: warning }] }));
+      }),
+    );
+    const { user } = openSettings("Documents & storage");
+    expect(await screen.findByText("What these settings do")).toBeVisible();
+
+    const daysBox = screen.getByRole("spinbutton", { name: "Keep exchanges (days)" });
+    await user.clear(daysBox);
+    await user.type(daysBox, "90");
+    await user.tab();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    // The saved settings' notices aren't what the change does, so nothing is shown and nothing can be saved yet.
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByText("Working out what they'd do…")).toBeVisible();
+    expect(dialog.getByRole("button", { name: "Save changes" })).toBeDisabled();
+
+    answer();
+    expect(await dialog.findByText(warning)).toBeVisible();
+    expect(dialog.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
   it("keeps an invalid retry schedule as an unsaved draft when the backend refuses it", async () => {

@@ -20,7 +20,8 @@ Expanding an exchange shows each stage's file, the exception, its retry chain, t
 Tick exchanges on the Exchanges page, or select everything a filter matches, and choose **Export files** to download their files as one zip. It needs only `exchanges.view`.
 
 - Each exchange gets a folder named like its archive: the main promoted value, then the id (`Amman_3f2a…`). It holds `input`, `mapped` and `handled`, whichever the exchange has, with the extension of the file's name or content type.
-- Files that storage no longer has, such as ones a retention rule deleted, are listed in `missing.txt` with the reason. The rest of the zip still comes.
+- When some selected exchanges are older than storage keeps files, Export says how many first and asks before downloading the rest. When none have files left, it says so and downloads nothing.
+- A file missing for another reason, such as one deleted by hand, is listed in `missing.txt` with the reason. The rest of the zip still comes.
 - One export takes at most 500 exchanges. Narrow the filter for a larger set.
 
 ## Reading an exchange's state
@@ -99,11 +100,11 @@ Messages worth watching for:
 | Scheduler execution history | Managed by the scheduler library |
 | Audit entries | Kept indefinitely |
 
-The retention job runs on the **Retention schedule** setting, 04:00 daily by default. It removes exchanges that started more than **Keep exchanges (days)** ago, oldest first and in small batches. An exchange waiting for a scheduled retry is kept.
+The retention job runs on the **Retention schedule** setting, 04:00 daily by default. It removes exchanges that started more than **Keep exchanges (days)** ago, oldest first and in small batches. An exchange waiting for a scheduled retry is kept, and so is one a newer retry still points at, until that retry is removed too.
 
 With **Archive before deleting** on, the default, each exchange is first written to `archive/{prefix}/{subscription id}/yyyy/MM/dd/{main value}_{exchange id}.json`. `{prefix}` is the document prefix without its `tempN/` part, and the main value is the exchange's value for the first promoted property of its information type; without one the file is named by the id alone. The file holds the exchange's details, its promoted properties, result and notifications, and the contents of its files while storage still has them. Handler and mapper properties are left out, because they can hold resolved secrets. If an exchange can't be archived, the run stops and keeps it for the next run.
 
-The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, how many exchanges are listed without their files, and warnings such as exchanges that outlive their files, archives that come too late to hold them, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
+The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, how many exchanges are listed without their files, and warnings such as exchanges that outlive their files, archives that come too late to hold them, aggregations that run less often than exchanges are kept, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
 
 Exchange rows can outlive their files. Opening such a file says it was deleted by the retention policy, and so does retrying an exchange whose input has gone. A waiting retry for one is dropped with a reason.
 

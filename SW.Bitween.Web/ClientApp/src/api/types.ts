@@ -1067,7 +1067,6 @@ export interface RetentionProposal {
   exchangeRetentionDays?: number;
   archiveExchanges?: boolean;
   exchangeRetentionCron?: string;
-  publicUrl?: string;
 }
 
 export interface StorageRule {
@@ -1108,8 +1107,13 @@ export interface RetentionStatus {
     countCap: number;
     oldest: string | null;
   };
-  publicUrl: string | null;
   notices: RetentionNotice[];
+}
+
+/** Whether retention removes exchanges before an aggregation with given schedules collects them. */
+export interface AggregationRetentionCheck {
+  /** Null when it won't. */
+  warning: string | null;
 }
 
 // ——— Exchanges ———
@@ -1209,6 +1213,15 @@ export interface RetrySkip {
   /** The exchange the skip is about — the one selected, or the attempt that stood in for it. */
   id: string;
   reason: string;
+}
+
+/** What a files export would hold, asked before it downloads. */
+export interface ExportFilesCheck {
+  count: number;
+  /** Exchanges older than storage keeps their files: the zip won't have them. */
+  withoutFiles: number;
+  /** The days storage keeps files, when one rule covers all of those; otherwise null. */
+  keptDays: number | null;
 }
 
 /** What a bulk retry will do, or (returned by the retry itself) what it did. */

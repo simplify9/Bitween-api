@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using SW.Bitween.Domain;
+using SW.Bitween.Model;
 
 namespace SW.Bitween.UnitTests;
 
@@ -35,6 +37,46 @@ public class ExchangeRetentionHelpersTests
 
         var longValue = new string('x', 200);
         Assert.AreEqual(80 + "_abc.json".Length, ExchangeArchive.FileName(longValue, "abc").Length);
+    }
+
+    [TestMethod]
+    public void An_aggregations_longest_wait_between_runs_takes_every_schedule_in()
+    {
+        var from = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+        TimeSpan? Gap(params Schedule[] schedules) => AggregationRetention.LongestGap(schedules, from);
+
+        Assert.IsNull(Gap());
+        Assert.AreEqual(TimeSpan.FromHours(1), Gap(new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(15))));
+        Assert.AreEqual(TimeSpan.FromDays(1), Gap(new Schedule(Recurrence.Daily, TimeSpan.FromHours(2))));
+        // February is short, but March to April is 31 days.
+        Assert.AreEqual(TimeSpan.FromDays(31), Gap(new Schedule(Recurrence.Monthly, new TimeSpan(15, 2, 0, 0))));
+        // Monday 08:00 and Thursday 14:00: the long wait is Thursday afternoon to Monday morning.
+        Assert.AreEqual(new TimeSpan(3, 18, 0, 0),
+            Gap(new Schedule(Recurrence.Weekly, new TimeSpan(1, 8, 0, 0)), new Schedule(Recurrence.Weekly, new TimeSpan(4, 14, 0, 0))));
+    }
+
+    [TestMethod]
+    public void An_aggregation_misses_exchanges_only_when_it_waits_longer_than_they_are_kept()
+    {
+        var from = new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc);
+        Schedule[] weekly = [new(Recurrence.Weekly, new TimeSpan(1, 8, 0, 0))];
+        Schedule[] monthly = [new(Recurrence.Monthly, new TimeSpan(1, 2, 0, 0))];
+
+        Assert.IsNull(AggregationRetention.MissedDays(weekly, 7, from));
+        Assert.AreEqual(7, AggregationRetention.MissedDays(weekly, 6, from));
+        Assert.AreEqual(31, AggregationRetention.MissedDays(monthly, 30, from));
+        Assert.IsNull(AggregationRetention.MissedDays(monthly, 0, from));
+        Assert.IsNull(AggregationRetention.MissedDays([], 1, from));
+    }
+
+    [TestMethod]
+    public void Large_files_are_archived_a_few_at_a_time()
+    {
+        string[] Groups(long[] sizes, int count, long size) =>
+            ExchangeArchive.Groups(sizes, count, size, s => s).Select(g => string.Join(",", g)).ToArray();
+
+        CollectionAssert.AreEqual(new[] { "10,10", "50,10", "200", "10" }, Groups([10, 10, 50, 10, 200, 10], 3, 60));
+        CollectionAssert.AreEqual(new[] { "1,1,1", "1" }, Groups([1, 1, 1, 1], 3, 100));
     }
 
     [TestMethod]

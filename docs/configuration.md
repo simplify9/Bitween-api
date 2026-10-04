@@ -40,7 +40,7 @@ intended response to a key you no longer trust.
 | `AzureManagedIdentityClientId` | | Client id of a user-assigned identity. Falls back to `AZURE_CLIENT_ID` or `MSI_CLIENT_ID`. |
 | `StorageProvider` | `S3` | `S3`, `AS` for Azure Blob, `OC` for Oracle Cloud, or `Local`. `Local` is refused outside Development. |
 | `DocumentPrefix` | `temp30/Bitweendocs` | First value of the runtime setting: the storage key prefix new exchange files are written under. |
-| `PublicUrl` | | First value of the runtime setting. |
+| `PublicUrl` | | The address partners reach Bitween on, such as `https://bitween.example.com`. The chart sets it from its host name. Exchange file links are built on it, including aggregation roll-ups. Without it, roll-ups link through the instance's own address, which only adapters running in Bitween can open. |
 | `ExchangeRetentionDays`, `ArchiveExchanges`, `ExchangeRetentionCron` | `0`, `true`, `0 0 4 * * ?` | First values of the retention settings. |
 | `AdapterPath` | `adapters` | Storage key prefix for custom adapter packages. |
 | `ServerlessCommandTimeout` | `300` | Seconds a custom adapter may run. |
@@ -106,7 +106,6 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.ExchangeRetentionDays` | Documents & storage | Yes | `0`, keep for ever |
 | `Bitween.ArchiveExchanges` | Documents & storage | Yes | `true` |
 | `Bitween.ExchangeRetentionCron` | Documents & storage | Yes | `0 0 4 * * ?` |
-| `Bitween.PublicUrl` | Documents & storage | Yes | empty |
 | `Bitween.ApiCallSubscriptionResponseAcceptedStatusCode` | API behavior | Yes | `202` |
 | `Bitween.JwtExpiryMinutes` | API behavior | Yes | `60` |
 | `Bitween.CorsOrigins` | API behavior | Read-only | empty |
@@ -124,9 +123,9 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Theme.PrimaryColor` | Brand & theme | Yes | `#e3311d` |
 | `Theme.CompanyName`, `TabTitle`, `TabIcon`, `LoginLogo`, `BitweenLogo`, `BitweenHeaderIcon`, `BitweenText`, `ShowFooter`, `LinkedinLink`, `GithubLink`, `WebsiteLink`, `AllRightsReserved`, `CopyRightsIcon` | Brand & theme | Yes | Simplify9 branding |
 
-The retry poll and retention crons are validated before they're saved, and saving one reschedules its job. A document prefix must be folder names of letters, digits, dots, dashes and underscores, and no folder can be only dots (`.` or `..`). Each exchange keeps the prefix its files were written under, so changing it only affects new exchanges. The public address must be a full `https://` address; exchange file links are built on it. Without it, aggregation roll-ups link through the instance's own address, which only adapters running in Bitween can open.
+The retry poll and retention crons are validated before they're saved, and saving one reschedules its job. A document prefix must be folder names of letters, digits, dots, dashes and underscores, and no folder can be only dots (`.` or `..`). Each exchange keeps the prefix its files were written under, so changing it only affects new exchanges.
 
-`GET /api/retention` and `POST /api/retention/preview` describe what the retention settings do, as saved or as proposed. The Settings page uses them.
+`GET /api/retention` and `POST /api/retention/preview` describe what the retention settings do, as saved or as proposed. The Settings page uses them. `POST /api/retention/aggregation` says whether exchanges would be removed before an aggregation on the given schedules rolls them up; the aggregation page uses it.
 
 `GET /api/settings/config` needs no sign-in. It returns the Microsoft sign-in values, whether email and password sign-in is disabled, whether RabbitMQ management is configured, and the theme. The sign-in page loads it.
 
@@ -143,7 +142,7 @@ The chart in `charts/default` maps values to environment variables. Values marke
 | `useAzureManagedIdentity` | `Bitween__UseAzureManagedIdentity` |
 | `documentPrefix` | `Bitween__DocumentPrefix` |
 | `storageProvider` | `Bitween__StorageProvider` |
-| `publicUrl` | `Bitween__PublicUrl` |
+| `ingress.hosts`, or `gateway.hostnames` with `gateway.enabled` | `Bitween__PublicUrl`: the first host, `https` unless the Ingress has no TLS for it |
 | `busDefaultQueuePrefetch` | `Bitween__BusDefaultQueuePrefetch` |
 | `serverlessCommandTimeout` | `Bitween__ServerlessCommandTimeout` |
 | `msalClientId`, `msalRedirectUri`, `msalTenantId` | `Bitween__MsalClientId`, `Bitween__MsalRedirectUri`, `Bitween__MsalTenantId` |

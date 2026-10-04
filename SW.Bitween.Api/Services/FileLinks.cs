@@ -45,7 +45,7 @@ public class FileLinks(BitweenOptions options, IConfiguration configuration, IHt
         new(@"^(?<scheme>https?)://(?!unix:|pipe:)(?<host>\[[^\]]*\]|[^:/]+)(?<port>:\d+)?/?$", RegexOptions.IgnoreCase);
 
     /// <summary>
-    /// The address readers reach Bitween on: the Public address setting, or else the address the
+    /// The address readers reach Bitween on: the public address the chart sets, or else the address the
     /// current request came in on, or else — a scheduled job — <see cref="InstanceUrl"/>.
     /// </summary>
     public string BaseUrl
@@ -84,8 +84,9 @@ public class FileLinks(BitweenOptions options, IConfiguration configuration, IHt
     }
 
     /// <summary>
-    /// The address an adapter reaches Bitween on: the Public address setting, or else <see cref="InstanceUrl"/> —
-    /// never a request's, which is wherever the person who clicked happened to be.
+    /// The address a roll-up's links are built on: the public address the chart sets, since its handler may
+    /// pass them to a partner, or else <see cref="InstanceUrl"/> — never a request's, which is wherever the
+    /// person who clicked happened to be.
     /// </summary>
     public string AdapterBaseUrl =>
         !string.IsNullOrWhiteSpace(options.PublicUrl) ? options.PublicUrl.TrimEnd('/') : InstanceUrl;

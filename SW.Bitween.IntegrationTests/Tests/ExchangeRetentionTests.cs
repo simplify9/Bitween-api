@@ -38,17 +38,15 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
 
     private readonly BitweenOptions _options = fixture.App.Services.GetRequiredService<BitweenOptions>();
     private readonly Dictionary<string, string> _settings = new();
-    private string _publicUrl;
     private string _legacyPrefix;
 
     private static readonly string[] SettingKeys =
     [
-        "Bitween.DocumentPrefix", "Bitween.ExchangeRetentionDays", "Bitween.PublicUrl"
+        "Bitween.DocumentPrefix", "Bitween.ExchangeRetentionDays"
     ];
 
     public async Task InitializeAsync()
     {
-        _publicUrl = _options.PublicUrl;
         _legacyPrefix = _options.LegacyDocumentPrefix;
         await using var scope = fixture.CreateScope();
         var settings = scope.ServiceProvider.GetRequiredService<SettingsService>();
@@ -58,7 +56,6 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        _options.PublicUrl = _publicUrl;
         _options.LegacyDocumentPrefix = _legacyPrefix;
         foreach (var (key, value) in _settings)
             await StoreSetting(key, value);
@@ -151,6 +148,28 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
 
         // Not left behind for the retry job's tests to find.
         await readDb.Set<DelayedRetry>().Where(d => d.Id == waiting.Id).ExecuteDeleteAsync();
+    }
+
+    [Fact]
+    public async Task An_exchange_a_newer_retry_still_points_at_stays_until_the_retry_goes()
+    {
+        var (_, subscription) = await Setup();
+        var original = await CreateExchange(subscription, "{}", new(), succeeded: false);
+        var retry = await CreateExchange(subscription, "{}", new(), succeeded: true);
+        await Backdate(original.Id, AncientDays);
+        await using (var scope = fixture.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Xchange>()
+                .Where(x => x.Id == retry.Id)
+                .ExecuteUpdateAsync(set => set.SetProperty(x => x.RetryFor, original.Id));
+
+        await RunJob(archive: false);
+        Assert.True(await Exists(original.Id));
+
+        // Once the retry is old enough too, both go in the same run, the retry first.
+        await Backdate(retry.Id, AncientDays);
+        await RunJob(archive: false);
+        Assert.False(await Exists(retry.Id));
+        Assert.False(await Exists(original.Id));
     }
 
     [Fact]
@@ -254,17 +273,42 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task The_public_address_must_be_a_full_address()
+    public async Task The_settings_page_names_aggregations_that_run_less_often_than_exchanges_are_kept()
     {
-        await StoreSetting("Bitween.PublicUrl", "https://bitween.example.com/");
-        Assert.Equal("https://bitween.example.com", _options.PublicUrl);
+        var (_, monthly) = await AggregationSetup();
+        var (_, daily) = await AggregationSetup();
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        await SetSchedules(db, monthly, new Schedule(Recurrence.Monthly, new TimeSpan(1, 2, 0, 0)));
+        await SetSchedules(db, daily, new Schedule(Recurrence.Daily, TimeSpan.FromHours(2)));
+        var planner = ActivatorUtilities.CreateInstance<RetentionPlanner>(scope.ServiceProvider);
 
-        var invalid = await Assert.ThrowsAsync<SWValidationException>(() =>
-            StoreSetting("Bitween.PublicUrl", "bitween.example.com"));
-        Assert.StartsWith("SETTING_INVALID_VALUE", invalid.Message);
+        var warning = Assert.Single((await planner.Plan(new RetentionProposal { ExchangeRetentionDays = 7 })).Notices,
+            n => n.Code == "AGGREGATIONS_MISS_EXCHANGES");
+        Assert.Equal("warning", warning.Level);
+        Assert.Contains($"{monthly.Name} (up to 31 days between runs)", warning.Message);
+        Assert.DoesNotContain(daily.Name, warning.Message);
 
-        await StoreSetting("Bitween.PublicUrl", "");
-        Assert.Equal(string.Empty, _options.PublicUrl);
+        Assert.DoesNotContain((await planner.Plan(new RetentionProposal { ExchangeRetentionDays = 0 })).Notices,
+            n => n.Code == "AGGREGATIONS_MISS_EXCHANGES");
+    }
+
+    [Fact]
+    public async Task An_aggregation_is_warned_while_its_schedule_waits_longer_than_exchanges_are_kept()
+    {
+        await StoreSetting("Bitween.ExchangeRetentionDays", "7");
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Resources.Retention.Aggregation>(scope.ServiceProvider);
+        async Task<string> Check(params ScheduleView[] schedules) =>
+            ((AggregationRetentionCheck)await handler.Handle(new AggregationRetentionRequest { Schedules = [.. schedules] })).Warning;
+
+        var warning = await Check(new ScheduleView { Recurrence = Recurrence.Monthly, Days = 1, Hours = 2 });
+        Assert.Contains("up to 31 days between runs", warning);
+        Assert.Contains("removed after 7 days", warning);
+
+        Assert.Null(await Check(new ScheduleView { Recurrence = Recurrence.Weekly, Days = 1, Hours = 8 }));
+        Assert.Null(await Check());
     }
 
     [Fact]
@@ -329,6 +373,24 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         Assert.StartsWith($"http://localhost:8080/{FileLinks.RoutePrefix}/", link);
         var seal = link[$"http://localhost:8080/{FileLinks.RoutePrefix}/".Length..].Split('/')[0];
         Assert.True(fileLinks.Opens(seal, xchangeService.FileKey(source, XchangeFileType.Input)));
+    }
+
+    [Fact]
+    public async Task With_no_address_at_all_a_roll_up_fails_rather_than_list_storage_urls()
+    {
+        var (_, aggregation) = await AggregationSetup();
+        await using var scope = fixture.CreateScope();
+        var fileLinks = ActivatorUtilities.CreateInstance<FileLinks>(scope.ServiceProvider,
+            new BitweenOptions(), new ListeningOn());
+        var xchangeService = ActivatorUtilities.CreateInstance<XchangeService>(scope.ServiceProvider, fileLinks);
+        await ActivatorUtilities.CreateInstance<AggregationJob>(scope.ServiceProvider, xchangeService)
+            .Execute(new AggregationJobParams(aggregation.Id, null));
+
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        Assert.False(await db.Set<Xchange>().AnyAsync(x => x.SubscriptionId == aggregation.Id));
+        var attempt = await db.Set<ReceiveAttempt>().AsNoTracking().SingleAsync(a => a.SubscriptionId == aggregation.Id);
+        Assert.Equal(ReceiveOutcome.Failed, attempt.Outcome);
+        Assert.Contains("no address to build links", attempt.ErrorMessage);
     }
 
     [Theory]
@@ -420,6 +482,13 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         public void Dispose() { }
     }
 
+    private async Task<bool> Exists(string xchangeId)
+    {
+        await using var scope = fixture.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Xchange>()
+            .AnyAsync(x => x.Id == xchangeId);
+    }
+
     private async Task RunJob(bool archive)
     {
         await using var scope = fixture.CreateScope();
@@ -442,6 +511,13 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         await db.SaveChangesAsync();
         fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
         return (document, subscription);
+    }
+
+    private static async Task SetSchedules(BitweenDbContext db, Subscription aggregation, params Schedule[] schedules)
+    {
+        var tracked = await db.Set<Subscription>().SingleAsync(s => s.Id == aggregation.Id);
+        tracked.SetSchedules(schedules);
+        await db.SaveChangesAsync();
     }
 
     private async Task<(Xchange Source, Subscription Aggregation)> AggregationSetup()

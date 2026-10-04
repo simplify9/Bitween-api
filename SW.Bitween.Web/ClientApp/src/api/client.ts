@@ -2,6 +2,7 @@ import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   AdapterInfo,
   AdapterKind,
+  AggregationRetentionCheck,
   AggregationTarget,
   ApiGateway,
   ApiGatewayAttachment,
@@ -23,6 +24,7 @@ import type {
   DashboardData,
   ExchangeQuery,
   ExchangeRow,
+  ExportFilesCheck,
   BulkRetryPlan,
   BulkRetrySelection,
   RetryTree,
@@ -489,6 +491,8 @@ export interface ApiClient {
   getRetention(refresh?: boolean): Promise<RetentionStatus>;
   /** The same, for settings not saved yet. Changes nothing. */
   previewRetention(proposal: RetentionProposal): Promise<RetentionStatus>;
+  /** Whether exchanges would be removed before an aggregation on these schedules rolls them up. Changes nothing. */
+  checkAggregationRetention(schedules: Schedule[]): Promise<AggregationRetentionCheck>;
   /** `value: null` resets the setting back to its default. */
   updateSetting(key: string, value: string | null): Promise<void>;
 
@@ -521,6 +525,8 @@ export interface ApiClient {
   previewBulkRetry(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
   /** The selection's input, mapped and handled files as one zip, a folder per exchange. */
   exportExchangeFiles(selection: BulkRetrySelection): Promise<{ blob: Blob; fileName: string }>;
+  /** How many of the selection's exchanges the export would come without files for. Changes nothing. */
+  checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck>;
   getRetryTree(id: string): Promise<RetryTree>;
   /** Manually injects a payload, addressed at a subscription or an information type. */
   createExchange(input: {

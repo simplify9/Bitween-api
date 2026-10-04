@@ -22,8 +22,9 @@ namespace SW.Bitween.Controllers;
 /// <summary>
 /// The files of several exchanges as one zip, for the exchange list's "Export files": one folder per
 /// exchange, named like its archive (<c>{main value}_{id}</c>), holding <c>input</c>, <c>mapped</c>
-/// and <c>handled</c> — whichever it has. Files storage no longer holds are listed in <c>missing.txt</c>
-/// instead, so one of them never costs the rest.
+/// and <c>handled</c> — whichever it has. <see cref="Check"/> says beforehand how many exchanges are
+/// older than storage keeps their files, so the person hears it before choosing to export. Files missing
+/// anyway, or for another reason, are listed in <c>missing.txt</c>, so one of them never costs the rest.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -39,7 +40,8 @@ namespace SW.Bitween.Controllers;
 [ApiController]
 [Route("api/xchanges/export")]
 public class XchangeExportController(BitweenDbContext dbContext, RequestContext requestContext,
-    XchangeService xchangeService, ILogger<XchangeExportController> logger) : ControllerBase
+    XchangeService xchangeService, StorageRetention storageRetention, ILogger<XchangeExportController> logger)
+    : ControllerBase
 {
     /// <summary>
     /// The most exchanges one zip takes — the bulk retry's ceiling, for the same reason: every file is
@@ -51,27 +53,40 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
     private static readonly Regex Extension = new(@"^\.[A-Za-z0-9]{1,10}$");
 
+    /// <summary>
+    /// What an export of <paramref name="request"/> would hold, asked before it's downloaded: how many
+    /// exchanges it takes, and how many are older than the bucket's rule keeps their files. Refuses what
+    /// the export itself would refuse.
+    /// </summary>
+    [HttpPost("check")]
+    public async Task<IActionResult> Check([FromBody] XchangeFilesExport request)
+    {
+        var (ids, refusal) = await Resolve(request);
+        if (refusal != null) return refusal;
+
+        var xchanges = await dbContext.Set<Xchange>().AsNoTracking().Where(x => ids.Contains(x.Id)).ToListAsync();
+        var rules = await storageRetention.GetAsync();
+        var now = DateTime.UtcNow;
+        // The days of the rule that deleted each exchange's files, for those it has.
+        var deletedAfter = xchanges
+            .Select(x => rules.RuleFor(xchangeService.FileKey(x, XchangeFileType.Input)) is { } rule &&
+                         (now - x.StartedOn).TotalDays >= rule.Days ? rule.Days : (int?)null)
+            .OfType<int>().ToList();
+        var days = deletedAfter.Distinct().ToList();
+
+        return Ok(new XchangeFilesExportCheck
+        {
+            Count = xchanges.Count,
+            WithoutFiles = deletedAfter.Count,
+            KeptDays = days.Count == 1 ? days[0] : null
+        });
+    }
+
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] XchangeFilesExport request)
     {
-        try
-        {
-            await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View);
-        }
-        catch (SWUnauthorizedException)
-        {
-            return Unauthorized();
-        }
-
-        var selection = new XchangeSelection(dbContext);
-        var ids = await selection.Resolve(request, Limit);
-        if (ids.Count == 0) return Refuse("NOTHING_SELECTED", "Select at least one exchange to export.");
-        if (ids.Count > Limit)
-        {
-            var count = string.IsNullOrWhiteSpace(request.Filter) ? ids.Count : await selection.Count(request);
-            return Refuse("TOO_MANY",
-                $"{count:n0} exchanges is more than the {Limit} one export can take. Narrow the filter and export the rest after.");
-        }
+        var (ids, refusal) = await Resolve(request);
+        if (refusal != null) return refusal;
 
         var xchanges = await dbContext.Set<Xchange>().AsNoTracking()
             .Where(x => ids.Contains(x.Id)).OrderByDescending(x => x.StartedOn).ToListAsync();
@@ -184,6 +199,31 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
             var type when type.StartsWith("text/") => ".txt",
             _ => string.Empty
         };
+    }
+
+    /// <summary>The exchanges <paramref name="request"/> selects, or why it can't be exported.</summary>
+    private async Task<(List<string> Ids, IActionResult Refusal)> Resolve(XchangeFilesExport request)
+    {
+        try
+        {
+            await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View);
+        }
+        catch (SWUnauthorizedException)
+        {
+            return (null, Unauthorized());
+        }
+
+        var selection = new XchangeSelection(dbContext);
+        var ids = await selection.Resolve(request, Limit);
+        if (ids.Count == 0) return (null, Refuse("NOTHING_SELECTED", "Select at least one exchange to export."));
+        if (ids.Count > Limit)
+        {
+            var count = string.IsNullOrWhiteSpace(request.Filter) ? ids.Count : await selection.Count(request);
+            return (null, Refuse("TOO_MANY",
+                $"{count:n0} exchanges is more than the {Limit} one export can take. Narrow the filter and export the rest after."));
+        }
+
+        return (ids, null);
     }
 
     private BadRequestObjectResult Refuse(string code, string message)

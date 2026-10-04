@@ -4,8 +4,8 @@ import { Info, RefreshCw, TriangleAlert } from "lucide-react";
 import { api, type RetentionNotice, type SettingRow } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Badge, Button } from "../../components/ui/basics";
-import { RETENTION_KEYS, useRetention } from "../../lib/retention";
-import { settingsDraft, type SettingsDraft } from "../../lib/settingsDraft";
+import { useRetention } from "../../lib/retention";
+import type { SettingsDraft } from "../../lib/settingsDraft";
 
 const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 
@@ -48,15 +48,7 @@ function Figure({ label, value, title }: { label: string; value: string; title: 
  * Sits above the Documents & storage rows: what the bucket's own rules delete, and what the
  * retention settings do with them — for the saved values, or for staged ones before they're saved.
  */
-export function RetentionPanel({
-  rows,
-  draft,
-  canEdit,
-}: {
-  rows: SettingRow[];
-  draft: SettingsDraft;
-  canEdit: boolean;
-}) {
+export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: SettingsDraft }) {
   const queryClient = useQueryClient();
   const { status, previewing, loading, error } = useRetention(rows, draft);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,10 +71,6 @@ export function RetentionPanel({
     );
   }
 
-  const publicUrlRow = rows.find((r) => r.key === RETENTION_KEYS.publicUrl);
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
-  const offerOrigin =
-    canEdit && publicUrlRow?.editable && !status.publicUrl && !(RETENTION_KEYS.publicUrl in draft) && origin;
   const filesRulePrefix = status.files.rulePrefix;
   const ex = status.exchanges;
   const count = (n: number | null) => (n === null ? "—" : n >= ex.countCap ? `${ex.countCap.toLocaleString()}+` : n.toLocaleString());
@@ -120,19 +108,6 @@ export function RetentionPanel({
           {loading && <span className="text-xs text-ink-400">Updating…</span>}
         </div>
         <NoticeList notices={status.notices} />
-        {offerOrigin && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-600">
-            <span>This page is open on</span>
-            <code className="font-mono text-xs">{origin}</code>
-            <Button
-              size="sm"
-              onClick={() => settingsDraft.stage(publicUrlRow!, origin)}
-              title="Stage this address as the public address; it's saved with your other changes"
-            >
-              Use as public address
-            </Button>
-          </div>
-        )}
       </div>
 
       <div>

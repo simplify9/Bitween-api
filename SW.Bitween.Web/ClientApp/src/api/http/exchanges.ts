@@ -5,6 +5,7 @@ import type {
   ExchangeQuery,
   ExchangeRow,
   ExchangeStatus,
+  ExportFilesCheck,
   Paged,
   RetryTree,
   ScheduledRetryQuery,
@@ -323,6 +324,10 @@ export const exchangeMethods = {
   async exportExchangeFiles(selection: BulkRetrySelection): Promise<{ blob: Blob; fileName: string }> {
     const { blob, fileName } = await download("/xchanges/export", selectionBody(selection));
     return { blob, fileName: fileName ?? "exchanges.zip" };
+  },
+
+  checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck> {
+    return post<ExportFilesCheck>("/xchanges/export/check", selectionBody(selection));
   },
 
   async createExchange(input: {

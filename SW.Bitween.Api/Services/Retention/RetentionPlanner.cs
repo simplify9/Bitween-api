@@ -16,7 +16,7 @@ namespace SW.Bitween;
 /// the next run removes, and which exchanges are left without their files.
 /// </summary>
 public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options, StorageRetention storageRetention,
-    FileLinks fileLinks, StorageAccess storageAccess)
+    StorageAccess storageAccess)
 {
     /// <summary>Counting past this on a large table costs more than the number is worth.</summary>
     public const int CountCap = 100_000;
@@ -29,7 +29,6 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
         var cron = string.IsNullOrWhiteSpace(proposal?.ExchangeRetentionCron)
             ? options.ExchangeRetentionCron
             : proposal.ExchangeRetentionCron.Trim();
-        var publicUrl = proposal?.PublicUrl != null ? proposal.PublicUrl.Trim().TrimEnd('/') : options.PublicUrl;
 
         var rules = await storageRetention.GetAsync(refresh);
         var openToAnyone = await storageAccess.IsOpenToAnyoneAsync(refresh);
@@ -65,8 +64,13 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
         var oldest = await dbContext.Set<Xchange>().OrderBy(x => x.StartedOn)
             .Select(x => (DateTime?)x.StartedOn).FirstOrDefaultAsync();
 
-        var hasAggregations = await dbContext.Set<Subscription>()
-            .AnyAsync(s => s.Type == SubscriptionType.Aggregation && !s.Inactive);
+        var missedBy = new List<(string Name, int Days)>();
+        if (days > 0)
+            foreach (var aggregation in await dbContext.Set<Subscription>().AsNoTracking()
+                         .Where(s => s.Type == SubscriptionType.Aggregation && !s.Inactive)
+                         .OrderBy(s => s.Name).ToListAsync())
+                if (AggregationRetention.MissedDays(aggregation.Schedules, days, now) is { } apart)
+                    missedBy.Add((aggregation.Name, apart));
 
         var status = new RetentionStatus
         {
@@ -92,16 +96,15 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
                 WithoutFiles = withoutFiles,
                 CountCap = CountCap,
                 Oldest = oldest
-            },
-            PublicUrl = string.IsNullOrEmpty(publicUrl) ? null : publicUrl
+            }
         };
 
-        status.Notices = Notices(status, currentFiles, prefix != options.DocumentPrefix, hasAggregations, openToAnyone == true);
+        status.Notices = Notices(status, currentFiles, prefix != options.DocumentPrefix, missedBy, openToAnyone == true);
         return status;
     }
 
     private List<RetentionNotice> Notices(RetentionStatus status, PrefixRetention currentFiles,
-        bool prefixChanges, bool hasAggregations, bool openToAnyone)
+        bool prefixChanges, List<(string Name, int Days)> missedBy, bool openToAnyone)
     {
         var warnings = new List<RetentionNotice>();
         var info = new List<RetentionNotice>();
@@ -145,11 +148,12 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
             warnings.Add(Warning("ARCHIVE_EXPIRES",
                 $"The bucket deletes archives too: files under {status.Archive.RulePrefix} are kept {archiveDays} days."));
 
-        if (hasAggregations && status.PublicUrl == null)
-            info.Add(Info("NO_PUBLIC_ADDRESS",
-                $"Aggregation roll-ups link to each file through {fileLinks.InstanceUrl ?? "this instance's own address"}: " +
-                "adapters running in Bitween can open those links, nothing outside it can. Set the Public address " +
-                "if a partner opens them."));
+        if (missedBy.Count > 0)
+            warnings.Add(Warning("AGGREGATIONS_MISS_EXCHANGES",
+                (missedBy.Count == 1 ? "This aggregation runs" : "These aggregations run") +
+                $" less often than every {days} days, so some exchanges are removed before " +
+                (missedBy.Count == 1 ? "it rolls" : "they roll") + " them up: " +
+                string.Join(", ", missedBy.Select(m => $"{m.Name} (up to {m.Days} days between runs)")) + "."));
 
         if (prefixChanges)
             info.Add(Info("PREFIX_CHANGE",

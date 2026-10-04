@@ -131,8 +131,6 @@ adminDb: "defaultdb"
 serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
 storageProvider: ''
-# e.g. https://bitween.example.com — see Bitween__PublicUrl in the deployment template.
-publicUrl: ''
 busDefaultQueuePrefetch: '12'
 
 global:

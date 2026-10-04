@@ -537,6 +537,15 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         fileSize is null or 0 ? null : FileUrl(xchangeId, recordedPrefix, type);
 
     /// <summary>
+    /// A link to an exchange file for an adapter Bitween runs, such as an aggregation's handler: built on
+    /// <see cref="FileLinks.AdapterBaseUrl"/>, never on the address of whoever made a request. Throws rather
+    /// than fall back to the storage URL, which doesn't open now that exchange files are private.
+    /// </summary>
+    public string AdapterFileUrl(string xchangeId, string recordedPrefix, XchangeFileType type) =>
+        fileLinks.LinkTo(FileKey(xchangeId, recordedPrefix, type), forAdapter: true)
+        ?? throw new BitweenException("Bitween has no address to build links to exchange files on.");
+
+    /// <summary>
     /// The exchange a storage key belongs to, and which of its files it is — <c>null</c> when the key
     /// isn't exactly where one of an exchange's files lives. How a request naming a raw key is held to
     /// exchange files and nothing else in the bucket.

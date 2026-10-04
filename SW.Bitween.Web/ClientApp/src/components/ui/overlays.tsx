@@ -91,12 +91,18 @@ export function ConfirmDialog({
   confirmLabel,
   onConfirm,
   onClose,
+  confirmDisabled = false,
+  confirmVariant = "danger",
 }: {
   title: string;
   body: ReactNode;
   confirmLabel: string;
   onConfirm: () => Promise<void>;
   onClose: () => void;
+  /** Holds the confirm button back while the body is still working out what it describes. */
+  confirmDisabled?: boolean;
+  /** "primary" for an action that destroys nothing, such as a download. */
+  confirmVariant?: "danger" | "primary";
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -121,7 +127,7 @@ export function ConfirmDialog({
         <FormError>{error}</FormError>
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancel</Button>
-          <Button variant="danger" busy={busy} onClick={run}>
+          <Button variant={confirmVariant} busy={busy} disabled={confirmDisabled} onClick={run}>
             {confirmLabel}
           </Button>
         </div>

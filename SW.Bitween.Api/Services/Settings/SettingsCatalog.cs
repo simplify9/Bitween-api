@@ -90,7 +90,7 @@ public static class SettingsCatalog
     [
         // ——— Documents & storage ———
         // Exchange files are always private now; there's no switch for it. Readers without a login
-        // get sealed links built on the public address below.
+        // get sealed links (see FileLinks).
         new("Bitween.DocumentPrefix", "Documents & storage",
             "Exchange files prefix",
             "Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix decides how long they're kept — temp30/… keeps them 30 days. Each exchange keeps the prefix it was written under, so a change only applies to exchanges created after it.",
@@ -122,13 +122,6 @@ public static class SettingsCatalog
             OnChange = sp => sp.GetRequiredService<IScheduleRepository>()
                 .Schedule<ExchangeRetentionJob>(sp.GetRequiredService<BitweenOptions>().ExchangeRetentionCron)
         },
-
-        new("Bitween.PublicUrl", "Documents & storage",
-            "Public address",
-            "The address partners and adapters reach Bitween on, for example https://bitween.example.com. Links to exchange files — in aggregation roll-ups, a partner's exchange result, the exchange list — are built on it. Without it they use the address each request came in on, and roll-ups use this instance's own address, which only adapters running in Bitween can open.",
-            SettingKind.String, false,
-            t => t.Bitween.PublicUrl,
-            (t, v) => t.Bitween.PublicUrl = PublicAddress(v)),
 
         // ——— API behavior ———
         new("Bitween.ApiCallSubscriptionResponseAcceptedStatusCode", "API behavior",
@@ -432,17 +425,6 @@ public static class SettingsCatalog
     }
 
     /// <summary>Empty clears it. Otherwise an absolute http(s) address with nothing after the host and path.</summary>
-    private static string PublicAddress(string value)
-    {
-        var address = (value ?? string.Empty).Trim().TrimEnd('/');
-        if (address.Length == 0) return string.Empty;
-        return Uri.TryCreate(address, UriKind.Absolute, out var uri) &&
-               (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp) &&
-               string.IsNullOrEmpty(uri.Query) && string.IsNullOrEmpty(uri.Fragment)
-            ? address
-            : throw new FormatException("Use a full address starting with https://, like https://bitween.example.com.");
-    }
-
     private static int? NullableInt(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : Int(value);
 }

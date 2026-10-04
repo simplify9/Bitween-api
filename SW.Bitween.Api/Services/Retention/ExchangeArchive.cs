@@ -38,6 +38,12 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
     /// <summary>How many exchanges have their files read at once.</summary>
     private const int ParallelReads = 8;
 
+    /// <summary>
+    /// About how much file content is held at once, by the sizes the exchanges recorded: files are read
+    /// whole, so large ones are read a few at a time. An exchange bigger than this is still archived, alone.
+    /// </summary>
+    private const long ParallelSize = 32 * 1024 * 1024;
+
     private static readonly JsonSerializerSettings Json = new()
     {
         ContractResolver = new CamelCasePropertyNamesContractResolver { NamingStrategy = { ProcessDictionaryKeys = false } },
@@ -103,7 +109,9 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
         var prefix = Prefix;
         var written = new List<Xchange>();
 
-        foreach (var group in xchanges.Chunk(ParallelReads))
+        var groups = Groups(xchanges, ParallelReads, ParallelSize, x =>
+            (long)x.InputSize + (results.GetValueOrDefault(x.Id) is { } r ? (long)r.OutputSize + r.ResponseSize : 0));
+        foreach (var group in groups)
         {
             // The files are read in parallel; everything from the database was loaded above, because a
             // DbContext can't be shared between concurrent calls.
@@ -200,6 +208,31 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
         }
 
         return written;
+    }
+
+    /// <summary>
+    /// <paramref name="items"/> in order, in groups of up to <paramref name="count"/> that stop growing once
+    /// their sizes would add up past <paramref name="size"/>. An item bigger than that gets a group of its own.
+    /// </summary>
+    public static IEnumerable<T[]> Groups<T>(IEnumerable<T> items, int count, long size, Func<T, long> sizeOf)
+    {
+        var group = new List<T>();
+        long total = 0;
+        foreach (var item in items)
+        {
+            var itemSize = sizeOf(item);
+            if (group.Count > 0 && (group.Count == count || total + itemSize > size))
+            {
+                yield return group.ToArray();
+                group.Clear();
+                total = 0;
+            }
+
+            group.Add(item);
+            total += itemSize;
+        }
+
+        if (group.Count > 0) yield return group.ToArray();
     }
 
     /// <summary>

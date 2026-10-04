@@ -139,9 +139,11 @@ An aggregation subscription runs on a schedule. Each run does the following.
 2. Builds a JSON array holding a link to one file of each exchange: input, output or response, as configured.
 3. Creates one exchange on the aggregation subscription with that array as its input, and links each source exchange to it.
 
-The new exchange then runs through the normal pipeline, so the aggregation's own mapper and handler process the list. The links are served by Bitween and open without a login, so whatever processes the list can download each file. They're built on the **Public address**, or without one on the instance's own address (`http://localhost:8080` in the container), which adapters running in Bitween can open but nothing outside it can. A roll-up made by an earlier version lists storage URLs instead; retrying it swaps them for Bitween links.
+The new exchange then runs through the normal pipeline, so the aggregation's own mapper and handler process the list. The links are served by Bitween and open without a login, so whatever processes the list can download each file. They're built on the public address the chart sets from its host name, so a partner handed the list can open them. Without one they use the instance's own address (`http://localhost:8080` in the container), which adapters running in Bitween can open but nothing outside it can. With neither address, the run fails instead of listing links nothing can open. A roll-up made by an earlier version lists storage URLs instead; retrying it swaps them for Bitween links.
 
 The first run of a new aggregation collects everything the source subscription has ever produced. The UI therefore creates aggregations disabled by default.
+
+Retention doesn't wait for aggregations: an exchange removed before an aggregation runs is never rolled up. An aggregation whose schedule can wait longer between runs than **Keep exchanges (days)** shows a warning under its schedule, and the Settings page names it when retention is changed.
 
 ## Files and URLs
 

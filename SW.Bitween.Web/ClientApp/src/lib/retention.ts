@@ -10,7 +10,6 @@ export const RETENTION_KEYS = {
   retentionDays: "Bitween.ExchangeRetentionDays",
   archive: "Bitween.ArchiveExchanges",
   cron: "Bitween.ExchangeRetentionCron",
-  publicUrl: "Bitween.PublicUrl",
 } as const;
 
 export const RETENTION_SECTION = "Documents & storage";
@@ -33,7 +32,6 @@ export function retentionProposal(rows: SettingRow[], draft: SettingsDraft): Ret
     exchangeRetentionDays: Number.isFinite(days) ? days : undefined,
     archiveExchanges: valueOf(RETENTION_KEYS.archive) === "true",
     exchangeRetentionCron: valueOf(RETENTION_KEYS.cron),
-    publicUrl: valueOf(RETENTION_KEYS.publicUrl),
   };
 }
 
@@ -62,10 +60,14 @@ export function useRetention(rows: SettingRow[], draft: SettingsDraft, wanted = 
     placeholderData: (previous) => previous,
   });
 
+  // Until the preview answers for exactly what's staged — during the pause above, or while the last
+  // preview stands in for the next — what's showing is about other settings.
+  const current = JSON.stringify(settled) === proposalKey && !preview.isFetching && !preview.isPlaceholderData;
+
   return {
     status: proposal ? (preview.data ?? saved.data) : saved.data,
     previewing: proposal !== null,
-    loading: saved.isLoading || (proposal !== null && preview.isFetching),
+    loading: saved.isLoading || (proposal !== null && !current),
     error: (proposal ? preview.error : null) ?? saved.error,
   };
 }

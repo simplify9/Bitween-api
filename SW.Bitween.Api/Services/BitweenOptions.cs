@@ -67,9 +67,10 @@ namespace SW.Bitween
         public string LegacyDocumentPrefix { get; set; }
 
         /// <summary>
-        /// The address partners and adapters reach this instance on, e.g. <c>https://bitween.example.com</c>.
-        /// File links for readers without a login are built on it. Without it a request falls back to the
-        /// address it came in on, and an aggregation can't run: it has no request to take one from.
+        /// The address partners reach this instance on, e.g. <c>https://bitween.example.com</c>. Not a
+        /// setting: the chart fills it in from its own host name. File links for readers without a login
+        /// are built on it. Without it a request's links use the address it came in on, and aggregation
+        /// roll-ups use this instance's own address, which only adapters running in Bitween can open.
         /// </summary>
         public string PublicUrl { get; set; }
 

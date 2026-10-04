@@ -10,6 +10,7 @@ import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { MatchExpressionEditor } from "../../components/config/MatchExpressionEditor";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
+import { AggregationRetentionWarning } from "../../components/config/AggregationRetentionWarning";
 import { AggregationFields } from "../../components/config/AggregationFields";
 import {
   SubscriptionStatusBadges,
@@ -337,6 +338,7 @@ function SubscriptionStudio() {
               onChange={(schedules) => set("schedules", schedules)}
               disabled={!canEdit}
             />
+            {isAggregation && <AggregationRetentionWarning schedules={draft.schedules} />}
           </Panel>
         );
       case "aggregation":

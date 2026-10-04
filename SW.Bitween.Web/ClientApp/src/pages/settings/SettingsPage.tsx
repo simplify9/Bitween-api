@@ -377,7 +377,7 @@ export function SettingsPage() {
               </p>
             )}
           </div>
-          {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} canEdit={canEdit} />}
+          {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} />}
           <div className="divide-y divide-ink-100">
             {sectionRows.map((row) =>
               row.access === "editable" ? (
@@ -413,7 +413,9 @@ export function SettingsPage() {
           body={
             <div className="space-y-3">
               <p>This is what the new settings will do once they're saved:</p>
-              {retention.previewing && retention.status && !retention.loading ? (
+              {retention.error ? (
+                <p className="text-danger-700">Couldn't work out what they'd do: {retention.error.message}</p>
+              ) : retention.previewing && retention.status && !retention.loading ? (
                 <NoticeList notices={retention.status.notices} />
               ) : (
                 <p className="text-ink-500">Working out what they'd do…</p>
@@ -424,6 +426,8 @@ export function SettingsPage() {
             </div>
           }
           confirmLabel="Save changes"
+          // Not on what an earlier preview said: the notices above must be the ones for these settings.
+          confirmDisabled={retention.loading}
           onConfirm={async () => {
             await saveAll.mutateAsync();
           }}

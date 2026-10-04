@@ -167,7 +167,7 @@ The trail is written in the same transaction as the change, and no API edits or 
 3. Replace or remove the SYSTEM partner's API key.
 4. Set `Token__Key` to a long random secret, and choose your own `Token__Issuer` and `Token__Audience`.
 5. Set `Bitween__SettingsEncryptionKey` before saving a Rebex license key.
-6. Set the **Public address** so file links point at the address partners use, and treat roll-ups and exchange results as holding the files themselves: a link opens its file without a login.
+6. Give the chart's Ingress a TLS entry for its host, so file links are built on an https address, and treat roll-ups and exchange results as holding the files themselves: a link opens its file without a login. Over plain http a link and its file can be read on the way.
 7. Serve Bitween over HTTPS. The refresh cookie is always marked `Secure`.
 8. Connect data sources with least-privilege logins, and never with DDL rights on Oracle.
 9. Review [Known limitations](caveats.md#security).
