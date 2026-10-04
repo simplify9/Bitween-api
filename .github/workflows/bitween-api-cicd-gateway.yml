@@ -22,7 +22,7 @@ permissions:
 jobs:
   build-publish-deploy:
     # Mirrors the old deploy-release gate: only the r10.0 release line (or manual).
-    if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r10.0') || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r10.0-staging') || github.event_name == 'workflow_dispatch' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
     with:
       major-version: '10'
