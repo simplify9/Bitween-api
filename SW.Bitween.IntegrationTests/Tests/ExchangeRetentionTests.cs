@@ -242,6 +242,31 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Exchanges_without_files_are_counted_by_the_prefix_each_was_written_under()
+    {
+        var (_, subscription) = await Setup();
+        var shortPrefix = $"temp30/{Guid.NewGuid():N}";
+        var longPrefix = $"temp365/{Guid.NewGuid():N}";
+        _options.DocumentPrefix = longPrefix;
+        await using var scope = fixture.CreateScope();
+        var planner = ActivatorUtilities.CreateInstance<RetentionPlanner>(scope.ServiceProvider,
+            ExchangeFilesTests.RetentionOver(
+                new CloudFilesLifecycleRule { Id = "temp30", Prefix = "temp30/", Days = 30, Enabled = true },
+                new CloudFilesLifecycleRule { Id = "temp365", Prefix = "temp365/", Days = 365, Enabled = true }));
+        var before = (await planner.Plan()).Exchanges.WithoutFiles;
+
+        _options.DocumentPrefix = shortPrefix;
+        var underShort = await CreateExchange(subscription, "{}", new(), succeeded: true);
+        _options.DocumentPrefix = longPrefix;
+        var underLong = await CreateExchange(subscription, "{}", new(), succeeded: true);
+        await Backdate(underShort.Id, 45);
+        await Backdate(underLong.Id, 45);
+
+        // Today's prefix keeps files a year, but the one written under the 30-day prefix has lost its own.
+        Assert.Equal(before + 1, (await planner.Plan()).Exchanges.WithoutFiles);
+    }
+
+    [Fact]
     public async Task The_preview_counts_what_the_next_run_would_remove()
     {
         var (_, subscription) = await Setup();

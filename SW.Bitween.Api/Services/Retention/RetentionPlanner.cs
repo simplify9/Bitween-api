@@ -52,13 +52,26 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
             : null;
 
         // As things stand now, whatever the proposal: those the next run removes are still listed until then.
-        int? withoutFiles = null;
-        if (currentFiles.Days is { } filesDays)
+        // Each exchange's files follow the rule of the prefix they were written under, which a later change
+        // of prefix doesn't move; only those older than the shortest rule can have lost them.
+        int? withoutFiles = currentFiles.Days == null ? null : 0;
+        if (rules.Problem == null &&
+            rules.Lifecycle?.Rules.Where(r => r.Enabled).Select(r => (int?)r.Days).Min() is { } shortest)
         {
-            var filesGone = now.AddDays(-filesDays);
-            withoutFiles = await dbContext.Set<Xchange>()
-                .Where(x => x.StartedOn < filesGone)
-                .Take(CountCap).CountAsync();
+            var unrecordedPrefix = options.LegacyDocumentPrefix ?? options.DocumentPrefix;
+            var writtenUnder = await dbContext.Set<Xchange>()
+                .Where(x => x.StartedOn < now.AddDays(-shortest))
+                .Select(x => x.FilesPrefix).Distinct().ToListAsync();
+            foreach (var recorded in writtenUnder)
+            {
+                if (Retention(recorded ?? unrecordedPrefix, rules).Days is not { } filesDays) continue;
+                var filesGone = now.AddDays(-filesDays);
+                var counted = withoutFiles ?? 0;
+                withoutFiles = counted + await dbContext.Set<Xchange>()
+                    .Where(x => x.FilesPrefix == recorded && x.StartedOn < filesGone)
+                    .Take(CountCap - counted).CountAsync();
+                if (withoutFiles >= CountCap) break;
+            }
         }
 
         var oldest = await dbContext.Set<Xchange>().OrderBy(x => x.StartedOn)
