@@ -64,12 +64,17 @@ public class LongPromotedValuesTests(BitweenFixture fixture)
             Assert.Equal(notes[..XchangePromotedProperties.MaxValueLength] + "…", stored.Properties["notes"]);
             Assert.Contains("notes:" + notes[..XchangePromotedProperties.MaxValueLength] + "…", stored.PropertiesRaw);
 
-            // The Exchanges page's property search still finds it.
+            // The Exchanges page's property search still finds it, by the part that was kept only.
             scope.Superuser();
             var page = (SearchyResponse<XchangeRow>)await ActivatorUtilities
                 .CreateInstance<Resources.Xchanges.Search>(scope.ServiceProvider)
                 .Handle(new SearchyRequest(new[] { $"PromotedPropertiesRaw:4:{notes[100..140]}" }), false, null);
             Assert.Contains(page.Result, r => r.Id == xchangeId);
+
+            var cutPage = (SearchyResponse<XchangeRow>)await ActivatorUtilities
+                .CreateInstance<Resources.Xchanges.Search>(scope.ServiceProvider)
+                .Handle(new SearchyRequest(new[] { $"PromotedPropertiesRaw:4:{notes[1000..1040]}" }), false, null);
+            Assert.DoesNotContain(cutPage.Result, r => r.Id == xchangeId);
         }
     }
 }
