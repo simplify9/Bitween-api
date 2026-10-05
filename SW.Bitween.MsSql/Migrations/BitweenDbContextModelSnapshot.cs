@@ -17,7 +17,7 @@ namespace SW.Bitween.MsSql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.19")
+                .HasAnnotation("ProductVersion", "9.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -1445,11 +1445,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PropertiesRaw")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PropertiesRaw");
 
                     b.ToTable("XchangePromotedProperties", (string)null);
                 });

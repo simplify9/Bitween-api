@@ -56,7 +56,7 @@ Processing starts by reading the input in the information type's format.
 - **JSON** payloads are read with JSON path expressions. Only a JSON object can be read, so a payload whose root is an array yields no promoted properties and matches no filter.
 - **XML** payloads are read with XPath, after decoding HTML entities and removing characters XML does not allow. A payload that is not valid XML fails the exchange.
 
-Promoted property values are stored as sent. Search compares them ignoring case. Lists show them in the order the information type lists its properties, and the first one also names an exchange's archive file.
+Promoted property values are stored as sent, up to 500 characters. A longer value is stored cut, ending in "…", and a warning naming the exchange and property is logged. Filters and routes read the payload itself, so they still see the whole value. Search compares the stored values ignoring case. Lists show them in the order the information type lists its properties, and the first one also names an exchange's archive file.
 
 For a document-level exchange, the filter also decides where the document goes.
 

@@ -318,7 +318,7 @@ export function InformationTypeFields({
           title="Promoted properties"
           description={`Values pulled out of each payload by ${
             draft.format === "Json" ? "JSON path" : "XML path"
-          } — routes and filters match on them. They're shown in this order on the Exchanges page; drag to change it.`}
+          } — routes and filters match on them. They're shown in this order on the Exchanges page; drag to change it. Point them at short values, such as an order number: a value longer than 500 characters is stored cut.`}
         >
           <KeyValueEditor
             rows={draft.promotedProperties}

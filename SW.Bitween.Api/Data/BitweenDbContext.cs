@@ -447,7 +447,11 @@ namespace SW.Bitween
 
                 b.Property(p => p.Hits).IsSeparatorDelimited().IsUnicode(false).HasMaxLength(2000);
 
-                b.HasIndex(p => p.PropertiesRaw);
+                // No b-tree on PropertiesRaw. The only query on it is the Exchanges page's substring
+                // search, a leading-wildcard LIKE no b-tree can serve (Postgres has a trigram index
+                // for it, PromotedPropertiesTrigramIndex). Having one made long values fail the
+                // save — after the delivery, so the retry delivered again — and it is what had
+                // capped the column at 450 characters on SQL Server and 255 on MySQL.
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id)
                     .OnDelete(DeleteBehavior.Cascade);

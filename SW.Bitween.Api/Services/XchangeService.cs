@@ -626,6 +626,13 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
             var result = await filterService.Filter(xchange.DocumentId, inputFile);
 
+            // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
+            // short value and picked up a notes field or a whole object instead.
+            foreach (var (key, value) in result.Properties)
+                if (value?.Length > XchangePromotedProperties.MaxValueLength)
+                    logger.LogWarning(
+                        "Promoted property {Key} of xchange {XchangeId} is {Length} characters long; it is stored cut to {MaxLength}.",
+                        key, xchange.Id, value.Length, XchangePromotedProperties.MaxValueLength);
             dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 
             if (xchange.SubscriptionId != null)
