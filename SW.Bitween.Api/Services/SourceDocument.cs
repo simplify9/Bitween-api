@@ -100,16 +100,19 @@ public static class SourceDocument
             if (child is ScalarNode scalar)
             {
                 if (Text(scalar.Value) is not { } text) continue;
-                paths.Add(new SourcePath
-                {
-                    Path = path,
-                    Example = text.Length > MaxExampleLength ? text[..MaxExampleLength] + "…" : text,
-                });
+                paths.Add(new SourcePath { Path = path, Example = Shorten(text) });
             }
             else
                 Walk(child, path, paths);
         }
     }
+
+    /// <summary>
+    /// A value cut to <see cref="MaxExampleLength"/> for showing, never for using: an example in the
+    /// editor, or a value in a list of exchanges.
+    /// </summary>
+    public static string Shorten(string value) =>
+        value?.Length > MaxExampleLength ? value[..MaxExampleLength] + "…" : value;
 
     private static ValueNode Parse(string document)
     {

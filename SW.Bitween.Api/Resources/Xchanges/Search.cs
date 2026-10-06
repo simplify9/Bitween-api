@@ -121,6 +121,11 @@ namespace SW.Bitween.Resources.Xchanges
 
             var r = await s.ToListAsync();
 
+            // Shown here, never used: a long source value is cut the way the editor's examples are,
+            // so a page of rows stays small whatever a subscription reads. The exchange keeps it whole.
+            foreach (var row in r.Where(row => row.SourceValues != null))
+                row.SourceValues = row.SourceValues.ToDictionary(v => v.Key, v => SourceDocument.Shorten(v.Value));
+
             // Which of these have already been retried, so the client can tell a spent exchange
             // from a retryable one without asking about each row's chain. Asked separately rather
             // than as a subquery in the projection above, because TotalCount reuses that query and

@@ -414,6 +414,34 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task The_exchange_list_shows_a_long_source_value_cut_and_the_exchange_keeps_it_whole()
+    {
+        var chain = await Arrange("{}");
+        var notes = new string('n', SourceDocument.MaxExampleLength + 50);
+        string id;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var xchange = new Xchange(chain.DocumentId, null, new XchangeFile("{}"),
+                source: new XchangeSource(Guid.NewGuid().ToString("N"), new Dictionary<string, string> { ["notes"] = notes }));
+            db.Add(xchange);
+            await db.SaveChangesAsync();
+            id = xchange.Id;
+        }
+
+        await using var check = fixture.CreateScope();
+        check.Superuser();
+        var page = (SearchyResponse<XchangeRow>)await ActivatorUtilities
+            .CreateInstance<Resources.Xchanges.Search>(check.ServiceProvider)
+            .Handle(new SearchyRequest(new[] { $"Id:1:{id}" }), false, null);
+
+        Assert.Equal(notes[..SourceDocument.MaxExampleLength] + "…", Assert.Single(page.Result).SourceValues["notes"]);
+        var stored = await check.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<Xchange>().AsNoTracking().SingleAsync(x => x.Id == id);
+        Assert.Equal(notes, stored.SourceValues["notes"]);
+    }
+
+    [Fact]
     public async Task The_paths_offered_come_from_the_last_document_the_feeder_received()
     {
         var chain = await Arrange("{}");

@@ -446,7 +446,7 @@ function SubscriptionStudio() {
               disabled={!canEdit}
               candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== subscriptionId)}
               idPrefix="in-resp"
-              onNewResponseSubscription={() => detour.leave(draft)}
+              onNewResponseSubscription={() => detour.leave(draft, subscriptionId)}
               onOpenResponseSubscription={(target) =>
                 dirty ? setOpening(target) : navigate(`/subscriptions/${target}`)
               }

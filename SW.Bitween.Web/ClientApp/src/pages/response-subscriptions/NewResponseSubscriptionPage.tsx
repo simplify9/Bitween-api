@@ -22,7 +22,7 @@ import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { returnPath, safeReturn, useResponseDetour } from "../../lib/responseDetour";
+import { feederOf, returnPath, safeReturn, useResponseDetour } from "../../lib/responseDetour";
 
 const STAGES_HERE = stagesFor("Response");
 
@@ -90,9 +90,9 @@ function NewResponseSubscription() {
   const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
-  // Nothing feeds a subscription that doesn't exist yet, so there are no paths to offer; any
-  // path can still be typed.
-  const sourceValues = useSourceDocument({ type: "Response", id: null });
+  // Nothing feeds a subscription that doesn't exist yet, except the one it is being made for when
+  // that one sent you here: its last document is what there is to offer. Any path can still be typed.
+  const sourceValues = useSourceDocument({ type: "Response", id: null }, [feederOf(params)]);
   const validators = useAdapterCatalog("validator");
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
