@@ -56,7 +56,7 @@ See [Entry points](entry-points.md) for status codes.
 
 | Method and path | Permission | Description |
 |---|---|---|
-| `GET /api/xchanges` | `exchanges.view` or `dashboard.view` | Searchy. See the filters below. |
+| `GET /api/xchanges` | `exchanges.view` or `dashboard.view`, or signed in with `lookup=true` | Searchy. See the filters below. A lookup returns at most 100 exchange ids, newest first, each with its information type's name. |
 | `GET /api/xchanges/statuslist` | `exchanges.view` | Status values for filters |
 | `GET /api/xchanges/retrytree?id=` | `exchanges.view` | The retry chain any attempt belongs to |
 | `POST /api/xchanges` | signed in, no permission checked | Create an exchange by hand |

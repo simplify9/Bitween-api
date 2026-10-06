@@ -22,6 +22,9 @@ namespace SW.Bitween.Resources.Xchanges
         /// </summary>
         internal const int CountCap = 10_000;
 
+        /// <summary>The most id/name pairs a lookup returns, newest first.</summary>
+        public const int LookupLimit = 100;
+
         private readonly BitweenDbContext dbContext = dbContext;
         private readonly RequestContext requestContext = requestContext;
         private readonly XchangeService xchangeService = xchangeService;
@@ -108,6 +111,13 @@ namespace SW.Bitween.Resources.Xchanges
 
             var s = query.OrderByDescending(p => p.StartedOn).AsNoTracking().Search(searchyRequest.Conditions,
                 searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
+
+            // Only id and information type, so the lookup has nothing to hide from a caller without
+            // the view permission. It returned whole rows before — errors, promoted values, source
+            // values — to anyone signed in. Capped, because exchanges run to millions and a lookup
+            // with no page size would otherwise list every one of them.
+            if (lookup)
+                return await s.Take(LookupLimit).ToDictionaryAsync(k => k.Id, v => v.DocumentName);
 
             var r = await s.ToListAsync();
 
