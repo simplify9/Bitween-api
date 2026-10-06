@@ -858,6 +858,14 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("varchar(1024)");
 
+                    b.Property<string>("SourceValues")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SourceXchangeId")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<int>("SubscriptionId")
                         .HasColumnType("int");
 
@@ -1321,6 +1329,14 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("RetryFor")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("SourceValues")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SourceXchangeId")
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");

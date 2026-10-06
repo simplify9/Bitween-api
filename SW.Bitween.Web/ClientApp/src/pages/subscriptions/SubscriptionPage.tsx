@@ -12,6 +12,7 @@ import { MatchExpressionEditor } from "../../components/config/MatchExpressionEd
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { AggregationRetentionWarning } from "../../components/config/AggregationRetentionWarning";
 import { AggregationFields } from "../../components/config/AggregationFields";
+import { useSourceDocument } from "../../components/config/sourceValues";
 import {
   SubscriptionStatusBadges,
   TypeBadge,
@@ -62,6 +63,11 @@ function SubscriptionStudio() {
     queryKey: keys.informationTypes.detail(subscription.data?.informationTypeId),
     queryFn: () => api.getInformationType(subscription.data!.informationTypeId),
     enabled: subscription.data?.type === "Internal",
+  });
+  const sourceValues = useSourceDocument({
+    type: subscription.data?.type,
+    id: subscriptionId,
+    informationTypeId: subscription.data?.informationTypeId,
   });
 
   // Loaded up front rather than per stage: the cards name their adapter, so the
@@ -410,6 +416,7 @@ function SubscriptionStudio() {
               }
               disabled={!canEdit}
               noneLabel="None — the document stops here"
+              sourceValues={sourceValues}
             />
             {bindsToDataSource(draft.handlerId, "handler") && (
               <div className="mt-3">
@@ -439,7 +446,7 @@ function SubscriptionStudio() {
               disabled={!canEdit}
               candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== subscriptionId)}
               idPrefix="in-resp"
-              onNewResponseSubscription={() => detour.leave(draft)}
+              onNewResponseSubscription={() => detour.leave(draft, subscriptionId)}
               onOpenResponseSubscription={(target) =>
                 dirty ? setOpening(target) : navigate(`/subscriptions/${target}`)
               }

@@ -80,8 +80,9 @@ A field rule writes one value.
 | `fixed` | The literal in `value`, keeping its JSON type |
 | `partner` | The partner property named `key` |
 | `global` | The value `key` in the global value set `setId` |
+| `source` | A `path` into the original document: the input of the exchange whose delivery got this response. Read like any path. Only a response or bus gateway subscription has these; the editor calls them **Original**. |
 
-A missing path, partner property or global value gives null rather than an error. Paths match keys exactly and never step into a list. Use a list rule to reach list items.
+A missing path, partner property, global value or source value gives null rather than an error. Paths match keys exactly and never step into a list. Use a list rule to reach list items.
 
 The value then passes through these optional steps, in order.
 

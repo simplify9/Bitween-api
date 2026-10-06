@@ -3,7 +3,9 @@ import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useRules } from "../../lib/nativeMapper/RulesEditorContext";
 import type { ValueSource, ValueTypeName } from "../../lib/nativeMapper/types";
+import { lackingPath, lackingPathWarning } from "../config/sourceValues";
 import { RowInput, RowSelect, RowSuggestInput } from "./rowControls";
+import { useSourceValues } from "./sourceValuesContext";
 
 /**
  * The source paths a rule may read, by where they are read from.
@@ -52,6 +54,7 @@ export function ValueCell({
   onChange: (source: ValueSource) => void;
 }) {
   const { testPartnerId } = useRules();
+  const original = useSourceValues();
 
   const { data: globalSets } = useQuery({
     queryKey: keys.valueSets.list,
@@ -209,6 +212,35 @@ export function ValueCell({
             <span
               className="flex-shrink-0 text-[11px] text-warn-700"
               title="The partner being previewed has no such property"
+            >
+              ⚠
+            </span>
+          )}
+        </div>
+      );
+    }
+
+    case "source": {
+      const path = source.path ?? "";
+      // Checked against the feeders' last documents only: until one has run there is nothing to
+      // check the path against.
+      const lacking = original !== null && path !== "" ? lackingPath(original, path) : [];
+
+      return (
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <RowSuggestInput
+            className="min-w-0 flex-1 font-mono"
+            aria-label="Original document path"
+            placeholder="order.number"
+            title="A path in the original document, the one this reply is about. Each exchange reads its own; pick a path seen in the last one, or type it"
+            suggestions={original?.paths.map((p) => p.path) ?? []}
+            value={path}
+            onChange={(e) => onChange({ kind: "source", path: e.target.value })}
+          />
+          {lacking.length > 0 && (
+            <span
+              className="flex-shrink-0 text-[11px] text-warn-700"
+              title={`${lackingPathWarning(lacking)}. Saved anyway: the field comes out empty for a document without it.`}
             >
               ⚠
             </span>

@@ -41,6 +41,8 @@ interface RawXchangeRow {
   outputKey: string | null;
   responseKey: string | null;
   promotedProperties: Record<string, string | null> | null;
+  sourceXchangeId?: string | null;
+  sourceValues?: Record<string, string | null> | null;
   retryFor: string | null;
   aggregationXchangeId: string | null;
   responseBad: boolean | null;
@@ -128,6 +130,8 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
   scheduledRetryOn: raw.scheduledRetryOn,
   exception: raw.exception,
   promotedProperties: raw.promotedProperties,
+  sourceXchangeId: raw.sourceXchangeId ?? null,
+  sourceValues: raw.sourceValues ?? null,
   mapperSkipped: raw.mapperId === null,
   // Existence is keyed off `*Key` (backend only emits one once the file actually
   // has bytes), not the file name, since gateway/manually created exchanges have

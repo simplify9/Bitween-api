@@ -71,6 +71,28 @@ public class MappingRules
     /// because a document is one thing or the other.
     /// </remarks>
     public ListRule? Root { get; set; }
+
+    /// <summary>Every field rule, wherever it sits — at the top, in a list, or in a written-in entry.</summary>
+    public IEnumerable<FieldRule> EveryField()
+    {
+        var lists = new Stack<ListRule>(Lists);
+        if (Root is not null) lists.Push(Root);
+
+        foreach (var field in Fields) yield return field;
+
+        while (lists.TryPop(out var list))
+        {
+            foreach (var entry in list.Fixed.Concat(list.After).Prepend(new ListEntry
+                     {
+                         Item = list.Item, Fields = list.Fields, Lists = list.Lists,
+                     }))
+            {
+                if (entry.Item is not null) yield return entry.Item;
+                foreach (var field in entry.Fields) yield return field;
+                foreach (var inner in entry.Lists) lists.Push(inner);
+            }
+        }
+    }
 }
 
 /// <summary>One output field: where its value comes from, and what it should end up as.</summary>
@@ -119,7 +141,11 @@ public class ValueSource
 {
     public ValueSourceKind Kind { get; set; } = ValueSourceKind.Fixed;
 
-    /// <summary>Dot-separated path into the source document. <see cref="ValueSourceKind.Path"/>.</summary>
+    /// <summary>
+    /// Dot-separated path into the source document, or into the original one.
+    /// <see cref="ValueSourceKind.Path"/>, <see cref="ValueSourceKind.RootPath"/>,
+    /// <see cref="ValueSourceKind.Source"/>.
+    /// </summary>
     public string? Path { get; set; }
 
     /// <summary>Literal value. <see cref="ValueSourceKind.Fixed"/>.</summary>
@@ -175,6 +201,16 @@ public enum ValueSourceKind
     /// </para>
     /// </remarks>
     Count,
+
+    /// <summary>
+    /// A path into the original document: the input of the exchange whose delivery got the response
+    /// being mapped — the order, when the response is the carrier's reply to it. Shown as "Original".
+    /// </summary>
+    /// <remarks>
+    /// Only a response or bus gateway subscription is handed these, read when its exchange was
+    /// created. Last in the list so the values above keep their numbers.
+    /// </remarks>
+    Source,
 }
 
 /// <summary>How a document writes dates that are not year-first.</summary>

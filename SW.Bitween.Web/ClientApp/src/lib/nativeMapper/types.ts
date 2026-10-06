@@ -70,7 +70,8 @@ export type ValueSourceKind =
   | "fixed"
   | "partner"
   | "global"
-  | "count";
+  | "count"
+  | "source";
 
 export type ValueTypeName = "string" | "number" | "boolean";
 
@@ -92,6 +93,8 @@ export interface ValueSource {
    * `rootPath` — the same, but always read from the top of the document. Only
    * different inside a list, where it is how one value from the order gets written
    * onto every line of it.
+   *
+   * `source` — a path into the original document instead, read the same way.
    */
   path?: string;
   /** `fixed` — a literal. */
@@ -322,9 +325,29 @@ const COUNT_KIND = {
     "trailer says how many records there are and adding a header line cannot change it.",
 };
 
-/** The segments a rule shows, which depends only on whether it sits inside a list. */
-export const sourceKindsFor = (insideList: boolean) =>
-  insideList ? [...SOURCE_KINDS, COUNT_KIND] : SOURCE_KINDS;
+/**
+ * A path into the original document — what the subscription that fed this reply received, the
+ * order when the reply is a carrier's answer to it. Offered only on a response or bus gateway
+ * subscription; nothing else is handed one.
+ *
+ * Not called "Source": that segment already means a field of the incoming document, which for
+ * a response subscription is the reply itself.
+ */
+const ORIGINAL_KIND = {
+  value: "source" as ValueSourceKind,
+  label: "Original",
+  title: "A path in the original document: what the subscription that fed this reply received, e.g. the order",
+};
+
+/**
+ * The segments a rule shows: counting only inside a list, the original document only on a
+ * response or bus gateway subscription.
+ */
+export const sourceKindsFor = (insideList: boolean, original = false) => [
+  ...SOURCE_KINDS,
+  ...(insideList ? [COUNT_KIND] : []),
+  ...(original ? [ORIGINAL_KIND] : []),
+];
 
 /** What a value can be written as. Blank leaves it as the source produced it. */
 export const VALUE_TYPES: { value: string; label: string }[] = [
@@ -351,7 +374,9 @@ export const freshSource = (kind: ValueSourceKind): ValueSource =>
         : kind === "count"
           ? // Nothing to configure: the question is the whole rule.
             { kind: "count" }
-          : { kind: "global", setId: "", key: "" };
+          : kind === "source"
+            ? { kind: "source", path: "" }
+            : { kind: "global", setId: "", key: "" };
 
 /** Filter operators, with the symbol a user recognises. */
 export const FILTER_OPERATORS: { value: FilterOperatorName; label: string }[] = [

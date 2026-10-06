@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { returnPath, safeReturn } from "../responseDetour";
+import { feederOf, newResponsePath, returnPath, safeReturn } from "../responseDetour";
 
 describe("the way back from creating a response subscription", () => {
   it("only goes somewhere inside the app", () => {
@@ -17,5 +17,22 @@ describe("the way back from creating a response subscription", () => {
       "/subscriptions/10?stage=response&draftKept=1&pickedResponse=7",
     );
     expect(returnPath("/scheduled-jobs/new?draftKept=1", null)).toBe("/scheduled-jobs/new?draftKept=1");
+  });
+});
+
+describe("the subscription a response subscription is being made for", () => {
+  it("travels to the create page when it is saved, so its paths can be offered", () => {
+    const path = newResponsePath("/subscriptions/10?stage=response&draftKept=1", 10);
+    expect(path).toBe(
+      "/response-subscriptions/new?return=%2Fsubscriptions%2F10%3Fstage%3Dresponse%26draftKept%3D1&feeder=10",
+    );
+    expect(feederOf(new URLSearchParams(path.split("?")[1]))).toBe(10);
+  });
+
+  it("is absent from a page that isn't saved yet, and anything else reads as none", () => {
+    expect(newResponsePath("/scheduled-jobs/new")).toBe("/response-subscriptions/new?return=%2Fscheduled-jobs%2Fnew");
+    expect(feederOf(new URLSearchParams("return=%2Fx"))).toBeNull();
+    expect(feederOf(new URLSearchParams("feeder=abc"))).toBeNull();
+    expect(feederOf(new URLSearchParams("feeder=-3"))).toBeNull();
   });
 });

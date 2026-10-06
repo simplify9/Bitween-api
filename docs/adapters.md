@@ -23,7 +23,7 @@ An id starting with `native`, ignoring case, is a native adapter. For any other 
 
 Each adapter declares its properties. The UI shows which are required, which are secret, and each one's description and default.
 
-- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notifier properties get neither.
+- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notifier properties get neither. A response or bus gateway subscription's handler can also use `{{source.PATH}}`, a value from the original document; see [Response routing](exchange-pipeline.md#6-response-routing).
 - **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property.
 - **Required properties** are checked when a subscription is saved. A blank value counts as missing.
 - **`xchangeid`** is added to mapper and handler properties at run time.

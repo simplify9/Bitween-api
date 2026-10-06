@@ -11,6 +11,7 @@ import {
 import { SegmentedControl } from "../ui/SegmentedControl";
 import { RuleDetail } from "./RuleDetail";
 import { ValueCell, type SourcePaths } from "./ValueCell";
+import { useSourceValues } from "./sourceValuesContext";
 
 /**
  * One entry written into a list, rather than one produced by walking a source list.
@@ -38,6 +39,7 @@ export function EntryRow({
   const named = node.placement === "after" ? `closing entry ${position}` : `entry ${position}`;
   const dispatch = useRulesDispatch();
   const { ruleErrors } = useRules();
+  const original = useSourceValues() !== null;
   const [open, setOpen] = useState(false);
 
   const error = ruleErrors[node.errorKey];
@@ -73,7 +75,7 @@ export function EntryRow({
             <SegmentedControl
               size="sm"
               label={`Where ${named} comes from`}
-              options={sourceKindsFor(true)}
+              options={sourceKindsFor(true, original)}
               value={item.from.kind === "rootPath" ? "path" : item.from.kind}
               onChange={(kind) => updateItem({ from: freshSource(kind) })}
             />

@@ -303,6 +303,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.HandlerId).HasMaxLength(200);
                 b.Property(p => p.HandlerProperties).HasColumnType("jsonb");
                 b.Property(p => p.MapperProperties).HasColumnType("jsonb");
+                b.Property(p => p.SourceValues).HasColumnType("jsonb");
+                b.Property(p => p.SourceXchangeId).HasMaxLength(50);
                 b.Property(p => p.InputContentType).HasMaxLength(200);
                 b.Property(p => p.ResponseMessageTypeName).HasMaxLength(500);
                 b.Property(p => p.FilesPrefix).HasMaxLength(200);
@@ -317,6 +319,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.References); //.IsSeparatorDelimited().HasMaxLength(1024);
+                b.Property(p => p.SourceValues).HasColumnType("jsonb");
+                b.Property(p => p.SourceXchangeId).HasMaxLength(50);
                 b.HasIndex(i => i.SubscriptionId);
             });
 

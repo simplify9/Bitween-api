@@ -18,7 +18,8 @@ namespace SW.Bitween;
 /// </remarks>
 public class MappingContextFactory(BitweenDbContext dbContext, IInfolinkCache cache)
 {
-    public async Task<MappingContext> Build(int? partnerId, string? xchangeId = null)
+    public async Task<MappingContext> Build(int? partnerId, string? xchangeId = null,
+        IReadOnlyDictionary<string, string>? sourceValues = null)
     {
         var partner = partnerId.HasValue
             ? await dbContext.FindAsync<Partner>(partnerId.Value)
@@ -33,6 +34,7 @@ public class MappingContextFactory(BitweenDbContext dbContext, IInfolinkCache ca
         {
             Partner = partner?.AdapterProperties ?? new Dictionary<string, string>(),
             Globals = globals,
+            Source = sourceValues ?? new Dictionary<string, string>(),
             XchangeId = xchangeId,
         };
     }

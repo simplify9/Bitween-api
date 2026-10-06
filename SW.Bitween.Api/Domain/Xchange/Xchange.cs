@@ -13,7 +13,8 @@ namespace SW.Bitween.Domain
         }
 
         public Xchange(int documentId, IWorkGroup workGroup, XchangeFile file, string[] references = null,
-            SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null)
+            SubscriptionType subscriptionType = SubscriptionType.Internal, string correlationId = null,
+            XchangeSource source = null)
         {
             Id = Guid.NewGuid().ToString("N");
             DocumentId = documentId;
@@ -24,6 +25,8 @@ namespace SW.Bitween.Domain
             InputContentType = file.ContentType;
             StartedOn = DateTime.UtcNow;
             CorrelationId = correlationId;
+            SourceXchangeId = source?.XchangeId;
+            SourceValues = source?.Values;
 
             XchangeCreatedEvent xchangeEvent = subscriptionType switch
             {
@@ -46,7 +49,8 @@ namespace SW.Bitween.Domain
         }
 
         public Xchange(Subscription subscription, XchangeFile file, string[] references = null,
-            string correlationId = null, Partner gatewayPartner = null, GlobalAdapterValuesSet[] globalAdapterValuesSets = null) :
+            string correlationId = null, Partner gatewayPartner = null, GlobalAdapterValuesSet[] globalAdapterValuesSets = null,
+            XchangeSource source = null) :
             this(subscription.DocumentId, subscription.WorkGroup, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
@@ -58,7 +62,10 @@ namespace SW.Bitween.Domain
             MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary()
                 .Fill(gatewayPartner, globalAdapterValuesSets).WithDataSource(subscription.DataSourceId);
             HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary()
-                .Fill(gatewayPartner, globalAdapterValuesSets).WithDataSource(subscription.DataSourceId);
+                .Fill(gatewayPartner, globalAdapterValuesSets).FillSource(source?.Values)
+                .WithDataSource(subscription.DataSourceId);
+            SourceXchangeId = source?.XchangeId;
+            SourceValues = source?.Values;
             CorrelationId = correlationId;
         }
 
@@ -73,6 +80,8 @@ namespace SW.Bitween.Domain
             HandlerId = xchange.HandlerId;
             MapperProperties = xchange.MapperProperties;
             HandlerProperties = xchange.HandlerProperties;
+            SourceXchangeId = xchange.SourceXchangeId;
+            SourceValues = xchange.SourceValues;
             ResponseSubscriptionId = xchange.ResponseSubscriptionId;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
@@ -92,7 +101,10 @@ namespace SW.Bitween.Domain
             MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary()
                 .Fill(gatewayPartner, globalAdapterValuesSets).WithDataSource(subscription.DataSourceId);
             HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary()
-                .Fill(gatewayPartner, globalAdapterValuesSets).WithDataSource(subscription.DataSourceId);
+                .Fill(gatewayPartner, globalAdapterValuesSets).FillSource(xchange.SourceValues)
+                .WithDataSource(subscription.DataSourceId);
+            SourceXchangeId = xchange.SourceXchangeId;
+            SourceValues = xchange.SourceValues;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
@@ -113,6 +125,24 @@ namespace SW.Bitween.Domain
         public string InputContentType { get; private set; }
         public int? ResponseSubscriptionId { get; private set; }
         public string ResponseMessageTypeName { get; private set; }
+
+        /// <summary>
+        /// The exchange whose delivery's response started this one. Only a response subscription's
+        /// exchange has one, and a bus gateway's when its message was published as a response;
+        /// null everywhere else.
+        /// </summary>
+        public string SourceXchangeId { get; private set; }
+
+        /// <summary>
+        /// What the subscription reads from the input of <see cref="SourceXchangeId"/> — the original
+        /// document — by path, as it was when this exchange was created. A path the document had no
+        /// value at is left out.
+        /// </summary>
+        /// <remarks>
+        /// Read once and kept rather than looked up when needed, so a retry runs with the same values
+        /// as the first attempt, and they outlive the source exchange being archived.
+        /// </remarks>
+        public IReadOnlyDictionary<string, string> SourceValues { get; private set; }
 
         public string RetryFor { get; private set; }
 

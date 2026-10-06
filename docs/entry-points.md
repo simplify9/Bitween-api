@@ -120,6 +120,8 @@ The message becomes a document-level exchange. The filter then creates one excha
 
 Setting a subscription's response message type name publishes its handler's response to the bus. When that name belongs to a bus-enabled information type, the response arrives as a new document that bus gateway routes can pick up. The Flow map page draws these chains and flags loops.
 
+The route's subscription can read values from the original document, the input of the exchange that delivered, as `{{source.PATH}}`, the way a response subscription can. See [Response routing](exchange-pipeline.md#6-response-routing).
+
 ## Scheduled jobs
 
 A scheduled job, a `Receiving` subscription, pulls data with a receiver adapter on a schedule. To poll a database, see [Databases](databases.md#receiving-rows). Each run does the following.
