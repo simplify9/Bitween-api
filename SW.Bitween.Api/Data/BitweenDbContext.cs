@@ -368,6 +368,8 @@ namespace SW.Bitween
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerProperties).StoreAsJson();
                 b.Property(p => p.MapperProperties).StoreAsJson();
+                b.Property(p => p.SourceValues).StoreAsJson();
+                b.Property(p => p.SourceXchangeId).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
                 b.Property(p => p.FilesPrefix).HasMaxLength(200);
@@ -385,6 +387,8 @@ namespace SW.Bitween
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.References).IsSeparatorDelimited().HasMaxLength(1024);
+                b.Property(p => p.SourceValues).StoreAsJson();
+                b.Property(p => p.SourceXchangeId).IsUnicode(false).HasMaxLength(50);
                 b.HasIndex(i => i.SubscriptionId);
             });
 

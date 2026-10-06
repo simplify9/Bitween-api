@@ -121,6 +121,9 @@ Exchange rows can outlive their files. Opening such a file says it was deleted b
 | A scheduled job never runs | Check schedule health for Stuck or Not scheduled, and that the subscription is active |
 | A mapper fails parsing JSON on XML input | The subscription uses a mapper other than the rules-based mapper |
 | `{{partner.KEY}}` appears literally in a request | The partner has no such property, or the adapter is a receiver or notifier, which get no partner values |
+| A response exchange fails with *the handler can't be filled in* | The original document had no value at that `{{source.PATH}}`. Open the exchange it is a response to, from the drawer's *Response to* link, and check the path against its input |
+| A bus gateway exchange fails with *its message wasn't published as a Bitween delivery's response* | Its handler uses `{{source.PATH}}`, and the message came from somewhere else |
+| A bus gateway exchange fails with *the original document … couldn't be read* | Its message came from a delivery in another Bitween on the same bus, or that exchange's input file is gone |
 | Sync gateway calls hang | The sync wait never times out for a `Wait-Period` of 8 or more, including the default |
 | Retry is refused with `ALREADY_RETRIED` | That exchange was already retried. Retry its newest attempt. |
 | A data source shows no live data, or statements save as *not checked* | The request reached a node that does not run the adapter, or `Bitween__BusProvidersEnabled` is off |

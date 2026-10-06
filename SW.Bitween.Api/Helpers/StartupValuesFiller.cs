@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using SW.Bitween.Domain;
 
 namespace SW.Bitween;
@@ -51,6 +52,36 @@ public static class StartupValuesFiller
         return properties;
     }
 
+
+    /// <summary>The token prefix for a source value: <c>{{source.PATH}}</c>.</summary>
+    public const string SourceVariableNamePrefix = "source";
+
+    /// <summary>
+    /// The bus value a published response carries the id of the exchange that delivered under, so a
+    /// bus gateway route picking it up can read that exchange's input itself.
+    /// </summary>
+    public const string SourceXchangeBusValue = "bitween-source-xchange";
+
+    private static readonly Regex SourceToken = new(@"\{\{source\.([^}]+)\}\}", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Fills <c>{{source.PATH}}</c> from the values read out of the original document: the input of
+    /// the exchange whose delivery got the response this one runs on. Null values leave the tokens as they are — every exchange but
+    /// a response or bus gateway subscription's — and so does a path with no value, for
+    /// <see cref="SourcePathsIn"/> to find.
+    /// </summary>
+    public static Dictionary<string, string> FillSource(this Dictionary<string, string> properties,
+        IReadOnlyDictionary<string, string> sourceValues) =>
+        sourceValues == null
+            ? properties
+            : properties.Fill(new Dictionary<string, string>(sourceValues), SourceVariableNamePrefix);
+
+    /// <summary>The paths of every <c>{{source.PATH}}</c> token in <paramref name="values"/>.</summary>
+    public static IEnumerable<string> SourcePathsIn(IEnumerable<string> values) =>
+        (values ?? [])
+        .Where(v => v != null)
+        .SelectMany(v => SourceToken.Matches(v).Select(m => m.Groups[1].Value))
+        .Distinct();
 
     public static Dictionary<string, string> Fill(this IDictionary<string, string> inputTemplated,
         Partner partner, GlobalAdapterValuesSet[] globals)

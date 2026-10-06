@@ -706,6 +706,19 @@ export interface ReceiveAttemptExchange {
   promotedProperties: Record<string, string | null> | null;
 }
 
+/**
+ * The paths in the last document a subscription received: what a response or bus gateway
+ * subscription it feeds can read as `{{source.PATH}}` and Original mapping rules.
+ */
+export interface SourcePaths {
+  subscriptionId: number;
+  /** The exchange that received it. Null when the subscription hasn't run successfully yet. */
+  xchangeId: string | null;
+  receivedOn: string | null;
+  /** Empty when the document has no paths, or its file is gone. */
+  paths: { path: string; example: string }[];
+}
+
 export interface ReceiveAttemptRow {
   id: number;
   startedOn: string;
@@ -1160,6 +1173,13 @@ export interface ExchangeRow {
   scheduledRetryOn: string | null;
   exception: string | null;
   promotedProperties: Record<string, string | null> | null;
+  /**
+   * The exchange whose delivery's response started this one. Only a response or bus gateway
+   * subscription's exchange has one.
+   */
+  sourceXchangeId: string | null;
+  /** What it read from the input of `sourceXchangeId`, the original document, by path. */
+  sourceValues: Record<string, string | null> | null;
   /** True when the subscription has no mapper — the Mapped stage is skipped. */
   mapperSkipped: boolean;
   files: {

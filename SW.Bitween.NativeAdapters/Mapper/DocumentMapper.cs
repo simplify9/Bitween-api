@@ -299,6 +299,7 @@ public static class DocumentMapper
             ValueSourceKind.RootPath => Values.ResolveScalar(scope.Root, field.From.Path),
             ValueSourceKind.Partner => context.PartnerValue(field.From.Key),
             ValueSourceKind.Global => context.GlobalValue(field.From.SetId, field.From.Key),
+            ValueSourceKind.Source => context.SourceValue(field.From.Path),
             ValueSourceKind.Count => (decimal)(written ?? 0),
             _ => null,
         };

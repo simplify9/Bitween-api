@@ -32,6 +32,8 @@ import { BuildFromSample } from "./BuildFromSample";
 import { OutputPanel } from "./OutputPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { SourcePanel } from "./SourcePanel";
+import { SourceValuesContext } from "./sourceValuesContext";
+import { useSourceDocument } from "../config/sourceValues";
 import {
   useMappingLoader,
   useMappingPreview,
@@ -72,7 +74,14 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
     useRules();
   const dispatch = useRulesDispatch();
 
-  const { partnerId } = useMappingLoader(resolved);
+  const { partnerId, subscription } = useMappingLoader(resolved);
+  const savedSourceValues = useSourceDocument({
+    type: subscription?.type,
+    id: subscription?.id ?? null,
+    informationTypeId: subscription?.informationTypeId,
+  });
+  const sourceValues =
+    resolved.kind === "draft" ? (resolved.sourceValues ?? null) : savedSourceValues;
 
   const { isPreviewing } = useMappingPreview(testPartnerId ?? partnerId);
 
@@ -161,159 +170,161 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-white">
-      {/* ── Toolbar ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-ink-200 px-3 py-2">
-        <button
-          type="button"
-          onClick={leave}
-          className="flex items-center gap-1 rounded px-1.5 py-1 text-sm text-ink-600 hover:bg-ink-50"
-        >
-          <ArrowLeft size={14} /> Back
-        </button>
+    <SourceValuesContext.Provider value={sourceValues}>
+      <div className="fixed inset-0 z-40 flex flex-col overflow-hidden bg-white">
+        {/* ── Toolbar ───────────────────────────────────────────────────────────── */}
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2 border-b border-ink-200 px-3 py-2">
+          <button
+            type="button"
+            onClick={leave}
+            className="flex items-center gap-1 rounded px-1.5 py-1 text-sm text-ink-600 hover:bg-ink-50"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
 
-        <span className="text-sm font-semibold text-ink-900">Mapping</span>
+          <span className="text-sm font-semibold text-ink-900">Mapping</span>
 
-        <ToolbarDivider />
+          <ToolbarDivider />
 
-        <FormatSettings />
+          <FormatSettings />
 
-        <ToolbarDivider />
+          <ToolbarDivider />
 
-        <BuildFromSample />
+          <BuildFromSample />
 
-        <ToolbarButton
-          label="Match the source fields"
-          title="Point every rule that reads nothing at the source field of the same name"
-          icon={<Link2 size={12} aria-hidden />}
-          onClick={() => dispatch({ type: "MATCH_SOURCES" })}
-        />
-
-        <ToolbarButton
-          label="Clear all the rules"
-          title="Remove every rule. Undo puts them back."
-          icon={<Eraser size={12} aria-hidden />}
-          onClick={() => dispatch({ type: "CLEAR_RULES" })}
-        />
-
-        {match && <MatchNote tally={match} />}
-
-        <div className="ml-auto flex items-center gap-1.5">
-          <TestPartnerSelect
-            value={testPartnerId}
-            onChange={(partner) => dispatch({ type: "SET_TEST_PARTNER", partnerId: partner })}
+          <ToolbarButton
+            label="Match the source fields"
+            title="Point every rule that reads nothing at the source field of the same name"
+            icon={<Link2 size={12} aria-hidden />}
+            onClick={() => dispatch({ type: "MATCH_SOURCES" })}
           />
 
-          <button
-            type="button"
-            onClick={() => setShowPreview((shown) => !shown)}
-            aria-pressed={showPreview}
-            aria-label={showPreview ? "Hide the preview" : "Show the preview"}
-            title={showPreview ? "Hide the preview" : "Show the preview"}
-            className="rounded p-1.5 text-ink-500 hover:bg-ink-50"
-          >
-            {showPreview ? <Eye size={14} /> : <EyeOff size={14} />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => dispatch({ type: "UNDO" })}
-            title="Undo"
-            aria-label="Undo"
-            className="rounded p-1.5 text-ink-500 hover:bg-ink-50"
-          >
-            <Undo2 size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => dispatch({ type: "REDO" })}
-            title="Redo"
-            aria-label="Redo"
-            className="rounded p-1.5 text-ink-500 hover:bg-ink-50"
-          >
-            <Redo2 size={14} />
-          </button>
-
-          {justSaved ? (
-            <span className="flex items-center gap-1 text-sm font-medium text-ok-600">
-              <Check size={14} /> Saved
-            </span>
-          ) : (
-            <Button variant="primary" busy={isSaving} disabled={!dirty} onClick={requestSave}>
-              Save
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {saveError && (
-        <div className="flex-shrink-0 border-b border-danger-100 bg-danger-50 px-3 py-2">
-          <p className="text-xs text-danger-700">{saveError}</p>
-        </div>
-      )}
-
-      {/* ── Panels ────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-        <SourcePanel
-          root={sample.root}
-          parseError={sample.error}
-          assignedPaths={assignedPaths}
-          coverage={coverage}
-          onPick={pickSourcePath}
-        />
-
-        {/* Narrow on purpose: the curves are drawn with overflow visible, so they
-            reach the rows on either side without a wide empty column. */}
-        <div className="relative w-20 flex-shrink-0 border-r border-ink-200 bg-ink-50/40">
-          <ConnectionLines
-            connections={connections}
-            sourceAttribute="data-source-path"
-            targetAttribute="data-rule-id"
-            watchSelector="[data-mapper-scroll]"
+          <ToolbarButton
+            label="Clear all the rules"
+            title="Remove every rule. Undo puts them back."
+            icon={<Eraser size={12} aria-hidden />}
+            onClick={() => dispatch({ type: "CLEAR_RULES" })}
           />
+
+          {match && <MatchNote tally={match} />}
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <TestPartnerSelect
+              value={testPartnerId}
+              onChange={(partner) => dispatch({ type: "SET_TEST_PARTNER", partnerId: partner })}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPreview((shown) => !shown)}
+              aria-pressed={showPreview}
+              aria-label={showPreview ? "Hide the preview" : "Show the preview"}
+              title={showPreview ? "Hide the preview" : "Show the preview"}
+              className="rounded p-1.5 text-ink-500 hover:bg-ink-50"
+            >
+              {showPreview ? <Eye size={14} /> : <EyeOff size={14} />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => dispatch({ type: "UNDO" })}
+              title="Undo"
+              aria-label="Undo"
+              className="rounded p-1.5 text-ink-500 hover:bg-ink-50"
+            >
+              <Undo2 size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: "REDO" })}
+              title="Redo"
+              aria-label="Redo"
+              className="rounded p-1.5 text-ink-500 hover:bg-ink-50"
+            >
+              <Redo2 size={14} />
+            </button>
+
+            {justSaved ? (
+              <span className="flex items-center gap-1 text-sm font-medium text-ok-600">
+                <Check size={14} /> Saved
+              </span>
+            ) : (
+              <Button variant="primary" busy={isSaving} disabled={!dirty} onClick={requestSave}>
+                Save
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-1 divide-x divide-ink-200 overflow-hidden">
-          <OutputPanel sourceRoot={sample.root} />
-          {showPreview && (
-            <div className="w-[38%] min-w-[280px] overflow-hidden">
-              <PreviewPanel isPreviewing={isPreviewing} />
-            </div>
-          )}
+        {saveError && (
+          <div className="flex-shrink-0 border-b border-danger-100 bg-danger-50 px-3 py-2">
+            <p className="text-xs text-danger-700">{saveError}</p>
+          </div>
+        )}
+
+        {/* ── Panels ────────────────────────────────────────────────────────────── */}
+        <div className="flex flex-1 overflow-hidden">
+          <SourcePanel
+            root={sample.root}
+            parseError={sample.error}
+            assignedPaths={assignedPaths}
+            coverage={coverage}
+            onPick={pickSourcePath}
+          />
+
+          {/* Narrow on purpose: the curves are drawn with overflow visible, so they
+              reach the rows on either side without a wide empty column. */}
+          <div className="relative w-20 flex-shrink-0 border-r border-ink-200 bg-ink-50/40">
+            <ConnectionLines
+              connections={connections}
+              sourceAttribute="data-source-path"
+              targetAttribute="data-rule-id"
+              watchSelector="[data-mapper-scroll]"
+            />
+          </div>
+
+          <div className="flex flex-1 divide-x divide-ink-200 overflow-hidden">
+            <OutputPanel sourceRoot={sample.root} />
+            {showPreview && (
+              <div className="w-[38%] min-w-[280px] overflow-hidden">
+                <PreviewPanel isPreviewing={isPreviewing} />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* A rule has to be selected for a source click to land somewhere, so say so
-          rather than letting the click appear to do nothing. */}
-      <div className="flex-shrink-0 border-t border-ink-200 bg-ink-50 px-3 py-1.5">
-        <p className="text-[11px] text-ink-500">
-          {sourcePaths.length === 0
-            ? "Paste a sample document to see the fields you can map."
-            : selectedId
-              ? "Drag a source field onto a rule, or click one to fill the selected rule."
-              : "Drag a source field onto a rule — or select a rule first, then click a field."}
-        </p>
-      </div>
+        {/* A rule has to be selected for a source click to land somewhere, so say so
+            rather than letting the click appear to do nothing. */}
+        <div className="flex-shrink-0 border-t border-ink-200 bg-ink-50 px-3 py-1.5">
+          <p className="text-[11px] text-ink-500">
+            {sourcePaths.length === 0
+              ? "Paste a sample document to see the fields you can map."
+              : selectedId
+                ? "Drag a source field onto a rule, or click one to fill the selected rule."
+                : "Drag a source field onto a rule — or select a rule first, then click a field."}
+          </p>
+        </div>
 
-      {confirming && replacing && (
-        <ConfirmDialog
-          title="Replace the mapping this subscription already has?"
-          body={
-            <>
-              This subscription maps with{" "}
-              <strong className="font-medium text-ink-800">{replacing}</strong>, and saving
-              here switches it to the new mapper. The mapping built in the other editor is
-              discarded, and nothing else holds a copy of it.
-            </>
-          }
-          confirmLabel="Replace the mapping"
-          onConfirm={async () => {
-            await save();
-          }}
-          onClose={() => setConfirming(false)}
-        />
-      )}
-    </div>
+        {confirming && replacing && (
+          <ConfirmDialog
+            title="Replace the mapping this subscription already has?"
+            body={
+              <>
+                This subscription maps with{" "}
+                <strong className="font-medium text-ink-800">{replacing}</strong>, and saving
+                here switches it to the new mapper. The mapping built in the other editor is
+                discarded, and nothing else holds a copy of it.
+              </>
+            }
+            confirmLabel="Replace the mapping"
+            onConfirm={async () => {
+              await save();
+            }}
+            onClose={() => setConfirming(false)}
+          />
+        )}
+      </div>
+    </SourceValuesContext.Provider>
   );
 }
 

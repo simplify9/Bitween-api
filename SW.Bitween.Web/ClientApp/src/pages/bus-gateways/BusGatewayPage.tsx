@@ -10,6 +10,7 @@ import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { useSubscriptionRowsById, useSubscriptionsCache } from "../../components/config/shared";
+import { useSourceDocument } from "../../components/config/sourceValues";
 import {
   EMPTY_SUBSCRIPTION,
   NEW_SUBSCRIPTION_ID,
@@ -220,6 +221,28 @@ function BusGatewayStudio() {
   const active = chain[activeIndex];
   const activeData = active?.data;
   const edit = active ? (edits[active.id] ?? null) : null;
+
+  // What a hop's handler can read from the delivered document. The first hop runs on the route,
+  // fed by whatever publishes its response as the gateway's message. A response hop is fed by the
+  // hop before it whether or not that link is saved yet; one not saved itself has delivered nothing
+  // to offer paths from.
+  const previousHop = activeIndex > 0 ? chain[activeIndex - 1] : null;
+  const activeType =
+    activeData?.type ??
+    (active && isNewResponseSubscriptionId(active.id)
+      ? "Response"
+      : activeIndex === 0
+        ? "BusGateway"
+        : undefined);
+  const hopSourceValues = useSourceDocument(
+    {
+      type: activeType,
+      id: active && active.id > 0 ? active.id : null,
+      informationTypeId:
+        activeData?.informationTypeId ?? (activeIndex === 0 ? g?.informationTypeId : null),
+    },
+    activeType === "Response" ? [previousHop?.id] : [],
+  );
   const setEdit = (change: (e: SubscriptionEdit) => SubscriptionEdit) =>
     setEdits((all) => (active && all[active.id] ? { ...all, [active.id]: change(all[active.id]) } : all));
 
@@ -617,7 +640,14 @@ function BusGatewayStudio() {
           />
         );
       case "delivery":
-        return <DeliveryBody draft={edit.draft} onChange={onChange} disabled={!canEditSubscription} />;
+        return (
+          <DeliveryBody
+            draft={edit.draft}
+            onChange={onChange}
+            disabled={!canEditSubscription}
+            sourceValues={hopSourceValues}
+          />
+        );
       case "response":
         return (
           <ResponseBody

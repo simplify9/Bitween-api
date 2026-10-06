@@ -72,7 +72,8 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
     [Fact]
     public async Task A_paused_response_subscription_holds_the_response_and_releases_it_as_the_same_partner()
     {
-        var chain = await Arrange("{\"ack\":\"H-1\"}", paused: true);
+        var chain = await Arrange("{\"ack\":\"H-1\"}", paused: true,
+            targetUrl: "http://host/{{partner.slug}}/{{source.order.number}}");
 
         var result = await Deliver(chain);
 
@@ -86,6 +87,8 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
                 .SingleAsync(h => h.SubscriptionId == chain.ResponseSubscriptionId);
             Assert.Equal("{\"ack\":\"H-1\"}", held.Data);
             Assert.Equal(chain.PartnerId, held.PartnerId);
+            Assert.Equal(result.Id, held.SourceXchangeId);
+            Assert.Equal("1001", held.SourceValues["order.number"]);
 
             var target = await db.Set<Subscription>().SingleAsync(s => s.Id == chain.ResponseSubscriptionId);
             target.UnPause();
@@ -109,8 +112,9 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
             // Held and released later is still the same delivery's response: losing the partner
             // on the way would fill the handler's {{partner.…}} from nobody.
             Assert.Equal(chain.PartnerId, released.PartnerId);
-            Assert.Equal("http://host/acme", released.HandlerProperties["Url"]);
+            Assert.Equal("http://host/acme/1001", released.HandlerProperties["Url"]);
             Assert.Equal(source.CorrelationId, released.CorrelationId);
+            Assert.Equal(result.Id, released.SourceXchangeId);
             Assert.Equal("{\"ack\":\"H-1\"}",
                 await scope.ServiceProvider.GetRequiredService<XchangeService>().GetFile(released.Id, XchangeFileType.Input));
             Assert.False(await db.Set<OnHoldXchange>().AnyAsync(h => h.SubscriptionId == chain.ResponseSubscriptionId));
@@ -307,16 +311,139 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
         Assert.False(await db.Set<Subscription>().AnyAsync(s => s.Name == name));
     }
 
+    [Fact]
+    public async Task A_response_subscription_reads_source_values_out_of_the_original_document()
+    {
+        var chain = await Arrange("{\"ack\":\"S-1\"}", targetUrl: "http://host/{{partner.slug}}/{{source.order.number}}");
+
+        var result = await Deliver(chain);
+
+        Assert.True(result.Success, result.Exception);
+        await using var scope = fixture.CreateScope();
+        var response = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<Xchange>().AsNoTracking().SingleAsync(x => x.Id == result.ResponseXchangeId);
+
+        Assert.Equal("http://host/acme/1001", response.HandlerProperties["Url"]);
+        Assert.Equal(result.Id, response.SourceXchangeId);
+        // Only what it reads is kept, not the whole document.
+        Assert.Equal(new Dictionary<string, string> { ["order.number"] = "1001" }, response.SourceValues);
+    }
+
+    [Fact]
+    public async Task A_path_the_document_did_not_have_fails_the_response_and_not_the_delivery()
+    {
+        var chain = await Arrange("{\"ack\":\"S-2\"}", targetUrl: "http://host/{{source.order.customer}}");
+
+        var delivered = await Deliver(chain);
+        Assert.True(delivered.Success, delivered.Exception);
+
+        var response = await Run(delivered.ResponseXchangeId);
+
+        // Sent on, the partner would have been called at the token's text.
+        Assert.False(response.Success);
+        Assert.Contains($"the input of exchange {delivered.Id}, has no value at 'order.customer'", response.Exception);
+    }
+
+    [Fact]
+    public async Task Saving_takes_a_path_the_last_original_document_does_not_have()
+    {
+        var chain = await Arrange("{}");
+
+        // A warning in the editor, not a refusal: documents vary, and the next one may have it.
+        await Update(chain.ResponseSubscriptionId, new SubscriptionUpdate
+        {
+            Name = "Uses warehouse",
+            HandlerId = Responder,
+            HandlerProperties = [new KeyAndValue { Key = "Url", Value = "http://host/{{source.order.warehouse}}" }],
+        });
+    }
+
+    [Fact]
+    public async Task A_native_mapping_reads_source_values_by_path()
+    {
+        var chain = await Arrange("{}");
+        var rules = JsonConvert.SerializeObject(new
+        {
+            fields = new[] { new { target = new[] { "ref" }, from = new { kind = "source", path = "order.number" } } },
+        });
+
+        await Update(chain.ResponseSubscriptionId, new SubscriptionUpdate
+        {
+            Name = "Maps order",
+            HandlerId = Responder,
+            MapperId = nameof(NativeAdapters.Mapper.NativeMapper),
+            MapperProperties = [new KeyAndValue { Key = "MappingRules", Value = rules }],
+        });
+
+        var delivered = await Deliver(chain);
+        var response = await Run(delivered.ResponseXchangeId);
+
+        Assert.True(response.Success, response.Exception);
+        await using var scope = fixture.CreateScope();
+        var mapped = await scope.ServiceProvider.GetRequiredService<XchangeService>()
+            .GetFile(delivered.ResponseXchangeId, XchangeFileType.Output);
+        Assert.Equal("1001", (string)Newtonsoft.Json.Linq.JObject.Parse(mapped)["ref"]);
+    }
+
+    [Fact]
+    public async Task The_feeder_s_mapper_does_not_change_what_is_read()
+    {
+        var chain = await Arrange("{\"ack\":\"S-3\"}", targetUrl: "http://host/{{source.order.number}}");
+
+        // The feeder sends the carrier something else entirely; the paths still read its input.
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var source = await db.Set<Subscription>().SingleAsync(s => s.Id == chain.SourceSubscriptionId);
+            source.MapperId = nameof(NativeAdapters.Mapper.NativeMapper);
+            source.SetDictionaries(Props(("Body", "{\"ack\":\"S-3\"}"), ("Bad", "False")),
+                Props(("MappingRules", JsonConvert.SerializeObject(new
+                {
+                    fields = new[] { new { target = new[] { "ref" }, from = new { kind = "path", path = "order.number" } } },
+                }))), Props(), Props(), Props());
+            await db.SaveChangesAsync();
+        }
+
+        var result = await Deliver(chain);
+
+        Assert.True(result.Success, result.Exception);
+        await using var check = fixture.CreateScope();
+        var response = await check.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<Xchange>().AsNoTracking().SingleAsync(x => x.Id == result.ResponseXchangeId);
+        Assert.Equal("http://host/1001", response.HandlerProperties["Url"]);
+    }
+
+    [Fact]
+    public async Task The_paths_offered_come_from_the_last_document_the_feeder_received()
+    {
+        var chain = await Arrange("{}");
+
+        var before = await SourcePaths(chain.SourceSubscriptionId);
+        Assert.Null(before.XchangeId);
+        Assert.Empty(before.Paths);
+
+        var delivered = await Deliver(chain);
+
+        var after = await SourcePaths(chain.SourceSubscriptionId);
+        Assert.Equal(delivered.Id, after.XchangeId);
+        var path = Assert.Single(after.Paths);
+        Assert.Equal("order.number", path.Path);
+        Assert.Equal("1001", path.Example);
+    }
+
     // ---------------------------------------------------------------- arrangement
 
-    private record Chain(int SourceSubscriptionId, int ResponseSubscriptionId, int PartnerId);
+    private record Chain(int SourceSubscriptionId, int ResponseSubscriptionId, int PartnerId, int DocumentId);
+
+    /// <summary>What every source delivers: an order with a number and no customer.</summary>
+    private const string Delivered = "{\"order\":{\"number\":\"1001\"}}";
 
     /// <summary>
     /// A partner, a bus-gateway subscription whose delivery answers <paramref name="response"/>,
     /// and the response subscription it hands that answer to.
     /// </summary>
     private async Task<Chain> Arrange(string response, bool bad = false, bool runOnBadResponses = false,
-        bool paused = false, bool inactive = false)
+        bool paused = false, bool inactive = false, string targetUrl = "http://host/{{partner.slug}}")
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -335,7 +462,7 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
             HandlerId = Responder,
             RunOnBadResponses = runOnBadResponses,
         };
-        target.SetDictionaries(Props(("Url", "http://host/{{partner.slug}}")), Props(), Props(), Props(), Props());
+        target.SetDictionaries(Props(("Url", targetUrl)), Props(), Props(), Props(), Props());
         if (paused) target.Pause();
         db.Add(target);
         await db.SaveChangesAsync();
@@ -350,7 +477,7 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
         db.Add(source);
         await db.SaveChangesAsync();
 
-        return new Chain(source.Id, target.Id, partner.Id);
+        return new Chain(source.Id, target.Id, partner.Id, doc.Id);
     }
 
     /// <summary>Runs one delivery of the source, made for the chain's partner, to its result.</summary>
@@ -367,13 +494,31 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
             var partner = await db.Set<Partner>().SingleAsync(p => p.Id == chain.PartnerId);
             // As a bus route with a partner would: the partner comes from the entry point.
             var xchange = await scope.ServiceProvider.GetRequiredService<XchangeService>()
-                .CreateXchange(source, new XchangeFile("{\"order\":\"1001\"}"), null, Guid.NewGuid().ToString("N"), partner);
+                .CreateXchange(source, new XchangeFile(Delivered), null, Guid.NewGuid().ToString("N"), partner);
             await db.SaveChangesAsync();
             xchangeId = xchange.Id;
         }
 
         await using (var scope = fixture.CreateScope())
         {
+            await scope.ServiceProvider.GetRequiredService<XchangeService>()
+                .Process("XchangeCreated", JsonConvert.SerializeObject(new { Id = xchangeId }));
+        }
+
+        await using (var scope = fixture.CreateScope())
+        {
+            return await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+                .Set<XchangeResult>().AsNoTracking().SingleAsync(r => r.Id == xchangeId);
+        }
+    }
+
+    /// <summary>Processes an exchange already created, and returns its result.</summary>
+    private async Task<XchangeResult> Run(string xchangeId)
+    {
+        Assert.NotNull(xchangeId);
+        await using (var scope = fixture.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
             await scope.ServiceProvider.GetRequiredService<XchangeService>()
                 .Process("XchangeCreated", JsonConvert.SerializeObject(new { Id = xchangeId }));
         }
@@ -393,6 +538,14 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
         db.Add(source);
         await db.SaveChangesAsync();
         return source.Id;
+    }
+
+    private async Task<SourcePathsModel> SourcePaths(int subscriptionId)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return await ActivatorUtilities.CreateInstance<Resources.Subscriptions.GetSourcePaths>(scope.ServiceProvider)
+            .Handle(new SourcePathsRequest { SubscriptionId = subscriptionId });
     }
 
     private async Task Update(int subscriptionId, SubscriptionUpdate model)

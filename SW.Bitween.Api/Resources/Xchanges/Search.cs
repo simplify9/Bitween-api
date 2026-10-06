@@ -71,6 +71,8 @@ namespace SW.Bitween.Resources.Xchanges
                             Duration = xchange.StartedOn.Elapsed(result.FinishedOn),
                             PromotedProperties = promoted == null ? null : promoted.Properties.InDefinedOrder(document.PromotedProperties),
                             PromotedPropertiesRaw = promoted == null ? null : promoted.PropertiesRaw,
+                            SourceXchangeId = xchange.SourceXchangeId,
+                            SourceValues = xchange.SourceValues,
                             RetryFor = xchange.RetryFor,
                             AggregationXchangeId = agg.AggregationXchangeId,
                             Exception = result.Exception,

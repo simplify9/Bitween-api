@@ -100,6 +100,7 @@ The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `re
 | `POST /api/subscriptions/{id}/resetretryusage` | `subscriptions.operate` |
 | `GET /api/subscriptions/runs?subscriptionId=&limit=` | `subscriptions.view` |
 | `GET /api/subscriptions/receiveattempts?subscriptionId=&outcome=&offset=&limit=` | `subscriptions.view` |
+| `GET /api/subscriptions/sourcepaths?subscriptionId=` | `exchanges.view`. The paths in the last document it received, with their values: what a response or bus gateway subscription it feeds can read. |
 | `GET /api/subscriptions/lastruns` | `subscriptions.view` |
 | `GET /api/subscriptions/schedulehealth` | `subscriptions.view` |
 | `GET /api/subscriptioncategories` | `subscriptions.view` |

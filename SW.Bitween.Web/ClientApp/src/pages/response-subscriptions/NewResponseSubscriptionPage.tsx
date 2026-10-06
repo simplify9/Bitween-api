@@ -8,6 +8,7 @@ import { Panel } from "../../components/ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { InfoTypePicker } from "../../components/config/pickers";
 import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSourceDocument } from "../../components/config/sourceValues";
 import { api } from "../../api";
 import { STAGES, stagesFor, type StageId } from "../subscriptions/studio/stages";
 import { StageRail } from "../subscriptions/studio/StageRail";
@@ -89,6 +90,9 @@ function NewResponseSubscription() {
   const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
+  // Nothing feeds a subscription that doesn't exist yet, so there are no paths to offer; any
+  // path can still be typed.
+  const sourceValues = useSourceDocument({ type: "Response", id: null });
   const validators = useAdapterCatalog("validator");
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
@@ -215,6 +219,7 @@ function NewResponseSubscription() {
               onChange={(handlerId, handlerProperties) => update({ handlerId, handlerProperties })}
               disabled={false}
               required
+              sourceValues={sourceValues}
             />
             {bindsToDataSource(draft.handlerId, "handler") && (
               <div className="mt-3">
@@ -358,6 +363,7 @@ function NewResponseSubscription() {
             // It runs as whichever partner fed it, so there is no one partner to preview as
             // unless one is picked in the editor's own "Preview as" list.
             partnerId: null,
+            sourceValues,
             onSave: (mapperProperties) => update({ mapperId: NATIVE_MAPPER_ID, mapperProperties }),
           }}
           onClose={() => setMapping(false)}

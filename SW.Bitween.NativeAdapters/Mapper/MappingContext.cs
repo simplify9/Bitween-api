@@ -20,6 +20,14 @@ public class MappingContext
     public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Globals { get; init; } =
         new Dictionary<string, IReadOnlyDictionary<string, string>>();
 
+    /// <summary>
+    /// Values read from the original document — the input of the exchange whose delivery got the
+    /// response being mapped — by path. Empty
+    /// unless a response or bus gateway subscription is being mapped.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Source { get; init; } =
+        new Dictionary<string, string>();
+
     /// <summary>Id of the exchange being mapped, for diagnostics.</summary>
     public string? XchangeId { get; init; }
 
@@ -27,6 +35,9 @@ public class MappingContext
 
     public string? PartnerValue(string? key) =>
         key is not null && Partner.TryGetValue(key, out var value) ? value : null;
+
+    public string? SourceValue(string? path) =>
+        path is not null && Source.TryGetValue(path, out var value) ? value : null;
 
     public string? GlobalValue(string? setId, string? key)
     {

@@ -91,6 +91,15 @@ function backend(subjects: Raw[]) {
     ),
     // What a subscription's overview shows below the rail — none of it matters here.
     http.post(apiPath("/subscriptions/:id/retryusage"), () => HttpResponse.json([])),
+    // Nothing has delivered yet, so a response subscription has no paths to offer.
+    http.get(apiPath("/subscriptions/sourcepaths"), ({ request }) =>
+      HttpResponse.json({
+        subscriptionId: Number(new URL(request.url).searchParams.get("subscriptionId")),
+        xchangeId: null,
+        receivedOn: null,
+        paths: [],
+      }),
+    ),
     http.get(apiPath("/audit"), () => HttpResponse.json(noRows)),
     // The adapters don't matter to either node — only that the delivering one has a handler.
     ...["/adapters/Catalog", "/datasources/Providers"].map((p) => http.get(apiPath(p), () => HttpResponse.json([]))),
