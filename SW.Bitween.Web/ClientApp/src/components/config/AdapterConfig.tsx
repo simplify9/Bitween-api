@@ -8,6 +8,7 @@ import { Field } from "../ui/forms";
 import { AdapterPicker, useAdapterCatalog } from "./AdapterPicker";
 import { keys } from "../../api/queryKeys";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
+import { lackingPath, lackingPathWarning, type SourceDocument } from "./sourceValues";
 
 // Lives with the picker, re-exported here because this is where every screen
 // already imports it from.
@@ -37,7 +38,7 @@ const KIND_LABELS: Record<AdapterKind, string> = {
 interface ReferenceToken {
   label: string;
   token: string;
-  /** Globals resolve to one literal value; partner properties resolve per-exchange. */
+  /** Globals resolve to one literal value; partner properties resolve per-exchange; an original-document path shows an example. */
   value?: string;
 }
 
@@ -93,18 +94,20 @@ function PartnerPropValue({ partnerId, propKey }: { partnerId: number; propKey: 
 }
 
 /**
- * Searchable popover for inserting a `{{globals.…}}` / `{{partner.…}}`
- * reference. Globals show their literal value; partner properties resolve
- * per-exchange, so they show a note instead.
+ * Searchable popover for inserting a `{{globals.…}}` / `{{partner.…}}` /
+ * `{{source.…}}` reference. Globals show their literal value; partner properties
+ * and source values resolve per-exchange, so they show a note instead.
  */
 function ReferenceMenu({
   globals,
   partnerKeys,
+  sourceKeys,
   onPick,
   label,
 }: {
   globals: ReferenceToken[];
   partnerKeys: ReferenceToken[];
+  sourceKeys: ReferenceToken[];
   onPick: (token: string) => void;
   label: string;
 }) {
@@ -131,7 +134,9 @@ function ReferenceMenu({
     !needle || t.label.toLowerCase().includes(needle) || (t.value?.toLowerCase().includes(needle) ?? false);
   const filteredGlobals = globals.filter(matches);
   const filteredPartnerKeys = partnerKeys.filter(matches);
-  const noMatches = filteredGlobals.length === 0 && filteredPartnerKeys.length === 0;
+  const filteredSourceKeys = sourceKeys.filter(matches);
+  const noMatches =
+    filteredGlobals.length === 0 && filteredPartnerKeys.length === 0 && filteredSourceKeys.length === 0;
 
   const pick = (token: string) => {
     onPick(token);
@@ -165,6 +170,32 @@ function ReferenceMenu({
           </div>
           <div className="max-h-64 space-y-1 overflow-y-auto">
             {noMatches && <p className="px-2 py-2 text-[13px] text-ink-400">No matches.</p>}
+            {/* First: only a subscription fed by a delivery is offered these, and there they are
+                what the field is most likely reaching for. Last, they sat below the scroll. */}
+            {filteredSourceKeys.length > 0 && (
+              <div>
+                <p className="px-2 pt-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                  Original document
+                </p>
+                <p className="px-2 pb-1 text-[11px] leading-snug text-ink-500">
+                  What the subscription feeding this received, such as the order. Each exchange reads its own;
+                  the values are examples from the last one.
+                </p>
+                {filteredSourceKeys.map((t) => (
+                  <button
+                    key={t.token}
+                    type="button"
+                    onClick={() => pick(t.token)}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-ink-50"
+                  >
+                    <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
+                    <span className="max-w-[45%] shrink-0 truncate text-xs text-ink-400" title={`Example: ${t.value}`}>
+                      e.g. {t.value}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
             {filteredGlobals.length > 0 && (
               <div>
                 <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
@@ -223,10 +254,13 @@ function ReferenceHints({
   value,
   globals,
   partners,
+  source,
 }: {
   value: string;
   globals: ReferenceToken[];
   partners: PartnerRow[];
+  /** Null unless this is a response or bus gateway subscription — nothing else fills `{{source.…}}`. */
+  source: SourceDocument | null;
 }) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
@@ -236,7 +270,10 @@ function ReferenceHints({
   // in the id/key (e.g. "schedule source url") silently fail to match here.
   const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.[^}]+\}\}/g)].map((m) => m[0]))];
   const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([^}]+)\}\}/g)].map((m) => m[1]))];
-  if (globalRefs.length === 0 && partnerRefs.length === 0) return null;
+  const sourceRefs = source
+    ? [...new Set([...value.matchAll(/\{\{source\.([^}]+)\}\}/gi)].map((m) => m[1]))]
+    : [];
+  if (globalRefs.length === 0 && partnerRefs.length === 0 && sourceRefs.length === 0) return null;
 
   const realPartners = partners.filter((p) => !p.isSystem);
   const toggle = (key: string) =>
@@ -318,6 +355,40 @@ function ReferenceHints({
           </div>
         );
       })}
+
+      {source &&
+        sourceRefs.map((path) => {
+          const lacking = lackingPath(source, path);
+          const example = source.paths.find((p) => p.path === path);
+          return (
+            <div key={path} className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="font-mono text-ink-500">{`{{source.${path}}}`}</span>
+              <span className="text-ink-300">→</span>
+              {lacking.length > 0 ? (
+                <span
+                  className="font-medium text-warn-700"
+                  title="Saved anyway: documents vary, and the next one may have it. An exchange whose original document has no value there fails, naming the path."
+                >
+                  ⚠ {lackingPathWarning(lacking)} — an exchange without it fails
+                </span>
+              ) : example !== undefined ? (
+                <span
+                  className="text-ink-500"
+                  title={`${example.example} is only an example: the value in the last document "${example.from}" received. When an exchange runs, it reads this path from its own original document.`}
+                >
+                  e.g. <span className="font-medium text-ink-700">{example.example}</span> · each exchange reads its own
+                </span>
+              ) : (
+                <span
+                  className="text-ink-500"
+                  title="Read from each exchange's original document when it runs. Nothing has run yet to show an example or check the path against."
+                >
+                  read from each exchange's original document · {source.fed ? "nothing has run yet" : "nothing feeds this yet"}
+                </span>
+              )}
+            </div>
+          );
+        })}
     </div>
   );
 }
@@ -329,21 +400,28 @@ function ReferenceHints({
  * property a password comes from cannot tell a correct wiring from a typo.
  */
 const isPureReference = (value: string): boolean =>
-  /^\s*\{\{(globals\.[^.{}]+\.[^{}]+|partner\.[^{}]+)\}\}\s*$/i.test(value);
+  /^\s*\{\{(globals\.[^.{}]+\.[^{}]+|partner\.[^{}]+|source\.[^{}]+)\}\}\s*$/i.test(value);
 
 /** One adapter property: grows with content, can insert reference tokens. */
 function PropField({
   prop,
   value,
   disabled,
+  source,
   onChange,
 }: {
   prop: AdapterInfo["props"][number];
   value: string;
   disabled: boolean;
+  source: SourceDocument | null;
   onChange: (value: string) => void;
 }) {
   const { globals, partnerKeys, partners } = useReferenceTokens();
+  const sourceKeys: ReferenceToken[] = (source?.paths ?? []).map((p) => ({
+    label: `source.${p.path}`,
+    token: `{{source.${p.path}}}`,
+    value: p.example,
+  }));
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Whether the user is part-way through entering a value. Masking has to key off
@@ -415,17 +493,18 @@ function PropField({
               {value || prop.default || " "}{" "}
             </span>
           </div>
-          {!disabled && (globals.length > 0 || partnerKeys.length > 0) && (
+          {!disabled && (globals.length > 0 || partnerKeys.length > 0 || sourceKeys.length > 0) && (
             <ReferenceMenu
               globals={globals}
               partnerKeys={partnerKeys}
+              sourceKeys={sourceKeys}
               onPick={insertToken}
               label={`Insert a reference into ${prop.key}`}
             />
           )}
         </div>
       )}
-      {!masked && <ReferenceHints value={value} globals={globals} partners={partners} />}
+      {!masked && <ReferenceHints value={value} globals={globals} partners={partners} source={source} />}
     </Field>
   );
 }
@@ -444,6 +523,7 @@ export function AdapterConfig({
   noneLabel = "None",
   mapperEditorHref,
   onOpenMapperEditor,
+  sourceValues = null,
 }: {
   kind: AdapterKind;
   adapterId: string | null;
@@ -462,6 +542,11 @@ export function AdapterConfig({
    * needs one, and leaving the page would throw the draft away.
    */
   onOpenMapperEditor?: (() => void) | null;
+  /**
+   * A response or bus gateway subscription's handler can read the original document as
+   * `{{source.PATH}}`. Null everywhere else, which is never handed one.
+   */
+  sourceValues?: SourceDocument | null;
 }) {
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
@@ -478,6 +563,7 @@ export function AdapterConfig({
       prop={prop}
       value={properties[prop.key] ?? ""}
       disabled={disabled}
+      source={sourceValues}
       onChange={(v) => {
         // An empty adapter property means "not set", so clearing a field has to
         // remove the key rather than leave it as "". Keeping it made a cleared

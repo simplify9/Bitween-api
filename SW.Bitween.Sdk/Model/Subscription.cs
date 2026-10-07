@@ -122,6 +122,37 @@ namespace SW.Bitween.Model
         public int? Limit { get; set; }
     }
 
+    public class SourcePathsRequest
+    {
+        /// <summary>The subscription whose last received document to read.</summary>
+        public int SubscriptionId { get; set; }
+    }
+
+    /// <summary>
+    /// The paths in the last document a subscription received — what a response or bus gateway
+    /// subscription it feeds can read as source values.
+    /// </summary>
+    public class SourcePathsModel
+    {
+        public int SubscriptionId { get; set; }
+
+        /// <summary>The exchange that received it. Null when the subscription hasn't run successfully yet.</summary>
+        public string XchangeId { get; set; }
+
+        public DateTime? ReceivedOn { get; set; }
+
+        /// <summary>Empty when the document has no paths, or its file is gone.</summary>
+        public ICollection<SourcePath> Paths { get; set; } = [];
+    }
+
+    public class SourcePath
+    {
+        public string Path { get; set; }
+
+        /// <summary>The value in that document, cut to 100 characters.</summary>
+        public string Example { get; set; }
+    }
+
     /// <summary>
     /// Whether a scheduled subscription will actually fire — read from the scheduler
     /// itself, not from what Bitween thinks it configured. The two can disagree, and

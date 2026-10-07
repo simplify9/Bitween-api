@@ -22,6 +22,9 @@ namespace SW.Bitween.Resources.Xchanges
         /// </summary>
         internal const int CountCap = 10_000;
 
+        /// <summary>The most id/name pairs a lookup returns, newest first.</summary>
+        public const int LookupLimit = 100;
+
         private readonly BitweenDbContext dbContext = dbContext;
         private readonly RequestContext requestContext = requestContext;
         private readonly XchangeService xchangeService = xchangeService;
@@ -71,6 +74,8 @@ namespace SW.Bitween.Resources.Xchanges
                             Duration = xchange.StartedOn.Elapsed(result.FinishedOn),
                             PromotedProperties = promoted == null ? null : promoted.Properties.InDefinedOrder(document.PromotedProperties),
                             PromotedPropertiesRaw = promoted == null ? null : promoted.PropertiesRaw,
+                            SourceXchangeId = xchange.SourceXchangeId,
+                            SourceValues = xchange.SourceValues,
                             RetryFor = xchange.RetryFor,
                             AggregationXchangeId = agg.AggregationXchangeId,
                             Exception = result.Exception,
@@ -107,7 +112,19 @@ namespace SW.Bitween.Resources.Xchanges
             var s = query.OrderByDescending(p => p.StartedOn).AsNoTracking().Search(searchyRequest.Conditions,
                 searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
 
+            // Only id and information type, so the lookup has nothing to hide from a caller without
+            // the view permission. It returned whole rows before — errors, promoted values, source
+            // values — to anyone signed in. Capped, because exchanges run to millions and a lookup
+            // with no page size would otherwise list every one of them.
+            if (lookup)
+                return await s.Take(LookupLimit).ToDictionaryAsync(k => k.Id, v => v.DocumentName);
+
             var r = await s.ToListAsync();
+
+            // Shown here, never used: a long source value is cut the way the editor's examples are,
+            // so a page of rows stays small whatever a subscription reads. The exchange keeps it whole.
+            foreach (var row in r.Where(row => row.SourceValues != null))
+                row.SourceValues = row.SourceValues.ToDictionary(v => v.Key, v => SourceDocument.Shorten(v.Value));
 
             // Which of these have already been retried, so the client can tell a spent exchange
             // from a retryable one without asking about each row's chain. Asked separately rather

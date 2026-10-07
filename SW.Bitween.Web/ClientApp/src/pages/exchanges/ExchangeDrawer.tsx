@@ -405,6 +405,31 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
             </span>
           </MetaItem>
         )}
+        {x.sourceXchangeId && (
+          <MetaItem label="Response to">
+            <Link
+              to={`/exchanges?ids=${encodeURIComponent(x.sourceXchangeId)}`}
+              title="The exchange whose delivery got the response this one runs on. Its input is the original document the source values were read from."
+              className="font-mono text-xs text-ink-700 hover:text-crimson-700 hover:underline"
+            >
+              {x.sourceXchangeId}
+            </Link>
+          </MetaItem>
+        )}
+        {x.sourceValues && Object.keys(x.sourceValues).length > 0 && (
+          <MetaItem label="Source values">
+            <span
+              className="flex flex-wrap gap-1"
+              title="Read from the original document (the input of the exchange above), by path, when this exchange was created — what {{source.…}} and Original mapping rules use"
+            >
+              {Object.entries(x.sourceValues).map(([k, v]) => (
+                <code key={k} className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
+                  {k}={v ?? "—"}
+                </code>
+              ))}
+            </span>
+          </MetaItem>
+        )}
       </dl>
 
       {/* — actions — */}

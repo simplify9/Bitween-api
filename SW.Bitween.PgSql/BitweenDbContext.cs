@@ -303,6 +303,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.HandlerId).HasMaxLength(200);
                 b.Property(p => p.HandlerProperties).HasColumnType("jsonb");
                 b.Property(p => p.MapperProperties).HasColumnType("jsonb");
+                b.Property(p => p.SourceValues).HasColumnType("jsonb");
+                b.Property(p => p.SourceXchangeId).HasMaxLength(50);
                 b.Property(p => p.InputContentType).HasMaxLength(200);
                 b.Property(p => p.ResponseMessageTypeName).HasMaxLength(500);
                 b.Property(p => p.FilesPrefix).HasMaxLength(200);
@@ -317,6 +319,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.References); //.IsSeparatorDelimited().HasMaxLength(1024);
+                b.Property(p => p.SourceValues).HasColumnType("jsonb");
+                b.Property(p => p.SourceXchangeId).HasMaxLength(50);
                 b.HasIndex(i => i.SubscriptionId);
             });
 
@@ -365,7 +369,11 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Id).HasMaxLength(50);
                 b.Property(p => p.Properties).HasColumnType("jsonb");
                 b.Property(p => p.Hits); //.IsSeparatorDelimited().HasMaxLength(2000);
-                b.HasIndex(p => p.PropertiesRaw);
+                // No b-tree on PropertiesRaw. The only query on it is the Exchanges page's substring
+                // search, a leading-wildcard LIKE no b-tree can serve (Postgres has a trigram index
+                // for it, PromotedPropertiesTrigramIndex). Having one made long values fail the
+                // save — after the delivery, so the retry delivered again — and it is what had
+                // capped the column at 450 characters on SQL Server and 255 on MySQL.
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id)
                     .OnDelete(DeleteBehavior.Cascade);
             });

@@ -1,4 +1,5 @@
-﻿using SW.EfCoreExtensions;
+﻿using SW.Bitween.Domain;
+using SW.EfCoreExtensions;
 using SW.PrimitiveTypes;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +24,13 @@ namespace SW.Bitween
 
             var xf = new XchangeFile(message);
 
-            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf, null, requestContext.CorrelationId);
+            // A Bitween delivery's response says which exchange delivered, for a route to read that
+            // exchange's input by. A message published any other way has none.
+            var sourceXchangeId = requestContext.GetValueOf(StartupValuesFiller.SourceXchangeBusValue,
+                RequestValueType.ServiceBusValue);
+
+            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf, null, requestContext.CorrelationId,
+                string.IsNullOrWhiteSpace(sourceXchangeId) ? null : new XchangeSource(sourceXchangeId));
         }
 
         private async Task<IReadOnlyDictionary<string, int>> GetMessageTypeNameToDocumentIdMap()

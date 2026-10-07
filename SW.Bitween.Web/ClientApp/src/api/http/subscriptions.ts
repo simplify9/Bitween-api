@@ -2,6 +2,7 @@ import type { ApiClient } from "../client";
 import {
   ApiRequestError,
   type AggregationTarget,
+  type SourcePaths,
   type Subscription,
   type SubscriptionDetail,
   type SubscriptionInfo,
@@ -549,6 +550,10 @@ export const subscriptionMethods = {
         })),
       })),
     };
+  },
+
+  getSourcePaths(subscriptionId: number): Promise<SourcePaths> {
+    return get<SourcePaths>(`/subscriptions/sourcepaths?subscriptionId=${subscriptionId}`);
   },
 
   // Both of these used to rename the wire's `subscriptionId` onto an `integrationId` field;

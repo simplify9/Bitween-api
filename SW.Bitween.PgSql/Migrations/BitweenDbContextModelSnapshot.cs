@@ -20,7 +20,7 @@ namespace SW.Bitween.PgSql.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("infolink")
-                .HasAnnotation("ProductVersion", "9.0.19")
+                .HasAnnotation("ProductVersion", "9.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
@@ -1032,6 +1032,15 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("text[]")
                         .HasColumnName("references");
 
+                    b.Property<IReadOnlyDictionary<string, string>>("SourceValues")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("source_values");
+
+                    b.Property<string>("SourceXchangeId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("source_xchange_id");
+
                     b.Property<int>("SubscriptionId")
                         .HasColumnType("integer")
                         .HasColumnName("subscription_id");
@@ -1604,6 +1613,15 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("retry_for");
 
+                    b.Property<IReadOnlyDictionary<string, string>>("SourceValues")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("source_values");
+
+                    b.Property<string>("SourceXchangeId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("source_xchange_id");
+
                     b.Property<DateTime>("StartedOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_on");
@@ -1744,9 +1762,6 @@ namespace SW.Bitween.PgSql.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_xchange_promoted_properties");
-
-                    b.HasIndex("PropertiesRaw")
-                        .HasDatabaseName("ix_xchange_promoted_properties_properties_raw");
 
                     b.ToTable("xchange_promoted_properties", "infolink");
                 });

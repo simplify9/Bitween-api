@@ -87,4 +87,17 @@ public class ReadGuardTests(BitweenFixture fixture)
         await ActivatorUtilities.CreateInstance<Resources.Accounts.Search>(scope.ServiceProvider)
             .Handle(new SearchMembersModel { Lookup = true });
     }
+
+    [Fact]
+    public async Task An_exchange_lookup_gives_someone_without_access_only_ids_and_names()
+    {
+        await using var scope = fixture.CreateScope();
+        await SignInAsInformationTypeReader(scope);
+
+        // It used to return whole rows: errors, promoted values and source values, to anyone signed in.
+        var result = await Search<Resources.Xchanges.Search>(scope, lookup: true)();
+
+        var pairs = Assert.IsAssignableFrom<IDictionary<string, string>>(result);
+        Assert.True(pairs.Count <= Resources.Xchanges.Search.LookupLimit);
+    }
 }

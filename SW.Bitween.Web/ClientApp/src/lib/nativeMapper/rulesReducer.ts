@@ -568,6 +568,8 @@ export function isAssigned(rule: EditorFieldRule): boolean {
       return rule.from.value !== undefined && rule.from.value !== "";
     case "partner":
       return Boolean(rule.from.key?.trim());
+    case "source":
+      return Boolean(rule.from.path?.trim());
     case "global":
       return Boolean(rule.from.setId?.trim() && rule.from.key?.trim());
     // Nothing to fill in: asking how many entries there are is the whole rule.

@@ -56,7 +56,7 @@ See [Entry points](entry-points.md) for status codes.
 
 | Method and path | Permission | Description |
 |---|---|---|
-| `GET /api/xchanges` | `exchanges.view` or `dashboard.view` | Searchy. See the filters below. |
+| `GET /api/xchanges` | `exchanges.view` or `dashboard.view`, or signed in with `lookup=true` | Searchy. See the filters below. A lookup returns at most 100 exchange ids, newest first, each with its information type's name. |
 | `GET /api/xchanges/statuslist` | `exchanges.view` | Status values for filters |
 | `GET /api/xchanges/retrytree?id=` | `exchanges.view` | The retry chain any attempt belongs to |
 | `POST /api/xchanges` | signed in, no permission checked | Create an exchange by hand |
@@ -100,6 +100,7 @@ The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `re
 | `POST /api/subscriptions/{id}/resetretryusage` | `subscriptions.operate` |
 | `GET /api/subscriptions/runs?subscriptionId=&limit=` | `subscriptions.view` |
 | `GET /api/subscriptions/receiveattempts?subscriptionId=&outcome=&offset=&limit=` | `subscriptions.view` |
+| `GET /api/subscriptions/sourcepaths?subscriptionId=` | `exchanges.view`. The paths in the last document it received, with their values: what a response or bus gateway subscription it feeds can read. |
 | `GET /api/subscriptions/lastruns` | `subscriptions.view` |
 | `GET /api/subscriptions/schedulehealth` | `subscriptions.view` |
 | `GET /api/subscriptioncategories` | `subscriptions.view` |

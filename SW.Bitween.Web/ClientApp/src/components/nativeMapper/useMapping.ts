@@ -5,6 +5,7 @@ import { keys } from "../../api/queryKeys";
 import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
 import { loadMapping, saveMapping, toWire } from "../../lib/nativeMapper/serialize";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
+import type { SourceDocument } from "../config/sourceValues";
 
 /**
  * Where the editor reads its mapping from and writes it back to.
@@ -27,6 +28,8 @@ export type MappingTarget =
       mapperProperties: Record<string, string>;
       /** Whose values the preview substitutes; the create pages know it before saving. */
       partnerId: number | null;
+      /** What the delivered document offers, when the draft is a response subscription. */
+      sourceValues?: SourceDocument | null;
       /** Hands the rules back to the page holding the draft. */
       onSave: (mapperProperties: Record<string, string>) => void;
     };
@@ -80,8 +83,8 @@ export function useMappingLoader(target: MappingTarget) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftProperties === null, dispatch]);
 
-  if (target.kind === "draft") return { partnerId: target.partnerId };
-  return { partnerId: data?.partnerId ?? null };
+  if (target.kind === "draft") return { partnerId: target.partnerId, subscription: null };
+  return { partnerId: data?.partnerId ?? null, subscription: data ?? null };
 }
 
 const PREVIEW_DEBOUNCE_MS = 500;

@@ -145,6 +145,8 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
                         xchange.ResponseSubscriptionId,
                         xchange.ResponseMessageTypeName,
                         PromotedProperties = values,
+                        xchange.SourceXchangeId,
+                        xchange.SourceValues,
                         Result = result == null
                             ? null
                             : new

@@ -20,7 +20,7 @@ namespace SW.Bitween;
 public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbContext,
     FilterService filterService,
     ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
-    IPublish publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
+    IPublishWithValues publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
     IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery,
     FileLinks fileLinks, StorageRetention storageRetention) :
     // IConsume<ApiXchangeCreatedEvent>,
@@ -47,20 +47,21 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     public async Task SubmitFilterXchange(int documentId, XchangeFile file, string[] references = null,
-        string correlationId = null)
+        string correlationId = null, XchangeSource source = null)
     {
         var document = await BitweenCache.DocumentByIdAsync(documentId);
         Xchange xchange;
 
         if (document?.DisregardsUnfilteredMessages ?? false)
         {
-            xchange = new Xchange(documentId, null, file, references, SubscriptionType.Internal, correlationId);
+            xchange = new Xchange(documentId, null, file, references, SubscriptionType.Internal, correlationId,
+                source);
             var result = await filterService.Filter(xchange.DocumentId, file);
             await CreateXchangesForHits(xchange, result, file);
         }
         else
         {
-            xchange = await CreateXchange(document, null, file, references, correlationId);
+            xchange = await CreateXchange(document, null, file, references, correlationId, source);
         }
 
         await dbContext.SaveChangesAsync();
@@ -131,9 +132,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     public async Task<Xchange> CreateXchange(Document document, WorkGroup workGroup, XchangeFile file,
         string[] references = null,
-        string correlationId = null)
+        string correlationId = null, XchangeSource source = null)
     {
-        var xchange = new Xchange(document.Id, workGroup, file, references, SubscriptionType.Internal, correlationId);
+        var xchange = new Xchange(document.Id, workGroup, file, references, SubscriptionType.Internal, correlationId,
+            source);
         await AddInputFile(xchange, file);
         dbContext.Add(xchange);
         return xchange;
@@ -141,7 +143,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     public async Task<Xchange> CreateXchange(Subscription subscription, XchangeFile file,
         string[] references = null, string correlationId = null, Partner gatewayPartner = null,
-        GlobalAdapterValuesSet[] globalAdapterValuesSets = null)
+        GlobalAdapterValuesSet[] globalAdapterValuesSets = null, XchangeSource source = null)
     {
         // Callers that have no partner/globals context of their own (scheduled receivers,
         // aggregation, manual "create exchange", plain internal subscription fan-out) leave
@@ -161,7 +163,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             : null;
 
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
-            globalAdapterValuesSets);
+            globalAdapterValuesSets, source);
         await AddInputFile(xchange, file);
         dbContext.Add(xchange);
         return xchange;
@@ -249,10 +251,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     private Task CreateOnHoldXchange(Subscription subscription, XchangeFile file, string[] references = null,
-        int? partnerId = null, string correlationId = null)
+        int? partnerId = null, string correlationId = null, XchangeSource source = null)
     {
         var xchange = new OnHoldXchange(subscription, file.Data, file.Filename, file.BadData, references,
-            partnerId, correlationId);
+            partnerId, correlationId, source);
         dbContext.Add(xchange);
         return Task.CompletedTask;
     }
@@ -267,7 +269,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// time. A disabled subscription is not in the cache, and is skipped the way a disabled bus
     /// route's subscription is.
     /// </remarks>
-    private async Task<Xchange> HandOnResponse(Xchange xchange, XchangeFile responseFile)
+    private async Task<Xchange> HandOnResponse(Xchange xchange, XchangeFile responseFile,
+        XchangeFile inputFile)
     {
         var target = await BitweenCache.SubscriptionByIdAsync(xchange.ResponseSubscriptionId!.Value);
         if (target == null)
@@ -280,23 +283,76 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         // Legacy targets (Internal, ApiCall) keep what they have always had: every response, run
         // as their own partner. A response subscription is shared by everything that feeds it, so
-        // it runs as the partner of the one that did, and only on a bad response if it says so.
+        // it runs as the partner of the one that did, and only on a bad response if it says so. It
+        // also reads what it uses out of the input of the exchange that delivered, as source values.
         var isResponseType = target.Type == SubscriptionType.Response;
         if (isResponseType && responseFile.BadData && !target.RunOnBadResponses)
             return null;
 
         var partnerId = isResponseType ? xchange.PartnerId : null;
+        var source = isResponseType
+            ? new XchangeSource(xchange.Id, SourceDocument.Read(inputFile.Data, SourceDocument.PathsUsedBy(target)))
+            : null;
 
         if (target.PausedOn != null)
         {
-            await CreateOnHoldXchange(target, responseFile, null, partnerId, xchange.CorrelationId);
+            await CreateOnHoldXchange(target, responseFile, null, partnerId, xchange.CorrelationId, source);
             return null;
         }
 
         var partner = partnerId.HasValue ? await dbContext.FindAsync<Partner>(partnerId.Value) : null;
-        return await CreateXchange(target, responseFile, null, xchange.CorrelationId, partner);
+        return await CreateXchange(target, responseFile, null, xchange.CorrelationId, partner, source: source);
     }
 
+
+    /// <summary>
+    /// Publishes a delivery's response under its message name, with this exchange's id beside the
+    /// body, for a bus gateway route picking it up to read this exchange's input by.
+    /// </summary>
+    /// <remarks>
+    /// Beside the body, not in it: any other reader of the message gets exactly the body it always
+    /// did. Only the id, so what travels stays the same size however much a route reads.
+    /// </remarks>
+    private Task PublishResponse(Xchange xchange, XchangeFile responseFile) =>
+        publish.Publish(xchange.ResponseMessageTypeName, responseFile.Data,
+            new Dictionary<string, string> { [StartupValuesFiller.SourceXchangeBusValue] = xchange.Id });
+
+    /// <summary>
+    /// Fails a response or bus gateway subscription's exchange whose handler still has a
+    /// <c>{{source.…}}</c> token in it.
+    /// </summary>
+    /// <remarks>
+    /// The tokens are filled when the exchange is created, so one left over means the value wasn't
+    /// there, and running on would hand the partner the token's text instead. Other types are never
+    /// given source values and are left alone — a template there may be reading a document field
+    /// that happens to be called "source".
+    /// </remarks>
+    private async Task EnsureSourceValuesFilled(Xchange xchange)
+    {
+        var unfilled = StartupValuesFiller.SourcePathsIn(xchange.HandlerProperties?.Values).ToList();
+        if (unfilled.Count == 0) return;
+
+        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange.SubscriptionId!.Value);
+        if (subscription?.Type is not (SubscriptionType.Response or SubscriptionType.BusGateway)) return;
+
+        if (xchange.SourceXchangeId == null)
+            throw new BitweenException(
+                $"The handler uses source values ({string.Join(", ", unfilled)}), but this exchange has no " +
+                "original document to read them from: " +
+                (subscription.Type == SubscriptionType.BusGateway
+                    ? "its message wasn't published as a Bitween delivery's response."
+                    : "it wasn't started by a delivery's response."));
+
+        if (xchange.SourceValues == null)
+            throw new BitweenException(
+                $"The handler uses source values ({string.Join(", ", unfilled)}), but the original document, " +
+                $"the input of exchange {xchange.SourceXchangeId}, couldn't be read: that exchange isn't in this " +
+                "Bitween, or its file is gone.");
+
+        throw new BitweenException(
+            $"The handler can't be filled in: the original document, the input of exchange {xchange.SourceXchangeId}, " +
+            $"has no value at {string.Join(", ", unfilled.Select(p => $"'{p}'"))}.");
+    }
 
     /// <summary>
     /// Collects the partner and global values for a mapper that takes them as context.
@@ -317,7 +373,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     private async Task<string> BuildMappingContextJson(Xchange xchange)
     {
         var factory = serviceProvider.GetRequiredService<MappingContextFactory>();
-        return JsonConvert.SerializeObject(await factory.Build(xchange.PartnerId, xchange.Id));
+        return JsonConvert.SerializeObject(await factory.Build(xchange.PartnerId, xchange.Id, xchange.SourceValues));
     }
 
     private async Task<XchangeFile> RunMapper(Xchange xchange, XchangeFile xchangeFile)
@@ -626,11 +682,19 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
             var result = await filterService.Filter(xchange.DocumentId, inputFile);
 
+            // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
+            // short value and picked up a notes field or a whole object instead.
+            foreach (var (key, value) in result.Properties)
+                if (value?.Length > XchangePromotedProperties.MaxValueLength)
+                    logger.LogWarning(
+                        "Promoted property {Key} of xchange {XchangeId} is {Length} characters long; it is stored cut to {MaxLength}.",
+                        key, xchange.Id, value.Length, XchangePromotedProperties.MaxValueLength);
             dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
 
             if (xchange.SubscriptionId != null)
             {
                 workGroup = await BitweenCache.WorkGroupBySubscriptionIdAsync(xchange.SubscriptionId.Value);
+                await EnsureSourceValuesFilled(xchange);
                 if (xchange.MapperId == null)
                     responseFile = await RunHandler(xchange, inputFile);
                 else
@@ -640,12 +704,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 }
 
                 if (xchange.ResponseSubscriptionId != null && responseFile != null)
-                    responseXchange = await HandOnResponse(xchange, responseFile);
+                    responseXchange = await HandOnResponse(xchange, responseFile, inputFile);
 
                 if (!string.IsNullOrWhiteSpace(xchange.ResponseMessageTypeName) && responseFile != null &&
                     !responseFile.BadData)
                 {
-                    await publish.Publish(xchange.ResponseMessageTypeName, responseFile.Data);
+                    await PublishResponse(xchange, responseFile);
                 }
             }
             else if (xchange.SubscriptionId == null)
@@ -839,6 +903,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     async Task CreateXchangesForHits(Xchange xchange, FilterResult result, XchangeFile inputFile)
     {
+        string original = null;
+        var originalRead = false;
+
         foreach (var subscriptionId in result.Hits)
         {
             var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
@@ -873,15 +940,61 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 ? await dbContext.FindAsync<Partner>(hit.PartnerId.Value)
                 : null;
 
+            // A route reads what it uses from the input of the exchange whose delivery got the
+            // response its message carries, if it was one. Auto-matched Internal subscriptions above never do.
+            var source = await SourceFor(subscription);
             if (subscription.PausedOn != null)
             {
-                await CreateOnHoldXchange(subscription, inputFile);
+                await CreateOnHoldXchange(subscription, inputFile, source: source);
             }
             else
             {
                 await CreateXchange(subscription, inputFile, null, xchange.CorrelationId, partner,
-                    globalAdapterValuesSets);
+                    globalAdapterValuesSets, source);
             }
+        }
+
+        async Task<XchangeSource> SourceFor(Subscription subscription)
+        {
+            if (xchange.SourceXchangeId == null) return null;
+
+            var paths = SourceDocument.PathsUsedBy(subscription);
+            if (paths.Count == 0) return new XchangeSource(xchange.SourceXchangeId, new Dictionary<string, string>());
+
+            // Read once, for the first route that needs it; the rest read the same document.
+            if (!originalRead)
+            {
+                original = await ReadSourceDocument(xchange.SourceXchangeId);
+                originalRead = true;
+            }
+
+            return new XchangeSource(xchange.SourceXchangeId,
+                original == null ? null : SourceDocument.Read(original, paths));
+        }
+    }
+
+    /// <summary>
+    /// An exchange's input, for its source values, or null when it can't be read: the exchange isn't
+    /// in this Bitween — another instance on the same bus published the message — or its file is gone.
+    /// </summary>
+    private async Task<string> ReadSourceDocument(string xchangeId)
+    {
+        var source = await dbContext.Set<Xchange>().AsNoTracking().SingleOrDefaultAsync(x => x.Id == xchangeId);
+        if (source == null)
+        {
+            logger.LogWarning("The message came from the delivery of xchange {XchangeId}, which isn't in this Bitween; " +
+                              "its input can't be read for source values.", xchangeId);
+            return null;
+        }
+
+        try
+        {
+            return await GetFile(source, XchangeFileType.Input);
+        }
+        catch (SWValidationException ex)
+        {
+            logger.LogWarning(ex, "The input of xchange {XchangeId} can't be read for source values.", xchangeId);
+            return null;
         }
     }
 
@@ -978,7 +1091,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             var partner = xchangeDetails.PartnerId.HasValue
                 ? await dbContext.FindAsync<Partner>(xchangeDetails.PartnerId.Value)
                 : null;
-            await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner);
+            await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner,
+                source: xchangeDetails.Source);
             dbContext.Remove(xchangeDetails);
         }
 

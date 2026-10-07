@@ -263,6 +263,15 @@ namespace SW.Bitween.Model
         public string Duration { get; set; }
         public IDictionary<string, string> PromotedProperties { get; set; }
         public string PromotedPropertiesRaw { get; set; }
+
+        /// <summary>
+        /// The exchange whose delivery's response started this one. Only a response or bus gateway
+        /// subscription's exchange has one.
+        /// </summary>
+        public string SourceXchangeId { get; set; }
+
+        /// <summary>What it read from the input of <see cref="SourceXchangeId"/>, by path.</summary>
+        public IReadOnlyDictionary<string, string> SourceValues { get; set; }
         public string RetryFor { get; set; }
         public string AggregationXchangeId { get; set; }
         public bool? OutputBad { get; set; }

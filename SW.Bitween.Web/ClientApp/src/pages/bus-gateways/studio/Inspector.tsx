@@ -8,6 +8,7 @@ import { Checkbox, Field, TextInput } from "../../../components/ui/forms";
 import { InfoTypePicker } from "../../../components/config/pickers";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { AdapterConfig } from "../../../components/config/AdapterConfig";
+import type { SourceDocument } from "../../../components/config/sourceValues";
 import { MatchExpressionEditor } from "../../../components/config/MatchExpressionEditor";
 import { HealthBadge } from "../../../components/config/shared";
 import { ResponseFields } from "../../subscriptions/studio/ResponseFields";
@@ -382,10 +383,13 @@ export function DeliveryBody({
   draft,
   onChange,
   disabled,
+  sourceValues,
 }: {
   draft: SubscriptionDraft;
   onChange: (patch: Partial<SubscriptionDraft>) => void;
   disabled: boolean;
+  /** Set on a hop whose handler can read the delivered document. */
+  sourceValues?: SourceDocument | null;
 }) {
   return (
     <AdapterConfig
@@ -395,6 +399,7 @@ export function DeliveryBody({
       onChange={(handlerId, handlerProperties) => onChange({ handlerId, handlerProperties })}
       disabled={disabled}
       noneLabel="None — the message stops here"
+      sourceValues={sourceValues}
     />
   );
 }

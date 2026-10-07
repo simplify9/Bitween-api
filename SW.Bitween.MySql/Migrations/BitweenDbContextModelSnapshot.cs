@@ -17,7 +17,7 @@ namespace SW.Bitween.MySql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.19")
+                .HasAnnotation("ProductVersion", "9.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
@@ -858,6 +858,14 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("varchar(1024)");
 
+                    b.Property<string>("SourceValues")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SourceXchangeId")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<int>("SubscriptionId")
                         .HasColumnType("int");
 
@@ -1325,6 +1333,14 @@ namespace SW.Bitween.MySql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<string>("SourceValues")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("SourceXchangeId")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<DateTime>("StartedOn")
                         .HasColumnType("datetime(6)");
 
@@ -1437,11 +1453,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("longtext");
 
                     b.Property<string>("PropertiesRaw")
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PropertiesRaw");
 
                     b.ToTable("XchangePromotedProperties", (string)null);
                 });

@@ -97,6 +97,59 @@ public class DocumentMapperTests
     }
 
     /// <summary>
+    /// Source values come from the context, by the path the rule reads — read out of the delivered
+    /// document when the exchange was created, not out of the document being mapped.
+    /// </summary>
+    [TestMethod]
+    public void SourceValue_ReadsTheContextByPath()
+    {
+        var context = new MappingContext
+        {
+            Source = new Dictionary<string, string> { ["order.number"] = "SO-1001" },
+        };
+        var rules = new MappingRules
+        {
+            Fields =
+            [
+                Field("ref", new ValueSource { Kind = ValueSourceKind.Source, Path = "order.number" }),
+                Field("missing", new ValueSource { Kind = ValueSourceKind.Source, Path = "order.customer" }),
+            ],
+        };
+
+        var output = Map(rules, Order, context);
+        Assert.AreEqual("SO-1001", Scalar(output, "ref"));
+        Assert.IsNull(Scalar(output, "missing"));
+    }
+
+    /// <summary>
+    /// An exchange is created with every source value its mapping reads, so the walk has to reach the
+    /// rules nested in lists and in written-in entries, not only the top-level fields.
+    /// </summary>
+    [TestMethod]
+    public void EveryField_ReachesNestedListsAndWrittenInEntries()
+    {
+        FieldRule Uses(string path) => Field(path, new ValueSource { Kind = ValueSourceKind.Source, Path = path });
+        var rules = new MappingRules
+        {
+            Fields = [Uses("top")],
+            Lists =
+            [
+                new ListRule
+                {
+                    Fields = [Uses("inList")],
+                    Lists = [new ListRule { Item = Uses("nestedItem") }],
+                    Fixed = [new ListEntry { Fields = [Uses("header")] }],
+                    After = [new ListEntry { Lists = [new ListRule { Fields = [Uses("trailerList")] }] }],
+                },
+            ],
+        };
+
+        CollectionAssert.AreEquivalent(
+            new[] { "top", "inList", "nestedItem", "header", "trailerList" },
+            rules.EveryField().Select(f => f.From.Path).ToArray());
+    }
+
+    /// <summary>
     /// A hyphenated key works. In the old mapper this exact case silently produced null inside a
     /// fixed array item, because the key was spliced into a Scriban expression where the hyphen
     /// parsed as subtraction.

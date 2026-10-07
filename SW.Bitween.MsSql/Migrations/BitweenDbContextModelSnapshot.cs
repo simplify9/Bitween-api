@@ -17,7 +17,7 @@ namespace SW.Bitween.MsSql.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.19")
+                .HasAnnotation("ProductVersion", "9.0.20")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -864,6 +864,14 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("nvarchar(1024)");
 
+                    b.Property<string>("SourceValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SourceXchangeId")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<int>("SubscriptionId")
                         .HasColumnType("int");
 
@@ -1333,6 +1341,14 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
 
+                    b.Property<string>("SourceValues")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SourceXchangeId")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<DateTime>("StartedOn")
                         .HasColumnType("datetime2");
 
@@ -1445,11 +1461,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PropertiesRaw")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("PropertiesRaw");
 
                     b.ToTable("XchangePromotedProperties", (string)null);
                 });

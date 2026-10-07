@@ -8,6 +8,7 @@ import { SegmentedControl } from "../ui/SegmentedControl";
 import { RuleDetail } from "./RuleDetail";
 import { RowInput } from "./rowControls";
 import { ValueCell, type SourcePaths } from "./ValueCell";
+import { useSourceValues } from "./sourceValuesContext";
 
 /**
  * One rule, on one line.
@@ -42,6 +43,7 @@ export function OutputRow({
   const { rule, errorKey } = node;
   const dispatch = useRulesDispatch();
   const { selectedId, ruleErrors, hoveredPath } = useRules();
+  const original = useSourceValues() !== null;
   const [open, setOpen] = useState(false);
 
   const isItem = node.kind === "item";
@@ -155,7 +157,7 @@ export function OutputRow({
         <SegmentedControl
           size="sm"
           label="Where the value comes from"
-          options={sourceKindsFor(inList)}
+          options={sourceKindsFor(inList, original)}
           value={rule.from.kind === "rootPath" ? "path" : rule.from.kind}
           // A row showing "Source" may be reading the entry or the document; both are
           // that one choice, and the dropdown beside it says which.

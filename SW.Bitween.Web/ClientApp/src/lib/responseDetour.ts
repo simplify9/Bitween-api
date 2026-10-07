@@ -17,8 +17,23 @@ import { useLocation, useNavigate, useSearchParams } from "react-router";
 const STORE = "bitween-response-detour:";
 const KEPT = "draftKept";
 const PICKED = "pickedResponse";
+const FEEDER = "feeder";
 
 export const NEW_RESPONSE_PATH = "/response-subscriptions/new";
+
+/**
+ * The create page's address: the way back, and the subscription it is being made for when that one
+ * is saved, so the page can offer what that subscription receives as source values.
+ */
+export function newResponsePath(back: string, feederId: number | null = null): string {
+  return `${NEW_RESPONSE_PATH}?return=${encodeURIComponent(back)}${feederId !== null ? `&${FEEDER}=${feederId}` : ""}`;
+}
+
+/** The subscription a new response subscription is being made for, when the create page was told. */
+export function feederOf(params: URLSearchParams): number | null {
+  const id = Number(params.get(FEEDER));
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
 
 /** Where the create page sends you once the response subscription exists (or null on Cancel). */
 export function returnPath(returnTo: string, picked: number | null): string {
@@ -80,8 +95,11 @@ export function useResponseDetour<T>() {
   return {
     kept: arrival.kept,
     pickedResponse: arrival.pickedResponse,
-    /** Keeps `draft` and opens the response subscription's create page. */
-    leave: (draft: T) => away(draft, (back) => `${NEW_RESPONSE_PATH}?return=${encodeURIComponent(back)}`),
+    /**
+     * Keeps `draft` and opens the response subscription's create page. `feederId` is the
+     * subscription being left, when it is saved: a new one has never run, so has nothing to offer.
+     */
+    leave: (draft: T, feederId: number | null = null) => away(draft, (back) => newResponsePath(back, feederId)),
     /** Keeps `draft` and opens an existing subscription; Back comes home to the draft. */
     open: (draft: T, subscriptionId: number) => away(draft, () => `/subscriptions/${subscriptionId}`),
   };

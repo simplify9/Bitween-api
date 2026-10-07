@@ -54,6 +54,7 @@ import type {
   QueueHealthSnapshot,
   UnattendedDeleteResult,
   ReceiveAttemptRow,
+  SourcePaths,
   ReceiveOutcome,
   RetryGroup,
   RetryAlertConfig,
@@ -286,6 +287,8 @@ export interface ApiClient {
     subscriptionId: number,
     query: { outcome: ReceiveOutcome | null; offset: number; limit: number },
   ): Promise<Paged<ReceiveAttemptRow>>;
+  /** The paths in the last document a subscription received. Needs exchanges.view. */
+  getSourcePaths(subscriptionId: number): Promise<SourcePaths>;
   /** Newest run of every scheduled subscription — one request for a whole list. */
   listLastRuns(): Promise<SubscriptionLastRun[]>;
   /** Will these schedules actually fire? Asks the scheduler, not the subscription record. */

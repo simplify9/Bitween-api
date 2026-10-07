@@ -56,7 +56,7 @@ Processing starts by reading the input in the information type's format.
 - **JSON** payloads are read with JSON path expressions. Only a JSON object can be read, so a payload whose root is an array yields no promoted properties and matches no filter.
 - **XML** payloads are read with XPath, after decoding HTML entities and removing characters XML does not allow. A payload that is not valid XML fails the exchange.
 
-Promoted property values are stored as sent. Search compares them ignoring case. Lists show them in the order the information type lists its properties, and the first one also names an exchange's archive file.
+Promoted property values are stored as sent, up to 500 characters. A longer value is stored cut, ending in "…", and a warning naming the exchange and property is logged. Filters and routes read the payload itself, so they still see the whole value. Search compares the stored values ignoring case. Lists show them in the order the information type lists its properties, and the first one also names an exchange's archive file.
 
 For a document-level exchange, the filter also decides where the document goes.
 
@@ -107,10 +107,20 @@ A handler bound to a data source can publish to a customer's broker or run SQL a
 
 After the handler returns a response:
 
-- When the subscription has a **response message type name**, the response is published to RabbitMQ under that name, unless it was flagged bad. Any bus-enabled information type with that message type name receives it as a new document, so the flow can continue through a bus gateway.
-- When the subscription has a legacy **response subscription**, a new exchange is created on that subscription with the response as its input and the same correlation id. This happens even when the response was flagged bad. The admin UI can clear this link but no longer sets it.
+- When the subscription has a **response message type name**, the response is published to RabbitMQ under that name, unless it was flagged bad. Any bus-enabled information type with that message type name receives it as a new document, so the flow can continue through a bus gateway. The id of the exchange that delivered travels beside the body, in the `request-context-values` header, so a bus gateway route can read that exchange's input. The body itself is unchanged.
+- When the subscription hands its response to a **response subscription**, a new exchange is created on that subscription with the response as its input and the same correlation id. It runs as the partner of the exchange that fed it, and only gets a bad response if *also run on a bad response* is on. Subscriptions saved before the Response type existed may still hand theirs to an Internal or API call subscription. Those get every response, run as their own partner, and get no source values.
 
-A subscription cannot route its response into itself or into a bus gateway subscription.
+A response subscription can also read **source values**: values from the **original document**, by path. The original document is the input of the exchange whose delivery got the response. For example, a carrier's reply has a tracking number but not the order number, and `{{source.order.number}}` reads it from the order. So can a bus gateway route's subscription, when its message was published as a delivery's response.
+
+- The original document is always that exchange's input, as it arrived, never what its mapper made of it. So a path follows the information type's shape, works whichever subscription of that type fed the response, and survives a change to that subscription's mapping. It is read as JSON, or as XML when it starts with `<`. Paths work the way mapping paths do: dot-separated, matched exactly, never into a list. An XML path starts with the root element.
+- The values are read when the exchange is created, and only the paths the subscription uses are kept, on the exchange. A retry or a release from pause uses the same values, even after the delivering exchange is archived, so the original document is never read again. The exchange also keeps the id of the delivering exchange, and its drawer links to it.
+- In the handler's properties, `{{source.PATH}}` is filled when the exchange is created. A path with no value is left as written, and the exchange then fails before its mapper runs, naming the path. It never sends the token's text on. A bus gateway subscription using one fails the same way on a message published any other way, such as by another product, or by another Bitween on the same bus.
+- In a rules-based mapping, a value of kind `source` reads one. A path with no value gives null, as any mapping path does. See [Mapping](mapping.md#field-rules).
+- Mapper properties are not filled, so a JSON mapping stays valid whatever a value contains.
+
+Any path can be saved. The editor offers the paths in the last document each feeding subscription received, with the value it had as an example, and warns about a path that document didn't have. It doesn't refuse it: documents vary, and the next one may have it. A response subscription is fed by every subscription that hands it its response. A bus gateway subscription is fed by every subscription whose response message type name is its information type's bus message type name, ignoring case.
+
+A subscription cannot route its response into itself, into anything but a response subscription, or round a loop of them.
 
 ## 7. Result
 
