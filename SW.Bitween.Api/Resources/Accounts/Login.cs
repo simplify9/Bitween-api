@@ -15,7 +15,7 @@ namespace SW.Bitween.Resources.Accounts
     [Unprotect]
     public class Login : ICommandHandler<UserLogin, object>
     {
-        private const int MaxFailedLoginAttempts = 5;
+        private const int MaxFailedLoginAttempts = 50;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
         private readonly BitweenDbContext _dbContext;
