@@ -7,13 +7,19 @@ on:
       - releases/**
   workflow_dispatch:
 
+# One queue for staging AND release, not one per branch. Both jobs below take their patch from
+# the same 10.0.x git tags and push the same docker.io/simplify9/bitween:10.0.<patch> image tag,
+# and a run only claims its patch when it tags at the very end. Two runs overlapping (a staging
+# push, then the staging -> r10.0 merge seconds later) would compute the same patch: the image
+# tag is overwritten by whichever finishes last, while ChartMuseum (409 = success) and NuGet
+# (--skip-duplicate) silently keep whichever came first.
 concurrency:
-  group: cicd-gateway-${{ github.workflow }}-${{ github.ref }}
+  group: cicd-gateway-bitween-10.0
   cancel-in-progress: false
 
 # contents: write -> tag job. packages: write -> publish AND pull the Helm chart
-# via GHCR OCI ('both' also pushes it to ChartMuseum). The Docker image and the
-# SDK NuGet package go to Docker Hub / the NuGet feed respectively.
+# via GHCR OCI. The Docker image and the SDK NuGet package go to Docker Hub / the
+# NuGet feed respectively.
 permissions:
   contents: write
   packages: write
@@ -21,7 +27,7 @@ permissions:
 
 jobs:
   build-publish-deploy:
-    # Mirrors the old deploy-release gate: only the r10.0 release line (or manual).
+    # Staging: build, publish to GHCR only, deploy to playground (or any branch, manually).
     if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r10.0-staging') || github.event_name == 'workflow_dispatch' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
     with:
@@ -36,9 +42,10 @@ jobs:
       chart-name: 'bitween'                 # must match charts/default Chart.yaml name:
       chart-path: './charts/default'
 
-      # 1) Publish the Helm chart to BOTH GHCR OCI and ChartMuseum
-      chart-publish-method: 'both'
-      chart-repo-url: 'https://charts.sf9.io'
+      # 1) Publish the Helm chart to GHCR OCI only. ChartMuseum is what clients install from,
+      # so only the release job below publishes there; staging versions are plain x.y.z and
+      # would otherwise be the newest chart a client gets.
+      chart-publish-method: 'github-oci'
 
       # Docker image stays on Docker Hub
       container-registry: 'docker.io'
@@ -57,7 +64,7 @@ jobs:
 
       # 2) Deploy to playground via Gateway API
       deploy: true
-      # 3) Pull the chart from GHCR OCI (the default source for 'both')
+      # 3) Pull the chart from GHCR OCI
       deploy-chart-source: 'github-oci'
       deploy-namespace: 'playground'
       routing-mode: 'gateway-api'
@@ -81,10 +88,6 @@ jobs:
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
       registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ChartMuseum credentials (required because chart-publish-method is 'both')
-      chartmuseum-username: ${{ secrets.CM_USER }}
-      chartmuseum-password: ${{ secrets.CM_PASSWORD }}
-
       # GHCR chart push + pull and git tagging use the built-in token
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -105,3 +108,42 @@ jobs:
       # Set the TokenKey secret to a long random string unique to this environment
       # (openssl rand -base64 48). Changing it signs out everyone holding an older token.
       helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
+
+  publish-release:
+    # Release: build and publish to ChartMuseum for clients, never deploy. releases/r10.0 is the
+    # repository's default branch, so the reusable workflow treats it as a release: a clean
+    # 10.0.<patch> git tag, and the critical Dependabot gate runs first.
+    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0' }}
+    uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
+    with:
+      major-version: '10'
+      minor-version: '0'
+      dotnet-version: '10.0.x'
+
+      dockerfile-path: './Dockerfile'
+      docker-context: '.'
+      docker-platforms: 'linux/amd64'
+
+      chart-name: 'bitween'
+      chart-path: './charts/default'
+      chart-publish-method: 'chartmuseum'
+      chart-repo-url: 'https://charts.sf9.io'
+
+      container-registry: 'docker.io'
+      image-name: 'simplify9/bitween'
+
+      nuget-projects: 'SW.Bitween.Sdk/SW.Bitween.Sdk.csproj'
+      run-tests: 'true'
+      test-projects: |
+        SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
+        SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
+      # deploy is left at its default, false: the deploy job never runs, so no kubeconfig
+      # or app secrets are passed.
+    secrets:
+      registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+      registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+      chartmuseum-username: ${{ secrets.CM_USER }}
+      chartmuseum-password: ${{ secrets.CM_PASSWORD }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
+      nuget-api-key: ${{ secrets.SWNUGETKEY }}
+      dependabot-alerts-token: ${{ secrets.DEPENDABOT_ALERTS_TOKEN }}
