@@ -12,6 +12,7 @@ Some values are also **runtime settings** that administrators change in the UI. 
 | `ConnectionStrings:RabbitMQ` | `amqp://user:password@rabbitmq:5672/` |
 | `Token:Key` | A random secret of at least 32 characters, unique to this deployment |
 | `Token:Issuer`, `Token:Audience` | Values used to sign and validate JWTs |
+| `Bitween:InitialAdminPassword` | New installations only: the password for `admin@Bitween.systems` |
 | Storage settings | See [Storage](#storage) |
 
 The service stops at startup with a clear error when the database connection string is missing.
@@ -29,6 +30,20 @@ Any long random string will do — `openssl rand -base64 48`.
 
 Changing the key invalidates every token already issued, so everyone signs in again. That is the
 intended response to a key you no longer trust.
+
+### `Bitween:InitialAdminPassword` on a new installation
+
+Every installation gets one administrator, `admin@Bitween.systems`, whose default password is
+published in this repository. On startup, while that account still has the default password:
+
+- **`Bitween:InitialAdminPassword` is set:** it becomes the account's password. It must meet the
+  password policy and cannot be the default itself.
+- **It is not set and the account is the only one:** the service **refuses to start**. This is a
+  new installation, and whoever signed in first could otherwise choose the password.
+- **It is not set and other accounts exist:** nothing changes. Signing in with the default
+  password still leads only to the password change.
+
+Once the password is anything else the value is ignored, so it can stay in place or be removed.
 
 ## `Bitween` section
 
@@ -151,7 +166,7 @@ The chart in `charts/default` maps values to environment variables. Values marke
 | `global.token.key`, `issuer`, `audience` *(secret)* | `Token__Key`, `Token__Issuer`, `Token__Audience` |
 | `global.cloudFiles.*` *(secret)* | `CloudFiles__AccessKeyId`, `SecretAccessKey`, `ServiceUrl`, `BucketName`, `TenantId`, `Fingerprint`, `UserId`, `RSAKey`, `Region`, `NamespaceName` |
 | `global.logger.esUrl`, `esUser`, `esPassword` *(secret)* | `SwLogger__ElasticsearchUrl`, `SwLogger__ElasticsearchUser`, `SwLogger__ElasticsearchPassword` |
-| `secrets.*` *(secret)* | Passed through under their own names, such as `Bitween__SettingsEncryptionKey` |
+| `secrets.*` *(secret)* | Passed through under their own names, such as `Bitween__SettingsEncryptionKey` or `Bitween__InitialAdminPassword` |
 
 The chart also sets `SwLogger__ApplicationName` to the release name and `BitweenClient__BaseUrl` to the in-cluster service address.
 

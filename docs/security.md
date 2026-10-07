@@ -161,9 +161,10 @@ The trail is written in the same transaction as the change, and no API edits or 
 
 ## Production checklist
 
-1. Change the seeded administrator's password, or add your own administrator and then remove the
-   seeded one. The seeded password is published in this repository, so until it is replaced that
-   account's token grants nothing and the only screen it can reach is the password change.
+1. Set `Bitween__InitialAdminPassword` when installing; a new installation refuses to start
+   without it ([details](configuration.md#bitweeninitialadminpassword-on-a-new-installation)). On an
+   existing one still using the published default password, set it too, or change that password
+   yourself: until then, whoever signs in with it first chooses the new one.
 3. Replace or remove the SYSTEM partner's API key.
 4. Set `Token__Key` to a long random secret, and choose your own `Token__Issuer` and `Token__Audience`.
 5. Set `Bitween__SettingsEncryptionKey` before saving a Rebex license key.
