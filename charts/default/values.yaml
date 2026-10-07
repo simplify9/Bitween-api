@@ -109,6 +109,10 @@ tolerations: []
 
 affinity: {}
 
+# PriorityClass for the pod. Empty (default) renders no priorityClassName, so the pod gets the cluster's default
+# priority. traxis staging sets `staging-preemptible` so its production pods can preempt it.
+priorityClassName: ""
+
 # Existing ServiceAccount for the pod to run as, e.g. one bound to an Azure Workload Identity.
 # Empty (default) renders no serviceAccountName, so the namespace's default ServiceAccount is used.
 # The chart does not create the ServiceAccount.
