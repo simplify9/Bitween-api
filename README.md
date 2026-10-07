@@ -87,6 +87,7 @@ This runs Bitween locally against PostgreSQL, RabbitMQ and local-disk storage.
    export Token__Key="replace-with-a-random-string-of-at-least-32-chars"
    export Token__Issuer=bitween-local
    export Token__Audience=bitween-local
+   export Bitween__InitialAdminPassword="replace-with-your-own-password"
    export Bitween__RabbitMqManagementUrl=http://localhost:15672
    export Bitween__RabbitMqManagementUsername=guest
    export Bitween__RabbitMqManagementPassword=guest
@@ -94,14 +95,9 @@ This runs Bitween locally against PostgreSQL, RabbitMQ and local-disk storage.
    dotnet run --project SW.Bitween.Web
    ```
 
-4. Open https://localhost:5000 and sign in as the seeded administrator.
+4. Open https://localhost:5000 and sign in as `admin@Bitween.systems` with the password you set in `Bitween__InitialAdminPassword`.
 
-   ```
-   admin@Bitween.systems
-   Mtm@dmin!2
-   ```
-
-The database schema is created on first start. Change the administrator password straight away, and work through the [production checklist](docs/security.md#production-checklist) before exposing an instance. To use brokers or databases as data sources, see [Data sources](docs/data-sources.md#turning-them-on).
+The database schema is created on first start. A new database refuses to start without `Bitween__InitialAdminPassword` (see [Configuration](docs/configuration.md#bitweeninitialadminpassword-on-a-new-installation)). Work through the [production checklist](docs/security.md#production-checklist) before exposing an instance. To use brokers or databases as data sources, see [Data sources](docs/data-sources.md#turning-them-on).
 
 ## Documentation
 

@@ -6,7 +6,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 
 | Issue | Where |
 |---|---|
-| The SYSTEM partner's API key is seeded with a fixed value. (The seeded administrator's password is also published, but that account now grants nothing until the password is changed.) | `Data/BitweenDbContext.cs` |
+| The SYSTEM partner's API key is seeded with a fixed value. (The seeded administrator's default password is also published. New installations replace it from `Bitween__InitialAdminPassword`; on existing ones still using it, it grants nothing until changed, but whoever signs in first can change it.) | `Data/BitweenDbContext.cs` |
 | Microsoft ID tokens are checked for signature and lifetime but not issuer or audience. A valid token from any tenant or app signs in the Bitween account with the same email. The tenant setting only affects the browser popup. | `Extensions/AccountExtensions.cs` |
 | Creating an exchange by hand, previewing a rules-based mapping and generating a partner key check no permission. Any signed-in member can call them. | `Resources/Xchanges/Create.cs`, `Resources/MappingPreviews/Preview.cs`, `Resources/Partners/GenerateKey.cs` |
 | On Azure the container decides privacy for every file in it, and the storage library creates it open to everyone. Bitween switches its container to private at startup; when its login isn't allowed to (a managed identity without the right role), the Settings page warns and the container has to be made private in Azure. | `Services/PrivateAzureContainer.cs` |

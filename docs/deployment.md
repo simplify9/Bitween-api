@@ -12,6 +12,7 @@ docker run -p 8080:8080 \
   -e ConnectionStrings__BitweenDb="Host=db;Database=bitween;Username=bitween;Password=..." \
   -e ConnectionStrings__RabbitMQ="amqp://user:password@rabbitmq:5672/" \
   -e Token__Key="..." -e Token__Issuer=bitween -e Token__Audience=bitween \
+  -e Bitween__InitialAdminPassword="..." \
   -e Bitween__StorageProvider=S3 \
   -e CloudFiles__AccessKeyId=... -e CloudFiles__SecretAccessKey=... \
   -e CloudFiles__ServiceUrl=https://s3.example.com -e CloudFiles__BucketName=bitween \
