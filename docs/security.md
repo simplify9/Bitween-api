@@ -109,7 +109,7 @@ The seeded **SYSTEM** partner has a key named `default` whose value is fixed in 
 
 ## Secrets
 
-- Adapter properties marked secret are masked as `__private__` in every API response and redacted from the audit trail.
+- Adapter properties marked secret are masked as `__private__` in every API response and redacted from the audit trail. Their defaults are withheld from the adapter descriptions the UI reads. A published adapter that doesn't mark its passwords and keys as private has them returned in plain text, so check custom adapters before uploading them.
 - The Rebex license key is the only secret setting. It is encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
 - Partner properties, global values, adapter properties and data source settings, including passwords, are stored unencrypted in the database.
 

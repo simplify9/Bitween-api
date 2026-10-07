@@ -61,4 +61,35 @@ public class AdapterStartupValues(
 
         return await serverlessDescriber.Describe(adapterId);
     }
+
+    /// <summary>
+    /// The same description with the default withheld from every secret property — the shape to
+    /// hand to a client.
+    /// </summary>
+    /// <remarks>
+    /// A default is part of the adapter's package, not of any subscription, so masking a
+    /// subscription's values never touches it. One adapter shipped a production storage key as
+    /// the default of a secret property, and every screen that draws an adapter form showed it as
+    /// that field's placeholder. Nothing a client does needs a secret's default: the adapter
+    /// applies it itself when the property is left empty.
+    /// <para>
+    /// Copies rather than edits: <see cref="ServerlessAdapterDescriber"/> remembers what it
+    /// returns, and the masking and validation callers read that same instance.
+    /// </para>
+    /// </remarks>
+    public static IDictionary<string, StartupValue> WithoutSecretDefaults(IDictionary<string, StartupValue> values)
+    {
+        var result = new Dictionary<string, StartupValue>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (key, value) in values)
+            result[key] = value.Private
+                ? new StartupValue
+                {
+                    Optional = value.Optional,
+                    Type = value.Type,
+                    Private = true,
+                    Description = value.Description
+                }
+                : value;
+        return result;
+    }
 }

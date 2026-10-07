@@ -68,7 +68,10 @@ namespace SW.Bitween
                 }
                 else
                 {
-                    result[prop.Name] = $"{prop.Name} ({defaultValue ?? "null"})";
+                    // A secret's default is withheld here as it is everywhere else an adapter is
+                    // described to a client — see AdapterStartupValues.WithoutSecretDefaults.
+                    var shown = prop.GetCustomAttribute<SecureAttribute>() != null ? null : defaultValue;
+                    result[prop.Name] = $"{prop.Name} ({shown ?? "null"})";
                 }
             }
 

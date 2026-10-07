@@ -60,7 +60,7 @@ public class Catalog(
     {
         try
         {
-            return await startupValues.Describe(adapterId);
+            return AdapterStartupValues.WithoutSecretDefaults(await startupValues.Describe(adapterId));
         }
         catch (Exception)
         {

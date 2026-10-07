@@ -24,7 +24,8 @@ namespace SW.Bitween.Resources.Adapters
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
 
-            return await startupValues.Describe(System.Uri.UnescapeDataString(key));
+            return AdapterStartupValues.WithoutSecretDefaults(
+                await startupValues.Describe(System.Uri.UnescapeDataString(key)));
         }
     }
 }
