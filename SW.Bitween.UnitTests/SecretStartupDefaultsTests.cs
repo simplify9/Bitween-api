@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using SW.Bitween.NativeAdapters;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.UnitTests;
@@ -46,6 +49,37 @@ public class SecretStartupDefaultsTests
 
         Assert.AreEqual("post", shown["Verb"].Default);
         Assert.AreEqual(3, shown.Count);
+    }
+
+    /// <summary>
+    /// The native branch of <c>adapters/{id}/properties</c> builds its own labels rather than going
+    /// through <see cref="AdapterStartupValues.WithoutSecretDefaults"/>.
+    /// </summary>
+    [TestMethod]
+    public void A_native_secret_default_is_left_out_of_its_label()
+    {
+        var discovery = new NativeAdapterDiscoveryService([], [], [], [], [new FakeNativeAdapter()], new BitweenOptions());
+
+        var labels = discovery.GetExpectedStartupValues(nameof(FakeNativeAdapter));
+
+        Assert.AreEqual("Token (null)", labels["Token"]);
+        Assert.AreEqual("Verb (post)", labels["Verb"]);
+    }
+
+    private class FakeNativeAdapter : INativeAdapter
+    {
+        public string Name => nameof(FakeNativeAdapter);
+        public void InitializeStartupValues(IDictionary<string, string> settings) { }
+        public Type StartupValuesType => typeof(FakeInput);
+    }
+
+    private class FakeInput
+    {
+        [Secure, DefaultValue("native-secret")]
+        public string? Token { get; set; }
+
+        [DefaultValue("post")]
+        public string? Verb { get; set; }
     }
 
     /// <summary>
