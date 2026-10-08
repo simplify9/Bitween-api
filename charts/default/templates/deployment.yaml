@@ -9,7 +9,9 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ template "project.name" . }}
@@ -52,17 +54,31 @@ spec:
           {{- end }}
           ports:
             - name: http
-              containerPort: 80
+              # The port the app listens on. This said 80, so probes aimed at it could never pass.
+              containerPort: 8080
               protocol: TCP
           {{- if .Values.probes.enabled }}
+          # Startup covers the migrations a new version runs before it listens.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: {{ .Values.probes.startupFailureThreshold }}
+          # Liveness asks only whether the process answers: a database blip must not restart pods.
           livenessProbe:
             httpGet:
-              path: /
+              path: /health/live
               port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          # Readiness also asks the database and RabbitMQ, so traffic waits until both are reachable.
           readinessProbe:
             httpGet:
-              path: /
+              path: /health/ready
               port: http
+            periodSeconds: 10
+            failureThreshold: 3
           {{- end }}
 
           env:
@@ -87,8 +103,17 @@ spec:
             - name: Bitween__RabbitMqManagementUrl
               value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUrl | quote }}
 
+            # From the chart's Secret rather than in the pod spec, where anyone who can read the
+            # deployment could read it.
             - name: Bitween__RabbitMqManagementPassword
-              value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementPassword | quote }}
+              {{- if .Values.environmentVariables.Bitween__RabbitMqManagementPassword }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: rabbitMqManagementPassword
+              {{- else }}
+              value: ""
+              {{- end }}
 
             - name: Bitween__RabbitMqManagementUsername
               value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUsername | quote }}

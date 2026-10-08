@@ -21,7 +21,10 @@ service:
   port: 80
 
 probes:
-  enabled: false
+  # Startup /health/live, liveness /health/live, readiness /health/ready (database and RabbitMQ).
+  enabled: true
+  # Five-second checks: 60 gives a starting pod five minutes, for migrations, before it is restarted.
+  startupFailureThreshold: 60
 
 # North-south routing. The chart uses ingress-nginx by default. Set
 # gateway.enabled=true to switch to Gateway API (HTTPRoute) instead — this
@@ -91,7 +94,24 @@ securityContext:
   capabilities:
     drop: ["ALL"]
 
-resources: {}
+# Requests so the scheduler places pods somewhere with room. No limits by default: a memory limit
+# set too low kills a pod mid-exchange, and what is enough depends on payload sizes and prefetch.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# Keeps one pod running through node drains and upgrades. Only rendered with more than one replica,
+# where it can be honoured.
+podDisruptionBudget:
+  minAvailable: 1
+
+# Off by default. When enabled, replicas follow CPU between minReplicas and maxReplicas.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following

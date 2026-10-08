@@ -48,7 +48,7 @@ Things to know about the chart:
 - The image tag is the chart version, so a chart must be packaged with the version of an image that exists.
 - The Service forwards port 80 to container port 8080.
 - The Ingress exposes only `/api` and `/swagger` by default. Add `/` to `ingress.paths`, or route `/` through the Gateway API, to serve the admin UI and `/blank.html` from the same host.
-- Probes are off by default. The template declares container port 80 while the app listens on 8080, so check the probe port before turning probes on.
+- Probes are on by default: a startup probe and a liveness probe on `/health/live`, which only checks that the process answers, and a readiness probe on `/health/ready`, which also checks the database and RabbitMQ. The startup probe allows five minutes for migrations (`probes.startupFailureThreshold`).
 - The `rabbitmq` values are not used by any template.
 - `charts/default/README.md` explains the two routing modes.
 
