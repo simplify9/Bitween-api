@@ -267,17 +267,28 @@ setup("leftovers from earlier runs are removed", async () => {
 });
 
 setup("the pieces the specs need are installed", async () => {
+  setup.setTimeout(90_000);
+
   // Exchanges are processed by the app's own RabbitMQ consumers. Without them every exchange the
   // seed creates stays "processing" forever, and the wait below would time out saying only that.
-  const consumers = await ok<{ name: string; totalNodes: number }[]>(
-    "reading the RabbitMQ consumers (/api/ops/consumers)",
-    await api.get(`${API}/ops/consumers`, { headers: auth() }),
-  );
-  expect(
-    consumers.filter((c) => c.totalNodes > 0),
-    "No RabbitMQ consumer is attached to Bitween's queues, so no exchange would ever be processed. " +
-      "Is the broker in ConnectionStrings__RabbitMQ reachable, and Bitween__RabbitMqManagementUrl set?",
-  ).not.toHaveLength(0);
+  //
+  // Polled rather than read once: an app that has only just started answers before its consumers
+  // are attached, and the broker's management API, which this reads through, lags behind it.
+  const attached = async () => {
+    const consumers = await ok<{ name: string; totalNodes: number }[]>(
+      "reading the RabbitMQ consumers (/api/ops/consumers)",
+      await api.get(`${API}/ops/consumers`, { headers: auth() }),
+    );
+    return consumers.filter((c) => c.totalNodes > 0).length;
+  };
+  await expect
+    .poll(attached, {
+      message:
+        "No RabbitMQ consumer is attached to Bitween's queues, so no exchange would ever be processed. " +
+        "Is the broker in ConnectionStrings__RabbitMQ reachable, and Bitween__RabbitMqManagementUrl set?",
+      timeout: 60_000,
+    })
+    .toBeGreaterThan(0);
 
   // The specs build every subscription out of the two in-process HTTP adapters.
   for (const [kind, key] of [
