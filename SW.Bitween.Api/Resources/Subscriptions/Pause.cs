@@ -15,7 +15,8 @@ public class Pause(BitweenDbContext dbContext, RequestContext requestContext, II
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.Operate);
 
-            var entity = await dbContext.FindAsync<Subscription>(key);
+            var entity = await dbContext.FindAsync<Subscription>(key)
+                         ?? throw new SWNotFoundException(key.ToString());
             if (entity!.PausedOn == null)
                 entity.Pause();
             else

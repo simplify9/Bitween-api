@@ -18,7 +18,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         RetryGroupValidation.EnsureAlertTransportIsSecure(
             model.AlertHandlerId, model.AlertHandlerProperties);
 
-        var entity = await dbContext.FindAsync<RetryPolicy>(key);
+        var entity = await dbContext.FindAsync<RetryPolicy>(key)
+                     ?? throw new SWNotFoundException(key.ToString());
 
         // Spent budget is keyed by group id, so a group removed here would leave usage rows
         // that no policy claims — invisible to the usage report and beyond the reach of reset.

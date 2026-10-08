@@ -70,4 +70,31 @@ public class ReadTests(HttpFixture fixture, ITestOutputHelper output)
         output.WriteLine($"{(int)response.StatusCode} {path}");
         Assert.True((int)response.StatusCode < 500, $"{(int)response.StatusCode} {path}: {body[..Math.Min(body.Length, 600)]}");
     }
+
+    /// <summary>Every command and delete that names a record, by the route the API gives it.</summary>
+    public static IEnumerable<object[]> KeyedCommands() =>
+        Handlers()
+            .SelectMany(t => t.GetInterfaces()
+                .Where(i => i.Namespace == "SW.PrimitiveTypes" && i.Name is "ICommandHandler`3" or "IDeleteHandler`1")
+                .Select(i => (Method: i.Name == "IDeleteHandler`1" ? "DELETE" : "POST",
+                    Path: NameOf(t) is { } name ? $"/api/{Resource(t)}/999999/{name.ToLowerInvariant()}" : $"/api/{Resource(t)}/999999")))
+            .Distinct().OrderBy(c => c.Path).ThenBy(c => c.Method)
+            .Select(c => new object[] { c.Method, c.Path });
+
+    /// <summary>
+    /// A record that isn't there — deleted in another tab, a stale link — is the caller's mistake to
+    /// be told about, not a server error.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(KeyedCommands))]
+    public async Task A_command_on_a_record_that_does_not_exist_is_refused_not_crashed(string method, string path)
+    {
+        using var admin = await fixture.AdminAsync();
+        using var request = new System.Net.Http.HttpRequestMessage(new System.Net.Http.HttpMethod(method), path);
+        if (method == "POST") request.Content = System.Net.Http.Json.JsonContent.Create(new { });
+        var response = await admin.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        output.WriteLine($"{(int)response.StatusCode} {method} {path}");
+        Assert.True((int)response.StatusCode < 500, $"{(int)response.StatusCode} {method} {path}: {body[..Math.Min(body.Length, 400)]}");
+    }
 }
