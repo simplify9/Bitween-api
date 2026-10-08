@@ -41,10 +41,10 @@ static class Api
     }
 
     /// <summary>A gateway with one partner attached through a gateway subscription.</summary>
-    public static async Task<(HttpClient Admin, string UrlName, int GatewayId, int PartnerId, int SubscriptionId)> GatewayAsync(HttpFixture fixture)
+    public static async Task<(HttpClient Admin, string UrlName, int GatewayId, int PartnerId, int SubscriptionId)> GatewayAsync(HttpFixture fixture, int? onDocument = null)
     {
         var admin = await fixture.AdminAsync();
-        var documentId = await CreateAsync(admin, "/api/documents", new { name = Unique("Order"), documentFormat = "Json" });
+        var documentId = onDocument ?? await CreateAsync(admin, "/api/documents", new { name = Unique("Order"), documentFormat = "Json" });
         var partnerId = await CreateAsync(admin, "/api/partners", new { name = Unique("Partner") });
         var subscriptionId = await CreateAsync(admin, "/api/subscriptions", new
         {
@@ -60,6 +60,19 @@ static class Api
         var gatewayId = await CreateAsync(admin, "/api/apigateways", new { name = Unique("Gateway"), urlName, inactive = false });
         await Json(await admin.PostAsJsonAsync($"/api/apigateways/{gatewayId}/addpartner", new { partnerId, subscriptionId }));
         return (admin, urlName, gatewayId, partnerId, subscriptionId);
+    }
+
+    /// <summary>A partner key saved on the partner, and the gateway call it makes, answered once processed.</summary>
+    public static async Task<HttpResponseMessage> CallSyncAsync(HttpFixture fixture, string urlName, string key, string body = "{\"order\":1}")
+    {
+        using var partner = fixture.Client();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/gateway/{urlName}/sync")
+        {
+            Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+        };
+        request.Headers.Add("partnerkey", key);
+        request.Headers.Add("Wait-Period", "30");
+        return await partner.SendAsync(request);
     }
 
     /// <summary>A new key, as the partner page asks for one. Answered as plain text.</summary>

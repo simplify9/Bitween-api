@@ -34,13 +34,28 @@ public sealed class HttpFixture : IAsyncLifetime
     public const int RetryCount = 2;
 
     readonly PostgreSqlContainer postgres = new PostgreSqlBuilder().WithImage("postgres:16").Build();
-    readonly RabbitMqContainer rabbit = new RabbitMqBuilder().Build();
+    // With the management plugin, as production runs it: Ops pages and queue clean-up go through it.
+    readonly RabbitMqContainer rabbit = new RabbitMqBuilder()
+        .WithImage("rabbitmq:3.13-management")
+        .WithPortBinding(15672, true)
+        .Build();
     readonly string bucket = $"bitween-http-tests-{Guid.NewGuid():N}";
 
     public WebApplicationFactory<Web.Program> App { get; private set; } = null!;
 
     /// <summary>The broker the app consumes from, for a test to look at or publish to directly.</summary>
     public string RabbitConnectionString => rabbit.GetConnectionString();
+
+    /// <summary>The app's own database context, to check what an API call left behind.</summary>
+    public async Task<T> InDbAsync<T>(Func<BitweenDbContext, Task<T>> query)
+    {
+        await using var scope = App.Services.CreateAsyncScope();
+        return await query(scope.ServiceProvider.GetRequiredService<BitweenDbContext>());
+    }
+
+    /// <summary>The broker's queues, by name.</summary>
+    public async Task<string[]> QueuesAsync() =>
+        (await RabbitCtlAsync("list_queues", "name")).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary>Runs rabbitmqctl in the broker's container.</summary>
     public async Task<string> RabbitCtlAsync(params string[] args) =>
@@ -55,6 +70,9 @@ public sealed class HttpFixture : IAsyncLifetime
             ["Bitween:DatabaseType"] = "PgSql",
             ["ConnectionStrings:BitweenDb"] = postgres.GetConnectionString(),
             ["ConnectionStrings:RabbitMQ"] = rabbit.GetConnectionString(),
+            ["Bitween:RabbitMqManagementUrl"] = $"http://{rabbit.Hostname}:{rabbit.GetMappedPublicPort(15672)}",
+            ["Bitween:RabbitMqManagementUsername"] = RabbitMqBuilder.DefaultUsername,
+            ["Bitween:RabbitMqManagementPassword"] = RabbitMqBuilder.DefaultPassword,
             ["Bitween:StorageProvider"] = "Local",
             ["CloudFiles:BucketName"] = bucket,
             ["Token:Key"] = "http-tests-signing-key-0123456789abcdefghijklmnop",
