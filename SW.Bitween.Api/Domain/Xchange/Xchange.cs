@@ -54,8 +54,9 @@ namespace SW.Bitween.Domain
             this(subscription.DocumentId, subscription.WorkGroup, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
-            MapperId = subscription.MapperId;
-            HandlerId = subscription.HandlerId;
+            // The pinned version travels with the exchange, so a retry runs the same package.
+            MapperId = subscription.MapperRef;
+            HandlerId = subscription.HandlerRef;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             ResponseMessageTypeName = subscription.ResponseMessageTypeName;
             PartnerId = gatewayPartner?.Id ?? subscription.PartnerId;
@@ -96,8 +97,9 @@ namespace SW.Bitween.Domain
             ManualRetry = manualRetry;
             SubscriptionId = xchange.SubscriptionId;
             PartnerId = xchange.PartnerId ?? subscription.PartnerId;
-            MapperId = subscription.MapperId;
-            HandlerId = subscription.HandlerId;
+            // The pinned version travels with the exchange, so a retry runs the same package.
+            MapperId = subscription.MapperRef;
+            HandlerId = subscription.HandlerRef;
             MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary()
                 .Fill(gatewayPartner, globalAdapterValuesSets).WithDataSource(subscription.DataSourceId);
             HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary()

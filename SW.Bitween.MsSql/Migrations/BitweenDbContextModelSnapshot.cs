@@ -1208,6 +1208,11 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<string>("HandlerProperties")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("HandlerVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 
@@ -1224,6 +1229,11 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<string>("MapperProperties")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MapperVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("MatchExpression")
                         .HasColumnType("nvarchar(max)");
@@ -1252,6 +1262,11 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<string>("ReceiverProperties")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReceiverVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -1283,6 +1298,11 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<string>("ValidatorProperties")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ValidatorVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<int?>("WorkGroupId")
                         .HasColumnType("int");

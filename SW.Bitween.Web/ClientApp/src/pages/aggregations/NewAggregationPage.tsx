@@ -162,6 +162,11 @@ export function NewAggregationPage() {
     ...draft,
     // Set on the subscription once it exists, not while creating it.
     autoPauseAfterFailures: null,
+    // A new subscription follows the current version of each adapter.
+    receiverVersion: null,
+    validatorVersion: null,
+    mapperVersion: null,
+    handlerVersion: null,
     enabled: draft.enable,
     // An aggregation is fed by its source, not by a receiver, and has no Validation
     // stage — see stages.ts.

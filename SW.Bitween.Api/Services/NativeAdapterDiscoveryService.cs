@@ -17,6 +17,9 @@ namespace SW.Bitween
         BitweenOptions bitweenOptions)
     {
         public const string NativePrefix = "native";
+
+        public static bool IsNative(string adapterId) =>
+            adapterId != null && adapterId.StartsWith(NativePrefix, StringComparison.OrdinalIgnoreCase);
         public Dictionary<string, StartupValue> GetStartupValues(string adapterId)
         {
             var result = new Dictionary<string, StartupValue>();

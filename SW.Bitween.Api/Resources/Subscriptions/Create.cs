@@ -123,19 +123,27 @@ namespace SW.Bitween.Resources.Subscriptions
                 // is the failure this endpoint exists to stop committing.
                 RuleFor(i => i.ReceiverProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).ReceiverId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).ReceiverId,
+                            ((SubscriptionCreate)context.InstanceToValidate).ReceiverVersion), provided));
 
                 RuleFor(i => i.ValidatorProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).ValidatorId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).ValidatorId,
+                            ((SubscriptionCreate)context.InstanceToValidate).ValidatorVersion), provided));
 
                 RuleFor(i => i.MapperProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).MapperId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).MapperId,
+                            ((SubscriptionCreate)context.InstanceToValidate).MapperVersion), provided));
 
                 RuleFor(i => i.HandlerProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).HandlerId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).HandlerId,
+                            ((SubscriptionCreate)context.InstanceToValidate).HandlerVersion), provided));
 
                 // Schedules only mean anything on the two scheduled types, and an empty set is
                 // what Subscription.SetSchedules rejects outright.

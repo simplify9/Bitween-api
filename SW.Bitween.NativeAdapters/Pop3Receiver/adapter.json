@@ -1,0 +1,59 @@
+{
+  "manifestVersion": 1,
+  "id": "nativepop3receiver",
+  "displayName": "Email pickup (POP3)",
+  "summary": "Reads messages from a POP3 mailbox on a schedule.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "email",
+    "pop3"
+  ],
+  "categories": [
+    "Intake"
+  ],
+  "kinds": [
+    "receiver"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "Host",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "POP3 server hostname."
+    },
+    {
+      "name": "Username",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "POP3 account username."
+    },
+    {
+      "name": "Password",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "POP3 account password."
+    },
+    {
+      "name": "BatchSize",
+      "type": "number",
+      "default": "50",
+      "description": "Maximum number of messages to fetch per polling batch."
+    },
+    {
+      "name": "ResponseEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to decode message contents (e.g. utf8)."
+    }
+  ]
+}

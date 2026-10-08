@@ -1,0 +1,103 @@
+{
+  "manifestVersion": 1,
+  "id": "nativerebexftpreceiver",
+  "displayName": "FTP / SFTP pickup",
+  "summary": "Picks up files from an FTP, FTPS or SFTP server on a schedule, leaving files still being written for the next run.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "ftp",
+    "sftp",
+    "file"
+  ],
+  "categories": [
+    "Intake"
+  ],
+  "kinds": [
+    "receiver"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "Host",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP/SFTP server hostname."
+    },
+    {
+      "name": "Port",
+      "type": "number",
+      "description": "Server port. If empty, the protocol\u0027s default port is used."
+    },
+    {
+      "name": "Username",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP/SFTP account username."
+    },
+    {
+      "name": "Password",
+      "type": "text",
+      "secret": true,
+      "description": "Account password, or the private key passphrase when using SFTP with a private key."
+    },
+    {
+      "name": "TargetPath",
+      "type": "text",
+      "description": "Remote directory to change into before listing/downloading files."
+    },
+    {
+      "name": "BatchSize",
+      "type": "number",
+      "default": "50",
+      "description": "Maximum number of files to fetch per polling batch."
+    },
+    {
+      "name": "ResponseEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to decode file contents (e.g. utf8)."
+    },
+    {
+      "name": "DeleteMovesFileTo",
+      "type": "text",
+      "description": "Folder to move a file to after it\u0027s received. If empty, the file is deleted instead."
+    },
+    {
+      "name": "Protocol",
+      "type": "text",
+      "default": "sftp",
+      "description": "Transfer protocol to use (sftp or ftp)."
+    },
+    {
+      "name": "CheckFileExistence",
+      "type": "boolean",
+      "default": "True",
+      "description": "Whether to verify the file still exists before attempting to delete or move it after receiving."
+    },
+    {
+      "name": "PrivateKey",
+      "type": "text",
+      "secret": true,
+      "description": "Private key used for SFTP authentication instead of a password."
+    },
+    {
+      "name": "HostKeyFingerprint",
+      "type": "text",
+      "description": "SHA-256 fingerprint of the SFTP server\u0027s host key, as \u0027ssh-keygen -lf\u0027 prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
+    },
+    {
+      "name": "MinimumFileAgeSeconds",
+      "type": "number",
+      "default": "0",
+      "description": "Seconds a file must have gone unchanged before it is taken, so one still being uploaded is left for the next run. 0 takes every file listed."
+    }
+  ]
+}

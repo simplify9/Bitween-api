@@ -16,7 +16,8 @@ internal static class AdapterInstaller
 
     public static async Task InstallAsync(ICloudFilesService cloudFiles,
         string projectName, string adapterId, string entryAssembly,
-        IDictionary<string, string>? extraMetadata = null)
+        IDictionary<string, string>? extraMetadata = null, string? version = null,
+        IDictionary<string, string>? extraFiles = null)
     {
         var publishDir = Path.Combine(AdaptersRoot, projectName);
 
@@ -33,23 +34,34 @@ internal static class AdapterInstaller
                 await using var fileStream = File.OpenRead(file);
                 await fileStream.CopyToAsync(entryStream);
             }
+
+            // Files a test adds to the package — an adapter.json, typically.
+            foreach (var (name, content) in extraFiles ?? new Dictionary<string, string>())
+            {
+                var entry = archive.CreateEntry(name);
+                await using var writer = new StreamWriter(entry.Open());
+                await writer.WriteAsync(content);
+            }
         }
 
         var bytes = zipStream.ToArray();
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLower()[..16];
+        var sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLower();
 
         var metadata = new Dictionary<string, string>
         {
             { "EntryAssembly", entryAssembly },
             { "Hash", hash }
         };
+        metadata["Sha256"] = sha256;
         foreach (var kv in extraMetadata ?? new Dictionary<string, string>())
             metadata[kv.Key] = kv.Value;
 
         using var uploadStream = new MemoryStream(bytes);
         await cloudFiles.WriteAsync(uploadStream, new WriteFileSettings
         {
-            Key = $"adapters/{adapterId}".ToLower(),
+            // A version is published beside the current package, as the installer does it.
+            Key = (version == null ? $"adapters/{adapterId}" : $"adapters-versions/{adapterId}/{version}").ToLower(),
             ContentType = "application/zip",
             Metadata = metadata
         });

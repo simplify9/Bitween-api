@@ -24,6 +24,10 @@ export type Draft = Pick<
   | "runOnBadResponses"
   | "aggregationTarget"
   | "autoPauseAfterFailures"
+  | "receiverVersion"
+  | "validatorVersion"
+  | "mapperVersion"
+  | "handlerVersion"
 >;
 
 export const draftOf = (d: SubscriptionDetail): Draft => ({
@@ -47,6 +51,10 @@ export const draftOf = (d: SubscriptionDetail): Draft => ({
   runOnBadResponses: d.runOnBadResponses,
   aggregationTarget: d.aggregationTarget,
   autoPauseAfterFailures: d.autoPauseAfterFailures,
+  receiverVersion: d.receiverVersion,
+  validatorVersion: d.validatorVersion,
+  mapperVersion: d.mapperVersion,
+  handlerVersion: d.handlerVersion,
 });
 
 /**
@@ -78,6 +86,10 @@ export const EMPTY_SUBSCRIPTION: Draft = {
   runOnBadResponses: false,
   aggregationTarget: "Input",
   autoPauseAfterFailures: null,
+  receiverVersion: null,
+  validatorVersion: null,
+  mapperVersion: null,
+  handlerVersion: null,
 };
 
 /**
@@ -103,12 +115,12 @@ export const isNewResponseSubscriptionId = (id: number | null | undefined) =>
  */
 const STAGE_FIELDS: Record<StageId, (keyof Draft)[]> = {
   trigger: ["matchExpression", "runOnBadResponses"],
-  source: ["receiverId", "receiverProperties", "dataSourceId"],
+  source: ["receiverId", "receiverProperties", "receiverVersion", "dataSourceId"],
   schedule: ["schedules"],
   aggregation: ["aggregationTarget"],
-  validation: ["validatorId", "validatorProperties"],
-  transformation: ["mapperId", "mapperProperties", "dataSourceId"],
-  delivery: ["handlerId", "handlerProperties", "dataSourceId"],
+  validation: ["validatorId", "validatorProperties", "validatorVersion"],
+  transformation: ["mapperId", "mapperProperties", "mapperVersion", "dataSourceId"],
+  delivery: ["handlerId", "handlerProperties", "handlerVersion", "dataSourceId"],
   response: ["responseSubscriptionId", "responseMessageTypeName"],
 };
 

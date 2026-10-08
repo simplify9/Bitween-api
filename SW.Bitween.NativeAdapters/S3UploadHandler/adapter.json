@@ -1,0 +1,77 @@
+{
+  "manifestVersion": 1,
+  "id": "natives3uploadhandler",
+  "displayName": "Amazon S3 upload",
+  "summary": "Writes the message as a file to an S3-compatible bucket.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "s3",
+    "aws",
+    "storage",
+    "file"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "AccessKeyId",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "S3-compatible access key ID."
+    },
+    {
+      "name": "SecretAccessKey",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "S3-compatible secret access key."
+    },
+    {
+      "name": "ServiceUrl",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "S3-compatible service endpoint URL."
+    },
+    {
+      "name": "BucketName",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Name of the bucket to upload files to."
+    },
+    {
+      "name": "FolderName",
+      "type": "text",
+      "description": "Folder (object key prefix) within the bucket to upload files to."
+    },
+    {
+      "name": "FileName",
+      "type": "text",
+      "description": "Name to give the uploaded object. If empty, a name is generated from the current timestamp and a GUID."
+    },
+    {
+      "name": "FileExtension",
+      "type": "text",
+      "description": "Extension appended to the generated object key (e.g. json, csv). Ignored if FileName is set."
+    },
+    {
+      "name": "ContentType",
+      "type": "text",
+      "default": "text/plain",
+      "description": "Content-Type to set on the uploaded object (e.g. text/plain, application/json)."
+    }
+  ]
+}

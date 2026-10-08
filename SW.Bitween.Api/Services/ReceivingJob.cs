@@ -61,7 +61,7 @@ public class ReceivingJob(
                 // The receiver's cursor is namespaced by this. Without it, two subscriptions
                 // polling one data source share a cursor and split the rows between them.
                 .WithSubscription(rec.Id);
-            await RunReceiver(rec.ReceiverId, startupParameters, rec.Id, createdExchangeIds);
+            await RunReceiver(rec.ReceiverRef, startupParameters, rec.Id, createdExchangeIds);
             rec.SetHealth();
             RecordAttempt(rec.Id, startedOn,
                 createdExchangeIds.Count > 0 ? ReceiveOutcome.Received : ReceiveOutcome.NoNewData,

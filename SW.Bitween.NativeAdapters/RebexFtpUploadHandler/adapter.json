@@ -1,0 +1,85 @@
+{
+  "manifestVersion": 1,
+  "id": "nativerebexftpuploadhandler",
+  "displayName": "FTP / SFTP upload",
+  "summary": "Uploads the message as a file to an FTP, FTPS or SFTP server.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "ftp",
+    "sftp",
+    "file"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "Host",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP/SFTP server hostname."
+    },
+    {
+      "name": "Port",
+      "type": "number",
+      "description": "Server port. If empty, the protocol\u0027s default port is used."
+    },
+    {
+      "name": "Username",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP/SFTP account username."
+    },
+    {
+      "name": "Password",
+      "type": "text",
+      "secret": true,
+      "description": "Account password, or the private key passphrase when using SFTP with a private key."
+    },
+    {
+      "name": "TargetPath",
+      "type": "text",
+      "description": "Remote directory to upload the file into."
+    },
+    {
+      "name": "FileNamePrefix",
+      "type": "text",
+      "description": "Prefix added to the uploaded file\u0027s name."
+    },
+    {
+      "name": "DataEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to write the file contents (e.g. utf8)."
+    },
+    {
+      "name": "Protocol",
+      "type": "text",
+      "default": "sftp",
+      "description": "Transfer protocol to use (sftp or ftp)."
+    },
+    {
+      "name": "PrivateKey",
+      "type": "text",
+      "secret": true,
+      "description": "Private key used for SFTP authentication instead of a password."
+    },
+    {
+      "name": "HostKeyFingerprint",
+      "type": "text",
+      "description": "SHA-256 fingerprint of the SFTP server\u0027s host key, as \u0027ssh-keygen -lf\u0027 prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
+    }
+  ]
+}

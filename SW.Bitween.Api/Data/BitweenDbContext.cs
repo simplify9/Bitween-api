@@ -288,6 +288,11 @@ namespace SW.Bitween
 
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+                // Pinned versions, null to follow whatever is current. See SubscriptionConfiguration.HandlerVersion.
+                b.Property(p => p.ReceiverVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.ValidatorVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.MapperVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50).IsUnicode(false);
                 b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.ValidatorId).HasMaxLength(200).IsUnicode(false);
 

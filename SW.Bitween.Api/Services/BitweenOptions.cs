@@ -132,6 +132,12 @@ namespace SW.Bitween
         public int ServerlessCommandTimeout { get; set; }
 
         /// <summary>
+        /// This deployment's release, e.g. 10.0.4 — set by a pipeline that knows it. Adapters may
+        /// declare the lowest Bitween they work with; see <see cref="BitweenInfo"/>.
+        /// </summary>
+        public string Version { get; set; }
+
+        /// <summary>
         /// Runs resident data source providers on this node — brokers and databases alike.
         ///
         /// Named for brokers because it predates database sources; renaming it would break every

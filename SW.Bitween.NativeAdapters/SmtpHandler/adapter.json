@@ -1,0 +1,106 @@
+{
+  "manifestVersion": 1,
+  "id": "nativesmtphandler",
+  "displayName": "Email (SMTP)",
+  "summary": "Sends the message as an email, with the subject and body written as templates over it.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "email",
+    "smtp",
+    "notification"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "Host",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "SMTP server hostname."
+    },
+    {
+      "name": "Port",
+      "type": "number",
+      "default": "587",
+      "description": "SMTP server port. 587 for STARTTLS, 465 for implicit SSL, 25 for an unencrypted relay."
+    },
+    {
+      "name": "Username",
+      "type": "text",
+      "description": "SMTP username. Leave empty to authenticate as the From address, or for a relay that needs no credentials."
+    },
+    {
+      "name": "Password",
+      "type": "text",
+      "secret": true,
+      "description": "SMTP password. Leave empty for a relay that needs no credentials."
+    },
+    {
+      "name": "UseTls",
+      "type": "boolean",
+      "default": "True",
+      "description": "Encrypt the connection, choosing STARTTLS or SSL to match the port. Turn off only for an internal relay with no TLS."
+    },
+    {
+      "name": "From",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Address the message is sent from."
+    },
+    {
+      "name": "FromName",
+      "type": "text",
+      "description": "Display name shown beside the From address, e.g. Bitween Alerts."
+    },
+    {
+      "name": "To",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Recipients, separated by commas."
+    },
+    {
+      "name": "Cc",
+      "type": "text",
+      "description": "Carbon-copy recipients, separated by commas."
+    },
+    {
+      "name": "Bcc",
+      "type": "text",
+      "description": "Blind carbon-copy recipients, separated by commas."
+    },
+    {
+      "name": "Subject",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Subject line. Placeholders in the incoming payload are substituted, e.g. \u0027Retries stopped for {{ SubscriptionName }}\u0027."
+    },
+    {
+      "name": "Body",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Message body. Uses the same template syntax as the JSON mapper, so payload fields can be referenced directly, e.g. \u0027{{ GroupName }} used all {{ MaxAttemptsTotal }} retries.\u0027"
+    },
+    {
+      "name": "IsHtml",
+      "type": "boolean",
+      "default": "True",
+      "description": "Send the body as HTML. Turn off to send it as plain text."
+    }
+  ]
+}

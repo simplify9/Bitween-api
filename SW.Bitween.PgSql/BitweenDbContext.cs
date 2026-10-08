@@ -268,6 +268,10 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
 
                 b.Property(p => p.MapperId).HasMaxLength(200);
                 b.Property(p => p.HandlerId).HasMaxLength(200);
+                b.Property(p => p.ReceiverVersion).HasMaxLength(50);
+                b.Property(p => p.ValidatorVersion).HasMaxLength(50);
+                b.Property(p => p.MapperVersion).HasMaxLength(50);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50);
                 b.Property(p => p.ReceiverId).HasMaxLength(200);
                 b.Property(p => p.ValidatorId).HasMaxLength(200);
 

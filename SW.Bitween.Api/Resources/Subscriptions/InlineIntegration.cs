@@ -66,10 +66,10 @@ namespace SW.Bitween.Resources.Subscriptions
             // is exactly what committing here would make permanent.
             foreach (var (kind, adapterId, provided) in new[]
                      {
-                         ("receiver", model.ReceiverId, model.ReceiverProperties),
-                         ("validator", model.ValidatorId, model.ValidatorProperties),
-                         ("mapper", model.MapperId, model.MapperProperties),
-                         ("handler", model.HandlerId, model.HandlerProperties),
+                         ("receiver", SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(model.ReceiverId, model.ReceiverVersion), model.ReceiverProperties),
+                         ("validator", SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(model.ValidatorId, model.ValidatorVersion), model.ValidatorProperties),
+                         ("mapper", SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(model.MapperId, model.MapperVersion), model.MapperProperties),
+                         ("handler", SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(model.HandlerId, model.HandlerVersion), model.HandlerProperties),
                      })
             {
                 var missing = await adapterRequirements.MissingFor(adapterId, provided);

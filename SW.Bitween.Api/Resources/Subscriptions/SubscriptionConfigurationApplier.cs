@@ -34,6 +34,32 @@ internal static class SubscriptionConfigurationApplier
         // adapter it was stored for. See AdapterSecretProperties.MayKeepStoredSecrets.
         var (oldHandler, oldMapper, oldReceiver, oldValidator) =
             (entity.HandlerId, entity.MapperId, entity.ReceiverId, entity.ValidatorId);
+        var (oldHandlerRef, oldMapperRef, oldReceiverRef, oldValidatorRef) =
+            (entity.HandlerRef, entity.MapperRef, entity.ReceiverRef, entity.ValidatorRef);
+
+        // A pin without an adapter means nothing, and a blank one means "follow current".
+        static string Pin(string adapterId, string version) =>
+            string.IsNullOrWhiteSpace(adapterId) || string.IsNullOrWhiteSpace(version) ? null : version.Trim();
+
+        var pins = (
+            Handler: Pin(model.HandlerId, model.HandlerVersion),
+            Mapper: Pin(model.MapperId, model.MapperVersion),
+            Receiver: Pin(model.ReceiverId, model.ReceiverVersion),
+            Validator: Pin(model.ValidatorId, model.ValidatorVersion));
+
+        static bool Changed(string before, string adapterId, string version) =>
+            !string.Equals(before, SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(adapterId, version),
+                System.StringComparison.OrdinalIgnoreCase);
+
+        await adapterRequirements.EnsureRunnable("handler", model.HandlerId, pins.Handler, Changed(oldHandlerRef, model.HandlerId, pins.Handler));
+        await adapterRequirements.EnsureRunnable("mapper", model.MapperId, pins.Mapper, Changed(oldMapperRef, model.MapperId, pins.Mapper));
+        await adapterRequirements.EnsureRunnable("receiver", model.ReceiverId, pins.Receiver, Changed(oldReceiverRef, model.ReceiverId, pins.Receiver));
+        await adapterRequirements.EnsureRunnable("validator", model.ValidatorId, pins.Validator, Changed(oldValidatorRef, model.ValidatorId, pins.Validator));
+
+        entity.HandlerVersion = pins.Handler;
+        entity.MapperVersion = pins.Mapper;
+        entity.ReceiverVersion = pins.Receiver;
+        entity.ValidatorVersion = pins.Validator;
 
         entity.ReceiverId = model.ReceiverId;
         entity.ValidatorId = model.ValidatorId;

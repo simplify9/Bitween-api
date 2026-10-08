@@ -564,8 +564,27 @@ export interface AdapterInfo {
   label: string;
   /** Native adapters run in-process; others are deployed packages with versions. */
   native: boolean;
+  /** Versions that can be pinned, oldest first. */
   versions: string[];
   props: AdapterProp[];
+  /** From the adapter's manifest; empty for a package published before manifests. */
+  summary?: string;
+  description?: string;
+  publisher?: string;
+  /** A data: URI. */
+  icon?: string;
+  tags: string[];
+  /** The version that runs when a subscription pins none; null when the catalog doesn't say. */
+  currentVersion: string | null;
+  versionHistory: AdapterVersion[];
+}
+
+export interface AdapterVersion {
+  version: string;
+  publishedOn: string | null;
+  publishedBy: string | null;
+  releaseNotes: string | null;
+  withdrawn: boolean;
 }
 
 /**
@@ -607,6 +626,11 @@ export interface Subscription {
   enabled: boolean;
   /** Paused still accepts work but holds it for later release. */
   pausedOn: string | null;
+  /** Pinned adapter versions, one per slot; null follows the current version. */
+  receiverVersion: string | null;
+  validatorVersion: string | null;
+  mapperVersion: string | null;
+  handlerVersion: string | null;
   /** Paused by `autoPauseAfterFailures`, not by a person. */
   pausedAutomatically: boolean;
   /** Pause after this many failed deliveries in a row; null never pauses. */

@@ -13,6 +13,21 @@ interface RawCatalogAdapter {
   native: boolean;
   versions: string[] | null;
   startupValues: Record<string, RawStartupValue> | null;
+  // From the catalog and manifest — absent from servers that predate them.
+  currentVersion?: string | null;
+  versionHistory?: {
+    version: string;
+    publishedOn?: string | null;
+    publishedBy?: string | null;
+    releaseNotes?: string | null;
+    withdrawn?: boolean;
+  }[] | null;
+  displayName?: string | null;
+  summary?: string | null;
+  description?: string | null;
+  publisher?: string | null;
+  icon?: string | null;
+  tags?: string[] | null;
 }
 
 // The backend's Prefix param takes the plural, lowercase form.
@@ -62,10 +77,24 @@ export const adapterMethods = {
     return (rows ?? []).map((r) => ({
       id: r.key,
       kind,
-      label: displayName(r.key),
+      // What the adapter calls itself, when its manifest says; otherwise worked out from its id.
+      label: r.displayName?.trim() || displayName(r.key),
       native: r.native,
       versions: r.versions ?? [],
       props: toProps(r.startupValues),
+      summary: r.summary ?? undefined,
+      description: r.description ?? undefined,
+      publisher: r.publisher ?? undefined,
+      icon: r.icon ?? undefined,
+      tags: r.tags ?? [],
+      currentVersion: r.currentVersion ?? null,
+      versionHistory: (r.versionHistory ?? []).map((v) => ({
+        version: v.version,
+        publishedOn: v.publishedOn ?? null,
+        publishedBy: v.publishedBy ?? null,
+        releaseNotes: v.releaseNotes ?? null,
+        withdrawn: v.withdrawn ?? false,
+      })),
     }));
   },
 } satisfies Partial<ApiClient>;

@@ -51,8 +51,44 @@ public class Catalog(
             // Just the version numbers. VersionPaths carries each one as a path, which is what the
             // older shape passed through and what made a version read as an object rather than
             // "1.2.3" to anything trying to label it.
-            Versions = a.VersionPaths.Select(v => v.Split('/').Last()).ToList(),
-            StartupValues = byKey[a.Key]
+            // Old-layout version files, and the catalog's versions that can still be pinned — so the
+            // version label an older client shows is right for adapters published either way.
+            Versions = a.VersionPaths.Select(v => v.Split('/').Last())
+                .Concat(a.Catalog?.Versions.Where(v => !v.Withdrawn).Select(v => v.Version) ?? [])
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => System.Version.TryParse(v.Split('-')[0], out var parsed) ? parsed : new System.Version())
+                .ToList(),
+            StartupValues = byKey[a.Key],
+
+            // Additive: a client that predates the catalog ignores all of these. Every one is null
+            // or empty for an adapter published before manifests existed.
+            CurrentVersion = a.Catalog?.Current,
+            VersionHistory = a.Catalog?.Versions
+                .Select(v => new
+                {
+                    v.Version,
+                    v.PublishedOn,
+                    v.PublishedBy,
+                    v.Withdrawn,
+                    v.Manifest?.ReleaseNotes,
+                    MinBitweenVersion = v.Manifest?.Compatibility?.MinBitweenVersion
+                })
+                .ToList(),
+            DisplayName = a.Manifest?.DisplayName,
+            a.Manifest?.Summary,
+            a.Manifest?.Description,
+            Publisher = a.Manifest?.Publisher?.Name,
+            PublisherUrl = a.Manifest?.Publisher?.Url,
+            a.Manifest?.License,
+            a.Manifest?.Homepage,
+            a.Manifest?.Repository,
+            Tags = a.Manifest?.Tags ?? [],
+            Categories = a.Manifest?.Categories ?? [],
+            a.Manifest?.Language,
+            a.Manifest?.Runtime,
+            a.Manifest?.Lifecycle,
+            Icon = a.Catalog?.IconDataUri,
+            MinBitweenVersion = a.Manifest?.Compatibility?.MinBitweenVersion
         });
     }
 

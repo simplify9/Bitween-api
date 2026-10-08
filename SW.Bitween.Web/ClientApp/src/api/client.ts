@@ -271,6 +271,10 @@ export interface ApiClient {
         | "runOnBadResponses"
         | "aggregationTarget"
         | "autoPauseAfterFailures"
+        | "receiverVersion"
+        | "validatorVersion"
+        | "mapperVersion"
+        | "handlerVersion"
       >
     > & {
       /** Create this response subscription in the same save and hand the response to it. */

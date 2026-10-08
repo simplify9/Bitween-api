@@ -309,8 +309,20 @@ function SubscriptionStudio() {
               adapterId={draft.receiverId}
               properties={draft.receiverProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, receiverId: adapterId, receiverProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        receiverId: adapterId,
+                        receiverProperties: properties,
+                        receiverVersion: adapterId === d.receiverId ? d.receiverVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.receiverVersion}
+              onVersionChange={(v) => set("receiverVersion", v)}
               disabled={!canEdit}
               required
             />
@@ -366,8 +378,20 @@ function SubscriptionStudio() {
               adapterId={draft.validatorId}
               properties={draft.validatorProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, validatorId: adapterId, validatorProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        validatorId: adapterId,
+                        validatorProperties: properties,
+                        validatorVersion: adapterId === d.validatorId ? d.validatorVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.validatorVersion}
+              onVersionChange={(v) => set("validatorVersion", v)}
               disabled={!canEdit}
               noneLabel="None — accept every document"
             />
@@ -381,8 +405,20 @@ function SubscriptionStudio() {
               adapterId={draft.mapperId}
               properties={draft.mapperProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, mapperId: adapterId, mapperProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        mapperId: adapterId,
+                        mapperProperties: properties,
+                        mapperVersion: adapterId === d.mapperId ? d.mapperVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.mapperVersion}
+              onVersionChange={(v) => set("mapperVersion", v)}
               disabled={!canEdit}
               noneLabel="None — the document passes through unchanged"
               mapperEditorHref={`/subscriptions/${s.id}/mapper`}
@@ -412,8 +448,20 @@ function SubscriptionStudio() {
               adapterId={draft.handlerId}
               properties={draft.handlerProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, handlerId: adapterId, handlerProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        handlerId: adapterId,
+                        handlerProperties: properties,
+                        handlerVersion: adapterId === d.handlerId ? d.handlerVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.handlerVersion}
+              onVersionChange={(v) => set("handlerVersion", v)}
               disabled={!canEdit}
               noneLabel="None — the document stops here"
               sourceValues={sourceValues}

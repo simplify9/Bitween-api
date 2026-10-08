@@ -1,0 +1,117 @@
+{
+  "manifestVersion": 1,
+  "id": "nativehttpreceiver",
+  "displayName": "HTTP poll",
+  "summary": "Polls an HTTP endpoint on a schedule and takes each response as a message.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "http",
+    "rest",
+    "api",
+    "polling"
+  ],
+  "categories": [
+    "Intake"
+  ],
+  "kinds": [
+    "receiver"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "AuthType",
+      "type": "text",
+      "description": "Authentication type used to call the source endpoint (e.g. ApiKey, Basic, OAuth2, Bearer)."
+    },
+    {
+      "name": "ApiKey",
+      "type": "text",
+      "secret": true,
+      "description": "API key used for ApiKey or Bearer authentication."
+    },
+    {
+      "name": "LoginUrl",
+      "type": "text",
+      "description": "URL used to obtain a login token for OAuth2 or Basic auth flows."
+    },
+    {
+      "name": "LoginUsername",
+      "type": "text",
+      "description": "Username for Basic or OAuth2 password-grant authentication."
+    },
+    {
+      "name": "LoginPassword",
+      "type": "text",
+      "secret": true,
+      "description": "Password for Basic or OAuth2 password-grant authentication."
+    },
+    {
+      "name": "LoginBody",
+      "type": "text",
+      "description": "Optional custom login request (Login auth type). Put the real username and password in LoginUsername and LoginPassword, then write {{username}} and {{password}} here where they belong, e.g. {\u0022email\u0022:\u0022{{username}}\u0022,\u0022password\u0022:\u0022{{password}}\u0022}. This field is not hidden, so never type a secret into it directly. Leave empty to send the default body."
+    },
+    {
+      "name": "LoginTokenPath",
+      "type": "text",
+      "description": "Optional path to the token in the login response (e.g. token, data.access_token). Empty reads the \u0027jwt\u0027 field."
+    },
+    {
+      "name": "Url",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "The source HTTP endpoint URL to pull data from."
+    },
+    {
+      "name": "Headers",
+      "type": "text",
+      "secret": true,
+      "description": "Additional HTTP headers as key=value pairs separated by newlines."
+    },
+    {
+      "name": "ClientId",
+      "type": "text",
+      "description": "OAuth2 client ID."
+    },
+    {
+      "name": "ClientSecret",
+      "type": "text",
+      "secret": true,
+      "description": "OAuth2 client secret."
+    },
+    {
+      "name": "ContentType",
+      "type": "text",
+      "default": "application/json",
+      "description": "Content-Type header sent with the request (e.g. application/json, application/xml)."
+    },
+    {
+      "name": "Verb",
+      "type": "text",
+      "default": "get",
+      "description": "HTTP verb to use when pulling data (e.g. get, post)."
+    },
+    {
+      "name": "DefaultRequest",
+      "type": "text",
+      "description": "Default request body template used when no payload is needed."
+    },
+    {
+      "name": "ArrayPath",
+      "type": "text",
+      "description": "JSON path to the array element in the response to iterate over (e.g. $.items)."
+    },
+    {
+      "name": "TimeoutSeconds",
+      "type": "number",
+      "default": "100",
+      "description": "Seconds to wait for the endpoint to answer before the run fails. Default 100."
+    }
+  ]
+}

@@ -13,7 +13,14 @@ namespace SW.Bitween.Resources.Adapters;
 /// Published version files, as paths relative to the remote adapter root — the trailing segment is
 /// the version number.
 /// </param>
-public record AdapterEntry(string Key, bool Native, IReadOnlyList<string> VersionPaths);
+/// <param name="Manifest">
+/// What the adapter says about itself — the current package's manifest, or a native adapter's. Null
+/// for a package published before manifests existed.
+/// </param>
+/// <param name="Catalog">The published adapter's catalog entry; null when it has none.</param>
+public record AdapterEntry(string Key, bool Native, IReadOnlyList<string> VersionPaths,
+    SW.Serverless.Contract.Catalog.AdapterManifest Manifest = null,
+    SW.Serverless.Contract.Catalog.AdapterCatalogEntry Catalog = null);
 
 /// <summary>
 /// The list of adapters of one kind: the in-process ones plus whatever is published to storage.
@@ -29,7 +36,9 @@ public class AdapterListing(
     ICloudFilesService cloudFilesService,
     NativeAdapterDiscoveryService nativeAdapterDiscovery,
     BitweenDbContext dbContext,
-    SW.Serverless.AdapterInstaller adapterInstaller)
+    SW.Serverless.AdapterInstaller adapterInstaller,
+    Services.Adapters.AdapterCatalog catalog,
+    Services.Adapters.NativeAdapterManifests nativeManifests)
 {
     /// <param name="prefix">The plural, lowercase kind: <c>receivers</c>, <c>handlers</c>, …</param>
     /// <returns>Native adapters first, then the published ones.</returns>
@@ -38,7 +47,7 @@ public class AdapterListing(
         var index = serverlessOptions.AdapterRemotePath.Length + 1;
 
         var native = (await nativeAdapterDiscovery.GetNativeAdapters(prefix).ExceptRetiring(dbContext))
-            .Select(key => new AdapterEntry(key, true, []))
+            .Select(key => new AdapterEntry(key, true, [], nativeManifests.Get(key)))
             .ToList();
 
         var files = (await ListByKindAsync(prefix))
@@ -59,7 +68,15 @@ public class AdapterListing(
                     .Select(v => v.Key[index..])
                     .ToList()));
 
-        return native.Concat(published).ToList();
+        // The catalog adds what a package listing cannot: the current version, the history, and
+        // the presentation. An adapter without an entry is listed exactly as before.
+        var withCatalog = await Task.WhenAll(published.Select(async entry =>
+        {
+            var found = await catalog.GetAsync(entry.Key);
+            return found == null ? entry : entry with { Manifest = found.Manifest, Catalog = found };
+        }));
+
+        return native.Concat(withCatalog).ToList();
     }
 
     /// <summary>

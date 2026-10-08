@@ -1,0 +1,117 @@
+{
+  "manifestVersion": 1,
+  "id": "nativehttphandler",
+  "displayName": "HTTP request",
+  "summary": "Sends the message to an HTTP endpoint, with authentication, headers and retries on 408/429.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "http",
+    "rest",
+    "api",
+    "webhook"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "AuthType",
+      "type": "text",
+      "description": "Authentication type (e.g. ApiKey, Basic, OAuth2, Bearer)."
+    },
+    {
+      "name": "ApiKey",
+      "type": "text",
+      "secret": true,
+      "description": "API key used for ApiKey or Bearer authentication."
+    },
+    {
+      "name": "LoginUrl",
+      "type": "text",
+      "description": "URL used to obtain a login token for OAuth2 or Basic auth flows."
+    },
+    {
+      "name": "Verb",
+      "type": "text",
+      "default": "post",
+      "description": "HTTP verb to use when calling the endpoint (e.g. get, post, put, patch, delete)."
+    },
+    {
+      "name": "LoginUsername",
+      "type": "text",
+      "description": "Username for Basic or OAuth2 password-grant authentication."
+    },
+    {
+      "name": "LoginPassword",
+      "type": "text",
+      "secret": true,
+      "description": "Password for Basic or OAuth2 password-grant authentication."
+    },
+    {
+      "name": "LoginBody",
+      "type": "text",
+      "description": "Optional custom login request (Login auth type). Put the real username and password in LoginUsername and LoginPassword, then write {{username}} and {{password}} here where they belong, e.g. {\u0022email\u0022:\u0022{{username}}\u0022,\u0022password\u0022:\u0022{{password}}\u0022}. This field is not hidden, so never type a secret into it directly. Leave empty to send the default body."
+    },
+    {
+      "name": "LoginTokenPath",
+      "type": "text",
+      "description": "Optional path to the token in the login response (e.g. token, data.access_token). Empty reads the \u0027jwt\u0027 field."
+    },
+    {
+      "name": "Url",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "The target HTTP endpoint URL."
+    },
+    {
+      "name": "ContentType",
+      "type": "text",
+      "default": "application/json",
+      "description": "Content-Type header sent with the request (e.g. application/json, application/xml)."
+    },
+    {
+      "name": "Headers",
+      "type": "text",
+      "secret": true,
+      "description": "Additional HTTP headers as key=value pairs separated by newlines."
+    },
+    {
+      "name": "CorrelationId",
+      "type": "text",
+      "description": "Field name or JSON path used to extract a correlation ID from the response."
+    },
+    {
+      "name": "TimeoutSeconds",
+      "type": "number",
+      "default": "100",
+      "description": "Seconds to wait for the endpoint to answer before the delivery fails. Default 100."
+    },
+    {
+      "name": "ClientId",
+      "type": "text",
+      "description": "OAuth2 client ID."
+    },
+    {
+      "name": "ClientSecret",
+      "type": "text",
+      "secret": true,
+      "description": "OAuth2 client secret."
+    },
+    {
+      "name": "DefaultRequest",
+      "type": "text",
+      "description": "Default request body template used when the incoming document is empty."
+    }
+  ]
+}

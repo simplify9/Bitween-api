@@ -120,8 +120,10 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     RuleFor(i => i.MapperProperties).CustomAsync(async (provided, context, _) =>
                     {
+                        var update = (SubscriptionUpdate)context.InstanceToValidate;
+                        // The pinned version's properties, which may differ from the current one's.
                         var missing = await adapterRequirements.MissingFor(
-                            ((SubscriptionUpdate)context.InstanceToValidate).MapperId, provided);
+                            SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(update.MapperId, update.MapperVersion), provided);
                         if (missing.Count > 0)
                             context.AddFailure($"Missing: {string.Join(",", missing)}");
                     });
@@ -131,8 +133,9 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (provided, context, _) =>
                     {
+                        var update = (SubscriptionUpdate)context.InstanceToValidate;
                         var missing = await adapterRequirements.MissingFor(
-                            ((SubscriptionUpdate)context.InstanceToValidate).HandlerId, provided);
+                            SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(update.HandlerId, update.HandlerVersion), provided);
                         if (missing.Count > 0)
                             context.AddFailure($"Missing: {string.Join(",", missing)}");
                     });
@@ -169,7 +172,8 @@ namespace SW.Bitween.Resources.Subscriptions
                         if (model.Schedules == null || !model.Schedules.Any())
                             context.AddFailure(nameof(model.Schedules), "Schedules are required for Receiving subscriptions");
 
-                        var missing = await adapterRequirements.MissingFor(model.ReceiverId, model.ReceiverProperties);
+                        var missing = await adapterRequirements.MissingFor(
+                            SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(model.ReceiverId, model.ReceiverVersion), model.ReceiverProperties);
                         if (missing.Count > 0)
                             context.AddFailure(nameof(model.ReceiverProperties), $"Missing properties: {string.Join(",", missing)}");
                     }

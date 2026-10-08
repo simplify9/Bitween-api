@@ -116,7 +116,7 @@ public class GatewayController(
 
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);
-        await xchangeService.RunValidator(subscription.ValidatorId, validatorProperties,
+        await xchangeService.RunValidator(subscription.ValidatorRef, validatorProperties,
             xchangeFile);
 
         var xchangeReferences = new List<string> { callerReference };

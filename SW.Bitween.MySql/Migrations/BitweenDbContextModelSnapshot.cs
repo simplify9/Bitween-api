@@ -1201,6 +1201,11 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("HandlerProperties")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("HandlerVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<bool>("Inactive")
                         .HasColumnType("tinyint(1)");
 
@@ -1217,6 +1222,11 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("MapperProperties")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("MapperVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("MatchExpression")
                         .HasColumnType("longtext");
@@ -1245,6 +1255,11 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("ReceiverProperties")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("ReceiverVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -1276,6 +1291,11 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("ValidatorProperties")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("ValidatorVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<int?>("WorkGroupId")
                         .HasColumnType("int");

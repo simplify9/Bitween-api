@@ -81,7 +81,7 @@ namespace SW.Bitween.Resources.Xchanges
 
             var globalAdapterValuesSets = await cache.ListGlobalAdapterValuesSetsAsync();
             var validatorProperties = sub.ValidatorProperties.ToDictionary().Fill(par.Partner, globalAdapterValuesSets);
-            await xchangeService.RunValidator(sub.ValidatorId, validatorProperties, xchangeFile);
+            await xchangeService.RunValidator(sub.ValidatorRef, validatorProperties, xchangeFile);
 
             // Same Idempotency-Key from the same partner for the same type: the first call's exchange.
             var idempotencyKey = requestContext.Values

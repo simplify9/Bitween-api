@@ -189,6 +189,11 @@ export function NewGatewaySubscriptionPage() {
     ...draft,
     // Set on the subscription once it exists, not while creating it.
     autoPauseAfterFailures: null,
+    // A new subscription follows the current version of each adapter.
+    receiverVersion: null,
+    validatorVersion: null,
+    mapperVersion: null,
+    handlerVersion: null,
     // Aggregation only, and this page never creates one.
     aggregationTarget: "Input",
     receiverId: null,

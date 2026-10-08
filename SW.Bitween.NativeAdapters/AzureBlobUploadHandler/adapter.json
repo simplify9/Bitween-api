@@ -1,0 +1,52 @@
+{
+  "manifestVersion": 1,
+  "id": "nativeazureblobuploadhandler",
+  "displayName": "Azure Blob upload",
+  "summary": "Writes the message as a blob to an Azure Storage container.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "azure",
+    "blob",
+    "storage",
+    "file"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "ConnectionString",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "Azure Storage account connection string."
+    },
+    {
+      "name": "ContainerName",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Name of the blob container to upload files to."
+    },
+    {
+      "name": "FileName",
+      "type": "text",
+      "description": "Name to give the uploaded blob. If empty, a name is generated from the current timestamp and a GUID."
+    },
+    {
+      "name": "FileExtension",
+      "type": "text",
+      "description": "Extension appended to the generated blob name (e.g. json, csv). Ignored if FileName is set."
+    }
+  ]
+}

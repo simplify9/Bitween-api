@@ -26,17 +26,31 @@ namespace SW.Bitween;
 public class AdapterStartupValues(
     NativeAdapterDiscoveryService nativeAdapterDiscovery,
     ServerlessAdapterDescriber serverlessDescriber,
-    IServiceProvider serviceProvider)
+    IServiceProvider serviceProvider,
+    AdapterCatalog catalog = null)
 {
     /// <summary>Drops what is remembered about a published adapter.</summary>
     public void Forget(string adapterId) => serverlessDescriber.Forget(adapterId);
 
-    /// <param name="adapterId">Native (<c>native</c> prefix) or published.</param>
+    /// <param name="adapterId">
+    /// Native (<c>native</c> prefix) or published — or a published adapter pinned to a version,
+    /// <c>{id}/{version}</c>, whose properties may differ from the current one's.
+    /// </param>
     /// <returns>Key name to description. Empty when the adapter reports nothing.</returns>
     public async Task<IDictionary<string, StartupValue>> Describe(string adapterId)
     {
         if (string.IsNullOrWhiteSpace(adapterId))
             return new Dictionary<string, StartupValue>();
+
+        // A published package that lists its properties in its manifest is described from that —
+        // no process to start, and the same answer for a resident adapter as a classic one. A
+        // package without one, or one that lists none, is asked as it always was.
+        if (catalog != null && !NativeAdapterDiscoveryService.IsNative(adapterId))
+        {
+            var manifest = await catalog.ManifestOf(adapterId);
+            if (manifest?.Properties is { Count: > 0 } declared)
+                return FromManifest(declared);
+        }
 
         // Reflection over an in-process type, so there is nothing here worth caching, and nothing
         // worth queueing behind the published adapters either.
@@ -60,6 +74,23 @@ public class AdapterStartupValues(
             return new Dictionary<string, StartupValue>();
 
         return await serverlessDescriber.Describe(adapterId);
+    }
+
+    /// <summary>A manifest's properties in the shape every caller of <see cref="Describe"/> already reads.</summary>
+    public static IDictionary<string, StartupValue> FromManifest(
+        IEnumerable<SW.Serverless.Contract.Catalog.AdapterProperty> properties)
+    {
+        var result = new Dictionary<string, StartupValue>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in properties)
+            result[property.Name] = new StartupValue
+            {
+                Optional = !property.Required,
+                Default = property.Default,
+                Type = property.Type ?? SW.Serverless.Contract.Catalog.AdapterProperty.TextType,
+                Private = property.Secret,
+                Description = property.Description ?? property.DisplayName
+            };
+        return result;
     }
 
     /// <summary>

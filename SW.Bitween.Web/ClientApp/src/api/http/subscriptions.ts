@@ -99,6 +99,10 @@ interface RawSubscription {
   pausedOn: string | null;
   pausedAutomatically?: boolean;
   autoPauseAfterFailures?: number | null;
+  receiverVersion?: string | null;
+  validatorVersion?: string | null;
+  mapperVersion?: string | null;
+  handlerVersion?: string | null;
   isRunning: boolean | null;
   consecutiveFailures: number;
   lastException: string | null;
@@ -161,6 +165,10 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     enabled: !raw.inactive,
     pausedOn: raw.pausedOn ?? null,
     pausedAutomatically: raw.pausedAutomatically ?? false,
+    receiverVersion: raw.receiverVersion ?? null,
+    validatorVersion: raw.validatorVersion ?? null,
+    mapperVersion: raw.mapperVersion ?? null,
+    handlerVersion: raw.handlerVersion ?? null,
     autoPauseAfterFailures: raw.autoPauseAfterFailures ?? null,
     workGroupId: raw.workGroupId ?? null,
     retryPolicyId: raw.retryPolicyId ?? null,
@@ -223,6 +231,10 @@ type UpdatableFields = Partial<
     | "runOnBadResponses"
     | "aggregationTarget"
     | "autoPauseAfterFailures"
+    | "receiverVersion"
+    | "validatorVersion"
+    | "mapperVersion"
+    | "handlerVersion"
   >
 > & {
   /** Create this response subscription in the same save and hand the response to it. */
@@ -271,6 +283,11 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
     responseMessageTypeName:
       changes.responseMessageTypeName !== undefined ? changes.responseMessageTypeName : current.responseMessageTypeName,
     runOnBadResponses: changes.runOnBadResponses ?? current.runOnBadResponses ?? false,
+    // Pins carried over like the rest: left out, the update would unpin every adapter.
+    receiverVersion: changes.receiverVersion !== undefined ? changes.receiverVersion : (current.receiverVersion ?? null),
+    validatorVersion: changes.validatorVersion !== undefined ? changes.validatorVersion : (current.validatorVersion ?? null),
+    mapperVersion: changes.mapperVersion !== undefined ? changes.mapperVersion : (current.mapperVersion ?? null),
+    handlerVersion: changes.handlerVersion !== undefined ? changes.handlerVersion : (current.handlerVersion ?? null),
     // Carried over like the rest: left out, the update would switch auto-pause off.
     autoPauseAfterFailures:
       changes.autoPauseAfterFailures !== undefined

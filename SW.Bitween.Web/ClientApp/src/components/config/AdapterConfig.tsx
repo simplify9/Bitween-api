@@ -524,6 +524,8 @@ export function AdapterConfig({
   mapperEditorHref,
   onOpenMapperEditor,
   sourceValues = null,
+  version,
+  onVersionChange,
 }: {
   kind: AdapterKind;
   adapterId: string | null;
@@ -547,6 +549,13 @@ export function AdapterConfig({
    * `{{source.PATH}}`. Null everywhere else, which is never handed one.
    */
   sourceValues?: SourceDocument | null;
+  /**
+   * The pinned version, null to follow the current one. Only screens that pass
+   * `onVersionChange` offer the choice — the create pages don't, so a new subscription follows
+   * whatever is current.
+   */
+  version?: string | null;
+  onVersionChange?: (version: string | null) => void;
 }) {
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
@@ -615,14 +624,37 @@ export function AdapterConfig({
             <span className="text-[12px] text-ink-400">
               {adapter.native
                 ? "Runs in-process"
-                : adapter.versions.length > 0
-                  ? `Custom · v${adapter.versions.at(-1)}`
+                : (adapter.currentVersion ?? adapter.versions.at(-1))
+                  ? `Custom · v${adapter.currentVersion ?? adapter.versions.at(-1)}`
                   : "Custom package"}
               {adapter.props.length > 0 &&
                 ` · ${adapter.props.length} setting${adapter.props.length === 1 ? "" : "s"}`}
             </span>
           )}
+          {adapter && !adapter.native && onVersionChange && (
+            <VersionSelect
+              adapter={adapter}
+              version={version ?? null}
+              disabled={disabled}
+              onChange={onVersionChange}
+            />
+          )}
         </div>
+        {adapter && (adapter.summary || adapter.icon || adapter.publisher) && (
+          <div className="mt-2 flex items-start gap-2.5">
+            {adapter.icon && (
+              <img src={adapter.icon} alt="" className="mt-0.5 size-7 shrink-0 rounded-md object-contain" />
+            )}
+            <p className="text-[12.5px] leading-relaxed text-ink-600">
+              {adapter.summary}
+              {adapter.publisher && (
+                <span className="text-ink-400">
+                  {adapter.summary ? " · " : ""}by {adapter.publisher}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
       </div>
       {adapter && usesVisualMappingEditor(adapter.id) && (
         onOpenMapperEditor ? (
@@ -674,5 +706,57 @@ export function AdapterConfig({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Which published version a slot runs: the current one, or a version pinned so that publishing a
+ * newer one doesn't change this subscription. A pinned version that has since been withdrawn stays
+ * shown — it is what runs — but can't be picked again.
+ */
+function VersionSelect({
+  adapter,
+  version,
+  disabled,
+  onChange,
+}: {
+  adapter: AdapterInfo;
+  version: string | null;
+  disabled: boolean;
+  onChange: (version: string | null) => void;
+}) {
+  const history = adapter.versionHistory.length > 0
+    ? adapter.versionHistory
+    : adapter.versions.map((v) => ({ version: v, publishedOn: null, publishedBy: null, releaseNotes: null, withdrawn: false }));
+  if (history.length === 0 && version === null) return null;
+
+  const pinned = version ? history.find((v) => v.version === version) : undefined;
+  const current = adapter.currentVersion ?? adapter.versions.at(-1) ?? null;
+
+  return (
+    <label className="flex items-center gap-1.5 text-[12px] text-ink-500">
+      <span>Version</span>
+      <select
+        aria-label="Adapter version"
+        value={version ?? ""}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+        className="rounded-md border border-ink-200 bg-white px-2 py-1 text-[12.5px] text-ink-800 disabled:bg-ink-50"
+      >
+        <option value="">{current ? `Follow current (v${current})` : "Follow current"}</option>
+        {[...history].reverse().map((v) => (
+          <option
+            key={v.version}
+            value={v.version}
+            disabled={v.withdrawn && v.version !== version}
+            title={v.releaseNotes ?? undefined}
+          >
+            v{v.version}
+            {v.withdrawn ? " (withdrawn)" : ""}
+          </option>
+        ))}
+        {version && !pinned && <option value={version}>v{version} (not in catalog)</option>}
+      </select>
+    </label>
   );
 }

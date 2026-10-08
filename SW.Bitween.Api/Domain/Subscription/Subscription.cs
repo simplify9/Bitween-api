@@ -103,6 +103,21 @@ public class Subscription : BaseEntity
     public string ReceiverId { get; set; }
 
     public string MapperId { get; set; }
+
+    /// <summary>
+    /// Published versions this subscription is pinned to, one per adapter slot; null follows
+    /// whatever version is current — which is how every subscription behaved before versions.
+    /// </summary>
+    public string ReceiverVersion { get; set; }
+    public string ValidatorVersion { get; set; }
+    public string MapperVersion { get; set; }
+    public string HandlerVersion { get; set; }
+
+    /// <summary>What actually runs for a slot: the adapter id, or <c>{id}/{version}</c> when pinned.</summary>
+    public string ReceiverRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(ReceiverId, ReceiverVersion);
+    public string ValidatorRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(ValidatorId, ValidatorVersion);
+    public string MapperRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(MapperId, MapperVersion);
+    public string HandlerRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(HandlerId, HandlerVersion);
     public IReadOnlyDictionary<string, string> ValidatorProperties { get; private set; }
     public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
     public IReadOnlyDictionary<string, string> MapperProperties { get; private set; }

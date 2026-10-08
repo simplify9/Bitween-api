@@ -216,6 +216,16 @@ namespace SW.Bitween.Model
         public string? ValidatorId { get; set; }
 
         /// <summary>
+        /// The published version of the handler to run, e.g. 1.4.0. Null — what a caller that
+        /// predates versions sends — follows whichever version is current. Native adapters have no
+        /// versions. The same goes for the other three slots.
+        /// </summary>
+        public string? HandlerVersion { get; set; }
+        public string? MapperVersion { get; set; }
+        public string? ReceiverVersion { get; set; }
+        public string? ValidatorVersion { get; set; }
+
+        /// <summary>
         /// Which data source this subscription's adapters connect through — a database connection,
         /// typically. Null keeps the old behaviour, where an adapter carries its own connection
         /// settings in its properties.

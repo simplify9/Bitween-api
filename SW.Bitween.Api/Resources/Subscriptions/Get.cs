@@ -41,6 +41,10 @@ namespace SW.Bitween.Resources.Subscriptions
                     Inactive = subscriber.Inactive,
                     MapperId = subscriber.MapperId,
                     ReceiverId = subscriber.ReceiverId,
+                    HandlerVersion = subscriber.HandlerVersion,
+                    MapperVersion = subscriber.MapperVersion,
+                    ReceiverVersion = subscriber.ReceiverVersion,
+                    ValidatorVersion = subscriber.ValidatorVersion,
 
                     // Which data source every stage of this subscription runs through. Dropped
                     // from this projection once, and the cost was quiet: the UI read every bound

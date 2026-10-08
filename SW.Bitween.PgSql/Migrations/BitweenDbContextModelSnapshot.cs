@@ -1455,6 +1455,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("handler_properties");
 
+                    b.Property<string>("HandlerVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("handler_version");
+
                     b.Property<bool>("Inactive")
                         .HasColumnType("boolean")
                         .HasColumnName("inactive");
@@ -1475,6 +1480,11 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<string>("MapperProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("mapper_properties");
+
+                    b.Property<string>("MapperVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("mapper_version");
 
                     b.Property<string>("MatchExpression")
                         .HasColumnType("text")
@@ -1510,6 +1520,11 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<string>("ReceiverProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("receiver_properties");
+
+                    b.Property<string>("ReceiverVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("receiver_version");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -1548,6 +1563,11 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<string>("ValidatorProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("validator_properties");
+
+                    b.Property<string>("ValidatorVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("validator_version");
 
                     b.Property<int?>("WorkGroupId")
                         .HasColumnType("integer")
