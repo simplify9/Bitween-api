@@ -24,6 +24,8 @@ interface SessionContextValue {
   /** Re-fetch the session after profile changes. */
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Changes the password and signs back in with it, so this tab carries on. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /**
    * Set when the server could not be asked whether this browser's token is still good
    * — rate limited, down, or unreachable. Distinct from `session === null`, which
@@ -127,6 +129,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [endSession]);
 
   /**
+   * Changing a password ends every session the account holds, this one included: the server
+   * deletes its refresh tokens, and a token issued while the password still had to change grants
+   * nothing even after it has. Signing straight back in with the new password is what lets this
+   * tab carry on — otherwise the forced change left a working-looking app with no permissions,
+   * and an ordinary change signed you out whenever the current token expired.
+   */
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const email = session?.user.email ?? "";
+      await api.changePassword(currentPassword, newPassword);
+      try {
+        await signIn(email, newPassword);
+      } catch {
+        // The password did change; only the new session failed. Signing out sends them to sign
+        // in with it, rather than leaving them in the session that just stopped counting.
+        await signOut();
+      }
+    },
+    [session, signIn, signOut],
+  );
+
+  /**
    * Ends the session here when it ends in another tab.
    *
    * Both credentials are shared by every tab of this origin — the Jwt in
@@ -175,6 +199,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       adoptSession,
       refresh,
       signOut,
+      changePassword,
       unreachable,
       retry,
     }),
@@ -186,6 +211,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       adoptSession,
       refresh,
       signOut,
+      changePassword,
       unreachable,
       retry,
     ],
