@@ -1,0 +1,408 @@
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { useQueries } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight, Package, Puzzle, Search, Store } from "lucide-react";
+import { api, type AdapterKind } from "../../api";
+import { keys } from "../../api/queryKeys";
+import { PageHeader } from "../../components/layout/PageHeader";
+import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { useSubscriptionsCache } from "../../components/config/shared";
+import { formatDate } from "../../lib/dates";
+import {
+  ADAPTER_KINDS,
+  matchesSearch,
+  mergeCatalogs,
+  usageByAdapter,
+  type AdapterUsage,
+  type InventoryAdapter,
+} from "../../lib/adapterInventory";
+
+type Tab = "installed" | "marketplace";
+type KindFilter = "all" | AdapterKind;
+
+const KIND_LABEL: Record<AdapterKind, string> = {
+  receiver: "Receiver",
+  validator: "Validator",
+  mapper: "Mapper",
+  handler: "Handler",
+};
+
+/**
+ * Every adapter this Bitween can run: the ones built in, and the custom packages published to it,
+ * with their versions and who uses them. The marketplace — adapters that could be installed — is
+ * its own tab, still to come.
+ */
+export function AdaptersPage() {
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = params.get("tab") === "marketplace" ? "marketplace" : "installed";
+  const selectTab = (next: Tab) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next === "installed") p.delete("tab");
+        else p.set("tab", next);
+        return p;
+      },
+      { replace: true },
+    );
+
+  return (
+    <div>
+      <PageHeader
+        title="Adapters"
+        description="What Bitween can receive with, check, transform and deliver with — built in, or published to this instance."
+      />
+
+      <div role="tablist" aria-label="Adapters" className="mb-5 flex gap-1 border-b border-ink-200">
+        {(
+          [
+            ["installed", "Installed", Package],
+            ["marketplace", "Marketplace", Store],
+          ] as const
+        ).map(([value, label, Icon]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            id={`adapters-tab-${value}`}
+            aria-selected={tab === value}
+            aria-controls={`adapters-panel-${value}`}
+            onClick={() => selectTab(value)}
+            className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-[13.5px] font-medium ${
+              tab === value
+                ? "border-crimson-600 text-ink-900"
+                : "border-transparent text-ink-500 hover:text-ink-800"
+            }`}
+          >
+            <Icon className="size-4" aria-hidden />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel" id={`adapters-panel-${tab}`} aria-labelledby={`adapters-tab-${tab}`}>
+        {tab === "installed" ? (
+          <InstalledAdapters />
+        ) : (
+          <EmptyState icon={<Store />} title="The marketplace is on its way">
+            Browsing and installing adapters published by Simplify9 and others will live here.
+          </EmptyState>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function InstalledAdapters() {
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState<KindFilter>("all");
+
+  // One request per kind, folded into one entry per adapter in `combine`, which only re-runs when
+  // one of the four results actually changes.
+  const catalogs = useQueries({
+    queries: ADAPTER_KINDS.map((k) => ({ queryKey: keys.adapters(k), queryFn: () => api.listAdapters(k) })),
+    combine: (results) => ({
+      loading: results.some((r) => r.isPending),
+      error: results.find((r) => r.isError)?.error ?? null,
+      adapters: mergeCatalogs(Object.fromEntries(ADAPTER_KINDS.map((k, i) => [k, results[i].data ?? []]))),
+    }),
+  });
+  const subscriptions = useSubscriptionsCache();
+  const usage = useMemo(() => usageByAdapter(subscriptions.data ?? []), [subscriptions.data]);
+
+  if (catalogs.loading) return <LoadingBlock label="Reading the adapters…" />;
+  if (catalogs.error) return <p className="text-sm text-danger-700">{catalogs.error.message}</p>;
+
+  const shown = catalogs.adapters.filter((a) => (kind === "all" || a.kinds.includes(kind)) && matchesSearch(a, query));
+  const builtIn = shown.filter((a) => a.native);
+  const custom = shown.filter((a) => !a.native);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <input
+            type="search"
+            aria-label="Search adapters"
+            placeholder="Search by name, id, publisher or tag"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full rounded-lg border border-ink-200 bg-white py-2 pr-3 pl-9 text-[13.5px] focus:border-crimson-500 focus:outline-none"
+          />
+        </div>
+        <SegmentedControl<KindFilter>
+          label="Kind"
+          size="sm"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: "all", label: "All" },
+            ...ADAPTER_KINDS.map((k) => ({ value: k, label: `${KIND_LABEL[k]}s` })),
+          ]}
+        />
+      </div>
+
+      <AdapterSection
+        title="Built-in"
+        description="Shipped with Bitween and run in-process. They are updated with Bitween itself, so they have no versions of their own."
+        adapters={builtIn}
+        usage={usage}
+        empty={query || kind !== "all" ? "No built-in adapter matches." : "No built-in adapters."}
+      />
+      <AdapterSection
+        title="Custom"
+        description="Packages published to this instance with the installer. Each runs in its own process, and published versions can be pinned per subscription."
+        adapters={custom}
+        usage={usage}
+        empty={
+          query || kind !== "all"
+            ? "No custom adapter matches."
+            : "None published yet. Custom adapters are published with the serverless installer."
+        }
+      />
+    </div>
+  );
+}
+
+function AdapterSection({
+  title,
+  description,
+  adapters,
+  usage,
+  empty,
+}: {
+  title: string;
+  description: string;
+  adapters: InventoryAdapter[];
+  usage: Map<string, AdapterUsage>;
+  empty: string;
+}) {
+  return (
+    <section aria-labelledby={`section-${title}`}>
+      <div className="mb-2.5">
+        <h2 id={`section-${title}`} className="flex items-center gap-2 text-[15px] font-semibold text-ink-900">
+          {title}
+          <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-medium text-ink-600">{adapters.length}</span>
+        </h2>
+        <p className="mt-0.5 text-[12.5px] text-ink-500">{description}</p>
+      </div>
+      {adapters.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-ink-200 px-4 py-6 text-center text-[13px] text-ink-500">{empty}</p>
+      ) : (
+        <ul className="divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white">
+          {adapters.map((a) => (
+            <AdapterRow key={a.id} adapter={a} usage={usage.get(a.id.toLowerCase())} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
+  const [open, setOpen] = useState(false);
+  const used = usage?.subscriptions.length ?? 0;
+  const pinnable = a.versions.filter((v) => !v.withdrawn).length;
+
+  return (
+    <li>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-ink-50/60"
+      >
+        {open ? (
+          <ChevronDown className="mt-2 size-4 shrink-0 text-ink-400" aria-hidden />
+        ) : (
+          <ChevronRight className="mt-2 size-4 shrink-0 text-ink-400" aria-hidden />
+        )}
+        <AdapterIcon adapter={a} />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[14px] font-medium text-ink-900">{a.label}</span>
+            {a.kinds.map((k) => (
+              <Badge key={k} tone="neutral">
+                {KIND_LABEL[k]}
+              </Badge>
+            ))}
+            {a.currentVersion && <Badge tone="crimson">v{a.currentVersion}</Badge>}
+          </span>
+          <code className="block truncate font-mono text-[11.5px] text-ink-400">{a.id}</code>
+          {(a.summary || a.publisher) && (
+            <span className="mt-0.5 block text-[12.5px] text-ink-600">
+              {a.summary}
+              {a.publisher && <span className="text-ink-400">{a.summary ? " · " : ""}by {a.publisher}</span>}
+            </span>
+          )}
+        </span>
+        <span className="shrink-0 text-right text-[12px] text-ink-500">
+          <span className="block">{used === 0 ? "Not used" : `Used by ${used} subscription${used === 1 ? "" : "s"}`}</span>
+          {!a.native && (
+            <span className="block text-ink-400">
+              {pinnable === 0 ? "No versions" : `${pinnable} version${pinnable === 1 ? "" : "s"}`}
+            </span>
+          )}
+        </span>
+      </button>
+
+      {open && <AdapterDetails adapter={a} usage={usage} />}
+    </li>
+  );
+}
+
+function AdapterIcon({ adapter: a }: { adapter: InventoryAdapter }) {
+  if (a.icon) return <img src={a.icon} alt="" className="size-9 shrink-0 rounded-lg object-contain" />;
+  return (
+    <span
+      aria-hidden
+      className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+        a.native ? "bg-ink-100 text-ink-500" : "bg-crimson-50 text-crimson-600"
+      }`}
+    >
+      <Puzzle className="size-4.5" />
+    </span>
+  );
+}
+
+function AdapterDetails({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
+  return (
+    <div className="space-y-5 border-t border-ink-100 bg-ink-50/40 px-4 py-4 pl-[4.25rem]">
+      {a.description && <p className="max-w-3xl text-[13px] whitespace-pre-line text-ink-700">{a.description}</p>}
+      {a.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {a.tags.map((t) => (
+            <span key={t} className="rounded-full bg-white px-2 py-0.5 text-[11.5px] text-ink-600 ring-1 ring-ink-200">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {!a.native && <VersionHistory adapter={a} usage={usage} />}
+
+      <div>
+        <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Settings</h3>
+        {a.props.length === 0 ? (
+          <p className="text-[13px] text-ink-500">None.</p>
+        ) : (
+          <table className="w-full max-w-3xl text-left text-[12.5px]">
+            <thead className="text-ink-500">
+              <tr>
+                <th className="py-1 pr-3 font-medium">Name</th>
+                <th className="py-1 pr-3 font-medium">Required</th>
+                <th className="py-1 pr-3 font-medium">Default</th>
+                <th className="py-1 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {a.props.map((p) => (
+                <tr key={p.key}>
+                  <td className="py-1.5 pr-3 font-mono text-ink-800">
+                    {p.key}
+                    {p.secret && (
+                      <Badge tone="warn" className="ml-1.5">
+                        Secret
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-3 text-ink-600">{p.optional ? "No" : "Yes"}</td>
+                  <td className="py-1.5 pr-3 font-mono text-ink-600">{p.default ?? "—"}</td>
+                  <td className="py-1.5 text-ink-600">{p.description ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {usage && usage.subscriptions.length > 0 && (
+        <div>
+          <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Used by</h3>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+            {usage.subscriptions.map((s) => (
+              <li key={s.id}>
+                <Link to={`/subscriptions/${s.id}`} className="font-medium text-crimson-700 hover:underline">
+                  {s.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Every published version, newest first: which is current, which are withdrawn, what changed, and
+ * how many subscriptions are pinned to each. An adapter published without a manifest has only its
+ * version files, so it shows just their numbers.
+ */
+function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
+  return (
+    <div>
+      <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Versions</h3>
+      {a.versions.length === 0 ? (
+        <p className="text-[13px] text-ink-500">
+          Published without versions: every subscription runs the package that was uploaded last.
+        </p>
+      ) : (
+        <>
+          <table className="w-full max-w-3xl text-left text-[12.5px]">
+            <thead className="text-ink-500">
+              <tr>
+                <th className="py-1 pr-3 font-medium">Version</th>
+                <th className="py-1 pr-3 font-medium">Published</th>
+                <th className="py-1 pr-3 font-medium">Pinned by</th>
+                <th className="py-1 font-medium">Release notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {a.versions.map((v) => {
+                const pinned = usage?.pinned[v.version] ?? 0;
+                return (
+                  <tr key={v.version} className={v.withdrawn ? "text-ink-400" : "text-ink-700"}>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">
+                      <span className="font-mono">v{v.version}</span>
+                      {v.version === a.currentVersion && (
+                        <Badge tone="ok" className="ml-1.5">
+                          Current
+                        </Badge>
+                      )}
+                      {v.withdrawn && (
+                        <Badge tone="neutral" className="ml-1.5">
+                          Withdrawn
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">
+                      {v.publishedOn ? formatDate(v.publishedOn) : "—"}
+                      {v.publishedBy && <span className="block text-[11.5px] text-ink-400">{v.publishedBy}</span>}
+                    </td>
+                    <td className="py-1.5 pr-3">{pinned === 0 ? "—" : pinned}</td>
+                    <td className="py-1.5 whitespace-pre-line">{v.releaseNotes ?? ""}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {usage && usage.followingCurrent > 0 && (
+            <p className="mt-1.5 text-[12px] text-ink-500">
+              {usage.followingCurrent === 1
+                ? "1 use follows the current version."
+                : `${usage.followingCurrent} uses follow the current version.`}
+            </p>
+          )}
+          {!a.hasCatalog && (
+            <p className="mt-1.5 text-[12px] text-ink-500">
+              Published by an older installer: version numbers only, with no notes or publish dates.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,3 +1,4 @@
+import { AdaptersPage } from "./pages/adapters/AdaptersPage";
 import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
 import { RequireAuth, RequirePermission } from "./auth/guards";
 import { useSession } from "./auth/SessionContext";
@@ -363,6 +364,14 @@ export const routes: RouteObject[] = [
             element: (
               <RequirePermission permission="partners.view">
                 <PartnerPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "adapters",
+            element: (
+              <RequirePermission permission="subscriptions.view">
+                <AdaptersPage />
               </RequirePermission>
             ),
           },

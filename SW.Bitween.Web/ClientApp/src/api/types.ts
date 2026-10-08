@@ -155,6 +155,11 @@ export interface SubscriptionInfo {
    * can never be reached, however they are set.
    */
   handlerId: string | null;
+  /**
+   * Every adapter it runs, one per configured slot, with the version it is pinned to (null
+   * follows the current one). What the Adapters page counts usage from.
+   */
+  adapterUses: AdapterUse[];
   /** The bus message its delivery response is published as, if any. */
   responseMessageTypeName: string | null;
   /** The subscription its delivery response is handed straight to, if any. */
@@ -577,6 +582,12 @@ export interface AdapterInfo {
   /** The version that runs when a subscription pins none; null when the catalog doesn't say. */
   currentVersion: string | null;
   versionHistory: AdapterVersion[];
+}
+
+export interface AdapterUse {
+  kind: AdapterKind;
+  adapterId: string;
+  version: string | null;
 }
 
 export interface AdapterVersion {

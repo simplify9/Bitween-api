@@ -353,6 +353,16 @@ export const subscriptionMethods = {
       workGroupId: raw.workGroupId ?? null,
       retryPolicyId: raw.retryPolicyId ?? null,
       handlerId: raw.handlerId ?? null,
+      adapterUses: (
+        [
+          ["receiver", raw.receiverId, raw.receiverVersion],
+          ["validator", raw.validatorId, raw.validatorVersion],
+          ["mapper", raw.mapperId, raw.mapperVersion],
+          ["handler", raw.handlerId, raw.handlerVersion],
+        ] as const
+      )
+        .filter(([, adapterId]) => !!adapterId)
+        .map(([kind, adapterId, version]) => ({ kind, adapterId: adapterId!, version: version ?? null })),
       responseMessageTypeName: raw.responseMessageTypeName ?? null,
       responseSubscriptionId: raw.responseSubscriptionId ?? null,
       // No backend endpoint indexes reference tokens, but the search rows carry

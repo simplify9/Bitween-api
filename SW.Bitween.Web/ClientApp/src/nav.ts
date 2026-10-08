@@ -20,8 +20,7 @@ import {
   Users,
   Webhook,
   Workflow,
-  type LucideIcon,
-} from "lucide-react";
+  type LucideIcon, Puzzle } from "lucide-react";
 import type { PermissionKey, Session } from "./api";
 
 export interface NavItem {
@@ -94,6 +93,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // describes is a connection to something outside Bitween — configuration, not a pipeline.
       { label: "Data sources", path: "/data-sources", icon: Database, permissions: ["data-sources.view"] },
       { label: "Information types", path: "/information-types", icon: FileText, permissions: ["documents.view"] },
+      // What subscriptions are built from — receivers, validators, mappers and handlers, built in
+      // or published — with their versions and who uses them.
+      { label: "Adapters", path: "/adapters", icon: Puzzle, permissions: ["subscriptions.view"] },
       { label: "Global values", path: "/global-values", icon: SlidersHorizontal, permissions: ["global-values.view"] },
       { label: "Work groups", path: "/work-groups", icon: Layers, permissions: ["workgroups.view"] },
       { label: "Retry policies", path: "/retry-policies", icon: RotateCcw, permissions: ["retry-policies.view"] },
