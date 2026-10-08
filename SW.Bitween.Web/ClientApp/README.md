@@ -33,7 +33,7 @@ React 19, TypeScript, Vite, Tailwind CSS 4, React Router, TanStack Query, CodeMi
 | `src/components/config/` | Shared configuration editors: adapters, schedules, match expressions, pickers. |
 | `src/components/nativeMapper/`, `src/lib/nativeMapper/` | The rules-based mapping editor. |
 | `src/components/mapper/`, `src/lib/mapping/` | The legacy Scriban mapping editor. |
-| `e2e/` | Playwright specs and global setup. |
+| `e2e/` | Playwright specs, and the `seed` setup project that prepares the database for them. `tools/e2e.sh` runs them against a throwaway instance. |
 
 ## Conventions
 

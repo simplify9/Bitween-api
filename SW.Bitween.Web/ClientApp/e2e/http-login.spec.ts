@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test, expect, type Page } from "@playwright/test";
 import { pickOption, signInAsAdmin } from "./helpers";
+import { SEED } from "./seed-data";
 
 /**
  * The HTTP adapters' "Login" auth, against a partner API that logs in its own way: it wants
@@ -74,7 +75,7 @@ test("HTTP receiver and handler log in with a custom body and token path", async
 
   await page.goto("scheduled-jobs/new");
   await page.fill("#nj-name", name);
-  await pickOption(page, "Information type", /Shipment order/);
+  await pickOption(page, "Information type", new RegExp(SEED.informationType));
 
   await pickOption(page, "receiver adapter", "NativeHttpReceiver");
   await page.locator("#prop-Url").fill(`${base}/feed`);

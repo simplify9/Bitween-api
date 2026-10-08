@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
+  API,
   FIRST_PASSWORD,
   addMember,
   createRole,
@@ -28,7 +29,7 @@ async function apiStatus(
   body?: unknown,
 ): Promise<number> {
   const token = await sessionToken(page);
-  const res = await page.request.fetch(`https://localhost:7155/api${path}`, {
+  const res = await page.request.fetch(`${API}${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     ...(body === undefined ? {} : { data: body }),

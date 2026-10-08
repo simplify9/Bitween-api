@@ -1,14 +1,8 @@
 import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+import { signInAsAdmin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 });
 
 test("work group create, edit queue settings, list, delete", async ({ page }) => {
@@ -23,7 +17,9 @@ test("work group create, edit queue settings, list, delete", async ({ page }) =>
   await dialog.getByRole("textbox", { name: "Name", exact: true }).fill(name);
   await dialog.getByRole("button", { name: "Create work group" }).click();
 
-  await expect(page).toHaveURL(/\/work-groups\/\d+$/);
+  // Generous on purpose: creating a group restarts every node's consumers so they pick up its new
+  // queue, and the request only returns once that is done — several seconds on a cold instance.
+  await expect(page).toHaveURL(/\/work-groups\/\d+$/, { timeout: 15000 });
   await expect(page.getByRole("heading", { name })).toBeVisible();
   // Defaults carried over from the create dialog.
   await expect(page.locator("#wg-prefetch")).toHaveValue("10");

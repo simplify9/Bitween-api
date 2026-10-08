@@ -1,14 +1,8 @@
 import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+import { API, sessionToken, signInAsAdmin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 });
 
 test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
@@ -74,9 +68,19 @@ test("scheduled retries page loads", async ({ page }) => {
 });
 
 test("queue health page loads with live consumer data", async ({ page }) => {
+  // Queue names start with the environment's name ("v3.development.bitween…", "v3.local.bitween…"),
+  // so which one to look for is asked of the same API the page reads rather than assumed.
+  const token = await sessionToken(page);
+  const res = await page.request.get(`${API}/ops/consumers`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(res.ok()).toBeTruthy();
+  const consumers = (await res.json()) as { queueName: string }[];
+  expect(consumers.length, "the broker reports no consumers at all").toBeGreaterThan(0);
+
   await page.goto("queue-health");
   await expect(page.getByRole("heading", { name: "Queue health" })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("v3.local.bitween").first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(consumers[0].queueName, { exact: true }).first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("undefined")).toHaveCount(0);
 });
 

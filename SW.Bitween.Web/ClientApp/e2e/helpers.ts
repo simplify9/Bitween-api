@@ -1,11 +1,12 @@
 import { type Page } from "@playwright/test";
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./env";
 
 /** Checkbox labels carry their description in the accessible name, so anchor at the start. */
 export const startsWith = (text: string) =>
   new RegExp("^" + text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
-export const ADMIN_EMAIL = "admin@Bitween.systems";
-export const ADMIN_PASSWORD = "Mtm@dmin!2";
+/** Who the suite signs in as and where — read from the environment, see env.ts. */
+export { ADMIN_EMAIL, ADMIN_PASSWORD, API } from "./env";
 
 /** Passwords the members these tests create are given. Both clear the 8-character minimum. */
 export const FIRST_PASSWORD = "Pl4ywright!1";

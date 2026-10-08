@@ -104,5 +104,4 @@ These behaviours were found while documenting Bitween from its source code, and 
 | The Helm deployment declares container port 80 while the app listens on 8080, and probes use the declared port. | `charts/default/templates/deployment.yaml` |
 | The Dockerfile copies the .NET 6 shared runtime into the image without a stated reason. | `Dockerfile` |
 | A startup migration failure is logged by parsing the connection string as PostgreSQL, which may throw for other providers and hide the original error. | `SW.Bitween.Web/Program.cs` |
-| The Playwright configuration expects a launch profile on port 7155 that is not in the repository. | `ClientApp/playwright.config.ts` |
 | No pipeline in this repository publishes the resident adapter packages. | `.github/workflows` |

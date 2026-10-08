@@ -269,7 +269,7 @@ dotnet test --collect:"XPlat Code Coverage"
 
 # Frontend, from SW.Bitween.Web/ClientApp
 yarn test        # unit + component tests, no backend needed
-yarn test:e2e    # end-to-end, needs the backend running on the Local profile
+yarn test:e2e    # end-to-end, against a running backend; tools/e2e.sh starts one from scratch
 ```
 
 ### Where a New Test Goes
