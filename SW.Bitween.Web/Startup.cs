@@ -224,6 +224,10 @@ namespace SW.Bitween.Web
                 {
                     configure.HeartbeatInterval = TimeSpan.FromSeconds(15);
                     configure.MaxInFlight = bitweenOptions.BusProviderMaxInFlight;
+                    // The same ceiling classic adapters get, so a resident handler or mapper is not
+                    // allowed longer than the classic one it replaces (both default to 300 seconds).
+                    if (bitweenOptions.ServerlessCommandTimeout > 0)
+                        configure.InvokeTimeout = TimeSpan.FromSeconds(bitweenOptions.ServerlessCommandTimeout);
                 });
                 // One election implementation, deliberately — see ILeaderElection's remarks.
                 services.AddSingleton<ILeaderElection, RabbitMqLeaderElection>();
