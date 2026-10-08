@@ -73,6 +73,13 @@ public static class SeededAdministrator
                 "Bitween:InitialAdminPassword does not meet the password policy: " +
                 string.Join(" ", result.Errors.Select(e => e.ErrorMessage)));
 
+        // Together or not at all: a new password stored without the deletion would never be retried,
+        // since the next start no longer finds the published one. A caller's transaction is used
+        // rather than nested.
+        await using var transaction = dbContext.Database.CurrentTransaction is null
+            ? await dbContext.Database.BeginTransactionAsync()
+            : null;
+
         admin.SetPassword(initialPassword);
         await dbContext.SaveChangesAsync();
 
@@ -81,6 +88,9 @@ public static class SeededAdministrator
         await dbContext.Set<RefreshToken>()
             .Where(t => t.AccountId == admin.Id)
             .ExecuteDeleteAsync();
+
+        if (transaction is not null)
+            await transaction.CommitAsync();
 
         logger.LogInformation("Set the password of {Email} from Bitween:InitialAdminPassword.", admin.Email);
     }
