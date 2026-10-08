@@ -140,6 +140,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<byte>("LoginMethod")
                         .HasColumnType("tinyint");
 
+                    b.Property<DateTime?>("SupersededOn")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");

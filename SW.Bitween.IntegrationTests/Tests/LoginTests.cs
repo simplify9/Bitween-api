@@ -264,10 +264,7 @@ public class LoginTests(BitweenFixture fixture)
         var token = await IssueRefreshToken(account.Id, TimeSpan.FromDays(31));
 
         await Assert.ThrowsAsync<SWException>(() => Refresh(token));
-
-        await using var scope = fixture.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        Assert.False(await db.Set<RefreshToken>().AnyAsync(t => t.Id == token));
+        await Assert.ThrowsAsync<SWException>(() => Refresh(token));
     }
 
     /// <summary>
@@ -290,5 +287,91 @@ public class LoginTests(BitweenFixture fixture)
         await using var scope = fixture.CreateScope();
         var ctx = scope.As(account.Id);
         Assert.Empty(await ctx.GetPermissions(scope.ServiceProvider.GetRequiredService<BitweenDbContext>()));
+    }
+
+    private async Task<object> LoginWithCookie(string email, string password, string refreshCookie)
+    {
+        await using var scope = fixture.CreateScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+        accessor.HttpContext = new DefaultHttpContext();
+        accessor.HttpContext.Request.Headers.Cookie = $"refresh_token={refreshCookie}";
+        var handler = ActivatorUtilities.CreateInstance<Resources.Accounts.Login>(scope.ServiceProvider);
+        return await handler.Handle(new UserLogin { Username = email, Password = password });
+    }
+
+    private static string AccountIdIn(object loginResult)
+    {
+        var jwt = (string)loginResult.GetType().GetProperty("Jwt")!.GetValue(loginResult)!;
+        var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(jwt);
+        return token.Claims.First(c => c.Type is "nameid" or System.Security.Claims.ClaimTypes.NameIdentifier).Value;
+    }
+
+    /// <summary>
+    /// A sign-out whose request never completes leaves the refresh cookie in the browser. Signing in
+    /// as someone else then has to sign in as them — it used to prefer the cookie and hand back the
+    /// previous person's session.
+    /// </summary>
+    [Fact]
+    public async Task Signing_in_with_credentials_ignores_a_leftover_refresh_cookie()
+    {
+        var previous = await CreateAccount("leftover-previous@test.local");
+        var next = await CreateAccount("leftover-next@test.local");
+        var leftover = await IssueRefreshToken(previous.Id, TimeSpan.FromMinutes(1));
+
+        var result = await LoginWithCookie("leftover-next@test.local", GoodPassword, leftover);
+
+        Assert.Equal(next.Id.ToString(), AccountIdIn(result));
+
+        // And the previous session's token does not survive as a second way in.
+        await using var scope = fixture.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<RefreshToken>().AnyAsync(t => t.Id == leftover));
+    }
+
+    /// <summary>
+    /// Two requests carrying the same refresh token — a refresh racing a sign-out, or a page load
+    /// racing the one before it — used to both load it and both delete it, and the loser failed with
+    /// a 500. Within the grace after a token is replaced, a repeat is served, not refused, so a
+    /// browser whose copy of the new token was lost is not signed out.
+    /// </summary>
+    [Fact]
+    public async Task A_refresh_token_used_twice_at_once_does_not_fail()
+    {
+        var account = await CreateAccount("refresh-race@test.local");
+        var token = await IssueRefreshToken(account.Id, TimeSpan.FromMinutes(1));
+
+        var attempts = await Task.WhenAll(Enumerable.Range(0, 4).Select(async _ =>
+        {
+            try
+            {
+                await Refresh(token);
+                return "signed-in";
+            }
+            catch (SWException)
+            {
+                return "refused";
+            }
+        }));
+
+        Assert.All(attempts, a => Assert.Equal("signed-in", a));
+    }
+
+    /// <summary>Past the grace, a replaced token is spent for good.</summary>
+    [Fact]
+    public async Task A_replaced_refresh_token_is_refused_once_its_grace_has_passed()
+    {
+        var account = await CreateAccount("refresh-replaced@test.local");
+        var token = await IssueRefreshToken(account.Id, TimeSpan.FromMinutes(1));
+        await Refresh(token);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var longAgo = DateTime.UtcNow.AddMinutes(-5);
+            await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<RefreshToken>()
+                .Where(t => t.Id == token)
+                .ExecuteUpdateAsync(u => u.SetProperty(t => t.SupersededOn, longAgo));
+        }
+
+        await Assert.ThrowsAsync<SWException>(() => Refresh(token));
     }
 }

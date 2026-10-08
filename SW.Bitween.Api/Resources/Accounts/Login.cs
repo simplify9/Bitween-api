@@ -22,6 +22,7 @@ namespace SW.Bitween.Resources.Accounts
         private const int MaxFailedLoginAttempts = 20;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
+        private static readonly TimeSpan RefreshGrace = TimeSpan.FromSeconds(30);
 
         // Verified against when no account matches, so an unknown email costs the same PBKDF2 work
         // as a known one. Without it the response time alone said which addresses have accounts.
@@ -36,28 +37,60 @@ namespace SW.Bitween.Resources.Accounts
                 .Set<Account>()
                 .AsQueryable();
 
-            // Prefer refresh token from HttpOnly cookie (secure), fall back to body (legacy)
-            var refreshTokenValue = httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"];
-            if (string.IsNullOrEmpty(refreshTokenValue))
+            // Credentials sent with the request are what the caller is asking to sign in as. A refresh
+            // cookie can still be in the browser from the previous session — a sign-out whose request
+            // never completed leaves it there — and preferring it signed the next person in as the
+            // previous one. So the cookie is only read when nothing else was sent.
+            var signingInWithCredentials = !string.IsNullOrEmpty(request.MsToken) ||
+                                           !string.IsNullOrEmpty(request.Username) ||
+                                           !string.IsNullOrEmpty(request.Password);
+
+            // Refresh token from the HttpOnly cookie (secure), falling back to the body (legacy).
+            var refreshTokenValue = signingInWithCredentials
+                ? null
+                : httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"];
+            if (string.IsNullOrEmpty(refreshTokenValue) && !signingInWithCredentials)
                 refreshTokenValue = request.RefreshToken;
 
             if (!string.IsNullOrEmpty(refreshTokenValue))
             {
-                var refreshToken = await dbContext.Set<RefreshToken>()
+                var refreshToken = await dbContext.Set<RefreshToken>().AsNoTracking()
                     .SingleOrDefaultAsync(x => x.Id == refreshTokenValue);
+                var now = DateTime.UtcNow;
+
+                // Marked superseded rather than deleted, with one conditional UPDATE so two requests
+                // with the same token can't both be the first. A token superseded moments ago still
+                // works, for the browser whose copy of the new one went missing; one superseded longer
+                // ago is refused. Deleting it outright used to make the loser of a race throw a
+                // concurrency error — a 500 from the sign-in endpoint — and a lost response sign out.
+                var spent = false;
+                if (refreshToken is not null)
+                {
+                    spent = await dbContext.Set<RefreshToken>()
+                        .Where(t => t.Id == refreshTokenValue && t.SupersededOn == null)
+                        .ExecuteUpdateAsync(u => u.SetProperty(t => t.SupersededOn, now)) == 1;
+
+                    if (!spent)
+                        spent = await dbContext.Set<RefreshToken>().AsNoTracking()
+                            .AnyAsync(t => t.Id == refreshTokenValue && t.SupersededOn > now - RefreshGrace);
+
+                    // Superseded ones past their grace are of no further use to anyone.
+                    var graceEnded = now - RefreshGrace;
+                    await dbContext.Set<RefreshToken>()
+                        .Where(t => t.AccountId == refreshToken.AccountId && t.SupersededOn < graceEnded)
+                        .ExecuteDeleteAsync();
+                }
 
                 // The cookie expires after 30 days, but the row did not, and a refresh token sent in
                 // the body has no cookie to expire. Each refresh issues a new token, so this is an
                 // idle limit: a session in use keeps renewing, one left alone for 30 days ends.
-                if (refreshToken is not null && refreshToken.CreatedOn < DateTime.UtcNow - RefreshTokenLifetime)
+                if (spent && refreshToken.CreatedOn < now - RefreshTokenLifetime)
                 {
                     logger.LogInformation("Refresh token older than {Days} days refused.", RefreshTokenLifetime.TotalDays);
-                    dbContext.Remove(refreshToken);
-                    await dbContext.SaveChangesAsync();
-                    refreshToken = null;
+                    spent = false;
                 }
 
-                if (refreshToken is null)
+                if (!spent)
                 {
                     logger.LogWarning("Refresh token not found in DB, clearing cookie and falling back to credentials.");
                     httpContextAccessor.HttpContext?.Response.Cookies.Delete("refresh_token");
@@ -65,9 +98,15 @@ namespace SW.Bitween.Resources.Accounts
                 }
                 else
                 {
-                    dbContext.Remove(refreshToken);
                     accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId);
                 }
+            }
+            else if (signingInWithCredentials &&
+                     httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"] is { Length: > 0 } leftover)
+            {
+                // The previous session's token, left behind: it is replaced below, so it goes now
+                // rather than lingering as a second way in.
+                await dbContext.Set<RefreshToken>().Where(t => t.Id == leftover).ExecuteDeleteAsync();
             }
 
             if (string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken) &&

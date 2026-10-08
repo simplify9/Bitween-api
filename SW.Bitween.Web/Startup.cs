@@ -910,6 +910,28 @@ namespace SW.Bitween.Web
             app.UseRateLimiter();
             app.UseAuthorization();
 
+            // A signed-in caller who is refused gets 403, not 401. Handlers refuse with
+            // SWUnauthorizedException, which CqApi renders as 401 — the answer for a missing or expired
+            // token — so the admin UI took every permission denial for an expired session and spent a
+            // refresh on it. Each refresh rotates the refresh cookie, and one whose response was lost
+            // to a navigation left the browser holding a cookie that no longer worked: signed out. A
+            // request whose token is missing or expired is not authenticated here and keeps its 401.
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path.StartsWithSegments("/api") &&
+                    context.User.Identity?.IsAuthenticated == true)
+                {
+                    context.Response.OnStarting(() =>
+                    {
+                        if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
+                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return Task.CompletedTask;
+                    });
+                }
+
+                await next();
+            });
+
             // A token for an account whose password nobody has chosen reaches self-service and
             // nothing else. GetPermissions already grants such a token nothing, but that only
             // protects handlers that ask for a permission; a handler that forgets to ask was open

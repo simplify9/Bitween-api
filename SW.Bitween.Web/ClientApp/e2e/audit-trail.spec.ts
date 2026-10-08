@@ -126,7 +126,7 @@ test.describe("audit trail", () => {
     const res = await page.request.get(`${API}/audit?limit=1`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    expect(res.status()).toBe(401);
+    expect(res.status()).toBe(403);
 
     // The card is hidden on a page this role can otherwise see in full.
     await page.goto("settings");

@@ -40,12 +40,10 @@ namespace SW.Bitween
         public const string MustChangePasswordClaim = "bitween_must_change_password";
 
         /// <summary>
-        /// Throws unless the caller holds at least one of <paramref name="anyOf"/>. This is really a
-        /// "forbidden" — the caller is signed in and simply isn't allowed — but CqApi renders
-        /// SWForbiddenException as a 401 that's byte-identical to sending no token, so there is no
-        /// distinction to be had on the wire. The client answers a 401 by refreshing the token and
-        /// retrying once, which means every denial costs a wasted round trip. Worth revisiting if
-        /// CqApi ever maps forbidden to 403.
+        /// Throws unless the caller holds at least one of <paramref name="anyOf"/>. CqApi renders
+        /// the exception as a 401; for a signed-in caller the web host rewrites that to 403 on the
+        /// way out (see Startup), so a client can tell "not allowed" from "not signed in" and does
+        /// not spend a token refresh on a refusal.
         /// </summary>
         public static async Task EnsurePermission(this RequestContext requestContext, BitweenDbContext dbContext,
             params string[] anyOf)
