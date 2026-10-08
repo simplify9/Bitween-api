@@ -108,18 +108,54 @@ public class ReceivingJob(
             serverlessId, AdapterRole.Receiver, startupParameters);
 
         await session.InvokeAsync(nameof(IInfolinkReceiver.Initialize));
-        var fileList = (await session.InvokeAsync<IEnumerable<string>>(nameof(IInfolinkReceiver.ListFiles))).ToList();
 
-        logger.LogInformation("Subscription '{SubId}' found {Count} items for retrieval.", subId, fileList.Count);
-
-        foreach (var file in fileList)
+        // Finalize runs whatever happens in between: it is what closes the connection, and for POP3
+        // what commits the deletes of the messages that were taken.
+        var failed = new List<string>();
+        try
         {
-            var xchangeFile = await session.InvokeAsync<XchangeFile>(nameof(IInfolinkReceiver.GetFile), file);
-            logger.LogInformation("Submitting received file for subscriber: '{SubId}'.", subId);
-            createdExchangeIds.Add(await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile));
-            await session.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);
+            var fileList = (await session.InvokeAsync<IEnumerable<string>>(nameof(IInfolinkReceiver.ListFiles))).ToList();
+
+            logger.LogInformation("Subscription '{SubId}' found {Count} items for retrieval.", subId, fileList.Count);
+
+            // One file at a time, each on its own. A file that could not be read or submitted used to
+            // end the run, and since it stays at the source it ended every run after: one corrupt
+            // file at the top of the listing and nothing behind it was ever received. Now it is left
+            // where it is, reported, and the rest go through.
+            foreach (var file in fileList)
+            {
+                string exchangeId;
+                try
+                {
+                    var xchangeFile = await session.InvokeAsync<XchangeFile>(nameof(IInfolinkReceiver.GetFile), file);
+                    logger.LogInformation("Submitting received file for subscriber: '{SubId}'.", subId);
+                    exchangeId = await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Subscription {SubId} could not receive {File}; it is left at the source.", subId, file);
+                    failed.Add($"{file}: {ex.Message}");
+                    continue;
+                }
+
+                createdExchangeIds.Add(exchangeId);
+                await session.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);
+            }
+        }
+        finally
+        {
+            await session.InvokeAsync(nameof(IInfolinkReceiver.Finalize));
         }
 
-        await session.InvokeAsync(nameof(IInfolinkReceiver.Finalize));
+        if (failed.Count > 0)
+            throw new ReceiverPartlyFailedException(failed);
     }
 }
+
+/// <summary>
+/// Some items of a run could not be received. Thrown once the rest have been, so the run is
+/// recorded as failed with each item's reason while the exchanges it did create are kept.
+/// </summary>
+public class ReceiverPartlyFailedException(IReadOnlyCollection<string> failures)
+    : Exception($"{failures.Count} item(s) could not be received and were left at the source:\n" +
+                string.Join("\n", failures));

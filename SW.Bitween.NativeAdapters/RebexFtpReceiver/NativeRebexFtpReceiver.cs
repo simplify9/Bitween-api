@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.RebexFtpReceiver;
 
-public class NativeRebexFtpReceiver(string? licenseKey = null) : INativeInfolinkReceiver, IRequiresRebexLicense
+public class NativeRebexFtpReceiver(string? licenseKey = null) : INativeInfolinkReceiver, IRequiresRebexLicense, IDisposable
 {
     private RebexFtpReceiverInput _options = new();
     private IFtp _ftpOrSftp = null!;
@@ -56,14 +56,27 @@ public class NativeRebexFtpReceiver(string? licenseKey = null) : INativeInfolink
     {
         await _ftpOrSftp.DisconnectAsync();
         _ftpOrSftp.Dispose();
+        _ftpOrSftp = null!;
+    }
+
+    /// <summary>Closes a connection a run left open — one that failed before Finalize.</summary>
+    public void Dispose()
+    {
+        try { _ftpOrSftp?.Dispose(); } catch { /* closing only */ }
+        _ftpOrSftp = null!;
     }
 
     public async Task<IEnumerable<string>> ListFiles()
     {
         var files = await _ftpOrSftp.GetListAsync();
 
+        // A file still being uploaded is listed like any other; taking it half-written sends half a
+        // document on, then deletes the rest as it arrives. Left alone until it has been still for a while.
+        var settledBefore = DateTime.Now.AddSeconds(-_options.MinimumFileAgeSeconds);
+
         return files
             .Where(i => i.IsFile)
+            .Where(i => _options.MinimumFileAgeSeconds <= 0 || i.LastWriteTime is not { } written || written <= settledBefore)
             .Take(_options.BatchSize)
             .Select(i => i.Name)
             .ToList();

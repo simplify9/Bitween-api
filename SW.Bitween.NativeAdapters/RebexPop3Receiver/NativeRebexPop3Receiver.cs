@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.RebexPop3Receiver;
 
-public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolinkReceiver, IRequiresRebexLicense
+public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolinkReceiver, IRequiresRebexLicense, IDisposable
 {
     private RebexPop3ReceiverInput _options = new();
     private Pop3 _pop3 = new();
@@ -78,4 +78,13 @@ public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolin
     }
 
     public Type StartupValuesType => typeof(RebexPop3ReceiverInput);
+
+    /// <summary>
+    /// Closes a connection a run left open — one that failed before Finalize. Without the QUIT that
+    /// Finalize sends, the server keeps the messages this run marked for deletion.
+    /// </summary>
+    public void Dispose()
+    {
+        try { _pop3.Dispose(); } catch { /* closing only */ }
+    }
 }

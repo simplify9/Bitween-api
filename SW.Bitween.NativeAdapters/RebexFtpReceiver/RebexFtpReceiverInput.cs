@@ -48,4 +48,7 @@ public class RebexFtpReceiverInput
 
     [Description("SHA-256 fingerprint of the SFTP server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent.")]
     public string? HostKeyFingerprint { get; set; }
+
+    [Description("Seconds a file must have gone unchanged before it is taken, so one still being uploaded is left for the next run. 0 takes every file listed.")]
+    public int MinimumFileAgeSeconds { get; set; }
 }

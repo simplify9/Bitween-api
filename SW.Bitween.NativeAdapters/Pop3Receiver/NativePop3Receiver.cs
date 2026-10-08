@@ -6,7 +6,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.Pop3Receiver;
 
-public class NativePop3Receiver : INativeInfolinkReceiver
+public class NativePop3Receiver : INativeInfolinkReceiver, IDisposable
 {
     private Pop3ReceiverInput _options = new();
     private Pop3Client? _client;
@@ -28,6 +28,7 @@ public class NativePop3Receiver : INativeInfolinkReceiver
     {
         await _client!.DisconnectAsync(true);
         _client.Dispose();
+        _client = null;
     }
 
     public Task<IEnumerable<string>> ListFiles()
@@ -77,4 +78,14 @@ public class NativePop3Receiver : INativeInfolinkReceiver
     }
 
     public Type StartupValuesType => typeof(Pop3ReceiverInput);
+
+    /// <summary>
+    /// Closes a connection a run left open — one that failed before Finalize. Without the QUIT that
+    /// Finalize sends, the server keeps the messages this run marked for deletion.
+    /// </summary>
+    public void Dispose()
+    {
+        try { _client?.Dispose(); } catch { /* closing only */ }
+        _client = null;
+    }
 }

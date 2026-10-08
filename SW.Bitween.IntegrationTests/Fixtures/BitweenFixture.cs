@@ -250,6 +250,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeFailingTestReceiver>();
+                    services.AddSingleton<INativeInfolinkReceiver, NativePartlyFailingTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeEmptyTestReceiver>();
                     services.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();

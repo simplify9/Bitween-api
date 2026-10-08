@@ -109,6 +109,43 @@ public class ReceivingTests(BitweenFixture fixture)
         Assert.Empty(attempt.ExchangeIds);
     }
 
+    /// <summary>
+    /// One file that can't be read used to end the run — and, left at the source, every run after
+    /// it, so nothing behind it was ever received. Now it is left and reported, and the rest go through.
+    /// </summary>
+    [Fact]
+    public async Task One_bad_file_is_left_and_reported_while_the_rest_are_received()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var job = scope.ServiceProvider.GetRequiredService<ReceivingJob>();
+
+        var document = new Document(null, $"Partly failing {Guid.NewGuid():N}", DocumentFormat.Json);
+        db.Set<Document>().Add(document);
+        await db.SaveChangesAsync();
+        var subscription = new Subscription($"Partly failing {Guid.NewGuid():N}", document.Id)
+        {
+            ReceiverId = nameof(NativePartlyFailingTestReceiver),
+            Inactive = false,
+        };
+        subscription.SetSchedules(new[] { new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(30)) });
+        db.Set<Subscription>().Add(subscription);
+        await db.SaveChangesAsync();
+        fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
+        var finalizedBefore = NativePartlyFailingTestReceiver.Finalized;
+
+        await job.Execute(new ReceivingJobParams(subscription.Id, null));
+
+        Assert.Equal(2, await db.Set<Xchange>().CountAsync(x => x.SubscriptionId == subscription.Id));
+        Assert.DoesNotContain("corrupt.json", NativePartlyFailingTestReceiver.Deleted);
+        Assert.True(NativePartlyFailingTestReceiver.Finalized > finalizedBefore);
+
+        var attempt = await db.Set<ReceiveAttempt>().SingleAsync(a => a.SubscriptionId == subscription.Id);
+        Assert.Equal(ReceiveOutcome.Failed, attempt.Outcome);
+        Assert.Contains("corrupt.json", attempt.ErrorMessage);
+        Assert.Equal(2, attempt.ExchangeIds.Length);
+    }
+
     [Fact]
     public async Task Receiving_job_records_no_new_data_when_nothing_is_found()
     {
