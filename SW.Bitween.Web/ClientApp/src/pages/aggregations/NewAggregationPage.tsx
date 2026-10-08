@@ -160,6 +160,8 @@ export function NewAggregationPage() {
   // faceOf works off the studio's full draft shape; the fields this type never has are empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Set on the subscription once it exists, not while creating it.
+    autoPauseAfterFailures: null,
     enabled: draft.enable,
     // An aggregation is fed by its source, not by a receiver, and has no Validation
     // stage — see stages.ts.

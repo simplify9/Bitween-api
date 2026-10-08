@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, OctagonAlert, Trash2, Unplug } from "lucide-react";
+import { AlertTriangle, Eye, OctagonAlert, RotateCcw, Trash2, Unplug } from "lucide-react";
 import {
   api,
   type ConsumerHealth,
+  type DeadLetterRow,
   type QueueLane,
   type QueueSeverity,
   type UnattendedDeleteResult,
@@ -14,7 +15,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { queueHealthTitle } from "../../components/config/shared";
 import { Panel } from "../../components/ui/Panel";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { useSessionCan } from "../../auth/guards";
 import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
@@ -339,22 +340,7 @@ export function QueueHealthPage() {
           ) : (
             <ul className="space-y-3">
               {deadLetters.map((d) => (
-                <li key={d.queueName} className="text-sm">
-                  <div className="flex items-center gap-2.5">
-                    <span className="min-w-0 flex-1">
-                      <span className="font-medium text-ink-800">{d.title}</span>
-                      <code className="block truncate font-mono text-[11px] text-ink-400">{d.queueName}</code>
-                    </span>
-                    {d.lastFailedAt && <span className="text-xs text-ink-400">{timeAgo(d.lastFailedAt)}</span>}
-                    <Badge tone="danger">{d.count} dead</Badge>
-                  </div>
-                  {d.lastExceptionMessage && (
-                    <p className="mt-1 rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-danger-800">
-                      {d.lastExceptionType && <span className="font-semibold">{d.lastExceptionType}: </span>}
-                      {d.lastExceptionMessage}
-                    </p>
-                  )}
-                </li>
+                <DeadLetterItem key={d.queueName} row={d} />
               ))}
             </ul>
           )}
@@ -583,5 +569,132 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
         />
       )}
     </Panel>
+  );
+}
+
+/**
+ * One consumer's dead letters: what the bus last failed on, what is sitting there, and sending it
+ * back to be tried again. Reading the messages takes the right to see exchanges as well, since the
+ * bodies are the messages themselves.
+ */
+function DeadLetterItem({ row: d }: { row: DeadLetterRow }) {
+  const queryClient = useQueryClient();
+  const canMonitor = useSessionCan("monitoring.view");
+  const canSeeExchanges = useSessionCan("exchanges.view");
+  const canBrowse = canMonitor && canSeeExchanges;
+  const canRequeue = useSessionCan("monitoring.operate");
+  const [browsing, setBrowsing] = useState(false);
+  const [requeueing, setRequeueing] = useState(false);
+  const [requeued, setRequeued] = useState<number | null>(null);
+
+  return (
+    <li className="text-sm">
+      <div className="flex items-center gap-2.5">
+        <span className="min-w-0 flex-1">
+          <span className="font-medium text-ink-800">{d.title}</span>
+          <code className="block truncate font-mono text-[11px] text-ink-400">{d.queueName}</code>
+        </span>
+        {d.lastFailedAt && <span className="text-xs text-ink-400">{timeAgo(d.lastFailedAt)}</span>}
+        <Badge tone="danger">{d.count} dead</Badge>
+      </div>
+      {d.lastExceptionMessage && (
+        <p className="mt-1 rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-danger-800">
+          {d.lastExceptionType && <span className="font-semibold">{d.lastExceptionType}: </span>}
+          {d.lastExceptionMessage}
+        </p>
+      )}
+      {(canBrowse || canRequeue) && d.count > 0 && (
+        <div className="mt-1.5 flex items-center gap-2">
+          {canBrowse && (
+            <Button size="sm" onClick={() => setBrowsing(true)}>
+              <Eye className="size-3.5" /> Show messages
+            </Button>
+          )}
+          {canRequeue && (
+            <Button size="sm" onClick={() => setRequeueing(true)}>
+              <RotateCcw className="size-3.5" /> Send back
+            </Button>
+          )}
+          {requeued !== null && (
+            <span role="status" className="text-xs text-ink-600">
+              {requeued === 1 ? "1 message sent back." : `${requeued} messages sent back.`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {browsing && <DeadLetterMessages row={d} onClose={() => setBrowsing(false)} />}
+      {requeueing && (
+        <ConfirmDialog
+          title={d.count === 1 ? "Send this message back?" : `Send ${d.count} messages back?`}
+          body={
+            <div className="space-y-2">
+              <p>
+                {d.count === 1 ? "It goes" : "They go"} back to{" "}
+                <span className="font-medium text-ink-900">{d.title}</span>, oldest first, and{" "}
+                {d.count === 1 ? "is" : "are"} tried again with a fresh set of retries.
+              </p>
+              <p>
+                If what made {d.count === 1 ? "it" : "them"} fail hasn't been fixed,{" "}
+                {d.count === 1 ? "it" : "they"} will end up here again.
+              </p>
+            </div>
+          }
+          confirmLabel="Send back"
+          confirmVariant="primary"
+          onConfirm={async () => {
+            setRequeued(await api.requeueDeadLetters(d.queueName));
+            await queryClient.invalidateQueries({ queryKey: keys.queueHealth });
+          }}
+          onClose={() => setRequeueing(false)}
+        />
+      )}
+    </li>
+  );
+}
+
+function DeadLetterMessages({ row, onClose }: { row: DeadLetterRow; onClose: () => void }) {
+  const messages = useQuery({
+    queryKey: [...keys.queueHealth, "dead-letters", row.queueName],
+    queryFn: () => api.browseDeadLetters(row.queueName),
+  });
+
+  return (
+    <Dialog title={`Dead letters — ${row.title}`} onClose={onClose} wide>
+      {messages.isPending ? (
+        <LoadingBlock label="Reading the queue…" />
+      ) : messages.isError ? (
+        <p role="alert" className="text-[13px] text-danger-700">
+          {messages.error.message}
+        </p>
+      ) : messages.data.length === 0 ? (
+        <EmptyState title="Empty">Nothing is waiting in this queue now.</EmptyState>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-[13px] text-ink-600">
+            The oldest {messages.data.length} of {row.count}, read without taking them off the queue.
+          </p>
+          <ol className="space-y-3">
+            {messages.data.map((m) => (
+              <li key={m.position} className="rounded-xl border border-ink-200 p-3">
+                <div className="mb-1.5 flex flex-wrap items-center gap-x-3 text-xs text-ink-500">
+                  <span className="font-medium text-ink-800">#{m.position}</span>
+                  {m.correlationId && <span>Correlation {m.correlationId}</span>}
+                </div>
+                {m.lastException && (
+                  <p className="mb-2 rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-danger-800">
+                    {m.lastException}
+                  </p>
+                )}
+                <pre className="max-h-64 overflow-auto rounded-md bg-ink-50 p-2.5 font-mono text-[11.5px] text-ink-800">
+                  {m.body}
+                </pre>
+                {m.bodyCut && <p className="mt-1 text-xs text-ink-500">Only the start of a long message is shown.</p>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </Dialog>
   );
 }

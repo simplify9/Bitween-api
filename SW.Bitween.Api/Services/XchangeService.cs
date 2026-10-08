@@ -707,6 +707,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         try
         {
             var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
+            // Whatever way it arrived — bus, receiver, response — input that doesn't match its
+            // type's schema fails here, with what is wrong, before anything acts on it.
+            await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile.Data);
             var result = await filterService.Filter(xchange.DocumentId, inputFile);
 
             // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
@@ -754,6 +757,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 await TryClearingRetryBudgetAfterSuccess(xchange);
             await dbContext.SaveChangesAsync();
             outcome = responseFile?.BadData == true ? "bad_response" : "success";
+            // A bad response still means the target answered: the run of failures is over.
+            await TrackDeliveryHealth(xchange, null);
         }
         catch (Exception ex)
         {
@@ -764,6 +769,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             dbContext.Add(xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await dbContext.SaveChangesAsync();
+            await TrackDeliveryHealth(xchange, ex.ToString());
         }
         finally
         {
@@ -771,6 +777,68 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             BitweenTelemetry.ExchangesProcessed.Add(1, outcomeTag);
             BitweenTelemetry.ProcessingDuration.Record(clock.Elapsed.TotalSeconds, outcomeTag);
             activity?.SetTag("bitween.outcome", outcome);
+        }
+    }
+
+    /// <summary>
+    /// Counts failed deliveries in a row for a subscription set to pause after some number of them,
+    /// and pauses it when the count is reached. Nothing for one that isn't.
+    /// </summary>
+    /// <remarks>
+    /// Counted and compared in the database, not on a loaded copy: exchanges for one subscription
+    /// are processed side by side, and a read-then-write would lose counts and pause it twice.
+    /// Never throws — the exchange's own result is already saved and is what matters.
+    /// </remarks>
+    private async Task TrackDeliveryHealth(Xchange xchange, string exception)
+    {
+        if (xchange.SubscriptionId is not { } subscriptionId) return;
+        try
+        {
+            var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
+            if (subscription?.AutoPauseAfterFailures is not { } threshold) return;
+
+            var subscriptions = dbContext.Set<Subscription>().Where(s => s.Id == subscriptionId);
+            if (exception is null)
+            {
+                await subscriptions.Where(s => s.ConsecutiveFailures != 0)
+                    .ExecuteUpdateAsync(u => u
+                        .SetProperty(s => s.ConsecutiveFailures, 0)
+                        .SetProperty(s => s.LastException, (string)null));
+                return;
+            }
+
+            await subscriptions.ExecuteUpdateAsync(u => u
+                .SetProperty(s => s.ConsecutiveFailures, s => s.ConsecutiveFailures + 1)
+                .SetProperty(s => s.LastException, exception));
+
+            // Only the one exchange whose failure crosses the line pauses it, and alerts.
+            var paused = await subscriptions
+                .Where(s => s.PausedOn == null && s.ConsecutiveFailures >= threshold)
+                .ExecuteUpdateAsync(u => u
+                    .SetProperty(s => s.PausedOn, DateTime.UtcNow)
+                    .SetProperty(s => s.PausedAutomatically, true));
+            if (paused == 0) return;
+
+            logger.LogWarning(
+                "Subscription {SubscriptionId} paused after {Threshold} failed deliveries in a row; the last was xchange {XchangeId}.",
+                subscriptionId, threshold, xchange.Id);
+            BitweenTelemetry.SubscriptionsAutoPaused.Add(1);
+
+            dbContext.Add(new OutboxMessage(nameof(SubscriptionAutoPausedEvent),
+                JsonConvert.SerializeObject(new SubscriptionAutoPausedEvent
+                {
+                    SubscriptionId = subscriptionId,
+                    XchangeId = xchange.Id,
+                    Failures = threshold,
+                    OccurredOn = DateTime.UtcNow
+                })));
+            await dbContext.SaveChangesAsync();
+            // What arrives next must see the pause, on every instance, not after the cache expires.
+            await BitweenCache.BroadcastRevoke();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not track delivery health for subscription {SubscriptionId}.", subscriptionId);
         }
     }
 

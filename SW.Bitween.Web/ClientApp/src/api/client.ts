@@ -53,6 +53,7 @@ import type {
   PermissionKey,
   QueueHealthSnapshot,
   UnattendedDeleteResult,
+  DeadLetterMessage,
   ReceiveAttemptRow,
   SourcePaths,
   ReceiveOutcome,
@@ -269,6 +270,7 @@ export interface ApiClient {
         | "responseMessageTypeName"
         | "runOnBadResponses"
         | "aggregationTarget"
+        | "autoPauseAfterFailures"
       >
     > & {
       /** Create this response subscription in the same save and hand the response to it. */
@@ -548,6 +550,10 @@ export interface ApiClient {
   getQueueHealth(): Promise<QueueHealthSnapshot>;
   /** Deletes unattended lanes (all of each one's queues) and whatever they hold. */
   deleteUnattendedQueues(queueNames: string[]): Promise<UnattendedDeleteResult>;
+  /** The oldest messages in a dead-letter queue, left where they are. */
+  browseDeadLetters(queueName: string, count?: number): Promise<DeadLetterMessage[]>;
+  /** Sends a dead-letter queue's messages back to be tried again; resolves to how many went. */
+  requeueDeadLetters(queueName: string): Promise<number>;
 
   // — dashboard —
   getDashboard(): Promise<DashboardData>;

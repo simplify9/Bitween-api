@@ -228,14 +228,23 @@ export function Overview({
           canEdit={canEdit}
           idPrefix="in"
         />
+        <Fact label="Auto-pause">
+          <AutoPauseField
+            value={draft.autoPauseAfterFailures}
+            onChange={(n) => set("autoPauseAfterFailures", n)}
+            disabled={!canEdit}
+          />
+        </Fact>
       </div>
 
       <RetryBudget subscriptionId={s.id} canEdit={canEdit} />
 
       {paused && (
         <p className="rounded-xl bg-warn-100 px-4 py-2.5 text-[13px] text-warn-700">
-          Paused since {formatDate(s.pausedOn!)} — incoming work is being held and will be released
-          on resume.
+          {s.pausedAutomatically
+            ? `Paused automatically on ${formatDate(s.pausedOn!)} after ${s.consecutiveFailures} failed deliveries in a row`
+            : `Paused since ${formatDate(s.pausedOn!)}`}{" "}
+          — incoming work is being held and will be released on resume.
         </p>
       )}
       {/* The scheduled types get this per-attempt instead, in ReceiveAttemptsPanel below —
@@ -297,6 +306,45 @@ export function Overview({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * After how many failed deliveries in a row the subscription pauses itself. Empty never pauses —
+ * the default, and what every subscription saved before this had.
+ */
+function AutoPauseField({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (n: number | null) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="w-52">
+      <label className="flex items-center gap-2 text-[13px] text-ink-700">
+        <span>After</span>
+        <input
+          id="in-autopause"
+          aria-label="Pause after this many failed deliveries in a row"
+          type="number"
+          min={1}
+          max={1000}
+          inputMode="numeric"
+          placeholder="Never"
+          value={value ?? ""}
+          disabled={disabled}
+          onChange={(e) => {
+            const n = e.target.valueAsNumber;
+            onChange(Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), 1000) : null);
+          }}
+          className="w-20 rounded-lg border border-ink-200 px-2 py-1 text-[13px] disabled:bg-ink-50"
+        />
+        <span>failures in a row</span>
+      </label>
     </div>
   );
 }

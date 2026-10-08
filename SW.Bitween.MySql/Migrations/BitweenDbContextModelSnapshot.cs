@@ -567,6 +567,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<DateTime?>("RetiredOn")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("ValidationSchema")
+                        .HasColumnType("longtext");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BusMessageTypeName")
@@ -1169,6 +1172,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<byte>("AggregationTarget")
                         .HasColumnType("tinyint unsigned");
 
+                    b.Property<int?>("AutoPauseAfterFailures")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
 
@@ -1222,6 +1228,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("PausedAutomatically")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<DateTime?>("PausedOn")
                         .HasColumnType("datetime(6)");

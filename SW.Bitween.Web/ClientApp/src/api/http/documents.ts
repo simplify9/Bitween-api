@@ -33,6 +33,7 @@ interface RawDocument {
   duplicateInterval: number;
   disregardsUnfilteredMessages: boolean;
   promotedProperties: RawKeyAndValue[] | null;
+  validationSchema?: string | null;
   /** Counted by the backend — see DocumentRow.UsedByCount. */
   usedByCount: number;
   retiredOn: string | null;
@@ -83,6 +84,7 @@ const toInformationType = (d: RawDocument): InformationType => ({
   duplicateIntervalMinutes: d.duplicateInterval,
   disregardsUnfilteredMessages: d.disregardsUnfilteredMessages,
   promotedProperties: (d.promotedProperties ?? []).map((p) => ({ key: p.key, path: p.value })),
+  validationSchema: d.validationSchema ?? null,
   createdOn: "",
   retiredOn: d.retiredOn ?? null,
   isSystem: d.id === AGGREGATION_DOCUMENT_ID,
@@ -123,6 +125,8 @@ const documentBody = (t: Omit<InformationType, "id" | "createdOn">) => ({
   duplicateInterval: t.duplicateIntervalMinutes,
   disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
   promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
+  // Empty removes it; the server reads a missing one as "leave it alone".
+  validationSchema: t.validationSchema ?? "",
 });
 
 export const documentMethods = {

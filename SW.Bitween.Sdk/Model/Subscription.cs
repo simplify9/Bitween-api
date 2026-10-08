@@ -261,6 +261,13 @@ namespace SW.Bitween.Model
         public CustomRetryPolicy? CustomRetryPolicy { get; set; }
 
         /// <summary>
+        /// Pause the subscription after this many failed deliveries in a row, so a target that is
+        /// down stops being hammered and what arrives meanwhile waits on hold. Null — the default —
+        /// never pauses.
+        /// </summary>
+        public int? AutoPauseAfterFailures { get; set; }
+
+        /// <summary>
         /// Aggregation only: which file of each collected exchange the roll-up links to.
         /// <para>
         /// Here rather than on <see cref="SubscriptionUpdate"/>, where it used to live, because
@@ -321,6 +328,8 @@ namespace SW.Bitween.Model
         /// <summary>Null while the subscription is healthy.</summary>
         public string? LastException { get; set; }
         public DateTime? PausedOn { get; set; }
+        /// <summary>Paused by <see cref="SubscriptionConfiguration.AutoPauseAfterFailures"/>, not by a person.</summary>
+        public bool PausedAutomatically { get; set; }
         /// <summary>Both null when the subscription is in no category.</summary>
         public string? CategoryCode { get; set; }
 

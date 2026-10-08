@@ -48,6 +48,12 @@ namespace SW.Bitween.Model
         /// Null leaves the existing promoted properties alone; an empty collection clears them.
         /// </summary>
         public ICollection<KeyAndValue>? PromotedProperties { get; set; }
+
+        /// <summary>
+        /// JSON Schema for a JSON type, XSD for an XML one, that what arrives must match. Null
+        /// leaves the existing schema alone; empty removes it.
+        /// </summary>
+        public string? ValidationSchema { get; set; }
     }
 
     public class DocumentUpdate : DocumentCreate

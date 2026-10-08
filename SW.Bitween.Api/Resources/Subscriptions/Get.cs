@@ -65,6 +65,8 @@ namespace SW.Bitween.Resources.Subscriptions
                     AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,
                     PausedOn = subscriber.PausedOn,
+                    PausedAutomatically = subscriber.PausedAutomatically,
+                    AutoPauseAfterFailures = subscriber.AutoPauseAfterFailures,
                     MatchExpression = subscriber.MatchExpression,
                     CategoryDescription = subscriber.Category?.Description,
                     CategoryCode = subscriber.Category?.Code,

@@ -49,6 +49,11 @@ namespace SW.Bitween.Resources.Xchanges
 
             var sub = subs.SingleOrDefault();
 
+            string body = request.ToString();
+            var schemaErrors = await DocumentSchema.Check(document.DocumentFormat, document.ValidationSchema, body);
+            if (schemaErrors.Count > 0)
+                throw new SWValidationException("SCHEMA_MISMATCH", string.Join("\n", schemaErrors));
+
             if (par.Partner.Id == Partner.SystemId && sub is null)
             {
                 await xchangeService.SubmitFilterXchange(document.Id,new XchangeFile(request.ToString()));

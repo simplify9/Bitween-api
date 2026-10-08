@@ -74,6 +74,8 @@ export function InformationTypeDialog({
         duplicateIntervalMinutes: changes.duplicateIntervalMinutes,
         disregardsUnfilteredMessages: changes.disregardsUnfilteredMessages,
         promotedProperties: changes.promotedProperties,
+        // Left out, the save would send an empty one and remove the schema.
+        validationSchema: changes.validationSchema,
       };
       if (typeId !== null) {
         await api.updateInformationType(typeId, body);

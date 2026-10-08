@@ -1,5 +1,6 @@
 import type { ApiClient } from "../client";
 import type {
+  DeadLetterMessage,
   QueueHealthSnapshot,
   QueueLane,
   QueueSeverity,
@@ -154,5 +155,16 @@ export const queueHealthMethods = {
 
   deleteUnattendedQueues(queueNames: string[]): Promise<UnattendedDeleteResult> {
     return post<UnattendedDeleteResult>("/ops/deleteunattendedqueues", { queueNames });
+  },
+
+  browseDeadLetters(queueName: string, count = 20): Promise<DeadLetterMessage[]> {
+    return get<DeadLetterMessage[]>(
+      `/ops/deadlettermessages?queue=${encodeURIComponent(queueName)}&count=${count}`,
+    );
+  },
+
+  async requeueDeadLetters(queueName: string): Promise<number> {
+    const result = await post<{ requeued: number }>("/ops/requeuedeadletters", { queue: queueName });
+    return result.requeued;
   },
 } satisfies Partial<ApiClient>;

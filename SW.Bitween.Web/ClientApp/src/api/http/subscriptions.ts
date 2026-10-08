@@ -97,6 +97,8 @@ interface RawSubscription {
   receiveOn: string | null;
   aggregateOn: string | null;
   pausedOn: string | null;
+  pausedAutomatically?: boolean;
+  autoPauseAfterFailures?: number | null;
   isRunning: boolean | null;
   consecutiveFailures: number;
   lastException: string | null;
@@ -158,6 +160,8 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     partnerId: raw.partnerId,
     enabled: !raw.inactive,
     pausedOn: raw.pausedOn ?? null,
+    pausedAutomatically: raw.pausedAutomatically ?? false,
+    autoPauseAfterFailures: raw.autoPauseAfterFailures ?? null,
     workGroupId: raw.workGroupId ?? null,
     retryPolicyId: raw.retryPolicyId ?? null,
     receiverId: raw.receiverId ?? null,
@@ -218,6 +222,7 @@ type UpdatableFields = Partial<
     | "responseMessageTypeName"
     | "runOnBadResponses"
     | "aggregationTarget"
+    | "autoPauseAfterFailures"
   >
 > & {
   /** Create this response subscription in the same save and hand the response to it. */
@@ -266,6 +271,11 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
     responseMessageTypeName:
       changes.responseMessageTypeName !== undefined ? changes.responseMessageTypeName : current.responseMessageTypeName,
     runOnBadResponses: changes.runOnBadResponses ?? current.runOnBadResponses ?? false,
+    // Carried over like the rest: left out, the update would switch auto-pause off.
+    autoPauseAfterFailures:
+      changes.autoPauseAfterFailures !== undefined
+        ? changes.autoPauseAfterFailures
+        : (current.autoPauseAfterFailures ?? null),
     newResponseSubscription: newResponseSubscriptionBody(changes.newResponseSubscription),
     temporary: current.temporary,
     aggregationTarget:

@@ -107,6 +107,13 @@ public class GatewayController(
         };
         var xchangeFile = new XchangeFile(json, $"{gatewayApiName.Replace('/', '-')}{extension}");
 
+        // Told now, while the partner is still on the line, rather than as a failed exchange later.
+        var schemaErrors = document is null
+            ? []
+            : await DocumentSchema.Check(document.DocumentFormat, document.ValidationSchema, json);
+        if (schemaErrors.Count > 0)
+            return BadRequest(new { error = "SCHEMA_MISMATCH", errors = schemaErrors });
+
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);
         await xchangeService.RunValidator(subscription.ValidatorId, validatorProperties,

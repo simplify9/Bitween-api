@@ -69,6 +69,18 @@ namespace SW.Bitween.Domain
             Code = code;
         }
 
+        /// <summary>
+        /// JSON Schema for a JSON type, XSD for an XML one; null checks nothing. What arrives at a
+        /// gateway that doesn't match is refused, and an exchange whose input doesn't match fails.
+        /// A private setter so a save that doesn't mention it leaves it alone.
+        /// </summary>
+        public string ValidationSchema { get; private set; }
+
+        public void SetValidationSchema(string schema)
+        {
+            ValidationSchema = string.IsNullOrWhiteSpace(schema) ? null : schema;
+        }
+
         public void Retire()
         {
             RetiredOn = DateTime.UtcNow;

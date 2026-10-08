@@ -55,6 +55,10 @@ namespace SW.Bitween.Resources.Documents
             await BusMessageTypeNames.EnsureFree(dbContext, model.BusMessageTypeName, key);
 
             PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
+            // Checked against the format being saved, so switching a type from JSON to XML can't
+            // leave a JSON Schema on it.
+            var schema = model.ValidationSchema ?? entity.ValidationSchema;
+            await DocumentSchema.EnsureUsable(model.DocumentFormat, schema);
 
             var oldBusMessageTypeName = entity.BusMessageTypeName;
 
@@ -73,6 +77,7 @@ namespace SW.Bitween.Resources.Documents
             // whatever the body said.
             model.Id = key;
             dbContext.Entry(entity).SetProperties(model);
+            entity.SetValidationSchema(schema);
 
             await dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();

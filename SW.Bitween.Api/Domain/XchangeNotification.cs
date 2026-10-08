@@ -28,6 +28,12 @@ namespace SW.Bitween.Domain
         public static XchangeNotification ForRetryBudgetAlert(string xchangeId, string exception = null) =>
             new(xchangeId, null, RetryBudgetAlertName, exception);
 
+        public const string AutoPauseAlertName = "Auto-pause alert";
+
+        /// <summary>The alert that the subscription this exchange belongs to was paused by its failure.</summary>
+        public static XchangeNotification ForAutoPauseAlert(string xchangeId, string exception = null) =>
+            new(xchangeId, null, AutoPauseAlertName, exception);
+
 
         public string XchangeId { get; private set; }
         public bool Success { get; set; }

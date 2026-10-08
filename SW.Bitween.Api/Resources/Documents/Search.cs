@@ -34,6 +34,7 @@ namespace SW.Bitween.Resources.Documents
                             BusEnabled = document.BusEnabled,
                             DuplicateInterval = document.DuplicateInterval,
                             PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection(),
+                            ValidationSchema = document.ValidationSchema,
                             DocumentFormat = document.DocumentFormat,
                             RetiredOn = document.RetiredOn,
                             // A correlated count, so the "used by" column the UI shows costs one

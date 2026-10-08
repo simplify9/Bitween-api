@@ -75,6 +75,15 @@ public class Subscription : BaseEntity
     public WorkGroup WorkGroup { get; set; }
     public bool Temporary { get; private set; }
     public DateTime? PausedOn { get; private set; }
+
+    /// <summary>
+    /// Failed deliveries in a row that pause the subscription; null never does. Counted in
+    /// <see cref="ConsecutiveFailures"/>, which receivers and aggregations use for their runs.
+    /// </summary>
+    public int? AutoPauseAfterFailures { get; set; }
+
+    /// <summary>Paused by <see cref="AutoPauseAfterFailures"/> rather than by a person.</summary>
+    public bool PausedAutomatically { get; private set; }
     /// <summary>
     /// Which external system this subscription's adapters connect through — a database, typically.
     ///
@@ -211,11 +220,21 @@ public class Subscription : BaseEntity
     public void Pause()
     {
         PausedOn = DateTime.UtcNow;
+        PausedAutomatically = false;
     }
 
     public void UnPause()
     {
+        // Resuming after an automatic pause starts the count again; otherwise the next failure
+        // would pause it straight back.
+        if (PausedAutomatically)
+        {
+            ConsecutiveFailures = 0;
+            LastException = null;
+        }
+
         PausedOn = null;
+        PausedAutomatically = false;
         Events.Add(new SubscriptionUnpausedEvent
         {
             Id = Id

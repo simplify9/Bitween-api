@@ -21,7 +21,10 @@ public static class Permissions
     {
         public const string View = "monitoring.view";
 
-        /// <summary>Delete leftover queues nothing reads, along with whatever they hold.</summary>
+        /// <summary>
+        /// Delete leftover queues nothing reads, along with whatever they hold, and send
+        /// dead-lettered messages back to be tried again.
+        /// </summary>
         public const string Operate = "monitoring.operate";
     }
 
@@ -212,7 +215,7 @@ public static class PermissionCatalog
 
         Area("monitoring", "Queue health", "Operate", "Live message-queue throughput and consumers.",
             (View, "See queue health and rates."),
-            (Operate, "Delete leftover queues nothing reads, and the messages in them.")),
+            (Operate, "Delete leftover queues nothing reads, and the messages in them; send dead letters back to be tried again.")),
 
         Area("dashboard", "Dashboard", "Operate", "Traffic and health overview (reached from the logo).",
             (View, "See the dashboard.")),

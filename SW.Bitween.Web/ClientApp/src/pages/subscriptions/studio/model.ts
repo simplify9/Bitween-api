@@ -23,6 +23,7 @@ export type Draft = Pick<
   | "responseMessageTypeName"
   | "runOnBadResponses"
   | "aggregationTarget"
+  | "autoPauseAfterFailures"
 >;
 
 export const draftOf = (d: SubscriptionDetail): Draft => ({
@@ -45,6 +46,7 @@ export const draftOf = (d: SubscriptionDetail): Draft => ({
   responseMessageTypeName: d.responseMessageTypeName,
   runOnBadResponses: d.runOnBadResponses,
   aggregationTarget: d.aggregationTarget,
+  autoPauseAfterFailures: d.autoPauseAfterFailures,
 });
 
 /**
@@ -75,6 +77,7 @@ export const EMPTY_SUBSCRIPTION: Draft = {
   responseMessageTypeName: null,
   runOnBadResponses: false,
   aggregationTarget: "Input",
+  autoPauseAfterFailures: null,
 };
 
 /**

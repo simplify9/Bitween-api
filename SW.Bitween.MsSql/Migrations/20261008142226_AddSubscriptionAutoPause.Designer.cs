@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SW.Bitween.MsSql;
 
@@ -11,9 +12,11 @@ using SW.Bitween.MsSql;
 namespace SW.Bitween.MsSql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    partial class BitweenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261008142226_AddSubscriptionAutoPause")]
+    partial class AddSubscriptionAutoPause
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -570,9 +573,6 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<DateTime?>("RetiredOn")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("ValidationSchema")
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

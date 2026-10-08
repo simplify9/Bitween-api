@@ -65,6 +65,8 @@ namespace SW.Bitween.Resources.Subscriptions
                     AggregateOn = subscriber.AggregateOn,
                     AggregationTarget = subscriber.AggregationTarget,
                     PausedOn = subscriber.PausedOn,
+                    PausedAutomatically = subscriber.PausedAutomatically,
+                    AutoPauseAfterFailures = subscriber.AutoPauseAfterFailures,
                     IsRunning = subscriber.IsRunning,
                     ConsecutiveFailures = subscriber.ConsecutiveFailures,
                     LastException = subscriber.LastException,

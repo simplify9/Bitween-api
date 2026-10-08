@@ -261,6 +261,8 @@ export interface InformationType {
   disregardsUnfilteredMessages: boolean;
   /** Friendly name → JSONPath/XPath, matched by routes and filters. */
   promotedProperties: { key: string; path: string }[];
+  /** JSON Schema for a JSON type, XSD for an XML one; null checks nothing. */
+  validationSchema: string | null;
   createdOn: string;
   /**
    * When this type was taken out of use, or null while it is still in use. A retired type keeps
@@ -605,6 +607,10 @@ export interface Subscription {
   enabled: boolean;
   /** Paused still accepts work but holds it for later release. */
   pausedOn: string | null;
+  /** Paused by `autoPauseAfterFailures`, not by a person. */
+  pausedAutomatically: boolean;
+  /** Pause after this many failed deliveries in a row; null never pauses. */
+  autoPauseAfterFailures: number | null;
   workGroupId: number | null;
   retryPolicyId: number | null;
   receiverId: string | null;
@@ -1425,6 +1431,18 @@ export interface UnattendedQueue {
 }
 
 /** What a delete of unattended lanes did: a lane that couldn't go is skipped, not fatal. */
+/** One message in a dead-letter queue, read without taking it off. */
+export interface DeadLetterMessage {
+  position: number;
+  body: string;
+  /** The body was longer than the server sends, and this is its start. */
+  bodyCut: boolean;
+  lastException: string | null;
+  correlationId: string | null;
+  routingKey: string | null;
+  exceptionHistory: string[];
+}
+
 export interface UnattendedDeleteResult {
   deleted: string[];
   skipped: { queueName: string; reason: string }[];

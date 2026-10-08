@@ -32,6 +32,7 @@ namespace SW.Bitween.Resources.Documents
                 BusMessageTypeName = document.BusMessageTypeName,
                 DuplicateInterval = document.DuplicateInterval,
                 PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection(),
+                ValidationSchema = document.ValidationSchema,
                 DocumentFormat = document.DocumentFormat,
                 DisregardsUnfilteredMessages = document.DisregardsUnfilteredMessages ?? false,
                 RetiredOn = document.RetiredOn,

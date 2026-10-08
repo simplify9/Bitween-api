@@ -28,6 +28,8 @@ export interface InformationTypeDraft {
   disregardsUnfilteredMessages: boolean;
   /** key = friendly name, value = the path. */
   promotedProperties: KvRow[];
+  /** Empty for none. */
+  validationSchema: string;
 }
 
 export const informationTypeDraftOf = (t: InformationType): InformationTypeDraft => ({
@@ -39,6 +41,7 @@ export const informationTypeDraftOf = (t: InformationType): InformationTypeDraft
   duplicateIntervalMinutes: t.duplicateIntervalMinutes,
   disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
   promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
+  validationSchema: t.validationSchema ?? "",
 });
 
 export const EMPTY_INFORMATION_TYPE: InformationTypeDraft = {
@@ -50,6 +53,7 @@ export const EMPTY_INFORMATION_TYPE: InformationTypeDraft = {
   duplicateIntervalMinutes: 0,
   disregardsUnfilteredMessages: false,
   promotedProperties: [],
+  validationSchema: "",
 };
 
 export const informationTypeDirty = (
@@ -71,6 +75,7 @@ export const informationTypeChanges = (draft: InformationTypeDraft) => ({
   promotedProperties: draft.promotedProperties
     .filter((r) => r.key.trim() || r.value.trim())
     .map((r) => ({ key: r.key, path: r.value })),
+  validationSchema: draft.validationSchema.trim() ? draft.validationSchema : null,
 });
 
 /** Why a draft can't be saved yet, in the operator's words. */
@@ -84,6 +89,7 @@ export function informationTypeMissing(draft: InformationTypeDraft): string[] {
       "a bus message name without spaces",
     // The server refuses these, so say it before the save rather than after.
     !readsContent(draft.format) && hasPromotedRows(draft) && "its promoted properties removed",
+    !readsContent(draft.format) && draft.validationSchema.trim() !== "" && "its schema removed",
   ].filter((m): m is string => typeof m === "string");
 }
 
@@ -359,6 +365,45 @@ export function InformationTypeFields({
             </div>
           )}
         </Panel>
+      )}
+
+      {readsContent(draft.format) ? (
+        <Panel
+          title="Schema"
+          description={`${
+            draft.format === "Json" ? "A JSON Schema" : "An XSD"
+          } every payload of this type must match. A call to an API gateway that doesn't is refused with what's wrong; any other exchange whose input doesn't fails, and says why. Leave it empty to accept anything. It can't refer to other files or URLs.`}
+        >
+          <textarea
+            aria-label="Schema"
+            value={draft.validationSchema}
+            onChange={(e) => set("validationSchema", e.target.value)}
+            readOnly={!canEdit}
+            spellCheck={false}
+            rows={10}
+            placeholder={
+              draft.format === "Json"
+                ? '{ "type": "object", "required": ["orderId"] }'
+                : '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">…</xs:schema>'
+            }
+            className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-[12.5px] text-ink-800 focus:border-crimson-500 focus:outline-none"
+          />
+        </Panel>
+      ) : (
+        draft.validationSchema.trim() !== "" && (
+          <Panel title="Schema" description={`${formatLabel(draft.format)} content isn't read, so it can't be checked.`}>
+            <div className="flex flex-wrap items-center gap-3">
+              <p role="alert" className="text-[13px] text-danger-700">
+                Still has a schema — {formatLabel(draft.format)} types can't have one.
+              </p>
+              {canEdit && (
+                <Button size="sm" onClick={() => set("validationSchema", "")}>
+                  Remove it
+                </Button>
+              )}
+            </div>
+          </Panel>
+        )
       )}
     </div>
   );

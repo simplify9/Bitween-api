@@ -32,4 +32,9 @@ public static class BitweenTelemetry
     public static readonly Histogram<double> ProcessingDuration =
         Meter.CreateHistogram<double>("bitween.exchanges.processing.duration", unit: "s",
             description: "Time to process one exchange");
+
+    /// <summary>Subscriptions paused for failing too many deliveries in a row.</summary>
+    public static readonly Counter<long> SubscriptionsAutoPaused =
+        Meter.CreateCounter<long>("bitween.subscriptions.auto_paused",
+            description: "Subscriptions paused after failing too many deliveries in a row");
 }

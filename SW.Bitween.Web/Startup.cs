@@ -112,6 +112,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<IGatewayIssuers, OpenIdGatewayIssuers>();
             services.AddScoped<Resources.Ops.LaneResolver>();
             services.AddScoped<Resources.Ops.BrokerQueues>();
+            services.AddScoped<Resources.Ops.DeadLetterQueues>();
             services.AddScoped<AdapterRequirements>();
             services.AddHttpContextAccessor();
 

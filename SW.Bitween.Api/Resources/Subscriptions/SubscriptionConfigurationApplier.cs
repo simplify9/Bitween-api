@@ -56,6 +56,10 @@ internal static class SubscriptionConfigurationApplier
         }
         entity.ResponseMessageTypeName = model.ResponseMessageTypeName;
         entity.RunOnBadResponses = model.RunOnBadResponses;
+        if (model.AutoPauseAfterFailures is < 1 or > 1000)
+            throw new SWValidationException("AutoPauseAfterFailures",
+                "Pause after between 1 and 1000 failures in a row, or leave it empty to never pause.");
+        entity.AutoPauseAfterFailures = model.AutoPauseAfterFailures;
         // Meaningless for every other type, where it stays at its default — but harmless
         // there, and applying it unconditionally is what stops create and update disagreeing.
         entity.AggregationTarget = model.AggregationTarget;

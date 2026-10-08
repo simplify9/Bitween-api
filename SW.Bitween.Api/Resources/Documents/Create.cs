@@ -38,6 +38,7 @@ namespace SW.Bitween.Resources.Documents
                 await BusMessageTypeNames.EnsureFree(dbContext, model.BusMessageTypeName);
 
             PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
+            await DocumentSchema.EnsureUsable(model.DocumentFormat, model.ValidationSchema);
 
             var entity = new Document(code, model.Name, model.DocumentFormat)
             {
@@ -49,6 +50,7 @@ namespace SW.Bitween.Resources.Documents
             if (model.PromotedProperties != null)
                 entity.SetDictionaries(model.PromotedProperties.ToDictionary());
 
+            entity.SetValidationSchema(model.ValidationSchema);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             // Routing resolves an information type by name off the cache, so a new one is

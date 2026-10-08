@@ -134,6 +134,8 @@ function NewResponseSubscription() {
   // are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Set on the subscription once it exists, not while creating it.
+    autoPauseAfterFailures: null,
     enabled: draft.enable,
     aggregationTarget: "Input",
     receiverId: null,
