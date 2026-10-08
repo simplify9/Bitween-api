@@ -41,9 +41,11 @@ static class Api
     }
 
     /// <summary>A gateway with one partner attached through a gateway subscription.</summary>
-    public static async Task<(HttpClient Admin, string UrlName, int GatewayId, int PartnerId, int SubscriptionId)> GatewayAsync(HttpFixture fixture, int? onDocument = null)
+    public static async Task<(HttpClient Admin, string UrlName, int GatewayId, int PartnerId, int SubscriptionId)> GatewayAsync(HttpFixture fixture, int? onDocument = null) =>
+        await GatewayAsync(await fixture.AdminAsync(), onDocument);
+
+    public static async Task<(HttpClient Admin, string UrlName, int GatewayId, int PartnerId, int SubscriptionId)> GatewayAsync(HttpClient admin, int? onDocument = null)
     {
-        var admin = await fixture.AdminAsync();
         var documentId = onDocument ?? await CreateAsync(admin, "/api/documents", new { name = Unique("Order"), documentFormat = "Json" });
         var partnerId = await CreateAsync(admin, "/api/partners", new { name = Unique("Partner") });
         var subscriptionId = await CreateAsync(admin, "/api/subscriptions", new
@@ -63,9 +65,13 @@ static class Api
     }
 
     /// <summary>A partner key saved on the partner, and the gateway call it makes, answered once processed.</summary>
-    public static async Task<HttpResponseMessage> CallSyncAsync(HttpFixture fixture, string urlName, string key, string body = "{\"order\":1}")
+    public static Task<HttpResponseMessage> CallSyncAsync(HttpFixture fixture, string urlName, string key, string body = "{\"order\":1}") =>
+        CallSyncAsync(fixture.Client(), urlName, key, body);
+
+    /// <summary>The call made with <paramref name="partner"/>, which it disposes.</summary>
+    public static async Task<HttpResponseMessage> CallSyncAsync(HttpClient partner, string urlName, string key, string body = "{\"order\":1}")
     {
-        using var partner = fixture.Client();
+        using var _ = partner;
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/gateway/{urlName}/sync")
         {
             Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")

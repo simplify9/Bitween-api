@@ -35,10 +35,7 @@ public sealed class HttpFixture : IAsyncLifetime
 
     readonly PostgreSqlContainer postgres = new PostgreSqlBuilder().WithImage("postgres:16").Build();
     // With the management plugin, as production runs it: Ops pages and queue clean-up go through it.
-    readonly RabbitMqContainer rabbit = new RabbitMqBuilder()
-        .WithImage("rabbitmq:3.13-management")
-        .WithPortBinding(15672, true)
-        .Build();
+    readonly RabbitMqContainer rabbit = NewRabbit();
     readonly string bucket = $"bitween-http-tests-{Guid.NewGuid():N}";
 
     public WebApplicationFactory<Web.Program> App { get; private set; } = null!;
@@ -89,36 +86,63 @@ public sealed class HttpFixture : IAsyncLifetime
     {
         await Task.WhenAll(postgres.StartAsync(), rabbit.StartAsync());
 
-        settings = new Dictionary<string, string?>
-        {
-            ["Bitween:DatabaseType"] = "PgSql",
-            ["ConnectionStrings:BitweenDb"] = postgres.GetConnectionString(),
-            ["ConnectionStrings:RabbitMQ"] = rabbit.GetConnectionString(),
-            ["Bitween:RabbitMqManagementUrl"] = $"http://{rabbit.Hostname}:{rabbit.GetMappedPublicPort(15672)}",
-            ["Bitween:RabbitMqManagementUsername"] = RabbitMqBuilder.DefaultUsername,
-            ["Bitween:RabbitMqManagementPassword"] = RabbitMqBuilder.DefaultPassword,
-            ["Bitween:StorageProvider"] = "Local",
-            ["CloudFiles:BucketName"] = bucket,
-            ["Token:Key"] = "http-tests-signing-key-0123456789abcdefghijklmnop",
-            ["Token:Issuer"] = "http-tests",
-            ["Token:Audience"] = "http-tests",
-            ["Bitween:InitialAdminPassword"] = AdminPassword,
-            ["Bitween:RateLimits:SignInPerMinute"] = SignInPerMinute.ToString(),
-            ["Bitween:RateLimits:RequestsPerMinute"] = "100000",
-        };
+        settings = Settings("PgSql", postgres.GetConnectionString(), rabbit, bucket);
 
-        App = new BitweenApp(settings);
+        App = await StartAsync(settings);
+    }
+
+    /// <summary>The settings an install is started with, on the given metadata database and broker.</summary>
+    public static Dictionary<string, string?> Settings(string databaseType, string connectionString,
+        RabbitMqContainer rabbit, string bucket) => new()
+    {
+        ["Bitween:DatabaseType"] = databaseType,
+        ["ConnectionStrings:BitweenDb"] = connectionString,
+        ["ConnectionStrings:RabbitMQ"] = rabbit.GetConnectionString(),
+        ["Bitween:RabbitMqManagementUrl"] = $"http://{rabbit.Hostname}:{rabbit.GetMappedPublicPort(15672)}",
+        ["Bitween:RabbitMqManagementUsername"] = RabbitMqBuilder.DefaultUsername,
+        ["Bitween:RabbitMqManagementPassword"] = RabbitMqBuilder.DefaultPassword,
+        ["Bitween:StorageProvider"] = "Local",
+        ["CloudFiles:BucketName"] = bucket,
+        ["Token:Key"] = "http-tests-signing-key-0123456789abcdefghijklmnop",
+        ["Token:Issuer"] = "http-tests",
+        ["Token:Audience"] = "http-tests",
+        ["Bitween:InitialAdminPassword"] = AdminPassword,
+        ["Bitween:RateLimits:SignInPerMinute"] = SignInPerMinute.ToString(),
+        ["Bitween:RateLimits:RequestsPerMinute"] = "100000",
+    };
+
+    /// <summary>A management-enabled broker, as production runs.</summary>
+    public static RabbitMqContainer NewRabbit() => new RabbitMqBuilder()
+        .WithImage("rabbitmq:3.13-management")
+        .WithPortBinding(15672, true)
+        .Build();
+
+    /// <summary>
+    /// Starts an install as Program.Main does, and clears the seeded administrator's must-change
+    /// flag, which every install asks for at first sign-in, so a test's session can do something.
+    /// </summary>
+    public static async Task<WebApplicationFactory<Web.Program>> StartAsync(IDictionary<string, string?> settings)
+    {
+        var app = new BitweenApp(settings);
         // Creating a client starts the host.
-        using var _ = App.CreateClient();
+        using (app.CreateClient()) { }
 
-        // The seeded administrator must change its password at first sign-in; doing it once here
-        // gives every test a session that can do something.
-        using var client = Client();
+        using var client = ClientOf(app);
         var token = await SignInAsync(client, AdminEmail, AdminPassword);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var changed = await client.PostAsJsonAsync("/api/accounts/changePassword",
             new { OldPassword = AdminPassword, NewPassword = AdminPassword });
         changed.EnsureSuccessStatusCode();
+        return app;
+    }
+
+    /// <summary>A client of <paramref name="node"/> signed in as the administrator.</summary>
+    public static async Task<HttpClient> AdminOf(WebApplicationFactory<Web.Program> node)
+    {
+        var client = ClientOf(node);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", await SignInAsync(client, AdminEmail, AdminPassword));
+        return client;
     }
 
     public async Task DisposeAsync()
@@ -157,7 +181,7 @@ public sealed class HttpFixture : IAsyncLifetime
         return client;
     }
 
-    sealed class BitweenApp(IDictionary<string, string?> settings) : WebApplicationFactory<Web.Program>
+    internal sealed class BitweenApp(IDictionary<string, string?> settings) : WebApplicationFactory<Web.Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {

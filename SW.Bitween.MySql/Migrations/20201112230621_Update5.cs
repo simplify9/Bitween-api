@@ -83,15 +83,18 @@ namespace SW.Bitween.MySql.Migrations
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);
 
+            // Backticks: MySQL reads double quotes as string literals unless the server runs in
+            // ANSI_QUOTES mode, so a fresh install on a default server stopped at this migration.
+            // An install that already applied it is not affected — applied migrations never rerun.
             migrationBuilder.Sql(@"
-                CREATE TABLE ""SubscriptionSchedules"" (
-                ""Id"" int NOT NULL AUTO_INCREMENT,
-                ""Recurrence"" tinyint unsigned NOT NULL,
-                ""On"" bigint NOT NULL,
-                ""Backwards"" tinyint(1) NOT NULL,
-                ""SubscriptionId"" int NOT NULL,
-                PRIMARY KEY (""Id"",""SubscriptionId""),
-                CONSTRAINT ""FK_SubscriptionSchedules_Subscriptions_SubscriptionId"" FOREIGN KEY (""SubscriptionId"") REFERENCES ""Subscriptions"" (""Id"") ON DELETE CASCADE);
+                CREATE TABLE `SubscriptionSchedules` (
+                `Id` int NOT NULL AUTO_INCREMENT,
+                `Recurrence` tinyint unsigned NOT NULL,
+                `On` bigint NOT NULL,
+                `Backwards` tinyint(1) NOT NULL,
+                `SubscriptionId` int NOT NULL,
+                PRIMARY KEY (`Id`,`SubscriptionId`),
+                CONSTRAINT `FK_SubscriptionSchedules_Subscriptions_SubscriptionId` FOREIGN KEY (`SubscriptionId`) REFERENCES `Subscriptions` (`Id`) ON DELETE CASCADE);
                 ");
 
 
