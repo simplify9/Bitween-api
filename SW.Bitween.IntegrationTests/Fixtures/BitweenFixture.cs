@@ -47,6 +47,9 @@ namespace SW.Bitween.IntegrationTests.Fixtures;
 /// </remarks>
 public sealed class BitweenFixture : IAsyncLifetime
 {
+    /// <summary>The sample validator: requires a Name, and an Id from 1 to 9.</summary>
+    public const string SampleValidatorId = "sw.bitween.samplevalidator";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder().Build();
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder().Build();
 
@@ -322,6 +325,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                 var cloudFiles = scope.ServiceProvider.GetRequiredService<ICloudFilesService>();
                 await AdapterInstaller.InstallAsync(cloudFiles,
                     "SW.Bitween.SampleHandler", "sw.bitween.samplehandler", "SW.Bitween.SampleHandler.dll");
+                await AdapterInstaller.InstallAsync(cloudFiles,
+                    "SW.Bitween.SampleValidator", SampleValidatorId, "SW.Bitween.SampleValidator.dll");
                 await AdapterInstaller.InstallAsync(cloudFiles,
                     "SW.Bitween.SampleConfigurableAdapter", "sw.bitween.sampleconfigurableadapter", "SW.Bitween.SampleConfigurableAdapter.dll");
 

@@ -59,6 +59,7 @@
 
   <Target Name="PublishTestAdapters" AfterTargets="Build">
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.SampleHandler -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.SampleHandler --no-self-contained" />
+    <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.SampleValidator -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.SampleValidator --no-self-contained" />
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.SampleConfigurableAdapter -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.SampleConfigurableAdapter --no-self-contained" />
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.Adapters.Bus.RabbitMq -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.Adapters.Bus.RabbitMq --no-self-contained" />
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.Adapters.Bus.Sqs -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.Adapters.Bus.Sqs --no-self-contained" />
