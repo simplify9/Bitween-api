@@ -78,8 +78,37 @@ namespace SW.Bitween.Resources.Xchanges
             var validatorProperties = sub.ValidatorProperties.ToDictionary().Fill(par.Partner, globalAdapterValuesSets);
             await xchangeService.RunValidator(sub.ValidatorId, validatorProperties, xchangeFile);
 
-            var xchangeId =
-                await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
+            // Same Idempotency-Key from the same partner for the same type: the first call's exchange.
+            var idempotencyKey = requestContext.Values
+                .Where(v => v.Type == RequestValueType.HttpHeader &&
+                            v.Name.Equals(IdempotencyGuard.Header, StringComparison.OrdinalIgnoreCase))
+                .Select(v => v.Value?.Trim()).FirstOrDefault();
+            if (idempotencyKey?.Length > IdempotencyGuard.MaxKeyLength)
+                throw new SWValidationException("IDEMPOTENCY_KEY",
+                    $"{IdempotencyGuard.Header} is longer than {IdempotencyGuard.MaxKeyLength} characters.");
+            var idempotencyScope = $"legacy:partner:{par.Partner.Id}:document:{document.Id}";
+
+            var xchangeId = string.IsNullOrEmpty(idempotencyKey)
+                ? null
+                : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+            if (xchangeId is null)
+            {
+                var subscription = await cache.SubscriptionByIdAsync(sub.Id);
+                var xchange = await xchangeService.CreateXchange(subscription, xchangeFile,
+                    xchangeReferences.ToArray(), Guid.NewGuid().ToString("N"));
+                if (!string.IsNullOrEmpty(idempotencyKey))
+                    await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+                try
+                {
+                    await dbContext.SaveChangesAsync();
+                    xchangeId = xchange.Id;
+                }
+                catch (DbUpdateException ex) when (IdempotencyGuard.IsDuplicateKey(ex))
+                {
+                    dbContext.ChangeTracker.Clear();
+                    xchangeId = await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+                }
+            }
 
             if (waitResponse <= 0)
                 return new CqApiResult<string>(xchangeId)

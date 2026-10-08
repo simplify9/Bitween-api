@@ -533,6 +533,16 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasIndex(p => p.On);
             });
 
+            modelBuilder.Entity<IdempotencyKey>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Scope).IsRequired().HasMaxLength(200);
+                b.Property(p => p.Key).IsRequired().HasMaxLength(200);
+                b.Property(p => p.XchangeId).IsRequired().IsUnicode(false).HasMaxLength(50);
+                b.HasIndex(p => new { p.Scope, p.Key }).IsUnique();
+                b.HasIndex(p => p.CreatedOn);
+            });
+
             modelBuilder.Entity<OutboxMessage>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();

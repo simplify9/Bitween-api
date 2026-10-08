@@ -113,9 +113,43 @@ public class GatewayController(
             xchangeFile);
 
         var xchangeReferences = new List<string> { callerReference };
-        // The sets already read at the top of the request, from the cache.
-        var xchangeId = await xchangeService.SubmitSubscriptionXchange(subscription.Id, xchangeFile,
-            xchangeReferences.ToArray(), partner, globalAdapterValuesSet);
+
+        // A repeat of a call the partner couldn't be sure arrived — same Idempotency-Key — gets the
+        // exchange the first one made, not a second. Scoped to this gateway and this partner.
+        var idempotencyKey = Request.Headers[IdempotencyGuard.Header].FirstOrDefault()?.Trim();
+        if (idempotencyKey?.Length > IdempotencyGuard.MaxKeyLength)
+            return BadRequest($"{IdempotencyGuard.Header} is longer than {IdempotencyGuard.MaxKeyLength} characters.");
+        var idempotencyScope = $"gateway:{apiGateway.Id}:partner:{partner.Id}";
+
+        var xchangeId = string.IsNullOrEmpty(idempotencyKey)
+            ? null
+            : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+        if (xchangeId is not null)
+        {
+            Response.Headers["Idempotent-Replay"] = "true";
+        }
+        else
+        {
+            // The sets already read at the top of the request, from the cache.
+            var xchange = await xchangeService.CreateXchange(subscription, xchangeFile, xchangeReferences.ToArray(),
+                Guid.NewGuid().ToString("N"), partner, globalAdapterValuesSet);
+            if (!string.IsNullOrEmpty(idempotencyKey))
+                await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+
+            try
+            {
+                await dbContext.SaveChangesAsync();
+                xchangeId = xchange.Id;
+            }
+            catch (DbUpdateException ex) when (IdempotencyGuard.IsDuplicateKey(ex))
+            {
+                // Another call with the same key committed first: its exchange is the answer.
+                dbContext.ChangeTracker.Clear();
+                xchangeId = await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+                Response.Headers["Idempotent-Replay"] = "true";
+            }
+        }
+
         if (!resultSync)
         {
             return Accepted(xchangeId);
