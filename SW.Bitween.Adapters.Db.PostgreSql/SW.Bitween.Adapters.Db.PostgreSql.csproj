@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.0" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.1" />
     <!-- Still on the 8.x line. The old adapter target that forced this is gone; moving to Npgsql 9+
          is a driver upgrade of its own, to be tested against the PostgreSQL versions in the field. -->
     <PackageReference Include="Npgsql" Version="8.0.7" />

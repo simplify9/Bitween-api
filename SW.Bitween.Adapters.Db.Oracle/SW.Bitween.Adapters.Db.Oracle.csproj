@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.0" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.1" />
     <!--
       The managed driver, deliberately: the unmanaged one needs Oracle Instant Client installed on
       every node, which a self-contained adapter published to cloud storage cannot assume.

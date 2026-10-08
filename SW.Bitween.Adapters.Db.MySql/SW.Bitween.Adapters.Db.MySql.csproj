@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.0" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.1" />
     <!--
       MySqlConnector, not Oracle's MySql.Data: it is the fully async ADO.NET implementation, and
       the async in this adapter is not decorative — a resident adapter serves every subscription

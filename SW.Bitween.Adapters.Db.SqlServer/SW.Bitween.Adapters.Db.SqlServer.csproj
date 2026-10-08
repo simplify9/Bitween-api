@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.0" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.1" />
     <!--
       Microsoft.Data.SqlClient, not the System.Data.SqlClient that ships in the framework: the
       latter is frozen, and the difference that matters here is that it never learned to trust a
