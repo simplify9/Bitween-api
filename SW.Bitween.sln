@@ -49,6 +49,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.Adapters.Db.MySq
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.Adapters.Db.SqlServer", "SW.Bitween.Adapters.Db.SqlServer\SW.Bitween.Adapters.Db.SqlServer.csproj", "{F5EA521E-1B9C-4723-8747-D4A6BB9D4EDA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.HttpTests", "SW.Bitween.HttpTests\SW.Bitween.HttpTests.csproj", "{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -299,6 +301,18 @@ Global
 		{F5EA521E-1B9C-4723-8747-D4A6BB9D4EDA}.Release|x64.Build.0 = Release|Any CPU
 		{F5EA521E-1B9C-4723-8747-D4A6BB9D4EDA}.Release|x86.ActiveCfg = Release|Any CPU
 		{F5EA521E-1B9C-4723-8747-D4A6BB9D4EDA}.Release|x86.Build.0 = Release|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Debug|x64.Build.0 = Debug|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Debug|x86.Build.0 = Debug|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Release|x64.ActiveCfg = Release|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Release|x64.Build.0 = Release|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Release|x86.ActiveCfg = Release|Any CPU
+		{D34E847C-FF1F-47DE-B7F8-957E4B632FBC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
