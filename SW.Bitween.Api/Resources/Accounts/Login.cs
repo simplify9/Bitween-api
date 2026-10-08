@@ -36,6 +36,7 @@ namespace SW.Bitween.Resources.Accounts
             var accountQ = dbContext
                 .Set<Account>()
                 .AsQueryable();
+            AccountExtensions.MicrosoftIdentity microsoftIdentity = null;
 
             // Credentials sent with the request are what the caller is asking to sign in as. A refresh
             // cookie can still be in the browser from the previous session — a sign-out whose request
@@ -132,14 +133,27 @@ namespace SW.Bitween.Resources.Accounts
             }
             else if (!string.IsNullOrEmpty(request.MsToken))
             {
-                var email = (await request.GetEmailFromAzureJwtDefault(logger))?.ToLower();
-                if (string.IsNullOrEmpty(email))
+                if (string.IsNullOrWhiteSpace(BitweenSettings.MsalClientId))
+                    throw new SWException("Microsoft sign-in is not configured.");
+
+                microsoftIdentity = await AccountExtensions.ValidateMicrosoftTokenAsync(
+                    request.MsToken, BitweenSettings.MsalClientId, BitweenSettings.MsalTenantId, logger);
+                if (microsoftIdentity is null)
                 {
-                    logger.LogWarning("MS login failed: could not extract email from token.");
-                    throw new SWException("Could not retrieve your email from Microsoft. Please ensure your Microsoft account has a valid email address and try again.");
+                    logger.LogWarning("MS login failed: the token was not valid for this application.");
+                    throw new SWException("Could not sign you in with Microsoft. Please try again, or contact your administrator.");
                 }
-                logger.LogInformation("MS login attempt. Extracted email from token: '{Email}'", email);
-                accountQ = accountQ.Where(u => u.Email.ToLower() == email);
+
+                // The bound identity first; the address only for an account that has none yet.
+                var identity = microsoftIdentity.ObjectAndTenant;
+                var email = microsoftIdentity.Email;
+                var accountId = await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.MicrosoftIdentity == identity)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync()
+                                ?? await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.Email.ToLower() == email)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync();
+                accountQ = accountQ.Where(u => u.Id == accountId);
             }
             else
             {
@@ -176,6 +190,17 @@ namespace SW.Bitween.Resources.Accounts
                 }
 
                 throw new SWException("Your account has been disabled. Please contact your administrator.");
+            }
+
+            if (microsoftIdentity is not null)
+            {
+                if (account.MicrosoftIdentity is null)
+                    account.BindMicrosoftIdentity(microsoftIdentity.ObjectAndTenant);
+                else if (account.MicrosoftIdentity != microsoftIdentity.ObjectAndTenant)
+                {
+                    logger.LogWarning("MS login refused: account {AccountId} is bound to a different Microsoft identity.", account.Id);
+                    throw new SWException("This account is linked to a different Microsoft account. Please contact your administrator.");
+                }
             }
 
             if (string.IsNullOrEmpty(refreshTokenValue) && !string.IsNullOrEmpty(request.Username) &&

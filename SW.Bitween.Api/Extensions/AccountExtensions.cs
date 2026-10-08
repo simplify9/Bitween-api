@@ -16,50 +16,79 @@ namespace SW.Bitween
 {
     public static class AccountExtensions
     {
-        public static Task<string> GetEmailFromAzureJwtDefault(this UserLogin model)
-            => model.GetEmailFromAzureJwtDefault(null);
+        /// <summary>Who a Microsoft ID token says it is: the address to match, and the identity to bind.</summary>
+        public record MicrosoftIdentity(string Email, string ObjectAndTenant);
 
-        public static async Task<string> GetEmailFromAzureJwtDefault(this UserLogin model, ILogger logger)
+        // Cached and refreshed by the manager itself. It used to be built on every sign-in, which
+        // fetched Microsoft's metadata and keys each time.
+        private static readonly ConfigurationManager<OpenIdConnectConfiguration> MicrosoftMetadata = new(
+            "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
+            new OpenIdConnectConfigurationRetriever(),
+            new HttpDocumentRetriever());
+
+        /// <summary>
+        /// Validates a Microsoft ID token for this Bitween's own app registration, or returns null.
+        /// </summary>
+        /// <remarks>
+        /// The audience and issuer used to go unchecked, so a token Microsoft issued to any app, in
+        /// any tenant, signed in here — one a user handed to some unrelated site would do — and the
+        /// account was chosen by preferred_username, which Microsoft says not to authorize on.
+        /// </remarks>
+        public static async Task<MicrosoftIdentity> ValidateMicrosoftTokenAsync(string jwt, string clientId,
+            string tenantId, ILogger logger)
         {
+            if (string.IsNullOrEmpty(jwt) || string.IsNullOrWhiteSpace(clientId)) return null;
             try
             {
-                var jwt = model.MsToken;
-                if (string.IsNullOrEmpty(jwt))
-                {
-                    logger?.LogWarning("GetEmailFromAzureJwtDefault: MsToken is null or empty.");
-                    return null;
-                }
-
-                var configurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-                    "https://login.microsoftonline.com/common/v2.0/.well-known/openid-configuration",
-                    new OpenIdConnectConfigurationRetriever(),
-                    new HttpDocumentRetriever()
-                );
-                var openIdConfig = await configurationManager.GetConfigurationAsync();
-                var handler = new JwtSecurityTokenHandler();
-                var tokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKeys = openIdConfig.SigningKeys
-                };
-                handler.ValidateToken(jwt, tokenValidationParameters, out _);
-                var jwtSecurityToken = handler.ReadJwtToken(jwt);
-
-                var allClaims = string.Join(", ", jwtSecurityToken.Claims.Select(c => $"{c.Type}={c.Value}"));
-                logger?.LogInformation("MS token claims: {Claims}", allClaims);
-
-                var email = jwtSecurityToken!.Claims.FirstOrDefault(i => i.Type.Contains("preferred_username"))?.Value;
-                logger?.LogInformation("MS token preferred_username claim value: '{Email}'", email ?? "(not found)");
-                return string.IsNullOrWhiteSpace(email) ? null : email;
+                var metadata = await MicrosoftMetadata.GetConfigurationAsync();
+                return ValidateMicrosoftToken(jwt, metadata.SigningKeys, clientId, tenantId);
             }
             catch (Exception ex)
             {
-                logger?.LogError(ex, "GetEmailFromAzureJwtDefault: failed to extract email from MS token.");
+                logger?.LogWarning("Microsoft sign-in refused: {Reason}", ex.Message);
                 return null;
             }
+        }
+
+        /// <summary>The checks themselves, against the given keys, so they can be tested.</summary>
+        public static MicrosoftIdentity ValidateMicrosoftToken(string jwt, IEnumerable<SecurityKey> signingKeys,
+            string clientId, string tenantId)
+        {
+            var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+            var parameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKeys = signingKeys,
+                ValidateLifetime = true,
+                ValidateAudience = true,
+                ValidAudience = clientId,
+                ValidateIssuer = true,
+                IssuerValidator = (issuer, token, _) =>
+                {
+                    var tid = ((JwtSecurityToken)token).Claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+                    var fromTenant = tid is not null &&
+                                     (issuer == $"https://login.microsoftonline.com/{tid}/v2.0" ||
+                                      issuer == $"https://sts.windows.net/{tid}/");
+                    // A tenant given as an id pins sign-in to it; "common", "organizations" or a
+                    // domain name can't be compared with the token's tid and leave it open.
+                    var rightTenant = !Guid.TryParse(tenantId, out var pinned) ||
+                                      string.Equals(tid, pinned.ToString(), StringComparison.OrdinalIgnoreCase);
+                    if (!fromTenant || !rightTenant)
+                        throw new SecurityTokenInvalidIssuerException("The token was not issued by the expected tenant.");
+                    return issuer;
+                }
+            };
+
+            handler.ValidateToken(jwt, parameters, out var validated);
+            var claims = ((JwtSecurityToken)validated).Claims.ToList();
+
+            var email = claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value
+                        ?? claims.FirstOrDefault(c => c.Type == "email")?.Value;
+            var oid = claims.FirstOrDefault(c => c.Type == "oid")?.Value;
+            var tid = claims.FirstOrDefault(c => c.Type == "tid")?.Value;
+            if (string.IsNullOrWhiteSpace(email) || oid is null || tid is null) return null;
+
+            return new MicrosoftIdentity(email.ToLowerInvariant(), $"{oid}@{tid}");
         }
 
         private static ClaimsIdentity CreateClaimsIdentity(this Account account, LoginMethod loginMethod)

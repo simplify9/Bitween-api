@@ -64,6 +64,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("tinyint unsigned");
 
+                    b.Property<string>("MicrosoftIdentity")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("longtext");
 
