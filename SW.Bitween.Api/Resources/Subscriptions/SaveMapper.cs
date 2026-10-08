@@ -15,7 +15,8 @@ namespace SW.Bitween.Resources.Subscriptions
         public async Task<object> Handle(int key, SubscriptionSaveMapper model)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.Edit);
-            var entity = await dbContext.FindAsync<Subscription>(key);
+            var entity = await dbContext.FindAsync<Subscription>(key)
+                         ?? throw new SWNotFoundException(key.ToString());
 
             entity.MapperId = model.MapperId;
             entity.SetDictionaries(

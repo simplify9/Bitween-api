@@ -42,6 +42,30 @@ public sealed class HttpFixture : IAsyncLifetime
     readonly string bucket = $"bitween-http-tests-{Guid.NewGuid():N}";
 
     public WebApplicationFactory<Web.Program> App { get; private set; } = null!;
+    Dictionary<string, string?> settings = null!;
+
+    /// <summary>
+    /// Another instance of the app on the same database and broker, as a second node in a cluster
+    /// is. The caller disposes it.
+    /// </summary>
+    public WebApplicationFactory<Web.Program> SecondNode()
+    {
+        var node = new BitweenApp(settings);
+        using var _ = node.CreateClient();
+        return node;
+    }
+
+    /// <summary>A client of <paramref name="node"/> with no credentials.</summary>
+    public static HttpClient ClientOf(WebApplicationFactory<Web.Program> node)
+    {
+        var client = node.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost"),
+            AllowAutoRedirect = false
+        });
+        client.DefaultRequestHeaders.Add("X-Forwarded-For", $"10.{Random.Shared.Next(255)}.{Random.Shared.Next(255)}.{Random.Shared.Next(1, 255)}");
+        return client;
+    }
 
     /// <summary>The broker the app consumes from, for a test to look at or publish to directly.</summary>
     public string RabbitConnectionString => rabbit.GetConnectionString();
@@ -65,7 +89,7 @@ public sealed class HttpFixture : IAsyncLifetime
     {
         await Task.WhenAll(postgres.StartAsync(), rabbit.StartAsync());
 
-        var settings = new Dictionary<string, string?>
+        settings = new Dictionary<string, string?>
         {
             ["Bitween:DatabaseType"] = "PgSql",
             ["ConnectionStrings:BitweenDb"] = postgres.GetConnectionString(),
