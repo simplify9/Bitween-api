@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
+  API,
   FIRST_PASSWORD,
   addMember,
   createRole,
@@ -20,8 +21,6 @@ import {
  * trail's whole value rests on one negative claim — that credentials never reach it — which is
  * asserted against the stored row, not against what the screen happens to render.
  */
-
-const API = "https://localhost:7155/api";
 
 /** Reads the trail through the API with the signed-in session's own token. */
 async function audit(page: Page, query: string) {

@@ -1,15 +1,17 @@
 import { test, expect } from "@playwright/test";
-import { pickOption } from "./helpers";
+import { pickOption, signInAsAdmin } from "./helpers";
+import { SEED } from "./seed-data";
 
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+/**
+ * What the pickers and stage cards call the two HTTP adapters once one is chosen. Each adapter's
+ * manifest (SW.Bitween.NativeAdapters/HttpReceiver/adapter.json and its siblings) gives it a display name, and that is what is
+ * shown; the id with "Native" stripped is only the fallback for an adapter that has none.
+ */
+const RECEIVER_LABEL = "HTTP poll";
+const HANDLER_LABEL = "HTTP request";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 });
 
 test("scheduled job create, adapters, pause/resume, receive now, list, delete", async ({ page }) => {
@@ -20,12 +22,12 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
 
   // The information type is a searchable picker, and the stages below it are cards that open
   // in place — there is no wizard to "Continue" through any more.
-  await pickOption(page, "Information type", /Shipment order/);
-  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Shipment order/);
+  await pickOption(page, "Information type", new RegExp(SEED.informationType));
+  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(new RegExp(SEED.informationType));
 
   // Source — open by default. Receiver adapter plus its one required prop.
   await pickOption(page, "receiver adapter", "NativeHttpReceiver");
-  await expect(page.getByRole("combobox", { name: "receiver adapter" })).toHaveValue("HttpReceiver");
+  await expect(page.getByRole("combobox", { name: "receiver adapter" })).toHaveValue(RECEIVER_LABEL);
   await page.locator("#prop-Url").fill("https://example.com/feed");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/feed");
 
@@ -37,7 +39,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // Only one stage is open at a time, so #prop-Url is unambiguous here.
   await page.getByRole("button", { name: /^Delivery/ }).click();
   await pickOption(page, "handler adapter", "NativeHttpHandler");
-  await expect(page.getByRole("combobox", { name: "handler adapter" })).toHaveValue("HttpHandler");
+  await expect(page.getByRole("combobox", { name: "handler adapter" })).toHaveValue(HANDLER_LABEL);
   await page.locator("#prop-Url").fill("https://example.com/sink");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
 
@@ -89,10 +91,10 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // summarises what it saved, so both the adapter and its property show without opening it.
   await page.reload();
   const source = page.getByRole("button", { name: /^Source/ });
-  await expect(source).toContainText("HttpReceiver");
+  await expect(source).toContainText(RECEIVER_LABEL);
   await expect(source).toContainText("https://example.com/feed");
   const delivery = page.getByRole("button", { name: /^Delivery/ });
-  await expect(delivery).toContainText("HttpHandler");
+  await expect(delivery).toContainText(HANDLER_LABEL);
   await expect(delivery).toContainText("https://example.com/sink");
 
   // Narrow by type — the supported filter — so the row can't be paged out of sight. Deliberately

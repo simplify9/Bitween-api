@@ -22,7 +22,7 @@ To work on the UI, run `yarn build` in `SW.Bitween.Web/ClientApp` and refresh th
 | Unit tests, MSTest | `dotnet test SW.Bitween.UnitTests` | Nothing. Uses in-memory SQLite and fakes. |
 | Integration tests, xUnit | `dotnet test SW.Bitween.IntegrationTests` | A running Docker daemon |
 | UI unit tests, Vitest | `yarn test` in `ClientApp` | Nothing |
-| UI end-to-end, Playwright | `yarn test:e2e` in `ClientApp` | The API at `https://localhost:7155` with a real database |
+| UI end-to-end, Playwright | `tools/e2e.sh` | A running Docker daemon |
 
 - The integration tests start PostgreSQL, RabbitMQ and MailHog with Testcontainers. They run migrations, use local-disk storage and the real serverless runner, and replace Quartz with a recording fake. The build publishes the sample adapters and the tests install them into local storage, so custom adapters run for real. Tests run one at a time.
 - `MigrationDriftTests` fails when the model changed without a migration for all three providers.
@@ -30,7 +30,37 @@ To work on the UI, run `yarn build` in `SW.Bitween.Web/ClientApp` and refresh th
 - The database adapter tests start PostgreSQL 16, MySQL 8.4, SQL Server 2022 and Oracle Free 23 containers, and the broker adapter tests run against containers too. The first run downloads large images.
 - The integration tests use their own local storage bucket, `bitween-integration-tests`, so they leave a local instance's adapters alone.
 - UI unit tests and Playwright specs are type-checked through `tsconfig.test.json`.
-- The Playwright setup signs in as the seeded administrator, falling back to break-glass credentials `1:1`, and cleans up its own test data before each run. It expects a launch profile on port 7155 that is not committed.
+- The Playwright suite runs against a real instance. See [End-to-end tests](#end-to-end-tests).
+
+## End-to-end tests
+
+`tools/e2e.sh` runs the Playwright suite from nothing. It starts PostgreSQL 16 on port 55432 and RabbitMQ on 55672 (management on 55673) in Docker, builds the UI and the backend, starts the app on `https://localhost:7155` with local-disk storage in its own `bitween-e2e` bucket, runs `playwright test`, and removes all of it afterwards. It needs Docker, the .NET SDK, Yarn and a trusted ASP.NET Core development certificate (`dotnet dev-certs https --trust`). Set `DOCKER_HOST` if your daemon is not the default one, as with Colima.
+
+```bash
+tools/e2e.sh                              # fresh environment, run everything, tear down
+tools/e2e.sh -- e2e/exchanges.spec.ts     # arguments after -- go to playwright test
+tools/e2e.sh --keep                       # leave the environment running afterwards
+tools/e2e.sh --reuse                      # run again against the kept environment
+tools/e2e.sh --up                         # start an environment without running tests
+tools/e2e.sh --down                       # remove a kept environment
+tools/e2e.sh --no-build                   # skip the UI and backend builds
+```
+
+A new installation refuses to start without `Bitween__InitialAdminPassword`, and refuses the old published default. The script passes `E2E_ADMIN_PASSWORD` to the app as that setting, and generates a random one when it is unset. The app log is in `$TMPDIR/bitween-e2e/app.log`.
+
+The suite's `seed` project runs before every spec. It checks that the backend answers, that the administrator can sign in, that RabbitMQ consumers are attached and that the HTTP adapters are installed. It then removes what earlier runs left behind, which is anything named `Playwright …` or `PW …` and `pw-…@example.test` accounts, and finds or creates the rows the specs build on. These are listed in `ClientApp/e2e/seed-data.ts`: the partner `Acme Retail`, the information types `Shipment order` and `Delivery proof`, and a subscription that delivers to an unreachable address so that there are always failed exchanges to retry. Seeding is idempotent, so the suite also runs against a long-lived database.
+
+To run against an instance you started yourself, run `yarn test:e2e` in `ClientApp` and set:
+
+| Variable | Default |
+|---|---|
+| `E2E_BASE_URL` | `https://localhost:7155/` |
+| `E2E_ADMIN_EMAIL` | `admin@Bitween.systems` |
+| `E2E_ADMIN_PASSWORD` | The old published default, which databases created before `Bitween__InitialAdminPassword` existed still have |
+
+The instance needs RabbitMQ with the management API configured (`Bitween__RabbitMqManagementUrl`), and sign-in rate limits high enough for a suite that signs in before every test (`Bitween__RateLimits__SignInPerMinute`).
+
+Two retention tests need the storage bucket to have a `temp30/` deletion rule. Local-disk storage never reports one, so under `tools/e2e.sh` they are skipped and say why.
 
 ## Trying data sources locally
 

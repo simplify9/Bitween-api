@@ -1,5 +1,6 @@
 import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, pickOption } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, API, pickOption } from "./helpers";
+import { SEED } from "./seed-data";
 
 /**
  * Driving the new mapping editor.
@@ -7,8 +8,6 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, pickOption } from "./helpers";
  * Shared by both mapper specs so a change to the editor's chrome is one edit here
  * rather than one per test — the specs then read as the mapping they are about.
  */
-
-const API = "https://localhost:7155/api";
 
 /** A source document with a value, a number, and a list with one entry to filter out. */
 export const SAMPLE = JSON.stringify(
@@ -32,7 +31,7 @@ export async function createSubscription(page: Page): Promise<string> {
 
   await page.goto("scheduled-jobs/new");
   await page.fill("#nj-name", name);
-  await pickOption(page, "Information type", /Shipment order/);
+  await pickOption(page, "Information type", SEED.informationType);
 
   await pickOption(page, "receiver adapter", "NativeHttpReceiver");
   await page.locator("#prop-Url").fill("https://example.com/feed");

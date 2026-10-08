@@ -1,15 +1,33 @@
-import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+import { test, expect, type Page } from "@playwright/test";
+import { API, sessionToken, signInAsAdmin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 });
+
+/**
+ * The ids of `count` failed exchanges that have not been retried, newest first. Polled because a
+ * retry made moments ago is still being processed, and only becomes a failure nobody has retried
+ * once it has run.
+ */
+async function unretriedFailures(page: Page, count: number): Promise<string[]> {
+  const token = await sessionToken(page);
+  const query = ["StatusFilter:1:3", "LatestOnly:1:true"].map((f) => `filter=${encodeURIComponent(f)}`).join("&");
+  let ids: string[] = [];
+  await expect
+    .poll(
+      async () => {
+        const res = await page.request.get(`${API}/xchanges?${query}&sort=StartedOn:2&page=0&size=${count}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        ids = ((await res.json()) as { result: { id: string }[] }).result.map((x) => x.id);
+        return ids.length;
+      },
+      { message: `fewer than ${count} un-retried failed exchanges — did the seed project run?`, timeout: 15000 },
+    )
+    .toBeGreaterThanOrEqual(count);
+  return ids;
+}
 
 test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   test.setTimeout(45000);
@@ -23,31 +41,35 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
 
   // Filter down to failed exchanges only.
   await page.getByRole("button", { name: "Failed" }).click();
+  await expect(page).toHaveURL(/status=failed/);
   // Pick by content, not position: the filter re-renders the table, and an index would race it
   // and land on whichever row was showing before.
-  const row = page.getByRole("row").filter({ hasText: "Failed" }).first();
-  await expect(row).toBeVisible({ timeout: 10000 });
+  await expect(page.getByRole("row").filter({ hasText: "Failed" }).first()).toBeVisible({ timeout: 10000 });
+
+  // Which exchanges to retry is asked of the API rather than read off the top of the list. The
+  // newest rows are whatever the last run left there: a retry still in flight, or a success
+  // whose subscription has since been deleted — neither can be retried, and a bulk retry of
+  // nothing but those offers no Retry button to press. The seed keeps at least three failures
+  // nobody has retried yet; these are three of them.
+  const [single, ...pair] = await unretriedFailures(page, 3);
 
   // Expand the row (click the chevron cell — other cells stop propagation)
   // and retry it from the drawer.
-  await row.locator("td").last().click();
+  await page.goto(`exchanges?ids=${single}`);
+  await page.locator(`tr:has(input[aria-label="Select ${single}"])`).locator("td").last().click();
   await page.getByRole("button", { name: "Retry…" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Retry" }).click();
   await expect(page.getByText(/Retry started/)).toBeVisible({ timeout: 10000 });
 
   // Bulk retry a couple of specific rows (not the whole page — each retry does
   // real file I/O against storage, so keep this fast and deterministic).
-  await page.getByRole("button", { name: "All" }).click();
+  await page.goto(`exchanges?ids=${pair.join(",")}`);
+  await page.getByLabel("Refresh interval").selectOption("0");
   // Row checkboxes only. "Select all on this page" also starts with "Select", and its checked
-  // state is derived from every row on the page — so a refetch landing mid-click (the filter
-  // above triggers one) flips it back and reads as a click that did nothing. A row checkbox is
-  // keyed by its own id and survives that. It also keeps the bulk retry to two rows, which is
-  // what this test says it wants: each retry is real file I/O.
-  const rowCheckbox = page.getByRole("checkbox", { name: /^Select (?!all\b)/ });
-  await expect(rowCheckbox.first()).toBeVisible({ timeout: 10000 });
-  await rowCheckbox.nth(0).check();
-  await rowCheckbox.nth(1).check();
-  await expect(page.getByText(/\d+ selected/)).toBeVisible();
+  // state is derived from every row on the page — so a refetch landing mid-click flips it back
+  // and reads as a click that did nothing. A row checkbox is keyed by its own id and survives that.
+  for (const id of pair) await page.getByRole("checkbox", { name: `Select ${id}`, exact: true }).check();
+  await expect(page.getByText("2 selected")).toBeVisible();
   await page.getByRole("button", { name: "Retry selected…" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Retry" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15000 });
@@ -74,9 +96,19 @@ test("scheduled retries page loads", async ({ page }) => {
 });
 
 test("queue health page loads with live consumer data", async ({ page }) => {
+  // Queue names start with the environment's name ("v3.development.bitween…", "v3.local.bitween…"),
+  // so which one to look for is asked of the same API the page reads rather than assumed.
+  const token = await sessionToken(page);
+  const res = await page.request.get(`${API}/ops/consumers`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(res.ok()).toBeTruthy();
+  const consumers = (await res.json()) as { queueName: string }[];
+  expect(consumers.length, "the broker reports no consumers at all").toBeGreaterThan(0);
+
   await page.goto("queue-health");
   await expect(page.getByRole("heading", { name: "Queue health" })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("v3.local.bitween").first()).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText(consumers[0].queueName, { exact: true }).first()).toBeVisible({ timeout: 10000 });
   await expect(page.getByText("undefined")).toHaveCount(0);
 });
 

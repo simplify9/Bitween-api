@@ -35,7 +35,7 @@ const shell = (page: Page) => page.getByRole("button", { name: "Account menu" })
 test("signing out in one tab ends the session in the other", async ({ page, context }) => {
   await signIn(page);
   const other = await context.newPage();
-  await other.goto("https://localhost:7155/partners");
+  await other.goto("partners");
   await other.waitForTimeout(2000);
   expect(await shell(other).count()).toBe(1);
 
