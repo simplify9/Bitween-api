@@ -152,23 +152,31 @@ public class RetryGroupBudget(
     /// </remarks>
     private async Task<RetryBudgetClaim> ClaimExhaustionAlert(Guid groupId, int maxAttemptsTotal)
     {
+        var now = DateTime.UtcNow;
         var claimed = await dbContext.Set<RetryGroupUsage>()
             .Where(u => u.SubscriptionId == subscriptionId
                         && u.GroupId == groupId
                         && u.AttemptsUsed >= maxAttemptsTotal
                         && u.ExhaustedNotifiedOn == null)
             .ExecuteUpdateAsync(s => s
-                .SetProperty(u => u.ExhaustedNotifiedOn, _ => DateTime.UtcNow)) > 0;
+                .SetProperty(u => u.ExhaustedNotifiedOn, now)) > 0;
 
         return claimed ? RetryBudgetClaim.DeniedAndJustExhausted : RetryBudgetClaim.Denied;
     }
 
-    private async Task<bool> TryIncrement(BitweenDbContext db, Guid groupId, int maxAttemptsTotal) =>
-        await db.Set<RetryGroupUsage>()
+    // The time is taken here, not left in the expression: there EF turns DateTime.UtcNow into the
+    // database server's clock, and ReleaseExhaustedBudgets compares this against an exchange's
+    // StartedOn from the application's. Clocks a few milliseconds apart then made a success that
+    // came straight after an exhausting failure look older than it, and the budget stayed spent.
+    private async Task<bool> TryIncrement(BitweenDbContext db, Guid groupId, int maxAttemptsTotal)
+    {
+        var now = DateTime.UtcNow;
+        return await db.Set<RetryGroupUsage>()
             .Where(u => u.SubscriptionId == subscriptionId
                         && u.GroupId == groupId
                         && u.AttemptsUsed < maxAttemptsTotal)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(u => u.AttemptsUsed, u => u.AttemptsUsed + 1)
-                .SetProperty(u => u.LastAttemptOn, _ => DateTime.UtcNow)) > 0;
+                .SetProperty(u => u.LastAttemptOn, now)) > 0;
+    }
 }
