@@ -160,4 +160,4 @@ Bitween is licensed under the [GNU Affero General Public License v3.0](LICENSE),
 - `SW.Bitween.Sdk` (the `SimplyWorks.Bitween.Sdk` NuGet package) and the `SW.Bitween.Sample*` projects stay under the MIT License, so your custom adapters can use any license.
 - Versions released before the license change remain available under the MIT License.
 
-A commercial license is available from Simplify9 for embedding Bitween in closed-source products or hosting it for third parties without releasing source code.
+A commercial license is available from Simplify9 ([info@simplify9.com](mailto:info@simplify9.com)) for embedding Bitween in closed-source products or hosting it for third parties without releasing source code.
