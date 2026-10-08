@@ -2,13 +2,13 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>SW.Bitween.Adapters.Db.Oracle</RootNamespace>
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.23" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.0" />
     <!--
       The managed driver, deliberately: the unmanaged one needs Oracle Instant Client installed on
       every node, which a self-contained adapter published to cloud storage cannot assume.

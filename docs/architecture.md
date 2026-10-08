@@ -54,7 +54,7 @@ flowchart TB
 | `SW.Bitween.Adapters.Db.Core`, `Db.PostgreSql`, `Db.MySql`, `Db.SqlServer`, `Db.Oracle` | Resident database adapters and their shared base | Db.Core |
 | `SW.Bitween.Sample*` | Example custom adapters, including a resident handler | none |
 
-Bitween's own projects target .NET 10. The resident adapters target .NET 8 and share their settings attributes from `SW.Bitween.Adapters.Shared` as linked source.
+Bitween's own projects target .NET 10, the resident adapters included. They share their settings attributes from `SW.Bitween.Adapters.Shared` as linked source.
 
 ### SimplyWorks libraries
 

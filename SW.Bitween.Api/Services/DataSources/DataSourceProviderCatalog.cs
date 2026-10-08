@@ -28,8 +28,8 @@ namespace SW.Bitween.Services.DataSources;
 ///   one would mean an extra connection to a customer's broker, and asking a stopped one would mean
 ///   starting a connection nobody asked for.
 /// - The attributes are matched by NAME, not by type identity. Adapters build against their own
-///   copy of the contract — they target net8.0 while the host is on net10.0 — and a type loaded in
-///   a metadata context is never reference-equal to the one the host compiled against anyway.
+///   copy of the contract, published on their own cadence, and a type loaded in a metadata
+///   context is never reference-equal to the one the host compiled against anyway.
 /// </summary>
 public class DataSourceProviderCatalog(AdapterInstaller installer, ICloudFilesService cloudFiles,
     ServerlessOptions options, IMemoryCache cache, ILogger<DataSourceProviderCatalog> logger)

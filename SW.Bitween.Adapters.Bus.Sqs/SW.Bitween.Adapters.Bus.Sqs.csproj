@@ -1,17 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>disable</Nullable>
     <RootNamespace>SW.Bitween.Adapters.Bus.Sqs</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AWSSDK.SQS" Version="3.7.400.87" />
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.23" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The settings contract is source, not a package: adapters target net8.0 while the rest of
-         the solution is on net10.0, and Bitween matches these attributes by name anyway. -->
+    <!-- The settings contract is source, not a package: Bitween reads these attributes by name
+         through a MetadataLoadContext, so no assembly identity has to line up. -->
     <Compile Include="..\SW.Bitween.Adapters.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

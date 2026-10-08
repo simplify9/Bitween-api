@@ -270,9 +270,10 @@ instead of a compile-time fact. Four thin binaries over a shared core keeps each
 lets Oracle ship on its own cadence. The cost is four publishes per core change — accepted, and
 mitigated by the core being a NuGet package rather than linked source.
 
-Note the constraint from [CLAUDE.md](../CLAUDE.md): adapters target **net8.0** while the host is
-net10.0, and `SW.Bitween.Adapters.Shared` is linked as *source* for that reason. `Db.Core` follows
-the same rule — shared source or a net8.0-targeted package, and no C# 14 in it.
+Adapters and the host both target **net10.0**. They were on .NET 8 until r10, but a resident adapter
+only runs under the r10 host, so nothing required the older target. `SW.Bitween.Adapters.Shared`
+is still linked as *source*, because Bitween reads its attributes by name and no assembly identity
+has to line up.
 
 ### 6.2 The pool lives in the adapter, and that is the entire justification for residency
 

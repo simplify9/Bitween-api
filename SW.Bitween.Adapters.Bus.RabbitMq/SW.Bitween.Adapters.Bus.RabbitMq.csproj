@@ -1,20 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- net8.0 on purpose: adapters run as their own processes, and this one must stay runnable
-         on hosts that predate the r10 move to net10.0. -->
-    <TargetFramework>net8.0</TargetFramework>
+    <!-- net10.0 like the host. A resident adapter only runs under the r10 resident host, so there
+         is no older host it has to stay runnable on, and the image ships the net10.0 runtime. -->
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>disable</Nullable>
     <RootNamespace>SW.Bitween.Adapters.Bus.RabbitMq</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.23" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The settings contract is source, not a package: adapters target net8.0 while the rest of
-         the solution is on net10.0, and Bitween matches these attributes by name anyway. -->
+    <!-- The settings contract is source, not a package: Bitween reads these attributes by name
+         through a MetadataLoadContext, so no assembly identity has to line up. -->
     <Compile Include="..\SW.Bitween.Adapters.Shared\*.cs" Link="Shared\%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

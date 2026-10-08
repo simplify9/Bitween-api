@@ -31,9 +31,8 @@
     <ProjectReference Include="..\SW.Bitween.MsSql\SW.Bitween.MsSql.csproj" />
     <ProjectReference Include="..\SW.Bitween.MySql\SW.Bitween.MySql.csproj" />
 
-    <!-- The engine-independent half of the database adapters. Targets net8.0 like every adapter;
-         referencing it from a net10.0 test project is fine and keeps the pure logic — the
-         statement allow-list, cursor formatting — testable without a database. -->
+    <!-- The engine-independent half of the database adapters, referenced so the pure logic — the
+         statement allow-list, cursor formatting — is testable without a database. -->
     <ProjectReference Include="..\SW.Bitween.Adapters.Db.Core\SW.Bitween.Adapters.Db.Core.csproj" />
     <!-- For the capability-narrowing rule, which is a version comparison rather than anything the
          database does — so it is provable without a container per PostgreSQL release. -->
