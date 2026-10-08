@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { api } from "../../api";
+import { useNavigate } from "react-router";
 import { useSession } from "../../auth/SessionContext";
 import { validatePassword } from "../../lib/passwordPolicy";
 import { Button, FormError } from "../../components/ui/basics";
@@ -18,7 +18,8 @@ import { AuthLayout } from "./AuthLayout";
  * lets them out of it.
  */
 export function ChangePasswordPage() {
-  const { session, refresh, signOut } = useSession();
+  const { session, changePassword, signOut } = useSession();
+  const navigate = useNavigate();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -26,10 +27,10 @@ export function ChangePasswordPage() {
   const [error, setError] = useState("");
 
   const change = useMutation({
-    mutationFn: () => api.changePassword(currentPassword, newPassword),
-    // The flag lives on the account, so re-reading the session is what clears this screen:
-    // the next profile read comes back without it and the guard stops redirecting here.
-    onSuccess: () => refresh(),
+    mutationFn: () => changePassword(currentPassword, newPassword),
+    // Signed back in with the new password by now, so into the app: "/" lands on the first
+    // page this account can open.
+    onSuccess: () => navigate("/", { replace: true }),
   });
 
   const submit = (e: FormEvent) => {

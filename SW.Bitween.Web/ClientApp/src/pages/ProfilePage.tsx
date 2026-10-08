@@ -30,7 +30,7 @@ function SavedFlash({ show }: { show: boolean }) {
 }
 
 export function ProfilePage() {
-  const { session, refresh, can } = useSession();
+  const { session, refresh, can, changePassword } = useSession();
   const totalPermissions = allKeysIn(usePermissionCatalog().data ?? []).length;
 
   const [displayName, setDisplayName] = useState(session?.user.displayName ?? "");
@@ -52,7 +52,7 @@ export function ProfilePage() {
   });
 
   const password = useMutation({
-    mutationFn: () => api.changePassword(currentPassword, newPassword),
+    mutationFn: () => changePassword(currentPassword, newPassword),
     onSuccess: () => {
       setCurrentPassword("");
       setNewPassword("");
