@@ -39,5 +39,11 @@ namespace SW.Bitween.Domain
         
         public string Exception { get; private set; }
         public DateTime FinishedOn { get; private set; }
+
+        /// <summary>
+        /// Not sent: the notifier had already sent for this subscription and outcome within its
+        /// quiet window. Counted into the next notification that is sent.
+        /// </summary>
+        public bool Suppressed { get; set; }
     }
 }

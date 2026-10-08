@@ -518,6 +518,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<DateTime>("On")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("RunFailures")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("On");
@@ -1485,6 +1488,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<bool>("Success")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("Suppressed")
+                        .HasColumnType("bit");
+
                     b.Property<string>("XchangeId")
                         .HasMaxLength(50)
                         .IsUnicode(false)
@@ -1493,6 +1499,8 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("XchangeId");
+
+                    b.HasIndex("NotifierId", "FinishedOn");
 
                     b.ToTable("XchangeNotifications", (string)null);
                 });

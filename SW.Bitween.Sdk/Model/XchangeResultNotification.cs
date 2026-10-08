@@ -17,5 +17,11 @@ namespace SW.Bitween.Model
         public string SubscriptionName { get; set; } = null!;
         public string CorrelationId { get; set; } = null!;
         public DateTime StartedOn { get; set; }
+
+        /// <summary>
+        /// How many notifications like this one — same notifier, subscription and outcome — were
+        /// held back since the last one sent, so an outage reads as one message with a count.
+        /// </summary>
+        public int SuppressedSinceLast { get; set; }
     }
 }

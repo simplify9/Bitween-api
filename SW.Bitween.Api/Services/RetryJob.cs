@@ -25,6 +25,7 @@ public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService,
     : IScheduledJob
 {
     private const int BatchSize = 100;
+    public const int MaxRunFailures = 5;
 
     public async Task Execute()
     {
@@ -51,25 +52,46 @@ public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService,
                 }
                 catch (Exception ex)
                 {
-                    // Not "dropped": SaveChangesAsync commits before it publishes, so a failure in the
-                    // publish leaves the replacement exchange committed and only its announcement
-                    // missing. Saying the retry was dropped would send whoever reads this looking for
-                    // an exchange that does exist.
-                    logger.LogError(ex,
-                        "The scheduled retry of xchange {XchangeId} did not complete; clearing its "
-                        + "schedule so the queue keeps draining.", delayedRetry.Id);
-
                     // Whatever the failed run left staged goes first — saving it would commit the very
                     // changes that failing was meant to prevent.
                     dbContext.ChangeTracker.Clear();
 
-                    // Every row leaves the queue one way or another, which is what stops the loop above
-                    // from meeting the same row again and turning the drain into a spin.
-                    await dbContext.Set<DelayedRetry>()
-                        .Where(r => r.Id == delayedRetry.Id)
-                        .ExecuteDeleteAsync();
+                    await AfterRunFailure(dbContext, delayedRetry, ex, logger);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// What happens to a retry whose run threw. Every row leaves the pass one way or another, which
+    /// is what stops the loop from meeting the same row again and turning the drain into a spin:
+    /// moved later, so a passing failure — the database for a moment — doesn't lose the retry, or
+    /// dropped once it has kept failing. A run whose save did commit has already removed its row,
+    /// so neither statement touches it.
+    /// </summary>
+    public static async Task AfterRunFailure(BitweenDbContext dbContext, DelayedRetry delayedRetry, Exception ex,
+        ILogger logger)
+    {
+        var failures = delayedRetry.RunFailures + 1;
+        if (failures >= MaxRunFailures)
+        {
+            logger.LogError(ex,
+                "The scheduled retry of xchange {XchangeId} failed {Failures} times; clearing its schedule.",
+                delayedRetry.Id, failures);
+            await dbContext.Set<DelayedRetry>()
+                .Where(r => r.Id == delayedRetry.Id)
+                .ExecuteDeleteAsync();
+            return;
+        }
+
+        var next = DateTime.UtcNow.AddMinutes(Math.Pow(2, failures));
+        logger.LogWarning(ex,
+            "The scheduled retry of xchange {XchangeId} did not complete; trying again at {Next}.",
+            delayedRetry.Id, next);
+        await dbContext.Set<DelayedRetry>()
+            .Where(r => r.Id == delayedRetry.Id)
+            .ExecuteUpdateAsync(u => u
+                .SetProperty(r => r.On, next)
+                .SetProperty(r => r.RunFailures, failures));
     }
 }

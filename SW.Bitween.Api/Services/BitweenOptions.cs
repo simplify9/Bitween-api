@@ -81,6 +81,20 @@ namespace SW.Bitween
         /// whatever wait the caller asks for. After it the caller gets 202 with the exchange id.
         /// </summary>
         public int MaxResponseWaitSeconds { get; set; } = 300;
+
+        /// <summary>
+        /// The longest a retry chain may grow, whatever its policy allows. A policy with no total
+        /// limit used to retry a failure that never recovers for ever.
+        /// </summary>
+        public int MaxRetryChainDepth { get; set; } = 100;
+
+        /// <summary>
+        /// After a notifier sends for a subscription and outcome, further notifications for the same
+        /// pair within this many minutes are recorded as suppressed rather than sent, and the next
+        /// one sent says how many there were. An outage no longer means one email per failure.
+        /// Zero sends every one.
+        /// </summary>
+        public int NotifierQuietMinutes { get; set; } = 5;
         /// <summary>
         /// Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix
         /// decides how long they're kept (<c>temp30/…</c> is 30 days). Each exchange records the prefix

@@ -397,6 +397,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
                 // Retention deletes an exchange's notifications by exchange id.
                 b.HasIndex(p => p.XchangeId);
+                // The quiet window looks up a notifier's recent sends.
+                b.HasIndex(p => new { p.NotifierId, p.FinishedOn });
             });
 
             modelBuilder.Entity<Account>(b =>

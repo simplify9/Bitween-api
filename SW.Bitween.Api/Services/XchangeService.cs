@@ -883,6 +883,16 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             new RetryGroupBudget(dbContext, serviceProvider, xchange.SubscriptionId.Value));
 
         var attemptIndex = await CountRetryChainDepth(xchange);
+
+        // A ceiling no policy can lift, checked before the policy so it spends no budget.
+        if (attemptIndex >= BitweenSettings.MaxRetryChainDepth)
+        {
+            xchangeResult.SetRetryBlocked(
+                $"This exchange has been retried {attemptIndex} times, the most Bitween allows " +
+                $"(Bitween:MaxRetryChainDepth).");
+            return;
+        }
+
         var decision = await evaluator.Evaluate(resultType, content, attemptIndex);
 
         // Which group owned this failure, so the group's retries can later be listed without
@@ -894,7 +904,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             dbContext.Add(new DelayedRetry
             {
                 Id = xchange.Id,
-                On = DateTime.UtcNow + decision.Delay
+                On = DateTime.UtcNow + Jittered(decision.Delay)
             });
         else
             // A policy applied but refused. Recorded so an exhausted budget is distinguishable
@@ -911,6 +921,15 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 decision.MatchedGroup.Name,
                 decision.MatchedGroup.Budget!.MaxAttemptsTotal!.Value);
     }
+
+    /// <summary>
+    /// The policy's delay, give or take a tenth. Everything that failed in the same outage used to
+    /// come back at the same instant, and fail together again against a partner still recovering.
+    /// </summary>
+    internal static TimeSpan Jittered(TimeSpan delay) =>
+        delay <= TimeSpan.Zero
+            ? delay
+            : TimeSpan.FromMilliseconds(delay.TotalMilliseconds * (0.9 + Random.Shared.NextDouble() * 0.2));
 
     /// <summary>
     /// The retry, if any, already made from <paramref name="xchangeId"/>.
@@ -1096,9 +1115,25 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         if (notifier?.HandlerId == null) return;
 
+        // Sent already: the result event was delivered again. Notifying twice was the symptom.
+        if (await dbContext.Set<XchangeNotification>().AsNoTracking()
+                .AnyAsync(n => n.XchangeId == xchangeResult.Id && n.NotifierId == notifier.Id && (n.Success || n.Suppressed)))
+            return;
+
         var xchange = await dbContext.FindAsync<Xchange>(xchangeResult.Id);
         var subscription = await BitweenCache.SubscriptionByIdAsync(xchange!.SubscriptionId!.Value);
         var document = await BitweenCache.DocumentByIdAsync(xchange.DocumentId);
+
+        // One message for an outage, not one per failure: within the quiet window after a send for
+        // the same subscription and outcome, this one is recorded but not sent.
+        var (lastSent, suppressedSince) = await QuietWindow(notifier, subscription.Id, xchangeResult);
+        if (lastSent is not null && BitweenSettings.NotifierQuietMinutes > 0 &&
+            lastSent > DateTime.UtcNow.AddMinutes(-BitweenSettings.NotifierQuietMinutes))
+        {
+            dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name) { Suppressed = true, Success = false });
+            await dbContext.SaveChangesAsync();
+            return;
+        }
 
         var notificationData = new XchangeResultNotification
         {
@@ -1113,27 +1148,63 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             SubscriptionId = subscription.Id,
             DocumentName = document.Name,
             DocumentId = document.Id,
-            CorrelationId = xchange.CorrelationId
+            CorrelationId = xchange.CorrelationId,
+            SuppressedSinceLast = suppressedSince
         };
 
         var handlerProperties = notifier.HandlerProperties.ToDictionary();
         handlerProperties["xchangeid"] = xchangeResult.Id;
 
-        try
+        // A couple of quick retries for a mail server that hiccups; a send that failed used to be
+        // recorded and never tried again.
+        Exception lastError = null;
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            await adapterInvoker.InvokeAsync<XchangeFile>(
-                notifier.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle),
-                new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id),
-                handlerProperties, correlationId);
-
-            dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name));
+            if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(attempt * 2));
+            try
+            {
+                await adapterInvoker.InvokeAsync<XchangeFile>(
+                    notifier.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle),
+                    new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id),
+                    handlerProperties, correlationId);
+                lastError = null;
+                break;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
         }
-        catch (Exception ex)
-        {
-            dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name, ex.ToString()));
-        }
 
+        dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name, lastError?.ToString()));
         await dbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// When this notifier last sent for the subscription and this outcome, and how many it has held
+    /// back since.
+    /// </summary>
+    private async Task<(DateTime? LastSent, int SuppressedSince)> QuietWindow(Notifier notifier, int subscriptionId,
+        XchangeResult result)
+    {
+        var sameOutcome =
+            from n in dbContext.Set<XchangeNotification>().AsNoTracking()
+            join x in dbContext.Set<Xchange>() on n.XchangeId equals x.Id
+            join r in dbContext.Set<XchangeResult>() on n.XchangeId equals r.Id
+            where n.NotifierId == notifier.Id && x.SubscriptionId == subscriptionId &&
+                  r.Success == result.Success && r.ResponseBad == result.ResponseBad
+            select n;
+
+        var lastSent = await sameOutcome.Where(n => n.Success)
+            .OrderByDescending(n => n.FinishedOn)
+            .Select(n => (DateTime?)n.FinishedOn)
+            .FirstOrDefaultAsync();
+
+        var suppressed = lastSent is null
+            ? 0
+            : await sameOutcome.CountAsync(n => n.Suppressed && n.FinishedOn > lastSent);
+
+        return (lastSent, suppressed);
     }
 
     public async Task Process(SubscriptionUnpausedEvent message)

@@ -6,4 +6,10 @@ namespace SW.Bitween.Domain;
 public class DelayedRetry : BaseEntity<string>
 {
     public DateTime On { get; set; }
+
+    /// <summary>
+    /// How many times running this retry has failed. A failure is rescheduled, not dropped — a
+    /// database blip used to delete the retry for good — up to <see cref="RetryJob.MaxRunFailures"/>.
+    /// </summary>
+    public int RunFailures { get; set; }
 }
