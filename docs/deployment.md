@@ -39,6 +39,7 @@ helm install bitween ./charts/default \
   --set global.cloudFiles.serviceUrl=https://s3.example.com \
   --set global.cloudFiles.bucketName=bitween \
   --set secrets.Bitween__SettingsEncryptionKey="..." \
+  --set secrets.Bitween__InitialAdminPassword="..." \
   --set ingress.hosts[0]=bitween.example.com
 ```
 
