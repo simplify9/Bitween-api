@@ -279,6 +279,21 @@ public class AdapterCatalogTests(BitweenFixture fixture)
         Assert.Contains("ADAPTER_VERSION", error.Message);
     }
 
+    /// <summary>
+    /// The request validator checks required settings before the version is checked. It used to
+    /// describe the unknown version by starting it, which threw — a 500 instead of the refusal.
+    /// </summary>
+    [Fact]
+    public async Task The_settings_check_leaves_an_unknown_version_to_the_version_check()
+    {
+        var id = await PublishHandler(versions: ["1.0.0"]);
+
+        await using var scope = fixture.CreateScope();
+        var requirements = scope.ServiceProvider.GetRequiredService<AdapterRequirements>();
+
+        Assert.Empty(await requirements.MissingFor($"{id}/9.9.9", []));
+    }
+
     [Fact]
     public async Task A_built_in_adapter_cannot_be_pinned()
     {

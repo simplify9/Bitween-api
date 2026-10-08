@@ -55,6 +55,13 @@ public class AdapterRequirements(
     {
         if (string.IsNullOrEmpty(adapterId)) return Array.Empty<string>();
 
+        // A version that can't be pinned has nothing to describe. Asking for it started the
+        // package to read its settings, which threw — a 500 from the request validator, which runs
+        // before EnsureRunnable can refuse the version with a reason.
+        var (id, version) = SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Split(adapterId);
+        if (version != null && catalog != null && !await catalog.HasVersionAsync(id, version))
+            return Array.Empty<string>();
+
         var required = (await startupValues.Describe(adapterId))
             .Where(p => !p.Value.Optional).Select(p => p.Key);
 
