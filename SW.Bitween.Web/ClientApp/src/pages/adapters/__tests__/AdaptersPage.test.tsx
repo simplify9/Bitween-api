@@ -76,8 +76,12 @@ const handlers = [
   ),
 ];
 
+// The page waits on four catalog requests and the subscriptions list before it draws anything,
+// which takes longer than findBy's default second on a busy machine.
+const LOADED = { timeout: 5000 };
+
 const section = async (name: string) =>
-  within((await screen.findByRole("heading", { name: new RegExp(`^${name}`) })).closest("section")!);
+  within((await screen.findByRole("heading", { name: new RegExp(`^${name}`) }, LOADED)).closest("section")!);
 
 describe("the Adapters page", () => {
   it("lists built-in and custom adapters in their own sections", async () => {
@@ -101,7 +105,7 @@ describe("the Adapters page", () => {
   it("shows a custom adapter's versions, notes and pins when opened", async () => {
     const { user } = renderApp("/adapters", { handlers });
 
-    await user.click(await screen.findByRole("button", { name: /Acme orders/ }));
+    await user.click(await screen.findByRole("button", { name: /Acme orders/ }, LOADED));
 
     const versions = screen.getByRole("heading", { name: "Versions" }).parentElement!;
     const rows = within(versions).getAllByRole("row").slice(1);
@@ -121,7 +125,7 @@ describe("the Adapters page", () => {
   it("filters by kind and search", async () => {
     const { user } = renderApp("/adapters", { handlers });
 
-    await user.click(await screen.findByRole("radio", { name: "Receivers" }));
+    await user.click(await screen.findByRole("radio", { name: "Receivers" }, LOADED));
     expect((await section("Custom")).queryByText("Acme orders")).not.toBeInTheDocument();
     expect((await section("Built-in")).getByText("No built-in adapter matches.")).toBeVisible();
 
@@ -134,7 +138,7 @@ describe("the Adapters page", () => {
   it("has a marketplace tab, still to come", async () => {
     const { user } = renderApp("/adapters", { handlers });
 
-    await user.click(await screen.findByRole("tab", { name: "Marketplace" }));
+    await user.click(await screen.findByRole("tab", { name: "Marketplace" }, LOADED));
 
     expect(screen.getByRole("tab", { name: "Marketplace" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("The marketplace is on its way")).toBeVisible();
