@@ -54,4 +54,9 @@
     <!-- Reads adapter assemblies without loading them; see BusProviderCatalog. -->
     <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- For AccountExtensions.MicrosoftSigningKeys: sign-in with Microsoft tested end to end. -->
+    <InternalsVisibleTo Include="SW.Bitween.IntegrationTests" />
+  </ItemGroup>
+
 </Project>

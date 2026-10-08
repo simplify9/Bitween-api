@@ -27,6 +27,13 @@ namespace SW.Bitween
             new HttpDocumentRetriever());
 
         /// <summary>
+        /// Where Microsoft's signing keys come from: its published metadata. Replaced only by tests,
+        /// which sign their own tokens to take sign-in through the whole login handler.
+        /// </summary>
+        internal static Func<Task<IEnumerable<SecurityKey>>> MicrosoftSigningKeys { get; set; } =
+            async () => (await MicrosoftMetadata.GetConfigurationAsync()).SigningKeys;
+
+        /// <summary>
         /// Validates a Microsoft ID token for this Bitween's own app registration, or returns null.
         /// </summary>
         /// <remarks>
@@ -40,8 +47,7 @@ namespace SW.Bitween
             if (string.IsNullOrEmpty(jwt) || string.IsNullOrWhiteSpace(clientId)) return null;
             try
             {
-                var metadata = await MicrosoftMetadata.GetConfigurationAsync();
-                return ValidateMicrosoftToken(jwt, metadata.SigningKeys, clientId, tenantId);
+                return ValidateMicrosoftToken(jwt, await MicrosoftSigningKeys(), clientId, tenantId);
             }
             catch (Exception ex)
             {
