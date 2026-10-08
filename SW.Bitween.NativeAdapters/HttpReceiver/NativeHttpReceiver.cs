@@ -32,6 +32,8 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
                 return HttpMethod.Delete;
             case "put":
                 return HttpMethod.Put;
+            case "patch":
+                return HttpMethod.Patch;
             default:
                 return HttpMethod.Post;
         }
@@ -77,19 +79,8 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
       }
       else if (_options.AuthType == "OAuth2")
       {
-        var oathRequest = new HttpRequestMessage(HttpMethod.Post, _options.LoginUrl);
-        var oauthContentDictionary = new List<KeyValuePair<string, string>>();
-        oauthContentDictionary.Add(new KeyValuePair<string, string>("client_id", Require(_options.ClientId, "ClientId")));
-        oauthContentDictionary.Add(new KeyValuePair<string, string>("client_secret", Require(_options.ClientSecret, "ClientSecret")));
-        oauthContentDictionary.Add(new KeyValuePair<string, string>("grant_type", "client_credentials"));
-        var oauthContent = new FormUrlEncodedContent(oauthContentDictionary);
-        oathRequest.Content = oauthContent;
-        var oauthResponse = await client.SendAsync(oathRequest);
-        var res = await oauthResponse.Content.ReadAsStringAsync();
-        var resDeserialized = JsonConvert.DeserializeObject<OAuth2Response>(res);
         authorization = new AuthenticationHeaderValue("Bearer",
-          resDeserialized?.access_token ?? throw new SWException(
-            "The OAuth2 token endpoint did not return a JSON body carrying an 'access_token'."));
+          await OAuthTokens.GetAsync(client, _options.LoginUrl, _options.ClientId, _options.ClientSecret));
       }
       
       HttpContent? content = null;
@@ -123,7 +114,7 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
       string? headers1 = _options.Headers;
       IEnumerable<KeyValuePair<string, string>>? headers = headers1?.Split(',').Select((Func<string, KeyValuePair<string, string>>) (h =>
       {
-        string[] strArray = h.Split(':');
+        string[] strArray = h.Split(':', 2);
         return new KeyValuePair<string, string>(strArray[0], strArray[1]);
       }));
       if (headers != null)
@@ -139,7 +130,16 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
       if (apiKey is not null)
         request.Headers.Add("ApiKey", apiKey);
 
-      HttpResponseMessage response = await client.SendAsync(request);
+      using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds)));
+      HttpResponseMessage response;
+      try
+      {
+        response = await client.SendAsync(request, timeout.Token);
+      }
+      catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+      {
+        throw new TimeoutException($"{uri.GetLeftPart(UriPartial.Authority)} did not answer within {_options.TimeoutSeconds} seconds.");
+      }
       
       if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError)
         throw new Exception(response.StatusCode.ToString());

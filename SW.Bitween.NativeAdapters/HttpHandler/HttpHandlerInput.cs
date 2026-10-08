@@ -40,6 +40,8 @@ public class HttpHandlerInput
     public string? Headers { get; set; }
     [Description("Field name or JSON path used to extract a correlation ID from the response.")]
     public string? CorrelationId { get; set; }
+    [Description("Seconds to wait for the endpoint to answer before the delivery fails. Default 100.")]
+    public int TimeoutSeconds { get; set; } = 100;
     [Description("OAuth2 client ID.")]
     public string? ClientId { get; set; }
     [Secure]

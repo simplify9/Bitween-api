@@ -48,4 +48,7 @@ public class HttpReceiverInput
 
     [Description("JSON path to the array element in the response to iterate over (e.g. $.items).")]
     public string? ArrayPath { get; set; }
+
+    [Description("Seconds to wait for the endpoint to answer before the run fails. Default 100.")]
+    public int TimeoutSeconds { get; set; } = 100;
 }

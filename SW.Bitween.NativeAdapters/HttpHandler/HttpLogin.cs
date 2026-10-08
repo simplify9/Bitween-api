@@ -20,8 +20,9 @@ internal static class HttpLogin
             ? JsonConvert.SerializeObject(defaultBody)
             : RenderBody(loginBody, username, password);
 
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var response = await client.PostAsync(new Uri(loginUrl),
-            new StringContent(body, Encoding.UTF8, "application/json"));
+            new StringContent(body, Encoding.UTF8, "application/json"), timeout.Token);
         var responseBody = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
             throw new SWException(

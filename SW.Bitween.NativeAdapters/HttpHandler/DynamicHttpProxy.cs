@@ -29,6 +29,9 @@ public class DynamicHttpProxy(IHttpClientFactory httpClientFactory) : Background
         var client = _cache.GetOrAdd(origin, key => {
             var newClient = httpClientFactory.CreateClient(ClientName);
             newClient.BaseAddress = new Uri(key);
+            // Shared by every subscription calling this origin, so a timeout here would be one size
+            // for all of them; each request sets its own instead (HttpHandlerInput.TimeoutSeconds).
+            newClient.Timeout = Timeout.InfiniteTimeSpan;
             return newClient;
         });
 

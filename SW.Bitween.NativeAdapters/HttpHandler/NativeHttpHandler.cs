@@ -19,6 +19,8 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
                 return HttpMethod.Delete;
             case "put":
                 return HttpMethod.Put;
+            case "patch":
+                return HttpMethod.Patch;
             default:
                 return HttpMethod.Post;
         }
@@ -61,17 +63,8 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         }
         else if (_options.AuthType == "OAuth2")
         {
-            var oathRequest = new HttpRequestMessage(HttpMethod.Post, _options.LoginUrl);
-            var oauthContentDictionary = new List<KeyValuePair<string, string>>();
-            oauthContentDictionary.Add(new("client_id", _options.ClientId!));
-            oauthContentDictionary.Add(new("client_secret", _options.ClientSecret!));
-            oauthContentDictionary.Add(new("grant_type", "client_credentials"));
-            var oauthContent = new FormUrlEncodedContent(oauthContentDictionary);
-            oathRequest.Content = oauthContent;
-            var oauthResponse = await client.SendAsync(oathRequest);
-            var res = await oauthResponse.Content.ReadAsStringAsync();
-            var resDeserialized = JsonConvert.DeserializeObject<OAuth2Response>(res);
-            authorization = new AuthenticationHeaderValue("Bearer", resDeserialized?.access_token);
+            authorization = new AuthenticationHeaderValue("Bearer",
+                await OAuthTokens.GetAsync(client, _options.LoginUrl, _options.ClientId, _options.ClientSecret));
         }
 
         string requestBody = xchangeFile.Data;
@@ -127,7 +120,8 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         IEnumerable<KeyValuePair<string, string>>? headers = headers1 != null
             ? (headers1.Split(',')).Select((Func<string, KeyValuePair<string, string>>)(h =>
             {
-                string[] strArray = h.Split(':');
+                // Split at the first colon only: a value may hold one of its own (a URL, a time).
+                string[] strArray = h.Split(':', 2);
                 return new KeyValuePair<string, string>(strArray[0], strArray[1]);
             }))
             : null;
@@ -147,10 +141,29 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
 
         if (!string.IsNullOrEmpty(_options.CorrelationId))
             request.Headers.Add("request-context-correlation-id", _options.CorrelationId);
-        HttpResponseMessage response = await client.SendAsync(request);
+        // The client is shared, so the timeout is this request's own rather than the client's.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds)));
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, timeout.Token);
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            throw new TimeoutException($"{uri.GetLeftPart(UriPartial.Authority)} did not answer within {_options.TimeoutSeconds} seconds.");
+        }
         string resp = await response.Content.ReadAsStringAsync();
-        if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError)
-            throw new Exception($"{response.StatusCode}: {resp}");
+
+        // 408 and 429 mean "not now", not "this message is wrong": they fail the delivery, so a retry
+        // policy can try again, instead of being recorded as a bad response nobody retries.
+        if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError ||
+            response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests)
+        {
+            var retryAfter = response.Headers.RetryAfter is { } after
+                ? $" Retry-After: {(after.Delta is { } delta ? $"{delta.TotalSeconds:0}s" : after.Date?.ToString("u"))}."
+                : "";
+            throw new Exception($"{response.StatusCode}: {resp}{retryAfter}");
+        }
         XchangeFile xchangeFile1 = response.StatusCode < HttpStatusCode.BadRequest
             ? new XchangeFile(resp)
             : new XchangeFile(resp, badData: true);
