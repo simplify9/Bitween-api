@@ -201,6 +201,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddJwtTokenParameters();
 
                     services.AddMemoryCache();
+                    services.AddSingleton<SignInThrottle>();
                     services.AddScoped<RequestContext>();
 
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>

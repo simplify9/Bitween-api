@@ -38,6 +38,9 @@
     <!-- For the capability-narrowing rule, which is a version comparison rather than anything the
          database does — so it is provable without a container per PostgreSQL release. -->
     <ProjectReference Include="..\SW.Bitween.Adapters.Db.PostgreSql\SW.Bitween.Adapters.Db.PostgreSql.csproj" />
+    <!-- For the DDL refusal: Oracle runs DDL as it parses it, so which statements are refused
+         before the check is a property of the text, provable without a database. -->
+    <ProjectReference Include="..\SW.Bitween.Adapters.Db.Oracle\SW.Bitween.Adapters.Db.Oracle.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,6 +8,7 @@ import {
   signIn,
   signInAsAdmin,
   signOut,
+  sessionToken,
 } from "./helpers";
 
 /**
@@ -26,7 +27,7 @@ async function apiStatus(
   path: string,
   body?: unknown,
 ): Promise<number> {
-  const token = await page.evaluate(() => localStorage.getItem("access_token"));
+  const token = await sessionToken(page);
   const res = await page.request.fetch(`https://localhost:7155/api${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

@@ -84,6 +84,13 @@ secrets:
   # Bitween__SettingsEncryptionKey: "<32+ random characters>"
   # Bitween__InitialAdminPassword: "<the first administrator's password>"
 
+# The image runs as its built-in non-root user; these keep the container from regaining root.
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
@@ -143,7 +150,10 @@ busDefaultQueuePrefetch: '12'
 
 global:
 
-  environment: Development
+  # Production unless a deployment says otherwise. Development turns on the developer exception
+  # page, which shows stack traces and request headers to whoever triggers an error, and allows
+  # the Local storage provider. A deployment that depends on either sets this explicitly.
+  environment: Production
   
   token:
     key: '6547647654764764767657658658758765876532542'

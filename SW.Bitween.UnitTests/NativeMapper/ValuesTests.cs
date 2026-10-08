@@ -12,6 +12,30 @@ namespace SW.Bitween.UnitTests.NativeMapper;
 [TestClass]
 public class ValuesCoerceTests
 {
+    /// <summary>
+    /// Commas count only as thousands separators in groups of three ahead of the decimal point.
+    /// "1,5" — one and a half, written the European way — used to become fifteen with no error.
+    /// </summary>
+    [DataTestMethod]
+    [DataRow("1,5")]
+    [DataRow("12,34")]
+    [DataRow("1,2345")]
+    [DataRow("1.5,3")]
+    [DataRow(",123")]
+    public void A_comma_that_is_not_a_thousands_separator_is_not_a_number(string text) =>
+        AssertCannotCoerce(text, ValueType.Number);
+
+    [DataTestMethod]
+    [DataRow("1,234", "1234")]
+    [DataRow("1,234,567.89", "1234567.89")]
+    [DataRow("-12,345", "-12345")]
+    [DataRow("(100)", "-100")]
+    [DataRow("1.5", "1.5")]
+    [DataRow(" 42 ", "42")]
+    public void Ordinary_numbers_still_convert(string text, string expected) =>
+        Assert.AreEqual(decimal.Parse(expected, System.Globalization.CultureInfo.InvariantCulture),
+            Coerce(text, ValueType.Number));
+
     private static object? Coerce(object? value, ValueType? type)
     {
         Assert.IsTrue(Values.TryCoerce(value, type, out var result), $"expected '{value}' to convert to {type}");

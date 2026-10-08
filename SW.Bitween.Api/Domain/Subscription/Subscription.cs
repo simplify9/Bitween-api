@@ -102,6 +102,12 @@ public class Subscription : BaseEntity
 
     public IPropertyMatchSpecification MatchExpression { get; private set; }
     public bool IsRunning { get; set; }
+
+    /// <summary>
+    /// When the run that set <see cref="IsRunning"/> started. A process killed mid-run never clears
+    /// the flag, so without a time the subscription stayed "running" — and never ran — for good.
+    /// </summary>
+    public DateTime? RunningSince { get; private set; }
     public bool Inactive { get; set; }
     public int? ResponseSubscriptionId { get; set; }
     /// <summary>

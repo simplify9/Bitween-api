@@ -35,6 +35,8 @@ namespace SW.Bitween.Resources.Accounts
                     ? []
                     : [BuiltInRoleFor((AccountRole)request.Role)];
 
+            await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, roleIds);
+
             // No password at all when this instance signs in through Microsoft only — the account
             // exists purely to be matched by email.
             var password = _bitweenOptions.DisableEmailPasswordLogin

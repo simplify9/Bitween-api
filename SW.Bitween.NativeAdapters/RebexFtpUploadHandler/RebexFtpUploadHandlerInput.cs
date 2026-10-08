@@ -37,4 +37,7 @@ public class RebexFtpUploadHandlerInput
     [Secure]
     [Description("Private key used for SFTP authentication instead of a password.")]
     public string? PrivateKey { get; set; }
+
+    [Description("SHA-256 fingerprint of the SFTP server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent.")]
+    public string? HostKeyFingerprint { get; set; }
 }

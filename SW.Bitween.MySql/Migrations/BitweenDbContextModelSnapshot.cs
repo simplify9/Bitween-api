@@ -876,6 +876,49 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("OnHoldXchanges", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.OutboxMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ClaimedUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Headers")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("PublishedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublishedOn");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
                 {
                     b.Property<int>("Id")
@@ -1161,6 +1204,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<bool>("RunOnBadResponses")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime?>("RunningSince")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<bool>("Temporary")
                         .HasColumnType("tinyint(1)");
@@ -2201,6 +2247,10 @@ namespace SW.Bitween.MySql.Migrations
                                 .HasMaxLength(500)
                                 .IsUnicode(false)
                                 .HasColumnType("varchar(500)");
+
+                            b1.Property<string>("KeyPrefix")
+                                .HasMaxLength(10)
+                                .HasColumnType("varchar(10)");
 
                             b1.Property<string>("Name")
                                 .IsRequired()

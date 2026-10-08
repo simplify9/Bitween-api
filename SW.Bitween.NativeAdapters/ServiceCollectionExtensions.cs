@@ -19,8 +19,13 @@ public static class ServiceCollectionExtensions
     /// because the key is a setting that can be changed while the app is running — pasting one in
     /// makes the Rebex adapters usable without a restart.
     /// </param>
+    /// <param name="blockPrivateNetworks">
+    /// Whether the HTTP adapters may reach private and loopback addresses; see
+    /// <see cref="OutboundAddressGuard"/>. Link-local addresses are refused either way.
+    /// </param>
     public static void AddNativeAdapters(this IServiceCollection serviceCollection,
-        Func<IServiceProvider, string?>? rebexLicenseKey = null)
+        Func<IServiceProvider, string?>? rebexLicenseKey = null,
+        Func<IServiceProvider, bool>? blockPrivateNetworks = null)
     {
         serviceCollection.ConfigureHttpClientDefaults(builder =>
         {
@@ -30,6 +35,15 @@ public static class ServiceCollectionExtensions
                 MaxConnectionsPerServer = 100
             });
         });
+        // The adapters' own client, which carries the address guard. Named rather than set on the
+        // defaults above so the guard covers what adapters call and nothing else in the process.
+        serviceCollection.AddHttpClient(DynamicHttpProxy.ClientName)
+            .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+                MaxConnectionsPerServer = 100,
+                ConnectCallback = OutboundAddressGuard.ConnectCallback(blockPrivateNetworks?.Invoke(sp) ?? false)
+            });
         serviceCollection.AddSingleton<DynamicHttpProxy>();
         serviceCollection.AddSingleton<IDynamicHttpProxy>(sp =>
             sp.GetRequiredService<DynamicHttpProxy>());

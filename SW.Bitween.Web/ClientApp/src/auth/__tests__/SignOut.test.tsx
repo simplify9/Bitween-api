@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
-import { TOKEN_KEY } from "../../api";
+import { getToken, setToken } from "../../api/http/request";
 import { apiPath, renderApp } from "../../__tests__/support/renderApp";
 import { server } from "../../__tests__/support/server";
 
@@ -93,7 +93,7 @@ describe("signing out", () => {
     expect(await loginPage()).toBeVisible();
     await waitFor(() => expect(answered).toBe(true));
     expect(router.state.location.pathname).toBe("/login");
-    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(getToken()).toBeNull();
   });
 
   it("still signs you out when the backend is unreachable", async () => {
@@ -150,7 +150,7 @@ describe("signing out", () => {
     await waitFor(() => expect(logout.landed).toBe(true));
 
     expect(router.state.location.pathname).not.toBe("/login");
-    expect(localStorage.getItem(TOKEN_KEY)).toBe("fresh-token");
+    expect(getToken()).toBe("fresh-token");
     expect(shell()).toBeInTheDocument();
   });
 
@@ -180,12 +180,12 @@ describe("signing out", () => {
     watcher.observe(document.body, { childList: true, subtree: true });
 
     await waitFor(() => expect(profileRequested).toBe(true));
-    // A sign-out in another tab, as this one hears it: the key gone, and a `storage` event.
+    // A sign-out in another tab, as this one hears it: a message on the session channel.
     // Real delivery between two tabs is what the e2e spec's two-tab test covers.
-    localStorage.removeItem(TOKEN_KEY);
-    window.dispatchEvent(
-      new StorageEvent("storage", { key: TOKEN_KEY, oldValue: "test-token", newValue: null, storageArea: localStorage }),
-    );
+    const otherTab = new BroadcastChannel("bitween-session");
+    otherTab.postMessage({ type: "signed-out" });
+    otherTab.close();
+    await waitFor(() => expect(getToken()).toBeNull());
     release();
 
     // Settled one way or the other, now that the read has landed.
@@ -201,7 +201,7 @@ describe("signing out", () => {
     await screen.findByRole("button", { name: "Account menu" });
 
     // Exactly what a sign-out elsewhere leaves behind: no cookie, a useless Jwt.
-    localStorage.setItem(TOKEN_KEY, "dead");
+    setToken("dead");
     const refused = () => new HttpResponse(null, { status: 401 });
     server.use(
       // Everything the partners page reads.

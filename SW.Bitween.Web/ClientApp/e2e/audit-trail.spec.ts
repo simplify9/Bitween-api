@@ -8,6 +8,7 @@ import {
   signIn,
   signInAsAdmin,
   signOut,
+  sessionToken,
 } from "./helpers";
 
 /**
@@ -24,7 +25,7 @@ const API = "https://localhost:7155/api";
 
 /** Reads the trail through the API with the signed-in session's own token. */
 async function audit(page: Page, query: string) {
-  const token = await page.evaluate(() => localStorage.getItem("access_token"));
+  const token = await sessionToken(page);
   const res = await page.request.get(`${API}/audit?${query}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -121,7 +122,7 @@ test.describe("audit trail", () => {
     await expect(page.getByRole("heading", { name: "Audit trail" })).toHaveCount(0);
 
     // And the API behind it refuses, which is the check that actually matters.
-    const token = await page.evaluate(() => localStorage.getItem("access_token"));
+    const token = await sessionToken(page);
     const res = await page.request.get(`${API}/audit?limit=1`, {
       headers: { Authorization: `Bearer ${token}` },
     });

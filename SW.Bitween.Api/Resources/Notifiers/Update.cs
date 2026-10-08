@@ -16,16 +16,23 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
 
             var notifier = await dbContext.FindAsync<Notifier>(key);
 
+            // A sentinel means "keep the stored secret", which only makes sense for the handler it
+            // was stored for. Switching handlers drops it, so the secret can't follow the notifier
+            // to a handler that might send it somewhere else.
+            var newHandlerId = request.HandlerId ?? notifier.HandlerId;
+            var stored = newHandlerId == notifier.HandlerId ? notifier.HandlerProperties : null;
+
             notifier.Update(request.Name, request.RunOnSuccessfulResult,
                 request.RunOnBadResult,
                 request.RunOnFailedResult,
-                request.HandlerId ?? notifier.HandlerId,
+                newHandlerId,
                 request.Inactive,
                 request.RunOnSubscriptions?.Select(r => r.Id)?.ToArray());
 
             // An absent list means none, as it does for a document's promoted properties
             // and a retry policy's groups. Left implicit it threw ArgumentNullException.
-            notifier.SetDictionaries((request.HandlerProperties ?? []).ToDictionary());
+            notifier.SetDictionaries(
+                AdapterSecretProperties.Merge(stored, (request.HandlerProperties ?? []).ToDictionary()));
 
             await dbContext.SaveChangesAsync();
             await cache.BroadcastRevoke();

@@ -97,6 +97,27 @@ public class UnguardedEndpointTests(BitweenFixture fixture)
             }));
     }
 
+    /// <summary>
+    /// The rules-based preview maps against any partner the caller names, with every global value
+    /// set besides, and took no RequestContext at all.
+    /// </summary>
+    [Fact]
+    public async Task A_viewer_cannot_run_the_mapping_rules_preview()
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.AsNewViewer(Unique("rules-preview"));
+
+        var preview = ActivatorUtilities.CreateInstance<Resources.MappingPreviews.Preview>(
+            scope.ServiceProvider);
+
+        await Assert.ThrowsAsync<SWUnauthorizedException>(() =>
+            preview.Handle(new Resources.MappingPreviews.MappingPreviewRequest
+            {
+                MappingRules = "{}",
+                SourceDocument = "{}"
+            }));
+    }
+
     private async Task<int> CategoryAsAdmin()
     {
         await using var scope = fixture.CreateScope();

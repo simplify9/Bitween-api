@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { clearToken } from "../../api/http/request";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { resetAppConfig } from "../../api/http/appConfig";
@@ -33,6 +34,8 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   localStorage.clear();
+  // The Jwt lives in the request module's memory, which outlives a test like the page would.
+  clearToken();
   // Unsaved drafts (the settings page's, for one) live here, and would leak into the next test.
   sessionStorage.clear();
   // Fetched once per page load and cached for the life of the module; each test is a new page.

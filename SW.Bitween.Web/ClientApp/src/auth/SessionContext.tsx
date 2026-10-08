@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, TOKEN_KEY, onSessionEnded, type PermissionKey, type Session } from "../api";
+import { api, onSessionEnded, onSignedOutElsewhere, type PermissionKey, type Session } from "../api";
 import { useIdleLogout } from "./useIdleLogout";
 
 interface SessionContextValue {
@@ -153,22 +153,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   /**
    * Ends the session here when it ends in another tab.
    *
-   * Both credentials are shared by every tab of this origin — the Jwt in
-   * localStorage and the refresh cookie — so a sign-out in one tab really has ended
-   * the session in all of them; the others simply never found out and kept rendering
-   * the whole app over reads that could only fail. `storage` fires only in the
-   * *other* tabs, which is exactly the audience. A null key means the entire store
-   * was cleared, which the logout response's `Clear-Site-Data` does, so that counts
-   * too; a key with a new value is another tab signing *in*, which doesn't.
+   * The refresh cookie is shared by every tab of this origin, so a sign-out in one
+   * tab really has ended the session in all of them; the others simply never found
+   * out and kept rendering the whole app over reads that could only fail. The tab
+   * that signs out says so over a BroadcastChannel, which reaches only the others.
    */
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== null && e.key !== TOKEN_KEY) return;
-      if (e.newValue) return;
-      endSession();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    onSignedOutElsewhere(endSession);
+    return () => onSignedOutElsewhere(null);
   }, [endSession]);
 
   /**

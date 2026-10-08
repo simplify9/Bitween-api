@@ -44,8 +44,11 @@ public class AggregationJob(
                 from agg in xa.DefaultIfEmpty()
                 where result.Success == true && agg == null &&
                       xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
+                orderby xchange.StartedOn
                 select new { xchange.Id, xchange.FilesPrefix };
 
+            // Oldest first: without an order, a backlog over the limit was rolled up in whatever order
+            // the database returned, and the same old exchanges could wait run after run.
             var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();
 
             if (targetXchangeList.Count > 0)

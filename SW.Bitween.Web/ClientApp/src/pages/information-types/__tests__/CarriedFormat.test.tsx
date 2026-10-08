@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
-import { TOKEN_KEY } from "../../../api";
+import { setToken } from "../../../api/http/request";
 import { SessionProvider } from "../../../auth/SessionContext";
 import { MatchExpressionEditor } from "../../../components/config/MatchExpressionEditor";
 import { apiPath, appConfig, profile, renderApp } from "../../../__tests__/support/renderApp";
@@ -64,7 +64,7 @@ describe("an information type switched to a carried format", () => {
 
 describe("the filter editor on a carried type", () => {
   const renderEditor = (value: Parameters<typeof MatchExpressionEditor>[0]["value"]) => {
-    localStorage.setItem(TOKEN_KEY, "test-token");
+    setToken("test-token");
     server.use(appConfig(), profile());
     let cleared = false;
     render(

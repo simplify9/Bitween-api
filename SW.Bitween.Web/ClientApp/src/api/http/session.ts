@@ -1,6 +1,6 @@
 import { ApiRequestError, type Session, type User } from "../types";
 import { getAppConfig } from "./appConfig";
-import { clearToken, get, getToken, post, request, setToken } from "./request";
+import { clearToken, get, getToken, mayHaveSession, post, request, setToken, silentRefresh } from "./request";
 
 /** GET /accounts/profile — camelCase ProfileModel. */
 interface Profile {
@@ -76,10 +76,13 @@ export const sessionMethods = {
    * outage it is.
    */
   async getSession(): Promise<Session | null> {
-    // No stored Jwt → anonymous; don't probe the backend (an expired token still
-    // gets refreshed via cookie inside request() on its 401). The token is only
-    // cleared on logout or an unrecoverable 401, so returning users keep it.
-    if (!getToken()) return null;
+    // The Jwt lives in memory, so a reload or a new tab starts without one. When this
+    // browser held a session, the refresh cookie gets a new one; when it never did,
+    // don't probe the backend — that would spend the sign-in rate limit on page loads.
+    if (!getToken()) {
+      if (!mayHaveSession()) return null;
+      if (!(await silentRefresh())) return null;
+    }
     try {
       return await loadSession();
     } catch (e) {
@@ -134,8 +137,8 @@ export const sessionMethods = {
     // Cleared first and unconditionally. This used to run in a `finally`, which
     // deleted the Jwt and then let the error through — the worst pairing, because
     // the caller aborted before it could end the session and the app carried on
-    // rendering as if signed in. Removing the key here is also what wakes the
-    // other tabs (see the `storage` listener in SessionContext).
+    // rendering as if signed in. Clearing it here is also what tells the other
+    // tabs (see `onSignedOutElsewhere` in SessionContext).
     clearToken();
     const controller = new AbortController();
     logoutInFlight = controller;

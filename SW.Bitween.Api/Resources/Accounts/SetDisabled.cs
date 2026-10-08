@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using System;
 using System.Threading.Tasks;
 using SW.Bitween.Domain.Accounts;
@@ -22,6 +24,8 @@ public class SetDisabled(BitweenDbContext dbContext, RequestContext requestConte
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {key}");
 
+        await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
+
         if (request.Disabled)
         {
             if (key == Convert.ToInt32(requestContext.GetNameIdentifier()))
@@ -32,6 +36,13 @@ public class SetDisabled(BitweenDbContext dbContext, RequestContext requestConte
 
         account.SetDisabled(request.Disabled);
         await dbContext.SaveChangesAsync();
+
+        // A refresh token re-issues a Jwt without asking for the password, so a disabled account's
+        // sessions have to go with it — the same reasoning as SetPassword.
+        if (request.Disabled)
+            await dbContext.Set<RefreshToken>()
+                .Where(t => t.AccountId == account.Id)
+                .ExecuteDeleteAsync();
 
         return null;
     }

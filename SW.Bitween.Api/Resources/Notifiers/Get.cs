@@ -8,7 +8,8 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.Notifiers
 {
-    public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IGetHandler<int,object>
+    public class Get(BitweenDbContext dbContext, RequestContext requestContext, AdapterSecretProperties secrets)
+        : IGetHandler<int,object>
     {
         private readonly BitweenDbContext dbContext = dbContext;
         private readonly RequestContext requestContext = requestContext;
@@ -27,15 +28,20 @@ namespace SW.Bitween.Resources.Notifiers
                     .Where(s => notifier.RunOnSubscriptions.Any(sub => sub == s.Id))
                     .ToListAsync();
             }
-           
-            
+
+            // The handler's [Secure] values — an SMTP password, an API key — go out as the
+            // sentinel, as they do for a subscription's handler. Update puts them back.
+            var handlerProperties = notifier.HandlerProperties is null
+                ? null
+                : await secrets.Mask(notifier.HandlerId, notifier.HandlerProperties);
+
             return new
             {
                 Id = notifier.Id,
                 Name = notifier.Name,
                 Inactive = notifier.Inactive,
                 HandlerId = notifier.HandlerId,
-                HandlerProperties= notifier.HandlerProperties?.ToKeyAndValueCollection(),
+                HandlerProperties= handlerProperties?.ToKeyAndValueCollection(),
                 RunOnSuccessfulResult= notifier.RunOnSuccessfulResult,
                 RunOnBadResult = notifier.RunOnBadResult,
                 RunOnFailedResult = notifier.RunOnFailedResult,

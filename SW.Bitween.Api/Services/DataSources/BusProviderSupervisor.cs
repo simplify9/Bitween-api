@@ -44,6 +44,16 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
     // What this node currently owns. Nothing runs without an entry here.
     private readonly Dictionary<int, IResourceLease> _leases = new();
 
+    /// <summary>
+    /// Consecutive failed starts per data source on this node, and when this node may next try to
+    /// lease one it gave up. A node that cannot reach a broker kept the lease and retried forever,
+    /// so the replica that could reach it never got the chance.
+    /// </summary>
+    private readonly Dictionary<int, int> _startFailures = new();
+    private readonly Dictionary<int, DateTime> _yieldedUntil = new();
+    private const int StartFailuresBeforeYielding = 3;
+    private static readonly TimeSpan YieldFor = TimeSpan.FromMinutes(5);
+
     private static string ResourceOf(DataSource dataSource) => $"datasource.{dataSource.Id}";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -115,6 +125,10 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
 
         foreach (var dataSource in desired)
         {
+            if (!_leases.ContainsKey(dataSource.Id) &&
+                _yieldedUntil.TryGetValue(dataSource.Id, out var yieldedUntil) && yieldedUntil > DateTime.UtcNow)
+                continue;
+
             if (!await EnsureOwnedAsync(dataSource, cancellationToken))
             {
                 // Owned by another node. If we were running it, we are not any more.
@@ -154,6 +168,8 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
                 }, cancellationToken);
 
                 _running[dataSource.Id] = fingerprint;
+                _startFailures.Remove(dataSource.Id);
+                _yieldedUntil.Remove(dataSource.Id);
                 logger.LogInformation("Data source {Name} running on adapter {AdapterId}.",
                     dataSource.Name, dataSource.AdapterId);
             }
@@ -167,6 +183,20 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
                 // log. A start that throws leaves no instance to describe, so nothing else in this
                 // class would ever record it.
                 await RecordStartFailureAsync(dbContext, dataSource, ex, cancellationToken);
+
+                // An exclusive source is held by one node at a time. If this node keeps failing to
+                // start it — it can't reach the broker, say — let it go for a while so another
+                // replica can try; a single-node deployment just retries after the pause.
+                var failures = _startFailures[dataSource.Id] = _startFailures.GetValueOrDefault(dataSource.Id) + 1;
+                if (failures >= StartFailuresBeforeYielding && _leases.ContainsKey(dataSource.Id))
+                {
+                    logger.LogWarning(
+                        "Data source {Name} failed to start {Failures} times on this node; releasing its lease for {Minutes} minutes so another node can take it.",
+                        dataSource.Name, failures, YieldFor.TotalMinutes);
+                    await ReleaseAsync(dataSource.Id);
+                    _startFailures.Remove(dataSource.Id);
+                    _yieldedUntil[dataSource.Id] = DateTime.UtcNow + YieldFor;
+                }
             }
         }
 

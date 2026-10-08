@@ -82,6 +82,11 @@ namespace SW.Bitween
             if (!int.TryParse(requestContext.GetNameIdentifier(), out var accountId))
                 throw new SWUnauthorizedException("INSUFFICIENT_PERMISSIONS");
 
+            // A token outlives the account's state: disabling someone has to take effect now, not
+            // when their last token expires. Same for an account that has since been removed.
+            if (!await dbContext.Set<Account>().AnyAsync(a => a.Id == accountId && !a.Disabled && !a.Deleted))
+                return [];
+
             return await GetPermissionsOf(dbContext, accountId);
         }
 

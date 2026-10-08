@@ -248,7 +248,7 @@ public class SqsBusHandler(IOptions<SqsOptions> options, ILogger<SqsBusHandler> 
             }
             else
             {
-                // Make it visible again immediately instead of waiting out the timeout, so a
+                // Back on the queue after a short wait rather than the full visibility timeout, so a
                 // transient Bitween failure retries in seconds rather than minutes.
                 await ReturnToQueueAsync(queueUrl, message, ct);
                 Interlocked.Increment(ref _returned);
@@ -267,8 +267,21 @@ public class SqsBusHandler(IOptions<SqsOptions> options, ILogger<SqsBusHandler> 
         }
     }
 
-    private Task ReturnToQueueAsync(string queueUrl, Message message, CancellationToken ct) =>
-        _sqs.ChangeMessageVisibilityAsync(queueUrl, message.ReceiptHandle, 0, ct);
+    /// <summary>
+    /// Puts the message back after a wait that grows with each receive: five seconds a time, up to
+    /// five minutes. It used to be made visible again at once, so a message that always fails was
+    /// received again straight away, over and over, until the queue's redrive policy moved it — or
+    /// for good, on a queue without one.
+    /// </summary>
+    private Task ReturnToQueueAsync(string queueUrl, Message message, CancellationToken ct)
+    {
+        var receives = message.Attributes != null &&
+                       message.Attributes.TryGetValue("ApproximateReceiveCount", out var count) &&
+                       int.TryParse(count, out var parsed)
+            ? parsed
+            : 1;
+        return _sqs.ChangeMessageVisibilityAsync(queueUrl, message.ReceiptHandle, Math.Min(receives * 5, 300), ct);
+    }
 
     /// <summary>
     /// SP-API notifications arrive wrapped: notificationType, notificationVersion, payloadVersion,

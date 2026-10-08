@@ -126,3 +126,21 @@ export async function deleteRole(page: Page, name: string) {
   await page.getByRole("button", { name: "Delete role" }).last().click();
   await page.waitForURL(/\/team\/roles$/, { timeout: 15000 });
 }
+
+/**
+ * A Jwt for the signed-in page's own session, for specs that call the API directly. The app keeps
+ * its Jwt in memory where a spec cannot reach it, so this asks the server for one with the refresh
+ * cookie the page holds — the same thing a reload does.
+ */
+export async function sessionToken(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const res = await fetch("/api/accounts/login", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = (await res.json()) as { jwt?: string; Jwt?: string };
+    return data.jwt ?? data.Jwt ?? "";
+  });
+}

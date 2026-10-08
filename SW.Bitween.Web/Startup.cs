@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Claims;
@@ -8,7 +9,13 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Metrics;
+using OpenTelemetry;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -69,12 +76,17 @@ namespace SW.Bitween.Web
             Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
             services.AddSingleton(themeOptions);
             services.AddSingleton(bitweenOptions);
+
+            // The same passphrase the settings secrets use, now also for the credential columns.
+            SecretColumnCipher.Configure(bitweenOptions.SettingsEncryptionKey,
+                Configuration["Bitween:PreviousSettingsEncryptionKey"]);
             // Keeps both option objects in sync with the Settings table, which owns every editable
             // setting; Program hands configuration over to it at boot. The protector encrypts
             // secret settings before they're stored.
             services.AddSingleton<SettingsProtector>();
             services.AddSingleton<SettingsService>();
             services.AddMemoryCache();
+            services.AddSingleton<SignInThrottle>();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<NativeAdapterDiscoveryService>();
@@ -105,6 +117,10 @@ namespace SW.Bitween.Web
 
             services.AddScoped<SubscriptionSchedulerService>();
             services.AddHostedService<SchedulerSeedService>();
+            // Publishes what didn't go out straight after its commit; see OutboxMessage.
+            services.AddHostedService<OutboxDispatcher>();
+            // Encrypts credential columns written before encryption was on; see SecretColumnCipher.
+            services.AddHostedService<SecretColumnEncryptionPass>();
 
             services.AddBitweenLogging(Configuration, Environment, options =>
             {
@@ -310,7 +326,9 @@ namespace SW.Bitween.Web
 
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                     {
-                        c.EnableSensitiveDataLogging();
+                        // Parameter values in EF's logs are passwords, partner keys and payloads; only
+                        // a developer's own machine should ever write them out.
+                        if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
                         c.UseSnakeCaseNamingConvention();
                         c.UseNpgsql(dataSource, b =>
                         {
@@ -329,7 +347,9 @@ namespace SW.Bitween.Web
 
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                     {
-                        c.EnableSensitiveDataLogging();
+                        // Parameter values in EF's logs are passwords, partner keys and payloads; only
+                        // a developer's own machine should ever write them out.
+                        if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
                         c.UseSnakeCaseNamingConvention();
                         c.UseNpgsql(dataSource, b =>
                         {
@@ -347,7 +367,9 @@ namespace SW.Bitween.Web
             {
                 services.AddDbContext<BitweenDbContext, MsSql.BitweenDbContext>(c =>
                 {
-                    c.EnableSensitiveDataLogging();
+                    // Parameter values in EF's logs are passwords, partner keys and payloads; only
+                    // a developer's own machine should ever write them out.
+                    if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
                     c.UseSqlServer(connectionString,
                         b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
                 });
@@ -358,7 +380,9 @@ namespace SW.Bitween.Web
                 // MySql (default)
                 services.AddDbContext<BitweenDbContext, MySql.BitweenDbContext>(c =>
                 {
-                    c.EnableSensitiveDataLogging();
+                    // Parameter values in EF's logs are passwords, partner keys and payloads; only
+                    // a developer's own machine should ever write them out.
+                    if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
                     c.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 18)),
                         b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
                 });
@@ -366,7 +390,33 @@ namespace SW.Bitween.Web
             }
 
 
-            services.AddHealthChecks();
+            services.AddHealthChecks().AddDependencyChecks();
+
+            // Metrics and traces over OTLP, only where a collector is configured — the standard
+            // OTEL_EXPORTER_OTLP_ENDPOINT, or OpenTelemetry:Endpoint. Nothing changes for a
+            // deployment that sets neither.
+            var otlpEndpoint = Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Configuration["OpenTelemetry:Endpoint"];
+            if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+            {
+                services.AddOpenTelemetry()
+                    .ConfigureResource(resource => resource.AddService(
+                        Configuration["OTEL_SERVICE_NAME"] ?? "bitween"))
+                    .WithMetrics(metrics => metrics
+                        .AddMeter(BitweenTelemetry.Name)
+                        .AddAspNetCoreInstrumentation()
+                        .AddHttpClientInstrumentation()
+                        .AddRuntimeInstrumentation())
+                    .WithTracing(tracing => tracing
+                        .AddSource(BitweenTelemetry.Name)
+                        .AddAspNetCoreInstrumentation(o =>
+                            o.Filter = context => !context.Request.Path.StartsWithSegments("/health"))
+                        .AddHttpClientInstrumentation())
+                    .UseOtlpExporter(
+                        Configuration["OTEL_EXPORTER_OTLP_PROTOCOL"] == "http/protobuf"
+                            ? OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf
+                            : OpenTelemetry.Exporter.OtlpExportProtocol.Grpc,
+                        new Uri(otlpEndpoint));
+            }
 
             // services.AddRazorPages(options =>
             // {
@@ -466,7 +516,9 @@ namespace SW.Bitween.Web
             });
 
             // Resolved per adapter instance so a license key saved in Settings applies without a restart.
-            services.AddNativeAdapters(sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey);
+            services.AddNativeAdapters(
+                sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey,
+                sp => sp.GetRequiredService<BitweenOptions>().BlockPrivateNetworkAddresses);
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();
@@ -622,6 +674,23 @@ namespace SW.Bitween.Web
             var requestLimit = limits.GetValue("RequestsPerMinute", 600);
             var fileLinkLimit = limits.GetValue("FileLinksPerMinute", 60000);
 
+            // UseForwardedHeaders does nothing until it is told which headers to read, so every
+            // request looked like it came from the ingress: one shared sign-in budget for the whole
+            // world, which a single client could spend for everyone. ForwardLimit 1 reads only the
+            // address the nearest proxy appended, so whatever a client writes into the header
+            // itself is ignored. Any proxy is trusted unless Bitween:TrustedProxies names them,
+            // since an ingress's address is rarely known ahead of time.
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.ForwardLimit = 1;
+                options.KnownIPNetworks.Clear();
+                options.KnownProxies.Clear();
+                foreach (var entry in (Configuration["Bitween:TrustedProxies"] ?? "")
+                             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(entry.Contains('/') ? entry : entry + (entry.Contains(':') ? "/128" : "/32")));
+            });
+
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -683,6 +752,37 @@ namespace SW.Bitween.Web
             return value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
                 && value.EndsWith("/login", StringComparison.OrdinalIgnoreCase);
         }
+
+        /// <summary>
+        /// What a token that still has to change its password may call: the sign-in and
+        /// self-service endpoints the change-password page needs, and nothing else.
+        /// </summary>
+        /// <remarks>
+        /// <c>POST /api/xchanges</c> is left open on purpose. Whether and how to guard it is being
+        /// studied separately, because it has been reachable this way since r6 and how deployments
+        /// use it is not yet known.
+        /// </remarks>
+        private static bool MustChangePasswordAllows(HttpRequest request)
+        {
+            var path = request.Path.Value!.TrimEnd('/');
+
+            if (path.Equals("/api/xchanges", StringComparison.OrdinalIgnoreCase) &&
+                HttpMethods.IsPost(request.Method))
+                return true;
+
+            return MustChangePasswordPaths.Contains(path);
+        }
+
+        private static readonly HashSet<string> MustChangePasswordPaths = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "/api/accounts/login",
+            "/api/accounts/logout",
+            "/api/accounts/profile",
+            "/api/accounts/changepassword",
+            "/api/settings/config",
+            "/api/settings/myversion",
+            "/api/permissions",
+        };
 
         private static string ClientAddress(HttpContext context) =>
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -809,6 +909,25 @@ namespace SW.Bitween.Web
             // rather than against whatever address it shares with everyone else in the building.
             app.UseRateLimiter();
             app.UseAuthorization();
+
+            // A token for an account whose password nobody has chosen reaches self-service and
+            // nothing else. GetPermissions already grants such a token nothing, but that only
+            // protects handlers that ask for a permission; a handler that forgets to ask was open
+            // to it, and the seeded administrator's password is published. Enforced here, once,
+            // so the next handler that forgets cannot reopen it.
+            app.Use(async (context, next) =>
+            {
+                if (context.User.FindFirst(RequestContextExtensions.MustChangePasswordClaim) is not null &&
+                    context.Request.Path.StartsWithSegments("/api") &&
+                    !MustChangePasswordAllows(context.Request))
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+
+                await next();
+            });
+
             app.UseHttpAsRequestContext();
             SW.Logger.Console.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
 
@@ -819,7 +938,15 @@ namespace SW.Bitween.Web
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHealthChecks("/health");
+                // /health keeps answering as it always has — the process is up — because probes
+                // already point at it. /health/live says the same under the conventional name, and
+                // /health/ready also asks the database and the broker; see DependencyHealthChecks.
+                endpoints.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+                endpoints.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+                endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions
+                {
+                    Predicate = check => check.Tags.Contains(DependencyHealthChecks.ReadyTag)
+                });
 
                 // SPA fallback: unmatched, non-file routes get the UI's index.html
                 // so client-side routes (e.g. /team/members) survive refresh.

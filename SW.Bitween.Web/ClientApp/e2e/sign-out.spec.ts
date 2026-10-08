@@ -5,11 +5,11 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers";
  * Signing out, in the one way that needs a real browser: two tabs.
  *
  * The session lives in four places — a row in the database, the HttpOnly refresh
- * cookie, the Jwt in localStorage, and React's own copy. Only the last one decides
+ * cookie, each tab's in-memory Jwt, and React's own copy. Only the last one decides
  * what you see, and each tab has its own. The other ways a sign-out used to leave
  * the app on screen are in src/auth/__tests__/SignOut.test.tsx; this one depends on
- * the browser delivering a `storage` event from one tab to another, which jsdom
- * cannot do.
+ * the browser delivering a BroadcastChannel message from one tab to another, which
+ * jsdom cannot do.
  */
 
 const submitCredentials = async (page: Page) => {

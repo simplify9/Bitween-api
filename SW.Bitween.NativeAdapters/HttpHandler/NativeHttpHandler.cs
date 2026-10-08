@@ -31,17 +31,22 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
         HttpClient client = httpProxy.GetClient(_options.Url);
+
+        // Credentials go on this request, never on the client: the proxy shares one client per
+        // origin across every subscription that calls it, so a default header set here was sent on
+        // the next subscription's call too — with its credentials, or with none of its own.
+        string? apiKey = null;
+        AuthenticationHeaderValue? authorization = null;
         if (_options.AuthType == "ApiKey")
-            client.DefaultRequestHeaders.Add("ApiKey", _options.ApiKey);
+            apiKey = _options.ApiKey;
         else if (_options.AuthType == "Bearer")
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
+            authorization = new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
         else if (_options.AuthType == "Basic")
         {
             string credentials =
                 Convert.ToBase64String(
                     Encoding.ASCII.GetBytes(_options.LoginUsername + ":" + _options.LoginPassword));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+            authorization = new AuthenticationHeaderValue("Basic", credentials);
         }
         else if (_options.AuthType == "Login")
         {
@@ -52,7 +57,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
                     Email = _options.LoginUsername,
                     Password = _options.LoginPassword
                 });
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            authorization = new AuthenticationHeaderValue("Bearer", token);
         }
         else if (_options.AuthType == "OAuth2")
         {
@@ -66,8 +71,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
             var oauthResponse = await client.SendAsync(oathRequest);
             var res = await oauthResponse.Content.ReadAsStringAsync();
             var resDeserialized = JsonConvert.DeserializeObject<OAuth2Response>(res);
-            client.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", resDeserialized?.access_token);
+            authorization = new AuthenticationHeaderValue("Bearer", resDeserialized?.access_token);
         }
 
         string requestBody = xchangeFile.Data;
@@ -107,6 +111,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
                     new DictionaryConverter()) ?? new Dictionary<string, object>();
             Hash jsonHash = Hash.FromDictionary(obj);
             uri = new Uri(parsedTemplate.Render(jsonHash));
+            EnsureSameOrigin(_options.Url, uri);
         }
         else
             uri = new Uri(_options.Url);
@@ -135,6 +140,11 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
             }
         }
 
+        if (authorization is not null)
+            request.Headers.Authorization = authorization;
+        if (apiKey is not null)
+            request.Headers.Add("ApiKey", apiKey);
+
         if (!string.IsNullOrEmpty(_options.CorrelationId))
             request.Headers.Add("request-context-correlation-id", _options.CorrelationId);
         HttpResponseMessage response = await client.SendAsync(request);
@@ -147,6 +157,89 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         return xchangeFile1;
     }
 
+
+    /// <summary>
+    /// Refuses a rendered URL that went somewhere the template does not allow. The values come
+    /// from the message, so without this a payload such as <c>"path": ".attacker.example/x"</c>
+    /// could send the request — and its credentials — to a host of its choosing.
+    /// </summary>
+    /// <remarks>
+    /// The scheme must be the template's. A placeholder inside the host may fill in one DNS label
+    /// and no more — no dots, no slashes — so <c>https://{{tenant}}.api.example</c> still reaches
+    /// any tenant of api.example and nothing else. The port must be the template's unless the
+    /// template leaves it to a placeholder, and the message may not add a user name.
+    /// </remarks>
+    internal static void EnsureSameOrigin(string template, Uri rendered)
+    {
+        var schemeEnd = template.IndexOf("://", StringComparison.Ordinal);
+        if (schemeEnd < 0 || template[..schemeEnd].Contains("{{")) return;
+
+        var authority = AuthorityOf(template, schemeEnd + 3);
+        if (!authority.Contains("{{"))
+        {
+            // Nothing in the message can reach the host when the template spells it out.
+            return;
+        }
+
+        var at = LastIndexOutsidePlaceholders(authority, '@');
+        var hostAndPort = at < 0 ? authority : authority[(at + 1)..];
+
+        string hostTemplate = hostAndPort, portTemplate = null;
+        var colon = LastIndexOutsidePlaceholders(hostAndPort, ':');
+        if (colon >= 0 && !hostAndPort.StartsWith('['))
+        {
+            hostTemplate = hostAndPort[..colon];
+            portTemplate = hostAndPort[(colon + 1)..];
+        }
+
+        var pattern = "^" + string.Join("[a-z0-9-]*",
+            System.Text.RegularExpressions.Regex.Split(hostTemplate.ToLowerInvariant(), @"\{\{.*?\}\}")
+                .Select(System.Text.RegularExpressions.Regex.Escape)) + "$";
+
+        var allowed =
+            string.Equals(template[..schemeEnd], rendered.Scheme, StringComparison.OrdinalIgnoreCase) &&
+            System.Text.RegularExpressions.Regex.IsMatch(rendered.IdnHost.ToLowerInvariant(), pattern) &&
+            (portTemplate is null
+                ? rendered.IsDefaultPort
+                : portTemplate.Contains("{{") || portTemplate == rendered.Port.ToString()) &&
+            (at >= 0 || string.IsNullOrEmpty(rendered.UserInfo));
+
+        if (!allowed)
+            throw new SWException(
+                $"The message's values changed where this request goes: the URL template allows {authority} " +
+                $"but rendered to {rendered.GetLeftPart(UriPartial.Authority)}.");
+    }
+
+    /// <summary>The authority of a URL template, read past placeholders so a '/' inside one doesn't end it.</summary>
+    private static string AuthorityOf(string template, int start)
+    {
+        var i = start;
+        while (i < template.Length)
+        {
+            if (template.AsSpan(i).StartsWith("{{"))
+            {
+                var close = template.IndexOf("}}", i + 2, StringComparison.Ordinal);
+                i = close < 0 ? template.Length : close + 2;
+                continue;
+            }
+            if (template[i] is '/' or '?' or '#') break;
+            i++;
+        }
+        return template[start..i];
+    }
+
+    private static int LastIndexOutsidePlaceholders(string value, char c)
+    {
+        var found = -1;
+        var depth = false;
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (!depth && value.AsSpan(i).StartsWith("{{")) { depth = true; i++; continue; }
+            if (depth && value.AsSpan(i).StartsWith("}}")) { depth = false; i++; continue; }
+            if (!depth && value[i] == c) found = i;
+        }
+        return found;
+    }
 
     public string Name => "NativeHttpHandler";
     public void InitializeStartupValues(IDictionary<string, string> settings)

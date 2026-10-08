@@ -50,15 +50,20 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
     public async Task<IEnumerable<string>> ListFiles()
     {
       HttpClient client = httpProxy.GetClient(_options.Url);
+
+      // On the request, never on the client — see NativeHttpHandler: the client is shared by
+      // every subscription calling the same origin.
+      string? apiKey = null;
+      AuthenticationHeaderValue? authorization = null;
       if (_options.AuthType == "ApiKey")
-        client.DefaultRequestHeaders.Add("ApiKey", _options.ApiKey);
+        apiKey = _options.ApiKey;
       else if (_options.AuthType == "Basic")
       {
         string credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes(_options.LoginUsername + ":" + _options.LoginPassword));
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        authorization = new AuthenticationHeaderValue("Basic", credentials);
       }
       else if (_options.AuthType == "Bearer")
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
+        authorization = new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
       else if (_options.AuthType == "Login")
       {
         string token = await HttpLogin.GetToken(client, Require(_options.LoginUrl, "LoginUrl"), _options.LoginBody,
@@ -68,7 +73,7 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
             UserName = _options.LoginUsername,
             Password = _options.LoginPassword
           });
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        authorization = new AuthenticationHeaderValue("Bearer", token);
       }
       else if (_options.AuthType == "OAuth2")
       {
@@ -82,7 +87,7 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
         var oauthResponse = await client.SendAsync(oathRequest);
         var res = await oauthResponse.Content.ReadAsStringAsync();
         var resDeserialized = JsonConvert.DeserializeObject<OAuth2Response>(res);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+        authorization = new AuthenticationHeaderValue("Bearer",
           resDeserialized?.access_token ?? throw new SWException(
             "The OAuth2 token endpoint did not return a JSON body carrying an 'access_token'."));
       }
@@ -129,6 +134,11 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
           request.Headers.Add(keyValuePair.Key, keyValuePair.Value);
         }
       }
+      if (authorization is not null)
+        request.Headers.Authorization = authorization;
+      if (apiKey is not null)
+        request.Headers.Add("ApiKey", apiKey);
+
       HttpResponseMessage response = await client.SendAsync(request);
       
       if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError)

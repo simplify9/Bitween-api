@@ -8,7 +8,7 @@
     <RootNamespace>SW.Bitween.Adapters.Bus.RabbitMq</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
     <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.23" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>

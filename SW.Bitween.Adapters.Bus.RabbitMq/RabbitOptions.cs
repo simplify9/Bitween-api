@@ -83,4 +83,45 @@ public class RabbitOptions
         Hint = "Passed through as x-queue-type when Bitween declares the queue. Leave empty to let "
                + "the broker choose. It cannot be changed on a queue that already exists.")]
     public string QueueType { get; set; }
+
+    /// <summary>
+    /// How many times one message may fail to reach Bitween before <see cref="PoisonAction"/>
+    /// applies. Zero keeps requeueing it for good, which is what this adapter always did.
+    /// </summary>
+    [AdapterSetting(Default = "0",
+        Hint = "How many failed attempts before a message is treated as poison. 0 retries it for good.")]
+    public int MaxDeliveryAttempts { get; set; }
+
+    /// <summary>
+    /// requeue — put it back and keep trying, however often it fails.
+    /// reject  — reject it without requeue, so the broker dead-letters it if the queue has a
+    ///           dead-letter exchange, and drops it if it does not.
+    /// park    — copy it to <see cref="ParkingQueue"/> with the error in its headers, then ack it.
+    /// </summary>
+    [AdapterSetting(Default = "requeue", AllowedValues = new[] {"requeue", "reject", "park"},
+        Hint = "What to do with a message after MaxDeliveryAttempts failures. reject relies on the "
+               + "queue's dead-letter exchange; park copies it to ParkingQueue.")]
+    public string PoisonAction { get; set; } = "requeue";
+
+    [AdapterSetting(Hint = "Queue that poison messages are copied to when PoisonAction is park. It must exist.")]
+    public string ParkingQueue { get; set; }
+
+    /// <summary>
+    /// Wait for the broker to confirm each message Bitween publishes, so a delivery that the broker
+    /// did not take is a failed delivery — retried by the subscription's retry policy — rather
+    /// than one reported as sent.
+    /// </summary>
+    [AdapterSetting(Default = "true", AllowedValues = new[] {"true", "false"},
+        Hint = "Report a publish as delivered only once the broker confirms it.")]
+    public bool PublisherConfirms { get; set; } = true;
+
+    /// <summary>
+    /// Fail a publish that no queue receives. Off by default: until now such a message was
+    /// reported as delivered, and a deployment may be publishing to an exchange with no binding on
+    /// purpose.
+    /// </summary>
+    [AdapterSetting(Default = "false", AllowedValues = new[] {"true", "false"},
+        Hint = "Fail a publish that is routed to no queue, instead of reporting it as delivered. "
+               + "Needs PublisherConfirms, which is how the broker's return is waited for.")]
+    public bool Mandatory { get; set; }
 }

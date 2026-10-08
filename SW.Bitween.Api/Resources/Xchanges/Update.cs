@@ -21,8 +21,12 @@ namespace SW.Bitween.Resources.Xchanges
         {
             Document document;
 
-            //Inject external request context values into the object
-            request._ExternalRequestContext = JsonConvert.SerializeObject(requestContext.Values);
+            // Inject external request context values into the object — minus the caller's
+            // credentials. This lands in the stored input file, where anyone who can view
+            // exchanges reads it, and is handed to mappers and handlers, none of which need the
+            // partner's key to do their job.
+            request._ExternalRequestContext = JsonConvert.SerializeObject(
+                requestContext.Values.Where(v => !IsCredential(v.Name, BitweenSettings.PartnerKeyHeader)).ToList());
 
             if (int.TryParse(documentIdOrName, out var documentId))
                 document = await cache.DocumentByIdAsync(documentId);
@@ -130,5 +134,16 @@ namespace SW.Bitween.Resources.Xchanges
                 .AsNoTracking()
                 .AnyAsync(i => i.Id == xchangeId);
         }
+
+        private static readonly HashSet<string> CredentialNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "authorization", "proxy-authorization", "cookie", PartnerKeyHeaders.Default,
+        };
+
+        private static bool IsCredential(string name, string partnerKeyHeader) =>
+            name is not null &&
+            (CredentialNames.Contains(name) ||
+             (!string.IsNullOrWhiteSpace(partnerKeyHeader) &&
+              name.Equals(partnerKeyHeader.Trim(), StringComparison.OrdinalIgnoreCase)));
     }
 }

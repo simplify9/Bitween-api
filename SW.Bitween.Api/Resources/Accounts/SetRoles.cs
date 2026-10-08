@@ -22,6 +22,9 @@ public class SetRoles(BitweenDbContext dbContext, RequestContext requestContext)
 
         var roleIds = (request.RoleIds ?? []).Distinct().ToList();
 
+        await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
+        await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, roleIds);
+
         // Don't let the last administrator be demoted — including by themselves. Otherwise an
         // instance ends up with nobody able to manage members or roles.
         if (!roleIds.Contains(Role.AdministratorId))
