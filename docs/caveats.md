@@ -42,7 +42,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 
 | Issue | Where |
 |---|---|
-| The HTTP handler's property descriptions disagree with its behaviour. `Bearer` uses `LoginPassword`; `OAuth2` is the client credentials grant; `Headers` are `Name:Value` pairs separated by commas; `CorrelationId` is sent as a header; `patch` sends a POST. | `NativeAdapters/HttpHandler` |
+| The HTTP handler's property descriptions disagree with its behaviour. `Bearer` uses `LoginPassword`; `OAuth2` is the client credentials grant; `Headers` are `Name:Value` pairs separated by commas or new lines (`Name=Value` is read too, and spaces are trimmed); `CorrelationId` is sent as a header; `patch` sends a POST. | `NativeAdapters/HttpHandler` |
 | The HTTP adapters add authentication headers to an `HttpClient` shared per origin, so headers can accumulate across subscriptions calling the same origin. | `NativeHttpHandler.cs`, `DynamicHttpProxy.cs` |
 | The HTTP receiver makes one request per run, with no pagination. | `NativeHttpReceiver.cs` |
 | The S3 receiver's folder prefix has no trailing slash. The S3 upload handler ignores the folder when a file name is set. | `NativeS3Receiver.cs`, `NativeS3UploadHandler.cs` |

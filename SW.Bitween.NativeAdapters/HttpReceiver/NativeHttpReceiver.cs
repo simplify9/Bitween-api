@@ -111,20 +111,8 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
         Method = HttpMethodFromString(Require(_options.Verb, "Verb")),
         Content = content
       };
-      string? headers1 = _options.Headers;
-      IEnumerable<KeyValuePair<string, string>>? headers = headers1?.Split(',').Select((Func<string, KeyValuePair<string, string>>) (h =>
-      {
-        string[] strArray = h.Split(':', 2);
-        return new KeyValuePair<string, string>(strArray[0], strArray[1]);
-      }));
-      if (headers != null)
-      {
-        foreach (KeyValuePair<string, string> keyValuePair1 in headers)
-        {
-          KeyValuePair<string, string> keyValuePair = keyValuePair1;
-          request.Headers.Add(keyValuePair.Key, keyValuePair.Value);
-        }
-      }
+      foreach (var (name, value) in HeaderList.Parse(_options.Headers))
+        request.Headers.Add(name, value);
       if (authorization is not null)
         request.Headers.Authorization = authorization;
       if (apiKey is not null)
