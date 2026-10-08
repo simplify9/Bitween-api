@@ -9,7 +9,10 @@ public class NativeS3UploadHandler : INativeInfolinkHandler
 
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
-        using var cloudFiles = new CloudFilesService(new CloudFilesOptions
+        // S3CloudFilesOptions, not the base CloudFilesOptions: the S3 service casts what it is
+        // given to its own options type, so the base type failed every upload with an
+        // InvalidCastException before a byte was sent.
+        using var cloudFiles = new CloudFilesService(new S3CloudFilesOptions
         {
             AccessKeyId = _options.AccessKeyId,
             SecretAccessKey = _options.SecretAccessKey,
