@@ -200,6 +200,8 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Pulls in",
+              // Falls back to the type's name when it has no code, and a name can be long.
+              wrap: true,
               cell: (r) =>
                 canSeeInfoTypes ? (
                   <Link
