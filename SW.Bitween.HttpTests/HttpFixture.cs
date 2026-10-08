@@ -8,7 +8,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SW.Bus;
 using SW.Bitween.Services;
 using SW.EfCoreExtensions;
 using Testcontainers.PostgreSql;
@@ -29,12 +31,20 @@ public sealed class HttpFixture : IAsyncLifetime
     public const string AdminEmail = "admin@Bitween.systems";
     public const string AdminPassword = "Http-Tests-Admin-2026!";
     public const int SignInPerMinute = 30;
+    public const int RetryCount = 2;
 
     readonly PostgreSqlContainer postgres = new PostgreSqlBuilder().WithImage("postgres:16").Build();
     readonly RabbitMqContainer rabbit = new RabbitMqBuilder().Build();
     readonly string bucket = $"bitween-http-tests-{Guid.NewGuid():N}";
 
     public WebApplicationFactory<Web.Program> App { get; private set; } = null!;
+
+    /// <summary>The broker the app consumes from, for a test to look at or publish to directly.</summary>
+    public string RabbitConnectionString => rabbit.GetConnectionString();
+
+    /// <summary>Runs rabbitmqctl in the broker's container.</summary>
+    public async Task<string> RabbitCtlAsync(params string[] args) =>
+        (await rabbit.ExecAsync(["rabbitmqctl", "-q", .. args])).Stdout;
 
     public async Task InitializeAsync()
     {
@@ -119,6 +129,11 @@ public sealed class HttpFixture : IAsyncLifetime
             // As Program.Main does before Run.
             host.MigrateDatabase<BitweenDbContext>();
             host.SecureSeededAdministrator().SecureSystemPartnerKey().HashStoredPartnerKeys().ApplyStoredSettings();
+            // Production retries a failed message five times a minute apart. Twice, a second apart, is
+            // the same path through the retry queue to the bad one, in a time a test can wait for.
+            var bus = host.Services.GetRequiredService<BusOptions>();
+            bus.DefaultRetryCount = RetryCount;
+            bus.DefaultRetryAfter = 1;
             host.Start();
             return host;
         }
