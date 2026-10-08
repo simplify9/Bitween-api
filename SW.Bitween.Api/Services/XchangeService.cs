@@ -138,6 +138,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             source);
         await AddInputFile(xchange, file);
         dbContext.Add(xchange);
+        BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "routing"));
         return xchange;
     }
 
@@ -166,6 +167,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             globalAdapterValuesSets, source);
         await AddInputFile(xchange, file);
         dbContext.Add(xchange);
+        BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "subscription"));
         return xchange;
     }
 
@@ -313,9 +315,17 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// Beside the body, not in it: any other reader of the message gets exactly the body it always
     /// did. Only the id, so what travels stays the same size however much a route reads.
     /// </remarks>
-    private Task PublishResponse(Xchange xchange, XchangeFile responseFile) =>
-        publish.Publish(xchange.ResponseMessageTypeName, responseFile.Data,
-            new Dictionary<string, string> { [StartupValuesFiller.SourceXchangeBusValue] = xchange.Id });
+    /// <summary>
+    /// Queues the response in the outbox, saved with the result. It used to be published before the
+    /// result was saved, so a save that then failed had already sent it — and the redelivery that
+    /// followed sent it again.
+    /// </summary>
+    private Task PublishResponse(Xchange xchange, XchangeFile responseFile)
+    {
+        dbContext.Add(new OutboxMessage(xchange.ResponseMessageTypeName, responseFile.Data,
+            new Dictionary<string, string> { [StartupValuesFiller.SourceXchangeBusValue] = xchange.Id }));
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Fails a response or bus gateway subscription's exchange whose handler still has a
@@ -415,7 +425,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
                 // Inject __globals__ — all global adapter values sets
                 // so templates can use {{ __globals__?.setId?.key }}
-                var globalSets = await dbContext.Set<GlobalAdapterValuesSet>().ToListAsync();
+                // From the cache, which every change to a set revokes: this ran a query per exchange.
+                var globalSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
                 if (globalSets.Any(s => s.Values?.Count > 0))
                 {
                     var globalsObj = new JObject();
@@ -677,6 +688,22 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         if (xchange == null) throw new BitweenException($"Xchange '{message.Id}' not found.");
 
+        // A message is delivered at least once — after a crash between commit and ack, or when the
+        // outbox publishes one whose first publish did go through. An exchange that already has a
+        // result has been processed; running it again would deliver it to the partner twice.
+        if (await dbContext.Set<XchangeResult>().AsNoTracking().AnyAsync(r => r.Id == xchange.Id))
+        {
+            logger.LogInformation("Xchange {XchangeId} already has a result; ignoring a repeat delivery of it.", xchange.Id);
+            return;
+        }
+
+        using var activity = BitweenTelemetry.ActivitySource.StartActivity("exchange.process");
+        activity?.SetTag("bitween.exchange.id", xchange.Id);
+        activity?.SetTag("bitween.document.id", xchange.DocumentId);
+        activity?.SetTag("bitween.subscription.id", xchange.SubscriptionId);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var outcome = "error";
+
         try
         {
             var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
@@ -726,14 +753,47 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             else
                 await TryClearingRetryBudgetAfterSuccess(xchange);
             await dbContext.SaveChangesAsync();
+            outcome = responseFile?.BadData == true ? "bad_response" : "success";
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, ex.GetType().Name);
+            DiscardUnsavedOutcome(xchange.Id, saveFailed: ex is DbUpdateException);
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id, ex.ToString());
             dbContext.Add(xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await dbContext.SaveChangesAsync();
+        }
+        finally
+        {
+            var outcomeTag = new KeyValuePair<string, object>("outcome", outcome);
+            BitweenTelemetry.ExchangesProcessed.Add(1, outcomeTag);
+            BitweenTelemetry.ProcessingDuration.Record(clock.Elapsed.TotalSeconds, outcomeTag);
+            activity?.SetTag("bitween.outcome", outcome);
+        }
+    }
+
+    /// <summary>
+    /// Clears what the failed attempt left tracked before its error result is added. A success
+    /// result already added has the same key as the error one, so leaving it made the error save
+    /// throw too — the message went back on the queue and the handler ran again, delivering twice.
+    /// A response queued for a delivery that failed must not go out either. When it was the save
+    /// itself that failed, nothing else it tried to write can be trusted to save the second time.
+    /// </summary>
+    private void DiscardUnsavedOutcome(string xchangeId, bool saveFailed)
+    {
+        foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+        {
+            if (entry.Entity is Xchange tracked && tracked.Id == xchangeId) continue;
+
+            var discard = entry.Entity switch
+            {
+                XchangeResult result => result.Id == xchangeId,
+                OutboxMessage => entry.State == EntityState.Added,
+                _ => saveFailed && entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted,
+            };
+            if (discard) entry.State = EntityState.Detached;
         }
     }
 
@@ -924,7 +984,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         // Bus-gateway routes: run the assigned subscription with the route's optional partner values,
         // reusing the same xchange path the API gateway uses (partner + globals injection).
-        var globalAdapterValuesSets = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
+        var globalAdapterValuesSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
         foreach (var hit in result.GatewayHits)
         {
             var subscription = await BitweenCache.SubscriptionByIdAsync(hit.SubscriptionId);
@@ -1082,21 +1142,34 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         if (subscription == null || subscription.Inactive || subscription.PausedOn != null) return;
 
-        var xchangesDetails = await dbContext.Set<OnHoldXchange>().Where(x => x.SubscriptionId == subscription.Id)
-            .ToListAsync();
-
-        foreach (var xchangeDetails in xchangesDetails)
+        // In batches, each committed on its own. Loading the whole backlog — payloads and all — and
+        // committing it in one go could run a pod out of memory on a long pause, and a failure
+        // part-way redid all of it on redelivery. Each batch removes what it released, so a
+        // redelivery carries on from where this stopped.
+        const int batchSize = 50;
+        while (true)
         {
-            var file = new XchangeFile(xchangeDetails.Data, xchangeDetails.FileName, xchangeDetails.BadData);
-            var partner = xchangeDetails.PartnerId.HasValue
-                ? await dbContext.FindAsync<Partner>(xchangeDetails.PartnerId.Value)
-                : null;
-            await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner,
-                source: xchangeDetails.Source);
-            dbContext.Remove(xchangeDetails);
-        }
+            var batch = await dbContext.Set<OnHoldXchange>()
+                .Where(x => x.SubscriptionId == subscription.Id)
+                .OrderBy(x => x.Id)
+                .Take(batchSize)
+                .ToListAsync();
+            if (batch.Count == 0) break;
 
-        await dbContext.SaveChangesAsync();
+            foreach (var xchangeDetails in batch)
+            {
+                var file = new XchangeFile(xchangeDetails.Data, xchangeDetails.FileName, xchangeDetails.BadData);
+                var partner = xchangeDetails.PartnerId.HasValue
+                    ? await dbContext.FindAsync<Partner>(xchangeDetails.PartnerId.Value)
+                    : null;
+                await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner,
+                    source: xchangeDetails.Source);
+                dbContext.Remove(xchangeDetails);
+            }
+
+            await dbContext.SaveChangesAsync();
+            dbContext.ChangeTracker.Clear();
+        }
     }
 
     public async Task<IEnumerable<string>> GetMessageTypeNames()

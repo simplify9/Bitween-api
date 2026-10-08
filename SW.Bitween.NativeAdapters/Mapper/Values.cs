@@ -77,7 +77,7 @@ public static class Values
                     case bool b:
                         result = b ? 1m : 0m;
                         return true;
-                    case string s when decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed):
+                    case string s when TryParseNumber(s, out var parsed):
                         result = parsed;
                         return true;
                     default:
@@ -201,5 +201,31 @@ public static class Values
             current = current.GetOrAddObject(target[i]);
 
         current.Set(target[^1], value);
+    }
+
+    /// <summary>
+    /// A number written in invariant form: an optional sign, currency symbol or accounting
+    /// parentheses, and commas only where thousands separators belong.
+    /// </summary>
+    /// <remarks>
+    /// <c>NumberStyles.Any</c> ignores where a comma sits, so "1,5" — one and a half, as half the
+    /// world writes it — became fifteen with no error, and a partner got ten times the amount.
+    /// A comma now has to separate groups of three digits ahead of the decimal point; anything
+    /// else is not a number, and the mapping says so instead of guessing.
+    /// </remarks>
+    internal static bool TryParseNumber(string text, out decimal number)
+    {
+        number = 0;
+        if (text.Contains(','))
+        {
+            var integerPart = System.Text.RegularExpressions.Regex.Match(text, @"\d[\d,]*");
+            var afterInteger = text[(integerPart.Index + integerPart.Length)..];
+            if (!integerPart.Success ||
+                !System.Text.RegularExpressions.Regex.IsMatch(integerPart.Value, @"^\d{1,3}(,\d{3})+$") ||
+                afterInteger.Contains(','))
+                return false;
+        }
+
+        return decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out number);
     }
 }

@@ -17,7 +17,7 @@ public static class ScribanJsonHelper
         var rendered = RenderText(scribanTemplate, inputJson);
 
         // 6. Strip trailing commas that may appear after the last field/element
-        rendered = Regex.Replace(rendered, @",(\s*[}\]])", "$1");
+        rendered = StripTrailingCommas(rendered);
 
         // 7. Parse rendered output — root may be an object OR an array
         JToken renderedToken;
@@ -89,8 +89,11 @@ public static class ScribanJsonHelper
                 System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : (object?)null;
         }));
 
-        // 4. Create template context
-        var context = new TemplateContext { StrictVariables = false };
+        // 4. Create template context. Each loop is already capped (LoopLimit, 1000 by default),
+        // but loops nest, so three of them are a billion iterations inside the API process — and
+        // the preview endpoint renders a template the caller writes. The time limit bounds that.
+        using var timeout = new CancellationTokenSource(RenderTimeout);
+        var context = new TemplateContext { StrictVariables = false, CancellationToken = timeout.Token };
         context.PushGlobal(scriptObj);
         context.PushGlobal(functions);
 
@@ -102,10 +105,58 @@ public static class ScribanJsonHelper
             throw new InvalidOperationException($"Template parse error: {errors}");
         }
 
-        return template.Render(context);
+        try
+        {
+            return template.Render(context);
+        }
+        catch (Scriban.Syntax.ScriptAbortException) when (timeout.IsCancellationRequested)
+        {
+            throw new InvalidOperationException(
+                $"The mapping template took longer than {RenderTimeout.TotalSeconds:0} seconds to render and was stopped.");
+        }
     }
 
+    /// <summary>Far beyond any real mapping; there only to stop a runaway one.</summary>
+    internal static TimeSpan RenderTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Drops a comma that is followed only by whitespace and a closing bracket, outside string
+    /// values. The regex this replaced did not know where strings were, so a value such as
+    /// <c>"a, }"</c> was rewritten to <c>"a }"</c> on its way to the partner.
+    /// </summary>
+    internal static string StripTrailingCommas(string json)
+    {
+        var output = new System.Text.StringBuilder(json.Length);
+        var inString = false;
+        for (var i = 0; i < json.Length; i++)
+        {
+            var c = json[i];
+            if (inString)
+            {
+                output.Append(c);
+                if (c == '\\' && i + 1 < json.Length) output.Append(json[++i]);
+                else if (c == '"') inString = false;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inString = true;
+            }
+            else if (c == ',')
+            {
+                var next = i + 1;
+                while (next < json.Length && char.IsWhiteSpace(json[next])) next++;
+                if (next < json.Length && json[next] is '}' or ']') continue;
+            }
+
+            output.Append(c);
+        }
+
+        return output.ToString();
+    }
 
     /// <summary>Custom | json Scriban pipe — serializes any value to its JSON representation.</summary>
     private static string JsonFilter(object? value)

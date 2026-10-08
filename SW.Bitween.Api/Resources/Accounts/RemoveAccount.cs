@@ -22,6 +22,7 @@ public class RemoveAccountModel(BitweenDbContext dbContext, RequestContext reque
             throw new SWValidationException("CANNOT_REMOVE_SELF", "You can't remove your own account.");
 
         await Administrators.EnsureNotTheLast(dbContext, key);
+        await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
 
         dbContext.Remove(account);
         await dbContext.SaveChangesAsync();

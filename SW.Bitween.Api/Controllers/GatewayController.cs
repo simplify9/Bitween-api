@@ -50,11 +50,17 @@ public class GatewayController(
     private async Task<IActionResult> ProcessAsync(string gatewayApiName, bool resultSync)
     {
         var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
-        // Lowered on the column too: rows saved before names had to be lowercase may not be.
+        // The exact name first, which the unique index on UrlName answers. Lowering the column for
+        // every call made each one a scan of the table; it is kept as the fallback only, for rows
+        // saved before names had to be lowercase.
         var apiGateway = await dbContext.Set<ApiGateway>()
             .Include(ag => ag.Partners)
             .ThenInclude(agp => agp.Partner)
-            .FirstOrDefaultAsync(ag => ag.UrlName.ToLower() == gatewayApiName);
+            .FirstOrDefaultAsync(ag => ag.UrlName == gatewayApiName)
+            ?? await dbContext.Set<ApiGateway>()
+                .Include(ag => ag.Partners)
+                .ThenInclude(agp => agp.Partner)
+                .FirstOrDefaultAsync(ag => ag.UrlName.ToLower() == gatewayApiName);
 
         if (apiGateway == null)
             return NotFound();
@@ -106,9 +112,9 @@ public class GatewayController(
             xchangeFile);
 
         var xchangeReferences = new List<string> { callerReference };
-        var globalAdapterValuesSets = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
+        // The sets already read at the top of the request, from the cache.
         var xchangeId = await xchangeService.SubmitSubscriptionXchange(subscription.Id, xchangeFile,
-            xchangeReferences.ToArray(), partner, globalAdapterValuesSets);
+            xchangeReferences.ToArray(), partner, globalAdapterValuesSet);
         if (!resultSync)
         {
             return Accepted(xchangeId);

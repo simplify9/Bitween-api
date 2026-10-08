@@ -126,6 +126,39 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
 
     // ------------------------------------------------------------------ checking
 
+    private static readonly HashSet<string> DdlKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CREATE", "ALTER", "DROP", "TRUNCATE", "GRANT", "REVOKE", "RENAME", "COMMENT", "AUDIT",
+        "NOAUDIT", "ANALYZE", "FLASHBACK", "PURGE", "ASSOCIATE", "DISASSOCIATE",
+    };
+
+    /// <summary>The first word of the statement, past whitespace and comments.</summary>
+    internal static string LeadingKeyword(string sql)
+    {
+        var i = 0;
+        while (i < sql.Length)
+        {
+            if (char.IsWhiteSpace(sql[i])) { i++; continue; }
+            if (sql.AsSpan(i).StartsWith("--"))
+            {
+                var end = sql.IndexOf('\n', i);
+                i = end < 0 ? sql.Length : end + 1;
+                continue;
+            }
+            if (sql.AsSpan(i).StartsWith("/*"))
+            {
+                var end = sql.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = end < 0 ? sql.Length : end + 2;
+                continue;
+            }
+            break;
+        }
+
+        var start = i;
+        while (i < sql.Length && char.IsLetter(sql[i])) i++;
+        return i > start ? sql[start..i] : null;
+    }
+
     /// <summary>
     /// Oracle is checked with <c>DBMS_SQL.PARSE</c> rather than by preparing.
     ///
@@ -140,6 +173,13 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
     /// </summary>
     protected override async Task CheckSyntaxAsync(DbConnection connection, string sql)
     {
+        // Except for DDL: Oracle executes a DDL statement the moment it is parsed, so checking
+        // "drop table orders" would drop it, from a Save or Test button, with no exchange behind it.
+        if (LeadingKeyword(sql) is { } keyword && DdlKeywords.Contains(keyword))
+            throw new InvalidOperationException(
+                $"{keyword} statements can't be checked on Oracle: parsing one runs it. " +
+                "Statements are for reading and writing data; run schema changes outside Bitween.");
+
         using var command = connection.CreateCommand();
         command.CommandText = @"
             declare

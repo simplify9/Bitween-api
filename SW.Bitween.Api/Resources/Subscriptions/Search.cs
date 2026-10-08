@@ -16,12 +16,14 @@ namespace SW.Bitween.Resources.Subscriptions
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly AdapterSecretProperties _secrets;
         private readonly List<string> _edgeCaseProperties;
 
-        public Search(BitweenDbContext dbContext, RequestContext requestContext)
+        public Search(BitweenDbContext dbContext, RequestContext requestContext, AdapterSecretProperties secrets)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _secrets = secrets;
 
             _edgeCaseProperties = new List<string>
             {
@@ -194,14 +196,18 @@ namespace SW.Bitween.Resources.Subscriptions
             {
                 var searchTerm = edgeCaseFilter.ValueString.ToLower();
 
+                if (edgeCaseFilter.Field.ToLower() == "rawsubscriptionproperties")
+                {
+                    var matched = new List<SubscriptionSearch>();
+                    foreach (var row in data)
+                        if (await AnyVisiblePropertyContains(row, searchTerm))
+                            matched.Add(row);
+                    data = matched;
+                    continue;
+                }
+
                 data = edgeCaseFilter.Field.ToLower() switch
                 {
-                    "rawsubscriptionproperties" => data.Where(i =>
-                            i.HandlerProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                            i.ReceiverProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                            i.MapperProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                            i.ValidatorProperties.Any(p => p.Value.ToLower().Contains(searchTerm)))
-                        .ToList(),
                     "rawfiltersproperties" => data.Where(i =>
                             i.DocumentFilter.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
                             (i.MatchExpression?.ToString()?.Contains(searchTerm) ?? false))
@@ -226,6 +232,39 @@ namespace SW.Bitween.Resources.Subscriptions
             };
         }
 
+
+        /// <summary>
+        /// Matches only what <c>Subscriptions/Get</c> would show. Matching the stored values let a
+        /// viewer recover a masked secret one character at a time: search "a", "ab", "abc" and
+        /// watch which subscriptions stay in the result.
+        /// </summary>
+        private async Task<bool> AnyVisiblePropertyContains(SubscriptionSearch row, string searchTerm)
+        {
+            var bags = new (string AdapterId, ICollection<KeyAndValue> Properties)[]
+            {
+                (row.HandlerId, row.HandlerProperties),
+                (row.ReceiverId, row.ReceiverProperties),
+                (row.MapperId, row.MapperProperties),
+                (row.ValidatorId, row.ValidatorProperties),
+            };
+
+            foreach (var (adapterId, properties) in bags)
+            {
+                if (properties is null || properties.Count == 0) continue;
+
+                var stored = properties
+                    .Where(p => p.Key is not null)
+                    .GroupBy(p => p.Key)
+                    .ToDictionary(g => g.Key, g => g.Last().Value);
+                var visible = await _secrets.Mask(adapterId, stored);
+
+                if (visible.Values.Any(v => v is not null && v != AdapterSecretProperties.Sentinel &&
+                                            v.ToLower().Contains(searchTerm)))
+                    return true;
+            }
+
+            return false;
+        }
 
         private ICollection<SearchyFilter> HandleSearchyEdgeCases(ICollection<SearchyCondition> filters)
         {

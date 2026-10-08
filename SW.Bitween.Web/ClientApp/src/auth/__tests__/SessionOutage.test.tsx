@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
-import { TOKEN_KEY } from "../../api";
+import { getToken } from "../../api/http/request";
 import { apiPath, renderApp } from "../../__tests__/support/renderApp";
 
 /**
@@ -30,7 +30,7 @@ describe("a session read the server could not answer", () => {
     // The distinction that matters: still signed in, so nothing asks for a password
     // and the token is left where it is.
     expect(router.state.location.pathname).toBe("/subscriptions");
-    expect(localStorage.getItem(TOKEN_KEY)).toBeTruthy();
+    expect(getToken()).toBeTruthy();
   });
 
   it("still signs you out on a 401, because that one is the server's answer", async () => {

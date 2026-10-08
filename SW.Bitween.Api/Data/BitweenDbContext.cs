@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 ﻿using System;
 using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
@@ -130,7 +131,7 @@ namespace SW.Bitween
                 ds.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 ds.Property(p => p.AdapterId).IsRequired().HasMaxLength(200).IsUnicode(false);
                 ds.Property(p => p.Kind).HasConversion<int>();
-                ds.Property(p => p.Properties).StoreAsJson();
+                ds.Property(p => p.Properties).StoreAsJson().Encrypted();
                 ds.Property(p => p.SecretProperties).StoreAsJson();
                 ds.Property(p => p.LastKnownState).HasMaxLength(100).IsUnicode(false);
                 ds.Property(p => p.OwnedByNode).HasMaxLength(200).IsUnicode(false);
@@ -225,7 +226,7 @@ namespace SW.Bitween
                 gav.ToTable("GlobalAdapterValuesSets");
                 gav.HasKey(i => i.Id);
                 gav.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
-                gav.Property(p => p.Values).StoreAsJson();
+                gav.Property(p => p.Values).StoreAsJson().Encrypted();
                 gav.Property(p => p.SecretProperties).StoreAsJson();
             });
             modelBuilder.Entity<Partner>(b =>
@@ -233,7 +234,7 @@ namespace SW.Bitween
                 b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.AdapterProperties).StoreAsJson();
+                b.Property(p => p.AdapterProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.SecretProperties).StoreAsJson();
                 b.Property(p => p.LoginIdentity).HasMaxLength(500);
                 b.HasIndex(p => p.LoginIdentity).IsUnique();
@@ -244,6 +245,7 @@ namespace SW.Bitween
                     apicred.ToTable("PartnerApiCredentials");
                     apicred.Property(p => p.Name).IsRequired().HasMaxLength(500);
                     apicred.Property(p => p.Key).IsRequired().IsUnicode(false).HasMaxLength(500);
+                    apicred.Property(p => p.KeyPrefix).HasMaxLength(10);
                     apicred.HasIndex(p => p.Key).IsUnique();
                     apicred.WithOwner().HasForeignKey("PartnerId");
 
@@ -276,10 +278,10 @@ namespace SW.Bitween
                     schedules.Property(p => p.Recurrence).HasConversion<byte>();
                 });
 
-                b.Property(p => p.HandlerProperties).StoreAsJson();
-                b.Property(p => p.MapperProperties).StoreAsJson();
-                b.Property(p => p.ReceiverProperties).StoreAsJson();
-                b.Property(p => p.ValidatorProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.ReceiverProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.ValidatorProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
 
                 b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
@@ -317,7 +319,7 @@ namespace SW.Bitween
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.Groups).StoreAsJson();
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.Entity<DelayedRetry>(b =>
@@ -327,6 +329,17 @@ namespace SW.Bitween
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.On);
                 b.HasIndex(p => p.On);
+            });
+
+            modelBuilder.Entity<OutboxMessage>(b =>
+            {
+                b.ToTable("OutboxMessages");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.MessageType).IsRequired().HasMaxLength(500);
+                b.Property(p => p.Body).IsRequired();
+                b.Property(p => p.Headers).StoreAsJson();
+                b.Property(p => p.LastError).HasMaxLength(2000);
+                b.HasIndex(p => p.PublishedOn);
             });
 
             modelBuilder.Entity<ReceiveAttempt>(b =>
@@ -353,7 +366,7 @@ namespace SW.Bitween
                 b.HasKey(p => new { p.SubscriptionId, p.GroupId });
                 b.Property(p => p.AlertMode).HasConversion<byte>();
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.Entity<Xchange>(b =>
@@ -366,8 +379,8 @@ namespace SW.Bitween
                 b.Property(p => p.InputName).HasMaxLength(200);
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.HandlerProperties).StoreAsJson();
-                b.Property(p => p.MapperProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.SourceValues).StoreAsJson();
                 b.Property(p => p.SourceXchangeId).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
@@ -466,7 +479,7 @@ namespace SW.Bitween
                 b.ToTable("Notifiers");
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.RunOnSubscriptions).IsSeparatorDelimited();
             });
@@ -614,6 +627,25 @@ namespace SW.Bitween
 
             var pendingAudit = ChangeTracker.CapturePendingAuditDiffs(userId, AuditPolicy.Options);
 
+            // Domain events go into the outbox in the same save as the change that raised them, so
+            // one can no longer be committed without the other. They are taken off the entities
+            // only once the save has succeeded; a save that fails leaves them where they were.
+            var raised = ChangeTracker.Entries<IGeneratesDomainEvents>()
+                .Select(e => e.Entity)
+                .Where(e => e.Events.Any())
+                .ToArray();
+            var fromEvents = raised
+                .SelectMany(entity => entity.Events)
+                .Select(ToOutboxMessage)
+                .ToList();
+            foreach (var message in fromEvents) Add(message);
+
+            // Plus any a caller queued itself, such as a delivery's response.
+            var outgoing = ChangeTracker.Entries<OutboxMessage>()
+                .Where(e => e.State == EntityState.Added)
+                .Select(e => e.Entity)
+                .ToList();
+
             var transaction = pendingAudit.Count > 0 && Database.CurrentTransaction is null
                 ? await Database.BeginTransactionAsync(cancellationToken)
                 : null;
@@ -631,39 +663,106 @@ namespace SW.Bitween
                         Add(new AuditEntry(diff));
 
                     // base, deliberately: re-entering this override would audit the audit rows and
-                    // publish every domain event a second time.
+                    // write every domain event to the outbox a second time.
                     await base.SaveChangesAsync(cancellationToken);
                 }
 
                 if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                // Not saved, so not to be published — and not left tracked, or the next save
+                // would insert them alongside a second copy made from the same events.
+                foreach (var message in outgoing) Entry(message).State = EntityState.Detached;
+                throw;
             }
             finally
             {
                 if (transaction is not null) await transaction.DisposeAsync();
             }
 
-            // Published after the commit. An event announcing a change that then rolled back would
-            // send every consumer after a row that never existed.
-            //await ChangeTracker.PublishDomainEvents(publish);
-            var entitiesWithEvents = ChangeTracker.Entries<IGeneratesDomainEvents>()
-                .Select(e => e.Entity)
-                .Where(e => e.Events.Any())
-                .ToArray();
+            foreach (var entity in raised) entity.Events.Clear();
 
-            foreach (var entity in entitiesWithEvents)
-            {
-                var events = entity.Events.ToArray();
-                entity.Events.Clear();
-                foreach (var domainEvent in events)
-                    if (domainEvent is IHasWorkGroup hasWorkGroup)
-                        await publish.Publish(hasWorkGroup.GetBusMessageName(),
-                            JsonConvert.SerializeObject(new XchangeMessage { Id = hasWorkGroup.Id }));
-                    else
-                        await publish.Publish(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
-            }
-
+            // Published straight after the commit, as before; the outbox is for when that fails.
+            // Inside a caller's transaction nothing is committed yet — announcing a row that may
+            // still roll back would send every consumer after a row that never existed — so those
+            // wait for the dispatcher.
+            if (outgoing.Count > 0 && Database.CurrentTransaction is null)
+                await PublishOutboxAsync(outgoing, cancellationToken);
 
             return affectedRecords;
+        }
+
+        /// <summary>
+        /// Saves without an audit entry or an outbox message — for rewriting stored values in a new
+        /// form, which changes nothing a person did. Only <see cref="SecretColumnEncryptionPass"/>
+        /// should need it.
+        /// </summary>
+        internal Task<int> SaveRewrittenValuesAsync(CancellationToken cancellationToken) =>
+            base.SaveChangesAsync(cancellationToken);
+
+        private static OutboxMessage ToOutboxMessage(object domainEvent) =>
+            domainEvent is IHasWorkGroup hasWorkGroup
+                ? new OutboxMessage(hasWorkGroup.GetBusMessageName(),
+                    JsonConvert.SerializeObject(new XchangeMessage { Id = hasWorkGroup.Id }))
+                : new OutboxMessage(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
+
+        /// <summary>
+        /// Publishes saved outbox rows and marks those the broker took. One that fails stays unpublished,
+        /// with the error on it, for <see cref="OutboxDispatcher"/>. Never throws: the change is
+        /// committed, and failing the caller now would only make it try the change a second time.
+        /// </summary>
+        /// <returns>How many the broker took.</returns>
+        internal async Task<int> PublishOutboxAsync(IReadOnlyCollection<OutboxMessage> messages,
+            CancellationToken cancellationToken = default)
+        {
+            var published = new List<long>();
+            foreach (var message in messages)
+            {
+                try
+                {
+                    // Bitween's bus publisher takes values as well; anything that only publishes
+                    // (a test double) gets the message without them.
+                    if (message.Headers is { Count: > 0 } && publish is SW.Bus.RabbitMqExtensions.IPublishWithValues withValues)
+                        await withValues.Publish(message.MessageType, message.Body, message.Headers);
+                    else
+                        await publish.Publish(message.MessageType, message.Body);
+                    published.Add(message.Id);
+                }
+                catch (Exception ex)
+                {
+                    var error = ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message;
+                    try
+                    {
+                        await Set<OutboxMessage>().Where(m => m.Id == message.Id)
+                            .ExecuteUpdateAsync(u => u
+                                .SetProperty(m => m.Attempts, m => m.Attempts + 1)
+                                .SetProperty(m => m.LastError, error), CancellationToken.None);
+                    }
+                    catch
+                    {
+                        // The dispatcher finds it either way; the error text is only a courtesy.
+                    }
+                }
+            }
+
+            if (published.Count == 0) return 0;
+
+            var now = DateTime.UtcNow;
+            try
+            {
+                await Set<OutboxMessage>().Where(m => published.Contains(m.Id))
+                    .ExecuteUpdateAsync(u => u
+                        .SetProperty(m => m.PublishedOn, now)
+                        .SetProperty(m => m.Attempts, m => m.Attempts + 1), CancellationToken.None);
+            }
+            catch
+            {
+                // Published but not marked: the dispatcher will publish them again. Consumers take a
+                // repeat — Process checks for an existing result before doing anything.
+            }
+
+            return published.Count;
         }
     }
 }

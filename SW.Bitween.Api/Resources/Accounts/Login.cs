@@ -14,10 +14,19 @@ namespace SW.Bitween.Resources.Accounts
     [HandlerName("login")]
     [Unprotect]
     public class Login(JwtTokenParameters jwtTokenParameters, BitweenDbContext dbContext,
-        BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger) : ICommandHandler<UserLogin, object>
+        BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger,
+        SignInThrottle throttle) : ICommandHandler<UserLogin, object>
     {
-        private const int MaxFailedLoginAttempts = 5;
+        // Account-wide, across every address: the backstop for guessing spread over many of them.
+        // Five from any one address already locks that address out — see SignInThrottle.
+        private const int MaxFailedLoginAttempts = 20;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+        private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
+
+        // Verified against when no account matches, so an unknown email costs the same PBKDF2 work
+        // as a known one. Without it the response time alone said which addresses have accounts.
+        private static readonly Lazy<string> UnknownAccountHash =
+            new(() => SecurePasswordHasher.Hash(Guid.NewGuid().ToString("N")));
 
         public async Task<object> Handle(UserLogin request)
         {
@@ -36,6 +45,18 @@ namespace SW.Bitween.Resources.Accounts
             {
                 var refreshToken = await dbContext.Set<RefreshToken>()
                     .SingleOrDefaultAsync(x => x.Id == refreshTokenValue);
+
+                // The cookie expires after 30 days, but the row did not, and a refresh token sent in
+                // the body has no cookie to expire. Each refresh issues a new token, so this is an
+                // idle limit: a session in use keeps renewing, one left alone for 30 days ends.
+                if (refreshToken is not null && refreshToken.CreatedOn < DateTime.UtcNow - RefreshTokenLifetime)
+                {
+                    logger.LogInformation("Refresh token older than {Days} days refused.", RefreshTokenLifetime.TotalDays);
+                    dbContext.Remove(refreshToken);
+                    await dbContext.SaveChangesAsync();
+                    refreshToken = null;
+                }
+
                 if (refreshToken is null)
                 {
                     logger.LogWarning("Refresh token not found in DB, clearing cookie and falling back to credentials.");
@@ -89,8 +110,13 @@ namespace SW.Bitween.Resources.Accounts
             var account = await accountQ
                 .SingleOrDefaultAsync();
 
+            var credentialLogin = string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken);
+
             if (account is null)
             {
+                if (credentialLogin)
+                    SecurePasswordHasher.Verify(request.Password, UnknownAccountHash.Value);
+
                 if (!string.IsNullOrEmpty(request.MsToken))
                 {
                     logger.LogWarning("MS login failed: no account found matching the token email.");
@@ -100,7 +126,9 @@ namespace SW.Bitween.Resources.Accounts
                 throw new SWException("Invalid username or password.");
             }
 
-            if (account.Disabled)
+            // A password sign-in learns the account is disabled only once the password is right —
+            // see below — so the message can't be used to find out which addresses exist.
+            if (account.Disabled && !credentialLogin)
             {
                 if (!string.IsNullOrEmpty(request.MsToken))
                 {
@@ -115,9 +143,13 @@ namespace SW.Bitween.Resources.Accounts
                 !string.IsNullOrEmpty(request.Password) && string.IsNullOrEmpty(request.MsToken))
             {
                 var nowUtc = DateTime.UtcNow;
-                if (account.IsLockedOut(nowUtc))
+                var address = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var lockedUntil = new[] { account.IsLockedOut(nowUtc) ? account.LockoutEnd : null,
+                        throttle.LockedUntil(account.Id, address, nowUtc) }
+                    .Max();
+                if (lockedUntil is not null)
                 {
-                    var minutes = (int)Math.Ceiling((account.LockoutEnd!.Value - nowUtc).TotalMinutes);
+                    var minutes = (int)Math.Ceiling((lockedUntil.Value - nowUtc).TotalMinutes);
                     logger.LogWarning("Login rejected: account '{Email}' is temporarily locked.", account.Email);
                     throw new SWException(
                         $"Your account is temporarily locked due to multiple failed login attempts. " +
@@ -132,6 +164,8 @@ namespace SW.Bitween.Resources.Accounts
                     string.IsNullOrEmpty(account.Password) ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
                 {
+                    throttle.RegisterFailure(account.Id, address, nowUtc);
+
                     // Atomic DB-side update so concurrent wrong-password attempts can't read the
                     // same count and lose increments, which would let them slip past the lockout.
                     var lockoutEnd = nowUtc.Add(LockoutDuration);
@@ -145,6 +179,10 @@ namespace SW.Bitween.Resources.Accounts
                     throw new SWException("Invalid username or password.");
                 }
 
+                if (account.Disabled)
+                    throw new SWException("Your account has been disabled. Please contact your administrator.");
+
+                throttle.Clear(account.Id, address);
                 account.RegisterSuccessfulLogin();
             }
 
@@ -159,7 +197,7 @@ namespace SW.Bitween.Resources.Accounts
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Lax,
-                Expires = DateTimeOffset.UtcNow.AddDays(30)
+                Expires = DateTimeOffset.UtcNow.Add(RefreshTokenLifetime)
             });
 
             // Return only the JWT — refresh token stays in the cookie, not in the response body.

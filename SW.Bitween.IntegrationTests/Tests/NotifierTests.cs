@@ -172,6 +172,47 @@ public class NotifierTests(BitweenFixture fixture)
         Assert.True(await checkDb.Set<Subscription>().AnyAsync(s => s.Id == subscriptionId));
     }
 
+    /// <summary>
+    /// The SMTP password is [Secure] on the handler, so a notifier returns it masked like a
+    /// subscription does, and sending the mask back keeps it.
+    /// </summary>
+    [Fact]
+    public async Task A_handler_secret_is_masked_and_kept_when_sent_back()
+    {
+        var id = await Create(Unique("Secret notifier"));
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Secret notifier"),
+            HandlerId = nameof(SW.Bitween.NativeAdapters.SmtpHandler.NativeSmtpHandler),
+            HandlerProperties =
+            [
+                new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+                new KeyAndValue { Key = "Password", Value = "smtp-secret-value" },
+            ],
+        });
+
+        Newtonsoft.Json.Linq.JObject read;
+        await using (var scope = fixture.CreateScope())
+        {
+            scope.Superuser();
+            var get = ActivatorUtilities.CreateInstance<Resources.Notifiers.Get>(scope.ServiceProvider);
+            read = Newtonsoft.Json.Linq.JObject.FromObject(await get.Handle(id));
+        }
+
+        var returned = read["HandlerProperties"]!.ToDictionary(p => (string)p["Key"]!, p => (string)p["Value"]!);
+        Assert.Equal("smtp.example.com", returned["Host"]);
+        Assert.Equal(AdapterSecretProperties.Sentinel, returned["Password"]);
+
+        // The form sends back what it was given.
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Secret notifier"),
+            HandlerId = nameof(SW.Bitween.NativeAdapters.SmtpHandler.NativeSmtpHandler),
+            HandlerProperties = returned.Select(kv => new KeyAndValue { Key = kv.Key, Value = kv.Value }).ToList(),
+        });
+        Assert.Equal("smtp-secret-value", (await Stored(id)).HandlerProperties["Password"]);
+    }
+
     [Fact]
     public async Task A_viewer_cannot_create_or_delete_a_notifier()
     {

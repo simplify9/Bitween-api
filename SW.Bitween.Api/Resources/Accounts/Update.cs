@@ -28,6 +28,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Edit);
             var role = (AccountRole)request.Role;
+            await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
+            await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, [BuiltInRoleFor(role)]);
             account.SetRole(role);
             await AccountRoles.Set(dbContext, key, [BuiltInRoleFor(role)]);
         }

@@ -19,7 +19,16 @@ public class NativeTestResponder : INativeInfolinkHandler
 
     public void InitializeStartupValues(IDictionary<string, string> settings) => _settings = settings;
 
-    public Task<XchangeFile> Handle(XchangeFile xchangeFile) => Task.FromResult(new XchangeFile(
-        _settings.TryGetValue("Body", out var body) ? body : xchangeFile.Data,
-        badData: _settings.TryGetValue("Bad", out var bad) && bool.Parse(bad)));
+    /// <summary>How many times each <c>Body</c> was delivered, so a test can tell a repeat delivery happened.</summary>
+    public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> Deliveries = new();
+
+    public Task<XchangeFile> Handle(XchangeFile xchangeFile)
+    {
+        var hasBody = _settings.TryGetValue("Body", out var body);
+        if (hasBody) Deliveries.AddOrUpdate(body, 1, (_, n) => n + 1);
+
+        return Task.FromResult(new XchangeFile(
+            hasBody ? body : xchangeFile.Data,
+            badData: _settings.TryGetValue("Bad", out var bad) && bool.Parse(bad)));
+    }
 }

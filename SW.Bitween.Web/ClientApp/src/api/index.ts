@@ -12,5 +12,5 @@ export const api: ApiClient = httpClient;
 export { getAppConfig, resetAppConfig } from "./http/appConfig";
 export type { AppConfig } from "./http/appConfig";
 export { referencesGlobal, referencesPartnerProp } from "./http/references";
-export { TOKEN_KEY, onSessionEnded } from "./http/request";
+export { onSessionEnded, onSignedOutElsewhere } from "./http/request";
 export * from "./types";

@@ -60,11 +60,17 @@ public class MappingPreviewError
 /// yet.
 /// </para>
 /// </remarks>
-public class Preview(MappingContextFactory contextFactory)
+public class Preview(RequestContext requestContext, BitweenDbContext dbContext,
+        MappingContextFactory contextFactory)
     : ICommandHandler<MappingPreviewRequest, MappingPreviewResponse>
 {
     public async Task<MappingPreviewResponse> Handle(MappingPreviewRequest request)
     {
+        // The editor opens while creating a subscription as well as while editing one, so either
+        // right will do. Without a guard any signed-in token could map any partner's values.
+        await requestContext.EnsurePermission(dbContext,
+            Model.Permissions.Subscriptions.Create, Model.Permissions.Subscriptions.Edit);
+
         MappingRules rules;
         try
         {
@@ -99,7 +105,7 @@ public class Preview(MappingContextFactory contextFactory)
             return new MappingPreviewResponse { Error = ex.Message };
         }
 
-        var context = await contextFactory.Build(request.PartnerId);
+        var context = await contextFactory.Build(request.PartnerId, maskSecrets: true);
 
         try
         {

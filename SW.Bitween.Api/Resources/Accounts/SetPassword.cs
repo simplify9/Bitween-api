@@ -30,6 +30,9 @@ public class SetPassword(BitweenDbContext dbContext, RequestContext requestConte
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {key}");
 
+        // Setting someone's password is signing in as them, so it needs everything they hold.
+        await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
+
         account.SetPassword(request.Password);
         await dbContext.SaveChangesAsync();
 

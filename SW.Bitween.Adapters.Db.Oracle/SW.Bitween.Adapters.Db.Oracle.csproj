@@ -20,4 +20,7 @@
     <ProjectReference Include="../SW.Bitween.Adapters.Db.Core/SW.Bitween.Adapters.Db.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SW.Bitween.UnitTests" />
+  </ItemGroup>
 </Project>

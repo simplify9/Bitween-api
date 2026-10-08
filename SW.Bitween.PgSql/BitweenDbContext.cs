@@ -78,7 +78,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 //b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
-                b.Property(p => p.AdapterProperties).HasColumnType("jsonb");
+                b.Property(p => p.AdapterProperties).EncryptedJsonb();
                 b.Property(p => p.SecretProperties).HasColumnType("jsonb");
                 b.Property(p => p.LoginIdentity).HasMaxLength(500);
                 b.HasIndex(p => p.LoginIdentity).IsUnique();
@@ -89,6 +89,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     apicred.ToTable("partner_api_credential");
                     apicred.Property(p => p.Name).IsRequired().HasMaxLength(500);
                     apicred.Property(p => p.Key).IsRequired().HasMaxLength(500);
+                    apicred.Property(p => p.KeyPrefix).HasMaxLength(10);
                     apicred.HasIndex(p => p.Key).IsUnique();
                     apicred.WithOwner().HasForeignKey("PartnerId");
 
@@ -241,7 +242,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
             {
                 gav.ToTable("global_adapter_values_set");
                 gav.HasKey(i => i.Id);
-                gav.Property(p => p.Values).HasColumnType("jsonb");
+                gav.Property(p => p.Values).EncryptedJsonb();
                 gav.Property(p => p.SecretProperties).HasColumnType("jsonb");
             });
             modelBuilder.Entity<Subscription>(b =>
@@ -257,10 +258,10 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 });
 
 
-                b.Property(p => p.HandlerProperties).HasColumnType("jsonb");
-                b.Property(p => p.MapperProperties).HasColumnType("jsonb");
-                b.Property(p => p.ReceiverProperties).HasColumnType("jsonb");
-                b.Property(p => p.ValidatorProperties).HasColumnType("jsonb");
+                b.Property(p => p.HandlerProperties).EncryptedJsonb();
+                b.Property(p => p.MapperProperties).EncryptedJsonb();
+                b.Property(p => p.ReceiverProperties).EncryptedJsonb();
+                b.Property(p => p.ValidatorProperties).EncryptedJsonb();
                 b.Property(p => p.DocumentFilter).HasColumnType("jsonb");
 
                 b.Property(p => p.ResponseMessageTypeName).HasMaxLength(500);
@@ -301,8 +302,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.InputName).HasMaxLength(200);
                 b.Property(p => p.MapperId).HasMaxLength(200);
                 b.Property(p => p.HandlerId).HasMaxLength(200);
-                b.Property(p => p.HandlerProperties).HasColumnType("jsonb");
-                b.Property(p => p.MapperProperties).HasColumnType("jsonb");
+                b.Property(p => p.HandlerProperties).EncryptedJsonb();
+                b.Property(p => p.MapperProperties).EncryptedJsonb();
                 b.Property(p => p.SourceValues).HasColumnType("jsonb");
                 b.Property(p => p.SourceXchangeId).HasMaxLength(50);
                 b.Property(p => p.InputContentType).HasMaxLength(200);
@@ -378,11 +379,15 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // hstore by convention, so encrypted value by value rather than as one JSON document.
+            modelBuilder.Entity<DataSource>(b =>
+                b.Property(p => p.Properties).EncryptedValues().HasColumnType("hstore"));
+
             modelBuilder.Entity<Notifier>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
             });
 
@@ -497,7 +502,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.Groups).HasConversion(
                     groups => JsonSerializer.Serialize(groups, _polymorphicOpts),
                     json => JsonSerializer.Deserialize<List<RetryGroup>>(json, _polymorphicOpts)!,
@@ -526,6 +531,16 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasIndex(p => p.On);
             });
 
+            modelBuilder.Entity<OutboxMessage>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.MessageType).IsRequired().HasMaxLength(500);
+                b.Property(p => p.Body).IsRequired();
+                b.Property(p => p.Headers).StoreAsJson();
+                b.Property(p => p.LastError).HasMaxLength(2000);
+                b.HasIndex(p => p.PublishedOn);
+            });
+
             modelBuilder.Entity<ReceiveAttempt>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
@@ -545,7 +560,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasKey(p => new { p.SubscriptionId, p.GroupId });
                 b.Property(p => p.AlertMode).HasConversion<byte>();
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.UseSchedulerPostgreSql(Schema);

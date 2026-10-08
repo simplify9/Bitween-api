@@ -49,7 +49,8 @@ public class MappingPreviewTests
         object rules, string document, int? partnerId = null)
     {
         await using var scope = _fixture.CreateScope();
-        var handler = new Preview(scope.ServiceProvider.GetRequiredService<MappingContextFactory>());
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Preview>(scope.ServiceProvider);
 
         return await handler.Handle(new MappingPreviewRequest
         {
@@ -120,7 +121,8 @@ public class MappingPreviewTests
     public async Task Unreadable_rules_are_a_general_error()
     {
         await using var scope = _fixture.CreateScope();
-        var handler = new Preview(scope.ServiceProvider.GetRequiredService<MappingContextFactory>());
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Preview>(scope.ServiceProvider);
 
         var response = await handler.Handle(new MappingPreviewRequest
         {
@@ -225,6 +227,45 @@ public class MappingPreviewTests
 
         Assert.Null(response.Error);
         Assert.Equal("JO", JObject.Parse(response.OutputDocument!)["region"]?.ToString());
+    }
+
+    /// <summary>
+    /// The rules are the caller's own, so they can copy any value into the output. A value the
+    /// partner's owner declared secret comes back as the sentinel, not as the credential.
+    /// </summary>
+    [Fact]
+    public async Task A_partner_value_declared_secret_is_masked()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var partner = new Partner("Preview Secret Partner")
+        {
+            AdapterProperties = new Dictionary<string, string>
+            {
+                ["region-code"] = "JO",
+                ["api-key"] = "partner-secret-value",
+            },
+            SecretProperties = ["api-key"],
+        };
+        db.Set<Partner>().Add(partner);
+        await db.SaveChangesAsync();
+
+        var response = await PreviewAsync(new
+        {
+            version = 1,
+            fields = new object[]
+            {
+                new { target = new[] { "region" }, from = new { kind = "Partner", key = "region-code" } },
+                new { target = new[] { "key" }, from = new { kind = "Partner", key = "api-key" } },
+            },
+        }, "{}", partner.Id);
+
+        Assert.Null(response.Error);
+        var output = JObject.Parse(response.OutputDocument!);
+        Assert.Equal("JO", output["region"]?.ToString());
+        Assert.Equal(AdapterSecretProperties.Sentinel, output["key"]?.ToString());
+        Assert.DoesNotContain("partner-secret-value", response.OutputDocument);
     }
 
     /// <summary>

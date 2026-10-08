@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signInAsAdmin } from "./helpers";
+import { sessionToken, signInAsAdmin } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
@@ -7,11 +7,14 @@ test.beforeEach(async ({ page }) => {
 
 /** The backend's own API, called with the signed-in admin's token. */
 async function api<T>(page: Page, path: string): Promise<T> {
-  return page.evaluate(async (p) => {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(`/api${p}`, { headers: { Authorization: `Bearer ${token}` } });
-    return res.json();
-  }, path);
+  const token = await sessionToken(page);
+  return page.evaluate(
+    async ({ p, t }) => {
+      const res = await fetch(`/api${p}`, { headers: { Authorization: `Bearer ${t}` } });
+      return res.json();
+    },
+    { p: path, t: token },
+  );
 }
 
 test("the storage section explains retention, previews a change and asks before saving it", async ({ page }) => {

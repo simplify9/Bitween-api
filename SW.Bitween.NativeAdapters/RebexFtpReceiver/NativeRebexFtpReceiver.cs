@@ -20,6 +20,7 @@ public class NativeRebexFtpReceiver(string? licenseKey = null) : INativeInfolink
             case "sftpssh":
                 var sftpssh = new Sftp();
                 await sftpssh.ConnectAsync(_options.Host, _options.Port ?? 22);
+                FtpProtocol.VerifyHostKey(sftpssh, _options.HostKeyFingerprint);
 
                 var keyBytes = Encoding.UTF8.GetBytes(SshKeyNormalizer.Normalize(_options.PrivateKey));
                 var privateKey = new SshPrivateKey(keyBytes, _options.Password);
@@ -31,6 +32,7 @@ public class NativeRebexFtpReceiver(string? licenseKey = null) : INativeInfolink
             case "sftp":
                 var sftp = new Sftp();
                 await sftp.ConnectAsync(_options.Host, _options.Port ?? 22);
+                FtpProtocol.VerifyHostKey(sftp, _options.HostKeyFingerprint);
                 _ftpOrSftp = sftp;
                 await _ftpOrSftp.LoginAsync(_options.Username, _options.Password);
                 break;

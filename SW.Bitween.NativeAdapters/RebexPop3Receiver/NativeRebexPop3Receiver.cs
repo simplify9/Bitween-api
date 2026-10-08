@@ -46,8 +46,10 @@ public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolin
         if (message.Attachments.Count < 1)
             return new XchangeFile(message.BodyText, message.Subject);
 
+        // The attachment is already in hand with the message. This used to also save the raw message
+        // to a local file named after the attachment — a name the sender chooses, so any mail to the
+        // mailbox could write wherever that name pointed — and nothing ever read the file.
         var attachment = message.Attachments[0];
-        await _pop3.GetMessageAsync(sequenceNumber, attachment.FileName);
 
         await using var stream = attachment.GetContentStream();
         using var memoryStream = new MemoryStream();

@@ -45,8 +45,10 @@ public class Preview(RequestContext requestContext, BitweenDbContext dbContext)
             var jObj = parsed as JObject;
             var jArr = parsed as JArray;
 
+            // Declared secrets are masked: the template is the caller's own, so it can print any
+            // value it is given.
             JObject? partnerObj = partner?.AdapterProperties?.Count > 0
-                ? JObject.FromObject(partner.AdapterProperties)
+                ? JObject.FromObject(AdapterSecretProperties.Mask(partner.AdapterProperties, partner.SecretProperties))
                 : null;
 
             JObject? globalsObj = null;
@@ -55,7 +57,7 @@ public class Preview(RequestContext requestContext, BitweenDbContext dbContext)
             {
                 globalsObj = new JObject();
                 foreach (var set in nonEmptySets)
-                    globalsObj[set.Id] = JObject.FromObject(set.Values);
+                    globalsObj[set.Id] = JObject.FromObject(AdapterSecretProperties.Mask(set.Values, set.SecretProperties));
             }
 
             if (jObj != null && (partnerObj != null || globalsObj != null))

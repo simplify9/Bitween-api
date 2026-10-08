@@ -938,7 +938,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("secret_properties");
 
-                    b.Property<Dictionary<string, string>>("Values")
+                    b.Property<string>("Values")
                         .HasColumnType("jsonb")
                         .HasColumnName("values");
 
@@ -1054,6 +1054,60 @@ namespace SW.Bitween.PgSql.Migrations
                     b.ToTable("on_hold_xchange", "infolink");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.OutboxMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("body");
+
+                    b.Property<DateTime?>("ClaimedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("claimed_until");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("Headers")
+                        .HasColumnType("text")
+                        .HasColumnName("headers");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("message_type");
+
+                    b.Property<DateTime?>("PublishedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_on");
+
+                    b.HasKey("Id")
+                        .HasName("pk_outbox_message");
+
+                    b.HasIndex("PublishedOn")
+                        .HasDatabaseName("ix_outbox_message_published_on");
+
+                    b.ToTable("outbox_message", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
                 {
                     b.Property<int>("Id")
@@ -1063,7 +1117,7 @@ namespace SW.Bitween.PgSql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<Dictionary<string, string>>("AdapterProperties")
+                    b.Property<string>("AdapterProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("adapter_properties");
 
@@ -1332,7 +1386,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("handler_id");
 
-                    b.Property<IReadOnlyDictionary<string, string>>("HandlerProperties")
+                    b.Property<string>("HandlerProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("handler_properties");
 
@@ -1353,7 +1407,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("mapper_id");
 
-                    b.Property<IReadOnlyDictionary<string, string>>("MapperProperties")
+                    b.Property<string>("MapperProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("mapper_properties");
 
@@ -1384,7 +1438,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("receiver_id");
 
-                    b.Property<IReadOnlyDictionary<string, string>>("ReceiverProperties")
+                    b.Property<string>("ReceiverProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("receiver_properties");
 
@@ -1405,6 +1459,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("run_on_bad_responses");
 
+                    b.Property<DateTime?>("RunningSince")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("running_since");
+
                     b.Property<bool>("Temporary")
                         .HasColumnType("boolean")
                         .HasColumnName("temporary");
@@ -1418,7 +1476,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("validator_id");
 
-                    b.Property<IReadOnlyDictionary<string, string>>("ValidatorProperties")
+                    b.Property<string>("ValidatorProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("validator_properties");
 
@@ -1554,7 +1612,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("handler_id");
 
-                    b.Property<IReadOnlyDictionary<string, string>>("HandlerProperties")
+                    b.Property<string>("HandlerProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("handler_properties");
 
@@ -1587,7 +1645,7 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("mapper_id");
 
-                    b.Property<IReadOnlyDictionary<string, string>>("MapperProperties")
+                    b.Property<string>("MapperProperties")
                         .HasColumnType("jsonb")
                         .HasColumnName("mapper_properties");
 
@@ -2551,6 +2609,11 @@ namespace SW.Bitween.PgSql.Migrations
                                 .HasMaxLength(500)
                                 .HasColumnType("character varying(500)")
                                 .HasColumnName("key");
+
+                            b1.Property<string>("KeyPrefix")
+                                .HasMaxLength(10)
+                                .HasColumnType("character varying(10)")
+                                .HasColumnName("key_prefix");
 
                             b1.Property<string>("Name")
                                 .IsRequired()

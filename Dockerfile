@@ -36,4 +36,10 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 COPY --from=ui-build /src/SW.Bitween.Web/wwwroot ./wwwroot
+# Run as the image's built-in non-root user. The one place Bitween writes under /app is the cache
+# of downloaded adapter packages (SW.Serverless AdapterLocalPath, ./adapters by default), so that
+# directory alone is handed over. It is a cache: packages are fetched again from storage if it is
+# empty, so a fresh container needs no volume for it.
+RUN mkdir -p /app/adapters && chown $APP_UID /app/adapters
+USER $APP_UID
 ENTRYPOINT ["dotnet", "SW.Bitween.Web.dll"]

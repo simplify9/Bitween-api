@@ -6,8 +6,63 @@ import { ApiRequestError } from "../types";
  */
 export const API_BASE = "/api";
 
-/** The Jwt is kept in localStorage; the refresh token is an HttpOnly cookie JS never sees. */
+/**
+ * Where earlier versions kept the Jwt. Read once at load only to delete it, so a token left
+ * behind by an older build does not outlive the upgrade.
+ */
 export const TOKEN_KEY = "access_token";
+
+/**
+ * Set while this browser holds a session, cleared when it ends. Not a credential — it only tells
+ * a new tab or a reload that a refresh cookie is worth trying, so the sign-in page doesn't spend
+ * the sign-in rate limit probing for a session that was never there.
+ */
+export const SIGNED_IN_KEY = "bitween_signed_in";
+
+/**
+ * The Jwt lives in this module's memory and nowhere else; the refresh token is an HttpOnly
+ * cookie JS never sees. localStorage was readable by any script that ever ran on the page, and
+ * a stolen Jwt works from anywhere until it expires. A reload starts with no Jwt and gets one
+ * from the refresh cookie (see `getSession`).
+ */
+let accessToken: string | null = null;
+
+type SessionMessage = { type: "token"; jwt: string } | { type: "signed-out" };
+
+/**
+ * How tabs share what used to be shared through localStorage: a new Jwt, and the end of the
+ * session. Missing in very old browsers, where each tab simply refreshes on its own.
+ */
+const channel: BroadcastChannel | null =
+  typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("bitween-session");
+
+// Node (the test runner) keeps a process alive while a channel listens; browsers have no unref.
+(channel as unknown as { unref?: () => void } | null)?.unref?.();
+
+let signedOutElsewhereListener: (() => void) | null = null;
+
+/** Told when another tab of this origin ends the session. `SessionProvider` registers itself. */
+export const onSignedOutElsewhere = (listener: (() => void) | null): void => {
+  signedOutElsewhereListener = listener;
+};
+
+channel?.addEventListener("message", (event: MessageEvent<SessionMessage>) => {
+  if (event.data?.type === "token") accessToken = event.data.jwt;
+  else if (event.data?.type === "signed-out") {
+    accessToken = null;
+    signedOutElsewhereListener?.();
+  }
+});
+
+const safeStorage = (action: () => void): void => {
+  try {
+    action();
+  } catch {
+    /* storage can be unavailable (private mode, blocked site data); the hint is only an optimisation */
+  }
+};
+
+safeStorage(() => localStorage.removeItem(TOKEN_KEY));
 
 /**
  * Told when a request proves the session is over — the Jwt was refused and no
@@ -24,9 +79,28 @@ export const onSessionEnded = (listener: (() => void) | null): void => {
   sessionEndedListener = listener;
 };
 
-export const getToken = (): string | null => localStorage.getItem(TOKEN_KEY);
-export const setToken = (jwt: string): void => localStorage.setItem(TOKEN_KEY, jwt);
-export const clearToken = (): void => localStorage.removeItem(TOKEN_KEY);
+export const getToken = (): string | null => accessToken;
+
+export const setToken = (jwt: string): void => {
+  accessToken = jwt;
+  safeStorage(() => localStorage.setItem(SIGNED_IN_KEY, "1"));
+  channel?.postMessage({ type: "token", jwt } satisfies SessionMessage);
+};
+
+export const clearToken = (): void => {
+  accessToken = null;
+  safeStorage(() => localStorage.removeItem(SIGNED_IN_KEY));
+  channel?.postMessage({ type: "signed-out" } satisfies SessionMessage);
+};
+
+/** Whether this browser held a session when it last looked — worth a silent refresh to find out. */
+export const mayHaveSession = (): boolean => {
+  try {
+    return localStorage.getItem(SIGNED_IN_KEY) === "1";
+  } catch {
+    return true;
+  }
+};
 
 /** Backend serializes camelCase; login returns `{ jwt }`. */
 const readJwt = (data: unknown): string | null =>
@@ -39,10 +113,18 @@ let refreshInFlight: Promise<string | null> | null = null;
  * refresh_token cookie alone re-issues a Jwt. Returns the new token, or null
  * when the cookie is missing/expired. Bypasses `request()` to avoid recursion,
  * and dedupes concurrent callers behind one in-flight promise.
+ *
+ * Serialised across tabs with a Web Lock. Each refresh replaces the cookie and
+ * deletes the token it was sent with, so two tabs refreshing at once would send
+ * the same cookie and the second would be refused — signing that tab out. Behind
+ * the lock the second tab sends the cookie the first one just got, or, when the
+ * first tab's new Jwt has already arrived over the channel, does not refresh at all.
  */
 export function silentRefresh(): Promise<string | null> {
   if (!refreshInFlight) {
-    refreshInFlight = (async () => {
+    const tokenBefore = accessToken;
+    const refresh = async (): Promise<string | null> => {
+      if (accessToken && accessToken !== tokenBefore) return accessToken;
       try {
         const res = await fetch(`${API_BASE}/accounts/login`, {
           method: "POST",
@@ -58,7 +140,11 @@ export function silentRefresh(): Promise<string | null> {
       } catch {
         return null;
       }
-    })();
+    };
+    refreshInFlight = (async () =>
+      typeof navigator !== "undefined" && navigator.locks
+        ? navigator.locks.request("bitween-refresh", refresh)
+        : refresh())();
     void refreshInFlight.finally(() => {
       refreshInFlight = null;
     });

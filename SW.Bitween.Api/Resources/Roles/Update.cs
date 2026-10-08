@@ -1,3 +1,5 @@
+using System.Linq;
+using SW.Bitween.Resources.Accounts;
 using System.Threading.Tasks;
 using FluentValidation;
 using SW.Bitween.Model;
@@ -21,6 +23,11 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
                 $"'{role.Name}' is a built-in role and can't be changed. Create a role instead.");
 
         RoleValidation.EnsureKnownPermissions(model.Permissions);
+
+        // Both what the role grants now and what it would grant: editing a role you couldn't have
+        // created is as much a step past your own access as creating one.
+        await GrantLimits.EnsureCallerHoldsPermissions(dbContext, requestContext,
+            (role.Permissions ?? []).Concat(model.Permissions ?? []));
         await RoleValidation.EnsureNameIsFree(dbContext, model.Name, key);
 
         role.Update(model.Name, model.Description, model.Permissions);

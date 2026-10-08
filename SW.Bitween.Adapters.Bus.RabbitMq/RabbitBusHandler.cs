@@ -39,27 +39,32 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
     private IAdapterContext _context;
     private IConnection _connection;
-    private IModel _consumeChannel;
-    private IModel _publishChannel;
+    private IChannel _consumeChannel;
+    private IChannel _publishChannel;
 
-    // RabbitMQ.Client does not support concurrent application operations on one IModel, and every
-    // delivery is handled on the thread pool — so acks, nacks and the shutdown calls all go through
-    // these. Two gates rather than one: a publish must never queue behind a slow ack.
-    private readonly object _consumeGate = new();
-    private readonly object _publishGate = new();
+    // Deliveries are handled concurrently, up to the prefetch, so acks, nacks and the shutdown
+    // calls on one channel are serialised through these. Two gates rather than one: a publish must
+    // never queue behind a slow ack. Async, because every channel operation is in RabbitMQ.Client 7.
+    private readonly SemaphoreSlim _consumeGate = new(1, 1);
+    private readonly SemaphoreSlim _publishGate = new(1, 1);
     private CancellationTokenSource _stopping;
 
     private readonly List<string> _endpoints = new();
     private readonly Dictionary<string, string> _consumerTags = new();
 
-    private long _received, _acked, _nacked, _failed, _published;
+    private long _received, _acked, _nacked, _failed, _published, _poisoned;
+
+    // Failed attempts per message, for brokers that don't count them (only quorum queues send
+    // x-delivery-count). Keyed by message id, or by a hash of the body when there is none.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> _attempts = new();
+
     private DateTimeOffset? _lastMessageOn;
     private string _lastError;
     private volatile string _state = "Starting";
 
     // ---------------------------------------------------------------- lifecycle
 
-    public Task StartAsync(IAdapterContext context, CancellationToken cancellationToken)
+    public async Task StartAsync(IAdapterContext context, CancellationToken cancellationToken)
     {
         _context = context;
         _stopping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -78,23 +83,34 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
             // The supervisor owns restart policy — backoff, crash-loop quarantine, health
             // write-back. A second, hidden recovery loop in here would fight it.
-            AutomaticRecoveryEnabled = false
+            AutomaticRecoveryEnabled = false,
+
+            // Deliveries were handed to the thread pool one task each, so up to the prefetch ran at
+            // once. This keeps that, and keeps each delivery's body valid until its handler is done.
+            ConsumerDispatchConcurrency = Math.Max((ushort)1, _options.Prefetch)
         };
         if (_options.UseSsl) factory.Ssl = new SslOption { Enabled = true, ServerName = _options.Host };
 
-        _connection = factory.CreateConnection($"bitween-{context.InstanceKey}");
-        _connection.ConnectionShutdown += (_, e) =>
+        _connection = await factory.CreateConnectionAsync($"bitween-{context.InstanceKey}", cancellationToken);
+        _connection.ConnectionShutdownAsync += (_, e) =>
         {
             _state = "Disconnected";
             _lastError = $"{e.ReplyCode} {e.ReplyText}";
             logger.LogWarning("Connection to {Host} closed: {Reason}", _options.Host, e.ReplyText);
+            return Task.CompletedTask;
         };
 
-        _publishChannel = _connection.CreateModel();
-        _consumeChannel = _connection.CreateModel();
-        _consumeChannel.BasicQos(0, _options.Prefetch, global: false);
+        // With confirmations tracked, a publish completes only once the broker has confirmed it,
+        // and throws when the broker refuses it or — mandatory — routes it nowhere.
+        _publishChannel = await _connection.CreateChannelAsync(
+            new CreateChannelOptions(
+                publisherConfirmationsEnabled: _options.PublisherConfirms,
+                publisherConfirmationTrackingEnabled: _options.PublisherConfirms),
+            cancellationToken);
+        _consumeChannel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
+        await _consumeChannel.BasicQosAsync(0, _options.Prefetch, global: false, cancellationToken);
 
-        DeclareTopology(_consumeChannel);
+        await DeclareTopologyAsync(_consumeChannel, cancellationToken);
 
         // Manage-only: the connection is up and the topology is declared, but nothing is consumed.
         // TestConnection still checks every endpoint, because it reads _endpoints rather than the
@@ -103,33 +119,32 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
         {
             _state = "Idle";
             logger.LogInformation("Connected to {Host} without consuming (Consume=false).", _options.Host);
-            return Task.CompletedTask;
+            return;
         }
 
         foreach (var endpoint in _endpoints)
         {
-            var consumer = new EventingBasicConsumer(_consumeChannel);
-            consumer.Received += (_, delivery) => _ = Task.Run(() => HandleAsync(endpoint, delivery));
+            var consumer = new AsyncEventingBasicConsumer(_consumeChannel);
+            consumer.ReceivedAsync += (_, delivery) => HandleAsync(endpoint, delivery);
 
             // autoAck: false is what makes persist-then-ack possible at all.
-            _consumerTags[endpoint] = _consumeChannel.BasicConsume(endpoint, autoAck: false, consumer);
+            _consumerTags[endpoint] = await _consumeChannel.BasicConsumeAsync(endpoint, autoAck: false, consumer,
+                cancellationToken);
         }
 
         _state = _endpoints.Count == 0 ? "Idle" : "Connected";
         logger.LogInformation("Connected to {Host}:{Port}{VHost}, consuming {Count} endpoint(s) with prefetch {Prefetch}.",
             _options.Host, _options.Port, _options.VirtualHost, _endpoints.Count, _options.Prefetch);
-
-        return Task.CompletedTask;
     }
 
-    private void DeclareTopology(IModel channel)
+    private async Task DeclareTopologyAsync(IChannel channel, CancellationToken cancellationToken)
     {
         var mode = (_options.DeclareMode ?? "assert").ToLowerInvariant();
         if (mode == "none") return;
 
         if (mode == "create" && !string.IsNullOrWhiteSpace(_options.Exchange))
-            channel.ExchangeDeclare(_options.Exchange, _options.ExchangeType ?? "topic",
-                durable: _options.Durable, autoDelete: false);
+            await channel.ExchangeDeclareAsync(_options.Exchange, _options.ExchangeType ?? "topic",
+                durable: _options.Durable, autoDelete: false, cancellationToken: cancellationToken);
 
         foreach (var endpoint in _endpoints)
         {
@@ -137,44 +152,49 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
             {
                 // Throws if it does not exist, which is what we want: better to fail at start than
                 // to silently create a queue on someone else's broker.
-                channel.QueueDeclarePassive(endpoint);
+                await channel.QueueDeclarePassiveAsync(endpoint, cancellationToken);
                 continue;
             }
 
             var arguments = new Dictionary<string, object>();
             if (!string.IsNullOrWhiteSpace(_options.QueueType)) arguments["x-queue-type"] = _options.QueueType;
 
-            channel.QueueDeclare(endpoint, durable: _options.Durable, exclusive: false,
-                autoDelete: false, arguments: arguments.Count == 0 ? null : arguments);
+            await channel.QueueDeclareAsync(endpoint, durable: _options.Durable, exclusive: false,
+                autoDelete: false, arguments: arguments.Count == 0 ? null : arguments,
+                cancellationToken: cancellationToken);
 
             if (!string.IsNullOrWhiteSpace(_options.Exchange))
-                channel.QueueBind(endpoint, _options.Exchange, _options.RoutingKey ?? endpoint);
+                await channel.QueueBindAsync(endpoint, _options.Exchange, _options.RoutingKey ?? endpoint,
+                    cancellationToken: cancellationToken);
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         _state = "Draining";
         _stopping?.Cancel();
 
-        lock (_consumeGate)
+        await _consumeGate.WaitAsync(CancellationToken.None);
+        try
         {
             foreach (var tag in _consumerTags.Values)
-                try { _consumeChannel?.BasicCancel(tag); } catch { }
+                try { if (_consumeChannel != null) await _consumeChannel.BasicCancelAsync(tag); } catch { }
 
-            try { _consumeChannel?.Close(); } catch { }
+            try { if (_consumeChannel != null) await _consumeChannel.CloseAsync(); } catch { }
         }
+        finally { _consumeGate.Release(); }
 
-        lock (_publishGate)
-            try { _publishChannel?.Close(); } catch { }
-        try { _connection?.Close(TimeSpan.FromSeconds(3)); } catch { }
+        await _publishGate.WaitAsync(CancellationToken.None);
+        try { if (_publishChannel != null) await _publishChannel.CloseAsync(); } catch { }
+        finally { _publishGate.Release(); }
+
+        try { if (_connection != null) await _connection.CloseAsync(TimeSpan.FromSeconds(3)); } catch { }
         _connection?.Dispose();
 
         _state = "Stopped";
-        return Task.CompletedTask;
     }
 
-    public Task<AdapterStatus> GetStatusAsync()
+    public async Task<AdapterStatus> GetStatusAsync()
     {
         var status = new AdapterStatus
         {
@@ -195,18 +215,20 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
         status.Details["failed"] = _failed.ToString();
         status.Details["published"] = _published.ToString();
 
-        foreach (var endpoint in _endpoints)
-            status.Details[$"depth:{endpoint}"] = Depth(endpoint)?.ToString() ?? "?";
+        status.Details["poisoned"] = _poisoned.ToString();
 
-        return Task.FromResult(status);
+        foreach (var endpoint in _endpoints)
+            status.Details[$"depth:{endpoint}"] = (await DepthAsync(endpoint))?.ToString() ?? "?";
+
+        return status;
     }
 
-    private uint? Depth(string queue)
+    private async Task<uint?> DepthAsync(string queue)
     {
         try
         {
-            using var probe = _connection.CreateModel();
-            return probe.QueueDeclarePassive(queue).MessageCount;
+            await using var probe = await _connection.CreateChannelAsync();
+            return (await probe.QueueDeclarePassiveAsync(queue)).MessageCount;
         }
         catch { return null; }
     }
@@ -246,30 +268,138 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
             if (result.Accepted)
             {
-                lock (_consumeGate) _consumeChannel.BasicAck(delivery.DeliveryTag, multiple: false);
+                await OnConsumeChannelAsync(c => c.BasicAckAsync(delivery.DeliveryTag, multiple: false));
+                _attempts.TryRemove(AttemptKey(endpoint, delivery), out _);
                 Interlocked.Increment(ref _acked);
                 _lastMessageOn = DateTimeOffset.UtcNow;
                 _context.Metric("bitween.bus.rabbitmq.acked", 1);
             }
             else
             {
-                lock (_consumeGate) _consumeChannel.BasicNack(delivery.DeliveryTag, multiple: false, requeue: true);
                 Interlocked.Increment(ref _nacked);
                 _lastError = result.Error;
-                logger.LogWarning("Bitween rejected a message from {Endpoint}: {Error}. Requeued.",
-                    endpoint, result.Error);
+                await RejectAsync(endpoint, delivery, result.Error);
             }
         }
         catch (OperationCanceledException)
         {
-            try { lock (_consumeGate) _consumeChannel.BasicNack(delivery.DeliveryTag, false, requeue: true); } catch { }
+            try { await OnConsumeChannelAsync(c => c.BasicNackAsync(delivery.DeliveryTag, false, requeue: true)); } catch { }
         }
         catch (Exception ex)
         {
             Interlocked.Increment(ref _failed);
             _lastError = ex.Message;
             logger.LogError(ex, "Failed to hand a delivery from {Endpoint} to Bitween.", endpoint);
-            try { lock (_consumeGate) _consumeChannel.BasicNack(delivery.DeliveryTag, false, requeue: true); } catch { }
+            try { await RejectAsync(endpoint, delivery, ex.Message); } catch { }
+        }
+    }
+
+    /// <summary>
+    /// A message Bitween did not take. It used to go straight back on the queue, so one that always
+    /// fails came straight back too — round and round, as fast as the broker could deliver it,
+    /// holding a prefetch slot and filling the log. Now each requeue waits a little longer, and
+    /// after <see cref="RabbitOptions.MaxDeliveryAttempts"/> the poison action takes over.
+    /// </summary>
+    private async Task RejectAsync(string endpoint, BasicDeliverEventArgs delivery, string error)
+    {
+        var attempt = AttemptOf(endpoint, delivery);
+        var action = (_options.PoisonAction ?? "requeue").ToLowerInvariant();
+
+        if (_options.MaxDeliveryAttempts > 0 && attempt >= _options.MaxDeliveryAttempts && action != "requeue")
+        {
+            if (action == "park" && !string.IsNullOrWhiteSpace(_options.ParkingQueue))
+            {
+                await ParkAsync(endpoint, delivery, error, attempt);
+                await OnConsumeChannelAsync(c => c.BasicAckAsync(delivery.DeliveryTag, multiple: false));
+            }
+            else
+            {
+                await OnConsumeChannelAsync(c => c.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: false));
+            }
+
+            _attempts.TryRemove(AttemptKey(endpoint, delivery), out _);
+            Interlocked.Increment(ref _poisoned);
+            logger.LogError("A message from {Endpoint} failed {Attempts} times and was {Action}: {Error}",
+                endpoint, attempt, action == "park" ? $"parked on {_options.ParkingQueue}" : "rejected", error);
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(Math.Min(attempt, 10)), _stopping.Token);
+        }
+        catch (OperationCanceledException) { /* stopping: requeue straight away */ }
+
+        await OnConsumeChannelAsync(c => c.BasicNackAsync(delivery.DeliveryTag, multiple: false, requeue: true));
+        logger.LogWarning("Bitween rejected a message from {Endpoint} (attempt {Attempt}): {Error}. Requeued.",
+            endpoint, attempt, error);
+    }
+
+    private int AttemptOf(string endpoint, BasicDeliverEventArgs delivery)
+    {
+        // Quorum queues count deliveries themselves, across restarts and nodes.
+        if (delivery.BasicProperties?.Headers?.TryGetValue("x-delivery-count", out var counted) == true &&
+            counted is not null && long.TryParse(counted.ToString(), out var deliveries))
+            return (int)deliveries + 1;
+
+        if (_attempts.Count > 100_000) _attempts.Clear();
+        return _attempts.AddOrUpdate(AttemptKey(endpoint, delivery), 1, (_, n) => n + 1);
+    }
+
+    private static string AttemptKey(string endpoint, BasicDeliverEventArgs delivery) =>
+        endpoint + ":" + (delivery.BasicProperties?.MessageId is { Length: > 0 } id
+            ? id
+            : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(delivery.Body.Span)));
+
+    private async Task OnConsumeChannelAsync(Func<IChannel, ValueTask> action)
+    {
+        await _consumeGate.WaitAsync();
+        try { await action(_consumeChannel); }
+        finally { _consumeGate.Release(); }
+    }
+
+    private async Task ParkAsync(string endpoint, BasicDeliverEventArgs delivery, string error, int attempts)
+    {
+        var headers = new Dictionary<string, object>();
+        if (delivery.BasicProperties?.Headers is { } original)
+            foreach (var (key, value) in original) headers[key] = value;
+        headers["x-bitween-error"] = error ?? "";
+        headers["x-bitween-endpoint"] = endpoint;
+        headers["x-bitween-attempts"] = attempts;
+
+        var properties = new BasicProperties
+        {
+            ContentType = delivery.BasicProperties?.ContentType,
+            MessageId = delivery.BasicProperties?.MessageId,
+            DeliveryMode = DeliveryModes.Persistent,
+            Headers = headers
+        };
+
+        await PublishConfirmedAsync("", _options.ParkingQueue, mandatory: false, properties, delivery.Body);
+    }
+
+    /// <summary>
+    /// Publishes and, with confirmations on, returns only once the broker has confirmed it. Without
+    /// that, a message the broker dropped — a full queue, a failover — was still recorded as
+    /// delivered. A refusal, or a mandatory message routed nowhere, throws.
+    /// </summary>
+    private async Task PublishConfirmedAsync(string exchange, string routingKey, bool mandatory,
+        BasicProperties properties, ReadOnlyMemory<byte> body)
+    {
+        await _publishGate.WaitAsync();
+        try
+        {
+            await _publishChannel.BasicPublishAsync(exchange, routingKey, mandatory, properties, body);
+        }
+        catch (RabbitMQ.Client.Exceptions.PublishException ex)
+        {
+            throw new InvalidOperationException(ex.IsReturn
+                ? "No queue received the message; the broker returned it as unroutable."
+                : "The broker refused the message.", ex);
+        }
+        finally
+        {
+            _publishGate.Release();
         }
     }
 
@@ -291,7 +421,7 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
     /// Egress. Bitween does not have this on the internal gateway yet; an external provider gets
     /// it for free because the adapter owns the connection either way.
     /// </summary>
-    public Task<object> Publish(PublishRequest request)
+    public async Task<object> Publish(PublishRequest request)
     {
         if (string.IsNullOrWhiteSpace(request?.Endpoint) && string.IsNullOrWhiteSpace(request?.Exchange))
             throw new ArgumentException("Either Endpoint or Exchange is required.");
@@ -299,25 +429,22 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
         var body = System.Text.Encoding.UTF8.GetBytes(request.Body ?? "");
         var messageId = request.MessageId ?? Guid.NewGuid().ToString("N");
 
-        // CreateBasicProperties is itself a channel operation, so it belongs inside the gate with
-        // the publish rather than beside it.
-        lock (_publishGate)
+        var properties = new BasicProperties
         {
-            var properties = _publishChannel.CreateBasicProperties();
-            properties.ContentType = request.ContentType ?? "application/json";
-            properties.MessageId = messageId;
-            properties.DeliveryMode = (byte)(_options.Durable ? 2 : 1);
+            ContentType = request.ContentType ?? "application/json",
+            MessageId = messageId,
+            DeliveryMode = _options.Durable ? DeliveryModes.Persistent : DeliveryModes.Transient
+        };
 
-            _publishChannel.BasicPublish(
-                exchange: request.Exchange ?? "",
-                routingKey: request.Exchange == null ? request.Endpoint : request.RoutingKey ?? "",
-                mandatory: false,
-                basicProperties: properties,
-                body: body);
-        }
+        await PublishConfirmedAsync(
+            exchange: request.Exchange ?? "",
+            routingKey: request.Exchange == null ? request.Endpoint : request.RoutingKey ?? "",
+            mandatory: _options.Mandatory,
+            properties,
+            body);
 
         Interlocked.Increment(ref _published);
-        return Task.FromResult<object>(new { messageId, bytes = body.Length });
+        return new { messageId, bytes = body.Length };
     }
 
     /// <summary>
@@ -372,7 +499,7 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
     }
 
     /// <summary>The control the UI needs before a data source is saved. Staged, so a failure names the step.</summary>
-    public Task<object> TestConnection()
+    public async Task<object> TestConnection()
     {
         var steps = new List<object>();
         IConnection probe = null;
@@ -387,52 +514,60 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
             };
             if (_options.UseSsl) factory.Ssl = new SslOption { Enabled = true, ServerName = _options.Host };
 
-            probe = factory.CreateConnection("bitween-probe");
+            probe = await factory.CreateConnectionAsync("bitween-probe");
             steps.Add(new { step = "connect", ok = true, detail = probe.Endpoint.ToString() });
 
-            using var channel = probe.CreateModel();
+            await using var channel = await probe.CreateChannelAsync();
             steps.Add(new { step = "authenticate", ok = true, detail = _options.VirtualHost });
 
             foreach (var endpoint in _endpoints)
             {
                 try
                 {
-                    var declared = channel.QueueDeclarePassive(endpoint);
+                    var declared = await channel.QueueDeclarePassiveAsync(endpoint);
                     steps.Add(new { step = $"queue:{endpoint}", ok = true, detail = $"{declared.MessageCount} message(s)" });
                 }
                 catch (Exception ex)
                 {
                     steps.Add(new { step = $"queue:{endpoint}", ok = false, detail = ex.Message });
-                    return Task.FromResult<object>(new { ok = false, steps });
+                    return new { ok = false, steps };
                 }
             }
 
-            return Task.FromResult<object>(new { ok = true, steps });
+            return new { ok = true, steps };
         }
         catch (Exception ex)
         {
             steps.Add(new { step = "failed", ok = false, detail = ex.Message });
-            return Task.FromResult<object>(new { ok = false, steps });
+            return new { ok = false, steps };
         }
         finally
         {
-            try { probe?.Close(); probe?.Dispose(); } catch { }
+            try { if (probe != null) await probe.CloseAsync(); probe?.Dispose(); } catch { }
         }
     }
 
     /// <summary>What is actually on the broker, for the "pick a queue" step in the UI.</summary>
-    public Task<object> Discover() => Task.FromResult<object>(new
+    public async Task<object> Discover()
     {
-        host = $"{_options.Host}:{_options.Port}",
-        virtualHost = _options.VirtualHost,
-        endpoints = _endpoints.Select(e => new { name = e, messages = Depth(e), consuming = _consumerTags.ContainsKey(e) }),
-        note = "AMQP alone can only report on queues we were told about. " +
-               "Listing everything on the broker needs the management plugin."
-    });
+        var endpoints = new List<object>();
+        foreach (var e in _endpoints)
+            endpoints.Add(new { name = e, messages = await DepthAsync(e), consuming = _consumerTags.ContainsKey(e) });
+
+        return new
+        {
+            host = $"{_options.Host}:{_options.Port}",
+            virtualHost = _options.VirtualHost,
+            endpoints,
+            note = "AMQP alone can only report on queues we were told about. " +
+                   "Listing everything on the broker needs the management plugin."
+        };
+    }
 
     public Task<object> GetStats() => Task.FromResult<object>(new
     {
         received = _received, acked = _acked, nacked = _nacked, failed = _failed, published = _published,
+        poisoned = _poisoned,
         endpoints = _endpoints, prefetch = _options.Prefetch
     });
 

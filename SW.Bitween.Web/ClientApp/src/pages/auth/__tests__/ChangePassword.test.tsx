@@ -2,7 +2,7 @@ import { screen } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
-import { TOKEN_KEY } from "../../../api";
+import { getToken } from "../../../api/http/request";
 import { ADMIN, apiPath, renderApp } from "../../../__tests__/support/renderApp";
 
 /**
@@ -62,7 +62,7 @@ describe("the forced password change", () => {
     expect(await screen.findByRole("heading", { name: "Your profile" })).toBeVisible();
     expect(router.state.location.pathname).toBe("/profile");
     expect(calls.signIn).toEqual({ Username: ADMIN.email, Password: NEW_PASSWORD });
-    expect(localStorage.getItem(TOKEN_KEY)).toBe("fresh-token");
+    expect(getToken()).toBe("fresh-token");
   });
 
   it("sends you to sign in when signing back in fails", async () => {

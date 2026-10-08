@@ -26,7 +26,9 @@ namespace SW.Bitween.Resources.Partners
                     ApiCredentials = partner.ApiCredentials.Select(cred => new KeyAndValue
                     {
                         Key = cred.Name,
-                        Value = $"{cred.Key.Remove(5)}...(hidden)"
+                        // Keys are stored hashed, so the prefix kept beside the hash is all there is
+                        // to show. A short key used to throw here, too: Remove(5) on fewer than five.
+                        Value = (cred.KeyPrefix ?? "") + "...(hidden)"
                     }).ToList(),
 
                     Subscriptions = partner.Subscriptions.Select(sub => new SubscriptionSearch

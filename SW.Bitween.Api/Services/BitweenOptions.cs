@@ -52,6 +52,29 @@ namespace SW.Bitween
         /// </para>
         /// </remarks>
         public bool ExposeApiDocs { get; set; }
+
+        /// <summary>
+        /// Refuse HTTP adapter calls to private and loopback addresses (10/8, 172.16/12,
+        /// 192.168/16, 127/8, fc00::/7 and the like). Off by default: Bitween is self-hosted, and
+        /// calling systems inside the customer's own network is a normal integration. Link-local
+        /// addresses, where the cloud metadata endpoints live, are refused either way.
+        /// </summary>
+        public bool BlockPrivateNetworkAddresses { get; set; }
+
+        /// <summary>
+        /// Comma-separated addresses or CIDR ranges of the proxies whose X-Forwarded-For is
+        /// believed. Empty trusts the nearest proxy whatever its address, which is right behind an
+        /// ingress whose address isn't known ahead of time; set it when clients can also reach the
+        /// service directly, or they can choose the address they are rate-limited as.
+        /// </summary>
+        public string TrustedProxies { get; set; }
+
+        /// <summary>
+        /// How long a receiver run may hold its subscription's running flag before another run may
+        /// take it over. A run killed with its process never clears the flag; this is what lets the
+        /// subscription run again. Longer than any real run, so a slow one is not run twice.
+        /// </summary>
+        public int StaleRunAfterMinutes { get; set; } = 120;
         /// <summary>
         /// Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix
         /// decides how long they're kept (<c>temp30/…</c> is 30 days). Each exchange records the prefix

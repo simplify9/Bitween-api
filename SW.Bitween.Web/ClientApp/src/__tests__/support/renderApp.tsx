@@ -5,7 +5,7 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, type RequestHandler } from "msw";
 import { RouterProvider, createMemoryRouter } from "react-router";
-import { TOKEN_KEY } from "../../api";
+import { setToken } from "../../api/http/request";
 import type { AppConfig } from "../../api/http/appConfig";
 import { SessionProvider } from "../../auth/SessionContext";
 import { routes } from "../../router";
@@ -69,7 +69,7 @@ export interface RenderAppOptions {
  * dependent on whatever data happened to be lying around.
  */
 export function renderApp(path: string, { as = {}, config = {}, handlers = [] }: RenderAppOptions = {}) {
-  if (as) localStorage.setItem(TOKEN_KEY, "test-token");
+  if (as) setToken("test-token");
   server.use(...handlers, appConfig(config), ...(as ? [profile(as)] : []));
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

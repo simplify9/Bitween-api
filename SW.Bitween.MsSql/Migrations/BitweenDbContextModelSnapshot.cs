@@ -882,6 +882,49 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("OnHoldXchanges", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.OutboxMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ClaimedUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Headers")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("PublishedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublishedOn");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
                 {
                     b.Property<int>("Id")
@@ -1168,6 +1211,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.Property<bool>("RunOnBadResponses")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime?>("RunningSince")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("Temporary")
                         .HasColumnType("bit");
@@ -2209,6 +2255,10 @@ namespace SW.Bitween.MsSql.Migrations
                                 .HasMaxLength(500)
                                 .IsUnicode(false)
                                 .HasColumnType("varchar(500)");
+
+                            b1.Property<string>("KeyPrefix")
+                                .HasMaxLength(10)
+                                .HasColumnType("nvarchar(10)");
 
                             b1.Property<string>("Name")
                                 .IsRequired()

@@ -329,6 +329,35 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     }
 
     /// <summary>
+    /// A node that cannot start a data source — it can't reach the broker, say — used to keep the
+    /// lease and retry forever, so the node that could have run it never got the chance. After a
+    /// few failed starts it lets go.
+    /// </summary>
+    [Fact]
+    public async Task A_data_source_that_keeps_failing_to_start_gives_up_its_lease()
+    {
+        var broken = await CreateDataSourceAsync(adapterId: "bitween.bus.doesnotexist");
+        await AddGatewayAsync(broken, Unique("sup-yield"));
+
+        await using var supervisor = Supervisor();
+        await supervisor.ReconcileAsync();
+
+        using var other = Node();
+        Assert.Null(await other.TryAcquireAsync($"datasource.{broken}"));
+
+        await supervisor.ReconcileAsync();
+        await supervisor.ReconcileAsync();
+
+        var lease = await WaitForAcquireAsync(other, $"datasource.{broken}");
+        Assert.NotNull(lease);
+
+        // And while it waits out the pause, this node does not grab it back.
+        await supervisor.ReconcileAsync();
+        Assert.Null(InstanceOf(broken));
+        await lease!.DisposeAsync();
+    }
+
+    /// <summary>
     /// Health has to land in the database, because that is the only place the UI and the notifiers
     /// can see it. An operator should not need to tail logs to find out a broker went away.
     /// </summary>
