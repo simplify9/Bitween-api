@@ -21,7 +21,8 @@ public class GatewayController(
     RequestContext requestContext,
     IInfolinkCache cache,
     XchangeService xchangeService,
-    GatewayCallers callers) : ControllerBase
+    GatewayCallers callers,
+    BitweenOptions options) : ControllerBase
 {
     /// <summary>
     /// <c>{gateway's url name}/sync</c> or <c>/async</c>. The url name can be several segments,
@@ -120,26 +121,17 @@ public class GatewayController(
             return Accepted(xchangeId);
         }
 
-        var waitResponse = 120;
-        //  check headers for wait response value
-        var waitResponseHeader = Request.Headers["Wait-Period"].FirstOrDefault();
-        if (int.TryParse(waitResponseHeader, out var waitResponseValue))
-        {
-            waitResponse = waitResponseValue <= 0 ? 120 : waitResponseValue;
-        }
+        // The caller may ask for its own wait in Wait-Period; it is capped, see ResultWait.
+        var waitResponse = ResultWait.Clamp(
+            int.TryParse(Request.Headers["Wait-Period"].FirstOrDefault(), out var asked) ? asked : null,
+            options.MaxResponseWaitSeconds);
 
-        var currentFibTerm = 1;
-        var previousTerm = 1;
-        while (currentFibTerm <= waitResponse)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(currentFibTerm));
-            var nextTerm = Math.Min(currentFibTerm + previousTerm, 8);
-            previousTerm = currentFibTerm;
-            currentFibTerm = nextTerm;
-            if (!await dbContext.Set<XchangeResult>()
-                    .AsNoTracking()
-                    .AnyAsync(i => i.Id == xchangeId)) continue;
+        var available = await ResultWait.UntilAsync(
+            () => dbContext.Set<XchangeResult>().AsNoTracking().AnyAsync(i => i.Id == xchangeId),
+            waitResponse, HttpContext.RequestAborted);
 
+        if (available)
+        {
             var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
 
 

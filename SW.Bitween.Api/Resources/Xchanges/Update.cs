@@ -15,7 +15,8 @@ namespace SW.Bitween.Resources.Xchanges
 {
     [Unprotect]
     public class Update(RequestContext requestContext, XchangeService xchangeService, BitweenDbContext dbContext,
-        BitweenOptions BitweenSettings, IInfolinkCache cache) : ICommandHandler<string, object,object>
+        BitweenOptions BitweenSettings, IInfolinkCache cache,
+        Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor = null) : ICommandHandler<string, object,object>
     {
         public async Task<object> Handle(string documentIdOrName, dynamic request)
         {
@@ -63,10 +64,11 @@ namespace SW.Bitween.Resources.Xchanges
                 .Where(item => item.Name.ToLower() == "waitresponse")
                 .Select(item => item.Value).FirstOrDefault();
 
+            // No header, no wait — as before. With one, the wait is capped; see ResultWait.
             var waitResponse = 0;
             if (int.TryParse(waitResponseHeader, out var waitResponseValue))
             {
-                waitResponse = waitResponseValue <= 0 ? 120 : waitResponseValue;
+                waitResponse = ResultWait.Clamp(waitResponseValue, BitweenSettings.MaxResponseWaitSeconds);
                 xchangeReferences.Add($"waitresponse: {waitResponse}");
             }
 
@@ -85,15 +87,11 @@ namespace SW.Bitween.Resources.Xchanges
                     Status = CqApiResultStatus.Ok
                 };
 
-            var currentFibTerm = 1;
-            var previousTerm = 1;
-            while (currentFibTerm <= waitResponse)
+            var available = await ResultWait.UntilAsync(() => IsResultAvailable(xchangeId), waitResponse,
+                httpContextAccessor?.HttpContext?.RequestAborted ?? System.Threading.CancellationToken.None);
+
+            if (available)
             {
-                await Task.Delay(TimeSpan.FromSeconds(currentFibTerm));
-                var nextTerm = Math.Min(currentFibTerm + previousTerm, 8);
-                previousTerm = currentFibTerm;
-                currentFibTerm = nextTerm;
-                if (!await IsResultAvailable(xchangeId)) continue;
 
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
 

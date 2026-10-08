@@ -75,6 +75,12 @@ namespace SW.Bitween
         /// subscription run again. Longer than any real run, so a slow one is not run twice.
         /// </summary>
         public int StaleRunAfterMinutes { get; set; } = 120;
+
+        /// <summary>
+        /// The longest a synchronous gateway call is held open waiting for its exchange's result,
+        /// whatever wait the caller asks for. After it the caller gets 202 with the exchange id.
+        /// </summary>
+        public int MaxResponseWaitSeconds { get; set; } = 300;
         /// <summary>
         /// Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix
         /// decides how long they're kept (<c>temp30/…</c> is 30 days). Each exchange records the prefix
