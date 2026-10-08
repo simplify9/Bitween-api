@@ -91,16 +91,39 @@ public class DataSourceApiTests(BitweenFixture fixture)
         var id = await CreateAsync(new Dictionary<string, string>
         {
             ["Host"] = "broker.example.com",
-            ["Password"] = "hunter2"
+            ["Password"] = "hunter2",
+            ["Prefetch"] = "16"
         });
 
         var row = await GetAsync(id);
-        row.Properties["Host"] = "broker2.example.com";   // the only real edit
+        row.Properties["Prefetch"] = "32";   // the only real edit
 
         await UpdateAsync(id, row);
 
         Assert.Equal("hunter2", await StoredPropertyAsync(id, "Password"));
-        Assert.Equal("broker2.example.com", await StoredPropertyAsync(id, "Host"));
+        Assert.Equal("32", await StoredPropertyAsync(id, "Prefetch"));
+    }
+
+    /// <summary>
+    /// Except when the edit points the connection somewhere else. Kept across that, the password
+    /// would go to whoever runs the new host, sent there by someone who never saw it.
+    /// </summary>
+    [Fact]
+    public async Task Pointing_the_connection_elsewhere_drops_the_masked_secret()
+    {
+        var id = await CreateAsync(new Dictionary<string, string>
+        {
+            ["Host"] = "broker.example.com",
+            ["Password"] = "hunter2"
+        });
+
+        var row = await GetAsync(id);
+        row.Properties["Host"] = "broker.attacker.example";
+
+        await UpdateAsync(id, row);
+
+        Assert.Null(await StoredPropertyAsync(id, "Password"));
+        Assert.Equal("broker.attacker.example", await StoredPropertyAsync(id, "Host"));
     }
 
     /// <summary>And a genuine change still goes through, or the field would be uneditable.</summary>

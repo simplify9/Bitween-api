@@ -20,7 +20,11 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             // was stored for. Switching handlers drops it, so the secret can't follow the notifier
             // to a handler that might send it somewhere else.
             var newHandlerId = request.HandlerId ?? notifier.HandlerId;
-            var stored = newHandlerId == notifier.HandlerId ? notifier.HandlerProperties : null;
+            var incoming = (request.HandlerProperties ?? []).ToDictionary();
+            var stored = AdapterSecretProperties.MayKeepStoredSecrets(notifier.HandlerId, newHandlerId,
+                notifier.HandlerProperties, incoming)
+                ? notifier.HandlerProperties
+                : null;
 
             notifier.Update(request.Name, request.RunOnSuccessfulResult,
                 request.RunOnBadResult,
@@ -32,7 +36,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             // An absent list means none, as it does for a document's promoted properties
             // and a retry policy's groups. Left implicit it threw ArgumentNullException.
             notifier.SetDictionaries(
-                AdapterSecretProperties.Merge(stored, (request.HandlerProperties ?? []).ToDictionary()));
+                AdapterSecretProperties.Merge(stored, incoming));
 
             await dbContext.SaveChangesAsync();
             await cache.BroadcastRevoke();

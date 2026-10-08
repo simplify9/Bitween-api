@@ -30,7 +30,9 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
             // would overwrite its password with a row of dots. After SetProperties, which would
             // otherwise put the mask straight back.
             entity.AdapterProperties =
-                AdapterSecretProperties.Merge(storedProperties, model.AdapterProperties);
+                AdapterSecretProperties.Merge(storedProperties, model.AdapterProperties,
+                    AdapterSecretProperties.MayKeepStoredSecrets(null, null, storedProperties,
+                        model.AdapterProperties ?? new Dictionary<string, string>()));
             entity.SecretProperties = model.SecretProperties?.ToList() ?? [];
             entity.LoginIdentity = await PartnerLoginIdentity.Validate(dbContext, model.LoginIdentity, key);
             await dbContext.SaveChangesAsync();

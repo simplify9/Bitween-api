@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,9 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
 
         // Secrets came out of Get masked, so put them back from what is stored. A form that only
         // changed the prefetch must not overwrite the password with a row of dots.
-        var properties = Secrets.Merge(entity.Properties, model.Properties);
+        var keep = AdapterSecretProperties.MayKeepStoredSecrets(entity.AdapterId, model.AdapterId,
+            entity.Properties, model.Properties ?? new Dictionary<string, string>());
+        var properties = Secrets.Merge(keep ? entity.Properties : null, model.Properties);
 
         entity.Name = model.Name;
         entity.AdapterId = model.AdapterId;

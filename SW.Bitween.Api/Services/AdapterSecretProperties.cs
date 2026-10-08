@@ -112,6 +112,51 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
     }
 
     /// <summary>
+    /// Whether a sentinel may still mean "keep what is stored". Not once the adapter is a different
+    /// one, or a property saying where it connects has changed: a secret kept across that goes to
+    /// wherever the editor pointed it — their own server, say — without their ever having seen it.
+    /// Re-entering it then proves they know it.
+    /// </summary>
+    public static bool MayKeepStoredSecrets(string storedAdapterId, string newAdapterId,
+        IReadOnlyDictionary<string, string> stored, IEnumerable<KeyValuePair<string, string>> incoming)
+    {
+        if (!string.Equals(storedAdapterId ?? "", newAdapterId ?? "", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var before = stored ?? new Dictionary<string, string>();
+        var after = (incoming ?? []).Where(kv => kv.Key != null)
+            .GroupBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var key in before.Keys.Concat(after.Keys).Where(IsDestination).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            before.TryGetValue(key, out var was);
+            after.TryGetValue(key, out var now);
+            if (now == Sentinel) continue;
+            if (!string.Equals(was ?? "", now ?? "", StringComparison.Ordinal)) return false;
+        }
+
+        return true;
+    }
+
+    private static readonly string[] DestinationWords =
+        ["url", "uri", "host", "server", "endpoint", "address", "domain", "port", "connectionstring"];
+
+    /// <summary>A property that says where an adapter connects, judged by its name.</summary>
+    public static bool IsDestination(string key) =>
+        key != null && DestinationWords.Any(w => key.Replace("_", "").Replace("-", "")
+            .Contains(w, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// <see cref="Merge(IReadOnlyDictionary{string,string},IReadOnlyDictionary{string,string})"/>,
+    /// except that when <paramref name="keepStored"/> is false a sentinel restores nothing — the
+    /// secret has to be entered again.
+    /// </summary>
+    public static Dictionary<string, string> Merge(IReadOnlyDictionary<string, string> stored,
+        IReadOnlyDictionary<string, string> incoming, bool keepStored) =>
+        Merge(keepStored ? stored : null, incoming);
+
+    /// <summary>
     /// <see cref="Mask"/> applied to the dictionary the caller already holds.
     /// </summary>
     /// <remarks>

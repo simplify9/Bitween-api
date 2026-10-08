@@ -88,15 +88,35 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
     {
         var (id, documentId, partnerId) = await AnIntegrationWithASecret();
 
-        // Exactly what the browser posts when someone edits the host and leaves the password alone.
+        // Exactly what the browser posts when someone edits the subject and leaves the password alone.
         await Update(id, documentId, partnerId,
-            new KeyAndValue { Key = "Host", Value = "smtp.newhost.com" },
+            new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+            new KeyAndValue { Key = "Subject", Value = "Renamed subject" },
             new KeyAndValue { Key = "Password", Value = Sentinel });
 
         var properties = await StoredProperties(id);
 
         Assert.Equal(RealPassword, properties["Password"]);
-        Assert.Equal("smtp.newhost.com", properties["Host"]);
+        Assert.Equal("Renamed subject", properties["Subject"]);
+    }
+
+    /// <summary>
+    /// Except when the edit moves the integration to another server: the kept password would go to
+    /// whoever runs it, sent there by someone who never saw it. It has to be entered again.
+    /// </summary>
+    [Fact]
+    public async Task Moving_to_another_server_drops_the_kept_secret()
+    {
+        var (id, documentId, partnerId) = await AnIntegrationWithASecret();
+
+        await Update(id, documentId, partnerId,
+            new KeyAndValue { Key = "Host", Value = "smtp.attacker.example" },
+            new KeyAndValue { Key = "Password", Value = Sentinel });
+
+        var properties = await StoredProperties(id);
+
+        Assert.False(properties.ContainsKey("Password"));
+        Assert.Equal("smtp.attacker.example", properties["Host"]);
     }
 
     [Fact]

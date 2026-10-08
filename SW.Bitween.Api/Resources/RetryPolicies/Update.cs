@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -37,17 +38,23 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         foreach (var group in model.Groups ?? [])
         {
             var storedGroup = entity.Groups.FirstOrDefault(g => g.Id == group.Id);
+            var keep = storedGroup != null && AdapterSecretProperties.MayKeepStoredSecrets(
+                storedGroup.AlertHandlerId, group.AlertHandlerId, storedGroup.AlertHandlerProperties,
+                group.AlertHandlerProperties ?? new Dictionary<string, string>());
             AdapterSecretProperties.MergeInPlace(
-                storedGroup?.AlertHandlerProperties, group.AlertHandlerProperties);
+                keep ? storedGroup.AlertHandlerProperties : null, group.AlertHandlerProperties);
         }
 
         var storedPolicyProperties = entity.AlertHandlerProperties;
+        var storedPolicyHandlerId = entity.AlertHandlerId;
 
         entity.Name = model.Name;
         entity.Groups = model.Groups ?? [];
         entity.AlertHandlerId = model.AlertHandlerId;
         entity.AlertHandlerProperties =
-            AdapterSecretProperties.Merge(storedPolicyProperties, model.AlertHandlerProperties);
+            AdapterSecretProperties.Merge(storedPolicyProperties, model.AlertHandlerProperties,
+                AdapterSecretProperties.MayKeepStoredSecrets(storedPolicyHandlerId, model.AlertHandlerId,
+                    storedPolicyProperties, model.AlertHandlerProperties ?? new Dictionary<string, string>()));
         await dbContext.SaveChangesAsync();
 
         if (removedGroupIds.Count > 0)

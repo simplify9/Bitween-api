@@ -30,6 +30,11 @@ internal static class SubscriptionConfigurationApplier
     public static async Task Apply(BitweenDbContext dbContext, AdapterRequirements adapterRequirements,
         Subscription entity, SubscriptionConfiguration model)
     {
+        // Read before they are overwritten: whether a stored secret may be kept depends on the
+        // adapter it was stored for. See AdapterSecretProperties.MayKeepStoredSecrets.
+        var (oldHandler, oldMapper, oldReceiver, oldValidator) =
+            (entity.HandlerId, entity.MapperId, entity.ReceiverId, entity.ValidatorId);
+
         entity.ReceiverId = model.ReceiverId;
         entity.ValidatorId = model.ValidatorId;
         entity.MapperId = model.MapperId;
@@ -63,11 +68,11 @@ internal static class SubscriptionConfigurationApplier
                 System.TimeSpan.Parse($"{dto.Days}.{dto.Hours}:{dto.Minutes}:0"), dto.Backwards)).ToList());
 
         entity.SetDictionaries(
-            MergeWithOriginal(entity.HandlerProperties, model.HandlerProperties),
-            MergeWithOriginal(entity.MapperProperties, model.MapperProperties),
-            MergeWithOriginal(entity.ReceiverProperties, model.ReceiverProperties),
+            MergeWithOriginal(entity.HandlerProperties, model.HandlerProperties, oldHandler, model.HandlerId),
+            MergeWithOriginal(entity.MapperProperties, model.MapperProperties, oldMapper, model.MapperId),
+            MergeWithOriginal(entity.ReceiverProperties, model.ReceiverProperties, oldReceiver, model.ReceiverId),
             model.DocumentFilter?.ToDictionary() ?? new Dictionary<string, string>(),
-            MergeWithOriginal(entity.ValidatorProperties, model.ValidatorProperties)
+            MergeWithOriginal(entity.ValidatorProperties, model.ValidatorProperties, oldValidator, model.ValidatorId)
         );
         entity.SetMatchExpression(model.MatchExpression);
 
@@ -81,8 +86,12 @@ internal static class SubscriptionConfigurationApplier
 
     private static Dictionary<string, string> MergeWithOriginal(
         IReadOnlyDictionary<string, string> original,
-        ICollection<KeyAndValue> incoming)
+        ICollection<KeyAndValue> incoming, string originalAdapterId, string adapterId)
     {
+        if (!AdapterSecretProperties.MayKeepStoredSecrets(originalAdapterId, adapterId, original,
+                (incoming ?? []).Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value))))
+            original = null;
+
         var result = new Dictionary<string, string>();
         foreach (var kv in incoming ?? Enumerable.Empty<KeyAndValue>())
         {

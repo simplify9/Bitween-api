@@ -213,6 +213,40 @@ public class NotifierTests(BitweenFixture fixture)
         Assert.Equal("smtp-secret-value", (await Stored(id)).HandlerProperties["Password"]);
     }
 
+    /// <summary>
+    /// Pointing the notifier at another mail server means entering the password again: kept, it
+    /// would be sent to whoever runs that server, by someone who never saw it.
+    /// </summary>
+    [Fact]
+    public async Task Changing_the_server_drops_the_kept_secret()
+    {
+        var handler = nameof(SW.Bitween.NativeAdapters.SmtpHandler.NativeSmtpHandler);
+        var id = await Create(Unique("Moved notifier"));
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Moved notifier"),
+            HandlerId = handler,
+            HandlerProperties =
+            [
+                new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+                new KeyAndValue { Key = "Password", Value = "smtp-secret-value" },
+            ],
+        });
+
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Moved notifier"),
+            HandlerId = handler,
+            HandlerProperties =
+            [
+                new KeyAndValue { Key = "Host", Value = "smtp.attacker.example" },
+                new KeyAndValue { Key = "Password", Value = AdapterSecretProperties.Sentinel },
+            ],
+        });
+
+        Assert.False((await Stored(id)).HandlerProperties.ContainsKey("Password"));
+    }
+
     [Fact]
     public async Task A_viewer_cannot_create_or_delete_a_notifier()
     {

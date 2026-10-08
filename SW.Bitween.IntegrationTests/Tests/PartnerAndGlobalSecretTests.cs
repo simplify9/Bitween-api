@@ -210,11 +210,12 @@ public class PartnerAndGlobalSecretTests(BitweenFixture fixture)
     public async Task Saving_a_masked_global_value_back_keeps_the_stored_value()
     {
         var id = await CreateGlobalSetAsync(
-            new Dictionary<string, string> { ["baseUrl"] = "https://api.example.com", ["token"] = "glb-7" },
+            new Dictionary<string, string>
+                { ["baseUrl"] = "https://api.example.com", ["region"] = "eu", ["token"] = "glb-7" },
             secretProperties: ["token"]);
 
         var row = await GetGlobalSetAsync(id);
-        row.Values["baseUrl"] = "https://api2.example.com";
+        row.Values["region"] = "me";
         await UpdateGlobalSetAsync(id, row);
 
         await using var scope = fixture.CreateScope();
@@ -222,7 +223,29 @@ public class PartnerAndGlobalSecretTests(BitweenFixture fixture)
         var stored = await db.Set<GlobalAdapterValuesSet>().AsNoTracking().SingleAsync(x => x.Id == id);
 
         Assert.Equal("glb-7", stored.Values["token"]);
-        Assert.Equal("https://api2.example.com", stored.Values["baseUrl"]);
+        Assert.Equal("me", stored.Values["region"]);
+    }
+
+    /// <summary>
+    /// Except when the edit changes where the values point: the token would go wherever the new
+    /// address leads, sent by someone who never saw it, so it has to be entered again.
+    /// </summary>
+    [Fact]
+    public async Task Pointing_a_global_set_elsewhere_drops_its_masked_secret()
+    {
+        var id = await CreateGlobalSetAsync(
+            new Dictionary<string, string> { ["baseUrl"] = "https://api.example.com", ["token"] = "glb-8" },
+            secretProperties: ["token"]);
+
+        var row = await GetGlobalSetAsync(id);
+        row.Values["baseUrl"] = "https://api.attacker.example";
+        await UpdateGlobalSetAsync(id, row);
+
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var stored = await db.Set<GlobalAdapterValuesSet>().AsNoTracking().SingleAsync(x => x.Id == id);
+
+        Assert.False(stored.Values.ContainsKey("token"));
     }
 
     // ------------------------------------------------------------------- helpers

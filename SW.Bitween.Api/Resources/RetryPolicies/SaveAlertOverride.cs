@@ -65,7 +65,10 @@ public class SaveAlertOverride(BitweenDbContext dbContext, RequestContext reques
         foreach (var kv in existing?.AlertHandlerProperties ?? new Dictionary<string, string>())
             restoreFrom[kv.Key] = kv.Value;
 
-        var properties = AdapterSecretProperties.Merge(restoreFrom, request.AlertHandlerProperties);
+        var restoreFromHandler = existing?.AlertHandlerId ?? inherited?.HandlerId;
+        var properties = AdapterSecretProperties.Merge(restoreFrom, request.AlertHandlerProperties,
+            AdapterSecretProperties.MayKeepStoredSecrets(restoreFromHandler, request.AlertHandlerId, restoreFrom,
+                request.AlertHandlerProperties ?? new Dictionary<string, string>()));
 
         if (existing == null)
         {
