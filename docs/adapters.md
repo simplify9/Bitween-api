@@ -225,6 +225,8 @@ See [Mapping](mapping.md). Bitween has no native validators.
 
 ## Custom adapters
 
+What Bitween calls on an adapter of each kind, and what it passes, is the [adapter contract](adapter-contract.md).
+
 A custom adapter is a .NET console application that references `SimplyWorks.Serverless.Sdk`. This is the repository's sample handler.
 
 ```csharp
