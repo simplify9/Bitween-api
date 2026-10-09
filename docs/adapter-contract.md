@@ -56,6 +56,22 @@ Unknown properties are allowed and ignored.
 | `Validations` | array of `{"Key": string, "Value": string}`, required | One entry per failure: a code (often the field it concerns) and a message. Empty means it passed. |
 | `Success` | boolean | True when `Validations` is empty. Bitween derives it from `Validations`. |
 
+## Settings (startup values)
+
+An adapter declares the settings it reads, called "expects" in the .NET SDK (`Runner.Expect`). For each one: its name, a description, its type (`text`, `multiline`, `number`, `boolean`, `select` or `json`), whether it's required, whether it's secret, and a default. Bitween uses them to:
+
+- **build the settings form** for a subscription that uses the adapter
+- **refuse to save** a subscription missing a required setting
+- **mask secret settings** wherever they're shown, never log them, and never publish a secret's default
+- **fill in defaults** that aren't set
+
+Bitween gets the list in two ways:
+
+1. **From the package's manifest** (`adapter.json` `properties`), without starting the adapter. This is the normal way. `serverless build` writes these properties from the adapter's own declarations, in every language.
+2. **By asking the adapter**, when its package has no manifest properties: Bitween starts it and asks for its expected startup values. .NET adapters answer as they always have, and adapters in other languages answer from the settings in their handshake.
+
+Each SDK declares settings once, in code: `Runner.Expect` in .NET, and its equivalent in each other language's SDK. That one declaration feeds both the manifest and the handshake, and `serverless test` fails if the two don't match.
+
 ## Errors and rejections
 
 A call fails when the adapter raises an error. Bitween records the error's type and message on the exchange, and the subscription's retry policy decides what happens next.
