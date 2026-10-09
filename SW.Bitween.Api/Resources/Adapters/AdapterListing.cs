@@ -76,7 +76,50 @@ public class AdapterListing(
             return found == null ? entry : entry with { Manifest = found.Manifest, Catalog = found };
         }));
 
-        return native.Concat(withCatalog).ToList();
+        var listed = withCatalog.Select(e => e.Key).ToHashSet(System.StringComparer.OrdinalIgnoreCase);
+        var catalogOnly = await CatalogOnlyAsync(prefix, listed);
+
+        return native.Concat(withCatalog).Concat(catalogOnly).ToList();
+    }
+
+    /// <summary>
+    /// Adapters that are in the catalog but have no package at <c>adapters/{id}</c>, which is all
+    /// the listing above looks at. An adapter in another runtime than .NET is never put there —
+    /// older hosts would start it with dotnet — and neither is a .NET version published without
+    /// being made current. Each is listed under the kinds its manifests declare, or the old
+    /// naming convention, and only while it has a version that can still be used.
+    /// </summary>
+    private async Task<List<AdapterEntry>> CatalogOnlyAsync(string prefix, ISet<string> listed)
+    {
+        var kind = prefix?.TrimEnd('s') ?? "";
+        var root = serverlessOptions.AdapterRemotePath;
+        var catalogRoot = SW.Serverless.Contract.Catalog.AdapterCatalogPaths.CatalogRoot(root);
+
+        IEnumerable<CloudFileInfo> files;
+        try
+        {
+            files = await cloudFilesService.ListAsync(catalogRoot);
+        }
+        catch
+        {
+            // As everywhere the catalog is read: absent rather than fatal.
+            return [];
+        }
+
+        var ids = files
+            .Where(f => f.Key.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase))
+            .Select(f => f.Key[catalogRoot.Length..^".json".Length])
+            .Where(id => id.Length > 0 && !id.Contains('/') && !listed.Contains(id))
+            .ToList();
+
+        var entries = await Task.WhenAll(ids.Select(id => catalog.GetAsync(id)));
+        return entries
+            .Where(e => e != null && e.Versions.Any(v => !v.Withdrawn))
+            .Where(e => e.Id.StartsWith($"infolink6.{prefix}.", System.StringComparison.OrdinalIgnoreCase) ||
+                        (kind.Length > 0 && e.Versions.Append(new() { Manifest = e.Manifest })
+                            .Any(v => v.Manifest?.Kinds?.Contains(kind, System.StringComparer.OrdinalIgnoreCase) == true)))
+            .Select(e => new AdapterEntry(e.Id, false, [], e.Manifest ?? e.Versions.Last(v => !v.Withdrawn).Manifest, e))
+            .ToList();
     }
 
     /// <summary>
