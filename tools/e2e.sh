@@ -184,6 +184,8 @@ else
 fi
 export E2E_ADMIN_PASSWORD
 export E2E_BASE_URL="$APP_URL/"
+# The data source specs point a PostgreSQL data source at the e2e database itself.
+export E2E_PG_PORT="$PG_PORT"
 
 if ! $keep; then
   trap 'log "Tearing down"; teardown' EXIT
@@ -260,6 +262,8 @@ if ! $reuse; then
     export Bitween__RabbitMqManagementUsername=guest Bitween__RabbitMqManagementPassword=guest
     # The suite signs in dozens of times a minute, which the production limits are there to stop.
     export Bitween__RateLimits__SignInPerMinute=100000 Bitween__RateLimits__RequestsPerMinute=1000000
+    # Lets this node run resident data source providers — the PostgreSQL one published above.
+    export Bitween__BusProvidersEnabled=true
     export Bitween__InitialAdminPassword="$E2E_ADMIN_PASSWORD"
     exec nohup dotnet run --no-build --no-launch-profile >"$APP_LOG" 2>&1
   ) &
