@@ -1,8 +1,8 @@
 {
   "manifestVersion": 1,
   "id": "nativeftpuploadhandler",
-  "displayName": "FTP / SFTP upload",
-  "summary": "Uploads the message as a file to an FTP or SFTP server.",
+  "displayName": "FTP / FTPS upload",
+  "summary": "Uploads the message as a file to an FTP server, plain or over TLS (explicit or implicit FTPS).",
   "publisher": {
     "name": "Simplify9",
     "url": "https://simplify9.com"
@@ -10,7 +10,7 @@
   "license": "Proprietary",
   "tags": [
     "ftp",
-    "sftp",
+    "ftps",
     "file"
   ],
   "categories": [
@@ -28,25 +28,43 @@
       "type": "text",
       "required": true,
       "default": "",
-      "description": "FTP/SFTP server hostname."
+      "description": "FTP server hostname."
     },
     {
       "name": "Port",
       "type": "number",
-      "description": "Server port. If empty, the protocol's default port is used."
+      "description": "Server port. If empty, 990 is used for implicit FTPS and 21 otherwise."
     },
     {
       "name": "Username",
       "type": "text",
       "required": true,
       "default": "",
-      "description": "FTP/SFTP account username."
+      "description": "FTP account username."
     },
     {
       "name": "Password",
       "type": "text",
+      "required": true,
       "secret": true,
-      "description": "Account password, or the private key passphrase when using SFTP with a private key."
+      "description": "FTP account password."
+    },
+    {
+      "name": "Encryption",
+      "type": "text",
+      "default": "none",
+      "description": "none for plain FTP, explicit for FTPS that upgrades the connection with AUTH TLS (usually port 21), or implicit for FTPS that is TLS from the start (usually port 990)."
+    },
+    {
+      "name": "CertificateThumbprint",
+      "type": "text",
+      "description": "For FTPS: the SHA-256 thumbprint of the server's certificate, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before credentials are sent. When empty, the certificate must be valid."
+    },
+    {
+      "name": "PassiveMode",
+      "type": "boolean",
+      "default": "True",
+      "description": "Passive mode, where the client opens the data connections; what almost every server behind a firewall needs. Turn off for active mode."
     },
     {
       "name": "TargetPath",
@@ -62,24 +80,7 @@
       "name": "DataEncoding",
       "type": "text",
       "default": "utf8",
-      "description": "Encoding used to write the file contents (e.g. utf8)."
-    },
-    {
-      "name": "Protocol",
-      "type": "text",
-      "default": "sftp",
-      "description": "Transfer protocol to use (sftp or ftp)."
-    },
-    {
-      "name": "PrivateKey",
-      "type": "text",
-      "secret": true,
-      "description": "Private key used for SFTP authentication instead of a password."
-    },
-    {
-      "name": "HostKeyFingerprint",
-      "type": "text",
-      "description": "SHA-256 fingerprint of the SFTP server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
+      "description": "Encoding used to write the file contents: utf8, or base64 to write the decoded bytes."
     }
   ]
 }

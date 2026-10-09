@@ -1,0 +1,78 @@
+{
+  "manifestVersion": 1,
+  "id": "nativesftpuploadhandler",
+  "displayName": "SFTP upload",
+  "summary": "Uploads the message as a file to an SFTP server, signing in with a password or a private key.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "sftp",
+    "file"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "Host",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "SFTP server hostname."
+    },
+    {
+      "name": "Port",
+      "type": "number",
+      "description": "Server port. If empty, 22 is used."
+    },
+    {
+      "name": "Username",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "SFTP account username."
+    },
+    {
+      "name": "Password",
+      "type": "text",
+      "secret": true,
+      "description": "Account password, or the private key's passphrase when a private key is set."
+    },
+    {
+      "name": "PrivateKey",
+      "type": "text",
+      "secret": true,
+      "description": "Private key to sign in with instead of a password, in PEM or OpenSSH format. A PEM key pasted onto one line is re-wrapped."
+    },
+    {
+      "name": "HostKeyFingerprint",
+      "type": "text",
+      "description": "SHA-256 fingerprint of the server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
+    },
+    {
+      "name": "TargetPath",
+      "type": "text",
+      "description": "Remote directory to upload the file into."
+    },
+    {
+      "name": "FileNamePrefix",
+      "type": "text",
+      "description": "Prefix added to the uploaded file's name."
+    },
+    {
+      "name": "DataEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to write the file contents: utf8, or base64 to write the decoded bytes."
+    }
+  ]
+}

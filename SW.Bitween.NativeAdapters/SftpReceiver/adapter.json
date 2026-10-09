@@ -1,16 +1,15 @@
 {
   "manifestVersion": 1,
-  "id": "nativeftpreceiver",
-  "displayName": "FTP / FTPS pickup",
-  "summary": "Picks up files from an FTP server, plain or over TLS (explicit or implicit FTPS), on a schedule, leaving files still being written for the next run.",
+  "id": "nativesftpreceiver",
+  "displayName": "SFTP pickup",
+  "summary": "Picks up files from an SFTP server on a schedule, signing in with a password or a private key, and leaving files still being written for the next run.",
   "publisher": {
     "name": "Simplify9",
     "url": "https://simplify9.com"
   },
   "license": "Proprietary",
   "tags": [
-    "ftp",
-    "ftps",
+    "sftp",
     "file"
   ],
   "categories": [
@@ -28,43 +27,36 @@
       "type": "text",
       "required": true,
       "default": "",
-      "description": "FTP server hostname."
+      "description": "SFTP server hostname."
     },
     {
       "name": "Port",
       "type": "number",
-      "description": "Server port. If empty, 990 is used for implicit FTPS and 21 otherwise."
+      "description": "Server port. If empty, 22 is used."
     },
     {
       "name": "Username",
       "type": "text",
       "required": true,
       "default": "",
-      "description": "FTP account username."
+      "description": "SFTP account username."
     },
     {
       "name": "Password",
       "type": "text",
-      "required": true,
       "secret": true,
-      "description": "FTP account password."
+      "description": "Account password, or the private key's passphrase when a private key is set."
     },
     {
-      "name": "Encryption",
+      "name": "PrivateKey",
       "type": "text",
-      "default": "none",
-      "description": "none for plain FTP, explicit for FTPS that upgrades the connection with AUTH TLS (usually port 21), or implicit for FTPS that is TLS from the start (usually port 990)."
+      "secret": true,
+      "description": "Private key to sign in with instead of a password, in PEM or OpenSSH format. A PEM key pasted onto one line is re-wrapped."
     },
     {
-      "name": "CertificateThumbprint",
+      "name": "HostKeyFingerprint",
       "type": "text",
-      "description": "For FTPS: the SHA-256 thumbprint of the server's certificate, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before credentials are sent. When empty, the certificate must be valid."
-    },
-    {
-      "name": "PassiveMode",
-      "type": "boolean",
-      "default": "True",
-      "description": "Passive mode, where the client opens the data connections; what almost every server behind a firewall needs. Turn off for active mode."
+      "description": "SHA-256 fingerprint of the server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
     },
     {
       "name": "TargetPath",

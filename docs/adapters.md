@@ -32,7 +32,7 @@ Each adapter declares its properties. The UI shows which are required, which are
 
 ## Rebex license
 
-The Rebex FTP/SFTP adapters and the Rebex POP3 receiver use the commercial Rebex library. They are hidden from the adapter pickers until a key is saved in the **Rebex license key** setting, which takes effect without a restart. Each has an open-source counterpart that needs no license: `NativeFtpUploadHandler`, `NativeFtpReceiver` and `NativePop3Receiver`.
+The Rebex FTP/SFTP adapters and the Rebex POP3 receiver use the commercial Rebex library. They are hidden from the adapter pickers until a key is saved in the **Rebex license key** setting, which takes effect without a restart. Each has open-source counterparts that need no license: the SFTP adapters and the FTP / FTPS adapters below, and `NativePop3Receiver`.
 
 ## Handlers
 
@@ -113,9 +113,39 @@ Writes the payload to an Azure Blob container.
 
 Existing blobs are overwritten. The response file holds the blob name.
 
-### NativeFtpUploadHandler and NativeRebexFtpUploadHandler
+### NativeSftpUploadHandler and NativeFtpUploadHandler
 
-Upload the payload over SFTP or FTP. `NativeFtpUploadHandler` uses open-source clients (SSH.NET for SFTP, FluentFTP for FTP) and needs no license. `NativeRebexFtpUploadHandler`, shown as "(Rebex)", uses Rebex and needs a license. Both take the same properties and behave the same, so a subscription moves from one to the other by changing only the adapter.
+Upload the payload as a file, with open-source clients and no license: `NativeSftpUploadHandler` over SFTP (SSH.NET), `NativeFtpUploadHandler` over FTP or FTPS (FluentFTP). The file is named after the exchange file, or a UTC timestamp when it has no name, and a name from the message can't climb out of `TargetPath`.
+
+| Property | Default | Notes |
+|---|---|---|
+| `Host` *(required)*, `Username` *(required)* | | |
+| `TargetPath` | | Remote directory. |
+| `FileNamePrefix` | | Prepended as `{prefix}_`. |
+| `DataEncoding` | `utf8` | `base64` decodes the payload into bytes before uploading. |
+
+SFTP connection properties, shared with `NativeSftpReceiver`:
+
+| Property | Default | Notes |
+|---|---|---|
+| `Port` | 22 | |
+| `Password` *(secret)* | | Signs in, or is the private key's passphrase when a key is set. |
+| `PrivateKey` *(secret)* | | Signs in with this key instead, PEM or OpenSSH format. A PEM key pasted onto one line is re-wrapped. |
+| `HostKeyFingerprint` | | The server's `SHA256:...` host-key fingerprint. When set, any other key is refused before credentials are sent. |
+
+FTP connection properties, shared with `NativeFtpReceiver`:
+
+| Property | Default | Notes |
+|---|---|---|
+| `Port` | 21, or 990 for implicit FTPS | |
+| `Password` *(required, secret)* | | |
+| `Encryption` | `none` | `none` for plain FTP, `explicit` for FTPS with AUTH TLS, `implicit` for FTPS that is TLS from the start. |
+| `CertificateThumbprint` | | The server certificate's SHA-256 thumbprint, in hex (colons and case don't matter). When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before credentials are sent. When empty, the certificate must be valid. |
+| `PassiveMode` | `true` | Turn off for active mode. |
+
+### NativeRebexFtpUploadHandler
+
+Uploads over SFTP or plain FTP with Rebex, shown as "(Rebex)". Needs a Rebex license. Its `Protocol` property picks the protocol, where the open-source adapters are split by protocol instead: `sftp` and `sftpssh` map to `NativeSftpUploadHandler`, `ftp` to `NativeFtpUploadHandler` with `Encryption` `none`. Every other property has the same name.
 
 | Property | Default | Notes |
 |---|---|---|
@@ -161,9 +191,9 @@ The reply must be JSON, and a status of 400 or above fails the run. There is no 
 | `FolderName` | Prefix, with a `/` added. |
 | `BatchSize`, `ResponseEncoding`, `DeleteMovesFileTo` | As for S3. A blob that is already gone is skipped. |
 
-### NativeFtpReceiver and NativeRebexFtpReceiver
+### NativeSftpReceiver, NativeFtpReceiver and NativeRebexFtpReceiver
 
-Read files over SFTP or FTP. `NativeFtpReceiver` uses open-source clients and needs no license; `NativeRebexFtpReceiver`, shown as "(Rebex)", uses Rebex and needs one. Both take the same properties. The connection properties match the FTP upload handlers'.
+Read files over SFTP (`NativeSftpReceiver`), FTP or FTPS (`NativeFtpReceiver`), with open-source clients and no license, or over SFTP or plain FTP with Rebex (`NativeRebexFtpReceiver`, shown as "(Rebex)", needs a license). The connection properties are the upload handlers' for the same protocol.
 
 | Property | Default | Notes |
 |---|---|---|
@@ -171,6 +201,7 @@ Read files over SFTP or FTP. `NativeFtpReceiver` uses open-source clients and ne
 | `BatchSize`, `ResponseEncoding` | | |
 | `DeleteMovesFileTo` | | When set, processed files are moved into this directory. Otherwise they are deleted. |
 | `CheckFileExistence` | `true` | Skip the delete quietly when the file is already gone. |
+| `MinimumFileAgeSeconds` | 0 | A file changed more recently than this is left for the next run, so one still being uploaded isn't taken half-written. |
 
 ### NativePop3Receiver and NativeRebexPop3Receiver
 
