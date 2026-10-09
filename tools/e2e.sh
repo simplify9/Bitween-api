@@ -186,6 +186,8 @@ export E2E_ADMIN_PASSWORD
 export E2E_BASE_URL="$APP_URL/"
 # The data source specs point a PostgreSQL data source at the e2e database itself.
 export E2E_PG_PORT="$PG_PORT"
+# The queue health specs put dead letters and unread queues on the broker through its management API.
+export E2E_MQ_MGMT_URL="http://localhost:$MQ_MGMT_PORT"
 
 if ! $keep; then
   trap 'log "Tearing down"; teardown' EXIT
