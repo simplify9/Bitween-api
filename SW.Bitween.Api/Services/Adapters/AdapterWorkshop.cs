@@ -43,7 +43,7 @@ public class WorkshopRun
 
 /// <summary>
 /// The adapter editor's server side: drafts started from a template or a published version, then
-/// built, checked, tried and published with SW.Serverless.Tooling — the same code serverless build,
+/// built, checked, tried and published with SW.Serverless.Tooling — the same code bitween adapter build,
 /// test, run and publish are — so a version published here is the one the CLI would have published.
 /// </summary>
 /// <remarks>
@@ -372,7 +372,7 @@ public class AdapterWorkshop(
                 .ToList();
             if (names.Count > 0)
                 yield return $"requirements.txt names {string.Join(", ", names)}; the editor builds adapters that need only the SDK. " +
-                             "Build one with dependencies using serverless build, which vendors them";
+                             "Build one with dependencies using bitween adapter build, which vendors them";
         }
 
         if (files.TryGetValue("package.json", out var packageJson))
@@ -383,7 +383,7 @@ public class AdapterWorkshop(
                 .Where(n => !OwnPackages.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList() ?? [];
             if (names.Count > 0)
                 yield return $"package.json depends on {string.Join(", ", names)}; the editor builds adapters that need only the SDK. " +
-                             "Build one with dependencies using serverless build, which installs them";
+                             "Build one with dependencies using bitween adapter build, which installs them";
         }
     }
 

@@ -27,18 +27,18 @@ namespace SW.Bitween.Resources.DataSources;
 /// never drained, and it is stopped again before this returns.
 /// </summary>
 [HandlerName("test")]
-public class Test(BitweenDbContext dbContext, RequestContext requestContext,
+public class Test(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions bitweenOptions,
     IResidentAdapterHost adapters = null) : ICommandHandler<int, DataSourceTestRequest, object>
 {
     public async Task<object> Handle(int key, DataSourceTestRequest request)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.DataSources.Operate);
 
-        // Registered only when BusProvidersEnabled, so say which switch is off rather than
-        // failing to resolve a service the operator has never heard of. The switch is named for
-        // brokers because it predates database sources, so the message says what it now gates
-        // rather than repeating a name that means nothing to someone configuring PostgreSQL.
-        if (adapters == null)
+        // The host is registered on every node — Python and Node adapters run on it — but data
+        // sources connect only where BusProvidersEnabled turns them on, so say which switch is off.
+        // It is named for brokers because it predates database sources, so the message says what
+        // it now gates rather than repeating a name that means nothing to someone configuring PostgreSQL.
+        if (adapters == null || !bitweenOptions.BusProvidersEnabled)
             return Failed("Resident data source providers are turned off on this node, so nothing "
                           + "can connect from here. Turn on Bitween:BusProvidersEnabled — the "
                           + "switch is older than database sources and still carries the bus name.");

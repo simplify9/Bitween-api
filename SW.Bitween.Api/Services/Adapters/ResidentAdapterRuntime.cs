@@ -54,7 +54,10 @@ public class ResidentAdapterRuntime(
     public async Task<IAdapterSession> BeginAsync(string adapterId, AdapterRole role,
         IDictionary<string, string> properties, string correlationId)
     {
-        var adapters = serviceProvider.GetService<IResidentAdapterHost>()
+        // The host is on every node, for Python and Node adapters; running a resident adapter in
+        // the pipeline is still the opt-in it always was.
+        var enabled = serviceProvider.GetService<BitweenOptions>()?.BusProvidersEnabled ?? true;
+        var adapters = (enabled ? serviceProvider.GetService<IResidentAdapterHost>() : null)
             ?? throw new BitweenException(
                 $"Adapter '{adapterId}' is a resident adapter, but resident adapters are not "
                 + "enabled on this node (Bitween:BusProvidersEnabled). It cannot run here.");

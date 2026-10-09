@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Cli;
 using Xunit;
 
@@ -38,7 +39,8 @@ public class BitweenCliTests(HttpFixture fixture) : IDisposable
         await OneAtATime.WaitAsync();
         var original = Console.Out;
         using var output = new StringWriter();
-        Console.SetOut(output);
+        // The in-process server logs to the console from its own threads while the CLI writes.
+        Console.SetOut(TextWriter.Synchronized(output));
         BitweenApi.HandlerOverride = () => new FromAddress(fixture.App.Server.CreateHandler());
         try
         {
@@ -109,6 +111,23 @@ public class BitweenCliTests(HttpFixture fixture) : IDisposable
         var actions = trail["result"]!.AsArray().Where(r => (string?)r!["changes"]?["AdapterId"]?["new"] == id)
             .Select(r => (string)r!["changes"]!["Action"]!["new"]! + " " + (string)r["changes"]!["Version"]!["new"]!).OrderBy(a => a).ToArray();
         Assert.Equal(["promoted 0.1.0", "promoted 0.2.0", "published 0.1.0", "published 0.2.0", "withdrawn 0.2.0"], actions);
+
+        // And it runs, on a node with data sources off — the default: Python adapters run on the
+        // resident host, which every node has.
+        using (var scope = fixture.App.Services.CreateScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<SW.PrimitiveTypes.IServerlessService>();
+            await service.StartAsync(id, "cli-test", new System.Collections.Generic.Dictionary<string, string> { ["ApiKey"] = "k" });
+            try
+            {
+                var answer = await service.InvokeAsync<Newtonsoft.Json.Linq.JObject>("Handle", new { Data = "ping", Filename = "p.txt" });
+                Assert.Equal("ping", (string)answer["Data"]);
+            }
+            finally
+            {
+                ((IDisposable)service).Dispose();
+            }
+        }
 
         Assert.Equal(0, (await Bitween(profiles, null, "logout")).Exit);
         Assert.NotEqual(0, (await Bitween(profiles, null, "adapter", "versions", id)).Exit);

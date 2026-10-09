@@ -161,7 +161,7 @@ publish_catalog() {
   printf '{}' >"$BUCKET_DIR/adapters-catalog/$id.json.meta.json"
 }
 
-# A Python adapter as serverless build packages one: the source under source/, each file's
+# A Python adapter as bitween adapter build packages one: the source under source/, each file's
 # SHA-256 in the manifest, and — as for every adapter not on .NET — published to its versions and
 # the catalog only, never to adapters/<id>. Two versions, so the source can be compared.
 # publish_source_adapter <adapter id>
@@ -181,7 +181,7 @@ def manifest(version):
             "summary": "A Python handler that carries its source.", "publisher": {"name": "Bitween e2e"},
             "kinds": ["handler"], "entry": "adapter/main.py", "runtime": "python", "language": "python",
             "releaseNotes": f"Release {version}.",
-            "source": {"path": "source", "files": files, "buildCommand": "serverless build",
+            "source": {"path": "source", "files": files, "buildCommand": "sw-serverless build",
                        "lockfiles": ["requirements.txt"]}}
 versions = []
 for version, files in sources.items():

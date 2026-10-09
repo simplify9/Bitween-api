@@ -213,26 +213,30 @@ namespace SW.Bitween.Web
             services.AddScoped<StatementUsageReader>();
 
             // Scoped for the same reason: it reads the data source through the request's DbContext.
-            // IResidentAdapterHost is an optional dependency, so this resolves on a node with
-            // resident adapters turned off too — it just never has anyone to ask.
+            // On a node with data sources turned off no instance runs, so it has nobody to ask and
+            // saves the statement unchecked.
             services.AddScoped<StatementValidator>();
 
-            // Resident data source providers — brokers and databases both. Off by default because
-            // it is opt-in, not because it is unsafe to run on more than one node: a broker
-            // connection is exclusive, and every
-            // data source is held through a lease with a database-issued fencing term, so only
-            // one node consumes any given source. See BusProviderSupervisor and ILeaderElection.
+            // The resident adapter host, on every node. Python, Node and other non-.NET adapters
+            // run on it even as classic adapters — SW-Serverless calls them over gRPC — so without
+            // it they failed at their first call on any node without data sources turned on.
+            services.AddResidentAdapters<BusProviderEventSink, BitweenAdapterStateStore>(configure =>
+            {
+                configure.HeartbeatInterval = TimeSpan.FromSeconds(15);
+                configure.MaxInFlight = bitweenOptions.BusProviderMaxInFlight;
+                // The same ceiling classic adapters get, so a resident handler or mapper is not
+                // allowed longer than the classic one it replaces (both default to 300 seconds).
+                if (bitweenOptions.ServerlessCommandTimeout > 0)
+                    configure.InvokeTimeout = TimeSpan.FromSeconds(bitweenOptions.ServerlessCommandTimeout);
+            });
+
+            // Resident data source providers — brokers and databases both — and resident adapters
+            // in the pipeline. Off by default because it is opt-in, not because it is unsafe to run
+            // on more than one node: a broker connection is exclusive, and every data source is held
+            // through a lease with a database-issued fencing term, so only one node consumes any
+            // given source. See BusProviderSupervisor and ILeaderElection.
             if (bitweenOptions.BusProvidersEnabled)
             {
-                services.AddResidentAdapters<BusProviderEventSink, BitweenAdapterStateStore>(configure =>
-                {
-                    configure.HeartbeatInterval = TimeSpan.FromSeconds(15);
-                    configure.MaxInFlight = bitweenOptions.BusProviderMaxInFlight;
-                    // The same ceiling classic adapters get, so a resident handler or mapper is not
-                    // allowed longer than the classic one it replaces (both default to 300 seconds).
-                    if (bitweenOptions.ServerlessCommandTimeout > 0)
-                        configure.InvokeTimeout = TimeSpan.FromSeconds(bitweenOptions.ServerlessCommandTimeout);
-                });
                 // One election implementation, deliberately — see ILeaderElection's remarks.
                 services.AddSingleton<ILeaderElection, RabbitMqLeaderElection>();
                 services.AddHostedService<BusProviderSupervisor>();

@@ -47,8 +47,8 @@ public class Telemetry(BitweenDbContext dbContext, RequestContext requestContext
             LastHeartbeatOn = dataSource.LastHeartbeatOn,
         };
 
-        // Registered only when BusProvidersEnabled, so a node with the feature off answers
-        // "not here" rather than failing to resolve a service.
+        // A node with BusProvidersEnabled off runs no data source, so it finds no instance and
+        // answers "not here".
         var instance = adapters?.Describe()
             .FirstOrDefault(h => h.InstanceKey == key.ToString());
 

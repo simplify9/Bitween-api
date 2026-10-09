@@ -192,6 +192,9 @@ public sealed class BitweenFixture : IAsyncLifetime
                         // What an aggregation builds its file links on; a scheduled job has no
                         // request to take an address from.
                         PublicUrl = "https://bitween.test",
+                        // The fixture is a node that runs data sources: it registers the resident
+                        // host for them below, and resident pipeline adapters run only on such a node.
+                        BusProvidersEnabled = true,
                     });
 
                     services.AddSingleton(new ThemeOptions());
