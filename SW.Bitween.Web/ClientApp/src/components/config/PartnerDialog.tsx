@@ -36,9 +36,14 @@ export function PartnerDialog({
   onSaved?: (id: number) => void;
 }) {
   const queryClient = useQueryClient();
-  const canEdit = useSessionCan("partners.edit");
   /** Set once the partner exists — from the prop, or from the create that just ran. */
   const [id, setId] = useState(partnerId);
+  // Filling in a new partner is creating it, which partners.create allows on its own: the server
+  // asks for nothing more. Keyed to edit alone, a role that may create partners opened this to
+  // find every field disabled.
+  const canCreate = useSessionCan("partners.create");
+  const canChange = useSessionCan("partners.edit");
+  const canEdit = id === null ? canCreate : canChange;
   const [justCreated, setJustCreated] = useState(false);
 
   const existing = useQuery({

@@ -9,7 +9,7 @@ import type {
 } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
-import { get, post, request } from "./request";
+import { enrichment, get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
@@ -91,11 +91,16 @@ const toInformationType = (d: RawDocument): InformationType => ({
 });
 
 async function fetchDetail(id: number): Promise<InformationTypeDetail> {
+  // Only the type itself is required. The rest come from areas a role that can see information
+  // types may not be allowed into, and without them the page still has everything it edits.
   const [d, subs, busGateways, recentExchanges] = await Promise.all([
     get<RawDocument>(`/documents/${id}`),
-    fetchSubscriptionsByDocument(id),
-    gatewayMethods.listBusGateways(),
-    exchangeMethods.searchExchanges({ informationTypeId: id, offset: 0, limit: 8 }),
+    enrichment(fetchSubscriptionsByDocument(id), []),
+    enrichment(gatewayMethods.listBusGateways(), []),
+    enrichment(exchangeMethods.searchExchanges({ informationTypeId: id, offset: 0, limit: 8 }), {
+      result: [],
+      total: 0,
+    }),
   ]);
   return {
     ...toInformationType(d),

@@ -248,7 +248,11 @@ setup("leftovers from earlier runs are removed", async () => {
 
   await purge("apigateways", (id) => api.delete(`${API}/apigateways/${id}`, { headers: auth() }));
   await purge("busgateways", (id) => api.delete(`${API}/busgateways/${id}`, { headers: auth() }));
+  // A notifier watches subscriptions, and a subscription reads from a data source: each goes
+  // before what it points at.
+  await purge("notifiers", (id) => api.delete(`${API}/notifiers/${id}`, { headers: auth() }));
   await purge("subscriptions", (id) => api.delete(`${API}/subscriptions/${id}`, { headers: auth() }));
+  await purge("datasources", (id) => api.delete(`${API}/datasources/${id}`, { headers: auth() }));
   await purge("workgroups", (id) =>
     api.post(`${API}/workgroups/${id}/delete`, { headers: auth(), data: {} }),
   );

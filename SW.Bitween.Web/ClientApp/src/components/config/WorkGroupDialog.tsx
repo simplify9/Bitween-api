@@ -200,7 +200,10 @@ export function WorkGroupDialog({
   onSaved?: (id: number) => void;
 }) {
   const queryClient = useQueryClient();
-  const canEdit = useSessionCan("workgroups.edit");
+  // A new group is filled in to create it, which workgroups.create allows on its own.
+  const canCreate = useSessionCan("workgroups.create");
+  const canChange = useSessionCan("workgroups.edit");
+  const canEdit = groupId === null ? canCreate : canChange;
   const [draft, setDraft] = useState<WorkGroupDraft | null>(groupId === null ? EMPTY : null);
   const [confirmingRename, setConfirmingRename] = useState(false);
 

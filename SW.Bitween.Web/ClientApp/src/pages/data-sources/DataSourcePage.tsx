@@ -6,6 +6,7 @@ import {
   api,
   ApiRequestError,
   SECRET_SENTINEL,
+  type DataSourceDetail,
   type DataSourceInspectResult,
   type DataSourceTestResult,
 } from "../../api";
@@ -106,6 +107,15 @@ export function DataSourcePage() {
     onSuccess: async () => {
       setError(null);
       await queryClient.invalidateQueries({ queryKey: keys.dataSources.all });
+      // Re-seeded here rather than left to the fingerprint check. A save that only replaced a
+      // stored secret comes back identical — the secret is masked again — so that check saw no
+      // change, and the form kept the typed password: "Unsaved changes" stayed up after a save
+      // that had worked, and pressing Save again sent the password a second time.
+      const saved = queryClient.getQueryData<DataSourceDetail>(keys.dataSources.detail(dataSourceId));
+      if (saved) {
+        seeded.current = editableFingerprint(saved);
+        setDraft(draftOf(saved));
+      }
     },
     onError: (e) => setError(e instanceof ApiRequestError ? e.message : "Could not save."),
   });
