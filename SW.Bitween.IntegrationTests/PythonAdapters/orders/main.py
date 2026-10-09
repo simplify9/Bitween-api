@@ -1,7 +1,7 @@
 """A Bitween handler in Python: answers an order with its settings, or rejects it as bad data."""
 import json
 
-import simplyworks_serverless as sw
+import sw_serverless as sw
 from simplyworks_bitween import ExchangeFile, Handler
 
 

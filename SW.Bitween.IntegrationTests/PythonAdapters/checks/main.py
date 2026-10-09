@@ -1,7 +1,7 @@
 """A Bitween validator in Python: an order needs an id."""
 import json
 
-import simplyworks_serverless as sw
+import sw_serverless as sw
 from simplyworks_bitween import ExchangeFile, ValidationResult, Validator
 
 

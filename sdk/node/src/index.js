@@ -5,7 +5,7 @@
  * and contract declarations are taken care of. The contract itself is bitween-adapter-contract.v1.json
  * in SW.Bitween.Adapters; this is its JavaScript form.
  *
- *   const sw = require("@simplyworks/serverless");
+ *   const sw = require("@simplyworks/sw-serverless");
  *   const { ExchangeFile, Handler } = require("@simplyworks/bitween");
  *
  *   class Orders extends Handler {

@@ -4,8 +4,8 @@ Subclass a kind and implement its methods; the wire names, the encoding and the 
 declarations are taken care of. The contract itself is ``bitween-adapter-contract.v1.json`` in
 SW.Bitween.Adapters; this is its Python form, as ``SimplyWorks.Bitween.Adapters`` is its .NET one.
 
-    import simplyworks_serverless as sw
-from simplyworks_serverless._runner import _call
+    import sw_serverless as sw
+from sw_serverless._runner import _call
     from simplyworks_bitween import ExchangeFile, Handler
 
     class Orders(Handler):
@@ -22,8 +22,8 @@ from simplyworks_serverless._runner import _call
 import hashlib
 from dataclasses import dataclass, field
 
-import simplyworks_serverless as sw
-from simplyworks_serverless._runner import _call
+import sw_serverless as sw
+from sw_serverless._runner import _call
 
 CONTRACT = "bitween"
 CONTRACT_VERSION = 1

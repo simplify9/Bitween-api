@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 authors = [{ name = "Simplify9" }]
-dependencies = ["simplyworks-serverless>=10.1.0"]
+dependencies = ["sw-serverless>=10.2.0"]
 
 [project.urls]
 Repository = "https://github.com/simplify9/Bitween-api"

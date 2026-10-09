@@ -1,6 +1,6 @@
 // A Bitween handler in JavaScript (an ES module): answers an order with its settings, or rejects it as bad data.
 // JavaScript rather than TypeScript so it runs on any Node CI has; SW-Serverless tests the TypeScript build.
-import { expect, run, valueOf } from "@simplyworks/serverless";
+import { expect, run, valueOf } from "@simplyworks/sw-serverless";
 import { ExchangeFile, Handler } from "@simplyworks/bitween";
 
 class Orders extends Handler {

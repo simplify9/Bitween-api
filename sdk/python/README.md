@@ -12,7 +12,7 @@ It is the Python form of `SW.Bitween.Adapters/Contract/bitween-adapter-contract.
 | `Receiver` | `list_files()`, `get_file(id)`, `delete_file(id)`; optionally `initialize()`, `finalize()` | `Initialize`, `ListFiles`, `GetFile`, `DeleteFile`, `Finalize` |
 
 ```python
-import simplyworks_serverless as sw
+import sw_serverless as sw
 from simplyworks_bitween import ExchangeFile, Handler
 
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 property names (`Data`, `Filename`, `BadData`, `ContentType`, `Hash`). A kind missing a method it
 needs fails when the adapter starts.
 
-The SW-Serverless CLI vendors a copy of this package into every Python adapter it builds; keep
-`SW.Serverless.Tooling/Contracts/bitween/python` in SW-Serverless the same as `src/` here.
+`bitween adapter build` vendors this package, with the SDK, into every Python adapter it builds,
+taken from this folder through SW.Bitween.Adapters.Tooling, so nothing needs installing from PyPI.
 
 Tests: `PYTHONPATH=src:<SW-Serverless>/sdk/python/src python -m unittest discover -s tests`.

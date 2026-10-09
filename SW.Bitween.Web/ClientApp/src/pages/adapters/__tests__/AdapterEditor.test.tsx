@@ -21,7 +21,7 @@ const DRAFT = {
   modifiedBy: null,
   files: {
     "adapter.json": '{ "id": "acme.orders", "runtime": "python", "entry": "main.py" }\n',
-    "main.py": "import simplyworks_serverless as sw\n",
+    "main.py": "import sw_serverless as sw\n",
   },
 };
 

@@ -43,7 +43,7 @@ public class AdapterRequirements(
 
         if (catalog == null) return;
         var manifest = await catalog.ManifestOf(SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(adapterId, version));
-        var needs = manifest?.Compatibility?.MinBitweenVersion;
+        var needs = manifest?.Compatibility?.MinVersionOf(Services.Adapters.AdapterCatalog.Application);
         if (!BitweenInfo.Satisfies(needs, bitweenOptions))
             throw new SWValidationException("ADAPTER_NEEDS_NEWER_BITWEEN",
                 $"The {slot} '{adapterId}'{(string.IsNullOrWhiteSpace(version) ? "" : $" {version}")} needs Bitween {needs} or later; this is {BitweenInfo.Version(bitweenOptions)}.");

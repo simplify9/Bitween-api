@@ -2,7 +2,7 @@ import json
 import os
 import unittest
 
-import simplyworks_serverless as sw
+import sw_serverless as sw
 from simplyworks_bitween import ExchangeFile, Handler, Mapper, Receiver, ValidationResult, Validator
 
 CONTRACT = os.path.join(os.path.dirname(__file__), "..", "..", "..", "SW.Bitween.Adapters", "Contract")

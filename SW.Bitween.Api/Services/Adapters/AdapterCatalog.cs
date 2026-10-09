@@ -23,6 +23,12 @@ public class AdapterCatalog(
     NativeAdapterManifests nativeManifests,
     IMemoryCache cache)
 {
+    /// <summary>
+    /// What adapters call Bitween in their manifest's compatibility.applications — the minimum
+    /// Bitween they need — and what manifests before that field called minBitweenVersion.
+    /// </summary>
+    public const string Application = "bitween";
+
     // Long enough that a screen listing every kind reads each entry once; short enough that a
     // publish shows up without anyone thinking to clear anything.
     static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(60);

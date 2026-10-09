@@ -71,7 +71,7 @@ public class Catalog(
                     v.PublishedBy,
                     v.Withdrawn,
                     v.Manifest?.ReleaseNotes,
-                    MinBitweenVersion = v.Manifest?.Compatibility?.MinBitweenVersion,
+                    MinBitweenVersion = v.Manifest?.Compatibility?.MinVersionOf(Services.Adapters.AdapterCatalog.Application),
                     // Whether the package carries its source, so a client offers to show it
                     // only where there is something to show.
                     HasSource = v.Manifest?.Source?.Files is { Count: > 0 },
@@ -93,7 +93,7 @@ public class Catalog(
             a.Manifest?.Runtime,
             a.Manifest?.Lifecycle,
             Icon = a.Catalog?.IconDataUri,
-            MinBitweenVersion = a.Manifest?.Compatibility?.MinBitweenVersion
+            MinBitweenVersion = a.Manifest?.Compatibility?.MinVersionOf(Services.Adapters.AdapterCatalog.Application)
         });
     }
 

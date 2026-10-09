@@ -60,7 +60,7 @@ public class AdapterCatalogTests(BitweenFixture fixture)
                 Entry = SampleEntry,
                 ReleaseNotes = $"Notes for {version}",
                 Properties = properties ?? [],
-                Compatibility = minBitween == null ? null : new AdapterCompatibility { MinBitweenVersion = minBitween }
+                Compatibility = minBitween == null ? null : new AdapterCompatibility { Applications = new() { ["bitween"] = minBitween } }
             };
             await AdapterInstaller.InstallAsync(cloudFiles, SampleProject, id, SampleEntry, version: version,
                 extraFiles: new Dictionary<string, string> { [AdapterManifest.FileName] = manifest.ToJson() });
