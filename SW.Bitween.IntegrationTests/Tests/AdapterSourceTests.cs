@@ -229,6 +229,37 @@ public class AdapterSourceTests(BitweenFixture fixture)
         Assert.Single(await keys("handlers"), k => k == id);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnAdapterInAnotherRuntime_IsDescribedFromItsManifest_NeverByStartingIt(bool declaresProperties)
+    {
+        // No package at all: were it started to be asked, describing would fail or, against a real
+        // gRPC-only adapter, wait out the describer's timeout.
+        var id = $"infolink6.handlers.python{Interlocked.Increment(ref _seq)}";
+        var manifest = new AdapterManifest
+        {
+            Id = id, Version = "1.0.0", Kinds = ["handler"], Entry = "main.py", Runtime = AdapterManifest.PythonRuntime,
+            Properties = declaresProperties ? [new AdapterProperty { Name = "Token", Required = true, Secret = true }] : []
+        };
+        await using var scope = fixture.CreateScope();
+        await new AdapterCatalogStore(scope.ServiceProvider.GetRequiredService<ICloudFilesService>()).SaveAsync(new AdapterCatalogEntry
+        {
+            Id = id, Current = "1.0.0", Manifest = manifest,
+            Versions = [new AdapterVersionRecord { Version = "1.0.0", PublishedOn = DateTimeOffset.UtcNow, Manifest = manifest }]
+        });
+        scope.ServiceProvider.GetRequiredService<AdapterCatalog>().Forget(id);
+
+        var started = DateTime.UtcNow;
+        var values = await scope.ServiceProvider.GetRequiredService<AdapterStartupValues>().Describe(id);
+
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
+        if (declaresProperties)
+            Assert.True(Assert.Single(values).Value.Private);
+        else
+            Assert.Empty(values);
+    }
+
     [Fact]
     public async Task AnAdapterWhoseVersionsAreAllWithdrawn_IsNotListed()
     {

@@ -50,6 +50,15 @@ public class AdapterStartupValues(
             var manifest = await catalog.ManifestOf(adapterId);
             if (manifest?.Properties is { Count: > 0 } declared)
                 return FromManifest(declared);
+
+            // An adapter in another runtime than .NET cannot be asked: it speaks only gRPC, and
+            // asking means the stdio exchange of .NET adapters, which it would leave waiting for a
+            // reply until the describer timed out — holding one of its few slots all the while.
+            // Nor does it need asking. Its manifest was written from what it said when it was
+            // built, so a manifest that lists nothing means it expects nothing.
+            if (manifest != null && !string.IsNullOrWhiteSpace(manifest.Runtime) &&
+                !string.Equals(manifest.Runtime, SW.Serverless.Contract.Catalog.AdapterManifest.DotnetRuntime, StringComparison.OrdinalIgnoreCase))
+                return FromManifest(manifest.Properties ?? []);
         }
 
         // Reflection over an in-process type, so there is nothing here worth caching, and nothing
