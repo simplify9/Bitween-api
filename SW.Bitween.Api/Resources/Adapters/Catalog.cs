@@ -74,7 +74,9 @@ public class Catalog(
                     MinBitweenVersion = v.Manifest?.Compatibility?.MinBitweenVersion,
                     // Whether the package carries its source, so a client offers to show it
                     // only where there is something to show.
-                    HasSource = v.Manifest?.Source?.Files is { Count: > 0 }
+                    HasSource = v.Manifest?.Source?.Files is { Count: > 0 },
+                    // Which the editor can open: Python and Node versions with their source.
+                    v.Manifest?.Runtime
                 })
                 .ToList(),
             DisplayName = a.Manifest?.DisplayName,

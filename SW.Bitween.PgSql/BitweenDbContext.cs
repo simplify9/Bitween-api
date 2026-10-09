@@ -557,6 +557,30 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasIndex(p => p.PublishedOn);
             });
 
+            modelBuilder.Entity<AdapterDraft>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Language).HasMaxLength(20).IsUnicode(false).IsRequired();
+                b.Property(p => p.Kind).HasMaxLength(20).IsUnicode(false);
+                b.Property(p => p.BaseVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.FilesJson).IsRequired();
+                b.Property(p => p.FilesHash).HasMaxLength(64).IsUnicode(false).IsRequired();
+                b.Property(p => p.CreatedBy).HasMaxLength(200);
+                b.Property(p => p.ModifiedBy).HasMaxLength(200);
+                b.HasIndex(p => p.AdapterId);
+            });
+
+            modelBuilder.Entity<AdapterRelease>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false).IsRequired();
+                b.Property(p => p.Action).HasMaxLength(20).IsUnicode(false).IsRequired();
+                b.Property(p => p.AccountId).HasMaxLength(100).IsUnicode(false);
+                b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
+            });
+
             modelBuilder.Entity<AdapterSourceAccess>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();

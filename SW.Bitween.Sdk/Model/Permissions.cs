@@ -171,6 +171,12 @@ public static class Permissions
     {
         /// <summary>Read the source an adapter version was published with, and compare versions.</summary>
         public const string View = "adapter-source.view";
+
+        /// <summary>Write adapters in Bitween's editor: drafts, building, testing and trying them.</summary>
+        public const string Edit = "adapter-source.edit";
+
+        /// <summary>Publish a version from the editor, and make a published version the current one.</summary>
+        public const string Operate = "adapter-source.operate";
     }
 }
 
@@ -326,9 +332,11 @@ public static class PermissionCatalog
 
         // Administration, like the trail: source is our partners' code and our own, and some of
         // it is licensed to us rather than ours to show every member.
-        Area("adapter-source", "Adapter source", "Administration",
-            "The code each adapter version was published with.",
-            (View, "Read an adapter's source and compare its versions."))
+        Area("adapter-source", "Adapter code", "Administration",
+            "The code each adapter version was published with, and adapters written in Bitween.",
+            (View, "Read an adapter's source and compare its versions."),
+            (Edit, "Write Python and JavaScript adapters in the editor: drafts, building, testing and trying them."),
+            (Operate, "Publish versions from the editor, and make a published version the one that runs."))
     ];
 
     /// <summary>Every valid permission key.</summary>
