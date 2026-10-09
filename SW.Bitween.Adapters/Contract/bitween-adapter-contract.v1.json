@@ -1,5 +1,5 @@
 {
-  "contract": "bitween-adapter",
+  "contract": "bitween",
   "version": 1,
   "description": "What Bitween calls on each kind of adapter, and what it passes. Bitween calls adapters by method name over the SW-Serverless protocol; the names below are exact and case-sensitive.",
   "encoding": {
