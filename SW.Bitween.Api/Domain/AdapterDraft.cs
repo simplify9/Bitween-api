@@ -88,6 +88,7 @@ public class AdapterRelease
 {
     public const string PublishedAction = "published";
     public const string PromotedAction = "promoted";
+    public const string WithdrawnAction = "withdrawn";
 
     private AdapterRelease()
     {
