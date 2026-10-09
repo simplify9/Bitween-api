@@ -115,6 +115,52 @@ start_container() {
 
 app_up() { curl -skf -o /dev/null "$APP_URL/health"; }
 
+# Adapters are published by writing a package into the storage bucket, which with local storage is
+# a directory: the object at its key and its metadata beside it as <key>.meta.json — the layout
+# AdapterInstaller reads back (see SW.Bitween.IntegrationTests/Fixtures/AdapterInstaller.cs, which
+# publishes the same way through ICloudFilesService).
+ADAPTERS="$STATE/adapters"
+SAMPLE_HANDLER=SW.Bitween.SampleHandler
+PG_ADAPTER=SW.Bitween.Adapters.Db.PostgreSql
+
+# publish_adapter <project> <adapter id> <entry assembly> [version] [extra metadata as '"k":"v",']
+publish_adapter() {
+  local project="$1" id="$2" entry="$3" version="${4:-}" extra="${5:-}"
+  local key="adapters/$id"
+  [[ -n "$version" ]] && key="adapters-versions/$id/$version"
+  local target="$BUCKET_DIR/$key" zip="$STATE/$id.zip"
+  rm -f "$zip"
+  (cd "$ADAPTERS/$project" && zip -qrX "$zip" . -x '*.pdb' '*.xml' '*.http')
+  local sha
+  sha="$(shasum -a 256 "$zip" | cut -d' ' -f1)"
+  mkdir -p "$(dirname "$target")"
+  mv "$zip" "$target"
+  printf '{%s"EntryAssembly":"%s","Hash":"%s","Sha256":"%s"}' "$extra" "$entry" "${sha:0:16}" "$sha" \
+    >"$target.meta.json"
+}
+
+# The catalog entry an installer writes beside a versioned adapter (adapters-catalog/<id>.json, in
+# SW.Serverless.Contract's AdapterCatalogEntry shape): which version is current and what each one
+# is. Versions are offered for pinning from here, not from the package files.
+# publish_catalog <adapter id> <entry assembly> <display name> <current> <version>...
+publish_catalog() {
+  local id="$1" entry="$2" name="$3" current="$4"
+  shift 4
+  local manifest versions="" v
+  manifest() {
+    printf '{"id":"%s","version":"%s","displayName":"%s","summary":"Hands back the document it is given.",' "$id" "$1" "$name"
+    printf '"publisher":{"name":"Bitween e2e"},"kinds":["handler"],"entry":"%s","releaseNotes":"Release %s.",' "$entry" "$1"
+    printf '"properties":[{"name":"ContentType","description":"The content type it answers with.","default":"text/plain"}]}'
+  }
+  for v in "$@"; do
+    versions+="${versions:+,}{\"version\":\"$v\",\"publishedOn\":\"2026-01-01T00:00:00Z\",\"publishedBy\":\"tools/e2e.sh\",\"manifest\":$(manifest "$v")}"
+  done
+  mkdir -p "$BUCKET_DIR/adapters-catalog"
+  printf '{"catalogVersion":1,"id":"%s","current":"%s","manifest":%s,"versions":[%s]}' \
+    "$id" "$current" "$(manifest "$current")" "$versions" >"$BUCKET_DIR/adapters-catalog/$id.json"
+  printf '{}' >"$BUCKET_DIR/adapters-catalog/$id.json.meta.json"
+}
+
 if $reuse; then
   app_up || die "no e2e environment is running at $APP_URL — start one with tools/e2e.sh --keep or --up"
   [[ -f "$PASSWORD_FILE" ]] && E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-$(cat "$PASSWORD_FILE")}"
@@ -160,6 +206,13 @@ if ! $reuse; then
     log "Building the backend"
     (cd "$WEB" && dotnet build --nologo -v q)
   fi
+  if $build || [[ ! -d "$ADAPTERS/$SAMPLE_HANDLER" || ! -d "$ADAPTERS/$PG_ADAPTER" ]]; then
+    log "Building the adapters the suite publishes"
+    for project in "$SAMPLE_HANDLER" "$PG_ADAPTER"; do
+      dotnet publish "$ROOT/$project" --nologo -v q -clp:ErrorsOnly -c Debug --no-self-contained \
+        -o "$ADAPTERS/$project"
+    done
+  fi
 
   log "Waiting for PostgreSQL"
   # Over TCP on purpose: the image's init phase runs a server on the unix socket only, then
@@ -180,8 +233,19 @@ if ! $reuse; then
     sleep 1
   done
 
-  log "Starting Bitween on $APP_URL (log: $APP_LOG)"
   rm -rf "$BUCKET_DIR"
+  log "Publishing adapters to the e2e bucket"
+  # A custom handler with two published versions, for the version picker and the Custom section
+  # of the Adapters page, and the PostgreSQL provider, for data sources — run against the e2e
+  # database itself. Bitween's own (bitween.) prefix is what makes the latter a provider.
+  for version in "" 1.0.0 2.0.0; do
+    publish_adapter "$SAMPLE_HANDLER" e2e.samplehandler SW.Bitween.SampleHandler.dll "$version" '"Kind":"handler",'
+  done
+  publish_catalog e2e.samplehandler SW.Bitween.SampleHandler.dll "Echo handler (e2e)" 2.0.0 1.0.0 2.0.0
+  publish_adapter "$PG_ADAPTER" bitween.db.postgresql SW.Bitween.Adapters.Db.PostgreSql.dll "" \
+    '"Protocol":"2","Lifecycle":"resident",'
+
+  log "Starting Bitween on $APP_URL (log: $APP_LOG)"
   (
     cd "$WEB"
     export ASPNETCORE_ENVIRONMENT=Development

@@ -60,6 +60,8 @@ To run against an instance you started yourself, run `yarn test:e2e` in `ClientA
 
 The instance needs RabbitMQ with the management API configured (`Bitween__RabbitMqManagementUrl`), and sign-in rate limits high enough for a suite that signs in before every test (`Bitween__RateLimits__SignInPerMinute`).
 
+The script also publishes two adapters into the bucket before the app starts, the way the installer would: `e2e.samplehandler`, built from `SW.Bitween.SampleHandler`, as a custom handler with versions 1.0.0 and 2.0.0 and a catalog entry naming 2.0.0 current, and `bitween.db.postgresql`, the PostgreSQL data source provider. The specs that pin adapter versions and the data source specs, which connect to the e2e PostgreSQL itself, use them, and skip saying why on an instance where they are not published.
+
 Two retention tests need the storage bucket to have a `temp30/` deletion rule. Local-disk storage never reports one, so under `tools/e2e.sh` they are skipped and say why.
 
 ## Trying data sources locally

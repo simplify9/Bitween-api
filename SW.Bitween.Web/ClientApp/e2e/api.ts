@@ -67,6 +67,30 @@ export class AdminApi {
     return row;
   }
 
+  /** Sends a document to one subscription, as Exchanges → New does. Returns the exchange id. */
+  sendExchange(subscriptionId: number, document: unknown) {
+    return this.post<string>("/xchanges", {
+      option: "SubscriberId",
+      subscriberId: subscriptionId,
+      data: JSON.stringify(document),
+    });
+  }
+
+  /** A subscription's exchanges, newest first: status is null while running, then true or false. */
+  async exchangesOf(subscriptionId: number) {
+    const filter = encodeURIComponent(`SubscriptionId:1:${subscriptionId}`);
+    const res = await this.get<{ result: { id: string; status: boolean | null; exception: string | null }[] }>(
+      `/xchanges?filter=${filter}&sort=StartedOn:2&page=0&size=50`,
+    );
+    return res.result;
+  }
+
+  /** Whether an adapter is published to this instance — some specs need one tools/e2e.sh publishes. */
+  async hasAdapter(kind: "handlers" | "receivers" | "mappers" | "validators", id: string) {
+    const catalog = await this.get<{ key: string }[]>(`/adapters/Catalog?prefix=${kind}`);
+    return catalog.some((a) => a.key.toLowerCase() === id.toLowerCase());
+  }
+
   createPartner(name: string) {
     return this.post<number>("/partners", { name, adapterProperties: {}, secretProperties: [], loginIdentity: null });
   }
