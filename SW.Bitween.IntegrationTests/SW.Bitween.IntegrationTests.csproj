@@ -8,6 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="NodeAdapters/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="PythonAdapters/**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

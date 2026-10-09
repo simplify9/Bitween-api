@@ -1,0 +1,7 @@
+{
+  "id": "infolink6.handlers.nodeorders",
+  "version": "1.0.0",
+  "displayName": "Node orders",
+  "runtime": "node",
+  "entry": "main.js"
+}

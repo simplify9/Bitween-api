@@ -26,12 +26,13 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Adapters written in Python, built and published as serverless build and publish do it — so
-/// only to their versions and the catalog, never to adapters/{id} — then listed, described from
-/// their manifests, and run through subscriptions with their settings, exactly as .NET ones are.
+/// Adapters written in Python and JavaScript, built and published as serverless build and publish
+/// do it — so only to their versions and the catalog, never to adapters/{id} — then listed,
+/// described from their manifests, and run through subscriptions with their settings, exactly as
+/// .NET ones are.
 /// </summary>
 [Collection("Bitween")]
-public class PythonAdapterTests(BitweenFixture fixture)
+public class ScriptAdapterTests(BitweenFixture fixture)
 {
     static int _seq;
     static string Unique(string prefix) => $"{prefix}-{Interlocked.Increment(ref _seq)}";
@@ -48,15 +49,15 @@ public class PythonAdapterTests(BitweenFixture fixture)
             if (_published) return;
             await using var scope = fixture.CreateScope();
             var files = scope.ServiceProvider.GetRequiredService<ICloudFilesService>();
-            foreach (var project in new[] { "orders", "checks" })
+            foreach (var (folder, project) in new[] { ("PythonAdapters", "orders"), ("PythonAdapters", "checks"), ("NodeAdapters", "orders") })
             {
-                var source = Path.Combine(AppContext.BaseDirectory, "PythonAdapters", project);
+                var source = Path.Combine(AppContext.BaseDirectory, folder, project);
                 var work = Path.Combine(Path.GetTempPath(), "bitween-python", Guid.NewGuid().ToString("N"));
-                CopyFolder(source, Path.Combine(work, project));
+                CopyFolder(source, Path.Combine(work, folder, project));
 
                 var built = await PackageBuilder.BuildAsync(new BuildRequest
                 {
-                    ProjectDirectory = Path.Combine(work, project),
+                    ProjectDirectory = Path.Combine(work, folder, project),
                     OutputDirectory = Path.Combine(work, "out"),
                 });
                 Assert.True(built.Succeeded, string.Join("; ", built.Problems));
@@ -175,6 +176,33 @@ public class PythonAdapterTests(BitweenFixture fixture)
         Assert.Equal("acme", (string)answer["to"]);
         Assert.Equal(10, (int)answer["token"]);
         Assert.Equal("SO-7", (string)answer["order"]!["orderId"]);
+    }
+
+    [Fact]
+    public async Task A_subscription_delivers_through_a_node_handler_with_its_settings()
+    {
+        await PublishAsync();
+        var subscription = await CreateSubscription(SubscriptionType.ApiCall, s =>
+        {
+            s.HandlerId = "infolink6.handlers.nodeorders";
+            s.HandlerProperties =
+            [
+                new KeyAndValue { Key = "Partner", Value = "globex" },
+                new KeyAndValue { Key = "Token", Value = "abc" },
+            ];
+        });
+
+        var (result, response) = await Run(subscription, "{\"orderId\":\"SO-9\"}");
+
+        Assert.True(result.Success, result.Exception);
+        var answer = JObject.Parse(response);
+        Assert.Equal("globex", (string)answer["to"]);
+        Assert.Equal(3, (int)answer["token"]);
+        Assert.Equal("SO-9", (string)answer["order"]!["orderId"]);
+
+        var (rejected, body) = await Run(subscription, "{\"reject\":true}");
+        Assert.True(rejected.ResponseBad);
+        Assert.Equal("{\"error\":\"rejected\"}", body);
     }
 
     [Fact]

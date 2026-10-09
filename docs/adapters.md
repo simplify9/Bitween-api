@@ -316,6 +316,36 @@ A Python adapter is published to its versions and the catalog only, never to
 with `python3`, which the Docker image includes. A requirement with native code is vendored for
 `linux-x64` and `linux-arm64` unless `adapter.json` lists other `platforms`.
 
+### Custom adapters in JavaScript or TypeScript
+
+The same, on Node 22 or later, with `@simplyworks/serverless` and `@simplyworks/bitween`
+(`sdk/node`). Extend a kind and implement its methods, named as in Python but in camelCase:
+`handle`, `map`, `validate`, and `listFiles`, `getFile`, `deleteFile`.
+
+```ts
+import { expect, run, valueOf } from "@simplyworks/serverless";
+import { ExchangeFile, Handler } from "@simplyworks/bitween";
+
+class Orders extends Handler {
+  constructor() {
+    super();
+    expect("Url", { description: "Where orders go" });
+  }
+
+  handle(file: ExchangeFile): ExchangeFile {
+    return new ExchangeFile({ data: file.data, filename: file.filename });
+  }
+}
+
+run(Orders);
+```
+
+`serverless init AcmeOrders --lang typescript --kind handler` (or `--lang node` for JavaScript) starts
+one. `serverless build` needs no TypeScript compiler: Node strips the types, so only syntax that
+strips cleanly is allowed — no enums or namespaces. Dependencies in `package.json` are installed into
+the package; one with native code has to be built on the platform the adapter runs on. Bitween runs
+it with `node`, which the Docker image includes.
+
 ### Installing a custom adapter
 
 Custom adapter ids follow the pattern `infolink6.{kind}.{name}`, where kind is `handlers`, `receivers`, `mappers` or `validators`. The adapter picker lists packages stored under these keys.

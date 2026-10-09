@@ -11,6 +11,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/*
 
+# Node, for adapters written in JavaScript or TypeScript: the runtime alone, from the official
+# Node 22 LTS image. Adapters bring their dependencies in node_modules, so npm isn't needed here.
+COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 443
