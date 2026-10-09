@@ -53,6 +53,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.HttpTests", "SW.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.TransportTests", "SW.Bitween.TransportTests\SW.Bitween.TransportTests.csproj", "{369DDEE0-B9D7-4A9E-B098-0D0C144735C3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.Adapters", "SW.Bitween.Adapters\SW.Bitween.Adapters.csproj", "{CC59797A-74C7-4A4C-AF18-C10E8A138A71}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -327,6 +329,18 @@ Global
 		{369DDEE0-B9D7-4A9E-B098-0D0C144735C3}.Release|x64.Build.0 = Release|Any CPU
 		{369DDEE0-B9D7-4A9E-B098-0D0C144735C3}.Release|x86.ActiveCfg = Release|Any CPU
 		{369DDEE0-B9D7-4A9E-B098-0D0C144735C3}.Release|x86.Build.0 = Release|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Debug|x64.Build.0 = Debug|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Debug|x86.Build.0 = Debug|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Release|x64.ActiveCfg = Release|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Release|x64.Build.0 = Release|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Release|x86.ActiveCfg = Release|Any CPU
+		{CC59797A-74C7-4A4C-AF18-C10E8A138A71}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

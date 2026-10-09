@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SW.Bitween.Adapters\SW.Bitween.Adapters.csproj" />
     <ProjectReference Include="..\SW.Bitween.Api\SW.Bitween.Api.csproj" />
     <!-- All three providers, so MigrationDriftTests can check every one of them. A provider
          left out here is a provider whose migration drift nobody notices until it crashes on

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- netstandard2.0 so an adapter on any supported .NET can reference it; no dependencies. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <PackageId>SimplyWorks.Bitween.Adapters</PackageId>
+    <Description>The Bitween adapter contract: the kinds of adapter Bitween runs (handler, mapper, validator, receiver), what it calls on each, and the payloads it exchanges with them.</Description>
+    <Authors>Simplify9</Authors>
+    <PackageTags>bitween;adapter;integration</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The contract itself, the source every language's types and the conformance kit are built from. -->
+    <EmbeddedResource Include="Contract/*.json" LogicalName="SW.Bitween.Adapters.Contract.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
