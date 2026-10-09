@@ -22,21 +22,48 @@ public sealed class SftpFixture : IAsyncLifetime
     public const string User = "partner";
     public const string Password = "partner-pass";
 
-    // An "inbox" and an "outbox" in the user's home, which is all a partner's server usually offers.
-    public IContainer Container { get; } = new ContainerBuilder()
-        .WithImage("atmoz/sftp:alpine")
-        .WithCommand($"{User}:{Password}:1001:100:inbox,outbox,done")
-        .WithPortBinding(22, true)
-        .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(22))
-        .Build();
+    readonly string keyDirectory = Path.Combine(Path.GetTempPath(), $"sftp-key-{Guid.NewGuid():N}");
+
+    /// <summary>A private key the server accepts for <see cref="User"/>, PEM-encoded as most partners hand them over.</summary>
+    public string PrivateKey { get; private set; } = null!;
+
+    /// <summary>An ed25519 key in the OpenSSH format ssh-keygen writes by default, also accepted.</summary>
+    public string OpenSshPrivateKey { get; private set; } = null!;
+
+    /// <summary>The server's ed25519 host key, as <c>ssh-keygen -lf</c> prints it.</summary>
+    public string HostKeyFingerprint { get; private set; } = null!;
+
+    // An "inbox", an "outbox" and a "done" in the user's home, which is all a partner's server usually offers.
+    public IContainer Container { get; private set; } = null!;
 
     public string Host => Container.Hostname;
     public int Port => Container.GetMappedPublicPort(22);
 
-    public Task InitializeAsync() =>
-        string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("REBEX_LICENSE_KEY"))
-            ? Task.CompletedTask
-            : Container.StartAsync();
+    public async Task InitializeAsync()
+    {
+        Directory.CreateDirectory(keyDirectory);
+        var keyPath = Path.Combine(keyDirectory, "id_rsa");
+        using (var keygen = System.Diagnostics.Process.Start("ssh-keygen", ["-t", "rsa", "-b", "2048", "-m", "PEM", "-N", "", "-q", "-f", keyPath]))
+            await keygen!.WaitForExitAsync();
+        PrivateKey = await File.ReadAllTextAsync(keyPath);
+        var openSshPath = Path.Combine(keyDirectory, "id_ed25519");
+        using (var keygen = System.Diagnostics.Process.Start("ssh-keygen", ["-t", "ed25519", "-N", "", "-q", "-f", openSshPath]))
+            await keygen!.WaitForExitAsync();
+        OpenSshPrivateKey = await File.ReadAllTextAsync(openSshPath);
+
+        Container = new ContainerBuilder()
+            .WithImage("atmoz/sftp:alpine")
+            .WithCommand($"{User}:{Password}:1001:100:inbox,outbox,done")
+            .WithResourceMapping(new FileInfo(keyPath + ".pub"), $"/home/{User}/.ssh/keys/")
+            .WithResourceMapping(new FileInfo(openSshPath + ".pub"), $"/home/{User}/.ssh/keys/")
+            .WithPortBinding(22, true)
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(22))
+            .Build();
+        await Container.StartAsync();
+
+        var printed = (await Container.ExecAsync(["ssh-keygen", "-lf", "/etc/ssh/ssh_host_ed25519_key.pub"])).Stdout;
+        HostKeyFingerprint = printed.Split(' ')[1];
+    }
 
     public async Task<string> ListAsync(string folder) =>
         (await Container.ExecAsync(["ls", "-1", $"/home/{User}/{folder}"])).Stdout;
@@ -47,7 +74,11 @@ public sealed class SftpFixture : IAsyncLifetime
     public async Task<string> ReadAsync(string path) =>
         (await Container.ExecAsync(["cat", $"/home/{User}/{path}"])).Stdout;
 
-    public async Task DisposeAsync() => await Container.DisposeAsync();
+    public async Task DisposeAsync()
+    {
+        if (Container != null) await Container.DisposeAsync();
+        try { Directory.Delete(keyDirectory, true); } catch { }
+    }
 }
 
 /// <summary>The FTP adapters over SFTP against a real SFTP server.</summary>

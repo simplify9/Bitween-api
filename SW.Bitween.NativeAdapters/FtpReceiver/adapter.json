@@ -1,8 +1,8 @@
 {
   "manifestVersion": 1,
-  "id": "nativerebexftpreceiver",
-  "displayName": "FTP / SFTP pickup (Rebex)",
-  "summary": "Picks up files from an FTP or SFTP server on a schedule, leaving files still being written for the next run. Uses the Rebex client and needs a Rebex license.",
+  "id": "nativeftpreceiver",
+  "displayName": "FTP / SFTP pickup",
+  "summary": "Picks up files from an FTP or SFTP server on a schedule, leaving files still being written for the next run.",
   "publisher": {
     "name": "Simplify9",
     "url": "https://simplify9.com"
@@ -33,7 +33,7 @@
     {
       "name": "Port",
       "type": "number",
-      "description": "Server port. If empty, the protocol\u0027s default port is used."
+      "description": "Server port. If empty, the protocol's default port is used."
     },
     {
       "name": "Username",
@@ -68,7 +68,7 @@
     {
       "name": "DeleteMovesFileTo",
       "type": "text",
-      "description": "Folder to move a file to after it\u0027s received. If empty, the file is deleted instead."
+      "description": "Folder to move a file to after it's received. If empty, the file is deleted instead."
     },
     {
       "name": "Protocol",
@@ -91,7 +91,7 @@
     {
       "name": "HostKeyFingerprint",
       "type": "text",
-      "description": "SHA-256 fingerprint of the SFTP server\u0027s host key, as \u0027ssh-keygen -lf\u0027 prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
+      "description": "SHA-256 fingerprint of the SFTP server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
     },
     {
       "name": "MinimumFileAgeSeconds",

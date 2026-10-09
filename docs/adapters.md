@@ -32,7 +32,7 @@ Each adapter declares its properties. The UI shows which are required, which are
 
 ## Rebex license
 
-The FTP/SFTP adapters and the Rebex POP3 receiver use the commercial Rebex library. They are hidden from the adapter pickers until a key is saved in the **Rebex license key** setting, which takes effect without a restart.
+The Rebex FTP/SFTP adapters and the Rebex POP3 receiver use the commercial Rebex library. They are hidden from the adapter pickers until a key is saved in the **Rebex license key** setting, which takes effect without a restart. Each has an open-source counterpart that needs no license: `NativeFtpUploadHandler`, `NativeFtpReceiver` and `NativePop3Receiver`.
 
 ## Handlers
 
@@ -113,9 +113,9 @@ Writes the payload to an Azure Blob container.
 
 Existing blobs are overwritten. The response file holds the blob name.
 
-### NativeRebexFtpUploadHandler
+### NativeFtpUploadHandler and NativeRebexFtpUploadHandler
 
-Uploads the payload over SFTP or FTP. Needs a Rebex license.
+Upload the payload over SFTP or FTP. `NativeFtpUploadHandler` uses open-source clients (SSH.NET for SFTP, FluentFTP for FTP) and needs no license. `NativeRebexFtpUploadHandler`, shown as "(Rebex)", uses Rebex and needs a license. Both take the same properties and behave the same, so a subscription moves from one to the other by changing only the adapter.
 
 | Property | Default | Notes |
 |---|---|---|
@@ -161,9 +161,9 @@ The reply must be JSON, and a status of 400 or above fails the run. There is no 
 | `FolderName` | Prefix, with a `/` added. |
 | `BatchSize`, `ResponseEncoding`, `DeleteMovesFileTo` | As for S3. A blob that is already gone is skipped. |
 
-### NativeRebexFtpReceiver
+### NativeFtpReceiver and NativeRebexFtpReceiver
 
-Reads files over SFTP or FTP. Needs a Rebex license. The connection properties match the FTP upload handler's.
+Read files over SFTP or FTP. `NativeFtpReceiver` uses open-source clients and needs no license; `NativeRebexFtpReceiver`, shown as "(Rebex)", uses Rebex and needs one. Both take the same properties. The connection properties match the FTP upload handlers'.
 
 | Property | Default | Notes |
 |---|---|---|

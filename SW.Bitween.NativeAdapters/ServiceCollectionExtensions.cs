@@ -3,6 +3,8 @@ using SW.Bitween.NativeAdapters.AzureBlobReceiver;
 using SW.Bitween.NativeAdapters.AzureBlobUploadHandler;
 using SW.Bitween.NativeAdapters.HttpReceiver;
 using SW.Bitween.NativeAdapters.Pop3Receiver;
+using SW.Bitween.NativeAdapters.FtpReceiver;
+using SW.Bitween.NativeAdapters.FtpUploadHandler;
 using SW.Bitween.NativeAdapters.RebexFtpReceiver;
 using SW.Bitween.NativeAdapters.RebexFtpUploadHandler;
 using SW.Bitween.NativeAdapters.RebexPop3Receiver;
@@ -80,6 +82,13 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddScoped<INativeInfolinkReceiver, NativeAzureBlobReceiver>();
         serviceCollection.AddScoped<INativeAdapter, NativeAzureBlobReceiver>();
+
+        // FTP and SFTP with open-source clients: always offered, no license needed.
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeFtpUploadHandler>();
+        serviceCollection.AddScoped<INativeAdapter, NativeFtpUploadHandler>();
+
+        serviceCollection.AddScoped<INativeInfolinkReceiver, NativeFtpReceiver>();
+        serviceCollection.AddScoped<INativeAdapter, NativeFtpReceiver>();
 
         if (rebexLicenseKey is not null)
         {

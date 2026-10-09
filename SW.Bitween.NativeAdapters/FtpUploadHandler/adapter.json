@@ -1,8 +1,8 @@
 {
   "manifestVersion": 1,
-  "id": "nativerebexftpuploadhandler",
-  "displayName": "FTP / SFTP upload (Rebex)",
-  "summary": "Uploads the message as a file to an FTP or SFTP server. Uses the Rebex client and needs a Rebex license.",
+  "id": "nativeftpuploadhandler",
+  "displayName": "FTP / SFTP upload",
+  "summary": "Uploads the message as a file to an FTP or SFTP server.",
   "publisher": {
     "name": "Simplify9",
     "url": "https://simplify9.com"
@@ -33,7 +33,7 @@
     {
       "name": "Port",
       "type": "number",
-      "description": "Server port. If empty, the protocol\u0027s default port is used."
+      "description": "Server port. If empty, the protocol's default port is used."
     },
     {
       "name": "Username",
@@ -56,7 +56,7 @@
     {
       "name": "FileNamePrefix",
       "type": "text",
-      "description": "Prefix added to the uploaded file\u0027s name."
+      "description": "Prefix added to the uploaded file's name."
     },
     {
       "name": "DataEncoding",
@@ -79,7 +79,7 @@
     {
       "name": "HostKeyFingerprint",
       "type": "text",
-      "description": "SHA-256 fingerprint of the SFTP server\u0027s host key, as \u0027ssh-keygen -lf\u0027 prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
+      "description": "SHA-256 fingerprint of the SFTP server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
     }
   ]
 }
