@@ -113,7 +113,9 @@ test("a long payload doesn't stretch the exchanges table", async ({ page }) => {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ key: "k", data: payload }) }));
 
   await page.goto("exchanges");
-  await page.waitForTimeout(1200);
+  // Waits for the rows rather than a fixed time: on a busy machine the list was still loading
+  // after 1.2s, and there was no table to measure.
+  await expect(page.locator("tbody tr").first()).toBeVisible({ timeout: 15000 });
   const before = await page.evaluate(() => document.querySelector("table")!.scrollWidth);
 
   // The expander, not the row: the row's cells carry links of their own.
