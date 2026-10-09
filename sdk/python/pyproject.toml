@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "simplyworks-bitween"
+version = "10.0.59"
+description = "The Bitween adapter contract for Python: handlers, mappers, validators and receivers."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{ name = "Simplify9" }]
+dependencies = ["simplyworks-serverless>=10.1.0"]
+
+[project.urls]
+Repository = "https://github.com/simplify9/Bitween-api"
+
+[tool.setuptools.packages.find]
+where = ["src"]
