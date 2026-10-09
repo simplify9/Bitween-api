@@ -361,6 +361,34 @@ A custom adapter may run for `Bitween:ServerlessCommandTimeout` seconds, 300 by 
 
 An adapter in another runtime than .NET, and a .NET version published without being made current, has no package at `{Bitween:AdapterPath}/{id}`. The picker finds it in the catalog (`{Bitween:AdapterPath}-catalog/{id}.json`) instead, under the kinds its manifest declares, while it has a version that has not been withdrawn.
 
+### Writing an adapter in Bitween
+
+Python, JavaScript and TypeScript adapters can be written in Bitween itself, without the CLI.
+
+- **New adapter** on the Adapters page starts one from the template `serverless init` writes. **Edit** on a
+  published Python or Node version starts a draft from the source that version carries.
+- A draft is saved in Bitween's database. The editor shows its files; **Save and check** builds it on the
+  server and runs the Bitween contract checks `serverless test` runs. **Try** calls a command with the
+  settings and input given. Settings typed in the editor are sent with each call and never stored.
+- **Publish** builds and checks it again and publishes a new version. A version published from the editor
+  is not current: subscriptions keep running what they ran until **Make current** is used, on the
+  editor's Publish tab or on any version in the Versions table, or until a subscription pins it.
+  Making an older version current is how a release is rolled back.
+
+The editor builds adapters that need only the SDK. One whose `requirements.txt` or `package.json` names
+other packages is refused with the CLI as the way to build it, since the server would have to fetch them.
+Building and trying run the draft's code on the Bitween server, at most two at a time.
+
+| Permission | Allows |
+|---|---|
+| `adapter-source.view` | Reading a published version's source and comparing versions |
+| `adapter-source.edit` | Drafts: starting, editing, deleting, checking and trying them |
+| `adapter-source.operate` | Publishing a version from a draft, and making any published version current |
+
+All three are Administration permissions: administrators have them, and a custom role can be granted
+them. Drafts are in the audit trail, each save recorded by a hash of its files, and so is every version
+published or made current (`AdapterRelease`).
+
 ### Reading an adapter's source
 
 A package built with `serverless build` carries the adapter's source under `source/`, and its manifest lists each file with its SHA-256. On the **Adapters** page, a version that carries source has a **View** link in the Versions table. It opens the version's files; **Compare with** shows which files another version added, removed or changed, and a diff of each.

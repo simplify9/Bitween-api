@@ -598,6 +598,8 @@ export interface AdapterVersion {
   withdrawn: boolean;
   /** The package carries its source, which can be read and compared (adapter-source.view). */
   hasSource: boolean;
+  /** dotnet, python, node, exec; null when its manifest doesn't say. */
+  runtime: string | null;
 }
 
 /** The files a published version's source holds. Published versions never change, so neither does this. */
@@ -610,6 +612,58 @@ export interface AdapterSourceListing {
   lockfiles: string[];
   /** Relative to the source folder, sorted, each with its SHA-256 — enough to tell what two versions differ in. */
   files: { path: string; sha256: string }[];
+}
+
+export type DraftLanguage = "python" | "node" | "typescript";
+
+export interface AdapterDraftSummary {
+  id: number;
+  adapterId: string;
+  language: DraftLanguage;
+  kind: string | null;
+  /** The version it started from or was last published as; null for an adapter not yet published. */
+  baseVersion: string | null;
+  filesHash: string;
+  createdOn: string;
+  createdBy: string | null;
+  modifiedOn: string | null;
+  modifiedBy: string | null;
+}
+
+export interface AdapterDraft extends AdapterDraftSummary {
+  files: Record<string, string>;
+}
+
+export interface DraftCheck {
+  name: string;
+  outcome: "Passed" | "Failed" | "Skipped";
+  detail: string | null;
+}
+
+/** What building a draft found: its problems, or what it is and how its contract checks went. */
+export interface DraftBuild {
+  succeeded: boolean;
+  conforms: boolean;
+  problems: string[];
+  warnings: string[];
+  checks: DraftCheck[];
+  settings: { name: string; description: string | null; required: boolean; secret: boolean; default: string | null; type: string }[] | null;
+  commands: string[] | null;
+  lifecycle: string | null;
+  kinds: string[] | null;
+}
+
+export interface DraftRun {
+  succeeded: boolean;
+  output: string | null;
+  error: string | null;
+  problems: string[];
+}
+
+export interface DraftPublishResult {
+  published: boolean;
+  version?: string;
+  build: DraftBuild;
 }
 
 export interface AdapterSourceFile {

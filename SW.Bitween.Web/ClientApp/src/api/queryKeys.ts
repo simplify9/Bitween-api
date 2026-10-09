@@ -195,6 +195,8 @@ export const keys = {
   adapterSource: (adapterId: string, version: string) => ["adapter-source", adapterId, version] as const,
   adapterSourceFile: (adapterId: string, version: string, path: string) =>
     ["adapter-source", adapterId, version, path] as const,
+  adapterDrafts: ["adapter-drafts"] as const,
+  adapterDraft: (id: number) => ["adapter-drafts", id] as const,
 } as const;
 
 const MINUTE = 60_000;

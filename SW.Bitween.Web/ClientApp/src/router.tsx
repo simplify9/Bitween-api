@@ -1,4 +1,4 @@
-import { AdaptersPage } from "./pages/adapters/AdaptersPage";
+import { AdapterEditorPage, AdaptersPage } from "./pages/adapters/AdaptersPage";
 import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
 import { RequireAuth, RequirePermission } from "./auth/guards";
 import { useSession } from "./auth/SessionContext";
@@ -52,6 +52,8 @@ import { RoleEditor } from "./pages/team/RoleEditor";
 import { RolesPage } from "./pages/team/RolesPage";
 import { WorkGroupPage } from "./pages/work-groups/WorkGroupPage";
 import { WorkGroupsPage } from "./pages/work-groups/WorkGroupsPage";
+import { Suspense } from "react";
+import { LoadingBlock } from "./components/ui/basics";
 
 /** "/" lands on the first page this session is allowed to see. */
 function HomeRedirect() {
@@ -372,6 +374,16 @@ export const routes: RouteObject[] = [
             element: (
               <RequirePermission permission="subscriptions.view">
                 <AdaptersPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "adapters/drafts/:id",
+            element: (
+              <RequirePermission permission="adapter-source.edit">
+                <Suspense fallback={<LoadingBlock label="Opening the editor…" />}>
+                  <AdapterEditorPage />
+                </Suspense>
               </RequirePermission>
             ),
           },

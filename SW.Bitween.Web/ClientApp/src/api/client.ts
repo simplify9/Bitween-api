@@ -82,6 +82,12 @@ import type {
   WorkGroupRow,
   AdapterSourceFile,
   AdapterSourceListing,
+  AdapterDraft,
+  AdapterDraftSummary,
+  DraftBuild,
+  DraftLanguage,
+  DraftPublishResult,
+  DraftRun,
 } from "./types";
 import type { SaveResult } from "./http/dataSourceStatements";
 
@@ -306,6 +312,22 @@ export interface ApiClient {
   getAdapterSource(adapterId: string, version: string): Promise<AdapterSourceListing>;
   /** One source file of a published version; each read is audited. Needs adapter-source.view. */
   getAdapterSourceFile(adapterId: string, version: string, path: string): Promise<AdapterSourceFile>;
+
+  // — the adapter editor (adapter-source.edit; publishing and promoting need adapter-source.operate) —
+  listAdapterDrafts(): Promise<AdapterDraftSummary[]>;
+  getAdapterDraft(id: number): Promise<AdapterDraft>;
+  /** A new adapter from the template; resolves to the draft's id. */
+  createAdapterDraft(input: { name: string; language: DraftLanguage; kind: string; adapterId?: string }): Promise<number>;
+  /** A draft of a published Python or Node version, from its source. */
+  draftFromVersion(adapterId: string, version: string): Promise<number>;
+  saveAdapterDraft(id: number, files: Record<string, string>): Promise<AdapterDraftSummary>;
+  deleteAdapterDraft(id: number): Promise<void>;
+  /** Builds it and checks it against its contracts with these settings, which are never stored. */
+  buildAdapterDraft(id: number, settings: Record<string, string>, buildOnly?: boolean): Promise<DraftBuild>;
+  tryAdapterDraft(id: number, settings: Record<string, string>, command: string, input: string): Promise<DraftRun>;
+  publishAdapterDraft(id: number, input: { version: string; releaseNotes: string; settings: Record<string, string> }): Promise<DraftPublishResult>;
+  /** Makes a published version the one that runs wherever nothing is pinned. */
+  promoteAdapter(adapterId: string, version: string): Promise<void>;
 
   // — work groups —
   listWorkGroups(): Promise<WorkGroupRow[]>;

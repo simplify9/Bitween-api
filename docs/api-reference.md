@@ -145,6 +145,15 @@ A subscription bound to a data source also carries `dataSourceId`.
 | `GET /api/adapters/{id}/Metadata` | `subscriptions.view` | A custom adapter's package metadata |
 | `GET /api/adapters/source?adapterId=&version=` | `adapter-source.view` | The source files a published version carries, each with its SHA-256 |
 | `GET /api/adapters/sourcefile?adapterId=&version=&path=` | `adapter-source.view` | One source file, checked against its manifest hash. Recorded in the audit trail. |
+| `POST /api/adapters/promote` | `adapter-source.operate` | Make a published version current: `{ adapterId, version }` |
+| `GET /api/adapterdrafts` | `adapter-source.edit` | The editor's drafts |
+| `GET /api/adapterdrafts/{id}` | `adapter-source.edit` | A draft with its files |
+| `POST /api/adapterdrafts` | `adapter-source.edit` | Start a draft: `{ name, language, kind }`, or `{ fromAdapterId, fromVersion }` |
+| `POST /api/adapterdrafts/{id}` | `adapter-source.edit` | Save its files: `{ files: { path: content } }` |
+| `DELETE /api/adapterdrafts/{id}` | `adapter-source.edit` | Delete a draft |
+| `POST /api/adapterdrafts/{id}/build` | `adapter-source.edit` | Build and check it: `{ settings, buildOnly }` |
+| `POST /api/adapterdrafts/{id}/try` | `adapter-source.edit` | Call a command: `{ settings, command, input }` |
+| `POST /api/adapterdrafts/{id}/publish` | `adapter-source.operate` | Publish a version, not made current: `{ version, releaseNotes, settings }` |
 | `POST /api/mappingpreviews` | signed in, no permission checked | Preview rules-based mapping |
 | `POST /api/mappers` | `subscriptions.edit` | Preview a legacy Scriban template |
 

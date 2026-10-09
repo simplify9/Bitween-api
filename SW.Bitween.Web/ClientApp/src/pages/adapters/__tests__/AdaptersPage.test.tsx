@@ -58,6 +58,8 @@ const sub = (id: number, name: string, fields: Record<string, unknown>) => ({
 });
 
 const handlers = [
+  // The editor's drafts, listed for whoever may write adapters: none here.
+  http.get(apiPath("/adapterdrafts"), () => HttpResponse.json([])),
   http.get(apiPath("/adapters/Catalog"), ({ request }) => {
     const prefix = new URL(request.url).searchParams.get("prefix");
     if (prefix === "handlers") return HttpResponse.json([SMTP, ORDERS]);

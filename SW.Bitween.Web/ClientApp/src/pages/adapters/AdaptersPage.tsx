@@ -1,15 +1,17 @@
 import { lazy, Suspense, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
-import { useQueries } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, FileCode, Package, Puzzle, Search, Store } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight, FileCode, Package, Pencil, Plus, Puzzle, Search, Store } from "lucide-react";
 import { api, type AdapterKind } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Field, Select, TextInput } from "../../components/ui/forms";
+import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { formatDate } from "../../lib/dates";
-import { useSessionCan } from "../../auth/guards";
+import { Can, useSessionCan } from "../../auth/guards";
 import {
   ADAPTER_KINDS,
   matchesSearch,
@@ -21,6 +23,9 @@ import {
 
 // CodeMirror, its diff view and the language packs load only when someone opens source.
 const AdapterSourceViewer = lazy(() => import("./AdapterSourceViewer"));
+
+/** The editor, loaded only when someone opens a draft: it brings CodeMirror and its languages. */
+export const AdapterEditorPage = lazy(() => import("./AdapterEditorPage"));
 
 type Tab = "installed" | "marketplace";
 type KindFilter = "all" | AdapterKind;
@@ -56,6 +61,11 @@ export function AdaptersPage() {
       <PageHeader
         title="Adapters"
         description="What Bitween can receive with, check, transform and deliver with — built in, or published to this instance."
+        actions={
+          <Can permission="adapter-source.edit">
+            <NewAdapterButton />
+          </Can>
+        }
       />
 
       <div role="tablist" aria-label="Adapters" className="mb-5 flex gap-1 border-b border-ink-200">
@@ -124,6 +134,9 @@ function InstalledAdapters() {
 
   return (
     <div className="space-y-6">
+      <Can permission="adapter-source.edit">
+        <Drafts />
+      </Can>
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
@@ -347,9 +360,29 @@ function AdapterDetails({ adapter: a, usage }: { adapter: InventoryAdapter; usag
  */
 function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
   const canReadSource = useSessionCan("adapter-source.view");
+  const canEdit = useSessionCan("adapter-source.edit");
+  const canPromote = useSessionCan("adapter-source.operate");
   const [sourceOf, setSourceOf] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const [editError, setEditError] = useState("");
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const withSource = a.versions.filter((v) => v.hasSource).map((v) => v.version);
   const sourceColumn = canReadSource && withSource.length > 0;
+  const editable = (v: (typeof a.versions)[number]) =>
+    canEdit && v.hasSource && (v.runtime === "python" || v.runtime === "node");
+  const promotable = (v: (typeof a.versions)[number]) => canPromote && !v.withdrawn && v.version !== a.currentVersion;
+  const actionColumn = a.hasCatalog && a.versions.some((v) => editable(v) || promotable(v));
+  const edit = async (version: string) => {
+    setEditError("");
+    try {
+      const id = await api.draftFromVersion(a.id, version);
+      await queryClient.invalidateQueries({ queryKey: keys.adapterDrafts });
+      navigate(`/adapters/drafts/${id}`);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "A draft couldn't be started from it.");
+    }
+  };
 
   return (
     <div>
@@ -368,6 +401,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                 <th className="py-1 pr-3 font-medium">Pinned by</th>
                 <th className="py-1 font-medium">Release notes</th>
                 {sourceColumn && <th className="py-1 pl-3 font-medium">Source</th>}
+                {actionColumn && <th className="py-1 pl-3 font-medium"><span className="sr-only">Actions</span></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
@@ -413,6 +447,33 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                         )}
                       </td>
                     )}
+                    {actionColumn && (
+                      <td className="py-1.5 pl-3 whitespace-nowrap">
+                        <span className="flex gap-3">
+                          {editable(v) && (
+                            <button
+                              type="button"
+                              onClick={() => void edit(v.version)}
+                              aria-label={`Edit v${v.version}`}
+                              className="inline-flex items-center gap-1 font-medium text-crimson-700 hover:underline"
+                            >
+                              <Pencil className="size-3.5" aria-hidden />
+                              Edit
+                            </button>
+                          )}
+                          {promotable(v) && (
+                            <button
+                              type="button"
+                              onClick={() => setPromoting(v.version)}
+                              aria-label={`Make v${v.version} current`}
+                              className="font-medium text-crimson-700 hover:underline"
+                            >
+                              Make current
+                            </button>
+                          )}
+                        </span>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -424,6 +485,22 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                 ? "1 use follows the current version."
                 : `${usage.followingCurrent} uses follow the current version.`}
             </p>
+          )}
+          <FormError>{editError}</FormError>
+          {promoting && (
+            <ConfirmDialog
+              title={`Make v${promoting} current?`}
+              body={`Every subscription using ${a.label} that doesn't pin a version will run v${promoting} from its next exchange.${
+                a.currentVersion ? ` To go back, make v${a.currentVersion} current again.` : ""
+              }`}
+              confirmLabel={`Make v${promoting} current`}
+              confirmVariant="primary"
+              onConfirm={async () => {
+                await api.promoteAdapter(a.id, promoting);
+                await queryClient.invalidateQueries({ queryKey: ["adapters"] });
+              }}
+              onClose={() => setPromoting(null)}
+            />
           )}
           {sourceColumn && sourceOf && (
             <div className="mt-3">
@@ -447,5 +524,115 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
         </>
       )}
     </div>
+  );
+}
+
+const LANGUAGES = [
+  { value: "python", label: "Python" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "node", label: "JavaScript" },
+];
+
+/** Starts a new Python or JavaScript adapter in the editor, from the template serverless init writes. */
+function NewAdapterButton() {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [language, setLanguage] = useState("python");
+  const [kind, setKind] = useState<AdapterKind>("handler");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const create = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const id = await api.createAdapterDraft({ name: name.trim(), language: language as "python", kind });
+      await queryClient.invalidateQueries({ queryKey: keys.adapterDrafts });
+      navigate(`/adapters/drafts/${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The adapter couldn't be started.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="primary" onClick={() => setOpen(true)}>
+        <Plus className="size-4" aria-hidden />
+        New adapter
+      </Button>
+      {open && (
+        <Dialog title="New adapter" onClose={() => setOpen(false)}>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void create();
+            }}
+          >
+            <Field label="Name" hint="Letters and digits, like AcmeOrders. Its id comes from it: acme.orders." htmlFor="new-adapter-name">
+              <TextInput id="new-adapter-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            </Field>
+            <Field label="Language" htmlFor="new-adapter-language">
+              <Select id="new-adapter-language" value={language} onChange={(e) => setLanguage(e.target.value)} options={LANGUAGES} />
+            </Field>
+            <Field label="Kind" htmlFor="new-adapter-kind">
+              <Select
+                id="new-adapter-kind"
+                value={kind}
+                onChange={(e) => setKind(e.target.value as AdapterKind)}
+                options={ADAPTER_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+              />
+            </Field>
+            <p className="text-[12.5px] text-ink-500">
+              It starts as a draft only you and other editors see, and runs nowhere until a version is published and made
+              current. Adapters that need packages beyond the SDK are built with the serverless CLI.
+            </p>
+            <FormError>{error}</FormError>
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="primary" type="submit" busy={busy} disabled={!name.trim()}>
+                Start writing
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+const DRAFT_LANGUAGE = { python: "Python", node: "JavaScript", typescript: "TypeScript" } as const;
+
+/** Adapters being written in the editor, so they can be picked up again. */
+function Drafts() {
+  const drafts = useQuery({ queryKey: keys.adapterDrafts, queryFn: () => api.listAdapterDrafts() });
+  if (!drafts.data || drafts.data.length === 0) return null;
+  return (
+    <section aria-labelledby="section-drafts">
+      <h2 id="section-drafts" className="mb-2.5 flex items-center gap-2 text-[15px] font-semibold text-ink-900">
+        Drafts
+        <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-medium text-ink-600">{drafts.data.length}</span>
+      </h2>
+      <ul className="divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white">
+        {drafts.data.map((d) => (
+          <li key={d.id}>
+            <Link to={`/adapters/drafts/${d.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-ink-50/60">
+              <Pencil className="size-4 text-ink-400" aria-hidden />
+              <code className="font-mono text-[13px] text-ink-900">{d.adapterId}</code>
+              <Badge tone="neutral">{DRAFT_LANGUAGE[d.language]}</Badge>
+              <span className="text-[12.5px] text-ink-500">{d.baseVersion ? `from v${d.baseVersion}` : "not yet published"}</span>
+              <span className="ml-auto text-[12px] text-ink-400">
+                {formatDate(d.modifiedOn ?? d.createdOn)}
+                {(d.modifiedBy ?? d.createdBy) && ` · ${d.modifiedBy ?? d.createdBy}`}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

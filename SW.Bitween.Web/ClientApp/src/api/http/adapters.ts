@@ -22,6 +22,7 @@ interface RawCatalogAdapter {
     releaseNotes?: string | null;
     withdrawn?: boolean;
     hasSource?: boolean;
+    runtime?: string | null;
   }[] | null;
   displayName?: string | null;
   summary?: string | null;
@@ -96,6 +97,7 @@ export const adapterMethods = {
         releaseNotes: v.releaseNotes ?? null,
         withdrawn: v.withdrawn ?? false,
         hasSource: v.hasSource ?? false,
+        runtime: v.runtime ?? null,
       })),
     }));
   },

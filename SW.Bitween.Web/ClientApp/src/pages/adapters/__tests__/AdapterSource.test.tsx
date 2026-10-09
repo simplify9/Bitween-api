@@ -41,6 +41,8 @@ const sha = (text: string) => `h${text.length}-${[...text].reduce((a, c) => (a *
 
 const reads: string[] = [];
 const handlers = [
+  // The editor's drafts, listed for whoever may write adapters: none here.
+  http.get(apiPath("/adapterdrafts"), () => HttpResponse.json([])),
   http.get(apiPath("/adapters/Catalog"), ({ request }) =>
     HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [ORDERS] : []),
   ),
