@@ -92,6 +92,7 @@ namespace SW.Bitween.Web
             services.AddScoped<NativeAdapterDiscoveryService>();
             services.AddScoped<SW.Bitween.Services.Adapters.NativeAdapterManifests>();
             services.AddScoped<SW.Bitween.Services.Adapters.AdapterCatalog>();
+            services.AddScoped<SW.Bitween.Services.Adapters.AdapterSourceReader>();
             services.AddSingleton<ServerlessAdapterDescriber>();
             services.AddScoped<AdapterStartupValues>();
             services.AddScoped<Resources.Adapters.AdapterListing>();

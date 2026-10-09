@@ -161,6 +161,50 @@ publish_catalog() {
   printf '{}' >"$BUCKET_DIR/adapters-catalog/$id.json.meta.json"
 }
 
+# A Python adapter as serverless build packages one: the source under source/, each file's
+# SHA-256 in the manifest, and — as for every adapter not on .NET — published to its versions and
+# the catalog only, never to adapters/<id>. Two versions, so the source can be compared.
+# publish_source_adapter <adapter id>
+publish_source_adapter() {
+  python3 - "$BUCKET_DIR" "$1" <<'PY'
+import hashlib, io, json, os, sys, zipfile
+bucket, adapter = sys.argv[1], sys.argv[2]
+sources = {
+    "1.0.0": {"adapter/main.py": "def handle(xchange):\n    return xchange\n",
+              "requirements.txt": "requests==2.32.3\n", "adapter/legacy.py": "OLD = True\n"},
+    "2.0.0": {"adapter/main.py": "def handle(xchange):\n    retries = 3\n    return xchange\n",
+              "requirements.txt": "requests==2.32.3\n", "adapter/retry.py": "def backoff(n):\n    return 2 ** n\n"},
+}
+def manifest(version):
+    files = {p: hashlib.sha256(t.encode()).hexdigest() for p, t in sources[version].items()}
+    return {"id": adapter, "version": version, "displayName": "Source handler (e2e)",
+            "summary": "A Python handler that carries its source.", "publisher": {"name": "Bitween e2e"},
+            "kinds": ["handler"], "entry": "adapter/main.py", "runtime": "python", "language": "python",
+            "releaseNotes": f"Release {version}.",
+            "source": {"path": "source", "files": files, "buildCommand": "serverless build",
+                       "lockfiles": ["requirements.txt"]}}
+versions = []
+for version, files in sources.items():
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as z:
+        z.writestr("adapter.json", json.dumps(manifest(version)))
+        for path, text in files.items():
+            z.writestr(path, text)
+            z.writestr("source/" + path, text)
+    key = os.path.join(bucket, "adapters-versions", adapter, version)
+    os.makedirs(os.path.dirname(key), exist_ok=True)
+    open(key, "wb").write(data.getvalue())
+    sha = hashlib.sha256(data.getvalue()).hexdigest()
+    open(key + ".meta.json", "w").write(json.dumps({"EntryAssembly": "adapter/main.py", "Kind": "handler", "Hash": sha[:16], "Sha256": sha}))
+    versions.append({"version": version, "sha256": sha, "publishedOn": "2026-01-01T00:00:00Z",
+                     "publishedBy": "tools/e2e.sh", "manifest": manifest(version)})
+os.makedirs(os.path.join(bucket, "adapters-catalog"), exist_ok=True)
+entry = {"catalogVersion": 1, "id": adapter, "current": "2.0.0", "manifest": manifest("2.0.0"), "versions": versions}
+open(os.path.join(bucket, "adapters-catalog", adapter + ".json"), "w").write(json.dumps(entry))
+open(os.path.join(bucket, "adapters-catalog", adapter + ".json.meta.json"), "w").write("{}")
+PY
+}
+
 if $reuse; then
   app_up || die "no e2e environment is running at $APP_URL — start one with tools/e2e.sh --keep or --up"
   [[ -f "$PASSWORD_FILE" ]] && E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-$(cat "$PASSWORD_FILE")}"
@@ -246,6 +290,7 @@ if ! $reuse; then
     publish_adapter "$SAMPLE_HANDLER" e2e.samplehandler SW.Bitween.SampleHandler.dll "$version" '"Kind":"handler",'
   done
   publish_catalog e2e.samplehandler SW.Bitween.SampleHandler.dll "Echo handler (e2e)" 2.0.0 1.0.0 2.0.0
+  publish_source_adapter e2e.sourcehandler
   publish_adapter "$PG_ADAPTER" bitween.db.postgresql SW.Bitween.Adapters.Db.PostgreSql.dll "" \
     '"Protocol":"2","Lifecycle":"resident",'
 

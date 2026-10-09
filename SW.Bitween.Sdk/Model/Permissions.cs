@@ -166,6 +166,12 @@ public static class Permissions
     {
         public const string View = "audit.view";
     }
+
+    public static class AdapterSource
+    {
+        /// <summary>Read the source an adapter version was published with, and compare versions.</summary>
+        public const string View = "adapter-source.view";
+    }
 }
 
 public class PermissionActionModel
@@ -316,7 +322,13 @@ public static class PermissionCatalog
         // account and role changes, which is exactly what someone covering their tracks would edit.
         Area("audit", "Audit trail", "Administration",
             "Who changed what, and when, across every configuration entity.",
-            (View, "Browse the audit trail."))
+            (View, "Browse the audit trail.")),
+
+        // Administration, like the trail: source is our partners' code and our own, and some of
+        // it is licensed to us rather than ours to show every member.
+        Area("adapter-source", "Adapter source", "Administration",
+            "The code each adapter version was published with.",
+            (View, "Read an adapter's source and compare its versions."))
     ];
 
     /// <summary>Every valid permission key.</summary>

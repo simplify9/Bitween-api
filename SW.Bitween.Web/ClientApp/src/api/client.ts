@@ -80,6 +80,8 @@ import type {
   WorkGroupDetail,
   TrailEntry,
   WorkGroupRow,
+  AdapterSourceFile,
+  AdapterSourceListing,
 } from "./types";
 import type { SaveResult } from "./http/dataSourceStatements";
 
@@ -300,6 +302,10 @@ export interface ApiClient {
   /** Will these schedules actually fire? Asks the scheduler, not the subscription record. */
   listScheduleHealth(): Promise<ScheduleHealth[]>;
   listAdapters(kind: AdapterKind): Promise<AdapterInfo[]>;
+  /** The source files a published version carries. Needs adapter-source.view. */
+  getAdapterSource(adapterId: string, version: string): Promise<AdapterSourceListing>;
+  /** One source file of a published version; each read is audited. Needs adapter-source.view. */
+  getAdapterSourceFile(adapterId: string, version: string, path: string): Promise<AdapterSourceFile>;
 
   // — work groups —
   listWorkGroups(): Promise<WorkGroupRow[]>;

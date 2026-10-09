@@ -358,6 +358,17 @@ namespace SW.Bitween
                 b.HasIndex(p => p.PublishedOn);
             });
 
+            modelBuilder.Entity<AdapterSourceAccess>(b =>
+            {
+                b.ToTable("AdapterSourceAccesses");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.Path).HasMaxLength(500);
+                b.Property(p => p.AccountId).HasMaxLength(100).IsUnicode(false);
+                b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
+            });
+
             modelBuilder.Entity<ReceiveAttempt>(b =>
             {
                 b.ToTable("ReceiveAttempts");

@@ -191,6 +191,10 @@ export const keys = {
   /** Fixed for the lifetime of a deployment. */
   permissionCatalog: ["permission-catalog"] as const,
   adapters: (kind: string) => ["adapters", kind] as const,
+  /** A published version's source never changes, so these are fixed too. */
+  adapterSource: (adapterId: string, version: string) => ["adapter-source", adapterId, version] as const,
+  adapterSourceFile: (adapterId: string, version: string, path: string) =>
+    ["adapter-source", adapterId, version, path] as const,
 } as const;
 
 const MINUTE = 60_000;
@@ -210,7 +214,7 @@ const MINUTE = 60_000;
  *    these screens also declare their own `refetchInterval`.
  */
 export function applyQueryDefaults(queryClient: QueryClient): void {
-  const fixed = [keys.permissionCatalog, ["adapters"]];
+  const fixed = [keys.permissionCatalog, ["adapters"], ["adapter-source"]];
   const reference = [
     keys.informationTypes.all,
     keys.partners.all,

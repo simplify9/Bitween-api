@@ -27,6 +27,7 @@ The sign-in page offers email and password, Microsoft, or both, depending on set
 | **Flow map** | A read-only map of gateways, bus message types and subscriptions, with warnings for loops, gateways without partners or routes, and messages nobody listens to. |
 | **All subscriptions** | Every subscription, filtered by type, information type, partner and status. |
 | **Partners** | Partner properties and API keys, and everything that uses each partner. |
+| **Adapters** | Built-in and custom adapters with their settings, versions and the subscriptions that use them. With `adapter-source.view`, read the source a version was published with and compare two versions. |
 
 ### Subscription studio
 

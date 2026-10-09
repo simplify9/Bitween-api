@@ -71,7 +71,10 @@ public class Catalog(
                     v.PublishedBy,
                     v.Withdrawn,
                     v.Manifest?.ReleaseNotes,
-                    MinBitweenVersion = v.Manifest?.Compatibility?.MinBitweenVersion
+                    MinBitweenVersion = v.Manifest?.Compatibility?.MinBitweenVersion,
+                    // Whether the package carries its source, so a client offers to show it
+                    // only where there is something to show.
+                    HasSource = v.Manifest?.Source?.Files is { Count: > 0 }
                 })
                 .ToList(),
             DisplayName = a.Manifest?.DisplayName,

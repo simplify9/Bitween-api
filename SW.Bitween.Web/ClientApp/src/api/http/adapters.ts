@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { AdapterInfo, AdapterKind, AdapterProp } from "../types";
+import type { AdapterInfo, AdapterKind, AdapterProp, AdapterSourceFile, AdapterSourceListing } from "../types";
 import { get } from "./request";
 
 interface RawStartupValue {
@@ -21,6 +21,7 @@ interface RawCatalogAdapter {
     publishedBy?: string | null;
     releaseNotes?: string | null;
     withdrawn?: boolean;
+    hasSource?: boolean;
   }[] | null;
   displayName?: string | null;
   summary?: string | null;
@@ -94,7 +95,18 @@ export const adapterMethods = {
         publishedBy: v.publishedBy ?? null,
         releaseNotes: v.releaseNotes ?? null,
         withdrawn: v.withdrawn ?? false,
+        hasSource: v.hasSource ?? false,
       })),
     }));
+  },
+
+  getAdapterSource(adapterId: string, version: string): Promise<AdapterSourceListing> {
+    const q = new URLSearchParams({ adapterId, version });
+    return get<AdapterSourceListing>(`/adapters/source?${q}`);
+  },
+
+  getAdapterSourceFile(adapterId: string, version: string, path: string): Promise<AdapterSourceFile> {
+    const q = new URLSearchParams({ adapterId, version, path });
+    return get<AdapterSourceFile>(`/adapters/sourcefile?${q}`);
   },
 } satisfies Partial<ApiClient>;

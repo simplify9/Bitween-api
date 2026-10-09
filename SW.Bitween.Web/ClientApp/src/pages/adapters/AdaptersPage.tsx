@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useQueries } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Package, Puzzle, Search, Store } from "lucide-react";
+import { ChevronDown, ChevronRight, FileCode, Package, Puzzle, Search, Store } from "lucide-react";
 import { api, type AdapterKind } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -9,6 +9,7 @@ import { Badge, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { formatDate } from "../../lib/dates";
+import { useSessionCan } from "../../auth/guards";
 import {
   ADAPTER_KINDS,
   matchesSearch,
@@ -17,6 +18,9 @@ import {
   type AdapterUsage,
   type InventoryAdapter,
 } from "../../lib/adapterInventory";
+
+// CodeMirror, its diff view and the language packs load only when someone opens source.
+const AdapterSourceViewer = lazy(() => import("./AdapterSourceViewer"));
 
 type Tab = "installed" | "marketplace";
 type KindFilter = "all" | AdapterKind;
@@ -342,6 +346,11 @@ function AdapterDetails({ adapter: a, usage }: { adapter: InventoryAdapter; usag
  * version files, so it shows just their numbers.
  */
 function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
+  const canReadSource = useSessionCan("adapter-source.view");
+  const [sourceOf, setSourceOf] = useState<string | null>(null);
+  const withSource = a.versions.filter((v) => v.hasSource).map((v) => v.version);
+  const sourceColumn = canReadSource && withSource.length > 0;
+
   return (
     <div>
       <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Versions</h3>
@@ -358,6 +367,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                 <th className="py-1 pr-3 font-medium">Published</th>
                 <th className="py-1 pr-3 font-medium">Pinned by</th>
                 <th className="py-1 font-medium">Release notes</th>
+                {sourceColumn && <th className="py-1 pl-3 font-medium">Source</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
@@ -384,6 +394,25 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                     </td>
                     <td className="py-1.5 pr-3">{pinned === 0 ? "—" : pinned}</td>
                     <td className="py-1.5 whitespace-pre-line">{v.releaseNotes ?? ""}</td>
+                    {sourceColumn && (
+                      <td className="py-1.5 pl-3 whitespace-nowrap">
+                        {v.hasSource ? (
+                          <button
+                            type="button"
+                            onClick={() => setSourceOf(v.version)}
+                            aria-label={`View source of v${v.version}`}
+                            className="inline-flex items-center gap-1 font-medium text-crimson-700 hover:underline"
+                          >
+                            <FileCode className="size-3.5" aria-hidden />
+                            View
+                          </button>
+                        ) : (
+                          <span className="text-ink-400" title="Published without its source">
+                            —
+                          </span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -395,6 +424,20 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                 ? "1 use follows the current version."
                 : `${usage.followingCurrent} uses follow the current version.`}
             </p>
+          )}
+          {sourceColumn && sourceOf && (
+            <div className="mt-3">
+              <Suspense fallback={<LoadingBlock label="Opening the source…" />}>
+                <AdapterSourceViewer
+                  key={sourceOf}
+                  adapterId={a.id}
+                  label={a.label}
+                  versions={withSource}
+                  initialVersion={sourceOf}
+                  onClose={() => setSourceOf(null)}
+                />
+              </Suspense>
+            </div>
           )}
           {!a.hasCatalog && (
             <p className="mt-1.5 text-[12px] text-ink-500">

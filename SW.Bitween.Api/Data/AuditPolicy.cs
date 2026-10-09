@@ -57,7 +57,9 @@ public static class AuditPolicy
         typeof(Setting),
         typeof(Account),
         typeof(Role),
-        typeof(AccountRoleLink)
+        typeof(AccountRoleLink),
+        // Not configuration, but reading an adapter's source is what the trail is for.
+        typeof(AdapterSourceAccess)
     ];
 
     /// <summary>

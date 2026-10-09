@@ -281,4 +281,14 @@ A trailing semantic version segment is treated as a version of the adapter. A pa
 
 A custom adapter may run for `Bitween:ServerlessCommandTimeout` seconds, 300 by default.
 
+An adapter in another runtime than .NET, and a .NET version published without being made current, has no package at `{Bitween:AdapterPath}/{id}`. The picker finds it in the catalog (`{Bitween:AdapterPath}-catalog/{id}.json`) instead, under the kinds its manifest declares, while it has a version that has not been withdrawn.
+
+### Reading an adapter's source
+
+A package built with `serverless build` carries the adapter's source under `source/`, and its manifest lists each file with its SHA-256. On the **Adapters** page, a version that carries source has a **View** link in the Versions table. It opens the version's files; **Compare with** shows which files another version added, removed or changed, and a diff of each.
+
+Each file is read from the package in storage and checked against the hash in its manifest. A file that does not match is not shown. Versions published before packages carried source, or with `--no-source`, have no link.
+
+Reading source needs the `adapter-source.view` permission, which only administrators have unless a custom role grants it. Every file read is recorded in the audit trail.
+
 To write a native adapter instead, see [Development](development.md#adding-a-native-adapter).

@@ -32,8 +32,8 @@ describe("mergeCatalogs", () => {
           label: "A",
           currentVersion: "1.1.0",
           versionHistory: [
-            { version: "1.0.0", publishedOn: null, publishedBy: null, releaseNotes: null, withdrawn: true },
-            { version: "1.1.0", publishedOn: null, publishedBy: null, releaseNotes: "new", withdrawn: false },
+            { version: "1.0.0", publishedOn: null, publishedBy: null, releaseNotes: null, withdrawn: true, hasSource: false },
+            { version: "1.1.0", publishedOn: null, publishedBy: null, releaseNotes: "new", withdrawn: false, hasSource: false },
           ],
         }),
         adapter({ id: "b", label: "B", versions: ["0.9.0", "1.0.0"] }),

@@ -596,6 +596,29 @@ export interface AdapterVersion {
   publishedBy: string | null;
   releaseNotes: string | null;
   withdrawn: boolean;
+  /** The package carries its source, which can be read and compared (adapter-source.view). */
+  hasSource: boolean;
+}
+
+/** The files a published version's source holds. Published versions never change, so neither does this. */
+export interface AdapterSourceListing {
+  adapterId: string;
+  version: string;
+  language: string | null;
+  runtime: string | null;
+  buildCommand: string | null;
+  lockfiles: string[];
+  /** Relative to the source folder, sorted, each with its SHA-256 — enough to tell what two versions differ in. */
+  files: { path: string; sha256: string }[];
+}
+
+export interface AdapterSourceFile {
+  path: string;
+  sha256: string;
+  size: number;
+  /** Not text, or too large to show; `content` is then null. */
+  binary: boolean;
+  content: string | null;
 }
 
 /**

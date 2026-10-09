@@ -143,6 +143,8 @@ A subscription bound to a data source also carries `dataSourceId`.
 | `GET /api/adapters/{id}/GetStartupValues` | `subscriptions.view` | One adapter's properties |
 | `GET /api/adapters/{id}/properties` | `subscriptions.view` | |
 | `GET /api/adapters/{id}/Metadata` | `subscriptions.view` | A custom adapter's package metadata |
+| `GET /api/adapters/source?adapterId=&version=` | `adapter-source.view` | The source files a published version carries, each with its SHA-256 |
+| `GET /api/adapters/sourcefile?adapterId=&version=&path=` | `adapter-source.view` | One source file, checked against its manifest hash. Recorded in the audit trail. |
 | `POST /api/mappingpreviews` | signed in, no permission checked | Preview rules-based mapping |
 | `POST /api/mappers` | `subscriptions.edit` | Preview a legacy Scriban template |
 

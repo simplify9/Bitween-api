@@ -49,7 +49,7 @@ export function mergeCatalogs(byKind: Partial<Record<AdapterKind, AdapterInfo[]>
         currentVersion: a.currentVersion ?? (a.native ? null : (a.versions.at(-1) ?? null)),
         versions: (history
           ? a.versionHistory
-          : a.versions.map((v) => ({ version: v, publishedOn: null, publishedBy: null, releaseNotes: null, withdrawn: false }))
+          : a.versions.map((v) => ({ version: v, publishedOn: null, publishedBy: null, releaseNotes: null, withdrawn: false, hasSource: false }))
         )
           .slice()
           .reverse(),
