@@ -115,6 +115,31 @@ public class AdapterContractTests
         Assert.AreNotEqual(0, resultSchema.Validate("{\"Validations\":[{\"Key\":\"Id\"}]}").Count, "a failure needs its message");
     }
 
+    /// <summary>The example inputs serverless test calls adapters with are themselves what the contract says.</summary>
+    [TestMethod]
+    public async Task Every_example_input_satisfies_its_method_s_input_schema()
+    {
+        var schemas = new Dictionary<string, JsonSchema>
+        {
+            ["ExchangeFile"] = await JsonSchema.FromJsonAsync(AdapterContract.ExchangeFileSchema),
+            ["ValidationResult"] = await JsonSchema.FromJsonAsync(AdapterContract.ValidationResultSchema),
+        };
+        var checkedExamples = 0;
+        foreach (var kind in Contract["kinds"]!.Children<JProperty>())
+        foreach (var method in kind.Value["methods"]!)
+        foreach (var example in method["examples"] ?? new JArray())
+        {
+            var input = (string)method["input"]!;
+            Assert.IsTrue(schemas.ContainsKey(input), $"{kind.Name}.{method["name"]} has an example for {input}, which has no schema");
+            var errors = schemas[input].Validate(example.ToString());
+            Assert.AreEqual(0, errors.Count, $"{kind.Name}.{method["name"]}: {string.Join("; ", errors)}");
+            // And Bitween reads it as the file it is.
+            Assert.IsFalse(string.IsNullOrEmpty(example.ToObject<XchangeFile>()!.Data));
+            checkedExamples++;
+        }
+        Assert.IsTrue(checkedExamples >= 3, "handler, mapper and validator each have an example");
+    }
+
     /// <summary>Bitween calls by method name: each kind's names in the contract are the methods both families declare.</summary>
     [DataTestMethod]
     [DataRow("handler", typeof(IBitweenHandler), typeof(IInfolinkHandler))]
