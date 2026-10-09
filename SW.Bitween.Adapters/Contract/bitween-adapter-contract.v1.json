@@ -105,7 +105,8 @@
         {
           "name": "DeleteFile",
           "input": "FileId",
-          "output": null
+          "output": null,
+          "destructive": true
         },
         {
           "name": "Finalize",
@@ -115,5 +116,6 @@
       ]
     }
   },
-  "examples": "Example inputs for each method that takes one. serverless test calls the adapter with them, using the settings it is given, and checks each answer against the method's output type."
+  "examples": "Example inputs for each method that takes one. serverless test calls the adapter with them, using the settings it is given, and checks each answer against the method's output type.",
+  "destructive": "A destructive method changes the source an adapter reads: serverless test calls it only when told it may."
 }
