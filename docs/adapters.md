@@ -270,13 +270,13 @@ class Handler : IInfolinkHandler
 
 ### Custom adapters in Python
 
-A custom adapter can also be written in Python 3.12 or later, with `simplyworks-serverless` and the
+A custom adapter can also be written in Python 3.12 or later, with `sw-serverless` and the
 Bitween kinds in `simplyworks-bitween` (this repository's `sdk/python`). Subclass a kind and
 implement its methods; settings are declared with `sw.expect` as `Runner.Expect` declares them in
 .NET.
 
 ```python
-import simplyworks_serverless as sw
+import sw_serverless as sw
 from simplyworks_bitween import ExchangeFile, Handler
 
 
@@ -301,14 +301,15 @@ if __name__ == "__main__":
 | `Validator` | `validate(file)`, returning a `ValidationResult` |
 | `Receiver` | `list_files()`, `get_file(file_id)`, `delete_file(file_id)`, and optionally `initialize()` and `finalize()` |
 
-The SW-Serverless CLI does the rest:
+The [bitween CLI](cli.md) does the rest:
 
 ```sh
-serverless init AcmeOrders --lang python --kind handler
+bitween adapter init AcmeOrders --lang python --kind handler
 cd AcmeOrders
-serverless build                          # the package, with the SDKs and requirements.txt vendored
-serverless test --settings settings.json  # the Bitween contract checks
-serverless publish bin/serverless/acme.orders-0.1.0.zip   # with your storage flags
+bitween adapter build                          # the package, with the SDKs and requirements.txt vendored
+bitween adapter test --settings settings.json  # the Bitween contract checks
+bitween login https://bitween.example.com      # once
+bitween adapter publish bin/serverless/acme.orders-0.1.0.zip
 ```
 
 A Python adapter is published to its versions and the catalog only, never to
@@ -318,12 +319,12 @@ with `python3`, which the Docker image includes. A requirement with native code 
 
 ### Custom adapters in JavaScript or TypeScript
 
-The same, on Node 22 or later, with `@simplyworks/serverless` and `@simplyworks/bitween`
+The same, on Node 22 or later, with `@simplyworks/sw-serverless` and `@simplyworks/bitween`
 (`sdk/node`). Extend a kind and implement its methods, named as in Python but in camelCase:
 `handle`, `map`, `validate`, and `listFiles`, `getFile`, `deleteFile`.
 
 ```ts
-import { expect, run, valueOf } from "@simplyworks/serverless";
+import { expect, run, valueOf } from "@simplyworks/sw-serverless";
 import { ExchangeFile, Handler } from "@simplyworks/bitween";
 
 class Orders extends Handler {
@@ -340,35 +341,58 @@ class Orders extends Handler {
 run(Orders);
 ```
 
-`serverless init AcmeOrders --lang typescript --kind handler` (or `--lang node` for JavaScript) starts
-one. `serverless build` needs no TypeScript compiler: Node strips the types, so only syntax that
+`bitween adapter init AcmeOrders --lang typescript --kind handler` (or `--lang node` for JavaScript) starts
+one. `bitween adapter build` needs no TypeScript compiler: Node strips the types, so only syntax that
 strips cleanly is allowed — no enums or namespaces. Dependencies in `package.json` are installed into
 the package; one with native code has to be built on the platform the adapter runs on. Bitween runs
 it with `node`, which the Docker image includes.
 
-### Installing a custom adapter
+### Publishing a custom adapter
 
-Custom adapter ids follow the pattern `infolink6.{kind}.{name}`, where kind is `handlers`, `receivers`, `mappers` or `validators`. The adapter picker lists packages stored under these keys.
+Build the adapter with `bitween adapter build`, then publish the package:
+
+```sh
+bitween login https://bitween.example.com
+bitween adapter publish bin/serverless/acme.orders-1.0.0.zip            # a new version, not current yet
+bitween adapter promote acme.orders 1.0.0                               # make it the one that runs
+bitween adapter versions acme.orders
+```
+
+Publishing through Bitween needs `adapter-source.operate`, so an author needs a Bitween account rather
+than the storage's keys, and every version is in the audit trail. With `-p` and the storage flags, the
+CLI publishes straight to storage instead, as `sw-serverless publish` does — for CI that holds the keys.
+
+What is published, and where:
 
 ```
-{Bitween:AdapterPath}/infolink6.{kind}.{name}
-{Bitween:AdapterPath}/infolink6.{kind}.{name}/{major.minor.patch}
+{Bitween:AdapterPath}/{id}                       the current package, for hosts older than versions (.NET only)
+{Bitween:AdapterPath}-versions/{id}/{version}    every version
+{Bitween:AdapterPath}-catalog/{id}.json          versions, the current one, and each one's manifest
 ```
 
-A trailing semantic version segment is treated as a version of the adapter. A package is a zip of the published console application. The integration tests upload packages with `EntryAssembly` and `Hash` metadata for the serverless runner. How the runner chooses among versions is decided inside `SimplyWorks.Serverless` and is not visible in this repository.
+A version is published without being made current unless `--current` is given, so subscriptions keep
+running what they ran until it is promoted, or until a subscription pins it. Making an older version
+current again is how a release is rolled back. A withdrawn version stays listed but can't be pinned
+or made current.
+
+The adapter's kinds come from its manifest — `bitween adapter build` writes them from what the code
+declares — so an adapter can be named anything. Packages published before manifests are found by the
+older convention, `infolink6.{kind}s.{name}`, and by the `Kind` metadata they were published with.
+
+An adapter in another runtime than .NET, and a .NET version published without being made current,
+has no package at `{Bitween:AdapterPath}/{id}`. The picker finds it in the catalog instead, under the
+kinds its manifest declares, while it has a version that has not been withdrawn.
 
 A custom adapter may run for `Bitween:ServerlessCommandTimeout` seconds, 300 by default.
-
-An adapter in another runtime than .NET, and a .NET version published without being made current, has no package at `{Bitween:AdapterPath}/{id}`. The picker finds it in the catalog (`{Bitween:AdapterPath}-catalog/{id}.json`) instead, under the kinds its manifest declares, while it has a version that has not been withdrawn.
 
 ### Writing an adapter in Bitween
 
 Python, JavaScript and TypeScript adapters can be written in Bitween itself, without the CLI.
 
-- **New adapter** on the Adapters page starts one from the template `serverless init` writes. **Edit** on a
+- **New adapter** on the Adapters page starts one from the template `bitween adapter init` writes. **Edit** on a
   published Python or Node version starts a draft from the source that version carries.
 - A draft is saved in Bitween's database. The editor shows its files; **Save and check** builds it on the
-  server and runs the Bitween contract checks `serverless test` runs. **Try** calls a command with the
+  server and runs the Bitween contract checks `bitween adapter test` runs. **Try** calls a command with the
   settings and input given. Settings typed in the editor are sent with each call and never stored.
 - **Publish** builds and checks it again and publishes a new version. A version published from the editor
   is not current: subscriptions keep running what they ran until **Make current** is used, on the
@@ -391,7 +415,7 @@ published or made current (`AdapterRelease`).
 
 ### Reading an adapter's source
 
-A package built with `serverless build` carries the adapter's source under `source/`, and its manifest lists each file with its SHA-256. On the **Adapters** page, a version that carries source has a **View** link in the Versions table. It opens the version's files; **Compare with** shows which files another version added, removed or changed, and a diff of each.
+A package built with `bitween adapter build` (or SW-Serverless's `sw-serverless build`) carries the adapter's source under `source/`, and its manifest lists each file with its SHA-256. On the **Adapters** page, a version that carries source has a **View** link in the Versions table. It opens the version's files; **Compare with** shows which files another version added, removed or changed, and a diff of each.
 
 Each file is read from the package in storage and checked against the hash in its manifest. A file that does not match is not shown. Versions published before packages carried source, or with `--no-source`, have no link.
 

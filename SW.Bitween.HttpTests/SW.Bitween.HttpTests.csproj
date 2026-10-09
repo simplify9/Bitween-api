@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SW.Bitween.Cli\SW.Bitween.Cli.csproj" />
     <ProjectReference Include="..\SW.Bitween.Web\SW.Bitween.Web.csproj">
       <Properties>SkipClientBuild=true</Properties>
     </ProjectReference>

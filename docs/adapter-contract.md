@@ -1,6 +1,6 @@
 # The Bitween adapter contract
 
-What Bitween calls on an adapter and what it passes, whatever language the adapter is written in. The machine-readable form is `SW.Bitween.Adapters/Contract/bitween-adapter-contract.v1.json`, with a JSON Schema for each payload beside it. The SDK for each language is built from those files, and so is the conformance check that `serverless test` runs.
+What Bitween calls on an adapter and what it passes, whatever language the adapter is written in. The machine-readable form is `SW.Bitween.Adapters/Contract/bitween-adapter-contract.v1.json`, with a JSON Schema for each payload beside it. The SDK for each language is built from those files, and so is the conformance check that `bitween adapter test` runs.
 
 This is version 1. Later versions only add things, so an adapter written for version 1 keeps working.
 
@@ -67,10 +67,10 @@ An adapter declares the settings it reads, called "expects" in the .NET SDK (`Ru
 
 Bitween gets the list in two ways:
 
-1. **From the package's manifest** (`adapter.json` `properties`), without starting the adapter. This is the normal way. `serverless build` writes these properties from the adapter's own declarations, in every language.
+1. **From the package's manifest** (`adapter.json` `properties`), without starting the adapter. This is the normal way. `bitween adapter build` writes these properties from the adapter's own declarations, in every language.
 2. **By asking the adapter**, when its package has no manifest properties: Bitween starts it and asks for its expected startup values. .NET adapters answer as they always have, and adapters in other languages answer from the settings in their handshake.
 
-Each SDK declares settings once, in code: `Runner.Expect` in .NET, and its equivalent in each other language's SDK. That one declaration feeds both the manifest and the handshake, and `serverless test` fails if the two don't match.
+Each SDK declares settings once, in code: `Runner.Expect` in .NET, and its equivalent in each other language's SDK. That one declaration feeds both the manifest and the handshake, and `bitween adapter test` fails if the two don't match.
 
 ## Errors and rejections
 
