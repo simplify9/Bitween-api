@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Bitween's adapters on SW-Serverless's tooling: the Bitween contract, the templates for its
+       kinds, and its Python and Node packages, taken straight from this repository. What the
+       bitween CLI and the adapter editor build, check and scaffold with. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="../SW.Bitween.Adapters/Contract/*.json" LogicalName="contract/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../sdk/python/src/simplyworks_bitween/*.py" LogicalName="python/simplyworks_bitween/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../sdk/node/package.json" LogicalName="node/@simplyworks/bitween/package.json" />
+    <EmbeddedResource Include="../sdk/node/src/*.js;../sdk/node/src/*.d.ts" LogicalName="node/@simplyworks/bitween/src/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

@@ -7,10 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="NJsonSchema" Version="11.6.1" />
-    <PackageReference Include="SimplyWorks.Serverless" Version="10.1.1" />
-    <!-- The CLI's build, conformance kit, local host and publish, for the adapter editor: what
-         Bitween builds and publishes is exactly what serverless build and publish would. -->
-    <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.1.1" />
+    <PackageReference Include="SimplyWorks.Serverless" Version="10.2.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,6 +46,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- SW-Serverless's tooling with Bitween's contract, kinds and packages, for the adapter editor:
+         what Bitween builds and publishes is exactly what the bitween CLI would. -->
+    <ProjectReference Include="..\SW.Bitween.Adapters.Tooling\SW.Bitween.Adapters.Tooling.csproj" />
     <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
     <ProjectReference Include="..\SW.Bitween.Sdk\SW.Bitween.Sdk.csproj" />
   </ItemGroup>

@@ -57,6 +57,7 @@ public class ScriptAdapterTests(BitweenFixture fixture)
 
                 var built = await PackageBuilder.BuildAsync(new BuildRequest
                 {
+                    Packages = SW.Bitween.Adapters.Tooling.BitweenAdapters.Packages(),
                     ProjectDirectory = Path.Combine(work, folder, project),
                     OutputDirectory = Path.Combine(work, "out"),
                 });

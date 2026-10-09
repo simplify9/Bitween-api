@@ -14,6 +14,7 @@ using SW.Serverless.Tooling;
 using SW.Serverless.Tooling.Building;
 using SW.Serverless.Tooling.Conformance;
 using SW.Serverless.Tooling.Scaffolding;
+using SW.Bitween.Adapters.Tooling;
 
 namespace SW.Bitween.Services.Adapters;
 
@@ -82,7 +83,7 @@ public class AdapterWorkshop(
         var parent = Path.Combine(Path.GetTempPath(), "bitween-workshop", Guid.NewGuid().ToString("N"));
         try
         {
-            var made = Scaffolder.Scaffold(new ScaffoldRequest { Name = name, Id = id, Language = language, Kind = kind, ParentDirectory = parent });
+            var made = BitweenAdapters.Scaffold(new ScaffoldRequest { Name = name, Id = id, Language = language, Kind = kind, ParentDirectory = parent });
             if (!made.Succeeded) throw new SWValidationException("Name", string.Join("; ", made.Problems));
             var files = made.Files.ToDictionary(f => f.Replace('\\', '/'), f => File.ReadAllText(Path.Combine(made.ProjectDirectory, f)));
             return new AdapterDraft(id, language, kind, null, files);
@@ -138,6 +139,7 @@ public class AdapterWorkshop(
                 CommandTimeoutSeconds = CallTimeoutSeconds,
                 // A receiver's DeleteFile changes the source it reads; never from here.
                 AllowDelete = false,
+                Contracts = { BitweenAdapters.Contract },
             });
             result.Checks = report.Checks.Select(c => new WorkshopCheck(c.Name, c.Outcome.ToString(), c.Detail)).ToList();
             return result;
@@ -195,6 +197,7 @@ public class AdapterWorkshop(
                 PackageDirectory = built.PackageDirectory,
                 Settings = settings ?? new Dictionary<string, string>(),
                 CommandTimeoutSeconds = CallTimeoutSeconds,
+                Contracts = { BitweenAdapters.Contract },
             });
             result.Checks = report.Checks.Select(c => new WorkshopCheck(c.Name, c.Outcome.ToString(), c.Detail)).ToList();
             if (!report.Passed) return (null, result);
@@ -233,6 +236,62 @@ public class AdapterWorkshop(
             catalog.Forget(adapterId);
             startupValues.Forget(adapterId);
         }
+    }
+
+    // ------------------------------------------------------------------ packages built elsewhere
+
+    /// <summary>
+    /// Publishes a package the bitween CLI built — any language, .NET included — as it would publish
+    /// straight to storage, only through Bitween: its manifest is checked, its version settled, and it
+    /// is made current only when asked.
+    /// </summary>
+    public async Task<PublishResult> UploadAsync(Stream zip, string version, bool current, string releaseNotes, string publishedBy)
+    {
+        var work = Path.Combine(Path.GetTempPath(), "bitween-workshop", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(work);
+        try
+        {
+            var path = Path.Combine(work, "package.zip");
+            await using (var file = File.Create(path))
+                await zip.CopyToAsync(file);
+
+            PublishResult published;
+            try
+            {
+                published = await PackagePublisher.PublishPackageAsync(cloudFiles, new PublishPackageRequest
+                {
+                    PackagePath = path,
+                    Version = version,
+                    Promote = current,
+                    ReleaseNotes = releaseNotes,
+                    PublishedBy = publishedBy,
+                    RemotePath = serverlessOptions.AdapterRemotePath,
+                }, _ => { });
+            }
+            catch (InvalidDataException)
+            {
+                throw new SWValidationException("Package", "That isn't a zip: send the package bitween adapter build made.");
+            }
+
+            catalog.Forget(published.Manifest.Id);
+            startupValues.Forget(published.Manifest.Id);
+            return published;
+        }
+        finally
+        {
+            try { Directory.Delete(work, true); } catch { }
+        }
+    }
+
+    /// <summary>Every version of an adapter, with which is current and which are withdrawn.</summary>
+    public Task<VersionListing> VersionsAsync(string adapterId) =>
+        new AdapterRepository(cloudFiles, _ => { }, serverlessOptions.AdapterRemotePath).ListVersionsAsync(adapterId);
+
+    /// <summary>Takes a version out of use: still listed, never offered for pinning, never made current.</summary>
+    public async Task WithdrawAsync(string adapterId, string version)
+    {
+        await new AdapterRepository(cloudFiles, _ => { }, serverlessOptions.AdapterRemotePath).WithdrawAsync(adapterId, version);
+        catalog.Forget(adapterId);
     }
 
     // ------------------------------------------------------------------ the build itself
@@ -290,11 +349,7 @@ public class AdapterWorkshop(
             return new Built { Work = work, Result = result };
         }
 
-        var build = await PackageBuilder.BuildAsync(new BuildRequest
-        {
-            ProjectDirectory = project,
-            OutputDirectory = Path.Combine(work, "out"),
-        });
+        var build = await PackageBuilder.BuildAsync(BitweenAdapters.BuildRequest(project, Path.Combine(work, "out")));
         result.Succeeded = build.Succeeded;
         result.Problems.AddRange(build.Problems);
         result.Warnings.AddRange(build.Warnings);
@@ -302,8 +357,8 @@ public class AdapterWorkshop(
         return new Built { Work = work, Result = result, PackageDirectory = build.PackageDirectory, ZipPath = build.ZipPath };
     }
 
-    static readonly string[] OwnPackages = ["simplyworks-serverless", "simplyworks_serverless", "simplyworks-bitween", "simplyworks_bitween",
-        "@simplyworks/serverless", "@simplyworks/bitween"];
+    static readonly string[] OwnPackages = ["sw-serverless", "sw_serverless", "simplyworks-bitween", "simplyworks_bitween",
+        "@simplyworks/sw-serverless", "@simplyworks/bitween"];
 
     /// <summary>Dependencies beyond the SDKs, which the editor can't fetch: what it says about each.</summary>
     static IEnumerable<string> Dependencies(IDictionary<string, string> files)
