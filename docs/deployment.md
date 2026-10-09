@@ -2,7 +2,13 @@
 
 ## Container image
 
-The `Dockerfile` builds the admin UI in a Node 22 stage, publishes `SW.Bitween.Web` with the .NET 10 SDK, and runs it on the ASP.NET 10 runtime image. The final image also carries the .NET 6 shared runtime, copied from the ASP.NET 6 image.
+The `Dockerfile` builds the admin UI in a Node 22 stage, publishes `SW.Bitween.Web` with the .NET 10 SDK, and runs it on the ASP.NET 10 runtime image. The final image also carries:
+
+- the .NET 6 shared runtime, copied from the ASP.NET 6 image
+- `python3`, Ubuntu 24.04's Python 3.12, installed with apt, for Python adapters and the adapter editor
+- the `node` binary from `node:22-bookworm-slim`, without npm, for JavaScript and TypeScript adapters and the adapter editor
+
+Adapters bring their own dependencies inside their packages, so nothing else is installed for them. The container runs as the image's non-root user, which owns only `/app/adapters`, the cache of downloaded adapter packages.
 
 ```bash
 docker build -t bitween:local .
@@ -115,7 +121,11 @@ Run several replicas behind a load balancer for throughput and availability, and
 
 | Pipeline | Trigger | What it does |
 |---|---|---|
-| `.github/workflows/bitween-api-cicd-gateway.yml` | Push to `releases/r10.0`, or manual | Runs unit and integration tests, pushes the image to Docker Hub, publishes the chart to GHCR and `charts.sf9.io`, pushes `SimplyWorks.Bitween.Sdk` to NuGet, tags the repository, and deploys the playground environment |
+| `.github/workflows/bitween-api-cicd-gateway.yml` | Push to `releases/r10.0-staging`, or manual | Runs unit and integration tests, pushes the image to Docker Hub, publishes the chart to GHCR, pushes `SimplyWorks.Bitween.Sdk` and `SimplyWorks.Bitween.Adapters` to NuGet, tags the repository, and deploys the playground environment |
+| `.github/workflows/bitween-api-cicd-gateway.yml` | Push to `releases/r10.0` | The same build, tests, image and NuGet packages, with the chart published to `charts.sf9.io` instead. Nothing is deployed. |
+| `.github/workflows/cli-release.yml` | A tag `cli-v<version>`, such as `cli-v10.0.60`, or manual with a version | Publishes the [bitween CLI](cli.md) as self-contained single-file binaries for `linux-x64`, `linux-arm64`, `linux-musl-x64`, `linux-musl-arm64`, `osx-x64`, `osx-arm64` and `win-x64`, and creates a GitHub release `cli-v<version>` with them and a `SHA256SUMS` file. `scripts/install-cli.sh` installs from these releases. |
+| `.github/workflows/dotnet-pr-checks.yml` | Pull requests to `releases/**` | Builds the solution and runs the .NET unit tests |
+| `.github/workflows/frontend-tests.yml` | Pull requests to `releases/**` that touch the UI | Runs the UI unit and component tests |
 | `.github/workflows/critical-vuln-check.yml` | Pull requests to release and develop branches | Fails while critical Dependabot alerts are open |
 | `.github/workflows/dependabot-auto-merge.yml` | Dependabot pull requests | Auto-merges patch updates |
 | `azure-pipelines.yml` | `releases/*` | The earlier Azure DevOps pipeline, still in the repository |

@@ -13,7 +13,8 @@
 | Status | Meaning |
 |---|---|
 | 400 | Validation failed. The body usually maps an error code to messages, such as `{ "ALREADY_RETRIED": ["..."] }`. |
-| 401 | Not signed in, or missing the permission |
+| 401 | Not signed in, or the token has expired |
+| 403 | Signed in, but missing the permission |
 | 404 | Not found |
 
 ### Search queries
@@ -44,7 +45,7 @@ See [Entry points](entry-points.md) for status codes.
 
 | Method and path | Permission | Description |
 |---|---|---|
-| `POST /api/accounts/login` | none | Sign in with a username and password, a Microsoft token, or the refresh cookie. Returns `{ jwt }`. |
+| `POST /api/accounts/login` | none | Sign in with a username and password, a Microsoft token, or a refresh token (the refresh cookie, or `refreshToken` in the body). Returns `{ jwt }`. |
 | `POST /api/accounts/logout` | none | Deletes the refresh token and clears site data |
 | `GET /api/accounts/profile` | signed in | The current member, roles and permissions |
 | `POST /api/accounts/changePassword` | signed in | Change your own password |
@@ -137,7 +138,7 @@ A subscription bound to a data source also carries `dataSourceId`.
 
 | Method and path | Permission | Description |
 |---|---|---|
-| `GET /api/adapters/Catalog?prefix=` | `subscriptions.view` | Every adapter of one kind with its properties. `prefix` is `receivers`, `handlers`, `mappers` or `validators`. |
+| `GET /api/adapters/Catalog?prefix=` | `subscriptions.view` | Every adapter of one kind with its properties. `prefix` is `receivers`, `handlers`, `mappers` or `validators`. Includes adapters published only to the catalog. Each entry of `versionHistory` has `hasSource` and `runtime`. |
 | `GET /api/adapters?prefix=` | `subscriptions.view` | Adapter ids of one kind |
 | `GET /api/adapters/Versioned?prefix=` | `subscriptions.view` | Adapter ids with versions |
 | `GET /api/adapters/{id}/GetStartupValues` | `subscriptions.view` | One adapter's properties |
@@ -145,19 +146,24 @@ A subscription bound to a data source also carries `dataSourceId`.
 | `GET /api/adapters/{id}/Metadata` | `subscriptions.view` | A custom adapter's package metadata |
 | `GET /api/adapters/source?adapterId=&version=` | `adapter-source.view` | The source files a published version carries, each with its SHA-256 |
 | `GET /api/adapters/sourcefile?adapterId=&version=&path=` | `adapter-source.view` | One source file, checked against its manifest hash. Recorded in the audit trail. |
+| `GET /api/adapters/versions?adapterId=` | `subscriptions.view` | Every published version of one adapter, with which is current and which are withdrawn |
+| `POST /api/adapters/packages?version=&current=&releaseNotes=` | `adapter-source.operate` | Publish a package built by `bitween adapter build`. The body is the zip itself (`application/zip`), up to 200 MB. `version` is `major`, `minor`, `patch` or an exact version, the package's own when empty; `current=true` makes it current; `releaseNotes` replaces the package's own. Returns `{ adapterId, version, current, sha256 }`. A refusal is 400 with `{ field: [message] }`. |
 | `POST /api/adapters/promote` | `adapter-source.operate` | Make a published version current: `{ adapterId, version }` |
-| `GET /api/adapterdrafts` | `adapter-source.edit` | The editor's drafts |
+| `POST /api/adapters/withdraw` | `adapter-source.operate` | Take a published version out of use: `{ adapterId, version }`. It stays listed but can't be pinned or made current. |
+| `GET /api/adapterdrafts?adapterId=` | `adapter-source.edit` | The editor's drafts, newest first, optionally for one adapter |
 | `GET /api/adapterdrafts/{id}` | `adapter-source.edit` | A draft with its files |
-| `POST /api/adapterdrafts` | `adapter-source.edit` | Start a draft: `{ name, language, kind }`, or `{ fromAdapterId, fromVersion }` |
+| `POST /api/adapterdrafts` | `adapter-source.edit` | Start a draft: `{ name, language, kind, adapterId }`, where `language` is `python`, `node` or `typescript` and `adapterId` comes from the name when left out; or `{ fromAdapterId, fromVersion }`. Returns the draft's id. |
 | `POST /api/adapterdrafts/{id}` | `adapter-source.edit` | Save its files: `{ files: { path: content } }` |
 | `DELETE /api/adapterdrafts/{id}` | `adapter-source.edit` | Delete a draft |
 | `POST /api/adapterdrafts/{id}/build` | `adapter-source.edit` | Build and check it: `{ settings, buildOnly }` |
 | `POST /api/adapterdrafts/{id}/try` | `adapter-source.edit` | Call a command: `{ settings, command, input }` |
-| `POST /api/adapterdrafts/{id}/publish` | `adapter-source.operate` | Publish a version, not made current: `{ version, releaseNotes, settings }` |
+| `POST /api/adapterdrafts/{id}/publish` | `adapter-source.operate` | Publish a version, not made current: `{ version, releaseNotes, settings }`. `version` is `major`, `minor`, `patch` (the default) or an exact version. |
 | `POST /api/mappingpreviews` | signed in, no permission checked | Preview rules-based mapping |
 | `POST /api/mappers` | `subscriptions.edit` | Preview a legacy Scriban template |
 
 Adapter descriptions are cached per node, so a newly uploaded package version can show old properties for a while.
+
+Publishing a package, promoting, withdrawing, and publishing from a draft are recorded in the audit trail as `AdapterRelease` rows. Drafts are recorded as `AdapterDraft` rows, with a hash of their files rather than the files.
 
 ## Gateways
 

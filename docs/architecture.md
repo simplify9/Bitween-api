@@ -46,15 +46,21 @@ flowchart TB
 | Project | Role | References |
 |---|---|---|
 | `SW.Bitween.Web` | Host, startup wiring, authentication, headers, admin UI | Api, PgSql, MySql, MsSql, NativeAdapters |
-| `SW.Bitween.Api` | Domain, `BitweenDbContext`, API handlers, pipeline, jobs, settings | NativeAdapters, Sdk |
+| `SW.Bitween.Api` | Domain, `BitweenDbContext`, API handlers, pipeline, jobs, settings, the adapter editor's server side | NativeAdapters, Sdk, Adapters.Tooling |
 | `SW.Bitween.NativeAdapters` | Built-in adapters and the rules-based mapper | none |
 | `SW.Bitween.Sdk` | Request and response models, JSON converters, retry policy evaluator | none |
+| `SW.Bitween.Adapters` | The Bitween adapter contract: its JSON in `Contract/` and its .NET form (`IBitweenHandler`, `IBitweenMapper`, `IBitweenValidator`, `IBitweenReceiver`, `ExchangeFile`, `ValidationResult`). Targets netstandard2.0 with no dependencies; published to NuGet as `SimplyWorks.Bitween.Adapters` | none |
+| `SW.Bitween.Adapters.Tooling` | Bitween's adapters on SW-Serverless's tooling (`SimplyWorks.Serverless.Tooling`): the contract, the templates for the four kinds, and the Python and Node packages to vendor into builds, embedded from `SW.Bitween.Adapters/Contract` and `sdk/` | none |
+| `SW.Bitween.Cli` | The `bitween` command. See [The bitween CLI](cli.md) | Adapters.Tooling |
 | `SW.Bitween.PgSql`, `MySql`, `MsSql` | Provider contexts, migrations, design-time factories | Api |
 | `SW.Bitween.Adapters.Bus.RabbitMq`, `Bus.Sqs` | Resident broker adapters | none |
 | `SW.Bitween.Adapters.Db.Core`, `Db.PostgreSql`, `Db.MySql`, `Db.SqlServer`, `Db.Oracle` | Resident database adapters and their shared base | Db.Core |
 | `SW.Bitween.Sample*` | Example custom adapters, including a resident handler | none |
+| `SW.Bitween.UnitTests`, `IntegrationTests`, `HttpTests`, `TransportTests` | Test suites. See [Development](development.md#tests) | The projects they test; `HttpTests` hosts Web and runs the CLI |
 
-Bitween's own projects target .NET 10, the resident adapters included. They share their settings attributes from `SW.Bitween.Adapters.Shared` as linked source.
+Outside the solution, `sdk/python` is the Python package `simplyworks-bitween` and `sdk/node` the Node package `@simplyworks/bitween`: the four kinds for adapters in those languages, built on SW-Serverless's `sw-serverless` and `@simplyworks/sw-serverless`.
+
+Bitween's own projects target .NET 10, the resident adapters included, except `SW.Bitween.Adapters`, which targets netstandard2.0 so that an adapter on any supported .NET can reference it. The resident adapters share their settings attributes from `SW.Bitween.Adapters.Shared` as linked source.
 
 ### SimplyWorks libraries
 
@@ -65,7 +71,8 @@ Much of the plumbing comes from Simplify9's `SimplyWorks.*` packages.
 | `SimplyWorks.CqApi` | Turns handler classes into HTTP endpoints, with Swagger |
 | `SimplyWorks.Bus`, `SimplyWorks.Bus.RabbitMqExtensions` | RabbitMQ publish and consume, retry and dead-letter queues, management API readers |
 | `SimplyWorks.CloudFiles.*` | Object storage for S3, Azure Blob, Oracle Cloud and local disk |
-| `SimplyWorks.Serverless` | Downloads adapter packages and runs them, either as one process per call or as long-lived resident processes |
+| `SimplyWorks.Serverless` | Downloads adapter packages and runs them, either as one process per call or as long-lived resident processes, on .NET, `python3` or `node` |
+| `SimplyWorks.Serverless.Tooling` | Building, checking, running and publishing adapter packages: what `sw-serverless`, the `bitween` CLI and the adapter editor use |
 | `SimplyWorks.Scheduler.*` | Quartz with a persistent job store per database provider, plus execution history |
 | `SimplyWorks.EfCoreExtensions` | Startup migration, JSON columns, audit stamping |
 | `SimplyWorks.Logger.*` | Console and Elasticsearch logging |
@@ -79,13 +86,14 @@ Bitween keeps configuration and runtime records in one relational database, thro
 - **Providers.** `Bitween:DatabaseType` selects PostgreSQL, SQL Server or MySQL. Each provider has its own context and migrations project. On PostgreSQL, tables live in the `infolink` schema and columns use snake_case.
 - **Migrations** run automatically at startup, before the host starts serving.
 - **Quartz tables** live in the same database.
-- **Audit.** Saving a configuration entity writes audit rows in the same transaction. Runtime rows such as exchanges are not audited. The synchronous `SaveChanges` throws, so no save can skip the audit.
+- **Audit.** Saving a configuration entity writes audit rows in the same transaction. So does saving an adapter draft, a version published, promoted or withdrawn from Bitween, and each read of an adapter's source. Runtime rows such as exchanges are not audited. The synchronous `SaveChanges` throws, so no save can skip the audit.
 - **Domain events** are published to RabbitMQ after the transaction commits.
 
 | Area | Tables |
 |---|---|
 | Configuration | Documents, Partners, PartnerApiCredentials, Subscriptions, SubscriptionSchedules, SubscriptionCategories, WorkGroups, GlobalAdapterValuesSets, ApiGateways, ApiGatewayPartners, BusGateways, BusGatewayRoutes, RetryPolicies, RetryAlertOverrides, Notifiers, Settings, DataSources, DataSourceStatements |
 | Runtime | Xchanges, XchangeResults, XchangePromotedProperties, XchangeAggregations, XchangeNotifications, OnHoldXchanges, DelayedRetries, RetryGroupUsages, ReceiveAttempts, InboundMessages, AdapterStates, ClusterLeases |
+| Adapters | AdapterDrafts, AdapterReleases, AdapterSourceAccesses |
 | Identity | Accounts, Roles, AccountRoles, RefreshTokens |
 | Audit | AuditEntries |
 

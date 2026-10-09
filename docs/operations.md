@@ -129,4 +129,6 @@ Exchange rows can outlive their files. Opening such a file says it was deleted b
 | A data source shows no live data, or statements save as *not checked* | The request reached a node that does not run the adapter, or `Bitween__BusProvidersEnabled` is off |
 | A delivery fails with *not running on this node* | Data sources are not enabled on the node processing the exchange |
 | A new adapter version still shows its old properties | Adapter descriptions are cached on each node |
+| The adapter editor refuses a draft that names packages in `requirements.txt` or `package.json` | The editor builds only adapters that need nothing beyond the SDKs. Build it with `bitween adapter build` and publish the package |
+| A `bitween` command says *Your Bitween account doesn't have the permission this needs* | The account lacks the permission: `adapter-source.operate` to publish, promote or withdraw, `subscriptions.view` to list versions |
 | A database receives the same row twice | Marking the row or saving the cursor failed after its exchange was stored |

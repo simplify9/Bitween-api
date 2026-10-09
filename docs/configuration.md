@@ -59,7 +59,7 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `ExchangeRetentionDays`, `ArchiveExchanges`, `ExchangeRetentionCron` | `0`, `true`, `0 0 4 * * ?` | First values of the retention settings. |
 | `AdapterPath` | `adapters` | Storage key prefix for custom adapter packages. |
 | `ServerlessCommandTimeout` | `300` | Seconds a custom adapter may run. |
-| `BusProvidersEnabled` | `false` | Run data source adapters, for brokers and databases, on this node. See [Data sources](data-sources.md). |
+| `BusProvidersEnabled` | `false` | Run data source adapters, for brokers and databases, on this node. See [Data sources](data-sources.md). Resident adapters used in the pipeline need it too. Python and Node custom adapters don't: the resident adapter host they run on is started on every node. |
 | `BusProviderMaxInFlight` | `16` | Unacknowledged messages one broker adapter may have in flight with Bitween. |
 | `InboundMessagePruneCron` | `0 30 3 * * ?` | Quartz cron for deleting expired broker deduplication keys. |
 | `QueuePrefix` | `bitween` | Part of every queue name. Give each deployment sharing a broker its own value. |

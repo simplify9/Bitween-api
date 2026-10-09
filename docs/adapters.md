@@ -2,33 +2,34 @@
 
 Adapters do the work at each stage of a subscription. Bitween has four kinds.
 
-| Kind | Stage | Contract |
+| Kind | Stage | Methods |
 |---|---|---|
-| Receiver | Pulls items for a scheduled job | `IInfolinkReceiver`: `Initialize`, `ListFiles`, `GetFile(id)`, `DeleteFile(id)`, `Finalize` |
-| Validator | Checks API input before an exchange is created | `IInfolinkValidator`: `Validate(file)` returns success or a list of errors |
-| Mapper | Transforms the input | `IInfolinkHandler`: `Handle(file)` returns the output |
-| Handler | Delivers and returns an optional response | `IInfolinkHandler`: `Handle(file)` returns the response |
+| Receiver | Pulls items for a scheduled job | `Initialize`, `ListFiles`, `GetFile(id)`, `DeleteFile(id)`, `Finalize` |
+| Validator | Checks API input before an exchange is created | `Validate(file)` returns success or a list of errors |
+| Mapper | Transforms the input | `Handle(file)` returns the output |
+| Handler | Delivers and returns an optional response | `Handle(file)` returns the response |
 
-The contracts come from `SimplyWorks.PrimitiveTypes`. The payload is an `XchangeFile` with text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notifiers and retry alerts reuse handler adapters.
+What Bitween calls and passes is the [adapter contract](adapter-contract.md). In .NET its interfaces are `IBitweenReceiver`, `IBitweenValidator`, `IBitweenMapper` and `IBitweenHandler` from `SimplyWorks.Bitween.Adapters`. Adapters written against the older `IInfolinkReceiver`, `IInfolinkValidator` and `IInfolinkHandler` from `SimplyWorks.PrimitiveTypes`, with `XchangeFile`, are called the same way. The payload has text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notifiers and retry alerts reuse handler adapters.
 
 ## Native and custom adapters
 
 - **Native adapters** are compiled into Bitween and run in process. Their ids start with `Native`, such as `NativeHttpHandler`.
-- **Custom adapters** are separate .NET console programs that `SimplyWorks.Serverless` downloads from object storage. A *classic* custom adapter runs as a new process for each call. A *resident* one runs as a long-lived process that keeps its connections open.
+- **Custom adapters** are separate programs, written in .NET, Python, JavaScript or TypeScript, that `SimplyWorks.Serverless` downloads from object storage and runs. A *classic* custom adapter runs as a new process for each call. A *resident* one runs as a long-lived process that keeps its connections open.
 - **Data source adapters** are resident adapters for brokers (`bitween.bus.rabbitmq`, `bitween.bus.sqs`) and databases (`bitween.db.postgresql`, `bitween.db.mysql`, `bitween.db.sqlserver`, `bitween.db.oracle`). A subscription binds them to a data source. See [Data sources](data-sources.md), [External brokers](external-brokers.md) and [Databases](databases.md).
 
-An id starting with `native`, ignoring case, is a native adapter. For any other id, Bitween reads the package's metadata and runs it as resident or classic. Resident adapters only run on nodes with `Bitween:BusProvidersEnabled`.
+An id starting with `native`, ignoring case, is a native adapter. For any other id, Bitween reads the package's metadata and runs it as resident or classic. Resident adapters only run on nodes with `Bitween:BusProvidersEnabled`. Classic adapters run on every node, including Python and Node ones.
 
 ## Properties
 
 Each adapter declares its properties. The UI shows which are required, which are secret, and each one's description and default.
 
 - **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notifier properties get neither. A response or bus gateway subscription's handler can also use `{{source.PATH}}`, a value from the original document; see [Response routing](exchange-pipeline.md#6-response-routing).
-- **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property. A property is secret only if its adapter says so: `[Secure]` on a native adapter, `isPrivate: true` in `Runner.Expect` on a published one. Anything else is returned as stored. A secret property's default is never sent either, but the adapter still applies it when the value is left empty.
+- **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property. A property is secret only if its adapter says so: `[Secure]` on a native adapter, and on a published one `isPrivate: true` in `Runner.Expect` (.NET), `secret=True` in `sw.expect` (Python) or `secret: true` in `expect` (JavaScript and TypeScript), which `bitween adapter build` writes into the manifest. Anything else is returned as stored. A secret property's default is never sent either, but the adapter still applies it when the value is left empty.
 - **Required properties** are checked when a subscription is saved. A blank value counts as missing.
 - **`xchangeid`** is added to mapper and handler properties at run time.
 - A value that does not convert to the property's type, such as `BatchSize=abc`, silently falls back to the default.
-- The admin UI loads every adapter of a kind, with its properties, in one call. Descriptions of custom adapters are cached on each node, so a newly uploaded version can show its old properties for a while.
+- The admin UI loads every adapter of a kind, with its properties, in one call. A published adapter is described from its manifest when the manifest lists its properties. Otherwise a .NET adapter is started and asked; an adapter in another runtime never is, and a manifest that lists none means it has none.
+- Descriptions of custom adapters are cached on each node, so a newly uploaded version can show its old properties for a while. Publishing or promoting a version through Bitween clears the cache on the node that served the request only.
 
 ## Rebex license
 
@@ -225,9 +226,13 @@ See [Mapping](mapping.md). Bitween has no native validators.
 
 ## Custom adapters
 
-What Bitween calls on an adapter of each kind, and what it passes, is the [adapter contract](adapter-contract.md).
+What Bitween calls on an adapter of each kind, and what it passes, is the [adapter contract](adapter-contract.md). A custom adapter can be written in .NET, Python, JavaScript or TypeScript. The [bitween CLI](cli.md) writes a new one of each kind, builds it into a package, checks it against the contract and publishes it.
 
-A custom adapter is a .NET console application that references `SimplyWorks.Serverless.Sdk`. This is the repository's sample handler.
+### Custom adapters in .NET
+
+A .NET adapter is a console application that references `SimplyWorks.Serverless.Sdk`, and `SimplyWorks.Bitween.Adapters` for the contract's interfaces. `bitween adapter init AcmeOrders --kind handler` (`--lang dotnet` is the default) writes one targeting .NET 10, declared with `[AdapterKind("handler")]` and `[AdapterContract("bitween", 1)]` and implementing `IBitweenHandler`.
+
+Adapters written before `SimplyWorks.Bitween.Adapters` existed use the `SimplyWorks.PrimitiveTypes` interfaces and keep working. This is the repository's sample handler, written that way.
 
 ```csharp
 using SW.PrimitiveTypes;
@@ -256,8 +261,8 @@ class Handler : IInfolinkHandler
 
 - Declare properties in the constructor with `Runner.Expect`. Overloads take a default value, whether the property is private, and a description.
 - Read values with `Runner.StartupValueOf(name)`.
-- A validator implements `IInfolinkValidator` and returns `new InfolinkValidatorResult(errors)`, where no errors means valid.
-- A receiver implements `IInfolinkReceiver`.
+- A validator implements `IBitweenValidator` and returns a `ValidationResult`, adding each failure with `AddError(code, message)`; no errors means valid. With `SimplyWorks.PrimitiveTypes` it implements `IInfolinkValidator` and returns `new InfolinkValidatorResult(errors)`.
+- A receiver implements `IBitweenReceiver`, or `IInfolinkReceiver`.
 - `Runner.CorrelationId` holds the exchange's correlation id. `AdapterLogger` forwards log lines to Bitween.
 
 | Sample project | Shows |
@@ -313,9 +318,15 @@ bitween adapter publish bin/serverless/acme.orders-0.1.0.zip
 ```
 
 A Python adapter is published to its versions and the catalog only, never to
-`{Bitween:AdapterPath}/{id}`, so a host older than SW-Serverless 10.1 never sees it. Bitween runs it
-with `python3`, which the Docker image includes. A requirement with native code is vendored for
-`linux-x64` and `linux-arm64` unless `adapter.json` lists other `platforms`.
+`{Bitween:AdapterPath}/{id}`, so a host older than SW-Serverless 10.1 never sees it. An id that already
+has a .NET package there can't be reused for a Python or Node adapter. Bitween runs it with `python3`,
+which the Docker image includes (Ubuntu 24.04's Python 3.12). Requirements are vendored into the package
+with pip; one with native code is vendored for `linux-x64` and `linux-arm64` unless `adapter.json` lists
+other `platforms`.
+
+Python and Node adapters connect to Bitween over a Unix domain socket, so they run only on Linux and
+macOS hosts. They run through SW-Serverless's resident adapter host, which Bitween starts on every
+node, whether or not `Bitween:BusProvidersEnabled` is on.
 
 ### Custom adapters in JavaScript or TypeScript
 
@@ -343,9 +354,10 @@ run(Orders);
 
 `bitween adapter init AcmeOrders --lang typescript --kind handler` (or `--lang node` for JavaScript) starts
 one. `bitween adapter build` needs no TypeScript compiler: Node strips the types, so only syntax that
-strips cleanly is allowed — no enums or namespaces. Dependencies in `package.json` are installed into
-the package; one with native code has to be built on the platform the adapter runs on. Bitween runs
-it with `node`, which the Docker image includes.
+strips cleanly is allowed — no enums, namespaces or parameter properties. Dependencies in `package.json`
+are installed into the package with npm; one with native code has to be built on the platform the adapter
+runs on. Bitween runs it with `node`, which the Docker image includes (the Node 22 binary, without npm).
+It runs on the same hosts and nodes as a Python adapter.
 
 ### Publishing a custom adapter
 
@@ -359,8 +371,10 @@ bitween adapter versions acme.orders
 ```
 
 Publishing through Bitween needs `adapter-source.operate`, so an author needs a Bitween account rather
-than the storage's keys, and every version is in the audit trail. With `-p` and the storage flags, the
-CLI publishes straight to storage instead, as `sw-serverless publish` does — for CI that holds the keys.
+than the storage's keys, and every version is in the audit trail. Bitween checks the package's manifest
+and settles its version; it does not run the contract checks, so run `bitween adapter test` first. With
+`-p` and the storage flags, the CLI publishes straight to storage instead, as `sw-serverless publish`
+does — for CI that holds the keys.
 
 What is published, and where:
 
@@ -383,6 +397,11 @@ An adapter in another runtime than .NET, and a .NET version published without be
 has no package at `{Bitween:AdapterPath}/{id}`. The picker finds it in the catalog instead, under the
 kinds its manifest declares, while it has a version that has not been withdrawn.
 
+A manifest can name the oldest Bitween the adapter works with, in `compatibility.applications.bitween`
+(manifests written before SimplyWorks.Serverless 10.2 used `compatibility.minBitweenVersion`, which is
+still read). Saving a subscription that changes a stage to such an adapter, or pins such a version, on
+an older Bitween is refused with `ADAPTER_NEEDS_NEWER_BITWEEN`.
+
 A custom adapter may run for `Bitween:ServerlessCommandTimeout` seconds, 300 by default.
 
 ### Writing an adapter in Bitween
@@ -401,23 +420,25 @@ Python, JavaScript and TypeScript adapters can be written in Bitween itself, wit
 
 The editor builds adapters that need only the SDK. One whose `requirements.txt` or `package.json` names
 other packages is refused with the CLI as the way to build it, since the server would have to fetch them.
-Building and trying run the draft's code on the Bitween server, at most two at a time.
+Building and trying run the draft's code on the Bitween server, at most two at a time, and each call
+may take 30 seconds. A draft holds at most 200 files and 2 MB. Python and Node versions that carry
+their source can be opened in the editor; .NET versions are built with the CLI.
 
 | Permission | Allows |
 |---|---|
 | `adapter-source.view` | Reading a published version's source and comparing versions |
 | `adapter-source.edit` | Drafts: starting, editing, deleting, checking and trying them |
-| `adapter-source.operate` | Publishing a version from a draft, and making any published version current |
+| `adapter-source.operate` | Publishing a version from a draft or as a package through the API (`bitween adapter publish`), making any published version current, and withdrawing one |
 
 All three are Administration permissions: administrators have them, and a custom role can be granted
 them. Drafts are in the audit trail, each save recorded by a hash of its files, and so is every version
-published or made current (`AdapterRelease`).
+published, made current or withdrawn through Bitween (`AdapterRelease`).
 
 ### Reading an adapter's source
 
 A package built with `bitween adapter build` (or SW-Serverless's `sw-serverless build`) carries the adapter's source under `source/`, and its manifest lists each file with its SHA-256. On the **Adapters** page, a version that carries source has a **View** link in the Versions table. It opens the version's files; **Compare with** shows which files another version added, removed or changed, and a diff of each.
 
-Each file is read from the package in storage and checked against the hash in its manifest. A file that does not match is not shown. Versions published before packages carried source, or with `--no-source`, have no link.
+Each file is read from the package in storage and checked against the hash in its manifest. A file that does not match is not shown. A file larger than 1 MB, or that isn't UTF-8 text, is listed but its content is not shown. Versions published before packages carried source, or with `--no-source`, have no link.
 
 Reading source needs the `adapter-source.view` permission, which only administrators have unless a custom role grants it. Every file read is recorded in the audit trail.
 

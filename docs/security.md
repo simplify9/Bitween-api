@@ -44,7 +44,7 @@ the role, no request can restore it and the database has to be repaired directly
 
 - Sign-in returns `{ "jwt": "..." }`. Send it as `Authorization: Bearer <jwt>`.
 - The JWT is signed with `Token:Key` and carries `Token:Issuer` and `Token:Audience`. It lasts for the **Sign-in session length** setting, 60 minutes by default.
-- Sign-in also sets a `refresh_token` cookie that is `HttpOnly`, `Secure` and `SameSite=Lax`, valid for 30 days. Posting to the login endpoint with that cookie and no credentials returns a new JWT and replaces the refresh token.
+- Sign-in also sets a `refresh_token` cookie that is `HttpOnly`, `Secure` and `SameSite=Lax`, valid for 30 days. Posting to the login endpoint with that cookie and no credentials returns a new JWT and replaces the refresh token. A client without cookies, such as the [bitween CLI](cli.md), sends the token as `refreshToken` in the body instead. Each renewal issues a new refresh token, so the 30 days are a limit on inactivity.
 - `POST /api/accounts/logout` deletes the refresh token and tells the browser to clear site data. The JWT stays valid until it expires.
 - The admin UI signs out after 30 minutes without activity in any tab.
 - Permissions are not in the token. They are read from the database on every request, so removing a role takes effect at once.
@@ -73,12 +73,14 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Administration | `roles` | view, create, edit, delete |
 | Administration | `settings` | view, edit |
 | Administration | `audit` | view |
+| Administration | `adapter-source` | view, edit, operate |
 
 - `exchanges.operate` covers retrying and resubmitting exchanges, including running a scheduled retry now.
 - `subscriptions.operate` covers pause, resume, receive now, roll up now and resetting a retry budget.
 - `data-sources.operate` covers testing a connection. `data-source-statements` lets people write SQL for a database without the right to change its credentials.
 - `documents` is the information types area.
 - The audit trail has only `view`, because nothing can change it.
+- `adapter-source` is labelled "Adapter code". `view` covers reading the source a published adapter version carries and comparing versions. `edit` covers the adapter editor's drafts: starting, editing, deleting, building, checking and trying them, which runs their code on the Bitween server. `operate` covers publishing a version, from the editor or as a package through the API, making a version current and withdrawing one. Listing an adapter's versions needs only `subscriptions.view`.
 
 ### Built-in roles
 
@@ -92,7 +94,7 @@ Built-in roles cannot be edited or deleted. Custom roles can hold any combinatio
 
 Bitween refuses to remove, disable or demote the last enabled Administrator. Members cannot disable or remove themselves.
 
-A request without the needed permission gets HTTP 401, the same status as a missing sign-in.
+A signed-in request without the needed permission gets HTTP 403. A request that is not signed in, or whose token has expired, gets 401.
 
 `GET /api/permissions` returns the full catalogue with labels and descriptions. `GET /api/accounts/profile` returns the signed-in member's permissions.
 
@@ -155,7 +157,7 @@ Every response carries these headers.
 
 Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notifiers, global value sets, settings, accounts, roles and role assignments.
 
-Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited. Reading an adapter's source is: each file read is an `AdapterSourceAccess` entry with the adapter, version and file. So are the adapter editor's drafts, each save recorded by a hash of its files rather than the code, and every version published or made current from Bitween (`AdapterRelease`).
+Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited. Reading an adapter's source is: each file read is an `AdapterSourceAccess` entry with the adapter, version and file. So are the adapter editor's drafts, each save recorded by a hash of its files rather than the code, and every version published, made current or withdrawn from Bitween (`AdapterRelease`).
 
 The trail is written in the same transaction as the change, and no API edits or deletes it. Browse it on the Audit trail page or with `GET /api/audit`.
 

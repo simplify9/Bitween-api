@@ -68,9 +68,11 @@ An adapter declares the settings it reads, called "expects" in the .NET SDK (`Ru
 Bitween gets the list in two ways:
 
 1. **From the package's manifest** (`adapter.json` `properties`), without starting the adapter. This is the normal way. `bitween adapter build` writes these properties from the adapter's own declarations, in every language.
-2. **By asking the adapter**, when its package has no manifest properties: Bitween starts it and asks for its expected startup values. .NET adapters answer as they always have, and adapters in other languages answer from the settings in their handshake.
+2. **By asking the adapter**, for a .NET package whose manifest lists no properties, or that has no manifest: Bitween starts it and asks for its expected startup values, as it always has.
 
-Each SDK declares settings once, in code: `Runner.Expect` in .NET, and its equivalent in each other language's SDK. That one declaration feeds both the manifest and the handshake, and `bitween adapter test` fails if the two don't match.
+An adapter in another runtime is never started to be asked. It is described from its manifest alone, and a manifest that lists no properties means it expects none.
+
+Each SDK declares settings once, in code: `Runner.Expect` in .NET, `sw.expect` in Python and `expect` in JavaScript and TypeScript. That one declaration feeds both the manifest and the handshake, and `bitween adapter test` fails if the two don't match.
 
 ## Errors and rejections
 
@@ -82,9 +84,12 @@ A handler whose partner **rejected** the message doesn't fail. It returns the pa
 
 | Language | Package | Kinds |
 |---|---|---|
-| .NET | `SimplyWorks.Bitween.Adapters` | `IBitweenHandler`, `IBitweenMapper`, `IBitweenValidator`, `IBitweenReceiver`, with `ExchangeFile` and `ValidationResult` |
-| Python | `simplyworks-bitween` | to come |
-| Node.js / TypeScript | `@simplyworks/bitween` | to come |
-| Go | Bitween-api `sdk/go` module | to come |
+| .NET | `SimplyWorks.Bitween.Adapters` (`SW.Bitween.Adapters`), with `SimplyWorks.Serverless.Sdk` | `IBitweenHandler`, `IBitweenMapper`, `IBitweenValidator`, `IBitweenReceiver`, with `ExchangeFile` and `ValidationResult` |
+| Python 3.12 or later | `simplyworks-bitween` (`sdk/python`, imported as `simplyworks_bitween`), with `sw-serverless` | `Handler`, `Mapper`, `Validator`, `Receiver`, with `ExchangeFile` and `ValidationResult` |
+| JavaScript and TypeScript, Node 22 or later | `@simplyworks/bitween` (`sdk/node`), with `@simplyworks/sw-serverless` | `Handler`, `Mapper`, `Validator`, `Receiver`, with `ExchangeFile` and `ValidationResult` |
+
+`sw-serverless` and `@simplyworks/sw-serverless` are SW-Serverless's SDKs: they run the adapter and declare its settings. The Bitween packages add the four kinds and their payloads. `bitween adapter build` vendors both into every Python and Node package it builds, so neither has to be installed from a package registry. See [Custom adapters](adapters.md#custom-adapters).
+
+Python and Node adapters connect to Bitween over a Unix domain socket, so they run only on Linux and macOS hosts.
 
 .NET adapters built on `SW.PrimitiveTypes` (`IInfolinkHandler`, `IInfolinkValidator`, `IInfolinkReceiver`, `XchangeFile`) keep working unchanged. They use the same method names and produce the same JSON, which the tests in `SW.Bitween.UnitTests/AdapterContractTests.cs` check.

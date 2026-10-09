@@ -14,7 +14,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Saving or testing an Oracle statement runs `DBMS_SQL.PARSE`, which executes DDL. | `SW.Bitween.Adapters.Db.Oracle` |
 | A subscription using a database or bus adapter without a bound data source returns its connection settings unmasked. | `Services/AdapterSecretProperties.cs` |
 | Password hashes created before September 2026 use PBKDF2-SHA1 with 10,000 iterations and are never upgraded on sign-in. The seeded administrator's hash is one of them. | `Services/SecurePasswordHasher.cs` |
-| Denied requests return 401 rather than 403. | `Extensions/RequestContextExtensions.cs` |
 | An administrator setting another member's password is only held to an 8-character minimum. | `Resources/Accounts/SetPassword.cs` |
 | The Helm chart's default token key is committed in `values.yaml`. | `charts/default/values.yaml` |
 
@@ -36,7 +35,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | The information type's duplicate interval is stored but never enforced. | `Domain/Document/Document.cs` |
 | An exchange's delivered time is never recorded. | `Domain/XchangeDelivery.cs` |
 | Exchanges, results and notifications have no cleanup job, while their files expire from storage. | `Services` |
-| Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions are cached per node and never revoked. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
+| Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions are cached per node. Publishing or promoting through Bitween clears them only on the node that served the request, and publishing straight to storage clears none. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
 
 ## Adapters
 
@@ -49,6 +48,18 @@ These behaviours were found while documenting Bitween from its source code, and 
 | POP3 receivers use port 995 only, and read only the first attachment. | `Pop3Receiver`, `RebexPop3Receiver` |
 | Property values that fail to convert fall back to the default silently. | `NativeAdapters/ReflectionExtensions.cs` |
 | Notifier properties do not resolve partner or global tokens. | `XchangeService.NotifyResult` |
+
+## Adapters in other languages, the editor and the CLI
+
+| Issue | Where |
+|---|---|
+| Python and Node adapters connect to the host over a Unix domain socket, so they only run on Linux and macOS hosts. On Windows the host offers a named pipe, which their SDKs can't use, and they stop at start-up. | SW-Serverless `sdk/python`, `sdk/node` |
+| The adapter editor builds only adapters that need nothing beyond the SDKs. A draft whose `requirements.txt` or `package.json` names another package is refused, and has to be built with the CLI. | `Services/Adapters/AdapterWorkshop.cs` |
+| The editor writes Python, JavaScript and TypeScript only. .NET versions can be read but not edited. | `Domain/AdapterDraft.cs` |
+| A package published through `POST /api/adapters/packages` has its manifest checked but is not run against the adapter contract. Only the editor checks before it publishes. | `Services/Adapters/AdapterWorkshop.cs` |
+| The CLI signs in with an email and password only. An account that signs in with Microsoft only, without a password, can't use it, nor can anyone while email and password sign-in is turned off. An account that must change its password has to do so in the browser first. | `SW.Bitween.Cli/BitweenApi.cs` |
+| `bitween logout` only forgets the profile on the machine. The refresh token it held stays valid on the server until it has gone unused for 30 days. | `SW.Bitween.Cli/Commands.cs` |
+| On Windows the CLI's profile file is not restricted to its owner; on Linux and macOS it is made readable by its owner only. | `SW.Bitween.Cli/Profiles.cs` |
 
 ## Data sources
 

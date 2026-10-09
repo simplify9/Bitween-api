@@ -10,7 +10,7 @@ One .NET 10 service hosts everything: the REST API, the partner-facing gateway e
 
 - **Many ways in.** Partners call an API gateway. Other systems publish to Bitween's bus, or to their own RabbitMQ or Amazon SQS broker. Scheduled jobs pull from HTTP APIs, S3, Azure Blob, SFTP/FTP, POP3 mailboxes and databases. Aggregations roll finished exchanges up on a schedule.
 - **One pipeline.** Every message becomes an *exchange* that runs through the same stages: filter, map, deliver, route the response.
-- **Adapters for each stage.** Built-in adapters cover HTTP, S3, Azure Blob, SFTP/FTP, POP3 and SMTP, plus a visual rules-based mapper for JSON and XML. Anything else can be a custom adapter that runs out of process.
+- **Adapters for each stage.** Built-in adapters cover HTTP, S3, Azure Blob, SFTP/FTP, POP3 and SMTP, plus a visual rules-based mapper for JSON and XML. Anything else can be a custom adapter, written in .NET, Python, JavaScript or TypeScript, that runs out of process. The `bitween` CLI writes, checks and publishes them, and Python, JavaScript and TypeScript adapters can also be written in the admin UI.
 - **Long-lived connections.** Data sources hold connections to RabbitMQ and Amazon SQS brokers and to PostgreSQL, MySQL, SQL Server and Oracle databases, so deliveries can publish messages or run SQL.
 - **Reliability built in.** Retry policies match failures and retry them with a delay and a shared budget. Every exchange's retries form a chain you can follow. Exhausted budgets raise alerts, and notifiers report results.
 - **Operable.** Queue health straight from RabbitMQ, data source health, schedule health, run history, receive attempts, a dashboard and an audit trail of every configuration change.
@@ -54,6 +54,7 @@ flowchart LR
 | Database | PostgreSQL, SQL Server or MySQL 8 |
 | Message broker | RabbitMQ, with the management plugin for queue health |
 | Object storage | S3-compatible, Azure Blob Storage, Oracle Cloud Object Storage, or local disk in Development |
+| Custom adapters in Python or JavaScript | `python3` 3.12 or later and `node` 22 or later on a Linux or macOS host. The Docker image includes both. |
 
 ## Quick start
 
@@ -107,7 +108,9 @@ The database schema is created on first start. A new database refuses to start w
 | [Architecture](docs/architecture.md) | Components, projects, adapter runtimes, data, messaging, storage and caching |
 | [Exchange pipeline](docs/exchange-pipeline.md) | What happens to a message from arrival to result |
 | [Entry points](docs/entry-points.md) | API gateways, bus gateways, scheduled jobs, aggregations and legacy entry points |
-| [Adapters](docs/adapters.md) | The adapter contract, every built-in adapter and its properties, custom adapters |
+| [Adapters](docs/adapters.md) | Every built-in adapter and its properties, custom adapters in .NET, Python and JavaScript, publishing, the adapter editor and the source viewer |
+| [Adapter contract](docs/adapter-contract.md) | What Bitween calls on an adapter of each kind and what it passes, in every language |
+| [The bitween CLI](docs/cli.md) | Signing in from a terminal, and writing, building, checking and publishing adapters |
 | [Mapping](docs/mapping.md) | The rules-based mapper and the legacy Scriban JSON mapper |
 | [Data sources](docs/data-sources.md) | Long-lived connections: enabling them, placement, health and resource limits |
 | [External brokers](docs/external-brokers.md) | Reading from and publishing to a customer's RabbitMQ or Amazon SQS |
@@ -139,10 +142,15 @@ Deeper reference written alongside the features:
 | `SW.Bitween.Adapters.Bus.RabbitMq`, `SW.Bitween.Adapters.Bus.Sqs` | Resident broker adapters |
 | `SW.Bitween.Adapters.Db.*` | Resident database adapters and their shared core |
 | `SW.Bitween.Sdk` | Shared models and the retry policy evaluator, published to NuGet as `SimplyWorks.Bitween.Sdk` |
+| `SW.Bitween.Adapters` | The adapter contract and its .NET interfaces, published to NuGet as `SimplyWorks.Bitween.Adapters` |
+| `SW.Bitween.Adapters.Tooling` | Bitween's adapters on SW-Serverless's tooling: the contract, templates and Python and Node packages the CLI and the adapter editor use |
+| `SW.Bitween.Cli` | The `bitween` command |
+| `sdk/python`, `sdk/node` | The adapter contract for Python (`simplyworks-bitween`) and for JavaScript and TypeScript (`@simplyworks/bitween`) |
 | `SW.Bitween.PgSql`, `SW.Bitween.MySql`, `SW.Bitween.MsSql` | Provider-specific database contexts and migrations |
 | `SW.Bitween.Sample*` | Sample custom adapters, including a resident handler |
-| `SW.Bitween.UnitTests`, `SW.Bitween.IntegrationTests` | Test suites |
-| `tools` | Development databases for trying the database adapters |
+| `SW.Bitween.UnitTests`, `SW.Bitween.IntegrationTests`, `SW.Bitween.HttpTests`, `SW.Bitween.TransportTests` | Test suites |
+| `tools` | Development databases for trying the database adapters, and the end-to-end test script |
+| `scripts/install-cli.sh` | Installs the `bitween` CLI from a release |
 | `charts/default` | Helm chart |
 | `Dockerfile` | Container image build |
 

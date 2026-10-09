@@ -4,8 +4,11 @@
 
 - .NET 10 SDK
 - Node 22 and Yarn 1
+- Python 3.12 or later as `python3`, and Node 22 or later as `node`, on the `PATH`: the integration and HTTP tests build and run Python and Node adapters, and the adapter editor runs them on a local instance
 - Docker, for local dependencies and the integration tests
 - `dotnet-ef` 9, for migrations
+
+SW-Serverless's tooling and runtime come from NuGet (`SimplyWorks.Serverless` and `SimplyWorks.Serverless.Tooling`). To work against an SW-Serverless that isn't published yet, pack it to a local folder and add that folder as a package source in a `NuGet.config` at the repository root, kept out of git (for example in `.git/info/exclude`).
 
 ## Running locally
 
@@ -20,15 +23,22 @@ To work on the UI, run `yarn build` in `SW.Bitween.Web/ClientApp` and refresh th
 | Suite | Command | Needs |
 |---|---|---|
 | Unit tests, MSTest | `dotnet test SW.Bitween.UnitTests` | Nothing. Uses in-memory SQLite and fakes. |
-| Integration tests, xUnit | `dotnet test SW.Bitween.IntegrationTests` | A running Docker daemon |
+| Integration tests, xUnit | `dotnet test SW.Bitween.IntegrationTests` | A running Docker daemon, `python3` and `node` |
+| HTTP tests, xUnit | `dotnet test SW.Bitween.HttpTests` | A running Docker daemon and `python3` |
+| Transport tests, xUnit | `dotnet test SW.Bitween.TransportTests` | A running Docker daemon |
 | UI unit tests, Vitest | `yarn test` in `ClientApp` | Nothing |
-| UI end-to-end, Playwright | `tools/e2e.sh` | A running Docker daemon |
+| UI end-to-end, Playwright | `tools/e2e.sh` | A running Docker daemon and `python3` |
+| Python contract package | `PYTHONPATH=src:<SW-Serverless>/sdk/python/src python3 -m unittest discover -s tests` in `sdk/python` | A checkout of SW-Serverless |
+| Node contract package | `node --test` in `sdk/node` | A checkout of SW-Serverless beside this repository, or `SW_SERVERLESS_NODE` set to its `sdk/node/src` |
 
 - The integration tests start PostgreSQL, RabbitMQ and MailHog with Testcontainers. They run migrations, use local-disk storage and the real serverless runner, and replace Quartz with a recording fake. The build publishes the sample adapters and the tests install them into local storage, so custom adapters run for real. Tests run one at a time.
 - `MigrationDriftTests` fails when the model changed without a migration for all three providers.
 - The Rebex POP3 tests are inconclusive unless `Bitween__RebexLicenseKey` is set.
 - The database adapter tests start PostgreSQL 16, MySQL 8.4, SQL Server 2022 and Oracle Free 23 containers, and the broker adapter tests run against containers too. The first run downloads large images.
 - The integration tests use their own local storage bucket, `bitween-integration-tests`, so they leave a local instance's adapters alone.
+- The integration tests also build Python and JavaScript adapters with SW-Serverless's tooling, publish them and run them through subscriptions, and drive the adapter editor's server side.
+- The HTTP tests host the whole application in-process against PostgreSQL and RabbitMQ containers and call it over HTTP. `BitweenCliTests` runs the `bitween` CLI against it: sign-in, writing, checking and publishing a Python adapter, and listing, promoting and withdrawing its versions.
+- The transport tests run the native file transfer adapters against S3 (SeaweedFS), Azure Blob (Azurite), SFTP and FTP containers.
 - UI unit tests and Playwright specs are type-checked through `tsconfig.test.json`.
 - The Playwright suite runs against a real instance. See [End-to-end tests](#end-to-end-tests).
 
@@ -60,7 +70,7 @@ To run against an instance you started yourself, run `yarn test:e2e` in `ClientA
 
 The instance needs RabbitMQ with the management API configured (`Bitween__RabbitMqManagementUrl`), and sign-in rate limits high enough for a suite that signs in before every test (`Bitween__RateLimits__SignInPerMinute`).
 
-The script also publishes two adapters into the bucket before the app starts, the way the installer would: `e2e.samplehandler`, built from `SW.Bitween.SampleHandler`, as a custom handler with versions 1.0.0 and 2.0.0 and a catalog entry naming 2.0.0 current, and `bitween.db.postgresql`, the PostgreSQL data source provider. The specs that pin adapter versions and the data source specs, which connect to the e2e PostgreSQL itself, use them, and skip saying why on an instance where they are not published. The app is started with `Bitween__BusProvidersEnabled=true` so it runs the PostgreSQL provider.
+The script also publishes three adapters into the bucket before the app starts, the way the installer would: `e2e.samplehandler`, built from `SW.Bitween.SampleHandler`, as a custom handler with versions 1.0.0 and 2.0.0 and a catalog entry naming 2.0.0 current; `e2e.sourcehandler`, a Python handler with versions 1.0.0 and 2.0.0 that carry their source, published to its versions and the catalog only; and `bitween.db.postgresql`, the PostgreSQL data source provider. The specs that pin adapter versions and the data source specs, which connect to the e2e PostgreSQL itself, use them, and skip saying why on an instance where they are not published. The source viewer spec (`adapter-source.spec.ts`) reads and compares `e2e.sourcehandler`'s two versions and does not skip: it fails where that adapter is missing. `adapter-editor.spec.ts` writes a Python handler in the editor, checks, tries and publishes it, and makes it current, so the app's machine needs `python3`. The app is started with `Bitween__BusProvidersEnabled=true` so it runs the PostgreSQL provider.
 
 Several specs reach past the browser to check an effect: they call API gateways as a partner would, run small HTTP endpoints of their own for deliveries and notifications to arrive at, serve a login server's keys for the JWT gateway test, and use RabbitMQ's management API to put dead letters and unread queues on the broker. Against an instance you started yourself, set `E2E_PG_PORT` and `E2E_MQ_MGMT_URL` (and `E2E_PG_USER`, `E2E_PG_PASSWORD`, `E2E_MQ_USER`, `E2E_MQ_PASSWORD` if they differ from the script's) to its database and broker.
 
