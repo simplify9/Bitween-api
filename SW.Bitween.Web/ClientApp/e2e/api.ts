@@ -67,9 +67,9 @@ export class AdminApi {
     return row;
   }
 
-  /** Sends a document to one subscription, as Exchanges → New does. Returns the exchange id. */
-  sendExchange(subscriptionId: number, document: unknown) {
-    return this.post<string>("/xchanges", {
+  /** Sends a document to one subscription, as Exchanges → New does. Find the exchange with exchangesOf. */
+  async sendExchange(subscriptionId: number, document: unknown): Promise<void> {
+    await this.post("/xchanges", {
       option: "SubscriberId",
       subscriberId: subscriptionId,
       data: JSON.stringify(document),
