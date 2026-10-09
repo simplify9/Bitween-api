@@ -268,6 +268,54 @@ class Handler : IInfolinkHandler
 | `SW.Bitween.SampleConfigurableAdapter` | A test double that can delay, fail or return fixed data |
 | `SW.Bitween.SampleResidentHandler` | A handler built as a resident adapter |
 
+### Custom adapters in Python
+
+A custom adapter can also be written in Python 3.12 or later, with `simplyworks-serverless` and the
+Bitween kinds in `simplyworks-bitween` (this repository's `sdk/python`). Subclass a kind and
+implement its methods; settings are declared with `sw.expect` as `Runner.Expect` declares them in
+.NET.
+
+```python
+import simplyworks_serverless as sw
+from simplyworks_bitween import ExchangeFile, Handler
+
+
+class Orders(Handler):
+    def __init__(self):
+        sw.expect("Url", description="Where orders go")
+        sw.expect("ApiKey", secret=True)
+
+    def handle(self, file: ExchangeFile) -> ExchangeFile:
+        # A partner's rejection is returned with bad_data=True, not raised.
+        return ExchangeFile(data=file.data, filename=file.filename)
+
+
+if __name__ == "__main__":
+    sw.run(Orders)
+```
+
+| Kind | Implement |
+|---|---|
+| `Handler` | `handle(file)`, returning an `ExchangeFile` |
+| `Mapper` | `map(file)`, returning an `ExchangeFile` |
+| `Validator` | `validate(file)`, returning a `ValidationResult` |
+| `Receiver` | `list_files()`, `get_file(file_id)`, `delete_file(file_id)`, and optionally `initialize()` and `finalize()` |
+
+The SW-Serverless CLI does the rest:
+
+```sh
+serverless init AcmeOrders --lang python --kind handler
+cd AcmeOrders
+serverless build                          # the package, with the SDKs and requirements.txt vendored
+serverless test --settings settings.json  # the Bitween contract checks
+serverless publish bin/serverless/acme.orders-0.1.0.zip   # with your storage flags
+```
+
+A Python adapter is published to its versions and the catalog only, never to
+`{Bitween:AdapterPath}/{id}`, so a host older than SW-Serverless 10.1 never sees it. Bitween runs it
+with `python3`, which the Docker image includes. A requirement with native code is vendored for
+`linux-x64` and `linux-arm64` unless `adapter.json` lists other `platforms`.
+
 ### Installing a custom adapter
 
 Custom adapter ids follow the pattern `infolink6.{kind}.{name}`, where kind is `handlers`, `receivers`, `mappers` or `validators`. The adapter picker lists packages stored under these keys.

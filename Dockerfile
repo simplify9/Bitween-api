@@ -4,6 +4,13 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 
 COPY --from=mcr.microsoft.com/dotnet/aspnet:6.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
 
+# Python, for adapters written in it: SW.Serverless starts them with python3. Ubuntu 24.04's 3.12,
+# the oldest the Python SDK supports, patched with every rebuild of the image. Adapters bring their
+# own packages, vendored, so nothing else is installed.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 443
