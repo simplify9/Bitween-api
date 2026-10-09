@@ -264,9 +264,14 @@ export const post = <T>(path: string, body?: unknown): Promise<T> =>
  * but not that area would otherwise take the whole page down with it. The enrichment is worth
  * losing; the page isn't. Only refusals are swallowed, so a real outage still surfaces.
  */
-export async function getEnrichment<T>(path: string, fallback: T): Promise<T> {
+export function getEnrichment<T>(path: string, fallback: T): Promise<T> {
+  return enrichment(get<T>(path), fallback);
+}
+
+/** `getEnrichment` for a read that is more than one GET — another area's whole list, say. */
+export async function enrichment<T>(read: Promise<T>, fallback: T): Promise<T> {
   try {
-    return await get<T>(path);
+    return await read;
   } catch (e) {
     // A refusal for *this* read only. UNAUTHENTICATED deliberately isn't swallowed: that one means
     // the session itself is gone, and the app needs to hear about it.

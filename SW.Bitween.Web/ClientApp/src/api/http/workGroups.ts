@@ -7,7 +7,7 @@ import {
   type WorkGroupRow,
   type Paged,
 } from "../types";
-import { get, post } from "./request";
+import { enrichment, get, post } from "./request";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -124,7 +124,9 @@ export const workGroupMethods = {
   },
 
   async getWorkGroup(id: number): Promise<WorkGroupDetail> {
-    const [rows, subs] = await Promise.all([fetchRows(), fetchSubscriptionsByWorkGroup(id)]);
+    // The subscriptions using it are context, from an area a role that can see work groups may not
+    // be allowed into; without them the page still has everything it edits.
+    const [rows, subs] = await Promise.all([fetchRows(), enrichment(fetchSubscriptionsByWorkGroup(id), [])]);
     const w = rows.find((x) => x.id === id);
     if (!w) throw new ApiRequestError("NOT_FOUND", "This work group no longer exists.");
     return {

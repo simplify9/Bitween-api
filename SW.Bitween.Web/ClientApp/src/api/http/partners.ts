@@ -3,7 +3,7 @@ import { ApiRequestError, type Paged, type Partner, type PartnerDetail, type Par
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { matchSummary } from "../../lib/match";
-import { get, post, request } from "./request";
+import { enrichment, get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 // The built-in SYSTEM partner (Partner.SystemId) can't be renamed or deleted.
@@ -131,11 +131,13 @@ export const partnerMethods = {
   },
 
   async getPartner(id: number): Promise<PartnerDetail> {
+    // Only the partner itself is required. The rest come from areas a role that can see partners
+    // may not be allowed into, and without them the page still has everything it edits.
     const [d, apiGateways, busGateways, recentExchanges] = await Promise.all([
       requireDetail(id),
-      gatewayMethods.listApiGateways(),
-      gatewayMethods.listBusGateways(),
-      exchangeMethods.searchExchanges({ partnerId: id, offset: 0, limit: 8 }),
+      enrichment(gatewayMethods.listApiGateways(), []),
+      enrichment(gatewayMethods.listBusGateways(), []),
+      enrichment(exchangeMethods.searchExchanges({ partnerId: id, offset: 0, limit: 8 }), { result: [], total: 0 }),
     ]);
     return {
       id,

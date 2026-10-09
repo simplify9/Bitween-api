@@ -41,7 +41,10 @@ export function InformationTypeDialog({
   onSaved?: (type: { id: number; busMessageTypeName: string }) => void;
 }) {
   const queryClient = useQueryClient();
-  const canEdit = useSessionCan("documents.edit");
+  // A new type is filled in to create it, which documents.create allows on its own.
+  const canCreate = useSessionCan("documents.create");
+  const canChange = useSessionCan("documents.edit");
+  const canEdit = typeId === null ? canCreate : canChange;
 
   const existing = useQuery({
     queryKey: keys.informationTypes.detail(typeId),
