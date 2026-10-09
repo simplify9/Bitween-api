@@ -52,8 +52,11 @@ jobs:
       image-name: 'simplify9/bitween'
 
       # Build + unit-test + push the SDK NuGet package (versioned with the
-      # pipeline semver, e.g. 8.1.x — was 8.0.<run_number> in the old job).
-      nuget-projects: 'SW.Bitween.Sdk/SW.Bitween.Sdk.csproj'
+      # pipeline semver, e.g. 8.1.x — was 8.0.<run_number> in the old job),
+      # and the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference.
+      nuget-projects: >-
+        SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
+        SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
       run-tests: 'true'
       # Integration tests run against real Postgres/RabbitMQ/MailHog via
       # Testcontainers — self-contained, no extra CI services needed, since
@@ -132,7 +135,10 @@ jobs:
       container-registry: 'docker.io'
       image-name: 'simplify9/bitween'
 
-      nuget-projects: 'SW.Bitween.Sdk/SW.Bitween.Sdk.csproj'
+      # The SDK and the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference.
+      nuget-projects: >-
+        SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
+        SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
       run-tests: 'true'
       test-projects: |
         SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
