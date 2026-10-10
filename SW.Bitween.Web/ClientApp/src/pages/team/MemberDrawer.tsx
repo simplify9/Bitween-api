@@ -8,7 +8,7 @@ import { useSession } from "../../auth/SessionContext";
 import { HistoryList } from "../../components/config/HistoryCard";
 import { Avatar } from "../../components/ui/Avatar";
 import { CopyField } from "../../components/ui/CopyField";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
@@ -78,6 +78,12 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
   const body = () => {
     if (user.isPending) return <LoadingBlock label="Loading member…" />;
+    if (user.isError && !isNotFound(user.error))
+      return (
+        <div className="p-5">
+          <LoadError error={user.error} what="this member" onRetry={() => void user.refetch()} />
+        </div>
+      );
     if (user.isError)
       return <p className="px-5 py-8 text-sm text-ink-500">This member no longer exists.</p>;
     const u = user.data;

@@ -14,7 +14,7 @@ import {
 import { useSession } from "../../auth/SessionContext";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { visibleGroups } from "../../nav";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";
@@ -136,6 +136,8 @@ export function RoleEditor() {
 
   if (catalog.isPending) return <LoadingBlock label="Loading permissions…" />;
   if (!loaded && source.isPending) return <LoadingBlock label="Loading role…" />;
+  if (!isNew && source.isError && !isNotFound(source.error))
+    return <LoadError error={source.error} what="this role" onRetry={() => void source.refetch()} />;
   if (!isNew && source.isError)
     return (
       <div className="py-16 text-center text-sm text-ink-500">

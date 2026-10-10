@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
 import { SubscriptionPicker, PartnerPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
@@ -69,6 +69,8 @@ export function AttachPartnerPage() {
   });
 
   if (gateway.isPending) return <LoadingBlock label="Loading gateway…" />;
+  if (gateway.isError && !isNotFound(gateway.error))
+    return <LoadError error={gateway.error} what="this API gateway" onRetry={() => void gateway.refetch()} />;
   if (gateway.isError)
     return (
       <EmptyState title="This API gateway no longer exists">

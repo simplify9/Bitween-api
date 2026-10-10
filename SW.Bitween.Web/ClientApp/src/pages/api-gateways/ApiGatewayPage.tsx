@@ -6,7 +6,7 @@ import { api, type ApiGatewayAttachment, type GatewayAuthentication } from "../.
 import { Can, useSessionCan } from "../../auth/guards";
 import { finishUrlName, toUrlName, urlNameProblem } from "../../lib/identifiers";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CopyField } from "../../components/ui/CopyField";
@@ -179,6 +179,8 @@ export function ApiGatewayPage() {
   });
 
   if (gateway.isPending) return <LoadingBlock label="Loading API gateway…" />;
+  if (gateway.isError && !isNotFound(gateway.error))
+    return <LoadError error={gateway.error} what="this API gateway" onRetry={() => void gateway.refetch()} />;
   if (gateway.isError)
     return (
       <EmptyState title="This API gateway no longer exists">

@@ -5,7 +5,7 @@ import { api } from "../../api";
 import { allKeysIn, usePermissionCatalog } from "../../api/permissions";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { keys } from "../../api/queryKeys";
 
 export function RolesPage() {
@@ -32,6 +32,14 @@ export function RolesPage() {
       <div>
         {header}
         <LoadingBlock label="Loading roles…" />
+      </div>
+    );
+
+  if (roles.isError)
+    return (
+      <div>
+        {header}
+        <LoadError error={roles.error} what="roles" onRetry={() => void roles.refetch()} />
       </div>
     );
 

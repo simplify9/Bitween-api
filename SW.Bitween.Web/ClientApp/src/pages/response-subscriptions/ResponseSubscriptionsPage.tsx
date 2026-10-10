@@ -5,7 +5,7 @@ import { CornerDownLeft, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
@@ -109,6 +109,8 @@ export function ResponseSubscriptionsPage() {
 
       {rows.isPending ? (
         <LoadingBlock label="Loading response subscriptions…" />
+      ) : rows.isError ? (
+        <LoadError error={rows.error} what="response subscriptions" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<CornerDownLeft />}

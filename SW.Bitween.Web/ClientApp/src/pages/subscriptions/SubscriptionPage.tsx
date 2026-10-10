@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadCloud, FileStack, Pause, Play, Power, PowerOff, Trash2, X } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
@@ -203,6 +203,8 @@ function SubscriptionStudio() {
   });
 
   if (subscription.isPending) return <LoadingBlock label="Loading subscription…" />;
+  if (subscription.isError && !isNotFound(subscription.error))
+    return <LoadError error={subscription.error} what="this subscription" onRetry={() => void subscription.refetch()} />;
   if (subscription.isError)
     return (
       <EmptyState title="This subscription no longer exists">

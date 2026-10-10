@@ -4,7 +4,7 @@ import { Search, Workflow } from "lucide-react";
 import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { Select } from "../../components/ui/forms";
@@ -197,6 +197,8 @@ export function SubscriptionsPage() {
 
       {rows.isPending ? (
         <LoadingBlock label="Loading subscriptions…" />
+      ) : rows.isError ? (
+        <LoadError error={rows.error} what="subscriptions" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Workflow />}

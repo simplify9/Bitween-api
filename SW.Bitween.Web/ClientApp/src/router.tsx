@@ -9,6 +9,7 @@ import { ChangePasswordPage } from "./pages/auth/ChangePassword";
 import { CliLoginPage } from "./pages/auth/CliLogin";
 import { NotFoundPage, PlaceholderPage } from "./pages/PlaceholderPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { RouteError } from "./pages/RouteError";
 import { AuditPage } from "./pages/audit/AuditPage";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import MapperEditorRoute from "./components/nativeMapper/MapperEditorRoute";
@@ -81,9 +82,11 @@ const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
 
 /** Exported apart from the router so the component tests can mount the same routes in memory. */
 export const routes: RouteObject[] = [
-  { path: "/login", element: <LoginPage /> },
+  { path: "/login", element: <LoginPage />, errorElement: <RouteError /> },
   {
     element: <RequireAuth />,
+    // A page that crashes shows this, with a way back, rather than react-router's developer screen.
+    errorElement: <RouteError />,
     children: [
       // Inside the auth guard because it needs a session, outside the shell because the session
       // it serves grants nothing — a sidebar built from those permissions would be empty.

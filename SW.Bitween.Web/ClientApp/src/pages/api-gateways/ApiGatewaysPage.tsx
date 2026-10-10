@@ -4,7 +4,7 @@ import { Plus, Search, Webhook } from "lucide-react";
 import { api, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
@@ -97,6 +97,8 @@ export function ApiGatewaysPage() {
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading API gateways…" />
+      ) : gateways.isError ? (
+        <LoadError error={gateways.error} what="API gateways" onRetry={() => void gateways.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState icon={<Webhook />} title={q || inactive !== null ? "No gateways match" : "No API gateways yet"}>
           {q || inactive !== null ? "Try a different search or filter." : "Create a gateway to give partners a URL to push documents to."}

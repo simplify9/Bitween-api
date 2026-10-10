@@ -6,7 +6,7 @@ import { api, type User, type UserStatus } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Avatar } from "../../components/ui/Avatar";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { timeAgo } from "../../lib/dates";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { MemberDrawer } from "./MemberDrawer";
@@ -127,6 +127,8 @@ export function MembersPage() {
 
       {users.isPending ? (
         <LoadingBlock label="Loading members…" />
+      ) : users.isError ? (
+        <LoadError error={users.error} what="members" onRetry={() => void users.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<UsersRound />}

@@ -5,7 +5,7 @@ import { ArrowUpRight, Search } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { ConfirmDialog } from "../../components/ui/overlays";
@@ -110,6 +110,8 @@ export function NotifierPage() {
   });
 
   if (notifier.isPending) return <LoadingBlock label="Loading notifier…" />;
+  if (notifier.isError && !isNotFound(notifier.error))
+    return <LoadError error={notifier.error} what="this notifier" onRetry={() => void notifier.refetch()} />;
   if (notifier.isError)
     return (
       <EmptyState title="This notifier no longer exists">

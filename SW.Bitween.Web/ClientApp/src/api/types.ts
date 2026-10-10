@@ -76,11 +76,29 @@ export interface ApiError {
 
 export class ApiRequestError extends Error {
   code: string;
-  constructor(code: string, message: string) {
+  /** The HTTP status, when the error came from a response. */
+  status?: number;
+  /** Every validation message by its code or field, when the server sent several. */
+  errors?: Record<string, string[]>;
+  constructor(code: string, message: string, status?: number, errors?: Record<string, string[]>) {
     super(message);
     this.code = code;
+    this.status = status;
+    this.errors = errors;
   }
 }
+
+/** A refusal that asking again won't change: not found, forbidden, invalid. Server and network failures may pass. */
+export const isPermanentError = (error: unknown): boolean =>
+  error instanceof ApiRequestError && error.status !== undefined && error.status >= 400 && error.status < 500;
+
+/**
+ * Whether a failed query is asked again. A refusal answers the same however often it is asked:
+ * retrying it only held "Loading…" on screen for the ~7s of backoff before the error showed.
+ * Server errors and dropped connections are retried, up to three times.
+ */
+export const shouldRetryQuery = (failureCount: number, error: unknown): boolean =>
+  !(error instanceof NotWiredError) && !isPermanentError(error) && failureCount < 3;
 
 /**
  * Thrown by any ApiClient method whose domain hasn't been wired to the real

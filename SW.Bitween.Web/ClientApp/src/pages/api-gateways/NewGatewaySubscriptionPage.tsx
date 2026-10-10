@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { api } from "../../api";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
 import {
@@ -172,6 +172,8 @@ export function NewGatewaySubscriptionPage() {
   });
 
   if (gateway.isPending) return <LoadingBlock label="Loading gateway…" />;
+  if (gateway.isError && !isNotFound(gateway.error))
+    return <LoadError error={gateway.error} what="this API gateway" onRetry={() => void gateway.refetch()} />;
   if (gateway.isError)
     return (
       <EmptyState title="This API gateway no longer exists">

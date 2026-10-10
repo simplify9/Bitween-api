@@ -5,7 +5,7 @@ import { Trash2 } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/ui/KeyValueEditor";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
@@ -76,6 +76,8 @@ export function GlobalValueSetPage() {
   });
 
   if (set.isPending) return <LoadingBlock label="Loading value set…" />;
+  if (set.isError && !isNotFound(set.error))
+    return <LoadError error={set.error} what="this value set" onRetry={() => void set.refetch()} />;
   if (set.isError)
     return (
       <EmptyState title="This value set no longer exists">

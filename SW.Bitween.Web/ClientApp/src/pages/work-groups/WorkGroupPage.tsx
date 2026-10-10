@@ -5,7 +5,7 @@ import { ArrowUpRight, Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import {
   BusRenameConfirm,
@@ -84,6 +84,8 @@ export function WorkGroupPage() {
   });
 
   if (group.isPending) return <LoadingBlock label="Loading work group…" />;
+  if (group.isError && !isNotFound(group.error))
+    return <LoadError error={group.error} what="this work group" onRetry={() => void group.refetch()} />;
   if (group.isError)
     return (
       <EmptyState title="This work group no longer exists">

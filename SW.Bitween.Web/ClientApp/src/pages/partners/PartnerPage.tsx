@@ -5,7 +5,7 @@ import { Trash2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
@@ -63,6 +63,8 @@ export function PartnerPage() {
   });
 
   if (partner.isPending) return <LoadingBlock label="Loading partner…" />;
+  if (partner.isError && !isNotFound(partner.error))
+    return <LoadError error={partner.error} what="this partner" onRetry={() => void partner.refetch()} />;
   if (partner.isError)
     return (
       <EmptyState title="This partner no longer exists">

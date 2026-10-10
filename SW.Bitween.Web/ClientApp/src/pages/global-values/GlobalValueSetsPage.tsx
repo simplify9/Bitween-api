@@ -6,7 +6,7 @@ import { api, referencesGlobal } from "../../api";
 import { Can } from "../../auth/guards";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
@@ -159,6 +159,8 @@ export function GlobalValueSetsPage() {
 
       {sets.isPending ? (
         <LoadingBlock label="Loading value sets…" />
+      ) : sets.isError ? (
+        <LoadError error={sets.error} what="value sets" onRetry={() => void sets.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<SlidersHorizontal />}

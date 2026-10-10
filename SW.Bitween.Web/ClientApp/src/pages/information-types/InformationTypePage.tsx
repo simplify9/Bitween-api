@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Trash2, Undo2 } from "lucide-react";
 import { api } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CodeBadge, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
@@ -71,6 +71,8 @@ export function InformationTypePage() {
   });
 
   if (type.isPending) return <LoadingBlock label="Loading information type…" />;
+  if (type.isError && !isNotFound(type.error))
+    return <LoadError error={type.error} what="this information type" onRetry={() => void type.refetch()} />;
   if (type.isError)
     return (
       <EmptyState title="This information type no longer exists">

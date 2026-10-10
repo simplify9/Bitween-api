@@ -5,7 +5,7 @@ import { FlaskConical, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, type RetryGroup, type RetryMatcher, type RetryResultType } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
@@ -279,6 +279,8 @@ export function RetryPolicyPage() {
   });
 
   if (policy.isPending) return <LoadingBlock label="Loading retry policy…" />;
+  if (policy.isError && !isNotFound(policy.error))
+    return <LoadError error={policy.error} what="this retry policy" onRetry={() => void policy.refetch()} />;
   if (policy.isError)
     return (
       <EmptyState title="This retry policy no longer exists">

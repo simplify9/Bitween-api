@@ -6,7 +6,7 @@ import { api, type ScheduledRetryQuery } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSession } from "../../auth/SessionContext";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { TextInput } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { ConfirmDialog } from "../../components/ui/overlays";
@@ -37,7 +37,7 @@ export function ScheduledRetriesPage() {
   const queryClient = useQueryClient();
   const { can } = useSession();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: keys.scheduledRetries.search(searchParams.toString()),
     queryFn: () => api.searchScheduledRetries(query),
     refetchInterval: 30_000,
@@ -130,7 +130,9 @@ export function ScheduledRetriesPage() {
       </div>
 
       {isLoading ? (
-        <LoadingBlock />
+        <LoadingBlock label="Loading scheduled retries…" />
+      ) : isError ? (
+        <LoadError error={error} what="scheduled retries" onRetry={() => void refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState title="Nothing waiting to retry">
           {activeFilterCount > 0

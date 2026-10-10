@@ -7,7 +7,7 @@ import { Can } from "../../auth/guards";
 import { InformationTypeDialog } from "../../components/config/InformationTypeDialog";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Select } from "../../components/ui/forms";
 import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
@@ -92,6 +92,7 @@ export function InformationTypesPage() {
   }, [filtering, allTypes.data, q, format, busEnabled, subscriptionIds, subscriptions]);
 
   const isPending = filtering ? allTypes.isPending : serverSearch.isPending;
+  const listQuery = filtering ? allTypes : serverSearch;
   const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
   const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
 
@@ -168,6 +169,8 @@ export function InformationTypesPage() {
 
       {isPending ? (
         <LoadingBlock label="Loading information types…" />
+      ) : listQuery.isError ? (
+        <LoadError error={listQuery.error} what="information types" onRetry={() => void listQuery.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<FileText />}

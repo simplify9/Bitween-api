@@ -12,7 +12,7 @@ import {
 } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";
@@ -159,6 +159,8 @@ export function DataSourcePage() {
   });
 
   if (source.isPending) return <LoadingBlock label="Loading data source…" />;
+  if (source.isError && !isNotFound(source.error))
+    return <LoadError error={source.error} what="this data source" onRetry={() => void source.refetch()} />;
   if (source.isError || !source.data || !draft)
     return <FormError>This data source no longer exists.</FormError>;
 

@@ -5,7 +5,7 @@ import { CalendarClock, DownloadCloud, Plus, Search } from "lucide-react";
 import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
@@ -174,6 +174,8 @@ export function ScheduledJobsPage() {
 
       {rows.isPending ? (
         <LoadingBlock label="Loading scheduled jobs…" />
+      ) : rows.isError ? (
+        <LoadError error={rows.error} what="scheduled jobs" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<CalendarClock />} title={q || inactive !== null ? "No jobs match" : "No scheduled jobs yet"}>
           {q || inactive !== null ? "Try a different search or filter." : "Create a job to pull documents in on a schedule."}

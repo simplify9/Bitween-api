@@ -5,7 +5,7 @@ import { Layers, Play, Plus, Search } from "lucide-react";
 import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
@@ -174,6 +174,8 @@ export function AggregationsPage() {
 
       {rows.isPending ? (
         <LoadingBlock label="Loading aggregations…" />
+      ) : rows.isError ? (
+        <LoadError error={rows.error} what="aggregations" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Layers />} title={q || inactive !== null ? "No aggregations match" : "No aggregations yet"}>
           {q || inactive !== null

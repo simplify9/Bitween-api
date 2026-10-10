@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { SubscriptionPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
@@ -58,6 +58,8 @@ export function EditAttachmentPage() {
   });
 
   if (gateway.isPending) return <LoadingBlock label="Loading gateway…" />;
+  if (gateway.isError && !isNotFound(gateway.error))
+    return <LoadError error={gateway.error} what="this gateway" onRetry={() => void gateway.refetch()} />;
   if (gateway.isError || !attachment)
     return (
       <EmptyState title="This attachment no longer exists">

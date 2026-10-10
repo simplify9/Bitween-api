@@ -7,7 +7,7 @@ import { Can } from "../../auth/guards";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/shared";
@@ -79,6 +79,7 @@ export function PartnersPage() {
   }, [filtering, allPartners.data, partnerSubscriptions, q, subscriptionIds]);
 
   const isPending = filtering ? allPartners.isPending : serverSearch.isPending;
+  const listQuery = filtering ? allPartners : serverSearch;
   const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
   const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
   const filtered = q || subscriptionIds.length > 0;
@@ -121,6 +122,8 @@ export function PartnersPage() {
 
       {isPending ? (
         <LoadingBlock label="Loading partners…" />
+      ) : listQuery.isError ? (
+        <LoadError error={listQuery.error} what="partners" onRetry={() => void listQuery.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState icon={<Handshake />} title={filtered ? "No partners match" : "No partners yet"}>
           {filtered ? "Try a different search or filter." : "Create the first partner you exchange data with."}

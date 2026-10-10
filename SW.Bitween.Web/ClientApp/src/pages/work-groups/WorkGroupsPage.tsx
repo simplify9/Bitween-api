@@ -6,7 +6,7 @@ import { api, type QueueHealthSnapshot, type WorkGroupRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { WorkGroupDialog } from "../../components/config/WorkGroupDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, InlineNotice, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, InlineNotice, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table, type Column } from "../../components/ui/Table";
 import { UsedByCell, queueHealthTitle, useSubscriptionsCache } from "../../components/config/shared";
@@ -139,6 +139,8 @@ export function WorkGroupsPage() {
 
       {groups.isPending ? (
         <LoadingBlock label="Loading work groups…" />
+      ) : groups.isError ? (
+        <LoadError error={groups.error} what="work groups" onRetry={() => void groups.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Layers />} title={q ? "No work groups match" : "No work groups yet"}>
           {q ? "Try a different search." : "Create one to give a set of subscriptions their own queue."}

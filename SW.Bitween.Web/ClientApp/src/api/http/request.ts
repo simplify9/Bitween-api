@@ -164,24 +164,29 @@ async function toApiError(res: Response): Promise<ApiRequestError> {
 
   // 404 → the message is a bare JSON string.
   if (typeof body === "string" && body)
-    return new ApiRequestError(res.status === 404 ? "NOT_FOUND" : "ERROR", body);
+    return new ApiRequestError(res.status === 404 ? "NOT_FOUND" : "ERROR", body, res.status);
 
   // Framework-level errors (415, unhandled 500, …) come as ASP.NET ProblemDetails:
   // { type, title, status, traceId }. Prefer its human `title`.
   if (body && typeof body === "object" && "title" in body && "status" in body) {
     const pd = body as { title?: string; status?: number };
-    return new ApiRequestError(`HTTP_${pd.status ?? res.status}`, pd.title || `Request failed (${res.status}).`);
+    return new ApiRequestError(`HTTP_${pd.status ?? res.status}`, pd.title || `Request failed (${res.status}).`, res.status);
   }
 
   // 400 → ASP.NET SerializableError: { key: [msg, ...] } (key is the validation
   // code for SWValidationException, or the exception type name otherwise).
+  // Every message is kept: the first key's first message used to be all that reached the form,
+  // so a save with two problems showed one, and the second only after fixing the first.
   if (body && typeof body === "object") {
-    const [code, value] = Object.entries(body as Record<string, unknown>)[0] ?? [];
-    const message = Array.isArray(value) ? String(value[0]) : String(value ?? "");
-    if (code) return new ApiRequestError(code, message || "Request failed.");
+    const errors: Record<string, string[]> = {};
+    for (const [key, value] of Object.entries(body as Record<string, unknown>))
+      errors[key] = (Array.isArray(value) ? value : [value]).filter((v) => v != null && v !== "").map(String);
+    const [code] = Object.keys(errors);
+    const messages = [...new Set(Object.values(errors).flat())];
+    if (code) return new ApiRequestError(code, messages.join(" ") || "Request failed.", res.status, errors);
   }
 
-  return new ApiRequestError("ERROR", `Request failed (${res.status}).`);
+  return new ApiRequestError("ERROR", `Request failed (${res.status}).`, res.status);
 }
 
 export interface RequestOptions {

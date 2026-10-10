@@ -5,7 +5,7 @@ import { Cable, Network, Plus, Search } from "lucide-react";
 import { api, type BusGatewayRow, type SubscriptionRow } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { SearchSelect } from "../../components/ui/SearchSelect";
@@ -130,6 +130,8 @@ export function BusGatewaysPage() {
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading bus gateways…" />
+      ) : gateways.isError ? (
+        <LoadError error={gateways.error} what="bus gateways" onRetry={() => void gateways.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<Cable />}

@@ -4,7 +4,7 @@ import { ArrowUpRight, Database, Plus, Search } from "lucide-react";
 import { api, type DataSourceRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
@@ -103,6 +103,8 @@ export function DataSourcesPage() {
 
       {sources.isPending ? (
         <LoadingBlock label="Loading data sources…" />
+      ) : sources.isError ? (
+        <LoadError error={sources.error} what="data sources" onRetry={() => void sources.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState icon={<Database />} title={q ? "No data sources match" : "No data sources yet"}>
           {q

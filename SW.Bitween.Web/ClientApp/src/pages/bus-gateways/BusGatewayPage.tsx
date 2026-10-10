@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pause, PanelLeftClose, PanelLeftOpen, Play, Trash2 } from "lucide-react";
 import { api, type BusGatewayDetail, type InlineSubscriptionDraft, type SubscriptionDetail } from "../../api";
 import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
 import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
@@ -451,6 +451,8 @@ function BusGatewayStudio() {
   });
 
   if (gateway.isPending) return <LoadingBlock label="Loading bus gateway…" />;
+  if (gateway.isError && !isNotFound(gateway.error))
+    return <LoadError error={gateway.error} what="this bus gateway" onRetry={() => void gateway.refetch()} />;
   if (gateway.isError || !g)
     return (
       <EmptyState title="This bus gateway no longer exists">

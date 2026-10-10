@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { Loader2, TriangleAlert } from "lucide-react";
+import { CloudOff, Loader2, Lock, SearchX, TriangleAlert } from "lucide-react";
+import { ApiRequestError } from "../../api/types";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -104,6 +105,51 @@ export function EmptyState({
       <h3 className="text-sm font-semibold text-ink-800">{title}</h3>
       {children && <p className="max-w-sm text-sm text-ink-500">{children}</p>}
       {action && <div className="mt-3">{action}</div>}
+    </div>
+  );
+}
+
+/** Whether a load failed because the thing asked for isn't there (404). */
+export const isNotFound = (error: unknown): boolean =>
+  error instanceof ApiRequestError && (error.status === 404 || error.code === "NOT_FOUND");
+
+/**
+ * What a failed load says in place of the content. A list that couldn't be read used to show its
+ * empty state ("No partners yet"), and a record that couldn't be read said it no longer existed,
+ * so an outage or a missing permission read as data that was gone.
+ */
+export function LoadError({
+  error,
+  what,
+  onRetry,
+}: {
+  error: unknown;
+  /** What was being loaded, as a phrase: "partners", "this partner". */
+  what: string;
+  onRetry?: () => void;
+}) {
+  const status = error instanceof ApiRequestError ? error.status : undefined;
+  const [icon, title, detail] =
+    status === 403
+      ? [<Lock key="i" />, `You can't see ${what}`, "Your role doesn't include the permission this needs. An administrator can grant it."]
+      : isNotFound(error)
+        ? [<SearchX key="i" />, `Couldn't find ${what}`, "It may have been deleted, or the link is wrong."]
+        : error instanceof ApiRequestError
+          ? [<TriangleAlert key="i" />, `Couldn't load ${what}`, error.message]
+          : [<CloudOff key="i" />, `Couldn't load ${what}`, "Bitween didn't answer. Check your connection, then try again."];
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-danger-200 bg-white px-6 py-14 text-center"
+    >
+      <div className="mb-1 text-danger-300 [&>svg]:size-8">{icon}</div>
+      <h3 className="text-sm font-semibold text-ink-800">{title}</h3>
+      <p className="max-w-md text-sm text-ink-600">{detail}</p>
+      {onRetry && status !== 403 && !isNotFound(error) && (
+        <div className="mt-3">
+          <Button onClick={onRetry}>Try again</Button>
+        </div>
+      )}
     </div>
   );
 }

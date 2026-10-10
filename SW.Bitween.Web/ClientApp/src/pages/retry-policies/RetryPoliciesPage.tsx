@@ -4,7 +4,7 @@ import { Plus, RotateCcw, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
@@ -86,6 +86,8 @@ export function RetryPoliciesPage() {
 
       {policies.isPending ? (
         <LoadingBlock label="Loading retry policies…" />
+      ) : policies.isError ? (
+        <LoadError error={policies.error} what="retry policies" onRetry={() => void policies.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState icon={<RotateCcw />} title={q ? "No policies match" : "No retry policies yet"}>
           {q ? "Try a different search." : "Create a policy to control what happens after failures."}

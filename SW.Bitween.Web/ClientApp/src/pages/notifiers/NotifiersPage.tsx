@@ -6,7 +6,7 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useAdapterCatalog } from "../../components/config/AdapterConfig";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Pagination } from "../../components/ui/Pagination";
@@ -143,6 +143,8 @@ export function NotifiersPage() {
 
       {notifiers.isPending ? (
         <LoadingBlock label="Loading notifiers…" />
+      ) : notifiers.isError ? (
+        <LoadError error={notifiers.error} what="notifiers" onRetry={() => void notifiers.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<BellRing />} title={q ? "No notifiers match" : "No notifiers yet"}>
           {q ? "Try a different search." : "Create a notifier to get alerted when subscriptions fail."}
