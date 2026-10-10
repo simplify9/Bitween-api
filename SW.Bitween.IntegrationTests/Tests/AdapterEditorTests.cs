@@ -80,6 +80,15 @@ public class AdapterEditorTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task Checks_run_without_a_required_setting_say_so()
+    {
+        var id = await NewDraft(Unique("PyNoKey"));
+        var built = await Build(id, new Dictionary<string, string>());
+        Assert.True((bool)built["Succeeded"], built.ToString());
+        Assert.Contains(built["Warnings"]!, w => ((string)w!).StartsWith("ApiKey is required but was empty"));
+    }
+
+    [Fact]
     public async Task An_edit_that_breaks_the_adapter_says_why()
     {
         var id = await NewDraft(Unique("PyBroken"));

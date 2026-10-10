@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { finishUrlName, toUrlName, urlNameProblem } from '../identifiers';
+import { finishUrlName, suggestCode, suggestSlug, toUrlName, urlNameProblem } from '../identifiers';
 
 describe('toUrlName', () => {
     it('keeps / so a url name can run to several parts', () => {
@@ -47,5 +47,13 @@ describe('urlNameProblem', () => {
 describe('finishUrlName', () => {
     it('drops separators hugging a slash or ending the name', () => {
         expect(finishUrlName('logistics-/-slim/orders_/')).toBe('logistics/slim/orders');
+    });
+});
+
+describe('accented names', () => {
+    it('keep their letters, without the accents', () => {
+        expect(toUrlName('Ünïcode Orders')).toBe('unicode-orders');
+        expect(suggestSlug('Café Münster')).toBe('cafe-munster');
+        expect(suggestCode('Commande reçue')).toBe('COMMANDE_RECUE');
     });
 });

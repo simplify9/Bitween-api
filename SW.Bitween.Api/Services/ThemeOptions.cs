@@ -13,10 +13,11 @@ namespace SW.Bitween.Services
         public string LoginLogo { get; set; } = "/brand/BitweenFull.svg";
         public string BitweenLogo { get; set; } = "/brand/BitweenFull.svg";
 
+        // The sentence the sign-in page shows when it isn't changed. It used to be a lowercase
+        // fragment meant to follow the word "Bitween", which the Settings page then showed as the
+        // default while the sign-in page showed something else.
         public string BitweenText { get; set; } =
-            "is all-in-one solution to solving integration with third parties, automating workflows " +
-            "with exchanges coming from all forms of requests, ranging from internal messages to " +
-            "files dumped on a server.";
+            "Receive, transform and deliver documents between you and your partners — with every exchange traced.";
 
         public string LinkedinLink { get; set; } = "https://www.linkedin.com/company/simplify9";
         public string GithubLink { get; set; } = "https://github.com/simplify9";

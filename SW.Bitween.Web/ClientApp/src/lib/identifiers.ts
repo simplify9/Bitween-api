@@ -1,6 +1,9 @@
+/** "Café Münster" → "Cafe Munster": letters keep their base, rather than the accented ones being dropped. */
+const unaccent = (text: string) => text.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+
 /** "Purchase Order" → "PURCHASE_ORDER" */
 export const suggestCode = (name: string) =>
-  name
+  unaccent(name)
     .trim()
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
@@ -10,7 +13,7 @@ export const suggestCode = (name: string) =>
 
 /** "SAP Production" → "sap-production" */
 export const suggestSlug = (name: string) =>
-  name
+  unaccent(name)
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -31,7 +34,7 @@ export const suggestSlug = (name: string) =>
  * `finishUrlName` takes it off at save time, which is when it has to be gone.
  */
 export const toUrlName = (typed: string) =>
-  typed
+  unaccent(typed)
     .toLowerCase()
     .replace(/[^a-z0-9_/-]+/g, "-")
     .replace(/([-_])[-_]+/g, "$1")

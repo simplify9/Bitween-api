@@ -155,6 +155,12 @@ public class AdapterWorkshop(
                 Limits = Limits,
             });
             result.Checks = report.Checks.Select(c => new WorkshopCheck(c.Name, c.Outcome.ToString(), c.Detail)).ToList();
+            // The checks pass or fail on what the adapter does with the settings given. One it marks
+            // required but that was left empty was untested, while the result read as a clean pass.
+            foreach (var missing in (result.Manifest?.Properties ?? []).Where(p => p.Required &&
+                         (settings == null || !settings.TryGetValue(p.Name, out var v) || string.IsNullOrWhiteSpace(v))))
+                result.Warnings.Add($"{missing.Name} is required but was empty, so the checks ran without it. " +
+                                    "A subscription has to give it a value.");
             return result;
         }
         finally

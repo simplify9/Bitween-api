@@ -296,8 +296,12 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
             have already found, so it earns its place next to the other
             copy-and-paste metadata, not in the scanning path. */}
         <MetaItem label="Exchange id">
-          <span className="inline-flex items-center gap-0.5">
-            <span className="font-mono text-xs break-all text-ink-700">{x.id}</span>
+          {/* One line, cut short with the whole id on hover and the copy button beside it: breaking it
+              anywhere left a lone character on a line of its own. */}
+          <span className="flex min-w-0 items-center gap-0.5">
+            <span className="min-w-0 truncate font-mono text-xs text-ink-700" title={x.id}>
+              {x.id}
+            </span>
             <CopyButton value={x.id} label="exchange id" />
           </span>
         </MetaItem>
