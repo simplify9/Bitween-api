@@ -80,6 +80,48 @@ public class BitweenApi : IDisposable
         };
     }
 
+    /// <summary>Trades a code from the browser, with this process's verifier, for a profile to keep.</summary>
+    public static async Task<Profile> RedeemAsync(string url, string code, string verifier, bool insecure = false, HttpMessageHandler handler = null)
+    {
+        using var http = new HttpClient(handler ?? Handler(insecure)) { BaseAddress = new Uri(url.TrimEnd('/') + "/") };
+        var response = await http.PostAsJsonAsync("api/accounts/clitoken", new { Code = code, CodeVerifier = verifier });
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode) throw new BitweenApiException(Refusal(response.StatusCode, body), response.StatusCode);
+
+        var answer = JsonNode.Parse(body);
+        return new Profile
+        {
+            Url = url.TrimEnd('/'),
+            Email = (string)answer?["email"],
+            AccessToken = (string)answer?["jwt"] ?? throw new BitweenApiException("Bitween answered without a session; is this a Bitween?"),
+            RefreshToken = (string)answer?["refreshToken"],
+            Insecure = insecure,
+        };
+    }
+
+    /// <summary>
+    /// Ends the session on the Bitween, so its refresh token stops working there and not only here.
+    /// Best effort: a Bitween that can't be reached, or that predates this, just isn't told.
+    /// </summary>
+    public static async Task<bool> EndSessionAsync(Profile profile, HttpMessageHandler handler = null)
+    {
+        if (string.IsNullOrEmpty(profile.RefreshToken)) return false;
+        try
+        {
+            using var http = new HttpClient(handler ?? Handler(profile.Insecure))
+            {
+                BaseAddress = new Uri(profile.Url.TrimEnd('/') + "/"),
+                Timeout = TimeSpan.FromSeconds(15),
+            };
+            using var response = await http.PostAsJsonAsync("api/accounts/logout", new { RefreshToken = profile.RefreshToken });
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
     public async Task<JsonNode> GetAsync(string path) => await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, path));
 
     public async Task<JsonNode> PostAsync(string path, object body) =>

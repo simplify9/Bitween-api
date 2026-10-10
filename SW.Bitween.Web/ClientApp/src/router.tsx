@@ -6,6 +6,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { NAV_GROUPS, homePath } from "./nav";
 import { LoginPage } from "./pages/auth/Login";
 import { ChangePasswordPage } from "./pages/auth/ChangePassword";
+import { CliLoginPage } from "./pages/auth/CliLogin";
 import { NotFoundPage, PlaceholderPage } from "./pages/PlaceholderPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AuditPage } from "./pages/audit/AuditPage";
@@ -87,6 +88,8 @@ export const routes: RouteObject[] = [
       // Inside the auth guard because it needs a session, outside the shell because the session
       // it serves grants nothing — a sidebar built from those permissions would be empty.
       { path: "change-password", element: <ChangePasswordPage /> },
+      // Where bitween login sends the browser; a session is all it needs, whatever it may do.
+      { path: "cli-login", element: <CliLoginPage /> },
       {
         element: <AppShell />,
         children: [

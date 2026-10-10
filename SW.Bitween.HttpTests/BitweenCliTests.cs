@@ -167,6 +167,88 @@ public class BitweenCliTests(HttpFixture fixture) : IDisposable
         Assert.False(File.Exists(profiles.Path));
     }
 
+    /// <summary>
+    /// Plays the browser: signs in to the admin UI as the administrator, confirms the CLI's request
+    /// on the cli-login page (the grant), and follows the redirect back to the CLI's loopback.
+    /// </summary>
+    bool ConfirmInBrowser(string address)
+    {
+        _ = Task.Run(async () =>
+        {
+            var query = System.Web.HttpUtility.ParseQueryString(new Uri(address).Query);
+            using var admin = await fixture.AdminAsync();
+            var grant = await admin.PostAsJsonAsync("/api/accounts/cligrant", new { codeChallenge = query["challenge"] });
+            var code = (await grant.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!["code"]!.ToString();
+            using var loopback = new HttpClient();
+            await loopback.GetAsync($"http://127.0.0.1:{query["port"]}/callback?code={Uri.EscapeDataString(code)}&state={query["state"]}");
+        });
+        return true;
+    }
+
+    [Fact]
+    public async Task Signing_in_through_the_browser_works_and_logout_ends_the_session_on_the_server()
+    {
+        var profiles = new Profiles(Path.Combine(work, "browser.json"));
+        BrowserSignIn.OpenOverride = ConfirmInBrowser;
+        try
+        {
+            var login = await Bitween(profiles, null, "login", "https://localhost");
+            Assert.True(login.Exit == 0, login.Output);
+            Assert.Contains($"as {HttpFixture.AdminEmail}", login.Output);
+        }
+        finally
+        {
+            BrowserSignIn.OpenOverride = null;
+        }
+
+        var whoami = await Bitween(profiles, null, "whoami");
+        Assert.True(whoami.Exit == 0, whoami.Output);
+        Assert.Contains(HttpFixture.AdminEmail, whoami.Output);
+
+        var refreshToken = profiles.Find().Profile.RefreshToken;
+        Assert.False(string.IsNullOrEmpty(refreshToken));
+
+        var logout = await Bitween(profiles, null, "logout");
+        Assert.True(logout.Exit == 0, logout.Output);
+        Assert.Contains("Signed out of", logout.Output);
+
+        // The token the CLI held no longer renews a session anywhere.
+        var renew = await fixture.Client().PostAsJsonAsync("/api/accounts/login", new { refreshToken });
+        Assert.False(renew.IsSuccessStatusCode);
+    }
+
+    [Fact]
+    public async Task A_sign_in_code_is_refused_without_its_verifier_or_when_altered()
+    {
+        var verifier = new string('v', 43);
+        var challenge = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(verifier)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        using var admin = await fixture.AdminAsync();
+        var grant = await admin.PostAsJsonAsync("/api/accounts/cligrant", new { codeChallenge = challenge });
+        Assert.True(grant.IsSuccessStatusCode);
+        var code = (await grant.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!["code"]!.ToString();
+
+        // Not a bearer token: the code can't be used to call the API.
+        using var withCode = fixture.Client();
+        withCode.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", code);
+        Assert.Equal(401, (int)(await withCode.GetAsync("/api/accounts/profile")).StatusCode);
+
+        using var client = fixture.Client();
+        Assert.False((await client.PostAsJsonAsync("/api/accounts/clitoken", new { code, codeVerifier = new string('w', 43) })).IsSuccessStatusCode);
+        var altered = code[..^2] + (code[^2] == 'A' ? "B" : "A") + code[^1];
+        Assert.False((await client.PostAsJsonAsync("/api/accounts/clitoken", new { code = altered, codeVerifier = verifier })).IsSuccessStatusCode);
+
+        var redeemed = await client.PostAsJsonAsync("/api/accounts/clitoken", new { code, codeVerifier = verifier });
+        Assert.True(redeemed.IsSuccessStatusCode);
+        var session = (await redeemed.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!;
+        Assert.Equal(HttpFixture.AdminEmail, session["email"]!.ToString());
+        Assert.False(string.IsNullOrEmpty(session["refreshToken"]?.ToString()));
+
+        // Signed out, a grant needs a session.
+        Assert.Equal(401, (int)(await fixture.Client().PostAsJsonAsync("/api/accounts/cligrant", new { codeChallenge = challenge })).StatusCode);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(work, true); } catch { }

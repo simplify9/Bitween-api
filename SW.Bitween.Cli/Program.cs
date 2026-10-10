@@ -42,7 +42,7 @@ public static class Program
             var parsed = Parser().ParseArguments<LoginOptions, LogoutOptions, WhoAmIOptions>(args);
             return await parsed.MapResult(
                 (LoginOptions o) => Commands.Login(o, profiles, input, readSecret),
-                (LogoutOptions o) => Task.FromResult(Commands.Logout(o, profiles)),
+                (LogoutOptions o) => Commands.Logout(o, profiles),
                 (WhoAmIOptions o) => Commands.WhoAmI(o, profiles),
                 _ => Task.FromResult(Help(parsed, "bitween")));
         }
@@ -101,8 +101,9 @@ public static class Program
     const string Usage = """
         bitween — Bitween from a terminal
 
-          bitween login <url>              Sign in to a Bitween (email and password)
-          bitween logout                   Forget the Bitween signed in to
+          bitween login <url>              Sign in to a Bitween through the browser (--no-browser to paste
+                                           a code; --email and --password-stdin for a password)
+          bitween logout                   Sign out of the Bitween signed in to
           bitween whoami                   Which Bitween, and as whom
 
           bitween adapter init <Name>      Write a new adapter: --kind handler|mapper|validator|receiver

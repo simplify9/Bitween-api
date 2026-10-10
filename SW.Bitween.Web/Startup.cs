@@ -87,6 +87,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<SettingsService>();
             services.AddMemoryCache();
             services.AddSingleton<SignInThrottle>();
+            services.AddSingleton<CliSignInCodes>();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<NativeAdapterDiscoveryService>();

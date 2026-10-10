@@ -20,11 +20,14 @@ public class LoginOptions
     [Value(0, Required = true, MetaName = "url", HelpText = "The Bitween's address, e.g. https://bitween.example.com")]
     public string Url { get; set; }
 
-    [Option('e', "email", HelpText = "Your Bitween email; asked for when not given.")]
+    [Option('e', "email", HelpText = "Sign in with this email and a password instead of through the browser.")]
     public string Email { get; set; }
 
-    [Option("password-stdin", HelpText = "Read the password from standard input, for scripts and CI.")]
+    [Option("password-stdin", HelpText = "Sign in with an email and a password, read from standard input: for scripts and CI.")]
     public bool PasswordStdin { get; set; }
+
+    [Option("no-browser", HelpText = "Sign in through a browser on another machine: show the address, and paste back the code it shows.")]
+    public bool NoBrowser { get; set; }
 
     [Option("profile", HelpText = "A name for this Bitween, to keep several; the address's host unless given.")]
     public string Profile { get; set; }
@@ -209,6 +212,21 @@ public static class Commands
             Console.WriteLine($"'{opts.Url}' isn't an address: give one like https://bitween.example.com");
             return Failure;
         }
+        var name = string.IsNullOrWhiteSpace(opts.Profile) ? url.Host : opts.Profile;
+        var address = url.GetLeftPart(UriPartial.Path);
+
+        // Through the browser unless an email or a password was given: it works for every account,
+        // whichever way it signs in, and the password never passes through the terminal.
+        if (string.IsNullOrWhiteSpace(opts.Email) && !opts.PasswordStdin)
+        {
+            if (url.Scheme == "http" && !url.IsLoopback)
+                Console.WriteLine("Warning: signing in over http sends your session unencrypted; use https.");
+            var signedIn = await BrowserSignIn.SignInAsync(address, opts.Insecure, openBrowser: !opts.NoBrowser, input);
+            profiles.Put(name, signedIn, makeCurrent: true);
+            Console.WriteLine($"Signed in to {signedIn.Url} as {signedIn.Email} (profile {name}).");
+            return Success;
+        }
+
         if (url.Scheme == "http" && !url.IsLoopback)
             Console.WriteLine("Warning: signing in over http sends your password unencrypted; use https.");
 
@@ -232,14 +250,13 @@ public static class Commands
             return Failure;
         }
 
-        var profile = await BitweenApi.SignInAsync(url.GetLeftPart(UriPartial.Path), email, password, opts.Insecure);
-        var name = string.IsNullOrWhiteSpace(opts.Profile) ? url.Host : opts.Profile;
+        var profile = await BitweenApi.SignInAsync(address, email, password, opts.Insecure);
         profiles.Put(name, profile, makeCurrent: true);
         Console.WriteLine($"Signed in to {profile.Url} as {email} (profile {name}).");
         return Success;
     }
 
-    public static int Logout(LogoutOptions opts, Profiles profiles)
+    public static async Task<int> Logout(LogoutOptions opts, Profiles profiles)
     {
         var (name, profile) = profiles.Find(opts.Profile);
         if (profile == null)
@@ -247,8 +264,11 @@ public static class Commands
             Console.WriteLine(name == null ? "You aren't signed in to any Bitween." : $"There's no profile named {name}.");
             return Failure;
         }
+        var ended = await BitweenApi.EndSessionAsync(profile);
         profiles.Remove(name);
-        Console.WriteLine($"Signed out of {profile.Url} (profile {name}).");
+        Console.WriteLine(ended
+            ? $"Signed out of {profile.Url} (profile {name})."
+            : $"Forgot {profile.Url} here (profile {name}), but couldn't reach it to end the session there; it ends after 30 days unused.");
         return Success;
     }
 
