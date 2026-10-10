@@ -153,3 +153,30 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
       nuget-api-key: ${{ secrets.SWNUGETKEY }}
       dependabot-alerts-token: ${{ secrets.DEPENDABOT_ALERTS_TOKEN }}
+
+  # The bitween CLI and the adapter contract packages carry the version the run above computed, so
+  # nothing is tagged by hand. A staging build releases the CLI as a pre-release, cli-v<x.y.z>-stg.<run>;
+  # the release from releases/r10.0 releases it as the latest, cli-v<x.y.z>, and publishes the SDKs.
+  cli-staging:
+    needs: build-publish-deploy
+    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0-staging' }}
+    uses: ./.github/workflows/cli-release.yml
+    with:
+      version: ${{ needs.build-publish-deploy.outputs.version }}
+
+  cli-release:
+    needs: publish-release
+    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0' }}
+    uses: ./.github/workflows/cli-release.yml
+    with:
+      version: ${{ needs.publish-release.outputs.version }}
+
+  sdk-release:
+    needs: publish-release
+    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sdk-release.yml
+    with:
+      version: ${{ needs.publish-release.outputs.version }}
+    secrets: inherit

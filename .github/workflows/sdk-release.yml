@@ -1,16 +1,17 @@
 name: SDK release
 
-# A tag sdk-v<version> (sdk-v10.0.60) publishes the adapter contract for Python to PyPI as
-# simplyworks-bitween and for JavaScript and TypeScript to npm as @simplyworks/bitween, at that
-# version. Each is tested first against SW-Serverless's SDK from its default branch, and a version
-# already on its registry is left alone, so a failed run can simply be run again.
+# Publishes the adapter contract for Python to PyPI as simplyworks-bitween and for JavaScript and
+# TypeScript to npm as @simplyworks/bitween. Never run by hand or by a tag: the release run on
+# releases/r10.0 (bitween-api-cicd-gateway.yml) calls it with the version it computed, so they carry
+# Bitween's version. Only a release version is published. Each is tested first against
+# SW-Serverless's SDK from its default branch, and a version already on its registry is left alone,
+# so a failed run can simply be run again.
 on:
-  push:
-    tags: ["sdk-v*"]
-  workflow_dispatch:
+  workflow_call:
     inputs:
       version:
-        description: "Version to publish, e.g. 10.0.60"
+        description: "The version the calling run computed"
+        type: string
         required: true
 
 permissions:
@@ -18,6 +19,7 @@ permissions:
 
 jobs:
   python:
+    if: ${{ !contains(inputs.version, '-') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -33,10 +35,12 @@ jobs:
           python-version: "3.12"
       - name: Version
         id: version
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          v="${{ github.event.inputs.version }}"
-          [ -z "$v" ] && v="${GITHUB_REF_NAME#sdk-v}"
+          v="$VERSION"
           sed -i -E "s/^version = \".*\"/version = \"$v\"/" pyproject.toml
+          sed -i -E "s/^__version__ = \".*\"/__version__ = \"$v\"/" src/simplyworks_bitween/__init__.py
           echo "value=$v" >> "$GITHUB_OUTPUT"
       - name: Test
         run: PYTHONPATH="src:$GITHUB_WORKSPACE/sw-serverless/sdk/python/src" python -m unittest discover -s tests
@@ -51,6 +55,7 @@ jobs:
           skip-existing: true
 
   node:
+    if: ${{ !contains(inputs.version, '-') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -67,10 +72,12 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - name: Version
         id: version
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          v="${{ github.event.inputs.version }}"
-          [ -z "$v" ] && v="${GITHUB_REF_NAME#sdk-v}"
+          v="$VERSION"
           npm version "$v" --no-git-tag-version --allow-same-version
+          sed -i -E "s/^const VERSION = \".*\";/const VERSION = \"$v\";/" src/index.js
           echo "value=$v" >> "$GITHUB_OUTPUT"
       - name: Test
         env:
