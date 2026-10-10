@@ -136,18 +136,21 @@ export function ScheduledJobsPage() {
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="subscriptions.create">
+      <Button variant="primary" onClick={() => navigate("/scheduled-jobs/new")}>
+        <Plus className="size-4" /> New scheduled job
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
         title="Scheduled jobs"
         description="Subscriptions that pull documents in on a schedule — from an FTP folder, a mailbox, an API."
-        actions={
-          <Can permission="subscriptions.create">
-            <Button variant="primary" onClick={() => navigate("/scheduled-jobs/new")}>
-              <Plus className="size-4" /> New scheduled job
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -178,7 +181,7 @@ export function ScheduledJobsPage() {
       ) : rows.isError ? (
         <LoadError error={rows.error} what="scheduled jobs" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<CalendarClock />} title={q || inactive !== null ? "No jobs match" : "No scheduled jobs yet"}>
+        <EmptyState icon={<CalendarClock />} title={q || inactive !== null ? "No jobs match" : "No scheduled jobs yet"} action={q || inactive !== null ? undefined : createAction}>
           {q || inactive !== null ? "Try a different search or filter." : "Create a job to pull documents in on a schedule."}
         </EmptyState>
       ) : (

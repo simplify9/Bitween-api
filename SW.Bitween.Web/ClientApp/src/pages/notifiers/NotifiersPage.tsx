@@ -99,6 +99,15 @@ export function NotifiersPage() {
 
   const channelLabel = (id: string) => channels.data?.find((c) => c.id === id)?.label ?? id;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="notifiers.create">
+      <Button variant="primary" onClick={() => setParam("new", "1")}>
+        <Plus className="size-4" /> New notifier
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
@@ -120,13 +129,7 @@ export function NotifiersPage() {
             </>
           ),
         }}
-        actions={
-          <Can permission="notifiers.create">
-            <Button variant="primary" onClick={() => setParam("new", "1")}>
-              <Plus className="size-4" /> New notifier
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="relative mb-4 max-w-xs">
@@ -146,7 +149,7 @@ export function NotifiersPage() {
       ) : notifiers.isError ? (
         <LoadError error={notifiers.error} what="notifiers" onRetry={() => void notifiers.refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<BellRing />} title={q ? "No notifiers match" : "No notifiers yet"}>
+        <EmptyState icon={<BellRing />} title={q ? "No notifiers match" : "No notifiers yet"} action={q ? undefined : createAction}>
           {q ? "Try a different search." : "Create a notifier to get alerted when subscriptions fail."}
         </EmptyState>
       ) : (

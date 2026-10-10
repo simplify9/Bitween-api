@@ -55,6 +55,7 @@ const dashboard = (subscriptions: ReturnType<typeof subscription>[]) => [
   // Read alongside the rows to name what each one uses.
   http.get(apiPath("/documents"), () => HttpResponse.json(none)),
   http.get(apiPath("/partners"), () => HttpResponse.json(none)),
+  http.get(apiPath("/apigateways"), () => HttpResponse.json(none)),
 ];
 
 describe("the dashboard", () => {
@@ -79,5 +80,36 @@ describe("the dashboard", () => {
     expect(panel.getByText("Health page 11", { exact: true })).toBeVisible();
     expect(panel.getAllByText("Paused")).toHaveLength(3);
     expect(panel.getByRole("button", { name: "Next →" })).toBeDisabled();
+  });
+
+  it("shows a new instance where to start, in order, and no success rate before anything has finished", async () => {
+    renderApp("/dashboard", { handlers: dashboard([]) });
+
+    const card = within((await screen.findByRole("heading", { name: "Getting started" })).closest("section")!);
+    expect(card.getByText("0 of 5 done. Each step needs the one before it.")).toBeVisible();
+    // The next step is the one that stands out, and leads to where it's done.
+    expect(card.getByRole("link", { name: "Information types" })).toHaveAttribute("href", "/information-types");
+    expect(card.getByText("1. Describe a document")).toBeVisible();
+
+    const rate = screen.getByText("Success rate (7 days)").closest("a")!;
+    expect(within(rate).getByText("—")).toBeVisible();
+  });
+
+  it("can be dismissed for good", async () => {
+    const { user } = renderApp("/dashboard", { handlers: dashboard([]) });
+    await user.click(await screen.findByRole("button", { name: "Dismiss getting started" }));
+    expect(screen.queryByRole("heading", { name: "Getting started" })).not.toBeInTheDocument();
+    expect(localStorage.getItem("bitween_getting_started_dismissed")).toBe("1");
+    localStorage.removeItem("bitween_getting_started_dismissed");
+  });
+
+  it("isn't offered once the instance is set up", async () => {
+    renderApp("/dashboard", { handlers: [
+      http.get(apiPath("/documents"), () => HttpResponse.json({ result: [{ id: 3, name: "Order", code: "ORDER" }], totalCount: 1 })),
+      http.get(apiPath("/partners"), () => HttpResponse.json({ result: [{ id: 7, name: "Acme", keys: 1, subscriptionsCount: 1, propertyKeys: [] }], totalCount: 1 })),
+      ...dashboard([subscription(0)]),
+    ] });
+    expect(await screen.findByRole("heading", { name: "Subscription health" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Getting started" })).not.toBeInTheDocument();
   });
 });

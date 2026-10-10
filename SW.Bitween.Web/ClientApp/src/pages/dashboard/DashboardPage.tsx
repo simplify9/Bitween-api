@@ -10,6 +10,7 @@ import { timeAgo } from "../../lib/dates";
 import { StatusBadge, XchangeId } from "../exchanges/shared";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
+import { GettingStarted } from "./GettingStarted";
 
 const CHART_HEIGHT = 140;
 /** Single-line rows, so ten fill about the height of the six two-line "Latest failures" beside them. */
@@ -84,6 +85,7 @@ export function DashboardPage() {
       ? "unavailable right now"
       : "live consumer health";
   const delta = data.today.total - data.yesterdayTotal;
+  const finishedThisWeek = data.trafficByDay.slice(-7).reduce((n, d) => n + d.success + d.failed, 0);
   const maxDay = Math.max(1, ...data.trafficByDay.map((d) => d.success + d.failed));
   const unhealthy = [
     ...data.attention.failingSubscriptions.map((s) => ({ ...s, paused: false })),
@@ -101,6 +103,8 @@ export function DashboardPage() {
         description="Traffic and health at a glance — every number links to the page where you can act on it."
       />
 
+      <GettingStarted exchangesSeen={data.trafficByDay.some((d) => d.success + d.failed > 0) || data.today.total > 0} />
+
       {/* — KPI row — */}
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile
@@ -117,7 +121,9 @@ export function DashboardPage() {
         />
         <StatTile
           label="Success rate (7 days)"
-          value={`${data.successRate7d}%`}
+          // With nothing finished in the week there is no rate to give: 100% claimed a success
+          // that never happened.
+          value={finishedThisWeek > 0 ? `${data.successRate7d}%` : "—"}
           sub="of finished exchanges"
           to="/exchanges?status=success"
         />
@@ -174,8 +180,9 @@ export function DashboardPage() {
         }
       >
         <div className="relative" style={{ height: CHART_HEIGHT + 24 }}>
-          {/* gridlines at max and half */}
-          {[1, 0.5].map((f) => (
+          {/* Gridlines at max and half; the half one only when it is a whole number of its own
+              (a scale topping out at 1 labelled both lines "1"). */}
+          {(maxDay >= 2 ? [1, 0.5] : [1]).map((f) => (
             <div
               key={f}
               className="absolute right-0 left-8 border-t border-ink-100"

@@ -42,6 +42,15 @@ export function RetryPoliciesPage() {
   const rows = policies.data?.result ?? [];
   const total = policies.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="retry-policies.create">
+      <Button variant="primary" onClick={() => setParam("new", "1")}>
+        <Plus className="size-4" /> New retry policy
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
@@ -63,13 +72,7 @@ export function RetryPoliciesPage() {
             </>
           ),
         }}
-        actions={
-          <Can permission="retry-policies.create">
-            <Button variant="primary" onClick={() => setParam("new", "1")}>
-              <Plus className="size-4" /> New retry policy
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="relative mb-4 max-w-xs">
@@ -89,7 +92,7 @@ export function RetryPoliciesPage() {
       ) : policies.isError ? (
         <LoadError error={policies.error} what="retry policies" onRetry={() => void policies.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<RotateCcw />} title={q ? "No policies match" : "No retry policies yet"}>
+        <EmptyState icon={<RotateCcw />} title={q ? "No policies match" : "No retry policies yet"} action={q ? undefined : createAction}>
           {q ? "Try a different search." : "Create a policy to control what happens after failures."}
         </EmptyState>
       ) : (

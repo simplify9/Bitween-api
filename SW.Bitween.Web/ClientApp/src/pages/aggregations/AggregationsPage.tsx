@@ -135,18 +135,21 @@ export function AggregationsPage() {
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="subscriptions.create">
+      <Button variant="primary" onClick={() => navigate("/aggregations/new")}>
+        <Plus className="size-4" /> New aggregation
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
         title="Aggregations"
         description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined — a mapper or delivery does that."
-        actions={
-          <Can permission="subscriptions.create">
-            <Button variant="primary" onClick={() => navigate("/aggregations/new")}>
-              <Plus className="size-4" /> New aggregation
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -177,7 +180,7 @@ export function AggregationsPage() {
       ) : rows.isError ? (
         <LoadError error={rows.error} what="aggregations" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Layers />} title={q || inactive !== null ? "No aggregations match" : "No aggregations yet"}>
+        <EmptyState icon={<Layers />} title={q || inactive !== null ? "No aggregations match" : "No aggregations yet"} action={q || inactive !== null ? undefined : createAction}>
           {q || inactive !== null
             ? "Try a different search or filter."
             : "Create one here, or open the subscription you want summarised and choose “Roll these up”."}

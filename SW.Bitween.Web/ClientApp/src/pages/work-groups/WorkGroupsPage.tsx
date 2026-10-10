@@ -90,6 +90,15 @@ export function WorkGroupsPage() {
   const filtered = groups.data?.result ?? [];
   const total = groups.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="workgroups.create">
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        <Plus className="size-4" /> New work group
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
@@ -109,13 +118,7 @@ export function WorkGroupsPage() {
             </>
           ),
         }}
-        actions={
-          <Can permission="workgroups.create">
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus className="size-4" /> New work group
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="relative mb-4 max-w-xs">
@@ -142,7 +145,7 @@ export function WorkGroupsPage() {
       ) : groups.isError ? (
         <LoadError error={groups.error} what="work groups" onRetry={() => void groups.refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Layers />} title={q ? "No work groups match" : "No work groups yet"}>
+        <EmptyState icon={<Layers />} title={q ? "No work groups match" : "No work groups yet"} action={q ? undefined : createAction}>
           {q ? "Try a different search." : "Create one to give a set of subscriptions their own queue."}
         </EmptyState>
       ) : (

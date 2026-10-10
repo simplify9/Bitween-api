@@ -96,6 +96,15 @@ export function InformationTypesPage() {
   const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
   const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="documents.create">
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        <Plus className="size-4" /> New information type
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
@@ -118,13 +127,7 @@ export function InformationTypesPage() {
             </>
           ),
         }}
-        actions={
-          <Can permission="documents.create">
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus className="size-4" /> New information type
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -174,7 +177,7 @@ export function InformationTypesPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<FileText />}
-          title={q || format || busParam || subscriptionIds.length > 0 ? "No information types match" : "No information types yet"}
+          title={q || format || busParam || subscriptionIds.length > 0 ? "No information types match" : "No information types yet"} action={q || format || busParam || subscriptionIds.length > 0 ? undefined : createAction}
         >
           {q || format || busParam || subscriptionIds.length > 0
             ? "Try a different search or filter."

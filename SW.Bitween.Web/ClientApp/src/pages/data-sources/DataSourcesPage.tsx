@@ -52,6 +52,15 @@ export function DataSourcesPage() {
   const rows = sources.data?.result ?? [];
   const total = sources.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="data-sources.create">
+      <Button variant="primary" onClick={() => navigate("/data-sources/new")}>
+        <Plus className="size-4" /> New data source
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
@@ -81,13 +90,7 @@ export function DataSourcesPage() {
             </>
           ),
         }}
-        actions={
-          <Can permission="data-sources.create">
-            <Button variant="primary" onClick={() => navigate("/data-sources/new")}>
-              <Plus className="size-4" /> New data source
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="relative mb-4 max-w-xs">
@@ -107,7 +110,7 @@ export function DataSourcesPage() {
       ) : sources.isError ? (
         <LoadError error={sources.error} what="data sources" onRetry={() => void sources.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Database />} title={q ? "No data sources match" : "No data sources yet"}>
+        <EmptyState icon={<Database />} title={q ? "No data sources match" : "No data sources yet"} action={q ? undefined : createAction}>
           {q
             ? "Try a different search."
             : "A bus gateway with no data source reads Bitween's own internal bus. Add one here only to read a broker outside Bitween."}

@@ -121,18 +121,21 @@ export function GlobalValueSetsPage() {
     });
   }, [sets.data, q, subscriptionIds, subscriptions]);
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="global-values.create">
+      <Button variant="primary" onClick={() => setParam("new", "1")}>
+        <Plus className="size-4" /> New value set
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
         title="Global values"
         description="Shared value sets any adapter can reference — change an endpoint here once instead of in every subscription."
-        actions={
-          <Can permission="global-values.create">
-            <Button variant="primary" onClick={() => setParam("new", "1")}>
-              <Plus className="size-4" /> New value set
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -164,7 +167,7 @@ export function GlobalValueSetsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<SlidersHorizontal />}
-          title={q || subscriptionIds.length > 0 ? "No value sets match" : "No value sets yet"}
+          title={q || subscriptionIds.length > 0 ? "No value sets match" : "No value sets yet"} action={q || subscriptionIds.length > 0 ? undefined : createAction}
         >
           {q || subscriptionIds.length > 0
             ? "Try a different search or filter."

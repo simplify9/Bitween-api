@@ -58,18 +58,21 @@ export function ApiGatewaysPage() {
   const rows = gateways.data?.result ?? [];
   const total = gateways.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="api-gateways.create">
+      <Button variant="primary" onClick={() => navigate("/api-gateways/new")}>
+        <Plus className="size-4" /> New API gateway
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
         title="API gateways"
         description="URLs partners call to push documents in. Each attached partner is routed to one subscription."
-        actions={
-          <Can permission="api-gateways.create">
-            <Button variant="primary" onClick={() => navigate("/api-gateways/new")}>
-              <Plus className="size-4" /> New API gateway
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -100,7 +103,7 @@ export function ApiGatewaysPage() {
       ) : gateways.isError ? (
         <LoadError error={gateways.error} what="API gateways" onRetry={() => void gateways.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Webhook />} title={q || inactive !== null ? "No gateways match" : "No API gateways yet"}>
+        <EmptyState icon={<Webhook />} title={q || inactive !== null ? "No gateways match" : "No API gateways yet"} action={q || inactive !== null ? undefined : createAction}>
           {q || inactive !== null ? "Try a different search or filter." : "Create a gateway to give partners a URL to push documents to."}
         </EmptyState>
       ) : (

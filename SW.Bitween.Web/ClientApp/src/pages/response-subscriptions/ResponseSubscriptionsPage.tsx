@@ -70,18 +70,21 @@ export function ResponseSubscriptionsPage() {
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="subscriptions.create">
+      <Button variant="primary" onClick={() => navigate("/response-subscriptions/new")}>
+        <Plus className="size-4" /> New response subscription
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
         title="Response subscriptions"
         description="Pipelines that run on what another subscription's delivery hands back — an order id, an acknowledgement, a label."
-        actions={
-          <Can permission="subscriptions.create">
-            <Button variant="primary" onClick={() => navigate("/response-subscriptions/new")}>
-              <Plus className="size-4" /> New response subscription
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -114,7 +117,7 @@ export function ResponseSubscriptionsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<CornerDownLeft />}
-          title={q || inactive !== null ? "No response subscriptions match" : "No response subscriptions yet"}
+          title={q || inactive !== null ? "No response subscriptions match" : "No response subscriptions yet"} action={q || inactive !== null ? undefined : createAction}
         >
           {q || inactive !== null
             ? "Try a different search or filter."

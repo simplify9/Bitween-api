@@ -72,6 +72,15 @@ export function BusGatewaysPage() {
   const rows = gateways.data?.result ?? [];
   const total = gateways.data?.total ?? 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="bus-gateways.create">
+      <Button variant="primary" onClick={() => navigate("/bus-gateways/new")}>
+        <Plus className="size-4" /> New bus gateway
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
@@ -84,11 +93,7 @@ export function BusGatewaysPage() {
             <Button variant="secondary" onClick={() => navigate("/flow")}>
               <Network className="size-4" /> Flow map
             </Button>
-            <Can permission="bus-gateways.create">
-              <Button variant="primary" onClick={() => navigate("/bus-gateways/new")}>
-                <Plus className="size-4" /> New bus gateway
-              </Button>
-            </Can>
+            {createAction}
           </>
         }
       />
@@ -135,7 +140,7 @@ export function BusGatewaysPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<Cable />}
-          title={q || informationTypeId || inactive !== null ? "No gateways match" : "No bus gateways yet"}
+          title={q || informationTypeId || inactive !== null ? "No gateways match" : "No bus gateways yet"} action={q || informationTypeId || inactive !== null ? undefined : createAction}
         >
           {q || informationTypeId || inactive !== null
             ? "Try a different search or filter."

@@ -84,18 +84,21 @@ export function PartnersPage() {
   const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
   const filtered = q || subscriptionIds.length > 0;
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="partners.create">
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        <Plus className="size-4" /> New partner
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
         title="Partners"
         description="The external parties you exchange data with — their connection properties and API keys."
-        actions={
-          <Can permission="partners.create">
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus className="size-4" /> New partner
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -125,7 +128,7 @@ export function PartnersPage() {
       ) : listQuery.isError ? (
         <LoadError error={listQuery.error} what="partners" onRetry={() => void listQuery.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Handshake />} title={filtered ? "No partners match" : "No partners yet"}>
+        <EmptyState icon={<Handshake />} title={filtered ? "No partners match" : "No partners yet"} action={filtered ? undefined : createAction}>
           {filtered ? "Try a different search or filter." : "Create the first partner you exchange data with."}
         </EmptyState>
       ) : (
