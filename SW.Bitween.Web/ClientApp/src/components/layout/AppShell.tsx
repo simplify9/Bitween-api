@@ -22,6 +22,8 @@ import { Button } from "../ui/basics";
 import { Menu, MenuItem } from "../ui/overlays";
 import { keys } from "../../api/queryKeys";
 import { LoadingBlock } from "../ui/basics";
+import { PAGES } from "../../pages";
+import { useCurrentPage } from "../../lib/currentPage";
 
 /**
  * Shown on every page while unsaved setting changes exist — the whole app
@@ -267,24 +269,15 @@ function SidebarContent({
 
 const RAILED_KEY = "bitween-nav-railed";
 
-/**
- * Pages that own the whole viewport instead of sitting in the shell's page frame.
- *
- * The bus-gateway studio is a three-region workspace — route list, canvas,
- * configuration — each with its own scrollbar, which only works if the shell
- * stops supplying padding, a footer and a page-level scroll. The flow map is the
- * same bargain with two regions. Matched here rather than announced by the page
- * itself: a page can only ask once it has mounted, and the frame would visibly
- * snap away on arrival.
- */
-const FULL_BLEED = [/^\/bus-gateways\/\d+$/, /^\/flow$/];
-
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
   const branding = useApplyBranding();
-  const { pathname } = useLocation();
-  const fullBleed = FULL_BLEED.some((r) => r.test(pathname));
+  // A page that owns the whole viewport (the bus-gateway studio, the flow map) says so in the page
+  // registry: the shell stops supplying padding, a footer and a page-level scroll. Known from the
+  // matched route rather than announced by the page, which could only ask once it had mounted.
+  const current = useCurrentPage();
+  const fullBleed = current !== null && PAGES[current].layout === "full";
 
   const toggleRail = () =>
     setRailed((prev) => {
