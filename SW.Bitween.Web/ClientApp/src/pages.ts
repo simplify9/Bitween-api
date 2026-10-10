@@ -37,6 +37,13 @@ import type { PermissionKey } from "./api";
  *
  * No components here, so anything can import it without pulling in a page: the router pairs each
  * id with its component (src/router.tsx), and a page without one doesn't compile.
+ *
+ * Adding a page:
+ * 1. Declare it below — `nav` for a sidebar entry, `parent` for where its breadcrumb leads.
+ * 2. Give it its component in `PAGE_ELEMENTS` (src/router.tsx); lazy-load it in routePages.tsx.
+ * 3. A page about one thing names it: `usePageTitle(thing.name)`.
+ * 4. A list page builds on useListParams (lib/listParams), SearchBox and ListBody — see
+ *    RetryPoliciesPage for the whole of one.
  */
 
 export type NavGroupId = "operate" | "subscriptions" | "configuration" | "administration";

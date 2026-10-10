@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { AdminApi, stamp } from "./api";
-import { pickOption, signInAsAdmin } from "./helpers";
+import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
@@ -56,7 +56,7 @@ test("a response subscription made on its page and picked on a delivering subscr
     await pickOption(page, "handler adapter", "NativeHttpHandler");
     await page.locator("#prop-Url").fill(labelStore.url);
     await page.getByRole("button", { name: "Create response subscription" }).click();
-    await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
+    await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
     responseId = Number(new URL(page.url()).pathname.split("/").pop());
 
     // A subscription whose delivery answers with a document.

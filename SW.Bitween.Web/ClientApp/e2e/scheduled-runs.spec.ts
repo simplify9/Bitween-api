@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { AdminApi, stamp } from "./api";
-import { pickOption, signInAsAdmin } from "./helpers";
+import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
@@ -150,7 +150,7 @@ test("an aggregation made on its page and rolled up now delivers one roll-up nam
     await page.locator("#prop-Url").fill(manifestStore.url);
     await page.getByRole("checkbox", { name: /^Enable immediately/ }).check();
     await page.getByRole("button", { name: "Create aggregation" }).click();
-    await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
+    await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
     aggregationId = Number(new URL(page.url()).pathname.split("/").pop());
 
     await runNow(page, "aggregations", name, "Roll up now", "Roll up now?");

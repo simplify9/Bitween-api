@@ -9,6 +9,12 @@ export const startsWith = (text: string) =>
 export { ADMIN_EMAIL, ADMIN_PASSWORD, API } from "./env";
 
 /** Passwords the members these tests create are given. Both clear the 8-character minimum. */
+/**
+ * A subscription's own page. Scheduled jobs, aggregations and response subscriptions open in their
+ * own section (/scheduled-jobs/:id …), everything else at /subscriptions/:id.
+ */
+export const SUBSCRIPTION_PAGE = /\/(subscriptions|scheduled-jobs|aggregations|response-subscriptions)\/\d+$/;
+
 export const FIRST_PASSWORD = "Pl4ywright!1";
 export const ROTATED_PASSWORD = "R0tated!Pass2";
 

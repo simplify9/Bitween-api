@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, DownloadCloud, Plus, Search } from "lucide-react";
+import { CalendarClock, DownloadCloud, Plus } from "lucide-react";
 import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
@@ -17,9 +17,10 @@ import { useSubscriptionsCache, useRetryPolicyNames, useWorkGroupNames } from ".
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
-import { useSearchText } from "../../lib/useSearchText";
+import { useListParams } from "../../lib/listParams";
 import { NONE } from "../../lib/none";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -91,7 +92,7 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 const PAGE_SIZE = 25;
 
 export function ScheduledJobsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const inactiveParam = searchParams.get("inactive");
@@ -119,18 +120,6 @@ export function ScheduledJobsPage() {
     useQuery({ queryKey: keys.subscriptions.scheduleHealth, queryFn: () => api.listScheduleHealth() }).data ?? NONE;
   const healthById = useMemo(() => new Map(health.map((h) => [h.subscriptionId, h])), [health]);
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: true },
-    );
-  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
@@ -153,17 +142,7 @@ export function ScheduledJobsPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-          <input
-            type="search"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search jobs"
-            aria-label="Search scheduled jobs"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search scheduled jobs" placeholder="Search jobs" />
         <div className="w-40">
           <Select
             aria-label="Filter by status"
@@ -194,7 +173,7 @@ export function ScheduledJobsPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[

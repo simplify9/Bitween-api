@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Search, UserPlus, UsersRound } from "lucide-react";
+import { UserPlus, UsersRound } from "lucide-react";
 import { api, type User } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -14,6 +14,7 @@ import { MemberDrawer } from "./MemberDrawer";
 import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
 import { statusBadge } from "./memberStatus";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
@@ -86,17 +87,7 @@ export function MembersPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-56 flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-          <input
-            type="search"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search by name or email"
-            aria-label="Search members"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search members" placeholder="Search by name or email" className="min-w-56 flex-1 sm:max-w-xs" />
 
         <div className="flex rounded-lg border border-ink-200 bg-white p-0.5">
           {STATUS_FILTERS.map((f) => (

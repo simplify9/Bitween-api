@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Handshake, Plus, Search } from "lucide-react";
+import { Handshake, Plus } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
@@ -13,7 +13,8 @@ import { Table } from "../../components/ui/Table";
 import { UsedByCell } from "../../components/config/shared";
 import { useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
-import { useSearchText } from "../../lib/useSearchText";
+import { useListParams } from "../../lib/listParams";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 const PAGE_SIZE = 25;
 
@@ -27,25 +28,13 @@ const parseIds = (raw: string | null): number[] =>
     : [];
 
 export function PartnersPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: key === "q" },
-    );
-  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const partnerSubscriptions = usePartnerSubscriptions();
   const subscriptions = useSubscriptionsCache().data ?? [];
@@ -105,17 +94,7 @@ export function PartnersPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-          <input
-            type="search"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search partners"
-            aria-label="Search partners"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search partners" />
         <div className="w-60">
           <SubscriptionMultiFilter
             subscriptions={subscriptions}
@@ -145,7 +124,7 @@ export function PartnersPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[

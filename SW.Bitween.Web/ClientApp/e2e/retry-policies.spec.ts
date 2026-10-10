@@ -45,7 +45,8 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   // Dry-run against the saved (now unsaved-clean) groups.
   await page.fill("#tp-content", "System.Net.Http.HttpRequestException: timeout while connecting");
   await page.getByRole("button", { name: "Run simulation" }).click();
-  const attempt = page.locator("ol li").first();
+  // Not the breadcrumb's list: the attempts list on the page.
+  const attempt = page.locator(":not(nav) > ol li").first();
   await expect(attempt).toContainText("Retries");
   await expect(attempt).toContainText("Next try in 45s");
 

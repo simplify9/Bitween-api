@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { pickOption, signInAsAdmin } from "./helpers";
+import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
@@ -46,7 +46,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // "Enable immediately" is checked by default.
   await page.getByRole("button", { name: "Create job" }).click();
 
-  await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
+  await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
   await expect(page.getByRole("heading", { name })).toBeVisible();
   // A badge now, not a button — the switch that turns it off lives with Pause on the right.
   await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
@@ -109,7 +109,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // carries links of its own — information type, partner — and which one sits under the
   // centre depends on how wide the columns happen to be.
   await row.getByText(name).click();
-  await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
+  await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
   await page.getByRole("button", { name: "Delete" }).click();
   await page.getByRole("button", { name: "Delete subscription" }).click();
   await expect(page).toHaveURL(/\/subscriptions$/);

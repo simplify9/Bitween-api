@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
@@ -21,6 +21,7 @@ import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../lib/pageTitle";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
@@ -283,17 +284,7 @@ export function NotifierPage() {
                     subscription.
                   </p>
                 )}
-                <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-                  <input
-                    type="search"
-                    value={watchSearch}
-                    onChange={(e) => setWatchSearch(e.target.value)}
-                    placeholder="Search subscriptions"
-                    aria-label="Search subscriptions"
-                    className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-                  />
-                </div>
+                <SearchBox value={watchSearch} onChange={setWatchSearch} label="Search subscriptions" className="" />
                 <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
                   {filteredSubscriptions.map((s) => (
                     <li key={s.id} className="flex items-center gap-1">

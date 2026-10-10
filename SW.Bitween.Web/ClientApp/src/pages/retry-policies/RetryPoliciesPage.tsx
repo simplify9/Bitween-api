@@ -1,22 +1,24 @@
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Plus, RotateCcw, Search } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Button } from "../../components/ui/basics";
+import { ListBody } from "../../components/ui/ListBody";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell } from "../../components/config/shared";
 import { useSubscriptionsCache } from "../../components/config/lookups";
 import { CreateRetryPolicyDialog } from "../../components/config/RetryPolicyDialog";
 import { keys } from "../../api/queryKeys";
-import { useSearchText } from "../../lib/useSearchText";
+import { useListParams } from "../../lib/listParams";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 const PAGE_SIZE = 25;
 
 export function RetryPoliciesPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const creating = searchParams.get("new") === "1";
@@ -29,18 +31,6 @@ export function RetryPoliciesPage() {
   });
   const subscriptions = useSubscriptionsCache().data ?? [];
 
-  const setParam = (key: string, value: string | null, resetOffset = key === "q") =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: key === "q" },
-    );
-  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const rows = policies.data?.result ?? [];
   const total = policies.data?.total ?? 0;
@@ -78,55 +68,50 @@ export function RetryPoliciesPage() {
         actions={createAction}
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-        <input
-          type="search"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          placeholder="Search retry policies"
-          aria-label="Search retry policies"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-        />
-      </div>
+      <SearchBox value={searchText} onChange={setSearchText} label="Search retry policies" className="mb-4 max-w-xs" />
 
-      {policies.isPending ? (
-        <LoadingBlock label="Loading retry policies…" />
-      ) : policies.isError ? (
-        <LoadError error={policies.error} what="retry policies" onRetry={() => void policies.refetch()} />
-      ) : rows.length === 0 ? (
-        <EmptyState icon={<RotateCcw />} title={q ? "No policies match" : "No retry policies yet"} action={q ? undefined : createAction}>
-          {q ? "Try a different search." : "Create a policy to control what happens after failures."}
-        </EmptyState>
-      ) : (
-        <Table
-          rows={rows}
-          rowKey={(p) => p.id}
-          minWidth="min-w-130"
-          onRowClick={(p) => navigate(`/retry-policies/${p.id}`)}
-          footer={
-            <Pagination
-              offset={offset}
-              limit={PAGE_SIZE}
-              total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
-            />
-          }
-          columns={[
-            { header: "Policy", cell: (p) => <span className="font-medium text-ink-900">{p.name}</span> },
-            {
-              header: "Groups",
-              align: "right",
-              cell: (p) => <span className="tabular-nums text-ink-600">{p.groupCount || "—"}</span>,
-            },
-            {
-              header: "Used by",
-              wrap: true,
-              cell: (p) => <UsedByCell items={subscriptions.filter((s) => s.retryPolicyId === p.id)} />,
-            },
-          ]}
-        />
-      )}
+      <ListBody
+        query={policies}
+        rows={rows}
+        what="retry policies"
+        filtered={!!q}
+        empty={{
+          icon: <RotateCcw />,
+          title: "No retry policies yet",
+          body: "Create a policy to control what happens after failures.",
+          action: createAction,
+        }}
+      >
+        {(rows) => (
+          <Table
+            rows={rows}
+            rowKey={(p) => p.id}
+            minWidth="min-w-130"
+            onRowClick={(p) => navigate(`/retry-policies/${p.id}`)}
+            footer={
+              <Pagination
+                offset={offset}
+                limit={PAGE_SIZE}
+                total={total}
+                onOffsetChange={(o) => setParam("offset", String(o))}
+              />
+            }
+            columns={[
+              { header: "Policy", cell: (p) => <span className="font-medium text-ink-900">{p.name}</span> },
+              {
+                header: "Groups",
+                align: "right",
+                cell: (p) => <span className="tabular-nums text-ink-600">{p.groupCount || "—"}</span>,
+              },
+              {
+                header: "Used by",
+                wrap: true,
+                cell: (p) => <UsedByCell items={subscriptions.filter((s) => s.retryPolicyId === p.id)} />,
+              },
+            ]}
+          />
+        )}
+      </ListBody>
 
       {creating && <CreateRetryPolicyDialog onClose={() => setParam("new", null)} />}
     </div>

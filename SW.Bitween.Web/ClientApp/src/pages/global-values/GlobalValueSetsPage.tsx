@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
 import { Can } from "../../auth/guards";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
@@ -14,8 +14,9 @@ import { UsedByCell } from "../../components/config/shared";
 import { useSubscriptionsCache } from "../../components/config/lookups";
 import { suggestSlug } from "../../lib/identifiers";
 import { keys } from "../../api/queryKeys";
-import { useSearchText } from "../../lib/useSearchText";
+import { useListParams } from "../../lib/listParams";
 import { NONE } from "../../lib/none";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -94,7 +95,7 @@ const parseIds = (raw: string | null): number[] =>
     : [];
 
 export function GlobalValueSetsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
@@ -103,17 +104,6 @@ export function GlobalValueSetsPage() {
   const sets = useQuery({ queryKey: keys.valueSets.list, queryFn: () => api.listValueSets() });
   const subscriptions = useSubscriptionsCache().data ?? NONE;
 
-  const setParam = (key: string, value: string | null) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        return next;
-      },
-      { replace: key === "q" },
-    );
-  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -143,17 +133,7 @@ export function GlobalValueSetsPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-          <input
-            type="search"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search value sets"
-            aria-label="Search value sets"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search value sets" />
         <div className="w-60">
           <SubscriptionMultiFilter
             subscriptions={subscriptions}

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BellRing, Plus, Search } from "lucide-react";
+import { BellRing, Plus } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useAdapterCatalog } from "../../components/config/adapterCatalog";
@@ -14,7 +14,8 @@ import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { UsedByCell } from "../../components/config/shared";
 import { useSubscriptionsCache } from "../../components/config/lookups";
-import { useSearchText } from "../../lib/useSearchText";
+import { useListParams } from "../../lib/listParams";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -68,7 +69,7 @@ function CreateNotifierDialog({ onClose }: { onClose: () => void }) {
 const PAGE_SIZE = 25;
 
 export function NotifiersPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const creating = searchParams.get("new") === "1";
@@ -84,18 +85,6 @@ export function NotifiersPage() {
   // every other screen already reads.
   const subscriptions = useSubscriptionsCache();
 
-  const setParam = (key: string, value: string | null, resetOffset = key === "q") =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: key === "q" },
-    );
-  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const filtered = notifiers.data?.result ?? [];
   const total = notifiers.data?.total ?? 0;
@@ -135,17 +124,7 @@ export function NotifiersPage() {
         actions={createAction}
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-        <input
-          type="search"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          placeholder="Search notifiers"
-          aria-label="Search notifiers"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-        />
-      </div>
+      <SearchBox value={searchText} onChange={setSearchText} label="Search notifiers" className="mb-4 max-w-xs" />
 
       {notifiers.isPending ? (
         <LoadingBlock label="Loading notifiers…" />
@@ -165,7 +144,7 @@ export function NotifiersPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[

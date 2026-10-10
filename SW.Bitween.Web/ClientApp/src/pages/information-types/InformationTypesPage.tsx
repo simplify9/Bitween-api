@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FileText, Plus, Search } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 import { api, type InformationTypeFormat } from "../../api";
 import { Can } from "../../auth/guards";
 import { InformationTypeDialog } from "../../components/config/InformationTypeDialog";
@@ -21,8 +21,9 @@ import {
   INFORMATION_TYPE_FORMATS,
   readsContent,
 } from "../../lib/informationTypeFormat";
-import { useSearchText } from "../../lib/useSearchText";
+import { useListParams } from "../../lib/listParams";
 import { NONE } from "../../lib/none";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 const PAGE_SIZE = 25;
 
@@ -44,7 +45,7 @@ const parseIds = (raw: string | null): number[] =>
     : [];
 
 export function InformationTypesPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
@@ -74,18 +75,6 @@ export function InformationTypesPage() {
     enabled: filtering,
   });
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: key === "q" },
-    );
-  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const filteredSorted = useMemo(() => {
     if (!filtering) return [];
@@ -140,17 +129,7 @@ export function InformationTypesPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-          <input
-            type="search"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search by name"
-            aria-label="Search information types"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search information types" placeholder="Search by name" />
         <div className="w-36">
           <Select
             aria-label="Filter by format"
@@ -203,7 +182,7 @@ export function InformationTypesPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[

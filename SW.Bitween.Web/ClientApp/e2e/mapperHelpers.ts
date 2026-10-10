@@ -1,5 +1,5 @@
 import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, API, pickOption } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, API, pickOption, SUBSCRIPTION_PAGE } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
@@ -42,9 +42,9 @@ export async function createSubscription(page: Page): Promise<string> {
   await page.locator("#prop-Url").fill("https://example.com/post");
 
   await page.getByRole("button", { name: /^(Create|Save)/ }).last().click();
-  await page.waitForURL(/\/subscriptions\/\d+/, { timeout: 15000 });
+  await page.waitForURL(SUBSCRIPTION_PAGE, { timeout: 15000 });
 
-  return page.url().match(/\/subscriptions\/(\d+)/)![1];
+  return page.url().match(/\/(\d+)$/)![1];
 }
 
 export async function openMapper(page: Page, subscriptionId: string) {

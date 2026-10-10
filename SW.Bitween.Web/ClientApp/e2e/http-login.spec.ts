@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test, expect, type Page } from "@playwright/test";
-import { pickOption, signInAsAdmin } from "./helpers";
+import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
@@ -88,7 +88,7 @@ test("HTTP receiver and handler log in with a custom body and token path", async
   await fillLogin(page);
 
   await page.getByRole("button", { name: "Create job" }).click();
-  await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
+  await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
 
   await page.getByRole("button", { name: "Receive now" }).click();
   await page.getByRole("dialog", { name: "Receive now?" }).getByRole("button", { name: "Receive now" }).click();
