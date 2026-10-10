@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Search, Workflow } from "lucide-react";
+import { Plus, Search, Workflow } from "lucide-react";
 import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { Can, useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
@@ -13,6 +13,7 @@ import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { ManageCategoriesDialog, useCategories } from "../../components/config/CategoryDialogs";
+import { NewSubscriptionDialog } from "./NewSubscriptionDialog";
 import {
   HealthBadge,
   SUBSCRIPTION_TYPE_LABELS,
@@ -63,6 +64,7 @@ export function SubscriptionsPage() {
   const partnerId = searchParams.get("partnerId") ? Number(searchParams.get("partnerId")) : null;
   const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : null;
   const [managingCategories, setManagingCategories] = useState(false);
+  const [choosingWay, setChoosingWay] = useState(false);
   const categories = useCategories().data ?? [];
   const allSubscriptions = useSubscriptionsCache().data ?? [];
   const categoryUsage = useMemo(() => {
@@ -121,7 +123,16 @@ export function SubscriptionsPage() {
       <PageHeader
         title="All subscriptions"
         description="Every pipeline that moves a document — what comes in, how it's transformed, where it goes."
-        actions={<Button onClick={() => setManagingCategories(true)}>Categories</Button>}
+        actions={
+          <div className="flex gap-2">
+            <Button onClick={() => setManagingCategories(true)}>Categories</Button>
+            <Can permission="subscriptions.create">
+              <Button variant="primary" onClick={() => setChoosingWay(true)}>
+                <Plus className="size-4" /> New subscription
+              </Button>
+            </Can>
+          </div>
+        }
         help={{
           title: "What's on this page?",
           body: (
@@ -136,9 +147,9 @@ export function SubscriptionsPage() {
                 schedule). A scheduled job is also a subscription, so it appears in both places.
               </p>
               <p>
-                There is nothing to create from here. A gateway subscription is created while
-                attaching a partner or adding a route, so it is wired up the moment it exists; a
-                scheduled job is created from the Scheduled jobs page.
+                <strong>New subscription</strong> asks what starts it and takes you there: a
+                gateway subscription is created while attaching a partner or adding a route, so it
+                is wired up the moment it exists; the other kinds have their own pages.
               </p>
             </>
           ),
@@ -218,6 +229,7 @@ export function SubscriptionsPage() {
         />
       </div>
 
+      {choosingWay && <NewSubscriptionDialog onClose={() => setChoosingWay(false)} />}
       {managingCategories && (
         <ManageCategoriesDialog usage={categoryUsage} onClose={() => setManagingCategories(false)} />
       )}
@@ -229,9 +241,20 @@ export function SubscriptionsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Workflow />}
-          title={q || type || informationTypeId || partnerId || inactive !== null ? "Nothing matches" : "No subscriptions yet"}
+          title={
+            q || type || informationTypeId || partnerId || categoryId || inactive !== null ? "Nothing matches" : "No subscriptions yet"
+          }
+          action={
+            q || type || informationTypeId || partnerId || categoryId || inactive !== null ? undefined : (
+              <Can permission="subscriptions.create">
+                <Button variant="primary" onClick={() => setChoosingWay(true)}>
+                  <Plus className="size-4" /> New subscription
+                </Button>
+              </Can>
+            )
+          }
         >
-          {q || type || informationTypeId || partnerId || inactive !== null
+          {q || type || informationTypeId || partnerId || categoryId || inactive !== null
             ? "Try a different search or filter."
             : "Create a subscription to start moving documents."}
         </EmptyState>
