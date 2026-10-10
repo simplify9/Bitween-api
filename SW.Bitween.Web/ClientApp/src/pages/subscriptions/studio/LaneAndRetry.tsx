@@ -28,9 +28,15 @@ export function LaneAndRetry({
   onRetryPolicyChange,
   canEdit,
   idPrefix,
+  inlineRetryGroups = null,
+  inlineReplaced = false,
 }: {
   workGroupId: number | null;
   retryPolicyId: number | null;
+  /** Rule groups of a retry policy set on the subscription itself through the API, if it has one. */
+  inlineRetryGroups?: number | null;
+  /** A named policy has been picked in its place; saving replaces it. */
+  inlineReplaced?: boolean;
   onWorkGroupChange: (id: number | null) => void;
   onRetryPolicyChange: (id: number | null) => void;
   canEdit: boolean;
@@ -54,6 +60,7 @@ export function LaneAndRetry({
         <div className="w-52">
           <SearchSelect
             id={`${idPrefix}-wg`}
+            aria-label="Work group"
             value={workGroupId === null ? "" : String(workGroupId)}
             disabled={!canEdit}
             onChange={(v) => onWorkGroupChange(v === "" ? null : Number(v))}
@@ -92,13 +99,25 @@ export function LaneAndRetry({
         <div className="w-52">
           <SearchSelect
             id={`${idPrefix}-rp`}
+            aria-label="Retry policy"
             value={retryPolicyId === null ? "" : String(retryPolicyId)}
             disabled={!canEdit}
             onChange={(v) => onRetryPolicyChange(v === "" ? null : Number(v))}
-            clearLabel="None — failures are not retried"
+            clearLabel={
+              inlineRetryGroups !== null && !inlineReplaced
+                ? "Its own rules, set through the API"
+                : "None — failures are not retried"
+            }
             options={(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
           />
         </div>
+        {inlineRetryGroups !== null && (
+          <p className="mt-1 max-w-xs text-[12px] text-ink-600">
+            {inlineReplaced
+              ? "Saving replaces the retry rules set on this subscription through the API with this policy."
+              : `Retries by ${inlineRetryGroups} rule group${inlineRetryGroups === 1 ? "" : "s"} set on this subscription through the API. Picking a named policy replaces them.`}
+          </p>
+        )}
         <div className="mt-1 flex items-center gap-3">
           {retryPolicyId !== null && (
             <Link

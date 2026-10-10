@@ -172,6 +172,7 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     autoPauseAfterFailures: raw.autoPauseAfterFailures ?? null,
     workGroupId: raw.workGroupId ?? null,
     retryPolicyId: raw.retryPolicyId ?? null,
+    customRetryGroups: customRetryGroups(raw.customRetryPolicy),
     receiverId: raw.receiverId ?? null,
     receiverProperties: toRecord(raw.receiverProperties),
     validatorId: raw.validatorId ?? null,
@@ -253,6 +254,13 @@ type UpdatableFields = Partial<
  * Update.cs's own merge logic restores the real stored value — this file
  * never needs to know about the sentinel itself.
  */
+/** How many rule groups an inline retry policy has; null when there is none. */
+function customRetryGroups(policy: unknown): number | null {
+  if (!policy || typeof policy !== "object") return null;
+  const groups = (policy as { groups?: unknown[]; Groups?: unknown[] }).groups ?? (policy as { Groups?: unknown[] }).Groups;
+  return Array.isArray(groups) ? groups.length : 0;
+}
+
 async function applyChanges(id: number, current: RawSubscription, changes: UpdatableFields): Promise<void> {
   await post(`/subscriptions/${id}`, {
     name: changes.name ?? current.name,
@@ -262,9 +270,14 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
     categoryId: current.categoryId,
     inactive: changes.enabled !== undefined ? !changes.enabled : current.inactive,
     workGroupId: changes.workGroupId !== undefined ? changes.workGroupId : current.workGroupId,
-    // This UI only ever assigns a named policy, never an inline one.
     retryPolicyId: changes.retryPolicyId !== undefined ? changes.retryPolicyId : current.retryPolicyId,
-    customRetryPolicy: null,
+    // This UI assigns named policies only. A policy written on the subscription itself, through
+    // the API, is kept unless a different named one is chosen: sending null for it, as every
+    // save used to, erased it on a rename.
+    customRetryPolicy:
+      changes.retryPolicyId !== undefined && changes.retryPolicyId !== current.retryPolicyId
+        ? null
+        : (current.customRetryPolicy ?? null),
     receiverId: changes.receiverId !== undefined ? changes.receiverId : current.receiverId,
     receiverProperties: toKvArray(changes.receiverProperties ?? toRecord(current.receiverProperties)),
     validatorId: changes.validatorId !== undefined ? changes.validatorId : current.validatorId,

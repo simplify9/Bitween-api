@@ -227,6 +227,8 @@ export function Overview({
           onRetryPolicyChange={(id) => set("retryPolicyId", id)}
           canEdit={canEdit}
           idPrefix="in"
+          inlineRetryGroups={s.customRetryGroups ?? null}
+          inlineReplaced={draft.retryPolicyId !== s.retryPolicyId}
         />
         <Fact label="Auto-pause">
           <AutoPauseField

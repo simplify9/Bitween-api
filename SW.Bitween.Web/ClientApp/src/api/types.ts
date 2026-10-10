@@ -725,6 +725,11 @@ export interface Subscription {
   autoPauseAfterFailures: number | null;
   workGroupId: number | null;
   retryPolicyId: number | null;
+  /**
+   * Rule groups of a retry policy written on the subscription itself, which only the API sets;
+   * null when it has none. The UI keeps it through a save unless a named policy is chosen.
+   */
+  customRetryGroups?: number | null;
   receiverId: string | null;
   receiverProperties: Record<string, string>;
   validatorId: string | null;

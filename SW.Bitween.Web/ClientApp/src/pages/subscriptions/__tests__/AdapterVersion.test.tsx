@@ -181,3 +181,46 @@ describe("pinning an adapter version", () => {
     expect(saves[0].handlerVersion).toBe("1.0.0");
   });
 });
+
+/**
+ * A retry policy written on the subscription itself, which only the API can set. Every UI save
+ * used to send it as null, so renaming or disabling a subscription erased it without a word.
+ */
+describe("a retry policy set on the subscription through the API", () => {
+  const inline = { groups: [{ name: "5xx", maxRetries: 3 }] };
+
+  it("is described, and kept through a save that changes something else", async () => {
+    const { handlers, saves } = backend([sub({ customRetryPolicy: inline })]);
+    const { user } = renderApp("/subscriptions/10", { handlers });
+
+    expect(await screen.findByText(/Retries by 1 rule group set on this subscription through the API/)).toBeVisible();
+
+    await user.click(await screen.findByRole("button", { name: "Disable" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Disable" }));
+
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].customRetryPolicy).toEqual(inline);
+    expect(saves[0].retryPolicyId).toBeNull();
+  });
+
+  it("is replaced when a named policy is picked", async () => {
+    const { handlers, saves } = backend([sub({ customRetryPolicy: inline })]);
+    const { user } = renderApp("/subscriptions/10", {
+      handlers: [
+        http.get(apiPath("/retrypolicies"), () =>
+          HttpResponse.json({ result: [{ id: 4, name: "Standard", groups: [] }], totalCount: 1 }),
+        ),
+        ...handlers,
+      ],
+    });
+
+    await user.click(await screen.findByRole("combobox", { name: /Retry policy/ }));
+    await user.click(await screen.findByRole("option", { name: "Standard" }));
+    expect(await screen.findByText(/Saving replaces the retry rules set on this subscription/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(saves).toHaveLength(1));
+    expect(saves[0].retryPolicyId).toBe(4);
+    expect(saves[0].customRetryPolicy).toBeNull();
+  });
+});
