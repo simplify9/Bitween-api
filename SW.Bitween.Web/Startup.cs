@@ -95,6 +95,7 @@ namespace SW.Bitween.Web
             services.AddScoped<SW.Bitween.Services.Adapters.AdapterCatalog>();
             services.AddScoped<SW.Bitween.Services.Adapters.AdapterSourceReader>();
             services.AddScoped<SW.Bitween.Services.Adapters.AdapterWorkshop>();
+            services.AddScoped<SW.Bitween.Services.Adapters.AdapterChanges>();
             services.AddSingleton<ServerlessAdapterDescriber>();
             services.AddScoped<AdapterStartupValues>();
             services.AddScoped<Resources.Adapters.AdapterListing>();

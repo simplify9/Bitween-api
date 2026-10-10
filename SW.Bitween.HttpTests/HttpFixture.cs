@@ -1,3 +1,5 @@
+using System.Linq;
+using Microsoft.AspNetCore.TestHost;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -187,6 +189,18 @@ public sealed class HttpFixture : IAsyncLifetime
         {
             builder.UseEnvironment("Development");
             foreach (var (key, value) in settings) builder.UseSetting(key, value);
+            // Each instance its own socket for its resident adapter host. The default is named after
+            // the process, which is one per node in production; here the nodes share a process, and a
+            // second node starting took the first one's socket, so its adapters could no longer attach.
+            builder.ConfigureTestServices(services =>
+            {
+                var resident = services.LastOrDefault(d => d.ServiceType == typeof(SW.Serverless.Resident.ResidentOptions))
+                    ?.ImplementationInstance as SW.Serverless.Resident.ResidentOptions;
+                if (resident == null) return;
+                var tag = Guid.NewGuid().ToString("N")[..12];
+                resident.SocketPath = $"/tmp/bitween-http-{tag}.sock";
+                resident.PipeName = $"bitween-http-{tag}";
+            });
         }
 
         protected override IHost CreateHost(IHostBuilder builder)

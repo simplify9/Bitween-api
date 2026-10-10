@@ -61,7 +61,7 @@ public class WorkshopRun
 public class AdapterWorkshop(
     AdapterCatalog catalog,
     AdapterSourceReader sourceReader,
-    AdapterStartupValues startupValues,
+    AdapterChanges changes,
     ICloudFilesService cloudFiles,
     ServerlessOptions serverlessOptions)
 {
@@ -212,8 +212,7 @@ public class AdapterWorkshop(
                 RemotePath = serverlessOptions.AdapterRemotePath,
             }, _ => { });
 
-            catalog.Forget(draft.AdapterId);
-            startupValues.Forget(draft.AdapterId);
+            await changes.ForgetEverywhereAsync(draft.AdapterId);
             return (published.Version, result);
         }
         finally
@@ -233,8 +232,7 @@ public class AdapterWorkshop(
         finally
         {
             try { Directory.Delete(work, true); } catch { }
-            catalog.Forget(adapterId);
-            startupValues.Forget(adapterId);
+            await changes.ForgetEverywhereAsync(adapterId);
         }
     }
 
@@ -273,8 +271,7 @@ public class AdapterWorkshop(
                 throw new SWValidationException("Package", "That isn't a zip: send the package bitween adapter build made.");
             }
 
-            catalog.Forget(published.Manifest.Id);
-            startupValues.Forget(published.Manifest.Id);
+            await changes.ForgetEverywhereAsync(published.Manifest.Id);
             return published;
         }
         finally
@@ -291,7 +288,7 @@ public class AdapterWorkshop(
     public async Task WithdrawAsync(string adapterId, string version)
     {
         await new AdapterRepository(cloudFiles, _ => { }, serverlessOptions.AdapterRemotePath).WithdrawAsync(adapterId, version);
-        catalog.Forget(adapterId);
+        await changes.ForgetEverywhereAsync(adapterId);
     }
 
     // ------------------------------------------------------------------ the build itself

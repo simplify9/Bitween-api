@@ -286,6 +286,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<Services.Adapters.AdapterCatalog>();
                     services.AddScoped<Services.Adapters.AdapterSourceReader>();
                     services.AddScoped<Services.Adapters.AdapterWorkshop>();
+                    services.AddScoped<Services.Adapters.AdapterChanges>();
                     services.AddSingleton<ServerlessAdapterDescriber>();
                     services.AddScoped<AdapterStartupValues>();
                     services.AddScoped<Resources.Adapters.AdapterListing>();

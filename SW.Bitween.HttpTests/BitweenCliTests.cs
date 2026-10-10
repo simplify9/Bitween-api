@@ -249,6 +249,44 @@ public class BitweenCliTests(HttpFixture fixture) : IDisposable
         Assert.Equal(401, (int)(await fixture.Client().PostAsJsonAsync("/api/accounts/cligrant", new { codeChallenge = challenge })).StatusCode);
     }
 
+    [Fact]
+    public async Task Publishing_on_one_node_refreshes_what_the_others_have_cached()
+    {
+        var profiles = new Profiles(Path.Combine(work, "nodes.json"));
+        Assert.Equal(0, (await Bitween(profiles, HttpFixture.AdminPassword + "\n",
+            "login", "https://localhost", "--email", HttpFixture.AdminEmail, "--password-stdin")).Exit);
+
+        var name = "CliNodes" + Guid.NewGuid().ToString("N")[..8];
+        var id = SW.Serverless.Tooling.Scaffolding.Scaffolder.IdFrom(name);
+        Assert.Equal(0, (await Bitween(profiles, null, "adapter", "init", name, "--lang", "python", "--dir", work)).Exit);
+        var project = Path.Combine(work, name);
+        Assert.Equal(0, (await Bitween(profiles, null, "adapter", "build", project)).Exit);
+        var zip = Path.Combine(project, "bin", "serverless", $"{id}-0.1.0.zip");
+        Assert.Equal(0, (await Bitween(profiles, null, "adapter", "publish", zip, "--current")).Exit);
+
+        await using var second = fixture.SecondNode();
+        using var admin = HttpFixture.ClientOf(second);
+        admin.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer",
+            await HttpFixture.SignInAsync(admin, HttpFixture.AdminEmail, HttpFixture.AdminPassword));
+        async Task<string> CurrentOnSecond() =>
+            (string)(await Api.Json(await admin.GetAsync("/api/adapters/Catalog?prefix=handlers")))
+                .AsArray().Single(a => (string)a!["key"]! == id)!["currentVersion"]!;
+
+        // Read once on the second node, so it holds the entry in its cache.
+        Assert.Equal("0.1.0", await CurrentOnSecond());
+
+        // Published and made current through the first node: the second hears of it, rather than
+        // showing 0.1.0 until its cache expires a minute later.
+        Assert.Equal(0, (await Bitween(profiles, null, "adapter", "publish", zip, "-v", "minor", "--current")).Exit);
+        var seen = "";
+        for (var i = 0; i < 40 && seen != "0.2.0"; i++)
+        {
+            seen = await CurrentOnSecond();
+            if (seen != "0.2.0") await Task.Delay(250);
+        }
+        Assert.Equal("0.2.0", seen);
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(work, true); } catch { }
