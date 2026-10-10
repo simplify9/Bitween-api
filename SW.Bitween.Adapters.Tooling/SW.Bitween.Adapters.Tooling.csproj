@@ -11,7 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.1" />
+    <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.2" />
   </ItemGroup>
 
   <ItemGroup>

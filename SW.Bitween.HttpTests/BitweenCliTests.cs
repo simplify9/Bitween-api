@@ -39,14 +39,18 @@ public class BitweenCliTests(HttpFixture fixture) : IDisposable
         await OneAtATime.WaitAsync();
         var original = Console.Out;
         using var output = new StringWriter();
-        // The in-process server logs to the console from its own threads while the CLI writes.
-        Console.SetOut(TextWriter.Synchronized(output));
+        // The in-process server logs to the console from its own threads while the CLI writes, and
+        // may still be writing when the output is read; reads take the same lock the writes do.
+        var synchronized = TextWriter.Synchronized(output);
+        Console.SetOut(synchronized);
         BitweenApi.HandlerOverride = () => new FromAddress(fixture.App.Server.CreateHandler());
         try
         {
             var exit = await Program.RunAsync(args, profiles, new StringReader(stdin ?? ""), () => "");
             // The in-process server logs to the same console as JSON lines; what the CLI said is the rest.
-            var said = string.Join("\n", output.ToString().Split('\n').Where(l => !l.TrimStart().StartsWith("{\"@t\"")));
+            string text;
+            lock (synchronized) text = output.ToString();
+            var said = string.Join("\n", text.Split('\n').Where(l => !l.TrimStart().StartsWith("{\"@t\"")));
             return (exit, said);
         }
         finally

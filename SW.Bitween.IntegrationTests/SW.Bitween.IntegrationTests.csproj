@@ -49,10 +49,10 @@
     <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
 
     <!-- Serverless runtime -->
-    <PackageReference Include="SimplyWorks.Serverless" Version="10.2.1" />
+    <PackageReference Include="SimplyWorks.Serverless" Version="10.2.2" />
     <!-- serverless build and publish as a library: the Python adapters here are built and published
          the way the CLI does it. -->
-    <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.1" />
+    <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.2" />
 
     <!-- Bus (for IPublish + AddBus registration) -->
     <PackageReference Include="SimplyWorks.Bus" Version="10.0.1" />
