@@ -6,11 +6,10 @@ These behaviours were found while documenting Bitween from its source code, and 
 
 | Issue | Where |
 |---|---|
-| The SYSTEM partner's API key is seeded with a fixed value. (The seeded administrator's default password is also published. New installations replace it from `Bitween__InitialAdminPassword`; on existing ones still using it, it grants nothing until changed, but whoever signs in first can change it.) | `Data/BitweenDbContext.cs` |
-| Microsoft ID tokens are checked for signature and lifetime but not issuer or audience. A valid token from any tenant or app signs in the Bitween account with the same email. The tenant setting only affects the browser popup. | `Extensions/AccountExtensions.cs` |
-| Creating an exchange by hand, previewing a rules-based mapping and generating a partner key check no permission. Any signed-in member can call them. | `Resources/Xchanges/Create.cs`, `Resources/MappingPreviews/Preview.cs`, `Resources/Partners/GenerateKey.cs` |
+| The seeded administrator's default password is published. New installations replace it from `Bitween__InitialAdminPassword`; on existing ones still using it, it grants nothing until changed, but whoever signs in first can change it. (The SYSTEM partner's published API key is replaced at startup.) | `Data/BitweenDbContext.cs`, `Services/SystemPartnerKey.cs` |
+| Creating an exchange by hand and generating a partner key check no permission. Any signed-in member can call them. | `Resources/Xchanges/Create.cs`, `Resources/Partners/GenerateKey.cs` |
 | On Azure the container decides privacy for every file in it, and the storage library creates it open to everyone. Bitween switches its container to private at startup; when its login isn't allowed to (a managed identity without the right role), the Settings page warns and the container has to be made private in Azure. | `Services/PrivateAzureContainer.cs` |
-| Partner API keys, and data source settings including passwords, are stored in plain text. A comment on `DataSource` says otherwise. | `Domain/Partner/ApiCredential.cs`, `Domain/DataSources/DataSource.cs` |
+| Partner API keys are stored hashed. Partner, adapter and data source credentials are encrypted at rest only when `Bitween:SettingsEncryptionKey` is set; without it they stay in plain text, and startup logs a warning. | `Services/SecretColumnEncryptionPass.cs` |
 | Saving or testing an Oracle statement runs `DBMS_SQL.PARSE`, which executes DDL. | `SW.Bitween.Adapters.Db.Oracle` |
 | A subscription using a database or bus adapter without a bound data source returns its connection settings unmasked. | `Services/AdapterSecretProperties.cs` |
 | Password hashes created before September 2026 use PBKDF2-SHA1 with 10,000 iterations and are never upgraded on sign-in. The seeded administrator's hash is one of them. | `Services/SecurePasswordHasher.cs` |
@@ -34,7 +33,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | The dashboard's *Failures to act on* tile says it covers 14 days, but counts failures of any age. | `ClientApp/src/pages/dashboard/DashboardPage.tsx` |
 | The information type's duplicate interval is stored but never enforced. | `Domain/Document/Document.cs` |
 | An exchange's delivered time is never recorded. | `Domain/XchangeDelivery.cs` |
-| Exchanges, results and notifications have no cleanup job, while their files expire from storage. | `Services` |
+| Exchanges, results and notifications are kept for ever by default (`ExchangeRetentionDays` 0), while their files expire from storage. The retention panel on the Settings page warns when exchanges outlive their files. | `Services/Retention/ExchangeRetentionJob.cs` |
 | Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions and catalog entries are cached per node; publishing, promoting or withdrawing through Bitween clears them everywhere over the bus, but a package published straight to storage is seen with its old properties for up to a minute. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
 
 ## Adapters
@@ -104,7 +103,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | A killed run leaves the running flag set; later runs are skipped until it goes stale after `StaleRunAfterMinutes`, or someone clears it on the subscription's page. | `Services/RunFlagUpdater.cs` |
 | Aggregation runs have no running flag. | `Services/AggregationJob.cs` |
 | Quartz clustering is not guaranteed with the pinned scheduler packages, according to the startup code. | `SW.Bitween.Web/Startup.cs` |
-| Consecutive failures never pause or deactivate a subscription. | `Domain/Subscription/Subscription.cs` |
+| Consecutive failures pause a subscription only when its **Auto-pause** is set; it is off by default. | `Services/XchangeService.cs` |
 
 ## Deployment and tooling
 
