@@ -581,8 +581,10 @@ function SubscriptionStudio() {
               ))}
           </p>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="flex gap-2">
+        {/* On a phone the actions take their own row and wrap, rather than pushing the page wider
+            than the screen with Delete off its edge. */}
+        <div className="w-full sm:w-auto sm:shrink-0 sm:text-right">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             {/* On the header rather than inside the Schedule stage: an operator
                 shouldn't have to know which card hides the button. */}
             {isReceiver && canOperate && (

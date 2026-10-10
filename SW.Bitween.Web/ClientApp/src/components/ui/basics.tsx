@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { CloudOff, Loader2, Lock, SearchX, TriangleAlert } from "lucide-react";
 import { ApiRequestError } from "../../api/types";
+import { summarizeException } from "../../lib/exceptionSummary";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -135,7 +136,7 @@ export function LoadError({
       : isNotFound(error)
         ? [<SearchX key="i" />, `Couldn't find ${what}`, "It may have been deleted, or the link is wrong."]
         : error instanceof ApiRequestError
-          ? [<TriangleAlert key="i" />, `Couldn't load ${what}`, error.message]
+          ? [<TriangleAlert key="i" />, `Couldn't load ${what}`, summarizeException(error.message).summary || error.message]
           : [<CloudOff key="i" />, `Couldn't load ${what}`, "Bitween didn't answer. Check your connection, then try again."];
   return (
     <div
@@ -144,7 +145,7 @@ export function LoadError({
     >
       <div className="mb-1 text-danger-300 [&>svg]:size-8">{icon}</div>
       <h3 className="text-sm font-semibold text-ink-800">{title}</h3>
-      <p className="max-w-md text-sm text-ink-600">{detail}</p>
+      <p className="max-w-md text-sm break-words text-ink-600">{detail}</p>
       {onRetry && status !== 403 && !isNotFound(error) && (
         <div className="mt-3">
           <Button onClick={onRetry}>Try again</Button>
