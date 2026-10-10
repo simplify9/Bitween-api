@@ -310,6 +310,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<RetentionPlanner>();
                     services.AddScoped<ExchangeRetentionJob>();
                     services.AddScoped<GatewayCallers>();
+                    services.AddSingleton<GatewayActivity>();
                     services.AddSingleton<IGatewayIssuers>(LoginServer);
                     services.AddScoped<RunFlagUpdater>();
                     services.AddScoped<ReceivingJob>();
