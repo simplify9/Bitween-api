@@ -76,6 +76,7 @@ import type {
   RetentionStatus,
   SettingRow,
   InstanceAbout,
+  SubscriptionCategory,
   BackgroundWork,
   GatewayRejections,
   AdapterUploadResult,
@@ -224,6 +225,7 @@ export interface ApiClient {
     type: SubscriptionType | null;
     informationTypeId?: number | null;
     partnerId?: number | null;
+    categoryId?: number | null;
     inactive?: boolean | null;
     offset: number;
     limit: number;
@@ -542,6 +544,13 @@ export interface ApiClient {
   // — settings —
   listSettings(): Promise<SettingRow[]>;
   getAbout(): Promise<InstanceAbout>;
+
+  // — subscription categories —
+  listCategories(): Promise<SubscriptionCategory[]>;
+  createCategory(input: { code: string; description: string }): Promise<number>;
+  updateCategory(id: number, input: { code: string; description: string }): Promise<void>;
+  /** Refused while any subscription is filed under it. */
+  deleteCategory(id: number): Promise<void>;
   getBackgroundWork(): Promise<BackgroundWork>;
   getClusterNodes(): Promise<ClusterNodes>;
   /** How long exchanges and their files are kept under the saved settings. `refresh` re-reads the bucket's rules. */

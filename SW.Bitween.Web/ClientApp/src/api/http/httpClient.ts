@@ -3,6 +3,7 @@ import { NotWiredError } from "../types";
 import { adapterMethods } from "./adapters";
 import { adapterDraftMethods } from "./adapterDrafts";
 import { auditMethods } from "./audit";
+import { categoryMethods } from "./categories";
 import { dashboardMethods } from "./dashboard";
 import { dataSourceMethods } from "./dataSources";
 import { dataSourceStatementMethods } from "./dataSourceStatements";
@@ -36,6 +37,7 @@ const wired: Partial<ApiClient> = {
   ...workGroupMethods,
   ...retryPolicyMethods,
   ...subscriptionMethods,
+  ...categoryMethods,
   ...adapterMethods,
   ...adapterDraftMethods,
   ...gatewayMethods,

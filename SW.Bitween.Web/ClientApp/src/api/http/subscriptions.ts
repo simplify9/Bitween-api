@@ -171,6 +171,7 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     handlerVersion: raw.handlerVersion ?? null,
     autoPauseAfterFailures: raw.autoPauseAfterFailures ?? null,
     workGroupId: raw.workGroupId ?? null,
+    categoryId: raw.categoryId ?? null,
     retryPolicyId: raw.retryPolicyId ?? null,
     customRetryGroups: customRetryGroups(raw.customRetryPolicy),
     receiverId: raw.receiverId ?? null,
@@ -215,6 +216,7 @@ type UpdatableFields = Partial<
     | "name"
     | "enabled"
     | "workGroupId"
+    | "categoryId"
     | "retryPolicyId"
     | "receiverId"
     | "receiverProperties"
@@ -267,7 +269,7 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
     documentId: current.documentId,
     partnerId: current.partnerId,
     aggregationForId: current.aggregationForId,
-    categoryId: current.categoryId,
+    categoryId: changes.categoryId !== undefined ? changes.categoryId : current.categoryId,
     inactive: changes.enabled !== undefined ? !changes.enabled : current.inactive,
     workGroupId: changes.workGroupId !== undefined ? changes.workGroupId : current.workGroupId,
     retryPolicyId: changes.retryPolicyId !== undefined ? changes.retryPolicyId : current.retryPolicyId,
@@ -364,6 +366,7 @@ export const subscriptionMethods = {
       partnerIds: raw.partnerId !== null ? [raw.partnerId] : [],
       informationTypeId: raw.documentId,
       workGroupId: raw.workGroupId ?? null,
+      categoryId: raw.categoryId ?? null,
       retryPolicyId: raw.retryPolicyId ?? null,
       handlerId: raw.handlerId ?? null,
       adapterUses: (
@@ -407,6 +410,7 @@ export const subscriptionMethods = {
     type: SubscriptionType | null;
     informationTypeId?: number | null;
     partnerId?: number | null;
+    categoryId?: number | null;
     inactive?: boolean | null;
     offset: number;
     limit: number;
@@ -417,6 +421,7 @@ export const subscriptionMethods = {
         ["Type", SEARCHY_RULE.equalsTo, query.type ?? ""],
         ["DocumentId", SEARCHY_RULE.equalsTo, query.informationTypeId ?? ""],
         ["PartnerId", SEARCHY_RULE.equalsTo, query.partnerId ?? ""],
+        ["CategoryId", SEARCHY_RULE.equalsTo, query.categoryId ?? ""],
         ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
       ],
       sort: ["Name", SEARCHY_SORT.asc],

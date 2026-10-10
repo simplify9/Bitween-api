@@ -7,6 +7,7 @@ export type Draft = Pick<
   | "name"
   | "enabled"
   | "workGroupId"
+  | "categoryId"
   | "retryPolicyId"
   | "receiverId"
   | "receiverProperties"
@@ -34,6 +35,7 @@ export const draftOf = (d: SubscriptionDetail): Draft => ({
   name: d.name,
   enabled: d.enabled,
   workGroupId: d.workGroupId,
+  categoryId: d.categoryId,
   retryPolicyId: d.retryPolicyId,
   receiverId: d.receiverId,
   receiverProperties: structuredClone(d.receiverProperties),
@@ -69,6 +71,7 @@ export const EMPTY_SUBSCRIPTION: Draft = {
   name: "",
   enabled: true,
   workGroupId: null,
+  categoryId: null,
   retryPolicyId: null,
   receiverId: null,
   receiverProperties: {},

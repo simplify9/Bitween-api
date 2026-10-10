@@ -70,7 +70,13 @@ export interface RenderAppOptions {
  */
 export function renderApp(path: string, { as = {}, config = {}, handlers = [] }: RenderAppOptions = {}) {
   if (as) setToken("test-token");
-  server.use(...handlers, appConfig(config), ...(as ? [profile(as)] : []));
+  server.use(
+    ...handlers,
+    appConfig(config),
+    ...(as ? [profile(as)] : []),
+    // A lookup most subscription screens make and few tests care about: none, unless a test says.
+    http.get(apiPath("/subscriptioncategories"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+  );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [path] });

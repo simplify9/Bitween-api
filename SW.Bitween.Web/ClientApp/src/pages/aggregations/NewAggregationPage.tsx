@@ -162,6 +162,7 @@ export function NewAggregationPage() {
     ...draft,
     // Set on the subscription once it exists, not while creating it.
     autoPauseAfterFailures: null,
+    categoryId: null,
     // A new subscription follows the current version of each adapter.
     receiverVersion: null,
     validatorVersion: null,

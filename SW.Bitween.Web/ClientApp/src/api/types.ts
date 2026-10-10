@@ -166,6 +166,8 @@ export interface SubscriptionInfo {
   partnerIds: number[];
   informationTypeId: number;
   workGroupId: number | null;
+  /** A label an operator files it under; null for none. */
+  categoryId: number | null;
   retryPolicyId: number | null;
   /**
    * Its delivery step. Null means nothing is delivered — and since a response is
@@ -744,6 +746,8 @@ export interface Subscription {
   /** Pause after this many failed deliveries in a row; null never pauses. */
   autoPauseAfterFailures: number | null;
   workGroupId: number | null;
+  /** A label an operator files it under; null for none. */
+  categoryId: number | null;
   retryPolicyId: number | null;
   /**
    * Rule groups of a retry policy written on the subscription itself, which only the API sets;
@@ -1766,4 +1770,12 @@ export interface BackgroundWork {
     runningNow: boolean;
   }[];
   outbox: { pending: number; oldestPendingOn: string | null; failing: number; lastError: string | null; publishedLastHour: number };
+}
+
+/** A label subscriptions are filed under, to find them by. */
+export interface SubscriptionCategory {
+  id: number;
+  code: string;
+  description: string | null;
+  createdOn: string;
 }

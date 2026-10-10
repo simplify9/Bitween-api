@@ -175,6 +175,7 @@ export const keys = {
   },
 
   queueHealth: ["queue-health"] as const,
+  categories: ["subscription-categories"] as const,
   background: ["queue-health", "background"] as const,
   dashboard: ["dashboard"] as const,
 

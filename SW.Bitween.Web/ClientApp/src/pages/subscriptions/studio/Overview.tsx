@@ -15,6 +15,7 @@ import { LaneAndRetry } from "./LaneAndRetry";
 import type { Draft, EntryPoint } from "./model";
 import { keys } from "../../../api/queryKeys";
 import { ExceptionBlock } from "../../../components/ui/Exception";
+import { CategoryField } from "./CategoryField";
 
 /** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
 export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
@@ -230,6 +231,12 @@ export function Overview({
           idPrefix="in"
           inlineRetryGroups={s.customRetryGroups ?? null}
           inlineReplaced={draft.retryPolicyId !== s.retryPolicyId}
+        />
+        <CategoryField
+          categoryId={draft.categoryId}
+          onChange={(id) => set("categoryId", id)}
+          canEdit={canEdit}
+          idPrefix="in"
         />
         <Fact label="Auto-pause">
           <AutoPauseField

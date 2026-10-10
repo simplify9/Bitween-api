@@ -1,16 +1,18 @@
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search, Workflow } from "lucide-react";
 import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
+import { ManageCategoriesDialog, useCategories } from "../../components/config/CategoryDialogs";
 import {
   HealthBadge,
   SUBSCRIPTION_TYPE_LABELS,
@@ -18,6 +20,7 @@ import {
   LinkListCell,
   TypeBadge,
   useGatewayPartners,
+  useSubscriptionsCache,
 } from "../../components/config/shared";
 
 const STATUS_OPTIONS = [
@@ -58,19 +61,29 @@ export function SubscriptionsPage() {
     ? Number(searchParams.get("informationTypeId"))
     : null;
   const partnerId = searchParams.get("partnerId") ? Number(searchParams.get("partnerId")) : null;
+  const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : null;
+  const [managingCategories, setManagingCategories] = useState(false);
+  const categories = useCategories().data ?? [];
+  const allSubscriptions = useSubscriptionsCache().data ?? [];
+  const categoryUsage = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const s of allSubscriptions) if (s.categoryId != null) counts.set(s.categoryId, (counts.get(s.categoryId) ?? 0) + 1);
+    return counts;
+  }, [allSubscriptions]);
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: keys.subscriptions.rowsSearch({ q, type, informationTypeId, partnerId, inactive, offset }),
+    queryKey: keys.subscriptions.rowsSearch({ q, type, informationTypeId, partnerId, categoryId, inactive, offset }),
     queryFn: () =>
       api.searchSubscriptionRows({
         search: q,
         type,
         informationTypeId,
         partnerId,
+        categoryId,
         inactive,
         offset,
         limit: PAGE_SIZE,
@@ -108,6 +121,7 @@ export function SubscriptionsPage() {
       <PageHeader
         title="All subscriptions"
         description="Every pipeline that moves a document — what comes in, how it's transformed, where it goes."
+        actions={<Button onClick={() => setManagingCategories(true)}>Categories</Button>}
         help={{
           title: "What's on this page?",
           body: (
@@ -170,7 +184,7 @@ export function SubscriptionsPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <SearchSelect
           aria-label="Filter by information type"
           size="sm"
@@ -187,6 +201,14 @@ export function SubscriptionsPage() {
           onChange={(v) => setParam("partnerId", v || null)}
           options={partners.map((p) => ({ value: String(p.id), label: p.name }))}
         />
+        <SearchSelect
+          aria-label="Filter by category"
+          size="sm"
+          clearLabel="Any category"
+          value={categoryId?.toString() ?? ""}
+          onChange={(v) => setParam("categoryId", v || null)}
+          options={categories.map((c) => ({ value: String(c.id), label: c.code }))}
+        />
         <Select
           aria-label="Filter by status"
           className="!h-8 text-[13px]"
@@ -195,6 +217,10 @@ export function SubscriptionsPage() {
           options={STATUS_OPTIONS}
         />
       </div>
+
+      {managingCategories && (
+        <ManageCategoriesDialog usage={categoryUsage} onClose={() => setManagingCategories(false)} />
+      )}
 
       {rows.isPending ? (
         <LoadingBlock label="Loading subscriptions…" />
