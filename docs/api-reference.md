@@ -97,6 +97,7 @@ The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `re
 | `DELETE /api/subscriptions/{id}` | `subscriptions.delete`. Refused while a gateway, route, response link or aggregation points at it. |
 | `POST /api/subscriptions/{id}/pause` | `subscriptions.operate`. Toggles pause. |
 | `POST /api/subscriptions/{id}/receivenow` | `subscriptions.operate` |
+| `POST /api/subscriptions/{id}/clearrunning` | `subscriptions.operate`. Clears a running flag a dead run left behind, so the next scheduled run starts. Refused with `STILL_RUNNING` while the job is running on the node that answers. Audited. Returns `{ id, cleared }`. |
 | `POST /api/subscriptions/{id}/aggregatenow` | `subscriptions.operate` |
 | `POST /api/subscriptions/{id}/savemapper` | `subscriptions.edit`. `{ mapperId, mapperProperties }` |
 | `POST /api/subscriptions/{id}/retryusage` | `subscriptions.view` |

@@ -91,6 +91,35 @@ public class SchedulerTests(HttpFixture fixture)
         fixture.InDbAsync(db => db.Set<ReceiveAttempt>().AsNoTracking()
             .Where(a => a.SubscriptionId == subscriptionId).OrderBy(a => a.StartedOn).ToArrayAsync());
 
+    /// <summary>
+    /// A run killed mid-way leaves the flag set, and every later run is skipped as already running
+    /// until the flag goes stale. Clearing it is now an action, refused only while a run is live.
+    /// </summary>
+    [Fact]
+    public async Task A_stuck_running_flag_can_be_cleared_and_says_who_did()
+    {
+        using var admin = await fixture.AdminAsync();
+        await using var feed = await Feed.StartAsync();
+        var id = await CreateReceiverAsync(admin, feed.Url, (DateTime.UtcNow.Minute + 30) % 60);
+
+        // As a run that died with its process leaves it.
+        await fixture.InDbAsync(db => db.Set<Subscription>().Where(s => s.Id == id)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.IsRunning, true).SetProperty(s => s.RunningSince, DateTime.UtcNow)));
+        var health = await Api.Json(await admin.GetAsync("/api/subscriptions/schedulehealth"));
+        Assert.True((bool)health.AsArray().Single(h => (int)h!["subscriptionId"]! == id)!["stuck"]!);
+
+        var cleared = await Api.Json(await admin.PostAsJsonAsync($"/api/subscriptions/{id}/clearrunning", new { }));
+        Assert.True((bool)cleared["cleared"]!);
+        Assert.False(await fixture.InDbAsync(db => db.Set<Subscription>().Where(s => s.Id == id).Select(s => s.IsRunning).SingleAsync()));
+
+        health = await Api.Json(await admin.GetAsync("/api/subscriptions/schedulehealth"));
+        Assert.False((bool)health.AsArray().Single(h => (int)h!["subscriptionId"]! == id)!["stuck"]!);
+
+        // Cleared through the context, so the trail has it.
+        var trail = await Api.Json(await admin.GetAsync($"/api/audit?entityName=Subscription&entityKey={id}&limit=20"));
+        Assert.Contains(trail["result"]!.AsArray(), r => r!["changes"]?["IsRunning"] != null);
+    }
+
     [Fact]
     public async Task Receive_now_runs_the_job_which_pulls_the_feed_into_exchanges()
     {

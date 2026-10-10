@@ -193,6 +193,14 @@ function SubscriptionStudio() {
     },
   });
 
+  const clearRunning = useMutation({
+    mutationFn: () => api.clearRunning(subscriptionId),
+    onSuccess: async () => {
+      await invalidate();
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.scheduleHealth });
+    },
+  });
+
   const receive = useMutation({
     mutationFn: () => api.receiveNow(subscriptionId),
     onSuccess: async () => {
@@ -250,7 +258,8 @@ function SubscriptionStudio() {
     : "Not wired into any gateway yet — it never runs.";
 
   const saved = draftOf(s);
-  const fault = scheduleFault(scheduleHealth.data?.find((h) => h.subscriptionId === s.id)) ?? undefined;
+  const health = scheduleHealth.data?.find((h) => h.subscriptionId === s.id);
+  const fault = scheduleFault(health) ?? undefined;
 
   const faces = stages.map((id) =>
     faceOf(id, {
@@ -509,6 +518,25 @@ function SubscriptionStudio() {
   return (
     <div className="pb-24">
       <BackLink to="/subscriptions" label="Subscriptions" />
+
+      {health?.stuck && (
+        <div role="alert" className="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
+          <p className="font-medium">Every scheduled run is being skipped.</p>
+          <p className="mt-0.5">
+            It is still marked as running from a run that didn't finish — usually one stopped with its node — so each
+            run that comes due sees it busy and skips. The mark clears itself after a while; clearing it now lets the
+            next run start.
+          </p>
+          {canOperate && (
+            <div className="mt-2 flex items-center gap-3">
+              <Button size="sm" busy={clearRunning.isPending} onClick={() => clearRunning.mutate()}>
+                Clear the running mark
+              </Button>
+              {clearRunning.error && <span>{clearRunning.error.message}</span>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">

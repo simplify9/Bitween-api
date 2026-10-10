@@ -295,6 +295,7 @@ export interface ApiClient {
   /** Toggles paused: paused subscriptions accept work but hold it. */
   pauseSubscription(id: number): Promise<Subscription>;
   receiveNow(id: number): Promise<Subscription>;
+  clearRunning(id: number): Promise<{ cleared: boolean }>;
   /** Runs an aggregation's roll-up now instead of waiting for its schedule. */
   aggregateNow(id: number): Promise<Subscription>;
   /** Run history for one scheduled subscription, newest first. Empty for unscheduled types. */

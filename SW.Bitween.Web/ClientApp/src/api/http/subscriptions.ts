@@ -560,6 +560,11 @@ export const subscriptionMethods = {
     return toSubscription(await fetchRaw(id), id);
   },
 
+  /** Clears a running flag a dead run left behind, so the next scheduled run starts. */
+  async clearRunning(id: number): Promise<{ cleared: boolean }> {
+    return post<{ cleared: boolean }>(`/subscriptions/${id}/clearrunning`, {});
+  },
+
   async receiveNow(id: number): Promise<Subscription> {
     await post(`/subscriptions/${id}/receivenow`, {});
     return toSubscription(await fetchRaw(id), id);

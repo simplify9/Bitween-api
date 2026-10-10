@@ -132,6 +132,13 @@ public class Subscription : BaseEntity
     /// the flag, so without a time the subscription stayed "running" — and never ran — for good.
     /// </summary>
     public DateTime? RunningSince { get; private set; }
+
+    /// <summary>Lets the next scheduled run start: for a flag left behind by a run that died.</summary>
+    public void ClearRunning()
+    {
+        IsRunning = false;
+        RunningSince = null;
+    }
     public bool Inactive { get; set; }
     public int? ResponseSubscriptionId { get; set; }
     /// <summary>

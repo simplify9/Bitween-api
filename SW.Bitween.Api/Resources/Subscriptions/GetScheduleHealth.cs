@@ -101,7 +101,7 @@ public class GetScheduleHealth(
     /// stale IsRunning flag: a killed run never writes its end either, so its
     /// execution row stays open forever and would look identical.
     /// </summary>
-    private static async Task<HashSet<int>> CurrentlyRunningSubscriptionIds(
+    internal static async Task<HashSet<int>> CurrentlyRunningSubscriptionIds(
         IScheduler scheduler, Dictionary<Type, IScheduledJobDefinition> jobs)
     {
         var groups = jobs.Values.Select(d => d.Group).ToHashSet();

@@ -101,7 +101,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Issue | Where |
 |---|---|
 | Deleting a subscription does not remove its Quartz triggers. | `Resources/Subscriptions/Delete.cs` |
-| A killed run leaves the running flag set, and no API clears it. | `Services/RunFlagUpdater.cs` |
+| A killed run leaves the running flag set; later runs are skipped until it goes stale after `StaleRunAfterMinutes`, or someone clears it on the subscription's page. | `Services/RunFlagUpdater.cs` |
 | Aggregation runs have no running flag. | `Services/AggregationJob.cs` |
 | Quartz clustering is not guaranteed with the pinned scheduler packages, according to the startup code. | `SW.Bitween.Web/Startup.cs` |
 | Consecutive failures never pause or deactivate a subscription. | `Domain/Subscription/Subscription.cs` |

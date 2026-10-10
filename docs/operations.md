@@ -61,7 +61,7 @@ See [Data sources](data-sources.md).
 
 - The **Scheduled jobs** and **Aggregations** pages show each subscription's last run, reliability, next run and schedule health.
 - A subscription's overview lists its receive attempts and the exchanges each created.
-- **Stuck** means a run was killed and left its running flag set, so later runs are skipped.
+- **Stuck** means a run was killed and left its running flag set, so later runs are skipped. The subscription's page says so and offers **Clear the running mark**, for anyone with `subscriptions.operate`; otherwise it clears itself after `Bitween:StaleRunAfterMinutes`.
 - **Not scheduled** means a trigger is missing. Saving the subscription again recreates it.
 
 See [Scheduling](scheduling.md).
