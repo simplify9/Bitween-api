@@ -34,6 +34,7 @@ const openGateway = (
         defaultKeyHeader,
       }),
       json("/apigateways/attachments", { result: attachments, totalCount: attachments.length }),
+      json("/apigateways/15/rejections", { node: "web-1:12", since: "2026-10-10T08:00:00Z", counts: {}, recent: [] }),
       ...["/subscriptions", "/documents", "/partners", "/workgroups", "/retrypolicies", "/audit"].map((p) => none(p)),
     ],
   });

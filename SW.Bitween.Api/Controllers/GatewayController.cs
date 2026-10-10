@@ -22,6 +22,7 @@ public class GatewayController(
     IInfolinkCache cache,
     XchangeService xchangeService,
     GatewayCallers callers,
+    GatewayActivity activity,
     BitweenOptions options) : ControllerBase
 {
     /// <summary>
@@ -63,19 +64,30 @@ public class GatewayController(
                 .ThenInclude(agp => agp.Partner)
                 .FirstOrDefaultAsync(ag => ag.UrlName.ToLower() == gatewayApiName);
 
+        var address = HttpContext.Connection.RemoteIpAddress?.ToString();
         if (apiGateway == null)
+        {
+            activity.Refused(gatewayApiName, "unknown-gateway", 404, address);
             return NotFound();
+        }
 
         // Resolve the partner the way this gateway asks callers to prove who they are
-        var (authorized, partner, callerReference) = await callers.Identify(apiGateway, requestContext);
+        var (authorized, partner, callerReference, keyName) = await callers.Identify(apiGateway, requestContext);
 
         if (!authorized)
+        {
+            activity.Refused(gatewayApiName, "not-authenticated", 401, address);
             return Unauthorized();
+        }
 
         // Verify partner is part of the API Gateway
         var apiGatewayPartner = apiGateway.Partners.FirstOrDefault(agp => agp.PartnerId == partner.Id);
         if (apiGatewayPartner == null)
+        {
+            activity.Refused(gatewayApiName, "not-attached", 401, address);
             return Unauthorized();
+        }
+        await activity.KeyUsedAsync(partner.Id, keyName);
 
         // After authorisation on purpose: whether a gateway exists and is switched off is
         // something only an attached partner should learn — checking it earlier would
@@ -85,13 +97,19 @@ public class GatewayController(
         // 404 reads as "wrong address" and sends someone hunting for a new one, where this
         // is a gateway somebody switched off and will switch back on.
         if (apiGateway.Inactive)
+        {
+            activity.Refused(gatewayApiName, "gateway-off", 503, address);
             return StatusCode(StatusCodes.Status503ServiceUnavailable,
                 $"The '{apiGateway.Name}' gateway is currently deactivated.");
+        }
 
         var subscription = await cache.SubscriptionByIdAsync(apiGatewayPartner.SubscriptionId);
 
         if (subscription == null)
+        {
+            activity.Refused(gatewayApiName, "no-subscription", 404, address);
             return NotFound();
+        }
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 

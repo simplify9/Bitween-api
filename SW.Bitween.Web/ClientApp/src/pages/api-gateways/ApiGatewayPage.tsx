@@ -16,6 +16,7 @@ import { Pagination } from "../../components/ui/Pagination";
 import { useSubscriptionsCache, useWiredSubscriptionColumns } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { GatewayRejections } from "./GatewayRejections";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
 
@@ -578,6 +579,7 @@ export function ApiGatewayPage() {
           </div>
         </Panel>
 
+        <GatewayRejections gatewayId={gatewayId} />
         <HistoryCard entityName="ApiGateway" entityKey={id} />
       </div>
 

@@ -358,6 +358,13 @@ namespace SW.Bitween
                 b.HasIndex(p => p.PublishedOn);
             });
 
+            modelBuilder.Entity<ApiKeyUse>(b =>
+            {
+                b.ToTable("ApiKeyUses");
+                b.HasKey(u => new { u.PartnerId, u.KeyName });
+                b.Property(u => u.KeyName).HasMaxLength(500);
+            });
+
             modelBuilder.Entity<Domain.Cluster.ClusterNode>(b =>
             {
                 b.ToTable("ClusterNodes");

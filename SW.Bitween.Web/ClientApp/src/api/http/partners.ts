@@ -31,6 +31,8 @@ interface RawPartnerDetail {
   adapterProperties: Record<string, string> | null;
   secretProperties: string[] | null;
   loginIdentity?: string | null;
+  /** By key name: when a gateway last let a call through with it. */
+  keysLastUsedOn?: Record<string, string> | null;
 }
 
 // GET masks keys as `<first-5>...(hidden)`; recover the visible prefix.
@@ -151,6 +153,7 @@ export const partnerMethods = {
         name: c.key,
         keyPrefix: keyPrefixOf(c.value),
         createdOn: "",
+        lastUsedOn: d.keysLastUsedOn?.[c.key] ?? null,
       })),
       apiGateways: apiGateways
         .filter((g) => g.attachments.some((a) => a.partnerId === id))

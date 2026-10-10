@@ -76,6 +76,7 @@ import type {
   RetentionStatus,
   SettingRow,
   InstanceAbout,
+  GatewayRejections,
   AdapterUploadResult,
   ClusterNodes,
   User,
@@ -366,6 +367,8 @@ export interface ApiClient {
     limit: number;
   }): Promise<Paged<ApiGatewayRow>>;
   getApiGateway(id: number): Promise<ApiGatewayDetail>;
+  /** Calls to the gateway turned away, and why: kept by the node that answers, since it started. */
+  getGatewayRejections(id: number): Promise<GatewayRejections>;
   searchGatewayAttachments(
     apiGatewayId: number,
     query: { search: string; offset: number; limit: number },

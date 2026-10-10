@@ -151,6 +151,13 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 cl.Property(i => i.OwnerNode).HasMaxLength(200);
             });
 
+            modelBuilder.Entity<ApiKeyUse>(b =>
+            {
+                b.ToTable("api_key_use");
+                b.HasKey(u => new { u.PartnerId, u.KeyName });
+                b.Property(u => u.KeyName).HasMaxLength(500);
+            });
+
             modelBuilder.Entity<Domain.Cluster.ClusterNode>(b =>
             {
                 b.ToTable("cluster_node");

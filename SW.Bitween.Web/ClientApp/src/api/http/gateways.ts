@@ -13,6 +13,7 @@ import type {
   InlineSubscriptionDraft,
   MatchGroup,
   Paged,
+  GatewayRejections,
 } from "../types";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
 import { inlineSubscriptionBody } from "./subscriptionBody";
@@ -191,6 +192,10 @@ export const gatewayMethods = {
     });
     const res = await get<SearchyResponse<RawApiGateway>>(`/apigateways?${qs}`);
     return { total: res.totalCount, result: (res.result ?? []).map(toApiGatewayRow) };
+  },
+
+  getGatewayRejections(id: number): Promise<GatewayRejections> {
+    return get<GatewayRejections>(`/apigateways/${id}/rejections`);
   },
 
   async getApiGateway(id: number): Promise<ApiGatewayDetail> {

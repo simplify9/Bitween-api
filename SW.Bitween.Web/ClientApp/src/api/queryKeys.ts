@@ -59,6 +59,7 @@ export const keys = {
     list: ["api-gateways", "list"] as const,
     search: (params: Record<string, unknown>) => ["api-gateways", "search", params] as const,
     detail: (id: number | string) => ["api-gateways", "detail", id] as const,
+    rejections: (id: number | string) => ["api-gateways", "rejections", id] as const,
     attachments: (id: number | string, params: Record<string, unknown>) =>
       ["api-gateways", "attachments", id, params] as const,
   },

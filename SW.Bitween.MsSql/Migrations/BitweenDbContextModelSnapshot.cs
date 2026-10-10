@@ -368,6 +368,23 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("AdapterSourceAccesses", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.ApiKeyUse", b =>
+                {
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KeyName")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("LastUsedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PartnerId", "KeyName");
+
+                    b.ToTable("ApiKeyUses", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.AuditEntry", b =>
                 {
                     b.Property<string>("Id")

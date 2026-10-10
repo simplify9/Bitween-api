@@ -12,6 +12,7 @@ import { Panel } from "../ui/Panel";
 import { MiniTable } from "../ui/Table";
 import { SubscriptionMiniList, usePartnerSubscriptions } from "./shared";
 import { keys } from "../../api/queryKeys";
+import { formatDateTime, timeAgo } from "../../lib/dates";
 
 /**
  * Everything about a partner that can be *edited*, as one component.
@@ -198,6 +199,19 @@ export function PartnerFields({
                 {
                   header: "Prefix",
                   cell: (c) => <code className="font-mono text-xs text-ink-500">{c.keyPrefix}…</code>,
+                },
+                {
+                  header: "Last used",
+                  cell: (c) =>
+                    c.lastUsedOn ? (
+                      <span className="text-[12.5px] text-ink-700" title={formatDateTime(c.lastUsedOn)}>
+                        {timeAgo(c.lastUsedOn)}
+                      </span>
+                    ) : (
+                      <span className="text-[12.5px] text-ink-500" title="No call through a gateway has been seen with it">
+                        Not yet
+                      </span>
+                    ),
                 },
                 {
                   header: "",

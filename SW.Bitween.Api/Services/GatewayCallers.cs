@@ -36,19 +36,19 @@ public class GatewayCallers(
     ];
 
     /// <returns>The partner, and the reference the exchange records for who called.</returns>
-    public async Task<(bool Authorized, Partner Partner, string Reference)> Identify(
+    public async Task<(bool Authorized, Partner Partner, string Reference, string KeyName)> Identify(
         ApiGateway gateway, RequestContext requestContext)
     {
         if (gateway.AuthMethod != GatewayAuthMethod.Jwt)
         {
             var (authorized, keyHolder, keyName) = await dbContext.CheckPartnerAuthorized(requestContext,
                 gateway.PartnerKeyHeader ?? options.PartnerKeyHeader);
-            return (authorized, keyHolder, $"partnerkey: {keyName}");
+            return (authorized, keyHolder, $"partnerkey: {keyName}", keyName);
         }
 
         var identity = await IdentityFromToken(gateway, requestContext);
         if (identity == null)
-            return (false, null, null);
+            return (false, null, null, null);
 
         var partner = await dbContext.Set<Partner>().AsNoTracking()
             .SingleOrDefaultAsync(p => p.LoginIdentity == identity);
@@ -57,10 +57,10 @@ public class GatewayCallers(
             // A genuine token, so most likely a partner whose identity hasn't been set yet.
             logger.LogInformation("Token on gateway {Gateway} names {Identity}, which no partner has",
                 gateway.UrlName, identity);
-            return (false, null, null);
+            return (false, null, null, null);
         }
 
-        return (true, partner, $"jwt: {identity}");
+        return (true, partner, $"jwt: {identity}", null);
     }
 
     async Task<string> IdentityFromToken(ApiGateway gateway, RequestContext requestContext)

@@ -235,6 +235,8 @@ export interface ApiCredentialRef {
   /** Only the first characters — full keys are shown once, at creation. */
   keyPrefix: string;
   createdOn: string;
+  /** When a gateway last let a call through with it, to within a few minutes; null if none has been seen. */
+  lastUsedOn?: string | null;
 }
 
 export interface Partner {
@@ -1741,4 +1743,12 @@ export interface AdapterUploadResult {
   version: string;
   current: boolean;
   sha256: string;
+}
+
+/** GET /apigateways/{id}/rejections: calls to the gateway turned away, on the node that answered. */
+export interface GatewayRejections {
+  node: string;
+  since: string;
+  counts: Record<string, number>;
+  recent: { on: string; reason: string; status: number; address: string | null }[];
 }

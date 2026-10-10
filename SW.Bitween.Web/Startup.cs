@@ -88,6 +88,7 @@ namespace SW.Bitween.Web
             services.AddMemoryCache();
             services.AddSingleton<SignInThrottle>();
             services.AddSingleton<CliSignInCodes>();
+            services.AddSingleton<GatewayActivity>();
             // Every node says it's here, so the Nodes view can list the cluster from any of them.
             services.AddHostedService<SW.Bitween.Services.Cluster.NodeHeartbeat>();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
@@ -711,6 +712,21 @@ namespace SW.Bitween.Web
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                // A partner calling too fast is told 429 and nothing else records it; the gateway's
+                // page lists it among the calls turned away.
+                options.OnRejected = (context, _) =>
+                {
+                    var path = context.HttpContext.Request.Path.Value ?? "";
+                    const string prefix = "/api/gateway/";
+                    if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var rest = path[prefix.Length..].Trim('/');
+                        var split = rest.LastIndexOf('/');
+                        context.HttpContext.RequestServices.GetRequiredService<GatewayActivity>().Refused(
+                            split > 0 ? rest[..split] : rest, "rate-limited", 429, ClientAddress(context.HttpContext));
+                    }
+                    return ValueTask.CompletedTask;
+                };
 
                 options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
                 {

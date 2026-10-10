@@ -173,6 +173,7 @@ Publishing a package, promoting, withdrawing, and publishing from a draft are re
 | Method and path | Permission |
 |---|---|
 | `GET /api/apigateways`, `GET /api/apigateways/{id}` | `api-gateways.view` |
+| `GET /api/apigateways/{id}/rejections` | `api-gateways.view`. Calls to the gateway turned away since the answering node started, counted by reason (`not-authenticated`, `not-attached`, `gateway-off`, `no-subscription`, `rate-limited`, `unknown-gateway`), with the most recent: when, status and caller address. Kept in memory per node. |
 | `GET /api/apigateways/attachments?apiGatewayId=&search=&offset=&limit=` | `api-gateways.view` |
 | `POST /api/apigateways` | `api-gateways.create`. `{ name, urlName, inactive, authentication? }`. `authentication` is `{ method: "PartnerKey" \| "Jwt", keyHeader, issuer, audience, partnerClaim }`, and defaults to partner keys. An empty `keyHeader` uses the one in Settings. |
 | `POST /api/apigateways/{id}` | `api-gateways.edit`. Same body. Leaving `authentication` out keeps what the gateway has. |
@@ -217,7 +218,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/documents` | `documents.create` |
 | `POST /api/documents/{id}` | `documents.edit` |
 | `DELETE /api/documents/{id}` | `documents.delete` |
-| `GET /api/partners`, `GET /api/partners/{id}` | `partners.view`. Keys are masked. |
+| `GET /api/partners`, `GET /api/partners/{id}` | `partners.view`. Keys are masked. `{id}` also returns `keysLastUsedOn`: when a gateway last let a call through with each key, by name, to within five minutes. |
 | `POST /api/partners` | `partners.create` |
 | `POST /api/partners/{id}` | `partners.edit`. Replaces name, properties, login identity and API keys. |
 | `DELETE /api/partners/{id}` | `partners.delete` |
