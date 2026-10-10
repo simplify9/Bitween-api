@@ -5,7 +5,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { type Extension } from "@codemirror/state";
 import { CheckCircle2, CircleSlash, FilePlus, Play, Rocket, Save, Trash2, XCircle } from "lucide-react";
-import { api, type AdapterDraft, type DraftBuild, type DraftRun } from "../../api";
+import { api, ApiRequestError, type AdapterDraft, type DraftBuild, type DraftRun } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/guards";
 import { BackLink } from "../../components/ui/BackLink";
@@ -59,6 +59,10 @@ function Editor({ draft }: { draft: AdapterDraft }) {
   const dirty = JSON.stringify(files) !== JSON.stringify(savedFiles);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  // The hash of what this editor last loaded or saved: a save is refused if the draft has moved on
+  // since, so two people editing one draft don't silently overwrite each other.
+  const [baseHash, setBaseHash] = useState(draft.filesHash);
+  const [conflict, setConflict] = useState("");
   const [panel, setPanel] = useState<Panel>("check");
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [build, setBuild] = useState<DraftBuild | null>(null);
@@ -73,21 +77,38 @@ function Editor({ draft }: { draft: AdapterDraft }) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  const save = async () => {
+  const save = async (overwrite = false) => {
     if (!dirty) return true;
     setSaving(true);
     setSaveError("");
+    setConflict("");
     try {
-      await api.saveAdapterDraft(draft.id, files);
+      const saved = await api.saveAdapterDraft(draft.id, files, overwrite ? undefined : baseHash);
       setSavedFiles(files);
+      if (saved?.filesHash) setBaseHash(saved.filesHash);
       void queryClient.invalidateQueries({ queryKey: keys.adapterDrafts });
       return true;
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "The draft couldn't be saved.");
+      if (e instanceof ApiRequestError && e.code === "DRAFT_CHANGED") setConflict(e.message);
+      else setSaveError(e instanceof Error ? e.message : "The draft couldn't be saved.");
       return false;
     } finally {
       setSaving(false);
     }
+  };
+
+  /** Their version, in place of these edits: the page opens the draft afresh. */
+  const loadTheirs = async () => {
+    const theirs = await queryClient.fetchQuery({
+      queryKey: keys.adapterDraft(draft.id),
+      queryFn: () => api.getAdapterDraft(draft.id),
+      staleTime: 0,
+    });
+    setFiles(theirs.files);
+    setSavedFiles(theirs.files);
+    setBaseHash(theirs.filesHash);
+    if (!(selected in theirs.files)) setSelected(Object.keys(theirs.files).sort()[0]);
+    setConflict("");
   };
 
   // Ctrl/Cmd+S saves, as in any editor.
@@ -148,6 +169,19 @@ function Editor({ draft }: { draft: AdapterDraft }) {
         </div>
       </div>
       <FormError>{saveError}</FormError>
+      {conflict && (
+        <div role="alert" className="mb-3 rounded-lg bg-warn-100 px-3 py-2 text-sm text-warn-700">
+          <p>{conflict}</p>
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={() => void loadTheirs()}>
+              Load their version
+            </Button>
+            <Button size="sm" variant="danger" busy={saving} onClick={() => void save(true)}>
+              Save mine anyway
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-[13rem_minmax(0,1fr)_24rem]">
         <section aria-label="Files" className="rounded-xl border border-ink-200 bg-white py-1">

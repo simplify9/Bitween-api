@@ -320,7 +320,11 @@ export interface ApiClient {
   createAdapterDraft(input: { name: string; language: DraftLanguage; kind: string; adapterId?: string }): Promise<number>;
   /** A draft of a published Python or Node version, from its source. */
   draftFromVersion(adapterId: string, version: string): Promise<number>;
-  saveAdapterDraft(id: number, files: Record<string, string>): Promise<AdapterDraftSummary>;
+  /**
+   * Saves the files. With `baseHash`, the draft's hash when it was opened or last saved here: a
+   * save over someone else's since then is refused with DRAFT_CHANGED. Without it, saved regardless.
+   */
+  saveAdapterDraft(id: number, files: Record<string, string>, baseHash?: string): Promise<AdapterDraftSummary>;
   deleteAdapterDraft(id: number): Promise<void>;
   /** Builds it and checks it against its contracts with these settings, which are never stored. */
   buildAdapterDraft(id: number, settings: Record<string, string>, buildOnly?: boolean): Promise<DraftBuild>;

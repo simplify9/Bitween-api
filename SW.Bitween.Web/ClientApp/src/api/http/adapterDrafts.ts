@@ -12,8 +12,8 @@ export const adapterDraftMethods = {
   draftFromVersion: (adapterId: string, version: string) =>
     post<number>("/adapterdrafts", { fromAdapterId: adapterId, fromVersion: version }),
 
-  saveAdapterDraft: (id: number, files: Record<string, string>) =>
-    post<AdapterDraftSummary>(`/adapterdrafts/${id}`, { files }),
+  saveAdapterDraft: (id: number, files: Record<string, string>, baseHash?: string) =>
+    post<AdapterDraftSummary>(`/adapterdrafts/${id}`, baseHash ? { files, baseHash } : { files }),
 
   async deleteAdapterDraft(id: number) {
     await request(`/adapterdrafts/${id}`, { method: "DELETE" });

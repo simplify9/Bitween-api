@@ -156,6 +156,55 @@ describe("the adapter editor", () => {
     expect(calls.find((c) => c.path === "promote")?.body).toEqual({ adapterId: "acme.orders", version: "1.0.0" });
   });
 
+  it("refuses to save over someone else's save, then loads theirs or saves over it when asked", async () => {
+    calls.length = 0;
+    let current: Omit<typeof DRAFT, "modifiedBy" | "files"> & { modifiedBy: string | null; files: Record<string, string> } = DRAFT;
+    const theirs = { ...DRAFT, filesHash: "theirs", modifiedBy: "Rana", files: { ...DRAFT.files, "main.py": "# theirs\n" } };
+    const { user } = renderApp("/adapters/drafts/7", {
+      handlers: [
+        http.get(apiPath("/adapterdrafts/7"), () => HttpResponse.json(current)),
+        http.post(apiPath("/adapterdrafts/7"), async (info) => {
+          await record("save")(info);
+          const body = calls.at(-1)!.body as { baseHash?: string };
+          if (body.baseHash && body.baseHash !== current.filesHash)
+            return HttpResponse.json(
+              { DRAFT_CHANGED: ["Rana saved this draft at 2026-10-10 09:00 UTC, after you opened it. Saving now would replace their changes."] },
+              { status: 400 },
+            );
+          current = { ...current, filesHash: "mine" };
+          return HttpResponse.json(current);
+        }),
+        ...editorHandlers.slice(2),
+      ],
+    });
+
+    const files = await screen.findByRole("region", { name: "Files" }, LOADED);
+    await user.click(within(files).getByRole("button", { name: "New file" }));
+    await user.type(screen.getByLabelText("New file name"), "helpers.py{Enter}");
+    current = theirs; // someone else saves in the meantime
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(await screen.findByText(/Rana saved this draft/)).toBeVisible();
+    expect((calls.at(-1)!.body as { baseHash: string }).baseHash).toBe("h");
+    expect(screen.getByText("Unsaved")).toBeVisible();
+
+    // Saving over theirs sends no base.
+    await user.click(screen.getByRole("button", { name: "Save mine anyway" }));
+    await waitFor(() => expect(screen.queryByText("Unsaved")).not.toBeInTheDocument());
+    expect(calls.at(-1)!.body).not.toHaveProperty("baseHash");
+
+    // Their version again, loaded in place of these edits.
+    current = theirs;
+    await user.click(within(files).getByRole("button", { name: "New file" }));
+    await user.type(screen.getByLabelText("New file name"), "more.py{Enter}");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(await screen.findByRole("button", { name: "Load their version" }));
+    await waitFor(() =>
+      expect(within(files).queryByRole("button", { name: "more.py" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Unsaved")).not.toBeInTheDocument();
+  });
+
   it("shows what a failed check found", async () => {
     const { user } = renderApp("/adapters/drafts/7", {
       handlers: [

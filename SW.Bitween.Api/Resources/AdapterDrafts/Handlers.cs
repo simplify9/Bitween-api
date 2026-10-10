@@ -77,6 +77,11 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext) :
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.AdapterSource.Edit);
         var draft = await Drafts.Find(dbContext, key);
+        if (!string.IsNullOrEmpty(request.BaseHash) && request.BaseHash != draft.FilesHash)
+            throw new SWValidationException("DRAFT_CHANGED",
+                $"{draft.ModifiedBy ?? draft.CreatedBy ?? "Someone"} saved this draft at " +
+                $"{(draft.ModifiedOn ?? draft.CreatedOn):yyyy-MM-dd HH:mm} UTC, after you opened it. " +
+                "Saving now would replace their changes.");
         draft.SetFiles(request.Files);
         await dbContext.SaveChangesAsync();
         return Drafts.Summary(draft);

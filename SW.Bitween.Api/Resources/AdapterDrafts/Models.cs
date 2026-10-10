@@ -18,6 +18,13 @@ public class AdapterDraftCreate
 public class AdapterDraftUpdate
 {
     public Dictionary<string, string> Files { get; set; }
+
+    /// <summary>
+    /// The draft's FilesHash when the editor opened it or last saved. A save over someone else's is
+    /// refused rather than silently discarding theirs; left out, the save goes through, as it
+    /// always did.
+    /// </summary>
+    public string BaseHash { get; set; }
 }
 
 /// <summary>Settings to build, check or try the draft with. Used for the call and never stored.</summary>
