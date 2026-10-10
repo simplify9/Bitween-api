@@ -14,9 +14,13 @@ import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 import { keys } from "../../api/queryKeys";
 import { RETENTION_SECTION, retentionProposal, useRetention } from "../../lib/retention";
 import { NoticeList, RetentionPanel } from "./RetentionPanel";
+import { AboutPanel } from "./AboutPanel";
 
 /** Sections, in the order the backend catalog lists them. */
-const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section))];
+const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section)), ABOUT_SECTION];
+
+/** Not a section of the catalog: a read-only view of the instance, after the editable ones. */
+const ABOUT_SECTION = "About this instance";
 
 const sectionOf = (rows: SettingRow[], key: string) => rows.find((r) => r.key === key)?.section;
 
@@ -378,6 +382,7 @@ export function SettingsPage() {
             )}
           </div>
           {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} />}
+          {section === ABOUT_SECTION && <AboutPanel />}
           <div className="divide-y divide-ink-100">
             {sectionRows.map((row) =>
               row.access === "editable" ? (

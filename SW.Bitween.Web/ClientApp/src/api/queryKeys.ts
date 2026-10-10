@@ -179,6 +179,7 @@ export const keys = {
   settings: {
     all: ["settings"] as const,
     list: ["settings", "list"] as const,
+    about: ["settings", "about"] as const,
     /** Under settings, so saving a setting refreshes what retention it implies. */
     retention: ["settings", "retention"] as const,
     retentionPreview: (proposal: string) => ["settings", "retention", "preview", proposal] as const,

@@ -202,6 +202,8 @@ describe("the settings page", () => {
       "Database",
       "Security",
       "Brand & theme",
+      // Not from the catalog: the read-only view of the instance, always last.
+      "About this instance",
     ]);
 
     // Nothing carries a restart badge: a setting that couldn't take effect immediately is shown

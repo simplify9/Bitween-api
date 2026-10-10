@@ -1686,3 +1686,33 @@ export interface DataSourceProvider {
   description: string | null;
   settings: DataSourceProviderSetting[];
 }
+
+/** GET /settings/about: this Bitween and how it is set up, as the node that answered sees it. */
+export interface InstanceAbout {
+  version: string;
+  build: string | null;
+  node: { name: string; startedOn: string; runtime: string; os: string; dataSources: boolean };
+  database: string;
+  storage: { provider: string; adapterPath: string; documentPrefix: string };
+  broker: { queuePrefix: string; managementConfigured: boolean };
+  health: { name: string; status: string; durationMs: number; description: string | null; error: string | null }[];
+  adapters: {
+    runtimes: { name: string; available: boolean; version: string | null; reason: string | null }[];
+    pip: { available: boolean; version: string | null; reason: string | null };
+    npm: { available: boolean; version: string | null; reason: string | null };
+    commandTimeoutSeconds: number;
+    editor: { dependencies: boolean; memoryMb: number; cpuCores: number };
+  };
+  limits: {
+    signInPerMinute: number;
+    requestsPerMinute: number;
+    fileLinksPerMinute: number;
+    maxResponseWaitSeconds: number;
+    maxRetryChainDepth: number;
+    staleRunAfterMinutes: number;
+    notifierQuietMinutes: number;
+  };
+  network: { publicUrl: string | null; blockPrivateNetworkAddresses: boolean; trustedProxies: number; exposeApiDocs: boolean; corsOrigins: string[] };
+  retention: { receiveAttemptRetentionDays: number; receiveAttemptCleanupCron: string; inboundMessagePruneCron: string };
+  telemetry: { openTelemetry: boolean };
+}
