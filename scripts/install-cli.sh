@@ -21,7 +21,8 @@ esac
 rid="$os-$arch"
 
 if [ -n "${BITWEEN_CLI_VERSION:-}" ]; then tag="cli-v$BITWEEN_CLI_VERSION"
-else tag=$(curl -fsSL "https://api.github.com/repos/$repo/releases" | grep -o '"tag_name": *"cli-v[^"]*"' | head -1 | sed 's/.*"\(cli-v[^"]*\)"/\1/'); fi
+# The newest release, never a staging (-stg) pre-release: those are installed only by name.
+else tag=$(curl -fsSL "https://api.github.com/repos/$repo/releases" | grep -o '"tag_name": *"cli-v[^"]*"' | sed 's/.*"\(cli-v[^"]*\)"/\1/' | grep -E '^cli-v[0-9.]+$' | head -1); fi
 [ -n "$tag" ] || { echo "No bitween CLI release found" >&2; exit 1; }
 
 work=$(mktemp -d); trap 'rm -rf "$work"' EXIT

@@ -21,7 +21,9 @@ curl -fsSL https://raw.githubusercontent.com/simplify9/Bitween-api/releases/r10.
 ```
 
 That installs the latest release to `~/.local/bin`, after checking the download against `SHA256SUMS`;
-`INSTALL_DIR` changes where, and `BITWEEN_CLI_VERSION=10.0.60` picks a version. It works on Linux and
+`INSTALL_DIR` changes where, and `BITWEEN_CLI_VERSION=10.0.60` picks a version. Staging builds are
+pre-releases tagged `-stg`, such as `cli-v10.0.61-stg`; the script never picks one on its own, only when
+named: `BITWEEN_CLI_VERSION=10.0.61-stg`. It works on Linux and
 macOS, on x64 and arm64, glibc or musl (Alpine). On Windows, download
 `bitween-win-x64.zip` from the [releases](https://github.com/simplify9/Bitween-api/releases) and put
 `bitween.exe` on your `PATH`.

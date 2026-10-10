@@ -1,21 +1,64 @@
 name: bitween CLI release
 
-# A tag cli-v<version> (cli-v10.0.60) publishes the bitween command as self-contained
-# binaries on a GitHub release: nothing needs .NET installed to run them.
+# Publishes the bitween command as self-contained binaries on a GitHub release: nothing needs
+# .NET installed to run them. Two channels, by branch:
+#   releases/r10.0          cli-v<version>      (cli-v10.0.61)      a release, the latest one
+#   releases/r10.0-staging  cli-v<version>-stg  (cli-v10.0.61-stg)  a pre-release, for trying out
+# A tag pushed on a commit of the other branch is refused. Run by hand, the branch it is run on
+# picks the channel. scripts/install-cli.sh installs the latest release, never a -stg one unless
+# asked for by BITWEEN_CLI_VERSION.
 on:
   push:
     tags: ["cli-v*"]
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, e.g. 10.0.60 (tagged cli-v<version>)"
+        description: "Version, e.g. 10.0.61: released as cli-v10.0.61 from releases/r10.0, cli-v10.0.61-stg from releases/r10.0-staging"
         required: true
 
 permissions:
   contents: write
 
 jobs:
+  channel:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.channel.outputs.version }}
+      prerelease: ${{ steps.channel.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Channel
+        id: channel
+        run: |
+          on() { git merge-base --is-ancestor "$GITHUB_SHA" "origin/$1"; }
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            v="${{ github.event.inputs.version }}"
+            v="${v#cli-v}"; v="${v%-stg}"
+            case "$GITHUB_REF_NAME" in
+              releases/r10.0) ;;
+              releases/r10.0-staging) v="$v-stg" ;;
+              *) echo "::error::Release the CLI from releases/r10.0, or releases/r10.0-staging for a -stg pre-release; not from $GITHUB_REF_NAME."; exit 1 ;;
+            esac
+          else
+            v="${GITHUB_REF_NAME#cli-v}"
+            if [[ "$v" == *-stg ]]; then
+              on releases/r10.0-staging || { echo "::error::$GITHUB_REF_NAME isn't on releases/r10.0-staging."; exit 1; }
+            elif [[ "$v" == *-* ]]; then
+              echo "::error::A CLI tag is cli-v<version> or cli-v<version>-stg, not $GITHUB_REF_NAME."; exit 1
+            else
+              on releases/r10.0 || { echo "::error::$GITHUB_REF_NAME isn't on releases/r10.0; tag staging builds cli-v<version>-stg."; exit 1; }
+            fi
+          fi
+          if gh release view "cli-v$v" >/dev/null 2>&1; then echo "::error::cli-v$v is already released."; exit 1; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          [[ "$v" == *-stg ]] && echo "prerelease=true" >> "$GITHUB_OUTPUT" || echo "prerelease=false" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   build:
+    needs: channel
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,17 +68,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
-      - name: Version
-        id: version
-        run: |
-          v="${{ github.event.inputs.version }}"
-          [ -z "$v" ] && v="${GITHUB_REF_NAME#cli-v}"
-          echo "value=$v" >> "$GITHUB_OUTPUT"
       - name: Publish
         run: >
           dotnet publish SW.Bitween.Cli -c Release -r ${{ matrix.rid }} --self-contained
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none
-          -p:Version=${{ steps.version.outputs.value }} -o out
+          -p:Version=${{ needs.channel.outputs.version }} -o out
       - name: Package
         run: |
           mkdir -p dist
@@ -51,7 +88,7 @@ jobs:
           path: dist/*
 
   release:
-    needs: build
+    needs: [channel, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +102,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          v="${{ github.event.inputs.version }}"
-          [ -z "$v" ] && v="${GITHUB_REF_NAME#cli-v}"
-          gh release create "cli-v$v" dist/* --title "bitween CLI $v" --target "${{ github.sha }}" \
-            --notes "The bitween command, self-contained for each platform. Install: curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.repository.default_branch }}/scripts/install-cli.sh | sh — or download the archive for your platform and check it against SHA256SUMS."
+          v="${{ needs.channel.outputs.version }}"
+          install="curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/releases/r10.0/scripts/install-cli.sh"
+          if [ "${{ needs.channel.outputs.prerelease }}" = "true" ]; then
+            gh release create "cli-v$v" dist/* --title "bitween CLI $v (staging)" --target "${{ github.sha }}" --prerelease \
+              --notes "A staging build of the bitween command, from releases/r10.0-staging, for trying out before release. Install: BITWEEN_CLI_VERSION=$v $install | sh — or download the archive for your platform and check it against SHA256SUMS."
+          else
+            gh release create "cli-v$v" dist/* --title "bitween CLI $v" --target "${{ github.sha }}" --latest \
+              --notes "The bitween command, self-contained for each platform. Install: $install | sh — or download the archive for your platform and check it against SHA256SUMS."
+          fi
