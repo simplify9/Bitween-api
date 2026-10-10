@@ -28,8 +28,11 @@ namespace SW.Bitween.Resources.Subscriptions
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
 
+            // A missing one is a 404, which the page says as "no longer exists"; it used to be a
+            // NullReferenceException and a 500.
             var subscriber =
-                await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync();
+                await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync()
+                ?? throw new SWNotFoundException(key.ToString());
 
             var response =
                 new SubscriptionGet

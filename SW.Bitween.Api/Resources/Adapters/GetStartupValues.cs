@@ -25,7 +25,7 @@ namespace SW.Bitween.Resources.Adapters
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
 
             return AdapterStartupValues.WithoutSecretDefaults(
-                await startupValues.Describe(System.Uri.UnescapeDataString(key)));
+                await startupValues.DescribeOrNotFound(System.Uri.UnescapeDataString(key)));
         }
     }
 }

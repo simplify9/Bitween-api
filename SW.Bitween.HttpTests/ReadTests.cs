@@ -97,4 +97,26 @@ public class ReadTests(HttpFixture fixture, ITestOutputHelper output)
         output.WriteLine($"{(int)response.StatusCode} {method} {path}");
         Assert.True((int)response.StatusCode < 500, $"{(int)response.StatusCode} {method} {path}: {body[..Math.Min(body.Length, 400)]}");
     }
+
+    /// <summary>Every read of one record, by a key that isn't there.</summary>
+    public static IEnumerable<object[]> KeyedReads() =>
+        Handlers().Where(t => t.GetInterfaces().Any(i => i.Namespace == "SW.PrimitiveTypes" && i.Name == "IGetHandler`2"))
+            .Select(t => NameOf(t) is { } name ? $"/api/{Resource(t)}/999999/{name.ToLowerInvariant()}" : $"/api/{Resource(t)}/999999")
+            .Distinct().OrderBy(p => p).Select(p => new object[] { p });
+
+    /// <summary>
+    /// Reading a record that isn't there — a stale link, one deleted in another tab — is answered,
+    /// not crashed: a subscription that didn't exist was a NullReferenceException and a 500, which
+    /// the page could only show as a server error.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(KeyedReads))]
+    public async Task A_read_of_a_record_that_does_not_exist_is_answered_not_crashed(string path)
+    {
+        using var admin = await fixture.AdminAsync();
+        var response = await admin.GetAsync(path);
+        var body = await response.Content.ReadAsStringAsync();
+        output.WriteLine($"{(int)response.StatusCode} GET {path}");
+        Assert.True((int)response.StatusCode < 500, $"{(int)response.StatusCode} GET {path}: {body[..Math.Min(body.Length, 400)]}");
+    }
 }

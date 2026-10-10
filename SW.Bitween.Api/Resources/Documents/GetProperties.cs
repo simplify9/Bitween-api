@@ -18,7 +18,7 @@ namespace SW.Bitween.Resources.Documents
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Documents.View);
 
-            var document = await dbContext.FindAsync<Document>(key);
+            var document = await dbContext.FindAsync<Document>(key) ?? throw new SWNotFoundException(key.ToString());
             return document.PromotedProperties.ToDictionary(k => k.Key, v => v.Key);
         }
     }

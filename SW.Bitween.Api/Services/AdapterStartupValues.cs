@@ -37,6 +37,22 @@ public class AdapterStartupValues(
     /// <c>{id}/{version}</c>, whose properties may differ from the current one's.
     /// </param>
     /// <returns>Key name to description. Empty when the adapter reports nothing.</returns>
+    /// <summary>
+    /// For a screen asking about one adapter: one that isn't published, or whose package can't be
+    /// read, is not found (404) with the reason, rather than the 500 it was.
+    /// </summary>
+    public async Task<IDictionary<string, StartupValue>> DescribeOrNotFound(string adapterId)
+    {
+        try
+        {
+            return await Describe(adapterId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new SW.PrimitiveTypes.SWNotFoundException($"Adapter '{adapterId}' can't be described: {ex.Message}");
+        }
+    }
+
     public async Task<IDictionary<string, StartupValue>> Describe(string adapterId)
     {
         if (string.IsNullOrWhiteSpace(adapterId))
