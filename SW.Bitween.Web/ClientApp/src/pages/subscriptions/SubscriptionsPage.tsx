@@ -21,6 +21,7 @@ import { SUBSCRIPTION_TYPE_LABELS } from "../../components/config/subscriptionLa
 import { useGatewayPartners, useSubscriptionsCache } from "../../components/config/lookups";
 import { useSearchText } from "../../lib/useSearchText";
 import { NONE } from "../../lib/none";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
@@ -262,7 +263,7 @@ export function SubscriptionsPage() {
           rows={filtered}
           rowKey={(r) => r.id}
           minWidth="min-w-220"
-          onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          onRowClick={(r) => navigate(subscriptionPath(r.id, r.type))}
           footer={
             <Pagination
               offset={offset}

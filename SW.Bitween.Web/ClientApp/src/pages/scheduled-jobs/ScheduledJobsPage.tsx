@@ -19,6 +19,7 @@ import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { useSearchText } from "../../lib/useSearchText";
 import { NONE } from "../../lib/none";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -187,7 +188,7 @@ export function ScheduledJobsPage() {
           rows={filtered}
           rowKey={(r) => r.id}
           minWidth="min-w-270"
-          onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          onRowClick={(r) => navigate(subscriptionPath(r.id, "Receiving"))}
           footer={
             <Pagination
               offset={offset}

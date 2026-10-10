@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadCloud, FileStack, Pause, Play, Power, PowerOff, Trash2, X } from "lucide-react";
 import { api } from "../../api";
@@ -33,6 +33,9 @@ import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useResponseDetour } from "../../lib/responseDetour";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { useCurrentPage } from "../../lib/currentPage";
+import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../lib/subscriptionPaths";
+import { PAGES, pathOf } from "../../pages";
 
 /**
  * Keyed by id. Going from one subscription's page straight to another's — down a response
@@ -223,6 +226,21 @@ function SubscriptionStudio() {
   const { leave, dialog: leaveDialog } = useLeaveGuard(dirty, {
     carriedTo: (path) => path === `/subscriptions/${subscriptionId}/mapper` && !dirtyBesidesMapper,
   });
+
+  // Opened from a link that couldn't tell its type (or an old bookmark): move to the address of
+  // its own section, so the sidebar, the breadcrumb and the way back all name the right list.
+  // A replace, so Back doesn't return to the address it just left.
+  const location = useLocation();
+  const current = useCurrentPage();
+  const type = subscription.data?.type;
+  useEffect(() => {
+    if (!type || current === null || !SUBSCRIPTION_PAGES.has(current)) return;
+    const home = SUBSCRIPTION_PAGE[type];
+    if (home !== current) navigate(subscriptionPath(subscriptionId, type) + location.search + location.hash, { replace: true });
+  }, [type, current, subscriptionId, navigate, location.search, location.hash]);
+
+  // The list this section belongs to, for the way back from a pasted link.
+  const listPage = (current && PAGES[current].parent) || "subscriptions";
 
   if (subscription.isPending) return <LoadingBlock label="Loading subscription…" />;
   if (subscription.isError && !isNotFound(subscription.error))
@@ -532,7 +550,7 @@ function SubscriptionStudio() {
   return (
     <div className="pb-24">
       {leaveDialog}
-      <BackLink to="/subscriptions" label="Subscriptions" />
+      <BackLink to={pathOf(listPage, {})!} label={PAGES[listPage].title} />
 
       {health?.stuck && (
         <div role="alert" className="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">

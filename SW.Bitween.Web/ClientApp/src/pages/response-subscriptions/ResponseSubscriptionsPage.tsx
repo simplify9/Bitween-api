@@ -14,6 +14,7 @@ import { HealthBadge, LinkListCell, SubscriptionStatusBadges } from "../../compo
 import { useRetryPolicyNames, useSubscriptionsCache, useWorkGroupNames } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
@@ -125,7 +126,7 @@ export function ResponseSubscriptionsPage() {
           rows={filtered}
           rowKey={(r) => r.id}
           minWidth="min-w-230"
-          onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          onRowClick={(r) => navigate(subscriptionPath(r.id, "Response"))}
           footer={
             <Pagination
               offset={offset}

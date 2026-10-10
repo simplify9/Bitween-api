@@ -26,6 +26,7 @@ import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import { useResponseDetour } from "../../lib/responseDetour";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 /** Local draft state with the patch-and-clear shape the other create pages use. */
 function useDraft<T extends object>(initial: T) {
@@ -154,7 +155,7 @@ export function NewAggregationPage() {
       }),
     onSuccess: (created) => {
       void queryClient.invalidateQueries();
-      navigate(`/subscriptions/${created.id}`, { replace: true });
+      navigate(subscriptionPath(created.id, "Aggregation"), { replace: true });
     },
   });
 

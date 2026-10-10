@@ -203,7 +203,7 @@ describe("following a response chain", () => {
 
     await user.click(await screen.findByRole("button", { name: "Open" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/subscriptions/20"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/response-subscriptions/20"));
     // A fresh page, not the one just left with its id swapped.
     expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Store shipment labels");
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
@@ -223,7 +223,7 @@ describe("following a response chain", () => {
     const dialog = await screen.findByRole("dialog", { name: "Save your changes first?" });
     await user.click(within(dialog).getByRole("button", { name: "Save and open" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/subscriptions/20"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/response-subscriptions/20"));
     expect(saves).toHaveLength(1);
     expect(saves[0].name).toBe("Renamed first");
   });

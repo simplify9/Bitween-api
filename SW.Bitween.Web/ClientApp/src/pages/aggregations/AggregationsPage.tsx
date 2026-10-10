@@ -19,6 +19,7 @@ import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/
 import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
 import { NONE } from "../../lib/none";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 function AggregateNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -188,7 +189,7 @@ export function AggregationsPage() {
           rows={filtered}
           rowKey={(r) => r.id}
           minWidth="min-w-270"
-          onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          onRowClick={(r) => navigate(subscriptionPath(r.id, "Aggregation"))}
           footer={
             <Pagination
               offset={offset}

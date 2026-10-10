@@ -24,6 +24,7 @@ import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import { feederOf, returnPath, safeReturn, useResponseDetour } from "../../lib/responseDetour";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 const STAGES_HERE = stagesFor("Response");
 
@@ -127,7 +128,7 @@ function NewResponseSubscription() {
       // Awaited when going back: the page there picks it from the subscriptions list, which
       // has to include it by then.
       await queryClient.invalidateQueries();
-      navigate(returnTo ? returnPath(returnTo, created.id) : `/subscriptions/${created.id}`, { replace: true });
+      navigate(returnTo ? returnPath(returnTo, created.id) : subscriptionPath(created.id, "Response"), { replace: true });
     },
   });
 
