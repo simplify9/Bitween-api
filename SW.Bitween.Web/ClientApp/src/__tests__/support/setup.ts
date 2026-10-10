@@ -5,6 +5,14 @@ import { afterAll, afterEach, beforeAll } from "vitest";
 import { resetAppConfig } from "../../api/http/appConfig";
 import { server } from "./server";
 
+// jsdom has no ResizeObserver, and Headless UI's combobox reaches for one as it closes. Unstubbed,
+// that throws after the test has already passed, and vitest reports it against whichever test ran.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 /** Requests the page made that no handler answered, collected so the test can fail on them. */
 const unanswered: string[] = [];
 

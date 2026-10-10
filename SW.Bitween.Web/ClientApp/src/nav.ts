@@ -30,8 +30,6 @@ export interface NavItem {
   icon: LucideIcon;
   /** Visible when the session holds ANY of these. */
   permissions: PermissionKey[];
-  /** True for areas that belong to a later phase of the redesign. */
-  planned?: boolean;
 }
 
 export interface NavGroup {

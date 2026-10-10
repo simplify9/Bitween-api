@@ -98,19 +98,7 @@ export const isPermanentError = (error: unknown): boolean =>
  * Server errors and dropped connections are retried, up to three times.
  */
 export const shouldRetryQuery = (failureCount: number, error: unknown): boolean =>
-  !(error instanceof NotWiredError) && !isPermanentError(error) && failureCount < 3;
-
-/**
- * Thrown by any ApiClient method whose domain hasn't been wired to the real
- * backend yet. Screens surface this as an honest "Not connected yet" state —
- * never fake data. Batches remove these as they land.
- */
-export class NotWiredError extends Error {
-  code = "NOT_WIRED";
-  constructor(method: string) {
-    super(`"${method}" isn't connected to the backend yet.`);
-  }
-}
+  !isPermanentError(error) && failureCount < 3;
 
 // ——— Configuration entities (sub-phase 2) ———
 

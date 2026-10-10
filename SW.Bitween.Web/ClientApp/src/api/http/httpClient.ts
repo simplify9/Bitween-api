@@ -1,5 +1,4 @@
 import type { ApiClient } from "../client";
-import { NotWiredError } from "../types";
 import { adapterMethods } from "./adapters";
 import { adapterDraftMethods } from "./adapterDrafts";
 import { auditMethods } from "./audit";
@@ -23,12 +22,10 @@ import { teamMethods } from "./team";
 import { workGroupMethods } from "./workGroups";
 
 /**
- * The single real client. Wired domains are merged in here; every other
- * ApiClient method resolves to a rejected NotWiredError so its screen shows an
- * honest "Not connected yet" state instead of fake data. Each batch adds its
- * domain module to `wired` (see BACKEND_WIRING_PLAN §5–6).
+ * The client: every domain's methods merged. Typed as the whole ApiClient, so a method declared and
+ * not implemented is a compile error rather than a call that fails at run time.
  */
-const wired: Partial<ApiClient> = {
+export const httpClient: ApiClient = {
   ...sessionMethods,
   ...auditMethods,
   ...partnerMethods,
@@ -51,11 +48,3 @@ const wired: Partial<ApiClient> = {
   ...teamMethods,
   ...settingsMethods,
 };
-
-export const httpClient: ApiClient = new Proxy(wired, {
-  get(target, prop, receiver) {
-    if (typeof prop !== "string" || prop in target) return Reflect.get(target, prop, receiver);
-    // Anything not yet wired: a callable that rejects clearly, so `await api.x()` fails honestly.
-    return () => Promise.reject(new NotWiredError(prop));
-  },
-}) as ApiClient;

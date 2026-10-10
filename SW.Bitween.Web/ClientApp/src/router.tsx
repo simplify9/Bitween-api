@@ -2,11 +2,11 @@ import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
 import { RequireAuth, RequirePermission } from "./auth/guards";
 import { useSession } from "./auth/SessionContext";
 import { AppShell } from "./components/layout/AppShell";
-import { NAV_GROUPS, homePath } from "./nav";
+import { homePath } from "./nav";
 import { LoginPage } from "./pages/auth/Login";
 import { ChangePasswordPage } from "./pages/auth/ChangePassword";
 import { CliLoginPage } from "./pages/auth/CliLogin";
-import { NotFoundPage, PlaceholderPage } from "./pages/PlaceholderPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { RouteError } from "./pages/RouteError";
 import { lazy, Suspense } from "react";
 import { LoadingBlock } from "./components/ui/basics";
@@ -75,13 +75,6 @@ function TeamRedirect() {
   const { can } = useSession();
   return <Navigate to={can("users.view") ? "/team/members" : "/team/roles"} replace />;
 }
-
-const placeholderRoutes = NAV_GROUPS.flatMap((group) => group.items)
-  .filter((item) => item.planned)
-  .map((item) => ({
-    path: item.path.slice(1),
-    element: <PlaceholderPage item={item} />,
-  }));
 
 /** "/" → undefined (no basename); "/prefix/" → "/prefix" if ever remounted. */
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
@@ -503,7 +496,6 @@ export const routes: RouteObject[] = [
               </RequirePermission>
             ),
           },
-          ...placeholderRoutes,
           { path: "*", element: <NotFoundPage /> },
         ],
       },

@@ -57,7 +57,7 @@ const toStatement = (raw: RawStatement): DataSourceStatement => ({
 
 const EVERYTHING = 1_000_000;
 
-export const dataSourceStatementMethods: Partial<ApiClient> = {
+export const dataSourceStatementMethods = {
   async listDataSourceStatements(dataSourceId: number): Promise<DataSourceStatement[]> {
     // Filtered server-side by data source: a statement is only ever meaningful next to the
     // connection it runs against, and no screen wants all of them at once. Rule 1 is EqualsTo.
@@ -129,4 +129,4 @@ export const dataSourceStatementMethods: Partial<ApiClient> = {
     const raw = await post<DataSourceStatementUsage>(`/datasourcestatements/${id}/usage`, {});
     return { ...raw, usedBy: raw.usedBy ?? [] };
   },
-};
+} satisfies Partial<ApiClient>;
