@@ -10,6 +10,7 @@ import { Panel } from "../ui/Panel";
 import { ConfirmDialog } from "../ui/overlays";
 import { BUS_MESSAGE_NAME_PLACEHOLDER, busMessageNameProblem } from "../../lib/busMessageName";
 import { CARRIED_FORMAT_NOTE, formatLabel, INFORMATION_TYPE_FORMATS, readsContent } from "../../lib/informationTypeFormat";
+import type { InformationTypeField } from "./informationTypeErrors";
 
 /**
  * Everything about an information type that can be edited, as one component.
@@ -183,6 +184,7 @@ export function InformationTypeFields({
   busRequired = false,
   idPrefix = "it",
   saved,
+  errors = {},
 }: {
   draft: InformationTypeDraft;
   onChange: (draft: InformationTypeDraft) => void;
@@ -191,6 +193,8 @@ export function InformationTypeFields({
   idPrefix?: string;
   /** The type as stored, when editing one: what turning the bus off pauses. */
   saved?: InformationType;
+  /** What the server refused a save over, by the field it was about. */
+  errors?: Partial<Record<InformationTypeField, string>>;
 }) {
   const storedName = saved?.busMessageTypeName?.trim() || null;
   const waiting = useInformationTypeMessages(storedName && !draft.busEnabled ? saved!.id : null);
@@ -201,7 +205,7 @@ export function InformationTypeFields({
     <div className="space-y-5">
       <Panel title="Definition">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name" htmlFor={`${idPrefix}-name`}>
+          <Field label="Name" htmlFor={`${idPrefix}-name`} error={errors.name}>
             <TextInput
               id={`${idPrefix}-name`}
               value={draft.name}
@@ -213,6 +217,7 @@ export function InformationTypeFields({
           <Field
             label="Code"
             htmlFor={`${idPrefix}-code`}
+            error={errors.code}
             hint="Optional. Renaming it changes how it appears everywhere; existing subscriptions keep working."
           >
             <TextInput
@@ -287,6 +292,7 @@ export function InformationTypeFields({
                 <Field
                   label="Bus message type name"
                   htmlFor={`${idPrefix}-bus`}
+                  error={errors.bus}
                   hint="Must be unique across information types."
                 >
                   <TextInput

@@ -16,6 +16,8 @@ import {
   informationTypeMissing,
   type InformationTypeDraft,
 } from "./InformationTypeFields";
+import { splitErrors } from "../../lib/fieldErrors";
+import { INFORMATION_TYPE_ERRORS } from "./informationTypeErrors";
 
 /**
  * An information type, created or edited without leaving whatever you were doing.
@@ -100,6 +102,7 @@ export function InformationTypeDialog({
   });
 
   const dirty = !!draft && !!saved && informationTypeDirty(draft, saved);
+  const refused = splitErrors(save.error, INFORMATION_TYPE_ERRORS);
   const missing = draft ? informationTypeMissing(draft) : [];
 
   return (
@@ -115,9 +118,10 @@ export function InformationTypeDialog({
             busRequired={busRequired}
             idPrefix="itd"
             saved={existing.data}
+            errors={refused.byField}
           />
 
-          <FormError>{save.error?.message}</FormError>
+          <FormError>{refused.rest}</FormError>
           <div className="flex items-center justify-end gap-3 border-t border-ink-100 pt-4">
             {missing.length > 0 && (
               <p className="text-[13px] text-ink-500">

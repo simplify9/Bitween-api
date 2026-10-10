@@ -20,6 +20,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { splitErrors } from "../../lib/fieldErrors";
 
 /** Live answer to "what would someone with this role actually see?" */
 function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
@@ -134,6 +135,8 @@ export function RoleEditor() {
       leave(() => navigate("/team/roles", { replace: true }));
     },
   });
+  // See Roles/RoleValidation.cs.
+  const refused = splitErrors(save.error, { name: ["Name", "ROLE_EXISTS"] });
 
   const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
 
@@ -219,7 +222,7 @@ export function RoleEditor() {
         <div className="min-w-0 space-y-6">
           {!isSystem && (
             <div className="grid gap-4 rounded-xl border border-ink-200 bg-white p-5 sm:grid-cols-2">
-              <Field label="Name" htmlFor="role-name">
+              <Field label="Name" htmlFor="role-name" error={refused.byField.name}>
                 <TextInput
                   id="role-name"
                   value={name}
@@ -342,7 +345,7 @@ export function RoleEditor() {
               <p className="truncate text-sm font-medium text-ink-800">
                 {isNew ? "New role" : "Unsaved changes"}
               </p>
-              <FormError>{save.error?.message}</FormError>
+              <FormError>{refused.rest}</FormError>
             </div>
             <div className="flex shrink-0 gap-2">
               <Button onClick={() => leave(() => navigate("/team/roles", { replace: true }))}>Cancel</Button>

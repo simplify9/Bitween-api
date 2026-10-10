@@ -18,6 +18,8 @@ import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { GatewayRejections } from "./GatewayRejections";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { splitErrors } from "../../lib/fieldErrors";
+import { GATEWAY_ERRORS } from "./gatewayErrors";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
 
@@ -196,6 +198,7 @@ export function ApiGatewayPage() {
 
   const g = gateway.data;
   const urlProblem = urlNameProblem(urlName);
+  const refused = splitErrors(save.error, GATEWAY_ERRORS);
   const authProblem = authProblems(auth);
   const urlChanged = finishUrlName(urlName) !== g.urlName;
   const methodChanged = auth.method !== g.authentication.method;
@@ -252,7 +255,7 @@ export function ApiGatewayPage() {
       <div className="space-y-5">
         <Panel title="Endpoint" description="Where partners send their documents.">
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="URL name" htmlFor="ag-url" error={urlProblem ?? undefined}>
+            <Field label="URL name" htmlFor="ag-url" error={urlProblem ?? refused.byField.url}>
               <TextInput
                 id="ag-url"
                 value={urlName}
@@ -591,7 +594,7 @@ export function ApiGatewayPage() {
         <UnsavedBar
           busy={save.isPending}
           error={
-            urlProblem ?? authProblem.keyHeader ?? authProblem.issuer ?? authProblem.audience ?? save.error?.message
+            urlProblem ?? authProblem.keyHeader ?? authProblem.issuer ?? authProblem.audience ?? refused.rest
           }
           onSave={() => {
             if (urlProblem || authProblem.keyHeader || authProblem.issuer || authProblem.audience) return;

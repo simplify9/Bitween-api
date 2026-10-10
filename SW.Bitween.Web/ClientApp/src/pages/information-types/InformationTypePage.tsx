@@ -24,6 +24,8 @@ import {
   informationTypeDraftOf,
   type InformationTypeDraft,
 } from "../../components/config/InformationTypeFields";
+import { splitErrors } from "../../lib/fieldErrors";
+import { INFORMATION_TYPE_ERRORS } from "../../components/config/informationTypeErrors";
 
 export function InformationTypePage() {
   const { id = "" } = useParams();
@@ -72,6 +74,7 @@ export function InformationTypePage() {
   });
 
   const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+  const refused = splitErrors(save.error, INFORMATION_TYPE_ERRORS);
 
   if (type.isPending) return <LoadingBlock label="Loading information type…" />;
   if (type.isError && !isNotFound(type.error))
@@ -162,7 +165,13 @@ export function InformationTypePage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           {draft && (
-            <InformationTypeFields draft={draft} onChange={setDraft} canEdit={canEdit} saved={t} />
+            <InformationTypeFields
+              draft={draft}
+              onChange={setDraft}
+              canEdit={canEdit}
+              saved={t}
+              errors={refused.byField}
+            />
           )}
         </div>
 
@@ -210,7 +219,7 @@ export function InformationTypePage() {
       {canEdit && dirty && (
         <UnsavedBar
           busy={save.isPending}
-          error={save.error?.message}
+          error={refused.rest}
           onSave={() =>
             draft && renamesBusQueue(t.busMessageTypeName, draft) ? setConfirmingRename(true) : save.mutate()
           }

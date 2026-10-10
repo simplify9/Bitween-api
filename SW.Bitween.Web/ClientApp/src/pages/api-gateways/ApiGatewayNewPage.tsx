@@ -7,6 +7,8 @@ import { Field, TextInput } from "../../components/ui/forms";
 import { finishUrlName, suggestSlug, toUrlName, urlNameProblem } from "../../lib/identifiers";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { splitErrors } from "../../lib/fieldErrors";
+import { GATEWAY_ERRORS } from "./gatewayErrors";
 
 export function ApiGatewayNewPage() {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ export function ApiGatewayNewPage() {
 
   // Empty is left to `required`, or the page would open on an error.
   const urlProblem = urlName ? urlNameProblem(urlName) : null;
+  const refused = splitErrors(create.error, GATEWAY_ERRORS);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -42,7 +45,7 @@ export function ApiGatewayNewPage() {
       </p>
 
       <form onSubmit={submit} className="mt-6 max-w-lg space-y-4 rounded-xl border border-ink-200 bg-white p-5">
-        <Field label="Name" htmlFor="nag-name">
+        <Field label="Name" htmlFor="nag-name" error={refused.byField.name}>
           <TextInput
             id="nag-name"
             required
@@ -58,7 +61,7 @@ export function ApiGatewayNewPage() {
         <Field
           label="URL name"
           htmlFor="nag-url"
-          error={urlProblem ?? undefined}
+          error={urlProblem ?? refused.byField.url}
           hint={`Partners will call /api/gateway/${urlName || "…"}/sync or /async. Use / to split it into parts, e.g. logistics/slim/orders.`}
         >
           <TextInput
@@ -73,7 +76,7 @@ export function ApiGatewayNewPage() {
             placeholder="orders"
           />
         </Field>
-        <FormError>{create.error?.message}</FormError>
+        <FormError>{refused.rest}</FormError>
         <div className="flex justify-end">
           <Button type="submit" variant="primary" busy={create.isPending} disabled={!!urlProblem}>
             Create gateway
