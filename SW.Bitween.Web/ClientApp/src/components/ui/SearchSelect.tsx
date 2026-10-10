@@ -101,7 +101,7 @@ export function SearchSelect({
           placeholder={selected && selected.value !== "" ? undefined : (clearLabel ?? placeholder)}
           displayValue={(v: string) => (v === "" ? "" : (all.find((o) => o.value === v)?.label ?? ""))}
           onChange={(e) => setQuery(e.target.value)}
-          className={`${size === "sm" ? "h-8 text-[13px]" : "h-9.5 text-sm"} w-full rounded-lg border border-ink-200 bg-white pr-8 pl-3 text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500`}
+          className={`${size === "sm" ? "h-8 text-[13px]" : "h-9.5 text-sm"} w-full rounded-lg border border-ink-200 bg-white pr-8 pl-3 text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500`}
         />
         <ComboboxButton className="absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-ink-400 hover:text-ink-600">
           <ChevronsUpDown className="size-3.5" aria-hidden />

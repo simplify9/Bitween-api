@@ -9,7 +9,7 @@ import { useId, useState, type InputHTMLAttributes, type SelectHTMLAttributes } 
  * last. These set no width at all, so the caller's width is the width.
  */
 const base =
-  "h-7 rounded border border-ink-200 bg-white px-1.5 text-[11px] text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-1 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-400";
+  "h-7 rounded border border-ink-200 bg-white px-1.5 text-[11px] text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-1 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-400";
 
 export function RowInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${base} ${className}`} />;

@@ -166,7 +166,7 @@ function ReferenceMenu({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search references"
               aria-label="Search references"
-              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
             />
           </div>
           <div className="max-h-64 space-y-1 overflow-y-auto">
@@ -488,7 +488,7 @@ function PropField({
               disabled={disabled}
               placeholder={prop.default}
               onChange={(e) => emit(e.target.value)}
-              className="[grid-area:1/1] w-full resize-none overflow-hidden rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500"
+              className="[grid-area:1/1] w-full resize-none overflow-hidden rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500"
             />
             <span aria-hidden className="[grid-area:1/1] invisible border px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap">
               {value || prop.default || " "}{" "}

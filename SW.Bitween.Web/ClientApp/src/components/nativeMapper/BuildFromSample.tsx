@@ -44,7 +44,7 @@ export function BuildFromSample() {
         </p>
 
         <textarea
-          className="min-h-[140px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-crimson-400 focus:outline-none"
+          className="min-h-[140px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-focus-400 focus:outline-none"
           placeholder={'{ "customerName": "", "lines": [{ "code": "" }] }'}
           value={targetSample}
           onChange={(e) => dispatch({ type: "SET_TARGET_SAMPLE", text: e.target.value })}

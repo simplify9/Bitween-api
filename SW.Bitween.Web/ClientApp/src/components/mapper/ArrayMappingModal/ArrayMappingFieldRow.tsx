@@ -236,7 +236,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
           </span>
           <input
             autoFocus
-            className="w-full border border-crimson-200 bg-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 placeholder-ink-300 text-crimson-700"
+            className="w-full border border-crimson-200 bg-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 placeholder-ink-300 text-crimson-700"
             placeholder="e.g.  value * 1.1    or    value + ' USD'"
             value={m.transform ?? ''}
             onChange={(e) => onPatch({ transform: e.target.value || undefined })}

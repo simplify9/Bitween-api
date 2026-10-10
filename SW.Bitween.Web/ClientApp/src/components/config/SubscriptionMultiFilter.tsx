@@ -82,7 +82,7 @@ export function SubscriptionMultiFilter({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search subscriptions"
               aria-label="Search subscriptions"
-              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
             />
           </div>
           {selectedNames.length > 0 && (

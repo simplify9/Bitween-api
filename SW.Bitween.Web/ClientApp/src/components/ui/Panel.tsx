@@ -53,7 +53,7 @@ export function EditableTitle({
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       aria-label="Name"
-      className="-mx-1.5 w-72 max-w-full rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-[22px] font-semibold tracking-tight text-ink-900 placeholder:text-ink-300 hover:border-ink-200 hover:bg-ink-50 focus:border-crimson-400 focus:bg-white focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+      className="-mx-1.5 w-72 max-w-full rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-[22px] font-semibold tracking-tight text-ink-900 placeholder:text-ink-300 hover:border-ink-200 hover:bg-ink-50 focus:border-focus-400 focus:bg-white focus:ring-2 focus:ring-focus-100 focus:outline-none"
     />
   );
 }

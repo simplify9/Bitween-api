@@ -188,7 +188,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-ink-400 font-medium uppercase tracking-wide flex-shrink-0">Test partner</span>
           <select
-            className="text-xs border border-ink-200 rounded px-2 py-1 focus:outline-none focus:border-crimson-400 bg-white text-ink-700 max-w-[160px]"
+            className="text-xs border border-ink-200 rounded px-2 py-1 focus:outline-none focus:border-focus-400 bg-white text-ink-700 max-w-[160px]"
             value={selectedPartnerId ?? ''}
             onChange={(e) => handlePartnerChange(e.target.value)}
           >

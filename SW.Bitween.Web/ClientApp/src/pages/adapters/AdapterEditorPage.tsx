@@ -492,7 +492,7 @@ function TryPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           rows={6}
-          className="w-full rounded-lg border border-ink-200 px-3 py-2 font-mono text-[12px] focus:border-crimson-400 focus:outline-none"
+          className="w-full rounded-lg border border-ink-200 px-3 py-2 font-mono text-[12px] focus:border-focus-400 focus:outline-none"
         />
       </Field>
       <Button variant="primary" busy={busy} onClick={() => void run()}>
@@ -636,7 +636,7 @@ function PublishPanel({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-[13px] focus:border-crimson-400 focus:outline-none"
+          className="w-full rounded-lg border border-ink-200 px-3 py-2 text-[13px] focus:border-focus-400 focus:outline-none"
         />
       </Field>
       <p className="text-[12px] text-ink-500">

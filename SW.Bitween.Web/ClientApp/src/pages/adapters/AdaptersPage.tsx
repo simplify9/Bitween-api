@@ -159,7 +159,7 @@ function InstalledAdapters() {
             placeholder="Search by name, id, publisher or tag"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-ink-200 bg-white py-2 pr-3 pl-9 text-[13.5px] focus:border-crimson-500 focus:outline-none"
+            className="w-full rounded-lg border border-ink-200 bg-white py-2 pr-3 pl-9 text-[13.5px] focus:border-focus-500 focus:outline-none"
           />
         </div>
         <SegmentedControl<KindFilter>
@@ -267,7 +267,7 @@ function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: 
                 {KIND_LABEL[k]}
               </Badge>
             ))}
-            {a.currentVersion && <Badge tone="crimson">v{a.currentVersion}</Badge>}
+            {a.currentVersion && <Badge tone="ink">v{a.currentVersion}</Badge>}
             {runtimeLabel(runtimeOf(a)) && <Badge tone="neutral">{runtimeLabel(runtimeOf(a))}</Badge>}
           </span>
           <code className="block truncate font-mono text-[11.5px] text-ink-400">{a.id}</code>

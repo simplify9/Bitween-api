@@ -109,7 +109,7 @@ const ArrayMappingModal: React.FC = () => {
               <label className="block text-xs font-semibold text-ink-600 mb-1">Source Array Path</label>
               {sourceArrayPaths.length > 0 ? (
                 <select
-                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                   value={source}
                   onChange={(e) => { setSource(e.target.value); }}
                 >
@@ -118,7 +118,7 @@ const ArrayMappingModal: React.FC = () => {
                 </select>
               ) : (
                 <input
-                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-crimson-400"
+                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-focus-400"
                   placeholder="e.g. order.items"
                   value={source}
                   onChange={(e) => { setSource(e.target.value); }}
@@ -128,7 +128,7 @@ const ArrayMappingModal: React.FC = () => {
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-1">Loop Alias</label>
               <input
-                className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-crimson-400"
+                className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-focus-400"
                 placeholder="item"
                 value={alias}
                 onChange={(e) => setAlias(e.target.value)}
@@ -144,7 +144,7 @@ const ArrayMappingModal: React.FC = () => {
                   type="checkbox"
                   checked={hasFilter}
                   onChange={(e) => setHasFilter(e.target.checked)}
-                  className="rounded border-ink-300 text-crimson-600 focus:ring-crimson-500"
+                  className="rounded border-ink-300 text-crimson-600 focus:ring-focus-500"
                 />
                 <span className="text-xs font-semibold text-ink-700">Apply filter on array items</span>
               </label>
@@ -162,7 +162,7 @@ const ArrayMappingModal: React.FC = () => {
                 <div>
                   <label className="block text-xs text-ink-500 mb-1">Field</label>
                   <input
-                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                     placeholder="status"
                     value={filterField}
                     onChange={(e) => setFilterField(e.target.value)}
@@ -171,7 +171,7 @@ const ArrayMappingModal: React.FC = () => {
                 <div>
                   <label className="block text-xs text-ink-500 mb-1">Operator</label>
                   <select
-                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                     value={filterOp}
                     onChange={(e) => setFilterOp(e.target.value as FilterOperator)}
                   >
@@ -181,7 +181,7 @@ const ArrayMappingModal: React.FC = () => {
                 <div>
                   <label className="block text-xs text-ink-500 mb-1">Value</label>
                   <input
-                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                     placeholder="10"
                     value={filterValue}
                     onChange={(e) => setFilterValue(e.target.value)}

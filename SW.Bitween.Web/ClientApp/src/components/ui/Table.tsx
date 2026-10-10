@@ -213,7 +213,7 @@ export function MiniTable<T>({
             }}
             placeholder={`Search ${rows.length} ${search.noun}`}
             aria-label={`Search ${search.noun}`}
-            className="h-8 w-full rounded-lg border border-ink-200 bg-white pr-2.5 pl-8 text-[13px] placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="h-8 w-full rounded-lg border border-ink-200 bg-white pr-2.5 pl-8 text-[13px] placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
         </div>
       )}

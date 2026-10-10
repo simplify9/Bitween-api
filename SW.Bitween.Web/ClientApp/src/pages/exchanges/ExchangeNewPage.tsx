@@ -118,7 +118,7 @@ export function ExchangeNewPage() {
             rows={10}
             spellCheck={false}
             placeholder='{"order": { … }}'
-            className="w-full resize-y rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="w-full resize-y rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
           <div className="flex justify-end">
             <FormatButton value={data} onChange={setData} />

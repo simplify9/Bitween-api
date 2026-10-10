@@ -51,7 +51,7 @@ function ConditionRow({
         onChange={(e) =>
           onChange({ ...condition, values: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })
         }
-        className="h-9.5 min-w-40 flex-1 rounded-lg border border-ink-200 bg-white px-3 font-mono text-xs text-ink-900 placeholder:font-sans placeholder:text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50"
+        className="h-9.5 min-w-40 flex-1 rounded-lg border border-ink-200 bg-white px-3 font-mono text-xs text-ink-900 placeholder:font-sans placeholder:text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50"
       />
       {!disabled && (
         <button

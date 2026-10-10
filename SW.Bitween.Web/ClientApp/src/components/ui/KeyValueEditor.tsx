@@ -9,7 +9,7 @@ export interface KvRow {
 }
 
 const cellInput =
-  "h-8.5 w-full rounded-md border border-ink-200 bg-white px-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0";
+  "h-8.5 w-full rounded-md border border-ink-200 bg-white px-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0";
 
 /** Shared metrics so the textarea and its invisible sizing ghost stay identical. */
 const growBox = "border px-2.5 py-1.5 text-sm leading-5 break-words whitespace-pre-wrap";
@@ -41,7 +41,7 @@ function GrowingValueInput({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel}
-        className={`${growBox} [grid-area:1/1] w-full resize-none overflow-hidden rounded-md border-ink-200 bg-white text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0`}
+        className={`${growBox} [grid-area:1/1] w-full resize-none overflow-hidden rounded-md border-ink-200 bg-white text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0`}
       />
       <span aria-hidden className={`${growBox} [grid-area:1/1] invisible border-transparent ${disabled ? "px-0" : ""}`}>
         {value || placeholder || " "}{" "}

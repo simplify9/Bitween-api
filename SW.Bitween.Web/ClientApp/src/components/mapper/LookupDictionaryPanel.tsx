@@ -61,7 +61,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
           <div key={idx} className="flex items-center gap-1">
             <input
               autoFocus={idx === 0}
-              className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-crimson-400 placeholder-ink-300"
+              className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-focus-400 placeholder-ink-300"
               placeholder="source value"
               value={entry.from}
               onChange={(e) => patchEntry(idx, { from: e.target.value })}
@@ -69,7 +69,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
             <span className="text-ink-300 text-[10px] flex-shrink-0 select-none">→</span>
             {targetFieldType === 'boolean' ? (
               <select
-                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-crimson-400 text-crimson-700"
+                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-focus-400 text-crimson-700"
                 value={entry.to}
                 onChange={(e) => patchEntry(idx, { to: e.target.value })}
               >
@@ -80,7 +80,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
             ) : (
               <input
                 type={targetFieldType === 'number' ? 'number' : 'text'}
-                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-crimson-400 placeholder-ink-300"
+                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-focus-400 placeholder-ink-300"
                 placeholder={targetFieldType === 'number' ? '0' : 'output value'}
                 value={entry.to}
                 onChange={(e) => patchEntry(idx, { to: e.target.value })}
@@ -109,7 +109,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
         <div className="flex items-center gap-2 pt-1 border-t border-crimson-200">
           <span className="text-[10px] text-ink-500 flex-shrink-0 select-none">If not found:</span>
           <select
-            className="text-xs border border-crimson-200 bg-white rounded px-1.5 py-0.5 font-mono focus:outline-none focus:border-crimson-400 text-crimson-700"
+            className="text-xs border border-crimson-200 bg-white rounded px-1.5 py-0.5 font-mono focus:outline-none focus:border-focus-400 text-crimson-700"
             value={dictionary?.fallback ?? 'null'}
             onChange={(e) => patchFallback(e.target.value as LookupDictionary['fallback'])}
           >
@@ -119,7 +119,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
           {dictionary?.fallback === 'custom' && (
             targetFieldType === 'boolean' ? (
               <select
-                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-crimson-400 text-crimson-700"
+                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-focus-400 text-crimson-700"
                 value={dictionary.fallbackValue ?? ''}
                 onChange={(e) => patchFallbackValue(e.target.value)}
               >
@@ -130,7 +130,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
             ) : (
               <input
                 type={targetFieldType === 'number' ? 'number' : 'text'}
-                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-crimson-400 placeholder-ink-300 text-crimson-700"
+                className="flex-1 min-w-0 border border-crimson-200 bg-white rounded px-2 py-0.5 text-xs font-mono focus:outline-none focus:border-focus-400 placeholder-ink-300 text-crimson-700"
                 placeholder={targetFieldType === 'number' ? '0' : 'fallback value'}
                 value={dictionary.fallbackValue ?? ''}
                 onChange={(e) => patchFallbackValue(e.target.value)}

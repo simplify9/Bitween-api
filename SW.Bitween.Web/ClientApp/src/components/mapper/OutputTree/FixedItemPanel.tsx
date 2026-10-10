@@ -162,7 +162,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
             <div className="flex items-center gap-1.5">
               {hasFreeKey ? (
                 <input
-                  className="w-20 flex-shrink-0 border border-ink-200 bg-transparent rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-crimson-400"
+                  className="w-20 flex-shrink-0 border border-ink-200 bg-transparent rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-focus-400"
                   placeholder="key" value={df.key}
                   onChange={(e) => updateField(i, { key: e.target.value })} />
               ) : (
@@ -247,7 +247,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
       {/* Nested array dropdown — schema-only, depth-gated */}
       {depth < FIXED_ITEM_MAX_DEPTH && availableArrayNodes.length > 0 && (
         <select
-          className="w-full border border-crimson-200 bg-white rounded px-1.5 py-0.5 text-[10px] font-mono text-crimson-700 focus:outline-none focus:border-crimson-400"
+          className="w-full border border-crimson-200 bg-white rounded px-1.5 py-0.5 text-[10px] font-mono text-crimson-700 focus:outline-none focus:border-focus-400"
           value=""
           onChange={(e) => {
             const childNode = childArrayNodes.find((c) => c.key === e.target.value);

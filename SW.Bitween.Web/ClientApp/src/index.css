@@ -60,6 +60,16 @@
   --color-warn-100: #fef7c3;
 
   /*
+    Focus, deliberately neither the brand ramp nor the status red. Focus used the brand
+    crimson, and on the default brand that is the error red too, so a field that merely had
+    focus read as one that was wrong. A calm blue says "you are here" and nothing else, and
+    survives any brand color a tenant picks.
+  */
+  --color-focus-100: #dbe7fd;
+  --color-focus-400: #6b97ee;
+  --color-focus-500: #3b74e8;
+
+  /*
     Status red, deliberately NOT the crimson ramp. Brand color is customer-settable
     (Theme.PrimaryColor rewrites every --color-crimson-* at runtime), so anything
     that means "this failed" or "this destroys data" has to live outside it —
@@ -90,7 +100,7 @@
     @apply bg-crimson-100 text-crimson-900;
   }
   :focus-visible {
-    outline: 2px solid var(--color-crimson-500);
+    outline: 2px solid var(--color-focus-500);
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {

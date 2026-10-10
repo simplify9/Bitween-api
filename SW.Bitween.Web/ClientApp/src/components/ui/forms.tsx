@@ -2,7 +2,7 @@ import { useId, useState, type InputHTMLAttributes, type ReactNode, type SelectH
 import { Eye, EyeOff } from "lucide-react";
 
 const inputClass =
-  "h-9.5 w-full rounded-lg border border-ink-200 bg-white px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:outline-none focus:ring-2 focus:ring-crimson-100 disabled:bg-ink-50 disabled:text-ink-500";
+  "h-9.5 w-full rounded-lg border border-ink-200 bg-white px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:outline-none focus:ring-2 focus:ring-focus-100 disabled:bg-ink-50 disabled:text-ink-500";
 
 export function Field({
   label,
@@ -90,7 +90,7 @@ export function Select({
   return (
     <select
       {...props}
-      className={`h-9.5 w-full cursor-pointer rounded-lg border border-ink-200 bg-white px-2.5 text-sm text-ink-900 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500 ${props.className ?? ""}`}
+      className={`h-9.5 w-full cursor-pointer rounded-lg border border-ink-200 bg-white px-2.5 text-sm text-ink-900 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500 ${props.className ?? ""}`}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

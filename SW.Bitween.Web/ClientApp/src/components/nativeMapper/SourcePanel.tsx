@@ -63,7 +63,7 @@ export function SourcePanel({
 
       <div className="flex-shrink-0 border-b border-ink-100 px-3 py-2">
         <textarea
-          className="min-h-[72px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-crimson-400 focus:outline-none"
+          className="min-h-[72px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-focus-400 focus:outline-none"
           placeholder='Paste a sample document, e.g. { "order": { "customer": "Ali" } }'
           value={sourceSample}
           onChange={(e) => dispatch({ type: "SET_SOURCE_SAMPLE", text: e.target.value })}

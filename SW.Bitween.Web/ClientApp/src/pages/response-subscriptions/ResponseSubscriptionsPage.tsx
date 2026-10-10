@@ -93,7 +93,7 @@ export function ResponseSubscriptionsPage() {
             onChange={(e) => setParam("q", e.target.value || null)}
             placeholder="Search response subscriptions"
             aria-label="Search response subscriptions"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
         </div>
         <div className="w-40">

@@ -195,7 +195,7 @@ const MappingEditorInner: React.FC = () => {
               <div className="relative">
                 <Search className="absolute left-2 top-1.5 text-ink-400" size={11} />
                 <input
-                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-crimson-400 font-mono"
+                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-focus-400 font-mono"
                   placeholder="Search fields…"
                   value={searchInput}
                   onChange={(e) => dispatch(setSearchInput(e.target.value))}
@@ -207,7 +207,7 @@ const MappingEditorInner: React.FC = () => {
             <div className="px-3 py-2 border-b border-ink-100 flex-shrink-0">
               <textarea
                 ref={srcTextareaRef}
-                className="w-full min-h-[60px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-crimson-400 bg-ink-50"
+                className="w-full min-h-[60px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-focus-400 bg-ink-50"
                 style={{ height: jsonAreaHeight }}
                 placeholder='{ "paste": "source JSON here" }'
                 value={inputJson}
@@ -269,7 +269,7 @@ const MappingEditorInner: React.FC = () => {
               <div className="relative">
                 <Search className="absolute left-2 top-1.5 text-ink-400" size={11} />
                 <input
-                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-crimson-400 font-mono"
+                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-focus-400 font-mono"
                   placeholder="Search fields…"
                   value={searchOutput}
                   onChange={(e) => dispatch(setSearchOutput(e.target.value))}
@@ -281,7 +281,7 @@ const MappingEditorInner: React.FC = () => {
             <div className="px-3 py-2 border-b border-ink-100 flex-shrink-0">
               <textarea
                 ref={tgtTextareaRef}
-                className="w-full min-h-[40px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-crimson-400 bg-ink-50"
+                className="w-full min-h-[40px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-focus-400 bg-ink-50"
                 style={{ height: jsonAreaHeight }}
                 placeholder='{ "desired": "output shape" }  (optional — used to generate structure)'
                 value={outputJson}

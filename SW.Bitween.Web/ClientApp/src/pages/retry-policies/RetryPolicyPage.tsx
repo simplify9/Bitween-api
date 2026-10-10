@@ -87,7 +87,7 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
                 ? "e.g. HttpRequestException: The request timed out"
                 : 'e.g. { "status": "REJECTED", "reason": "…" }'
             }
-            className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
         </Field>
         <FormError>{test.error?.message}</FormError>

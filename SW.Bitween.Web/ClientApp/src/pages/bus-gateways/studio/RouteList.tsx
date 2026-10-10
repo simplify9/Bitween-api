@@ -69,7 +69,7 @@ export function RouteList({
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${routes.length} route${routes.length === 1 ? "" : "s"}…`}
             aria-label="Search routes"
-            className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pr-2 pl-8 text-[13px] text-ink-800 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pr-2 pl-8 text-[13px] text-ink-800 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
         </div>
         {canEdit && (
