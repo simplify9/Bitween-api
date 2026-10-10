@@ -108,6 +108,95 @@ public class AdapterEditorTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task A_save_over_someone_else_s_is_refused_unless_it_says_to()
+    {
+        var id = await NewDraft(Unique("PyTwo"));
+        var opened = await Draft(id);
+
+        // Someone else saves first, from the same version.
+        await As(sp => ActivatorUtilities.CreateInstance<Update>(sp).Handle(id, new AdapterDraftUpdate
+        {
+            Files = opened.Files.ToDictionary(f => f.Key, f => f.Value + (f.Key == "main.py" ? "\n# theirs\n" : "")),
+            BaseHash = opened.FilesHash,
+        }));
+
+        var mine = opened.Files.ToDictionary(f => f.Key, f => f.Value + (f.Key == "main.py" ? "\n# mine\n" : ""));
+        var refused = await Assert.ThrowsAsync<SWValidationException>(() =>
+            As(sp => ActivatorUtilities.CreateInstance<Update>(sp).Handle(id, new AdapterDraftUpdate { Files = mine, BaseHash = opened.FilesHash })));
+        Assert.Contains("after you opened it", refused.Message + string.Join(" ", refused.Validations.Select(v => v.Value)));
+        Assert.Contains("# theirs", (await Draft(id)).Files["main.py"]);
+
+        // Saving over theirs, knowingly: without a base, as a client from before this does.
+        await As(sp => ActivatorUtilities.CreateInstance<Update>(sp).Handle(id, new AdapterDraftUpdate { Files = mine }));
+        Assert.Contains("# mine", (await Draft(id)).Files["main.py"]);
+    }
+
+    async Task<T> WithDependencies<T>(Func<Task<T>> act)
+    {
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        options.AdapterEditorDependencies = true;
+        try { return await act(); }
+        finally { options.AdapterEditorDependencies = false; }
+    }
+
+    [Fact]
+    public async Task With_dependencies_on_only_plain_names_and_versions_are_fetched()
+    {
+        var py = await NewDraft(Unique("PySources"));
+        await Save(py, files =>
+        {
+            files["requirements.txt"] += "\n--index-url https://example.com/simple\nhttps://example.com/x-1.0-py3-none-any.whl\n" +
+                                         "./local\nthing @ git+https://example.com/thing.git\n";
+            return files;
+        });
+        var problems = (await WithDependencies(() => Build(py)))["Problems"]!.Select(p => (string)p).ToList();
+        Assert.Equal(4, problems.Count(p => p.Contains("isn't a package name and version")));
+
+        var js = await NewDraft(Unique("JsSources"), "node");
+        await Save(js, files =>
+        {
+            var package = System.Text.Json.Nodes.JsonNode.Parse(files["package.json"])!.AsObject();
+            package["dependencies"] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["local"] = "file:../../etc", ["remote"] = "git+https://example.com/r.git", ["alias"] = "npm:left-pad@1.3.0",
+                ["fine"] = "^7.0.0",
+            };
+            files["package.json"] = package.ToJsonString();
+            return files;
+        });
+        problems = (await WithDependencies(() => Build(js)))["Problems"]!.Select(p => (string)p).ToList();
+        Assert.Equal(3, problems.Count(p => p.Contains("isn't a package and version range")));
+        Assert.DoesNotContain(problems, p => p.Contains("\"fine\""));
+    }
+
+    [SkippableFact]
+    public async Task With_dependencies_on_a_package_from_the_index_is_vendored_and_runs()
+    {
+        try
+        {
+            using var probe = new System.Net.Sockets.TcpClient();
+            await probe.ConnectAsync("pypi.org", 443).WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception ex)
+        {
+            Skip.If(true, $"PyPI can't be reached from here: {ex.GetBaseException().Message}");
+        }
+
+        var id = await NewDraft(Unique("PySix"));
+        await Save(id, files =>
+        {
+            files["requirements.txt"] += "\nsix==1.16.0\n";
+            files["main.py"] = "import six\n" + files["main.py"];
+            return files;
+        });
+
+        Assert.False((bool)(await Build(id))["Succeeded"]);
+        var built = await WithDependencies(() => Build(id));
+        Assert.True((bool)built["Succeeded"], built.ToString());
+        Assert.True((bool)built["Conforms"], built.ToString());
+    }
+
+    [Fact]
     public async Task Publishing_makes_a_version_that_is_not_current_until_it_is_promoted()
     {
         var name = Unique("PyPublish");

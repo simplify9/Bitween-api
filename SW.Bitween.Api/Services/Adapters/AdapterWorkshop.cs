@@ -63,7 +63,8 @@ public class AdapterWorkshop(
     AdapterSourceReader sourceReader,
     AdapterChanges changes,
     ICloudFilesService cloudFiles,
-    ServerlessOptions serverlessOptions)
+    ServerlessOptions serverlessOptions,
+    BitweenOptions bitweenOptions)
 {
     static readonly SemaphoreSlim Running = new(2, 2);
     const int CallTimeoutSeconds = 30;
@@ -315,11 +316,18 @@ public class AdapterWorkshop(
 
         var files = draft.Files;
         var result = new WorkshopBuild();
-        result.Problems.AddRange(Dependencies(files));
+        result.Problems.AddRange(Dependencies(files, bitweenOptions.AdapterEditorDependencies));
         if (result.Problems.Count > 0) return new Built { Work = work, Result = result };
 
         foreach (var (path, content) in files)
         {
+            // A lock file can name any source, a local folder included; the build resolves from the
+            // registry instead, from package.json's plain versions.
+            if (path == "package-lock.json")
+            {
+                result.Warnings.Add("package-lock.json isn't used here: the editor installs the versions package.json names, from the registry");
+                continue;
+            }
             var target = Path.Combine(project, path);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             await File.WriteAllTextAsync(target, content);
@@ -346,6 +354,17 @@ public class AdapterWorkshop(
             return new Built { Work = work, Result = result };
         }
 
+        // With platforms that leave this server out, the build installs the requirements here a
+        // second time, to describe the adapter, and that install may build a package from source:
+        // running its setup code on the server. The CLI can do that on an author's machine; here, no.
+        if (files.ContainsKey("requirements.txt") && authored["platforms"] is JsonArray platforms && platforms.Count > 0 &&
+            !platforms.Any(p => string.Equals((string)p, SW.Serverless.Runtimes.AdapterRuntimes.CurrentPlatform, StringComparison.OrdinalIgnoreCase)))
+        {
+            result.Problems.Add($"{AdapterManifest.FileName} lists platforms without {SW.Serverless.Runtimes.AdapterRuntimes.CurrentPlatform}, " +
+                                "the one this server runs on; build it with bitween adapter build instead");
+            return new Built { Work = work, Result = result };
+        }
+
         var build = await PackageBuilder.BuildAsync(BitweenAdapters.BuildRequest(project, Path.Combine(work, "out")));
         result.Succeeded = build.Succeeded;
         result.Problems.AddRange(build.Problems);
@@ -357,32 +376,58 @@ public class AdapterWorkshop(
     static readonly string[] OwnPackages = ["sw-serverless", "sw_serverless", "simplyworks-bitween", "simplyworks_bitween",
         "@simplyworks/sw-serverless", "@simplyworks/bitween"];
 
-    /// <summary>Dependencies beyond the SDKs, which the editor can't fetch: what it says about each.</summary>
-    static IEnumerable<string> Dependencies(IDictionary<string, string> files)
+    /// <summary>
+    /// What the editor won't build because of the packages a draft names. Without
+    /// Bitween:AdapterEditorDependencies, any beyond the SDKs. With it, any that isn't a plain name
+    /// and version from the registry: a URL, a path, a git source or a pip option could make the
+    /// server fetch from anywhere, or copy its own files into the package.
+    /// </summary>
+    static IEnumerable<string> Dependencies(IDictionary<string, string> files, bool allowed)
     {
         if (files.TryGetValue("requirements.txt", out var requirements))
         {
-            var names = requirements.Split('\n').Select(l => l.Trim())
+            var lines = requirements.Split('\n').Select(l => l.Trim())
                 .Where(l => l.Length > 0 && !l.StartsWith('#'))
-                .Select(l => Regex.Match(l, @"^[A-Za-z0-9_.\-]+").Value)
+                .Select(l => l.Split(" #")[0].Trim())
+                .ToList();
+            var names = lines.Select(l => Regex.Match(l, @"^[A-Za-z0-9_.\-]+").Value)
                 .Where(n => !OwnPackages.Contains(n, StringComparer.OrdinalIgnoreCase))
                 .ToList();
-            if (names.Count > 0)
-                yield return $"requirements.txt names {string.Join(", ", names)}; the editor builds adapters that need only the SDK. " +
-                             "Build one with dependencies using bitween adapter build, which vendors them";
+            if (names.Count > 0 && !allowed)
+                yield return $"requirements.txt names {string.Join(", ", names)}; this Bitween's editor builds adapters that need only the SDK. " +
+                             "Build one with dependencies using bitween adapter build, which vendors them, or turn on Bitween:AdapterEditorDependencies";
+            else if (allowed)
+                foreach (var line in lines.Where(l => !PlainRequirement.IsMatch(l)))
+                    yield return $"requirements.txt: '{line}' isn't a package name and version; the editor fetches only those, from the package index";
         }
 
         if (files.TryGetValue("package.json", out var packageJson))
         {
             JsonObject document = null;
             try { document = JsonNode.Parse(packageJson)?.AsObject(); } catch (JsonException) { }
-            var names = document?["dependencies"]?.AsObject().Select(d => d.Key)
-                .Where(n => !OwnPackages.Contains(n, StringComparer.OrdinalIgnoreCase)).ToList() ?? [];
-            if (names.Count > 0)
-                yield return $"package.json depends on {string.Join(", ", names)}; the editor builds adapters that need only the SDK. " +
-                             "Build one with dependencies using bitween adapter build, which installs them";
+            var dependencies = document?["dependencies"]?.AsObject()
+                .Where(d => !OwnPackages.Contains(d.Key, StringComparer.OrdinalIgnoreCase)).ToList() ?? [];
+            if (dependencies.Count > 0 && !allowed)
+                yield return $"package.json depends on {string.Join(", ", dependencies.Select(d => d.Key))}; this Bitween's editor builds adapters that need only the SDK. " +
+                             "Build one with dependencies using bitween adapter build, which installs them, or turn on Bitween:AdapterEditorDependencies";
+            else if (allowed)
+                foreach (var (name, spec) in dependencies)
+                    if (!PlainPackageName.IsMatch(name) || spec is not JsonValue || !PlainVersionRange.IsMatch(spec.ToString()))
+                        yield return $"package.json: \"{name}\": {spec?.ToJsonString()} isn't a package and version range; the editor installs only those, from the registry";
+
+            if (allowed && document?["optionalDependencies"] is JsonObject { Count: > 0 } || allowed && document?["bundleDependencies"] != null)
+                yield return "package.json: the editor installs dependencies only, not optional or bundled ones";
         }
     }
+
+    // name, optional [extras], optional version specifiers, optional ; marker. No URL, path or option.
+    static readonly Regex PlainRequirement = new(
+        @"^[A-Za-z0-9][A-Za-z0-9_.\-]*(\[[A-Za-z0-9_.,\- ]+\])?\s*((===?|!=|~=|<=?|>=?)\s*[A-Za-z0-9_.*+!\-]+\s*(,\s*(===?|!=|~=|<=?|>=?)\s*[A-Za-z0-9_.*+!\-]+\s*)*)?(;[^@:/\\]*)?$");
+
+    static readonly Regex PlainPackageName = new(@"^(@[a-z0-9][a-z0-9._\-]*/)?[a-z0-9][a-z0-9._\-]*$");
+
+    // Semver ranges and dist-tags: no "file:", "git+", "http:", "npm:" aliases or paths.
+    static readonly Regex PlainVersionRange = new(@"^[A-Za-z0-9 .*^~<>=|+\-]*$");
 
     /// <summary>The try panel's input, as the CLI's run reads --input: JSON when it parses, the text otherwise.</summary>
     static object ReadInput(string input)

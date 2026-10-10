@@ -5,15 +5,19 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 COPY --from=mcr.microsoft.com/dotnet/aspnet:6.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
 
 # Python, for adapters written in it: SW.Serverless starts them with python3. Ubuntu 24.04's 3.12,
-# the oldest the Python SDK supports, patched with every rebuild of the image. Adapters bring their
-# own packages, vendored, so nothing else is installed.
+# the oldest the Python SDK supports, patched with every rebuild of the image. Published adapters
+# bring their own packages, vendored; pip is here for the adapter editor, which fetches a draft's
+# requirements when Bitween:AdapterEditorDependencies is on.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 \
+    && apt-get install -y --no-install-recommends python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-# Node, for adapters written in JavaScript or TypeScript: the runtime alone, from the official
-# Node 22 LTS image. Adapters bring their dependencies in node_modules, so npm isn't needed here.
+# Node, for adapters written in JavaScript or TypeScript, from the official Node 22 LTS image.
+# Published adapters bring their dependencies in node_modules; npm is here for the adapter editor,
+# as pip is.
 COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:22-bookworm-slim /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
 WORKDIR /app
 EXPOSE 8080

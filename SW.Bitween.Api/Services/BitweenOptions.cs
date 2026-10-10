@@ -132,6 +132,15 @@ namespace SW.Bitween
         public int ServerlessCommandTimeout { get; set; }
 
         /// <summary>
+        /// Lets the adapter editor build drafts that name packages in requirements.txt or
+        /// package.json: the server then downloads them from PyPI and npm, or from the mirrors
+        /// PIP_INDEX_URL and NPM_CONFIG_REGISTRY name. Off by default, since it needs the server to
+        /// reach a package index. Only plain names and versions are accepted, wheels only for Python
+        /// and no install scripts for Node, so nothing a package brings runs while it is built.
+        /// </summary>
+        public bool AdapterEditorDependencies { get; set; }
+
+        /// <summary>
         /// This deployment's release, e.g. 10.0.4 — set by a pipeline that knows it. Adapters may
         /// declare the lowest Bitween they work with; see <see cref="BitweenInfo"/>.
         /// </summary>
