@@ -43,8 +43,14 @@ const PAGE = 200;
 export function SchemaBrowser({
   dataSourceId,
   onUseInStatement,
+  notStartedYet = false,
 }: {
   dataSourceId: number;
+  /**
+   * The connection has never run, so there is nobody to ask: said plainly instead of the red
+   * "not running" the server answers, which on a data source just created read as a fault.
+   */
+  notStartedYet?: boolean;
   /** Hands a generated statement to the statements panel. Absent when the user cannot create one. */
   onUseInStatement?: (draft: { name: string; sql: string; description: string }) => void;
 }) {
@@ -69,6 +75,7 @@ export function SchemaBrowser({
     queryFn: () => fetchCapabilities(dataSourceId),
     staleTime: 5 * 60_000,
     retry: false,
+    enabled: !notStartedYet,
   });
 
   const query = { objectType, schema, nameLike, skip: page * PAGE, take: PAGE };
@@ -80,6 +87,7 @@ export function SchemaBrowser({
     // connection that is serving traffic.
     staleTime: 60_000,
     retry: false,
+    enabled: !notStartedYet,
   });
 
   // Which tabs to show is the engine's answer, not a list this file keeps: Oracle has packages,
@@ -150,6 +158,11 @@ export function SchemaBrowser({
         />
       </div>
 
+      {notStartedYet && (
+        <p className="rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-600">
+          Once the connection has started, what the database holds is listed here.
+        </p>
+      )}
       {objects.isError && (
         <FormError>
           {objects.error instanceof Error

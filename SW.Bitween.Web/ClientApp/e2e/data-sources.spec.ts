@@ -28,6 +28,13 @@ async function createDataSource(page: Page, name: string) {
   await page.getByRole("button", { name: "New data source" }).click();
   await page.fill("#ds-name", name);
   await page.locator("#ds-provider").selectOption(PROVIDER);
+  // Asked for at create: what the provider can't connect without. The tests set the real
+  // connection on the data source's page afterwards.
+  const required = { Host: E2E_DATABASE.host, Database: E2E_DATABASE.database, UserName: E2E_DATABASE.user, Password: "placeholder" };
+  for (const [setting, value] of Object.entries(required)) {
+    const field = page.locator(`#ds-new-${setting}`);
+    if (await field.count()) await field.fill(value);
+  }
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page).toHaveURL(/\/data-sources\/\d+$/);
   await expect(page.getByRole("heading", { name, level: 1 })).toBeVisible();

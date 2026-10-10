@@ -4,17 +4,18 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiRequestError } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Field, Select, TextInput } from "../../components/ui/forms";
+import { Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { declaredSecrets, initialProperties, useDataSourceProviders } from "./providers";
 
 /**
- * Creating asks for a name and a provider, and nothing else.
+ * Creating asks for a name, a provider, and the settings that provider can't connect without.
  *
  * The connection settings depend on the provider — RabbitMQ wants a virtual host, SQS wants a
- * region — so asking for them before that is chosen means either the wrong fields or a blank
- * key/value grid. The provider seeds its own, and the next screen is a form to fill in.
+ * region — so they appear once it is chosen. Only the required ones are asked here: a data source
+ * created without them sat on its page with a red error and twenty fields, none of which said
+ * which to fill in first. The rest keep their defaults and are on the next screen.
  *
  * Which providers exist, and what each one starts with, comes from the adapters themselves.
  */
@@ -25,6 +26,8 @@ export function DataSourceNewPage() {
   const [name, setName] = useState("");
   const [adapterId, setAdapterId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Typed values, by provider, so switching provider and back keeps what was typed.
+  const [typed, setTyped] = useState<Record<string, Record<string, string>>>({});
 
   const providers = useDataSourceProviders();
   // Nothing is chosen until the catalog arrives, so the first provider stands in for a choice the
@@ -38,7 +41,7 @@ export function DataSourceNewPage() {
         name: name.trim(),
         adapterId: provider.adapterId,
         kind: provider.kind,
-        properties: initialProperties(provider),
+        properties: { ...initialProperties(provider), ...(typed[provider.adapterId] ?? {}) },
         secretProperties: declaredSecrets(provider),
       });
     },
@@ -49,6 +52,13 @@ export function DataSourceNewPage() {
     onError: (e) =>
       setError(e instanceof ApiRequestError ? e.message : "Could not create this data source."),
   });
+
+  const required = provider?.settings.filter((s) => s.required) ?? [];
+  const valueOf = (setting: string) =>
+    typed[provider?.adapterId ?? ""]?.[setting] ?? provider?.settings.find((s) => s.name === setting)?.default ?? "";
+  const setValue = (setting: string, value: string) =>
+    setTyped((t) => ({ ...t, [provider!.adapterId]: { ...(t[provider!.adapterId] ?? {}), [setting]: value } }));
+  const missing = required.filter((s) => !valueOf(s.name).trim()).map((s) => s.name);
 
   const submit = () => {
     setError(null);
@@ -77,7 +87,16 @@ export function DataSourceNewPage() {
   return (
     <div className="max-w-xl">
       <BackLink to="/data-sources" label="Data sources" className="mb-3" />
-      <PageHeader title="New data source" description="A connection to a broker outside Bitween." />
+      <PageHeader
+        title="New data source"
+        description={
+          provider.kind === "Broker"
+            ? "A connection Bitween keeps open to a message broker outside it."
+            : provider.kind === "Relational"
+              ? "A connection Bitween keeps open to a database outside it."
+              : "A connection Bitween keeps open to a system outside it."
+        }
+      />
 
       <div className="flex flex-col gap-4 rounded-xl border border-ink-200 bg-white p-5">
         <Field label="Name" htmlFor="ds-name">
@@ -103,13 +122,48 @@ export function DataSourceNewPage() {
           />
         </Field>
 
+        {required.length > 0 && (
+          <div className="flex flex-col gap-4 border-t border-ink-100 pt-4">
+            <p className="text-[13px] text-ink-600">
+              What {provider.label} needs to connect. Everything else starts at its default, on the next screen.
+            </p>
+            {required.map((s) => (
+              <Field key={`${provider.adapterId}-${s.name}`} label={s.name} hint={s.hint ?? undefined} htmlFor={`ds-new-${s.name}`}>
+                {s.allowedValues ? (
+                  <Select
+                    id={`ds-new-${s.name}`}
+                    value={valueOf(s.name)}
+                    onChange={(e) => setValue(s.name, e.target.value)}
+                    options={s.allowedValues.map((v) => ({ value: v, label: v }))}
+                  />
+                ) : s.secret ? (
+                  <PasswordInput id={`ds-new-${s.name}`} value={valueOf(s.name)} onChange={(e) => setValue(s.name, e.target.value)} />
+                ) : (
+                  <TextInput
+                    id={`ds-new-${s.name}`}
+                    type={s.type === "number" ? "number" : "text"}
+                    value={valueOf(s.name)}
+                    onChange={(e) => setValue(s.name, e.target.value)}
+                  />
+                )}
+              </Field>
+            ))}
+          </div>
+        )}
+
         {error && <FormError>{error}</FormError>}
 
         <div className="flex items-center gap-2">
-          <Button variant="primary" onClick={submit} disabled={create.isPending}>
+          <Button onClick={() => navigate("/data-sources")}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={submit}
+            disabled={create.isPending || missing.length > 0}
+            title={missing.length > 0 ? `Still needs ${missing.join(", ")}` : undefined}
+          >
             {create.isPending ? "Creating…" : "Create"}
           </Button>
-          <Button onClick={() => navigate("/data-sources")}>Cancel</Button>
+          {missing.length > 0 && <span className="text-[12.5px] text-ink-500">Still needs {missing.join(", ")}.</span>}
         </div>
       </div>
     </div>

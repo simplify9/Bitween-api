@@ -416,6 +416,7 @@ export function DataSourcePage() {
               <div className="mb-4">
                 <SchemaBrowser
                   dataSourceId={dataSourceId}
+                  notStartedYet={!d.lastKnownState && !d.lastHeartbeatOn}
                   onUseInStatement={
                     canCreateStatements
                       ? (draft) => {
@@ -538,6 +539,116 @@ export function DataSourcePage() {
               </Field>
             )}
 
+            <div className="border-t border-ink-100 pt-4">
+              <h3 className="mb-1 text-sm font-medium text-ink-800">Connection settings</h3>
+              <p className="mb-3 text-[12px] text-ink-500">
+                Handed straight to the adapter, which is also where this list comes from:{" "}
+                {provider ? provider.label : d.adapterId} declares what it accepts. Anything else it
+                understands can still be added by hand.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                {orderedSettingNames(provider, Object.keys(draft.properties)).map((key) => {
+                  const declared = settingOf(provider, key);
+                  const secret = isSecretName(key, d.secretProperties, declared);
+                  const value = draft.properties[key];
+                  const stored = secret && value === SECRET_SENTINEL;
+
+                  return (
+                    <div key={key} className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <Field
+                          label={declared?.required ? `${settingLabel(key)} *` : settingLabel(key)}
+                          htmlFor={`ds-prop-${key}`}
+                          hint={stored ? "Stored. Type to replace it." : declared?.hint}
+                        >
+                          {declared?.allowedValues ? (
+                            <Select
+                              id={`ds-prop-${key}`}
+                              value={value}
+                              disabled={!canEdit}
+                              onChange={(e) => setProperty(key, e.target.value)}
+                              // An empty option only where empty is legal: a setting the adapter did
+                              // not mark required can be left for the broker to decide.
+                              options={[
+                                ...(declared.required ? [] : [{ value: "", label: "—" }]),
+                                ...declared.allowedValues.map((v) => ({ value: v, label: v })),
+                              ]}
+                            />
+                          ) : secret ? (
+                            <PasswordInput
+                              id={`ds-prop-${key}`}
+                              value={stored ? "" : value}
+                              disabled={!canEdit}
+                              placeholder={stored ? "••••••••" : undefined}
+                              // Typing replaces the secret outright: appending to a sentinel that is
+                              // not the password would save something nobody chose.
+                              onChange={(e) => setProperty(key, e.target.value)}
+                            />
+                          ) : (
+                            <TextInput
+                              id={`ds-prop-${key}`}
+                              type={declared?.type === "number" ? "number" : "text"}
+                              value={value}
+                              disabled={!canEdit}
+                              onChange={(e) => setProperty(key, e.target.value)}
+                            />
+                          )}
+                        </Field>
+                      </div>
+                      {/* A setting the adapter can't connect without isn't one to remove. */}
+                      {canEdit && !declared?.required && (
+                        <button
+                          type="button"
+                          title={`Remove ${key}`}
+                          onClick={() => removeProperty(key)}
+                          className="mt-7 rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-danger-700"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {canEdit && (
+                <div className="mt-3 flex items-end gap-2">
+                  <div className="w-64">
+                    <Field
+                      label="Add a setting"
+                      htmlFor="ds-new-key"
+                      hint={
+                        unused.length > 0
+                          ? `${provider?.label ?? "This provider"} also accepts ${unused
+                              .slice(0, 3)
+                              .join(", ")}${unused.length > 3 ? ` and ${unused.length - 3} more` : ""}.`
+                          : "A name that looks like a credential is masked automatically."
+                      }
+                    >
+                      <TextInput
+                        id="ds-new-key"
+                        list="ds-known-settings"
+                        value={newKey}
+                        placeholder={unused[0] ?? "QueueType"}
+                        onChange={(e) => setNewKey(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addProperty()}
+                      />
+                      {/* Typing is still allowed: an adapter may read more than it declares. */}
+                      <datalist id="ds-known-settings">
+                        {unused.map((name) => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
+                    </Field>
+                  </div>
+                  <Button onClick={addProperty} disabled={!newKey.trim()}>
+                    <Plus className="size-4" /> Add
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* All four in one row. Each explanation sits on its label's help mark: as paragraphs
                 they were most of this card. */}
             <div className="border-t border-ink-100 pt-4">
@@ -605,115 +716,6 @@ export function DataSourcePage() {
                     {cores}-core machine — this browser's core count, not the node's.
                   </p>
                 )
-              )}
-            </div>
-
-            <div className="border-t border-ink-100 pt-4">
-              <h3 className="mb-1 text-sm font-medium text-ink-800">Connection settings</h3>
-              <p className="mb-3 text-[12px] text-ink-500">
-                Handed straight to the adapter, which is also where this list comes from:{" "}
-                {provider ? provider.label : d.adapterId} declares what it accepts. Anything else it
-                understands can still be added by hand.
-              </p>
-
-              <div className="flex flex-col gap-3">
-                {orderedSettingNames(provider, Object.keys(draft.properties)).map((key) => {
-                  const declared = settingOf(provider, key);
-                  const secret = isSecretName(key, d.secretProperties, declared);
-                  const value = draft.properties[key];
-                  const stored = secret && value === SECRET_SENTINEL;
-
-                  return (
-                    <div key={key} className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <Field
-                          label={declared?.required ? `${settingLabel(key)} *` : settingLabel(key)}
-                          htmlFor={`ds-prop-${key}`}
-                          hint={stored ? "Stored. Type to replace it." : declared?.hint}
-                        >
-                          {declared?.allowedValues ? (
-                            <Select
-                              id={`ds-prop-${key}`}
-                              value={value}
-                              disabled={!canEdit}
-                              onChange={(e) => setProperty(key, e.target.value)}
-                              // An empty option only where empty is legal: a setting the adapter did
-                              // not mark required can be left for the broker to decide.
-                              options={[
-                                ...(declared.required ? [] : [{ value: "", label: "—" }]),
-                                ...declared.allowedValues.map((v) => ({ value: v, label: v })),
-                              ]}
-                            />
-                          ) : secret ? (
-                            <PasswordInput
-                              id={`ds-prop-${key}`}
-                              value={stored ? "" : value}
-                              disabled={!canEdit}
-                              placeholder={stored ? "••••••••" : undefined}
-                              // Typing replaces the secret outright: appending to a sentinel that is
-                              // not the password would save something nobody chose.
-                              onChange={(e) => setProperty(key, e.target.value)}
-                            />
-                          ) : (
-                            <TextInput
-                              id={`ds-prop-${key}`}
-                              type={declared?.type === "number" ? "number" : "text"}
-                              value={value}
-                              disabled={!canEdit}
-                              onChange={(e) => setProperty(key, e.target.value)}
-                            />
-                          )}
-                        </Field>
-                      </div>
-                      {canEdit && (
-                        <button
-                          type="button"
-                          title={`Remove ${key}`}
-                          onClick={() => removeProperty(key)}
-                          className="mt-7 rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-danger-700"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {canEdit && (
-                <div className="mt-3 flex items-end gap-2">
-                  <div className="w-64">
-                    <Field
-                      label="Add a setting"
-                      htmlFor="ds-new-key"
-                      hint={
-                        unused.length > 0
-                          ? `${provider?.label ?? "This provider"} also accepts ${unused
-                              .slice(0, 3)
-                              .join(", ")}${unused.length > 3 ? ` and ${unused.length - 3} more` : ""}.`
-                          : "A name that looks like a credential is masked automatically."
-                      }
-                    >
-                      <TextInput
-                        id="ds-new-key"
-                        list="ds-known-settings"
-                        value={newKey}
-                        placeholder={unused[0] ?? "QueueType"}
-                        onChange={(e) => setNewKey(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && addProperty()}
-                      />
-                      {/* Typing is still allowed: an adapter may read more than it declares. */}
-                      <datalist id="ds-known-settings">
-                        {unused.map((name) => (
-                          <option key={name} value={name} />
-                        ))}
-                      </datalist>
-                    </Field>
-                  </div>
-                  <Button onClick={addProperty} disabled={!newKey.trim()}>
-                    <Plus className="size-4" /> Add
-                  </Button>
-                </div>
               )}
             </div>
 
