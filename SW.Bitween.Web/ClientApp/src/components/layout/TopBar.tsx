@@ -1,4 +1,6 @@
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
+
+const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 import { Link, useMatches } from "react-router";
 import { NAV_GROUPS } from "../../nav";
 import { PAGES, pageTrail, pathOf, type PageId } from "../../pages";
@@ -12,10 +14,28 @@ import type { Branding } from "../../lib/branding";
  * each level rather than one "Back". The last crumb is the thing itself when the page has said
  * what it is (`usePageTitle`).
  */
-export function TopBar({ page, title, branding }: { page: PageId | null; title: string | null; branding: Branding }) {
+export function TopBar({
+  page,
+  title,
+  branding,
+  onSearch,
+}: {
+  page: PageId | null;
+  title: string | null;
+  branding: Branding;
+  onSearch: () => void;
+}) {
   return (
     <div className="sticky top-0 z-20 hidden h-12 shrink-0 items-center gap-4 border-b border-ink-100 bg-canvas/90 px-6 backdrop-blur lg:flex">
       <div className="min-w-0 flex-1">{page && <Breadcrumbs page={page} title={title} />}</div>
+      <button
+        onClick={onSearch}
+        className="flex h-8 w-64 shrink-0 items-center gap-2 rounded-lg border border-ink-200 bg-white px-2.5 text-[13px] text-ink-500 hover:border-ink-300"
+      >
+        <Search className="size-3.5" aria-hidden />
+        <span className="flex-1 text-left">Search</span>
+        <kbd className="rounded border border-ink-200 px-1 font-mono text-[11px]">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+      </button>
       <EnvironmentBadge branding={branding} />
     </div>
   );

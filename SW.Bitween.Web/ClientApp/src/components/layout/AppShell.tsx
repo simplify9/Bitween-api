@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,6 +11,7 @@ import {
   PanelLeftOpen,
   UserRound,
   X,
+  Search as SearchIcon,
 } from "lucide-react";
 import type { SettingRow } from "../../api";
 import { useSession } from "../../auth/useSession";
@@ -26,6 +27,8 @@ import { PAGES } from "../../pages";
 import { useCurrentPage } from "../../lib/currentPage";
 import { PageTitleContext, type NamedPage } from "../../lib/pageTitle";
 import { EnvironmentBadge, TopBar } from "./TopBar";
+import { CommandPalette } from "./CommandPalette";
+import { recordVisit } from "../../lib/recentPages";
 
 /**
  * Shown on every page while unsaved setting changes exist — the whole app
@@ -288,6 +291,30 @@ export function AppShell() {
         .join(" · ")
     : null;
   const branding = useApplyBranding(tabTitle);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+
+  // Something opened by name goes on the palette's recent list.
+  useEffect(() => {
+    if (current && title) recordVisit({ path: pathname, title, kind: PAGES[current].title });
+  }, [current, title, pathname]);
+
+  // ⌘K / Ctrl+K anywhere, as in most tools people already use; "/" too, when not typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing =
+        document.activeElement instanceof HTMLElement &&
+        (document.activeElement.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName));
+      const commandK = e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey;
+      const slash = e.key === "/" && !typing && !e.metaKey && !e.ctrlKey && !e.altKey;
+      if (!commandK && !slash) return;
+      e.preventDefault();
+      setPaletteOpen((open) => (commandK ? !open : true));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // A page that owns the whole viewport (the bus-gateway studio, the flow map) says so in the page
   // registry: the shell stops supplying padding, a footer and a page-level scroll. Known from the
   // matched route rather than announced by the page, which could only ask once it had mounted.
@@ -346,10 +373,18 @@ export function AppShell() {
             className="h-5"
           />
         </Link>
-        <span className="ml-auto">
+        <span className="ml-auto flex items-center gap-2">
           <EnvironmentBadge branding={branding} />
+          <button
+            onClick={() => setPaletteOpen(true)}
+            aria-label="Search"
+            className="rounded-md p-1.5 text-ink-600 hover:bg-ink-100"
+          >
+            <SearchIcon className="size-5" />
+          </button>
         </span>
       </header>
+      {paletteOpen && <CommandPalette onClose={closePalette} />}
 
       {/* mobile drawer */}
       {mobileOpen && (
@@ -383,7 +418,7 @@ export function AppShell() {
           Below `lg` it stays a normal stacking page — a three-pane studio on a
           phone is not a thing worth building. */}
       <main className={`flex min-w-0 flex-col ${fullBleed ? "lg:h-screen lg:overflow-hidden" : ""}`}>
-        <TopBar page={current} title={title} branding={branding} />
+        <TopBar page={current} title={title} branding={branding} onSearch={() => setPaletteOpen(true)} />
         <PageTitleContext.Provider value={setNamed}>
         {fullBleed ? (
           <>
