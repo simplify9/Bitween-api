@@ -59,6 +59,9 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `ExchangeRetentionDays`, `ArchiveExchanges`, `ExchangeRetentionCron` | `0`, `true`, `0 0 4 * * ?` | First values of the retention settings. |
 | `AdapterPath` | `adapters` | Storage key prefix for custom adapter packages. |
 | `ServerlessCommandTimeout` | `300` | Seconds a custom adapter may run. |
+| `AdapterEditorDependencies` | `false` | Let the adapter editor fetch the packages a draft's `requirements.txt` or `package.json` names, from PyPI and npm or the mirrors in `PIP_INDEX_URL` and `NPM_CONFIG_REGISTRY`. Needs the server to reach them. See [Adapters](adapters.md#writing-an-adapter-in-bitween). |
+| `AdapterEditorMemoryMb` | `256` | Memory a draft may use while the editor checks or tries it. `0` for no limit. |
+| `AdapterEditorCpuCores` | `1` | Cores a draft may keep busy, for a few seconds, while the editor checks or tries it. `0` for no limit. |
 | `BusProvidersEnabled` | `false` | Run data source adapters, for brokers and databases, on this node. See [Data sources](data-sources.md). Resident adapters used in the pipeline need it too. Python and Node custom adapters don't: the resident adapter host they run on is started on every node. |
 | `BusProviderMaxInFlight` | `16` | Unacknowledged messages one broker adapter may have in flight with Bitween. |
 | `InboundMessagePruneCron` | `0 30 3 * * ?` | Quartz cron for deleting expired broker deduplication keys. |

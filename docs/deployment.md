@@ -5,10 +5,11 @@
 The `Dockerfile` builds the admin UI in a Node 22 stage, publishes `SW.Bitween.Web` with the .NET 10 SDK, and runs it on the ASP.NET 10 runtime image. The final image also carries:
 
 - the .NET 6 shared runtime, copied from the ASP.NET 6 image
-- `python3`, Ubuntu 24.04's Python 3.12, installed with apt, for Python adapters and the adapter editor
-- the `node` binary from `node:22-bookworm-slim`, without npm, for JavaScript and TypeScript adapters and the adapter editor
+- `python3`, Ubuntu 24.04's Python 3.12, with pip, installed with apt, for Python adapters and the adapter editor
+- `node` and npm from `node:22-bookworm-slim`, for JavaScript and TypeScript adapters and the adapter editor
 
-Adapters bring their own dependencies inside their packages, so nothing else is installed for them. The container runs as the image's non-root user, which owns only `/app/adapters`, the cache of downloaded adapter packages.
+Published adapters bring their own dependencies inside their packages. pip and npm are used only by the
+adapter editor, when `Bitween:AdapterEditorDependencies` lets it fetch a draft's packages. The container runs as the image's non-root user, which owns only `/app/adapters`, the cache of downloaded adapter packages.
 
 ```bash
 docker build -t bitween:local .

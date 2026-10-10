@@ -31,29 +31,37 @@ From a clone: `dotnet run --project SW.Bitween.Cli -- <command>`.
 ## Signing in
 
 ```sh
-bitween login https://bitween.example.com          # asks for your email and password
+bitween login https://bitween.example.com          # signs in through your browser
 bitween whoami                                     # which Bitween, as whom, and your adapter permissions
 bitween logout
 bitween version
 ```
 
-- `--email` gives the email; `--password-stdin` reads the password from standard input, for scripts:
+- `bitween login <url>` opens Bitween's sign-in page in your browser. Sign in there as you always do,
+  with a password or with Microsoft, and confirm **Sign in the CLI**; the browser hands the CLI a one-time
+  code on this machine's loopback, and the terminal is signed in. The code is good for two minutes and
+  only with a secret the CLI keeps, so a code seen by anyone else is no use to them (PKCE).
+- `--no-browser` is for a CLI on a machine without a browser, such as over SSH: it prints the address to
+  open on any machine, and the page shows a code to paste back into the terminal.
+- `--email` signs in with an email and password instead, asking for the password; `--password-stdin` reads
+  it from standard input, for scripts:
   `echo "$BITWEEN_PASSWORD" | bitween login https://bitween.example.com --email ci@example.com --password-stdin`.
 - `--profile <name>` keeps several Bitweens; it defaults to the address's host name. The last one signed
   in to is current; `--profile` on `whoami`, `logout` and the commands that act on a Bitween picks
   another, as does `BITWEEN_PROFILE`.
 - `--insecure` skips the certificate check, for a Bitween on a self-signed development certificate only.
-- Signing in over `http` to anything but this machine warns that the password is sent unencrypted.
+- Signing in over `http` to anything but this machine warns that the session or password is sent unencrypted.
 
 Profiles are kept in `~/.config/bitween/cli.json` (`$XDG_CONFIG_HOME/bitween/cli.json` when that is set,
 `%APPDATA%\bitween\cli.json` on Windows, or `BITWEEN_CLI_CONFIG`), readable by you alone on Linux and
 macOS. They hold an access token and a refresh token, which renews the session as the browser's does,
-for up to 30 days of inactivity. `logout` forgets the profile on this machine; it doesn't end the session
-on the server.
+for up to 30 days of inactivity. `logout` ends the session on the server, so its refresh token stops
+working, and forgets the profile here. When the Bitween can't be reached it still forgets the profile and
+says the session will end after 30 days unused.
 
-The CLI signs in with an email and password only. An account that signs in with Microsoft only can't sign
-in from the CLI yet, and neither can anyone while email and password sign-in is turned off. An account
-that must change its password has to change it in the browser first.
+Signing in through the browser works for every account, however it signs in, and needs nothing
+configured. An account that must change its password changes it in the browser first; the CLI can't be
+signed in as it until then.
 
 ## Adapters
 

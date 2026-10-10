@@ -29,7 +29,7 @@ Each adapter declares its properties. The UI shows which are required, which are
 - **`xchangeid`** is added to mapper and handler properties at run time.
 - A value that does not convert to the property's type, such as `BatchSize=abc`, silently falls back to the default.
 - The admin UI loads every adapter of a kind, with its properties, in one call. A published adapter is described from its manifest when the manifest lists its properties. Otherwise a .NET adapter is started and asked; an adapter in another runtime never is, and a manifest that lists none means it has none.
-- Descriptions of custom adapters are cached on each node, so a newly uploaded version can show its old properties for a while. Publishing or promoting a version through Bitween clears the cache on the node that served the request only.
+- Descriptions of custom adapters are cached on each node. Publishing, promoting or withdrawing a version through Bitween tells every node to forget the adapter, over the bus. A version published straight to storage shows its old properties for up to a minute.
 
 ## Rebex license
 
@@ -404,6 +404,12 @@ an older Bitween is refused with `ADAPTER_NEEDS_NEWER_BITWEEN`.
 
 A custom adapter may run for `Bitween:ServerlessCommandTimeout` seconds, 300 by default.
 
+The **Adapters** page names what each custom adapter runs on (.NET, Python, Node.js or a native
+binary), from its current version's manifest, with a Runtime column in its Versions table and a runtime
+filter once more than one is in use. Beside a subscription's adapter, the runtime of the version it
+runs is named, and the version picker names each version's runtime when they differ, since pinning
+one can move a step to another runtime.
+
 ### Writing an adapter in Bitween
 
 Python, JavaScript and TypeScript adapters can be written in Bitween itself, without the CLI.
@@ -418,11 +424,22 @@ Python, JavaScript and TypeScript adapters can be written in Bitween itself, wit
   editor's Publish tab or on any version in the Versions table, or until a subscription pins it.
   Making an older version current is how a release is rolled back.
 
-The editor builds adapters that need only the SDK. One whose `requirements.txt` or `package.json` names
-other packages is refused with the CLI as the way to build it, since the server would have to fetch them.
-Building and trying run the draft's code on the Bitween server, at most two at a time, and each call
-may take 30 seconds. A draft holds at most 200 files and 2 MB. Python and Node versions that carry
-their source can be opened in the editor; .NET versions are built with the CLI.
+By default the editor builds adapters that need only the SDK; one whose `requirements.txt` or
+`package.json` names other packages is refused, with the CLI as the way to build it. With
+`Bitween:AdapterEditorDependencies` on, the server fetches them from PyPI and npm, or from the mirrors
+`PIP_INDEX_URL` and `NPM_CONFIG_REGISTRY` name. Only plain names and versions are accepted: no URLs,
+paths, git sources or pip options, wheels only for Python, and no install scripts for Node, so nothing a
+package brings runs while it is built. A `package-lock.json` in the draft is ignored, since it can name
+any source.
+
+Building, checking and trying run the draft's code on the Bitween server, at most two at a time. Each
+call may take 30 seconds, and a run may use 256 MB and keep one core busy
+(`Bitween:AdapterEditorMemoryMb`, `Bitween:AdapterEditorCpuCores`); past either it is stopped and the
+editor says which limit it hit. A draft holds at most 200 files and 2 MB. Python and Node versions that
+carry their source can be opened in the editor; .NET versions are built with the CLI.
+
+Two members can have a draft open at once. A save made after someone else saved is refused, naming who
+and when, and the editor offers to load their version or to save over it.
 
 | Permission | Allows |
 |---|---|

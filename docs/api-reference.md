@@ -46,7 +46,9 @@ See [Entry points](entry-points.md) for status codes.
 | Method and path | Permission | Description |
 |---|---|---|
 | `POST /api/accounts/login` | none | Sign in with a username and password, a Microsoft token, or a refresh token (the refresh cookie, or `refreshToken` in the body). Returns `{ jwt }`. |
-| `POST /api/accounts/logout` | none | Deletes the refresh token and clears site data |
+| `POST /api/accounts/logout` | none | Deletes the refresh token and clears site data. A client without cookies sends `{ refreshToken }`. |
+| `POST /api/accounts/cligrant` | signed in | Signs the bitween CLI in as the caller: `{ codeChallenge }`, the CLI's S256 PKCE challenge. Returns `{ code }`, good for two minutes. The admin UI's `/cli-login` page calls it after the member confirms. |
+| `POST /api/accounts/clitoken` | none | The CLI trades that code for a session: `{ code, codeVerifier }`. Returns `{ jwt, refreshToken, email }`. |
 | `GET /api/accounts/profile` | signed in | The current member, roles and permissions |
 | `POST /api/accounts/changePassword` | signed in | Change your own password |
 | `GET /api/settings/config` | none | Sign-in options and theme |
@@ -153,7 +155,7 @@ A subscription bound to a data source also carries `dataSourceId`.
 | `GET /api/adapterdrafts?adapterId=` | `adapter-source.edit` | The editor's drafts, newest first, optionally for one adapter |
 | `GET /api/adapterdrafts/{id}` | `adapter-source.edit` | A draft with its files |
 | `POST /api/adapterdrafts` | `adapter-source.edit` | Start a draft: `{ name, language, kind, adapterId }`, where `language` is `python`, `node` or `typescript` and `adapterId` comes from the name when left out; or `{ fromAdapterId, fromVersion }`. Returns the draft's id. |
-| `POST /api/adapterdrafts/{id}` | `adapter-source.edit` | Save its files: `{ files: { path: content } }` |
+| `POST /api/adapterdrafts/{id}` | `adapter-source.edit` | Save its files: `{ files: { path: content }, baseHash }`. With `baseHash`, the draft's `filesHash` when it was opened, a save made after someone else's is refused with `DRAFT_CHANGED`; without it the save goes through. |
 | `DELETE /api/adapterdrafts/{id}` | `adapter-source.edit` | Delete a draft |
 | `POST /api/adapterdrafts/{id}/build` | `adapter-source.edit` | Build and check it: `{ settings, buildOnly }` |
 | `POST /api/adapterdrafts/{id}/try` | `adapter-source.edit` | Call a command: `{ settings, command, input }` |
@@ -161,7 +163,7 @@ A subscription bound to a data source also carries `dataSourceId`.
 | `POST /api/mappingpreviews` | signed in, no permission checked | Preview rules-based mapping |
 | `POST /api/mappers` | `subscriptions.edit` | Preview a legacy Scriban template |
 
-Adapter descriptions are cached per node, so a newly uploaded package version can show old properties for a while.
+Adapter descriptions are cached per node. Publishing, promoting or withdrawing through the API clears them on every node; a package published straight to storage shows its old properties for up to a minute.
 
 Publishing a package, promoting, withdrawing, and publishing from a draft are recorded in the audit trail as `AdapterRelease` rows. Drafts are recorded as `AdapterDraft` rows, with a hash of their files rather than the files.
 

@@ -45,7 +45,8 @@ the role, no request can restore it and the database has to be repaired directly
 - Sign-in returns `{ "jwt": "..." }`. Send it as `Authorization: Bearer <jwt>`.
 - The JWT is signed with `Token:Key` and carries `Token:Issuer` and `Token:Audience`. It lasts for the **Sign-in session length** setting, 60 minutes by default.
 - Sign-in also sets a `refresh_token` cookie that is `HttpOnly`, `Secure` and `SameSite=Lax`, valid for 30 days. Posting to the login endpoint with that cookie and no credentials returns a new JWT and replaces the refresh token. A client without cookies, such as the [bitween CLI](cli.md), sends the token as `refreshToken` in the body instead. Each renewal issues a new refresh token, so the 30 days are a limit on inactivity.
-- `POST /api/accounts/logout` deletes the refresh token and tells the browser to clear site data. The JWT stays valid until it expires.
+- `POST /api/accounts/logout` deletes the refresh token and tells the browser to clear site data. The JWT stays valid until it expires. A client without cookies sends the refresh token to end in the body; `bitween logout` does.
+- The [bitween CLI](cli.md) signs in through the browser: the admin UI's `/cli-login` page asks the signed-in member to confirm, then hands the CLI a one-time code on its loopback (`127.0.0.1`), or shows it to paste. The code is signed with a key derived from `Token:Key`, so any node can redeem it and it can't be used as an access token; it lasts two minutes and is redeemed only with the verifier the CLI kept (PKCE S256). It works for every account, Microsoft-only ones included. An account that must change its password can't confirm until it has.
 - The admin UI signs out after 30 minutes without activity in any tab.
 - Permissions are not in the token. They are read from the database on every request, so removing a role takes effect at once.
 

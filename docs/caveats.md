@@ -35,7 +35,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | The information type's duplicate interval is stored but never enforced. | `Domain/Document/Document.cs` |
 | An exchange's delivered time is never recorded. | `Domain/XchangeDelivery.cs` |
 | Exchanges, results and notifications have no cleanup job, while their files expire from storage. | `Services` |
-| Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions are cached per node. Publishing or promoting through Bitween clears them only on the node that served the request, and publishing straight to storage clears none. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
+| Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions and catalog entries are cached per node; publishing, promoting or withdrawing through Bitween clears them everywhere over the bus, but a package published straight to storage is seen with its old properties for up to a minute. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
 
 ## Adapters
 
@@ -54,11 +54,10 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Issue | Where |
 |---|---|
 | Python and Node adapters connect to the host over a Unix domain socket, so they only run on Linux and macOS hosts. On Windows the host offers a named pipe, which their SDKs can't use, and they stop at start-up. | SW-Serverless `sdk/python`, `sdk/node` |
-| The adapter editor builds only adapters that need nothing beyond the SDKs. A draft whose `requirements.txt` or `package.json` names another package is refused, and has to be built with the CLI. | `Services/Adapters/AdapterWorkshop.cs` |
 | The editor writes Python, JavaScript and TypeScript only. .NET versions can be read but not edited. | `Domain/AdapterDraft.cs` |
 | A package published through `POST /api/adapters/packages` has its manifest checked but is not run against the adapter contract. Only the editor checks before it publishes. | `Services/Adapters/AdapterWorkshop.cs` |
-| The CLI signs in with an email and password only. An account that signs in with Microsoft only, without a password, can't use it, nor can anyone while email and password sign-in is turned off. An account that must change its password has to do so in the browser first. | `SW.Bitween.Cli/BitweenApi.cs` |
-| `bitween logout` only forgets the profile on the machine. The refresh token it held stays valid on the server until it has gone unused for 30 days. | `SW.Bitween.Cli/Commands.cs` |
+| With `Bitween:AdapterEditorDependencies` on, the editor's builds fetch packages from the index while holding one of its two build slots; a slow or unreachable index holds the slot until pip or npm gives up. | `Services/Adapters/AdapterWorkshop.cs` |
+| The editor's memory limit is a hard ceiling for Python on Linux. Elsewhere, and for Node beyond its own heap ceiling, the run is sampled every second and stopped once over it, so a fast allocation can briefly exceed it. | SW-Serverless `LocalAdapterLimits` |
 | On Windows the CLI's profile file is not restricted to its owner; on Linux and macOS it is made readable by its owner only. | `SW.Bitween.Cli/Profiles.cs` |
 
 ## Data sources
