@@ -27,15 +27,19 @@ public class RequeueDeadLetters(DeadLetterQueues deadLetters, BitweenDbContext d
 
         var queue = await deadLetters.Resolve(request.Queue)
                     ?? throw new SWNotFoundException("Dead-letter queue");
+        int requeued;
         try
         {
-            return new RequeueDeadLettersResult(
-                deadLetters.Requeue(queue, request.Count ?? DeadLetterQueues.MaxRequeue));
+            requeued = deadLetters.Requeue(queue, request.Count ?? DeadLetterQueues.MaxRequeue);
         }
         catch (OperationInterruptedException)
         {
             throw new SWValidationException("NO_MAIN_QUEUE",
                 "The queue these messages failed on is gone, so there is nowhere to send them back to.");
         }
+
+        await dbContext.RecordNowAsync(requestContext, OperatorAction.RequeueDeadLetters, request.Queue,
+            $"{requeued} message{(requeued == 1 ? "" : "s")} sent back");
+        return new RequeueDeadLettersResult(requeued);
     }
 }

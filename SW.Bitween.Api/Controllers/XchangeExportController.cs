@@ -102,6 +102,11 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         var missing = ids.Except(xchanges.Select(x => x.Id))
             .Select(id => $"{id}: this exchange no longer exists.").ToList();
 
+        // Exchange files leave Bitween here, so who took which is recorded before they do.
+        await dbContext.RecordNowAsync(requestContext, OperatorAction.Export,
+            xchanges.Count == 1 ? xchanges[0].Id : $"{xchanges.Count} exchanges",
+            string.Join(", ", xchanges.Take(20).Select(x => x.Id)) + (xchanges.Count > 20 ? ", …" : ""));
+
         Response.ContentType = "application/zip";
         Response.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
         {

@@ -62,7 +62,10 @@ public static class AuditPolicy
         typeof(AdapterSourceAccess),
         // Code written in Bitween, and what was published and made current from it.
         typeof(AdapterDraft),
-        typeof(AdapterRelease)
+        typeof(AdapterRelease),
+        // Retries, exports, requeues and queue deletions: not configuration, but who did them is
+        // what the trail is asked.
+        typeof(OperatorAction)
     ];
 
     /// <summary>

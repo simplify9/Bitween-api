@@ -358,6 +358,18 @@ namespace SW.Bitween
                 b.HasIndex(p => p.PublishedOn);
             });
 
+            modelBuilder.Entity<OperatorAction>(b =>
+            {
+                b.ToTable("OperatorActions");
+                b.HasKey(a => a.Id);
+                b.Property(a => a.Id).ValueGeneratedOnAdd();
+                b.Property(a => a.Action).HasMaxLength(50).IsRequired();
+                b.Property(a => a.Target).HasMaxLength(500);
+                b.Property(a => a.Detail).HasMaxLength(2000);
+                b.Property(a => a.AccountId).HasMaxLength(50);
+                b.HasIndex(a => a.OccurredOn);
+            });
+
             modelBuilder.Entity<ApiKeyUse>(b =>
             {
                 b.ToTable("ApiKeyUses");

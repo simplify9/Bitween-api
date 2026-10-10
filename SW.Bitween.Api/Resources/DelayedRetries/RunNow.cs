@@ -34,6 +34,7 @@ namespace SW.Bitween.Resources.DelayedRetries
                     : "This retry could not be carried out: the exchange it belonged to no longer exists.");
             }
 
+            dbContext.Record(requestContext, OperatorAction.RunRetryNow, key);
             await dbContext.SaveChangesAsync();
             return null;
         }

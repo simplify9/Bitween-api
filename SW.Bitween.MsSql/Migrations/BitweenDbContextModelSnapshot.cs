@@ -60,6 +60,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("LastSignInOn")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("LockoutEnd")
                         .HasColumnType("datetime2");
 
@@ -1127,6 +1130,41 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("SubscriptionId");
 
                     b.ToTable("OnHoldXchanges", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.OperatorAction", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Target")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredOn");
+
+                    b.ToTable("OperatorActions", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.OutboxMessage", b =>

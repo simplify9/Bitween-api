@@ -250,6 +250,9 @@ namespace SW.Bitween.Resources.Accounts
                 account.RegisterSuccessfulLogin();
             }
 
+            // A sign-in, not a session renewing itself: the member's last sign-in, and the trail's.
+            if (string.IsNullOrEmpty(refreshTokenValue)) account.SignedIn();
+
             var newRefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword);
             await dbContext.SaveChangesAsync();
 

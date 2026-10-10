@@ -151,6 +151,18 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 cl.Property(i => i.OwnerNode).HasMaxLength(200);
             });
 
+            modelBuilder.Entity<OperatorAction>(b =>
+            {
+                b.ToTable("operator_action");
+                b.HasKey(a => a.Id);
+                b.Property(a => a.Id).ValueGeneratedOnAdd();
+                b.Property(a => a.Action).HasMaxLength(50).IsRequired();
+                b.Property(a => a.Target).HasMaxLength(500);
+                b.Property(a => a.Detail).HasMaxLength(2000);
+                b.Property(a => a.AccountId).HasMaxLength(50);
+                b.HasIndex(a => a.OccurredOn);
+            });
+
             modelBuilder.Entity<ApiKeyUse>(b =>
             {
                 b.ToTable("api_key_use");

@@ -36,6 +36,7 @@ public class CliToken(BitweenDbContext dbContext, JwtTokenParameters jwtTokenPar
             throw new SWException("This sign-in has expired or isn't valid. Run bitween login again.");
         }
 
+        account.SignedIn();
         var refreshToken = new RefreshToken(account.Id, LoginMethod.EmailAndPassword);
         dbContext.Add(refreshToken);
         await dbContext.SaveChangesAsync();

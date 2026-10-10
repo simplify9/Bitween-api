@@ -154,7 +154,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               <dd className="text-ink-800">{formatDate(u.createdOn)}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-ink-500">Last active</dt>
+              <dt className="text-ink-500">Last signed in</dt>
               <dd className="text-ink-800">{u.lastActiveOn ? timeAgo(u.lastActiveOn) : "Never"}</dd>
             </div>
           </dl>

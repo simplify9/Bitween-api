@@ -121,6 +121,9 @@ namespace SW.Bitween.Resources.Xchanges
                 retried++;
             }
 
+            if (retried > 0)
+                _dbContext.Record(_requestContext, OperatorAction.BulkRetry, $"{retried} exchanges",
+                    $"{retried} retried, {plan.Skipped?.Count ?? 0} skipped");
             await _dbContext.SaveChangesAsync();
 
             plan.WillRetry = retried;

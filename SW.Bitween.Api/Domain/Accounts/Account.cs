@@ -61,6 +61,14 @@ namespace SW.Bitween.Domain.Accounts
             LockoutEnd = null;
         }
 
+        /// <summary>
+        /// When the member last signed in with a password, Microsoft or the CLI; not when a session
+        /// renewed itself. Being on the audited Account, each sign-in is in the audit trail too.
+        /// </summary>
+        public DateTime? LastSignInOn { get; private set; }
+
+        public void SignedIn() => LastSignInOn = DateTime.UtcNow;
+
         // Admin action: clear a lockout before it expires.
         public void Unlock()
         {

@@ -27,6 +27,8 @@ interface RawAccount {
   /** Set by the backend's failed-sign-in lockout; null or in the past means not locked. */
   lockoutEnd: string | null;
   createdOn: string;
+  lastSignInOn?: string | null;
+  microsoftLinked?: boolean;
   roles: RawRoleSummary[] | null;
 }
 
@@ -48,9 +50,10 @@ const toUser = (r: RawAccount): User => ({
   status: r.disabled ? "disabled" : "active",
   // Past lockouts are not state anyone can act on, so they read as no lockout at all.
   lockedUntil: r.lockoutEnd && new Date(r.lockoutEnd) > new Date() ? r.lockoutEnd : null,
-  // Not tracked by the backend: no login-method projection, no last-seen column.
-  microsoftLinked: false,
+  microsoftLinked: r.microsoftLinked ?? false,
   createdOn: r.createdOn,
+  // The last sign-in, not the last request: a session renewing itself doesn't count.
+  lastActiveOn: r.lastSignInOn ?? undefined,
 });
 
 const toRole = (r: RawRole): Role => ({

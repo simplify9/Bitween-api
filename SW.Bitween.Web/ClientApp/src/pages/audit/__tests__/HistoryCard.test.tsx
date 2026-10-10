@@ -150,6 +150,7 @@ const areas: {
     entityKey: "15",
     handlers: [
       json("/apigateways/15", { id: 15, name: "Public", urlName: "public", partnersCount: 0, inactive: false, partners: [] }),
+      json("/apigateways/15/rejections", { node: "web-1:12", since: "2026-10-10T08:00:00Z", counts: {}, recent: [] }),
       none("/apigateways/attachments"),
       // What the attachments table resolves each wired subscription's columns from.
       ...["/subscriptions", "/documents", "/partners", "/workgroups", "/retrypolicies"].map((p) => none(p)),

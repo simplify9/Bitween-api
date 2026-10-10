@@ -250,7 +250,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 
 | Method and path | Permission |
 |---|---|
-| `GET /api/accounts` | `users.view` |
+| `GET /api/accounts` | `users.view`. Each member carries `lastSignInOn` and `microsoftLinked`. |
 | `POST /api/accounts` | `users.create` |
 | `POST /api/accounts/{id}` | `users.edit`, or yourself for the display name |
 | `POST /api/accounts/{id}/setRoles` | `users.edit` |

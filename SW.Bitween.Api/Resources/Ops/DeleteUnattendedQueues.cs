@@ -71,6 +71,9 @@ public class DeleteUnattendedQueues(BrokerQueues brokerQueues,
             }
         }
 
+        if (deleted.Count > 0)
+            await dbContext.RecordNowAsync(requestContext, OperatorAction.DeleteQueues, string.Join(", ", deleted),
+                $"{deleted.Count} deleted, {skipped.Count} skipped");
         return new DeleteUnattendedQueuesResult(deleted, skipped);
     }
 }

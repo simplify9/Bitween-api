@@ -64,6 +64,13 @@ public class AccountModel
 
     public bool Disabled { get; set; }
     public DateTime CreatedOn { get; set; }
+
+    /// <summary>When the member last signed in (password, Microsoft or the CLI); null if never since this was kept.</summary>
+    public DateTime? LastSignInOn { get; set; }
+
+    /// <summary>Whether a Microsoft identity is bound to the account.</summary>
+    public bool MicrosoftLinked { get; set; }
+
     public List<AccountRoleSummary> Roles { get; set; } = [];
 
     // Non-null and in the future => the account is currently locked out.

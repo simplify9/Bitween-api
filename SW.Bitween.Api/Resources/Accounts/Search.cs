@@ -45,7 +45,9 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext)
                     Id = a.Id,
                     Disabled = a.Disabled,
                     Role = a.Role.ToString(),
-                    LockoutEnd = a.LockoutEnd
+                    LockoutEnd = a.LockoutEnd,
+                    LastSignInOn = a.LastSignInOn,
+                    MicrosoftLinked = a.MicrosoftIdentity != null
                 })
                 .ToListAsync();
 

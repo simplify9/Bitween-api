@@ -157,7 +157,7 @@ export function MembersPage() {
                 <th className="px-4 py-2.5 font-medium">Member</th>
                 <th className="px-4 py-2.5 font-medium">Roles</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Last active</th>
+                <th className="px-4 py-2.5 font-medium">Last signed in</th>
               </tr>
             </thead>
             <tbody>

@@ -47,10 +47,10 @@ namespace SW.Bitween.Resources.Xchanges
                 await xchangeService.CreateXchange(xchange, xchangeFile, subscription?.WorkGroup,
                     manualRetry: true);
             }
-            
-            
+            dbContext.Record(requestContext, OperatorAction.Retry, key,
+                xchangeRetry.Reset ? "with the subscription's current settings" : null);
             await dbContext.SaveChangesAsync();
-            
+
             return null;
         }
     }
