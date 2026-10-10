@@ -8,6 +8,7 @@ import {
   Database,
   FileStack,
   FileText,
+  LayoutDashboard,
   Handshake,
   Layers,
   Network,
@@ -60,7 +61,14 @@ export interface PageDef<Id extends string = string> {
 const definePages = <Id extends string>(pages: Record<Id, PageDef<NoInfer<Id>>>) => pages;
 
 export const PAGES = definePages({
-  dashboard: { path: "dashboard", title: "Dashboard", permission: "dashboard.view", keywords: ["home", "overview"] },
+  // First in the sidebar: where you land, and the way back to "how is everything doing".
+  dashboard: {
+    path: "dashboard",
+    title: "Dashboard",
+    permission: "dashboard.view",
+    nav: { group: "operate", icon: LayoutDashboard },
+    keywords: ["home", "overview"],
+  },
 
   // ── Operate ──
   exchanges: {

@@ -328,7 +328,7 @@ export function NewGatewaySubscriptionPage() {
 
   return (
     <div className="pb-10">
-      <BackLink to={`/api-gateways/${gatewayId}/attach`} label="Attaching a partner" />
+      <BackLink to={`/api-gateways/${gatewayId}/attach`} label="Attaching a partner" keep />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
         New subscription for {g.name}

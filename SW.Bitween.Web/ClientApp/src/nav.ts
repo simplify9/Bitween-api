@@ -54,11 +54,9 @@ export const visibleGroups = (permissions: PermissionKey[]): NavGroup[] =>
   );
 
 /**
- * Where to land after signing in with nowhere particular to go.
- *
- * The dashboard, which is deliberately not in the sidebar — reached from the logo — so the
- * rule below would never pick it. Landing there is the one moment it is the obviously right
- * page: you have just arrived and want to know how the system is doing before going anywhere.
+ * Where to land after signing in with nowhere particular to go: the dashboard when the session
+ * may see it — you have just arrived and want to know how the system is doing — otherwise the
+ * first page the sidebar offers.
  *
  * Signing in *to get somewhere* is a different thing and does not come through here: the guard
  * remembers the page it turned away and login returns to it, so an expired session and a link

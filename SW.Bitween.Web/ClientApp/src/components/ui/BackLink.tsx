@@ -16,16 +16,23 @@ import { ArrowLeft } from "lucide-react";
  *
  * Signing in can't be what's behind you: `Login` navigates with `replace`, so that entry
  * is already gone.
+ *
+ * On a desktop the top bar's breadcrumb already leads back up, so this shows on smaller screens
+ * only — unless it is the way back out of a detour (`keep`), which returns to a kept draft or a
+ * pick in progress that a breadcrumb would drop.
  */
 export function BackLink({
   to,
   label,
   className = "mb-4",
+  keep = false,
 }: {
   to: string;
   label: string;
   /** Layout only — one caller sits in a toolbar rather than above a page title. */
   className?: string;
+  /** Shown on a desktop too: the way back out of a detour. */
+  keep?: boolean;
 }) {
   const navigate = useNavigate();
   // Subscribed to purely so a navigation re-renders this and the index below is re-read.
@@ -40,7 +47,7 @@ export function BackLink({
   const historyIndex = (window.history.state as { idx?: number } | null)?.idx ?? 0;
   const cameFromInsideTheApp = historyIndex > 0;
 
-  const classes = `${className} inline-flex items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800`;
+  const classes = `${className} ${keep ? "inline-flex" : "inline-flex lg:hidden"} items-center gap-1 text-[13px] font-medium text-ink-500 hover:text-ink-800`;
 
   if (cameFromInsideTheApp)
     return (

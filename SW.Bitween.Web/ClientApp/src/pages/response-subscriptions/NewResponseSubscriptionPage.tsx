@@ -270,7 +270,7 @@ function NewResponseSubscription() {
   return (
     <div className="pb-10">
       {returnTo ? (
-        <BackLink to={returnTo} label="Back" />
+        <BackLink to={returnTo} label="Back" keep />
       ) : (
         <BackLink to="/response-subscriptions" label="Response subscriptions" />
       )}

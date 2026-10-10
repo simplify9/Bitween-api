@@ -103,22 +103,33 @@ function AppFooter({ branding }: { branding: Branding }) {
 
 const COLLAPSED_KEY = "bitween-nav-collapsed";
 
+/**
+ * Folded until someone opens it: visited least, and with it open the sidebar ran past the bottom
+ * of a 900px-tall laptop screen. A group holding the current page is always open, and once
+ * someone has folded or opened anything their choice is what's kept.
+ */
+const FOLDED_AT_FIRST = ["Administration"];
+
 const loadCollapsed = (): string[] => {
   try {
-    return JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]") as string[];
+    const stored = localStorage.getItem(COLLAPSED_KEY);
+    return stored === null ? FOLDED_AT_FIRST : (JSON.parse(stored) as string[]);
   } catch {
-    return [];
+    return FOLDED_AT_FIRST;
   }
 };
 
 function SidebarContent({
   onNavigate,
   logoUrl,
+  iconUrl = null,
   railed = false,
   onToggleRail,
 }: {
   onNavigate?: () => void;
   logoUrl: string | null;
+  /** The square mark the rail shows in place of the logo: the instance's header icon, when set. */
+  iconUrl?: string | null;
   /** Icon-only rail. Desktop only — the mobile drawer is always full width. */
   railed?: boolean;
   onToggleRail?: () => void;
@@ -129,6 +140,14 @@ function SidebarContent({
   // Navigation is the one place that still collapses: "show all the data"
   // is about data, and a nav group is a shelf, not a row of records.
   const [collapsed, setCollapsed] = useState<string[]>(loadCollapsed);
+  // In the rail an icon is all there is, so its name shows beside it on hover and on focus —
+  // the browser's own title tooltip came late, never on keyboard focus, and not to everyone.
+  const [tip, setTip] = useState<{ label: string; top: number } | null>(null);
+  const showTip = (el: HTMLElement, label: string) => {
+    const r = el.getBoundingClientRect();
+    setTip({ label, top: r.top + r.height / 2 });
+  };
+  const hideTip = () => setTip(null);
   if (!session) return null;
 
   const groups = visibleGroups(session.permissions);
@@ -142,12 +161,12 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col">
-      <div className={`flex items-center gap-2 pt-6 pb-4 ${railed ? "flex-col px-2" : "px-5"}`}>
+      <div className={`flex items-center gap-2 pt-5 pb-3 ${railed ? "flex-col px-2" : "px-5"}`}>
         <Link to="/dashboard" className="min-w-0 flex-1">
           <img
             src={
               railed
-                ? import.meta.env.BASE_URL + "brand/BitweenIcon.svg"
+                ? (iconUrl ?? import.meta.env.BASE_URL + "brand/BitweenIcon.svg")
                 : (logoUrl ?? import.meta.env.BASE_URL + "brand/BitweenFull-light.svg")
             }
             alt="Bitween"
@@ -166,7 +185,7 @@ function SidebarContent({
         )}
       </div>
 
-      <nav aria-label="Main" className={`flex-1 space-y-4 overflow-y-auto py-3 ${railed ? "px-2" : "px-3"}`}>
+      <nav aria-label="Main" className={`flex-1 space-y-3 overflow-y-auto py-2 ${railed ? "px-2" : "px-3"}`}>
         {groups.map((group) => {
           // never hide the page the user is on
           const containsActive = group.items.some((item) => pathname.startsWith(item.path));
@@ -200,9 +219,13 @@ function SidebarContent({
                       <NavLink
                         to={item.path}
                         onClick={onNavigate}
-                        title={railed ? item.label : undefined}
+                        aria-label={railed ? item.label : undefined}
+                        onMouseEnter={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
+                        onMouseLeave={railed ? hideTip : undefined}
+                        onFocus={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
+                        onBlur={railed ? hideTip : undefined}
                         className={({ isActive }) =>
-                          `group relative flex items-center rounded-lg py-1.5 text-sm transition-colors ${
+                          `group relative flex items-center rounded-lg py-[5px] text-sm transition-colors ${
                             railed ? "justify-center px-2" : "gap-2.5 px-2.5"
                           } ${
                             isActive
@@ -233,6 +256,16 @@ function SidebarContent({
           );
         })}
       </nav>
+
+      {railed && tip && (
+        <div
+          role="tooltip"
+          style={{ top: tip.top }}
+          className="pointer-events-none fixed left-[4.5rem] z-50 -translate-y-1/2 rounded-md bg-ink-800 px-2 py-1 text-[12px] font-medium whitespace-nowrap text-white shadow-lg"
+        >
+          {tip.label}
+        </div>
+      )}
 
       <div className={`border-t border-ink-900 ${railed ? "p-2" : "p-3"}`}>
         <Menu
@@ -407,6 +440,7 @@ export function AppShell() {
       <aside className="sticky top-0 hidden h-screen bg-ink-950 lg:block">
         <SidebarContent
           logoUrl={branding.sidebarLogoUrl}
+          iconUrl={branding.headerIconUrl}
           railed={railed}
           onToggleRail={toggleRail}
         />

@@ -17,7 +17,7 @@ import { ManageCategoriesDialog } from "../../components/config/CategoryDialogs"
 import { useCategories } from "../../components/config/categories";
 import { NewSubscriptionDialog } from "./NewSubscriptionDialog";
 import { HealthBadge, SubscriptionStatusBadges, LinkListCell, TypeBadge } from "../../components/config/shared";
-import { SUBSCRIPTION_TYPE_LABELS } from "../../components/config/subscriptionLabels";
+import { SUBSCRIPTION_TYPE_LABELS, isLegacyType } from "../../components/config/subscriptionLabels";
 import { useGatewayPartners, useSubscriptionsCache } from "../../components/config/lookups";
 import { useSearchText } from "../../lib/useSearchText";
 import { NONE } from "../../lib/none";
@@ -168,7 +168,9 @@ export function SubscriptionsPage() {
         >
           All
         </button>
-        {TYPE_ORDER.map((t) => (
+        {/* The legacy types only where they are still in use: a chip for a kind of subscription
+            nobody can create, on an instance that has none, is a filter that can only say "none". */}
+        {TYPE_ORDER.filter((t) => !isLegacyType(t) || type === t || allSubscriptions.some((s) => s.type === t)).map((t) => (
           <button
             key={t}
             onClick={() => setParam("type", type === t ? null : t)}
