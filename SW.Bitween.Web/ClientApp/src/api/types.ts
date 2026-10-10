@@ -1752,3 +1752,18 @@ export interface GatewayRejections {
   counts: Record<string, number>;
   recent: { on: string; reason: string; status: number; address: string | null }[];
 }
+
+/** GET /ops/background: Bitween's own system jobs, and the outbox to the broker. */
+export interface BackgroundWork {
+  jobs: {
+    name: string;
+    does: string;
+    cron: string | null;
+    scheduled: boolean;
+    state: "Normal" | "Paused" | "Error" | "NotScheduled";
+    lastRanOn: string | null;
+    nextRunOn: string | null;
+    runningNow: boolean;
+  }[];
+  outbox: { pending: number; oldestPendingOn: string | null; failing: number; lastError: string | null; publishedLastHour: number };
+}

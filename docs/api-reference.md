@@ -276,6 +276,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | Method and path | Permission |
 |---|---|
 | `GET /api/ops/summary`, `consumers`, `queues`, `retries`, `deadletters`, `alerts`, `unattendedqueues` | `monitoring.view` or `dashboard.view` |
+| `GET /api/ops/background` | `monitoring.view` or `dashboard.view`. The system jobs (automatic retries, exchange retention, receive attempt clean-up, broker deduplication clean-up): cron, whether scheduled, state, last and next run, running now on this node. And the outbox: messages waiting for the broker, the oldest, how many after a failed attempt with the last error, and how many sent in the last hour. |
 | `GET /api/dashboard/MainInfo` | `dashboard.view` |
 | `GET /api/dashboard/ChartsDataPoints` | `dashboard.view` |
 | `GET /api/dashboard/XChangesAndSubscriptionsInfo` | `dashboard.view` |

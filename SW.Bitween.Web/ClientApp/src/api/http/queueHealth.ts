@@ -1,5 +1,6 @@
 import type { ApiClient } from "../client";
 import type {
+  BackgroundWork,
   DeadLetterMessage,
   QueueHealthSnapshot,
   QueueLane,
@@ -69,6 +70,11 @@ interface RawAlert {
 const toSeverity = (s: RawSeverity): QueueSeverity => (s === "Critical" ? "critical" : s === "Warning" ? "warning" : "healthy");
 
 export const queueHealthMethods = {
+  /** Bitween's own system jobs and its outbox to the broker. */
+  getBackgroundWork(): Promise<BackgroundWork> {
+    return get<BackgroundWork>("/ops/background");
+  },
+
   async getQueueHealth(): Promise<QueueHealthSnapshot> {
     const [summary, consumers, retries, deadLetters, alerts, unattended] = await Promise.all([
       get<RawSummary>("/ops/summary"),

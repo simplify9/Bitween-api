@@ -21,6 +21,7 @@ import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 import { ExceptionBlock } from "../../components/ui/Exception";
+import { BackgroundWorkPanel } from "./BackgroundWork";
 
 const POLL_MS = 5_000;
 
@@ -346,6 +347,10 @@ export function QueueHealthPage() {
             </ul>
           )}
         </Panel>
+      </div>
+
+      <div className="mt-5">
+        <BackgroundWorkPanel />
       </div>
     </div>
   );

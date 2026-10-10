@@ -76,6 +76,7 @@ import type {
   RetentionStatus,
   SettingRow,
   InstanceAbout,
+  BackgroundWork,
   GatewayRejections,
   AdapterUploadResult,
   ClusterNodes,
@@ -541,6 +542,7 @@ export interface ApiClient {
   // — settings —
   listSettings(): Promise<SettingRow[]>;
   getAbout(): Promise<InstanceAbout>;
+  getBackgroundWork(): Promise<BackgroundWork>;
   getClusterNodes(): Promise<ClusterNodes>;
   /** How long exchanges and their files are kept under the saved settings. `refresh` re-reads the bucket's rules. */
   getRetention(refresh?: boolean): Promise<RetentionStatus>;

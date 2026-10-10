@@ -28,6 +28,7 @@ const summary = {
 /** Everything the page polls, with `unattended` as the leftover lanes. */
 const queueHealth = (unattended: ReturnType<typeof lane>[]) => [
   http.get(apiPath("/ops/summary"), () => HttpResponse.json(summary)),
+  http.get(apiPath("/ops/background"), () => HttpResponse.json({ jobs: [], outbox: { pending: 0, oldestPendingOn: null, failing: 0, lastError: null, publishedLastHour: 0 } })),
   http.get(apiPath("/ops/consumers"), () => HttpResponse.json([])),
   http.get(apiPath("/ops/retries"), () => HttpResponse.json([])),
   http.get(apiPath("/ops/deadletters"), () => HttpResponse.json([])),

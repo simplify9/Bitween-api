@@ -175,6 +175,7 @@ export const keys = {
   },
 
   queueHealth: ["queue-health"] as const,
+  background: ["queue-health", "background"] as const,
   dashboard: ["dashboard"] as const,
 
   settings: {
