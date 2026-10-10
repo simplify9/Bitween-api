@@ -21,6 +21,7 @@ import { MiniTable, type Column } from "../ui/Table";
 import { formatDate, timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
+import { isBookkeeping, propertyLabel } from "../../lib/auditLabels";
 
 /**
  * Display names for subscription types; Internal and ApiCall are legacy.
@@ -907,15 +908,19 @@ const showValue = (v: unknown) =>
  * column the entity has — unreadable as a cell. The values used to live in a `title`, which
  * only a mouse can reach; this is a real control, so it works from the keyboard and on touch.
  */
-export function ChangedCell({ changes }: { changes: AuditChange[] }) {
+export function ChangedCell({ changes: all, entity }: { changes: AuditChange[]; entity?: string }) {
+  // Ids and timestamps the database keeps for itself are not what anyone changed: a new row used
+  // to read "Id, CreatedBy, CreatedOn +3 more".
+  const changes = all.filter((c) => !isBookkeeping(c.property));
   if (changes.length === 0) return <span className="text-ink-400">—</span>;
 
-  const shown = changes.slice(0, 3).map((c) => c.property);
+  const label = (c: AuditChange) => propertyLabel(entity, c.property);
+  const shown = changes.slice(0, 3).map(label);
   const rest = changes.length - shown.length;
 
   return (
     <Popover
-      label={`Show what changed: ${changes.map((c) => c.property).join(", ")}`}
+      label={`Show what changed: ${changes.map(label).join(", ")}`}
       width="w-96"
       button={
         <span className="block text-left text-[13px] text-ink-600">
@@ -927,7 +932,7 @@ export function ChangedCell({ changes }: { changes: AuditChange[] }) {
       <dl className="space-y-2">
         {changes.map((c) => (
           <div key={c.property}>
-            <dt className="text-[12px] font-medium text-ink-800">{c.property}</dt>
+            <dt className="text-[12px] font-medium text-ink-800">{label(c)}</dt>
             <dd className="mt-0.5 font-mono text-[11px] break-all text-ink-600">
               <span className="text-ink-400">{showValue(c.old)}</span>
               <span aria-hidden> → </span>
@@ -983,7 +988,7 @@ export function TrailTable({ entries }: { entries: TrailEntry[] }) {
           header: "Changed",
           headerTitle: "The fields this change touched. Open one to see the values.",
           wrap: true,
-          cell: (e) => <ChangedCell changes={e.changes} />,
+          cell: (e) => <ChangedCell changes={e.changes} entity={e.entityName} />,
         },
         {
           header: "By",

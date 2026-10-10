@@ -11,6 +11,7 @@ import { Table } from "../../components/ui/Table";
 import { ChangedCell } from "../../components/config/shared";
 import { formatDateTime, timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
+import { entityLabel } from "../../lib/auditLabels";
 
 const PAGE_SIZE = 25;
 
@@ -45,26 +46,7 @@ const ENTITY_NAMES = [
   "AdapterSourceAccess",
 ];
 
-/** What each recorded kind is called on screen; the trail stores the code's names. */
-const ENTITY_LABEL: Record<string, string> = {
-  SubscriptionCategory: "Subscription category",
-  ApiCredential: "API key",
-  Document: "Information type",
-  ApiGateway: "API gateway",
-  ApiGatewayPartner: "Gateway attachment",
-  BusGateway: "Bus gateway",
-  BusGatewayRoute: "Bus gateway route",
-  WorkGroup: "Work group",
-  RetryPolicy: "Retry policy",
-  RetryAlertOverride: "Retry alert override",
-  GlobalAdapterValuesSet: "Global value set",
-  Account: "Member",
-  AccountRoleLink: "Member's role",
-  OperatorAction: "Operation (retry, export, requeue…)",
-  AdapterDraft: "Adapter draft",
-  AdapterRelease: "Adapter release",
-  AdapterSourceAccess: "Adapter source read",
-};
+
 
 /** Where a recorded row lives in the UI, where it has a page of its own. */
 const ENTITY_LINK: Record<string, (key: string) => string> = {
@@ -165,7 +147,7 @@ export function AuditPage() {
           clearLabel="Any entity"
           value={query.entityName ?? ""}
           onChange={(v) => setParam("entityName", v || null)}
-          options={ENTITY_NAMES.map((n) => ({ value: n, label: ENTITY_LABEL[n] ?? n }))}
+          options={ENTITY_NAMES.map((n) => ({ value: n, label: entityLabel(n) }))}
         />
         <SearchSelect
           aria-label="Filter by member"
@@ -262,7 +244,9 @@ export function AuditPage() {
                 const to = ENTITY_LINK[r.entityName]?.(r.entityKey);
                 return (
                   <>
-                    <span className="block text-[13px] font-medium text-ink-800">{r.entityName}</span>
+                    <span className="block text-[13px] font-medium text-ink-800" title={r.entityName}>
+                      {entityLabel(r.entityName)}
+                    </span>
                     {to && r.action !== "Deleted" ? (
                       <Link
                         to={to}
@@ -286,7 +270,7 @@ export function AuditPage() {
               header: "Changed",
               headerTitle: "The fields this change touched. Open one to see the values.",
               wrap: true,
-              cell: (r) => <ChangedCell changes={r.changes} />,
+              cell: (r) => <ChangedCell changes={r.changes} entity={r.entityName} />,
             },
             {
               header: "By",
@@ -317,9 +301,9 @@ export function AuditPage() {
                 <button
                   onClick={() => setParam("correlationId", r.correlationId)}
                   className="text-xs font-medium text-crimson-700 hover:underline"
-                  title="Show every row this one save changed."
+                  title="Show every change saved at the same moment as this one: one edit often changes several rows."
                 >
-                  Same save
+                  Saved together
                 </button>
               ),
             },

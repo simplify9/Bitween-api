@@ -23,18 +23,18 @@ describe("the audit trail page", () => {
     const { user, router } = renderApp("/audit", { handlers: [trail.handler, members] });
 
     expect(await screen.findByRole("heading", { name: "Audit trail" })).toBeVisible();
-    expect(await screen.findByText("WorkGroup")).toBeVisible();
+    expect(await screen.findByText("Work group")).toBeVisible();
 
     // Narrowing to this one row proves the entity filters reach the query, not just the URL.
     await act(() => router.navigate("/audit?entityName=Partner&entityKey=42"));
-    await waitFor(() => expect(screen.queryByText("WorkGroup", { selector: "td *" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Work group", { selector: "td *" })).not.toBeInTheDocument());
     expect(trail.asked.at(-1)?.get("entityName")).toBe("Partner");
     expect(trail.asked.at(-1)?.get("entityKey")).toBe("42");
     expect(screen.getByRole("row", { name: /Partner/ })).toBeVisible();
     expect(screen.getByRole("link", { name: "42" })).toHaveAttribute("href", "/partners/42");
 
-    // "Same save" pivots to the correlation id — every row one SaveChanges wrote.
-    await user.click(screen.getAllByRole("button", { name: "Same save" })[0]);
+    // "Saved together" pivots to the correlation id — every row one SaveChanges wrote.
+    await user.click(screen.getAllByRole("button", { name: "Saved together" })[0]);
     expect(router.state.location.search).toMatch(/correlationId=save-a/);
     expect(await screen.findByText("Showing one save only")).toBeVisible();
     expect(trail.asked.at(-1)?.get("correlationId")).toBe("save-a");
