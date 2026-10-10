@@ -28,6 +28,8 @@ public class PipelineTests(HttpFixture fixture)
     /// </summary>
     static readonly string[] UnprotectedHandlers =
     [
+        // Redeems a signed one-time code with the CLI's PKCE verifier: no session to have yet.
+        "SW.Bitween.Resources.Accounts.CliToken",
         "SW.Bitween.Resources.Accounts.Login",
         "SW.Bitween.Resources.Accounts.Logout",
         "SW.Bitween.Resources.Settings.Config",
