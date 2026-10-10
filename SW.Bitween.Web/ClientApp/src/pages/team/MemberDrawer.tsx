@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, KeyRound, LockOpen, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
@@ -11,6 +11,7 @@ import { CopyField } from "../../components/ui/CopyField";
 import { Badge, Button, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { useModalFocus } from "../../components/ui/useModalFocus";
 import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
 import { statusBadge } from "./MembersPage";
 import { keys } from "../../api/queryKeys";
@@ -37,6 +38,9 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   // mail, so the admin has to pass it on themselves — clearing the field on success
   // threw away the one thing they still needed, with nothing to say it had worked.
   const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
+
+  const panel = useRef<HTMLElement>(null);
+  useModalFocus(panel);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -295,10 +299,12 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-ink-950/40" onClick={onClose} />
       <aside
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Member details"
-        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl outline-none"
       >
         <button
           onClick={onClose}

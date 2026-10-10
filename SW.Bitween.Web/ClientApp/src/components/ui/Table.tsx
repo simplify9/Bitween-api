@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { clickableRow, clickableRowClass } from "./clickableRow";
 import { Search } from "lucide-react";
 import { Button } from "./basics";
 
@@ -107,9 +108,9 @@ export function Table<T>({
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              {...(onRowClick ? clickableRow(() => onRowClick(row)) : {})}
               className={`border-b border-ink-50 last:border-b-0 ${
-                onRowClick ? "cursor-pointer hover:bg-ink-50/60" : ""
+                onRowClick ? `cursor-pointer hover:bg-ink-50/60 ${clickableRowClass}` : ""
               }`}
             >
               {columns.map((c, i) => (
@@ -238,9 +239,9 @@ export function MiniTable<T>({
               {shown.map((row) => (
                 <tr
                   key={rowKey(row)}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  {...(onRowClick ? clickableRow(() => onRowClick(row)) : {})}
                   className={`border-b border-ink-50 last:border-b-0 ${
-                    onRowClick ? "cursor-pointer hover:bg-ink-50/60" : ""
+                    onRowClick ? `cursor-pointer hover:bg-ink-50/60 ${clickableRowClass}` : ""
                   }`}
                 >
                   {columns.map((c, i) => (

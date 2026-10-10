@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button, FormError } from "./basics";
+import { useModalFocus } from "./useModalFocus";
 
 /**
  * Every dialog currently mounted, innermost last.
@@ -26,6 +27,9 @@ export function Dialog({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useModalFocus(panel);
+
   // Registered once per mount, so a re-render can't reorder the stack.
   const token = useRef<symbol | null>(null);
   useEffect(() => {
@@ -60,10 +64,12 @@ export function Dialog({
       onClick={(e) => e.stopPropagation()}
     >
       <div
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-2xl bg-white shadow-xl`}
+        className={`w-full outline-none ${wide ? "max-w-2xl" : "max-w-md"} rounded-2xl bg-white shadow-xl`}
       >
         <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3.5">
           <h2 className="text-[15px] font-semibold text-ink-900">{title}</h2>

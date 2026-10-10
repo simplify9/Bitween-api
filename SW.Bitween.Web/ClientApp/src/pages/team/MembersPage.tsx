@@ -6,6 +6,7 @@ import { api, type User, type UserStatus } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Avatar } from "../../components/ui/Avatar";
+import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { timeAgo } from "../../lib/dates";
 import { AddMemberDialog } from "./AddMemberDialog";
@@ -164,8 +165,8 @@ export function MembersPage() {
               {filtered.map((user) => (
                 <tr
                   key={user.id}
-                  onClick={() => openMember(user)}
-                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
+                  {...clickableRow(() => openMember(user))}
+                  className={`cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50 ${clickableRowClass}`}
                 >
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">

@@ -9,6 +9,7 @@ import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/bas
 import { Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { SearchSelect } from "../../components/ui/SearchSelect";
+import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
 import { useSubscriptionsCache } from "../../components/config/shared";
 import { timeAgo, timeUntil, duration } from "../../lib/dates";
 import { ExchangeDrawer } from "./ExchangeDrawer";
@@ -511,14 +512,15 @@ export function ExchangesPage() {
               {rows.map((x) => (
                 <Fragment key={x.id}>
                   <tr
-                    onClick={() => toggleOpen(x.id)}
+                    {...clickableRow(() => toggleOpen(x.id))}
+                    aria-expanded={open.has(x.id)}
                     /* Hovering a row is most of a second's head start on opening it, which is
                        enough that its retry chain is already there when the drawer renders.
                        Only for rows that have one — most exchanges do not. */
                     onMouseEnter={() => {
                       if (hasRetryChain(x)) void queryClient.prefetchQuery(retryTreeQuery(x.id));
                     }}
-                    className="cursor-pointer border-b border-ink-50 transition-colors last:border-0 hover:bg-ink-50/60"
+                    className={`cursor-pointer border-b border-ink-50 transition-colors last:border-0 hover:bg-ink-50/60 ${clickableRowClass}`}
                   >
                     <td className="py-1.5 pl-4" onClick={(e) => e.stopPropagation()}>
                       <Can permission="exchanges.view">
