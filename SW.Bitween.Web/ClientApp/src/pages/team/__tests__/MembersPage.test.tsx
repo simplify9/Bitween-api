@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { ADMIN, apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -139,8 +139,9 @@ describe("the member list", () => {
     const search = await screen.findByLabelText("Search members");
     await screen.findByRole("row", { name: /findable@test.local/ });
     await user.type(search, "Findable");
+    // The search runs once typing pauses.
+    await waitFor(() => expect(screen.queryByRole("row", { name: new RegExp(ADMIN.email) })).not.toBeInTheDocument());
     expect(row("findable@test.local")).toBeVisible();
-    expect(screen.queryByRole("row", { name: new RegExp(ADMIN.email) })).not.toBeInTheDocument();
 
     await user.clear(search);
     await user.click(screen.getByRole("button", { name: "Disabled" }));

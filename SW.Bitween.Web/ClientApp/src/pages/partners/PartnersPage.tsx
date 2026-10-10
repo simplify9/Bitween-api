@@ -12,6 +12,7 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { UsedByCell, useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/shared";
 import { keys } from "../../api/queryKeys";
+import { useSearchText } from "../../lib/useSearchText";
 
 const PAGE_SIZE = 25;
 
@@ -43,6 +44,7 @@ export function PartnersPage() {
       },
       { replace: key === "q" },
     );
+  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const partnerSubscriptions = usePartnerSubscriptions();
   const subscriptions = useSubscriptionsCache().data ?? [];
@@ -106,8 +108,8 @@ export function PartnersPage() {
           <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
             placeholder="Search partners"
             aria-label="Search partners"
             className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
