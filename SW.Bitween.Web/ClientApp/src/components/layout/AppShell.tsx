@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -21,6 +21,7 @@ import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/basics";
 import { Menu, MenuItem } from "../ui/overlays";
 import { keys } from "../../api/queryKeys";
+import { LoadingBlock } from "../ui/basics";
 
 /**
  * Shown on every page while unsaved setting changes exist — the whole app
@@ -379,13 +380,17 @@ export function AppShell() {
             <div className="px-4 pt-4 empty:hidden sm:px-6">
               <SettingsPreviewBanner />
             </div>
-            <Outlet />
+            <Suspense fallback={<LoadingBlock />}>
+              <Outlet />
+            </Suspense>
           </>
         ) : (
           <>
             <div className="w-full px-4 py-4 sm:px-6 sm:py-5">
               <SettingsPreviewBanner />
-              <Outlet />
+              <Suspense fallback={<LoadingBlock />}>
+                <Outlet />
+              </Suspense>
             </div>
             <AppFooter branding={branding} />
           </>

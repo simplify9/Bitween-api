@@ -26,8 +26,6 @@ import {
 // CodeMirror, its diff view and the language packs load only when someone opens source.
 const AdapterSourceViewer = lazy(() => import("./AdapterSourceViewer"));
 
-/** The editor, loaded only when someone opens a draft: it brings CodeMirror and its languages. */
-export const AdapterEditorPage = lazy(() => import("./AdapterEditorPage"));
 
 type Tab = "installed" | "marketplace";
 type KindFilter = "all" | AdapterKind;

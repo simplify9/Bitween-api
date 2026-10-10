@@ -47,3 +47,10 @@ afterEach(() => {
 });
 
 afterAll(() => server.close());
+
+// The router loads every page lazily. Loaded here once, each test's page resolves at once instead
+// of being transformed on its first render, which under a full parallel run could take longer
+// than a findBy waits.
+import.meta.glob(["/src/pages/**/*.tsx", "!/src/pages/**/__tests__/**", "/src/components/nativeMapper/MapperEditorRoute.tsx"], {
+  eager: true,
+});
