@@ -76,7 +76,7 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
 
   // Manually create an exchange addressed at a subscription.
   await page.goto("exchanges/new");
-  await page.getByRole("combobox", { name: "Pick a subscription…" }).click();
+  await page.getByRole("combobox", { name: "Subscription" }).click();
   await page.getByRole("option").first().click();
   // Dismiss the dropdown panel via an outside click (it sits above the panel's
   // anchor point, so it can't itself be covered) rather than Escape, which
