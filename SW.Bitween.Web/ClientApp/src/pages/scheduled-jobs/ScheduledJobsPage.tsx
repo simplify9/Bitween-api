@@ -21,6 +21,7 @@ import {
 } from "../../components/config/shared";
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
 
 function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -365,12 +366,7 @@ export function ScheduledJobsPage() {
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <span
-                    className="block truncate font-mono text-[11px] text-danger-700"
-                    title={r.lastException}
-                  >
-                    {r.lastException}
-                  </span>
+                  <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />
                 ) : (
                   <span className="text-ink-400">—</span>
                 ),

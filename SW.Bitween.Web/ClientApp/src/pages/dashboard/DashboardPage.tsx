@@ -9,6 +9,7 @@ import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 import { timeAgo } from "../../lib/dates";
 import { StatusBadge, XchangeId } from "../exchanges/shared";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
 
 const CHART_HEIGHT = 140;
 /** Single-line rows, so ten fill about the height of the six two-line "Latest failures" beside them. */
@@ -290,9 +291,7 @@ export function DashboardPage() {
                   <span className="ml-auto text-xs text-ink-400">{timeAgo(c.startedOn)}</span>
                 </div>
                 {c.exception && (
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-ink-500" title={c.exception}>
-                    {c.exception.split("\n")[0]}
-                  </p>
+                  <ExceptionLine text={c.exception} className="mt-0.5 text-[12px] text-ink-600" />
                 )}
               </li>
             ))}
@@ -329,9 +328,7 @@ export function DashboardPage() {
                     <span className="ml-auto text-xs text-ink-400">{timeAgo(f.on)}</span>
                   </div>
                   {f.exception && (
-                    <p className="mt-0.5 truncate font-mono text-[11px] text-ink-500" title={f.exception}>
-                      {f.exception.split("\n")[0]}
-                    </p>
+                    <ExceptionLine text={f.exception} className="mt-0.5 text-[12px] text-ink-600" />
                   )}
                 </li>
               ))}

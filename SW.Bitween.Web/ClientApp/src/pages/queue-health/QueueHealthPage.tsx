@@ -20,6 +20,7 @@ import { useSessionCan } from "../../auth/guards";
 import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
+import { ExceptionBlock } from "../../components/ui/Exception";
 
 const POLL_MS = 5_000;
 
@@ -682,9 +683,9 @@ function DeadLetterMessages({ row, onClose }: { row: DeadLetterRow; onClose: () 
                   {m.correlationId && <span>Correlation {m.correlationId}</span>}
                 </div>
                 {m.lastException && (
-                  <p className="mb-2 rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-danger-800">
-                    {m.lastException}
-                  </p>
+                  <div className="mb-2">
+                    <ExceptionBlock text={m.lastException} title="Why it was dead-lettered" />
+                  </div>
                 )}
                 <pre className="max-h-64 overflow-auto rounded-md bg-ink-50 p-2.5 font-mono text-[11.5px] text-ink-800">
                   {m.body}

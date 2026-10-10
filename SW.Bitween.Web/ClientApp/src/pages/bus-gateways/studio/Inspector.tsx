@@ -14,6 +14,7 @@ import { HealthBadge } from "../../../components/config/shared";
 import { ResponseFields } from "../../subscriptions/studio/ResponseFields";
 import { keys } from "../../../api/queryKeys";
 import { workGroupQueueName } from "../../../lib/busMessageName";
+import { ExceptionBlock } from "../../../components/ui/Exception";
 import {
   BUS_NODES,
   type BusNodeId,
@@ -347,9 +348,7 @@ export function SubscriptionBody({
         </p>
       )}
       {lastException && (
-        <pre className="max-h-32 overflow-auto rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-          {lastException}
-        </pre>
+        <ExceptionBlock text={lastException} title="Last error" />
       )}
     </div>
   );

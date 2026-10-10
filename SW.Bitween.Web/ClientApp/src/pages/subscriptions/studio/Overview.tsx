@@ -14,6 +14,7 @@ import { Fact } from "./Fact";
 import { LaneAndRetry } from "./LaneAndRetry";
 import type { Draft, EntryPoint } from "./model";
 import { keys } from "../../../api/queryKeys";
+import { ExceptionBlock } from "../../../components/ui/Exception";
 
 /** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
 export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
@@ -252,9 +253,7 @@ export function Overview({
       {/* The scheduled types get this per-attempt instead, in ReceiveAttemptsPanel below —
           showing it again here duplicated the same error twice on one page. */}
       {s.lastException && attemptKind === null && (
-        <pre className="max-h-40 overflow-auto rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-          {s.lastException}
-        </pre>
+        <ExceptionBlock text={s.lastException} title="Last error" />
       )}
 
       {attemptKind !== null && (

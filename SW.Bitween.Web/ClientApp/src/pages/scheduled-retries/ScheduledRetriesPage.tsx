@@ -15,6 +15,7 @@ import { useSubscriptionsCache } from "../../components/config/shared";
 import { formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { PromotedProps } from "../../components/config/shared";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
 
 const PAGE_SIZE = 25;
 
@@ -228,9 +229,7 @@ export function ScheduledRetriesPage() {
               truncate: true,
               cell: (r) =>
                 r.exception ? (
-                  <span className="block truncate font-mono text-[11px] text-danger-700" title={r.exception}>
-                    {r.exception}
-                  </span>
+                  <ExceptionLine text={r.exception} className="text-[12px] text-danger-700" />
                 ) : (
                   <span className="text-ink-400">—</span>
                 ),

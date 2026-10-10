@@ -31,6 +31,7 @@ import { LiveConnection } from "./LiveConnection";
 import { Statements, type StatementSeed } from "./Statements";
 import { SchemaBrowser } from "./SchemaBrowser";
 import { draftOf, editableFingerprint, type Draft } from "./draft";
+import { ExceptionLine } from "../../components/ui/Exception";
 
 /** A draft is the whole editable surface, so the save bar can compare against what was loaded. */
 
@@ -366,7 +367,9 @@ export function DataSourcePage() {
               {d.lastException && (
                 <div className="sm:col-span-2">
                   <dt className="text-ink-500">Last error</dt>
-                  <dd className="text-danger-700">{d.lastException}</dd>
+                  <dd className="min-w-0 text-danger-700">
+                    <ExceptionLine text={d.lastException} />
+                  </dd>
                 </div>
               )}
             </dl>

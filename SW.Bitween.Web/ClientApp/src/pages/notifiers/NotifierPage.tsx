@@ -16,6 +16,7 @@ import { useSubscriptionsCache } from "../../components/config/shared";
 import { timeAgo } from "../../lib/dates";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
@@ -48,9 +49,7 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
           truncate: true,
           cell: (n) =>
             n.exception ? (
-              <span className="block truncate font-mono text-[11px] text-danger-700" title={n.exception}>
-                {n.exception}
-              </span>
+              <ExceptionLine text={n.exception} className="text-[12px] text-danger-700" />
             ) : (
               <span className="text-ink-400">—</span>
             ),

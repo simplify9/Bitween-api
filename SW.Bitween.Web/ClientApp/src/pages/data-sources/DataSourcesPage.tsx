@@ -10,6 +10,7 @@ import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { providerOf, useDataSourceProviders } from "./providers";
+import { ExceptionLine } from "../../components/ui/Exception";
 
 const PAGE_SIZE = 25;
 
@@ -154,9 +155,7 @@ export function DataSourcesPage() {
                 <div className="flex flex-col gap-1">
                   <ConnectionBadge state={d.lastKnownState} failures={d.consecutiveFailures} />
                   {d.lastException && (
-                    <span className="max-w-80 truncate text-[11px] text-danger-700" title={d.lastException}>
-                      {d.lastException}
-                    </span>
+                    <ExceptionLine text={d.lastException} className="max-w-80 text-[12px] text-danger-700" />
                   )}
                 </div>
               ),

@@ -1,12 +1,14 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Check, Copy, Download, FileText, Play, RotateCcw } from "lucide-react";
+import { ArrowRight, Download, FileText, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
 import { useSessionCan } from "../../auth/guards";
 import { Badge, Button } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { HighlightedDocument } from "../../components/ui/HighlightedDocument";
+import { CopyButton } from "../../components/ui/CopyButton";
+import { ExceptionBlock } from "../../components/ui/Exception";
 import { formatDateTime, duration, timeUntil } from "../../lib/dates";
 import { formatDocument } from "../../lib/documentPreview";
 import { useSubscriptionsCache } from "../../components/config/shared";
@@ -24,32 +26,6 @@ const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNod
 };
 
 const kb = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`);
-
-function CopyButton({
-  value,
-  label,
-  className = "rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700",
-}: {
-  value: string;
-  label: string;
-  /** Overridden by the document toolbar, which sits on a dark ground. */
-  className?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        await navigator.clipboard.writeText(value);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1400);
-      }}
-      title={`Copy ${label}`}
-      className={className}
-    >
-      {copied ? <Check className="size-3.5 text-ok-600" /> : <Copy className="size-3.5" />}
-    </button>
-  );
-}
 
 function MetaItem({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -309,17 +285,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       )}
 
       {/* — failure — */}
-      {x.exception && (
-        <div className="rounded-lg bg-danger-50 px-3 py-2.5">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-[11px] font-medium tracking-wide text-danger-700 uppercase">Exception</p>
-            <CopyButton value={x.exception} label="exception" />
-          </div>
-          <pre className="max-h-40 overflow-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-            {x.exception}
-          </pre>
-        </div>
-      )}
+      {x.exception && <ExceptionBlock text={x.exception} />}
 
       {/* — the attempts this exchange belongs to, when it belongs to any — */}
       {hasRetryChain(x) && <RetryChain id={x.id} />}

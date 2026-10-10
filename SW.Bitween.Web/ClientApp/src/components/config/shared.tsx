@@ -20,6 +20,7 @@ import { Popover } from "../ui/Popover";
 import { MiniTable, type Column } from "../ui/Table";
 import { formatDate, timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
 
 /**
  * Display names for subscription types; Internal and ApiCall are legacy.
@@ -785,12 +786,7 @@ export function useWiredSubscriptionColumns<T>(
       cell: (row) => {
         const message = rowsById.get(subscriptionIdOf(row))?.lastException;
         return message ? (
-          <span
-            className="block truncate font-mono text-[11px] text-danger-700"
-            title={message}
-          >
-            {message}
-          </span>
+          <ExceptionLine text={message} className="text-[12px] text-danger-700" />
         ) : (
           <span className="text-ink-400">—</span>
         );

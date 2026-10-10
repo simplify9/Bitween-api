@@ -10,6 +10,7 @@ import { SearchSelect } from "../../components/ui/SearchSelect";
 import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
 import {
   HealthBadge,
   SUBSCRIPTION_TYPE_LABELS,
@@ -272,12 +273,7 @@ export function SubscriptionsPage() {
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <span
-                    className="block truncate font-mono text-[11px] text-danger-700"
-                    title={r.lastException}
-                  >
-                    {r.lastException}
-                  </span>
+                  <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />
                 ) : (
                   <span className="text-ink-400">—</span>
                 ),
