@@ -167,6 +167,7 @@ export function KeyValueEditor({
   rows,
   onChange,
   keyLabel,
+  addLabel,
   valueLabel,
   keyPlaceholder,
   valuePlaceholder,
@@ -182,6 +183,8 @@ export function KeyValueEditor({
   rows: KvRow[];
   onChange: (rows: KvRow[]) => void;
   keyLabel: string;
+  /** The add button's words, when "Add <key label>" doesn't name the thing: "Add promoted property". */
+  addLabel?: string;
   valueLabel: string;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
@@ -344,7 +347,10 @@ export function KeyValueEditor({
                       className={`${cellInput} font-medium`}
                     />
                     {i === 0 && reorderable?.first && (
-                      <span className="mt-0.5 block text-[11px] font-medium text-crimson-700" title={reorderable.first.title}>
+                      <span
+                        className="mt-1 inline-block rounded bg-ink-100 px-1.5 py-0.5 text-[11px] font-medium text-ink-700"
+                        title={reorderable.first.title}
+                      >
                         {reorderable.first.label}
                       </span>
                     )}
@@ -430,7 +436,7 @@ export function KeyValueEditor({
       {rows.length === 0 && <p className="pb-2 text-sm text-ink-500">{emptyText}</p>}
       {editable && (
         <Button size="sm" onClick={add} className="mt-1.5">
-          <Plus className="size-3.5" /> Add {keyLabel.toLowerCase()}
+          <Plus className="size-3.5" /> {addLabel ?? `Add ${keyLabel.toLowerCase()}`}
         </Button>
       )}
     </div>

@@ -159,11 +159,11 @@ export function SourceDialog({
 
         {error && <FormError>{error}</FormError>}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
+          <Button onClick={onClose}>Cancel</Button>
           <Button variant="primary" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? "Saving…" : "Save"}
           </Button>
-          <Button onClick={onClose}>Cancel</Button>
         </div>
       </div>
     </Dialog>

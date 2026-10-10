@@ -336,7 +336,8 @@ export function InformationTypeFields({
                   "The main property: shown first on the Exchanges page, and its value names the exchange's file when the retention job archives it.",
               },
             }}
-            keyLabel="Friendly name"
+            keyLabel="Name"
+            addLabel="Add promoted property"
             valueLabel={draft.format === "Xml" ? "XML path" : "JSON path"}
             keyPlaceholder="OrderNumber"
             valuePlaceholder={draft.format === "Xml" ? "//Order/Number" : "$.order.id"}

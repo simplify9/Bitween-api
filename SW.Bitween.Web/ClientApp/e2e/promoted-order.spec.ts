@@ -20,8 +20,8 @@ test("promoted properties can be put in order, and the order is kept", async ({ 
     ["OrderNumber", "$.order"],
     ["City", "$.city"],
   ].entries()) {
-    await page.getByRole("button", { name: "Add friendly name" }).click();
-    await page.getByRole("textbox", { name: `Friendly name ${i + 1}` }).fill(key);
+    await page.getByRole("button", { name: "Add promoted property" }).click();
+    await page.getByRole("textbox", { name: `Name ${i + 1}`, exact: true }).fill(key);
     await page.getByRole("textbox", { name: `JSON path ${i + 1}` }).fill(path);
   }
   await page.getByRole("button", { name: "Save changes" }).click();
@@ -37,7 +37,7 @@ test("promoted properties can be put in order, and the order is kept", async ({ 
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 
   await page.reload();
-  const names = page.getByRole("textbox", { name: /^Friendly name \d/ });
+  const names = page.getByRole("textbox", { name: /^Name \d+$/ });
   await expect(names).toHaveCount(3);
   expect(await names.evaluateAll((boxes) => boxes.map((b) => (b as HTMLInputElement).value))).toEqual([
     "OrderNumber",

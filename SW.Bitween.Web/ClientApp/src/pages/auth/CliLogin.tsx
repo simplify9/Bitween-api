@@ -98,11 +98,11 @@ export function CliLoginPage() {
             </div>
           )}
           <div className="mt-6 flex gap-2">
-            <Button variant="primary" busy={grant.isPending} onClick={() => grant.mutate()}>
-              Sign in the CLI
-            </Button>
             <Button onClick={cancel} disabled={grant.isPending}>
               Cancel
+            </Button>
+            <Button variant="primary" busy={grant.isPending} onClick={() => grant.mutate()}>
+              Sign in the CLI
             </Button>
           </div>
         </>
