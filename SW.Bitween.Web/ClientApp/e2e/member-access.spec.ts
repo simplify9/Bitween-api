@@ -83,7 +83,7 @@ test("a custom role given to an existing member in the drawer lets them create a
   await expect(page.getByText("You don't have access to this page")).toBeVisible();
 
   await page.goto("partners");
-  await page.getByRole("button", { name: "New partner" }).click();
+  await page.getByRole("button", { name: "New partner" }).first().click();
   const partnerName = `Playwright Clerk Partner ${Date.now()}`;
   const dialog = page.getByRole("dialog", { name: "New partner" });
   await dialog.locator("#pf-name").fill(partnerName);
@@ -130,7 +130,7 @@ test("a role with Create but not Edit can create an information type and a work 
 
   const typeName = `Playwright Created Type ${Date.now()}`;
   await page.goto("information-types");
-  await page.getByRole("button", { name: "New information type" }).click();
+  await page.getByRole("button", { name: "New information type" }).first().click();
   const typeDialog = page.getByRole("dialog", { name: "New information type" });
   await typeDialog.getByRole("textbox", { name: "Name" }).fill(typeName);
   await typeDialog.getByRole("button", { name: "Create information type" }).click();
@@ -139,7 +139,7 @@ test("a role with Create but not Edit can create an information type and a work 
 
   const groupName = `Playwright Created Group ${Date.now()}`;
   await page.goto("work-groups");
-  await page.getByRole("button", { name: "New work group" }).click();
+  await page.getByRole("button", { name: "New work group" }).first().click();
   const groupDialog = page.getByRole("dialog", { name: "New work group" });
   await groupDialog.getByRole("textbox", { name: "Name", exact: true }).fill(groupName);
   await groupDialog.getByRole("button", { name: "Create work group" }).click();

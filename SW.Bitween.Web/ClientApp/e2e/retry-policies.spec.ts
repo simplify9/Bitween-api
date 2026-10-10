@@ -10,7 +10,7 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   const groupName = "Timeouts";
 
   await page.goto("retry-policies");
-  await page.getByRole("button", { name: "New retry policy" }).click();
+  await page.getByRole("button", { name: "New retry policy" }).first().click();
   await page.fill("#nrp-name", name);
   await page.getByRole("button", { name: "Create policy" }).click();
 

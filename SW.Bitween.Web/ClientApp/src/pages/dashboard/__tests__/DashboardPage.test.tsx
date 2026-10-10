@@ -106,7 +106,8 @@ describe("the dashboard", () => {
   it("isn't offered once the instance is set up", async () => {
     renderApp("/dashboard", { handlers: [
       http.get(apiPath("/documents"), () => HttpResponse.json({ result: [{ id: 3, name: "Order", code: "ORDER" }], totalCount: 1 })),
-      http.get(apiPath("/partners"), () => HttpResponse.json({ result: [{ id: 7, name: "Acme", keys: 1, subscriptionsCount: 1, propertyKeys: [] }], totalCount: 1 })),
+      // A partner with no key yet still counts: one that sends by token never has one.
+      http.get(apiPath("/partners"), () => HttpResponse.json({ result: [{ id: 7, name: "Acme", keys: 0, subscriptionsCount: 1, propertyKeys: [] }], totalCount: 1 })),
       ...dashboard([subscription(0)]),
     ] });
     expect(await screen.findByRole("heading", { name: "Subscription health" })).toBeVisible();

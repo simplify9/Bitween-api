@@ -10,7 +10,7 @@ test("information type Code is optional end to end", async ({ page }) => {
 
   // Creating happens in a dialog on the list page, not on a page of its own.
   await page.goto("information-types");
-  await page.getByRole("button", { name: "New information type" }).click();
+  await page.getByRole("button", { name: "New information type" }).first().click();
 
   const dialog = page.getByRole("dialog", { name: "New information type" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);

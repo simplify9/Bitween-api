@@ -49,7 +49,7 @@ test("a response subscription made on its page and picked on a delivering subscr
     // The response subscription, on its own page.
     const responseName = `Playwright Label Store ${s}`;
     await page.goto("response-subscriptions");
-    await page.getByRole("button", { name: "New response subscription" }).click();
+    await page.getByRole("button", { name: "New response subscription" }).first().click();
     await page.fill("#nr-name", responseName);
     await pickOption(page, "Information type", new RegExp(SEED.informationType));
     // Delivery is the step that is open to begin with.

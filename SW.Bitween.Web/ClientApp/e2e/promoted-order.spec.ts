@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 test("promoted properties can be put in order, and the order is kept", async ({ page }) => {
   const name = `Playwright Order ${Date.now()}`;
   await page.goto("information-types");
-  await page.getByRole("button", { name: "New information type" }).click();
+  await page.getByRole("button", { name: "New information type" }).first().click();
   const dialog = page.getByRole("dialog", { name: "New information type" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
   await dialog.getByRole("button", { name: "Create information type" }).click();

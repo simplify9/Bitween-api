@@ -52,16 +52,20 @@ export function GettingStarted({ exchangesSeen }: { exchangesSeen: boolean }) {
       action: "Information types",
     },
     {
-      done: (partners.data ?? []).some((p) => !p.isSystem && p.credentialCount > 0),
+      // Any partner of one's own: the list's key count isn't always filled in, and a partner set up
+      // to send by token has no key at all.
+      done: (partners.data ?? []).some((p) => !p.isSystem),
       title: "Add a partner and give it an API key",
       body: "Who sends or receives documents. The key is how the partner proves who it is.",
       to: "/partners",
       action: "Partners",
     },
     {
-      done: (gateways.data ?? []).some((g) => g.attachments.length > 0) || all.some((s) => s.type === "Receiving"),
-      title: "Open a way in",
-      body: "An API gateway lets partners send documents in; a scheduled job fetches them on a schedule.",
+      done:
+        (gateways.data ?? []).some((g) => (g.partnerCount ?? 0) > 0 || g.attachments.length > 0) ||
+        all.some((s) => s.type === "Receiving"),
+      title: "Let documents in",
+      body: "Partners send documents to an API gateway, or a scheduled job fetches them on a schedule.",
       to: "/api-gateways",
       action: "API gateways",
     },

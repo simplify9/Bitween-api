@@ -10,7 +10,7 @@ test("work group create, edit queue settings, list, delete", async ({ page }) =>
 
   // Creating happens in a dialog on the list page, not on a page of its own.
   await page.goto("work-groups");
-  await page.getByRole("button", { name: "New work group" }).click();
+  await page.getByRole("button", { name: "New work group" }).first().click();
 
   const dialog = page.getByRole("dialog", { name: "New work group" });
   // `exact` keeps this off "Bus message name", which also contains "Name".

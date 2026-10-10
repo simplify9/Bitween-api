@@ -55,7 +55,7 @@ test.describe("audit trail", () => {
     const renamed = `${name} Renamed`;
 
     await page.goto("partners");
-    await page.getByRole("button", { name: "New partner" }).click();
+    await page.getByRole("button", { name: "New partner" }).first().click();
     const dialog = page.getByRole("dialog", { name: "New partner" });
     await dialog.getByRole("textbox", { name: "Name" }).fill(name);
     await dialog.getByRole("button", { name: "Create partner" }).click();

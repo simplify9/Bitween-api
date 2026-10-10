@@ -25,7 +25,7 @@ test.beforeEach(async ({ page, request }) => {
 /** Creates a PostgreSQL data source through New data source, and lands on its page. */
 async function createDataSource(page: Page, name: string) {
   await page.goto("data-sources");
-  await page.getByRole("button", { name: "New data source" }).click();
+  await page.getByRole("button", { name: "New data source" }).first().click();
   await page.fill("#ds-name", name);
   await page.locator("#ds-provider").selectOption(PROVIDER);
   // Asked for at create: what the provider can't connect without. The tests set the real

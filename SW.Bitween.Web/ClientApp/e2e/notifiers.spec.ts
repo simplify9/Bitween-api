@@ -50,7 +50,7 @@ test("a notifier set on its page to post failures of one subscription to an HTTP
   try {
     const notifierName = `Playwright Notifier ${s}`;
     await page.goto("notifiers");
-    await page.getByRole("button", { name: "New notifier" }).click();
+    await page.getByRole("button", { name: "New notifier" }).first().click();
     await page.fill("#nn-name", notifierName);
     await page.getByRole("button", { name: "Create notifier" }).click();
     await expect(page).toHaveURL(/\/notifiers\/\d+$/);
@@ -116,7 +116,7 @@ test("a notifier switched off on its page sends nothing when a watched subscript
 
   try {
     await page.goto("notifiers");
-    await page.getByRole("button", { name: "New notifier" }).click();
+    await page.getByRole("button", { name: "New notifier" }).first().click();
     await page.fill("#nn-name", `Playwright Quiet Notifier ${s}`);
     await page.getByRole("button", { name: "Create notifier" }).click();
     await expect(page).toHaveURL(/\/notifiers\/\d+$/);

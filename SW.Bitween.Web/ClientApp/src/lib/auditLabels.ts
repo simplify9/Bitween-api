@@ -54,7 +54,7 @@ const PROPERTY_LABEL: Record<string, Record<string, string>> = {
     MatchExpression: "Match rules",
     AggregateOn: "Rolls up on",
     AggregationForId: "Rolls up",
-    PausedOn: "Paused",
+    PausedOn: "Paused on",
     IsRunning: "Running mark",
     RunningSince: "Running since",
     ResponseSubscriptionId: "Response goes to",
@@ -71,6 +71,7 @@ const PROPERTY_LABEL: Record<string, Record<string, string>> = {
   Partner: { LoginIdentity: "Token identity" },
   Account: {
     DisplayName: "Name",
+    Disabled: "Account disabled",
     LastSignInOn: "Signed in",
     FailedLoginCount: "Failed sign-ins",
     LockoutEnd: "Locked until",

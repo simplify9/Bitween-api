@@ -10,7 +10,7 @@ test("global value set create, edit values, list, delete", async ({ page }) => {
   const name = `Playwright Values ${stamp}`;
 
   await page.goto("global-values");
-  await page.getByRole("button", { name: "New value set" }).click();
+  await page.getByRole("button", { name: "New value set" }).first().click();
   await page.fill("#nvs-name", name);
   await page.getByRole("button", { name: "Create value set" }).click();
 
