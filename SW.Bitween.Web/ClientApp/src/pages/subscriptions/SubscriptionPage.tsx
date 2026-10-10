@@ -36,6 +36,7 @@ import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { useCurrentPage } from "../../lib/currentPage";
 import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../lib/subscriptionPaths";
 import { PAGES, pathOf } from "../../pages";
+import { usePageTitle } from "../../lib/pageTitle";
 
 /**
  * Keyed by id. Going from one subscription's page straight to another's — down a response
@@ -62,6 +63,7 @@ function SubscriptionStudio() {
     queryFn: () => api.getSubscription(subscriptionId),
     retry: false,
   });
+  usePageTitle(subscription.data?.name);
   const allSubscriptions = useSubscriptionsCache();
   // promoted properties power the legacy message filter
   const infoType = useQuery({

@@ -20,6 +20,7 @@ import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { usePageTitle } from "../../lib/pageTitle";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
@@ -80,6 +81,7 @@ export function NotifierPage() {
     queryFn: () => api.getNotifier(notifierId),
     retry: false,
   });
+  usePageTitle(notifier.data?.name);
   const channels = useAdapterCatalog("handler");
   const subscriptions = useSubscriptionsCache();
 

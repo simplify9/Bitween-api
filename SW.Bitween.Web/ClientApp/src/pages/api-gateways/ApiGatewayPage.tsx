@@ -22,6 +22,7 @@ import { GatewayRejections } from "./GatewayRejections";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { splitErrors } from "../../lib/fieldErrors";
 import { GATEWAY_ERRORS } from "./gatewayErrors";
+import { usePageTitle } from "../../lib/pageTitle";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
 
@@ -108,6 +109,7 @@ export function ApiGatewayPage() {
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });
+  usePageTitle(gateway.data?.name);
 
   const attachmentsQuery = searchParams.get("aq") ?? "";
   const attachmentsOffset = searchParams.get("aoffset") ? Number(searchParams.get("aoffset")) : 0;

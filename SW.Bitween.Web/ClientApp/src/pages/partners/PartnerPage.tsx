@@ -18,6 +18,7 @@ import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { PartnerFields, type PartnerDraft } from "../../components/config/PartnerFields";
 import { partnerChanges, partnerDirty, partnerDraftOf } from "../../components/config/partnerDraft";
+import { usePageTitle } from "../../lib/pageTitle";
 
 export function PartnerPage() {
   const { id = "" } = useParams();
@@ -31,6 +32,7 @@ export function PartnerPage() {
     queryFn: () => api.getPartner(partnerId),
     retry: false,
   });
+  usePageTitle(partner.data?.name);
   // Keyed by partner so gateway-linked subscriptions are included, not just the
   // legacy ones that carry their own partnerId.
   const partnerSubscriptions = usePartnerSubscriptions();

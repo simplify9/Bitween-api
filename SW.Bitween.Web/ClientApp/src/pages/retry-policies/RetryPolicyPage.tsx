@@ -18,6 +18,7 @@ import { UsagePanel } from "./UsagePanel";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { usePageTitle } from "../../lib/pageTitle";
 
 const matcherSummary = (m: RetryMatcher): string => {
   switch (m.type) {
@@ -235,6 +236,7 @@ export function RetryPolicyPage() {
     queryFn: () => api.getRetryPolicy(policyId),
     retry: false,
   });
+  usePageTitle(policy.data?.name);
 
   const [name, setName] = useState("");
   const [groups, setGroups] = useState<RetryGroup[] | null>(null);

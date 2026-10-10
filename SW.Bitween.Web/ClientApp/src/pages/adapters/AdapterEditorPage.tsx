@@ -14,6 +14,7 @@ import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { languageFor } from "../../lib/adapterSource";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { usePageTitle } from "../../lib/pageTitle";
 
 const LANGUAGE_LABEL = { python: "Python", node: "JavaScript", typescript: "TypeScript" } as const;
 
@@ -42,6 +43,7 @@ export default function AdapterEditorPage() {
   const { id } = useParams();
   const draftId = Number(id);
   const draft = useQuery({ queryKey: keys.adapterDraft(draftId), queryFn: () => api.getAdapterDraft(draftId) });
+  usePageTitle(draft.data?.adapterId);
 
   if (draft.isPending) return <LoadingBlock label="Opening the draft…" />;
   if (draft.isError) return <p className="text-sm text-danger-700">{draft.error.message}</p>;

@@ -19,6 +19,7 @@ import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { SUBSCRIPTION_TYPE_LABELS } from "../../components/config/subscriptionLabels";
 import { SubscriptionMiniList } from "../../components/config/shared";
 import { useSubscriptionsCache } from "../../components/config/lookups";
+import { usePageTitle } from "../../lib/pageTitle";
 
 export function GlobalValueSetPage() {
   const { id = "" } = useParams();
@@ -31,6 +32,7 @@ export function GlobalValueSetPage() {
     queryFn: () => api.getValueSet(id),
     retry: false,
   });
+  usePageTitle(set.data?.name);
   const subscriptions = useSubscriptionsCache();
 
   const [name, setName] = useState("");

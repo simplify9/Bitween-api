@@ -7,6 +7,7 @@ import { isNotFound } from "../../components/ui/isNotFound";
 import { SubscriptionPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { usePageTitle } from "../../lib/pageTitle";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -35,6 +36,7 @@ export function EditAttachmentPage() {
     retry: false,
   });
   const attachment = gateway.data?.attachments.find((a) => a.partnerId === pid);
+  usePageTitle(attachment?.partnerName);
 
   const [draft, update, clear] = useDraft<Draft>({ subscriptionId: null },
   );

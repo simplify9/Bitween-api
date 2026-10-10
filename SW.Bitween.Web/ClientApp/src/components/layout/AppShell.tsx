@@ -24,6 +24,8 @@ import { keys } from "../../api/queryKeys";
 import { LoadingBlock } from "../ui/basics";
 import { PAGES } from "../../pages";
 import { useCurrentPage } from "../../lib/currentPage";
+import { PageTitleContext, type NamedPage } from "../../lib/pageTitle";
+import { EnvironmentBadge, TopBar } from "./TopBar";
 
 /**
  * Shown on every page while unsaved setting changes exist — the whole app
@@ -161,7 +163,7 @@ function SidebarContent({
         )}
       </div>
 
-      <nav className={`flex-1 space-y-4 overflow-y-auto py-3 ${railed ? "px-2" : "px-3"}`}>
+      <nav aria-label="Main" className={`flex-1 space-y-4 overflow-y-auto py-3 ${railed ? "px-2" : "px-3"}`}>
         {groups.map((group) => {
           // never hide the page the user is on
           const containsActive = group.items.some((item) => pathname.startsWith(item.path));
@@ -272,11 +274,23 @@ const RAILED_KEY = "bitween-nav-railed";
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
-  const branding = useApplyBranding();
+  const { pathname } = useLocation();
+  // The page's own name, once it has loaded what it shows (see `usePageTitle`). Kept with the
+  // address it was given for, so the next page never wears the last one's name.
+  const [named, setNamed] = useState<NamedPage | null>(null);
+  const current = useCurrentPage();
+  const title = named?.path === pathname ? named.title : null;
+  // "Orders inbound · API gateways" on a page about one thing, "API gateways" on the list.
+  const parent = current ? PAGES[current].parent : undefined;
+  const tabTitle = current
+    ? [title ?? PAGES[current].title, parent && PAGES[current].path.includes(":") ? PAGES[parent].title : null]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
+  const branding = useApplyBranding(tabTitle);
   // A page that owns the whole viewport (the bus-gateway studio, the flow map) says so in the page
   // registry: the shell stops supplying padding, a footer and a page-level scroll. Known from the
   // matched route rather than announced by the page, which could only ask once it had mounted.
-  const current = useCurrentPage();
   const fullBleed = current !== null && PAGES[current].layout === "full";
 
   const toggleRail = () =>
@@ -332,6 +346,9 @@ export function AppShell() {
             className="h-5"
           />
         </Link>
+        <span className="ml-auto">
+          <EnvironmentBadge branding={branding} />
+        </span>
       </header>
 
       {/* mobile drawer */}
@@ -366,6 +383,8 @@ export function AppShell() {
           Below `lg` it stays a normal stacking page — a three-pane studio on a
           phone is not a thing worth building. */}
       <main className={`flex min-w-0 flex-col ${fullBleed ? "lg:h-screen lg:overflow-hidden" : ""}`}>
+        <TopBar page={current} title={title} branding={branding} />
+        <PageTitleContext.Provider value={setNamed}>
         {fullBleed ? (
           <>
             {/* Empty when there is no settings draft, and hidden with it —
@@ -388,6 +407,7 @@ export function AppShell() {
             <AppFooter branding={branding} />
           </>
         )}
+        </PageTitleContext.Provider>
       </main>
     </div>
   );

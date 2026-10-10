@@ -34,5 +34,16 @@ namespace SW.Bitween.Services
         public string PrimaryColor { get; set; } = "#e3311d";
 
         public bool ShowFooter { get; set; } = true;
+
+        /// <summary>
+        /// Names this instance — "Production", "Staging", "Acme UAT" — in a badge at the top of
+        /// every page, so someone with three of them open in tabs can tell which one they are
+        /// about to change. Empty, the default: no badge, and nothing changes for a deployment
+        /// that never sets it.
+        /// </summary>
+        public string EnvironmentName { get; set; } = "";
+
+        /// <summary>The badge's color. Hex, e.g. <c>#d97706</c>.</summary>
+        public string EnvironmentColor { get; set; } = "#d97706";
     }
 }

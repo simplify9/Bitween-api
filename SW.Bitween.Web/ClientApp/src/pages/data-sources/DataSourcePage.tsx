@@ -35,6 +35,7 @@ import { SchemaBrowser } from "./SchemaBrowser";
 import { draftOf, editableFingerprint, type Draft } from "./draft";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { usePageTitle } from "../../lib/pageTitle";
 
 /** A draft is the whole editable surface, so the save bar can compare against what was loaded. */
 
@@ -59,6 +60,7 @@ export function DataSourcePage() {
     retry: false,
     refetchInterval: 10_000,
   });
+  usePageTitle(source.data?.name);
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);

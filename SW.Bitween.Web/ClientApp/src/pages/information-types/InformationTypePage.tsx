@@ -30,6 +30,7 @@ import {
 } from "../../components/config/informationTypeDraft";
 import { splitErrors } from "../../lib/fieldErrors";
 import { INFORMATION_TYPE_ERRORS } from "../../components/config/informationTypeErrors";
+import { usePageTitle } from "../../lib/pageTitle";
 
 export function InformationTypePage() {
   const { id = "" } = useParams();
@@ -43,6 +44,7 @@ export function InformationTypePage() {
     queryFn: () => api.getInformationType(typeId),
     retry: false,
   });
+  usePageTitle(type.data?.name);
 
   const [draft, setDraft] = useState<InformationTypeDraft | null>(null);
   const [deleting, setDeleting] = useState(false);

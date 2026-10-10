@@ -273,6 +273,20 @@ public static class SettingsCatalog
             t => t.Theme.TabTitle,
             (t, v) => t.Theme.TabTitle = v),
 
+        new("Theme.EnvironmentName", "Brand & theme",
+            "Environment name",
+            "Shown in a badge at the top of every page — \"Production\", \"Staging\" — so nobody mistakes one instance for another. Leave empty for no badge.",
+            SettingKind.String, false,
+            t => t.Theme.EnvironmentName,
+            (t, v) => t.Theme.EnvironmentName = v),
+
+        new("Theme.EnvironmentColor", "Brand & theme",
+            "Environment badge color",
+            "The color of the environment badge. Red for production is a common choice.",
+            SettingKind.Color, false,
+            t => t.Theme.EnvironmentColor,
+            (t, v) => t.Theme.EnvironmentColor = v),
+
         new("Theme.TabIcon", "Brand & theme",
             "Favicon URL",
             "The icon shown in the browser tab. Paste a URL to an .ico, .svg or .png.",

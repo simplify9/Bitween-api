@@ -22,6 +22,7 @@ import { LiveQueueStats } from "./LiveQueueStats";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { usePageTitle } from "../../lib/pageTitle";
 
 /**
  * This group's slice of the live RabbitMQ picture — the same numbers the
@@ -58,6 +59,7 @@ export function WorkGroupPage() {
     queryFn: () => api.getWorkGroup(groupId),
     retry: false,
   });
+  usePageTitle(group.data?.name);
 
   const [draft, setDraft] = useState<WorkGroupDraft | null>(null);
   const [deleting, setDeleting] = useState(false);

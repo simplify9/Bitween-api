@@ -22,6 +22,7 @@ import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { splitErrors } from "../../lib/fieldErrors";
+import { usePageTitle } from "../../lib/pageTitle";
 
 /** Live answer to "what would someone with this role actually see?" */
 function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
@@ -83,6 +84,7 @@ export function RoleEditor() {
     enabled: sourceId !== null,
     retry: false,
   });
+  usePageTitle(isNew ? null : source.data?.name);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

@@ -51,6 +51,7 @@ import {
   type SubscriptionDraft,
   type RouteDraft,
 } from "./studio/model";
+import { usePageTitle } from "../../lib/pageTitle";
 
 const LIST_KEY = "bitween-bus-studio-list";
 
@@ -106,6 +107,7 @@ function BusGatewayStudio() {
     queryFn: () => api.getBusGateway(gatewayId),
     retry: false,
   });
+  usePageTitle(gateway.data?.name);
   // One list serves three needs: the gateway's own promoted properties, its bus
   // message name, and resolving which type carries a published response.
   const informationTypes = useQuery({

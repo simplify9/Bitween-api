@@ -259,7 +259,7 @@ describe("the Adapters page", () => {
       handlers: [...handlers, http.get(apiPath("/permissions"), () => HttpResponse.json([]))],
       as: { permissions: ALL_PERMISSIONS.filter((p) => p !== "subscriptions.view") },
     });
-    expect(await screen.findByRole("navigation")).toBeVisible();
+    expect(await screen.findByRole("navigation", { name: "Main" })).toBeVisible();
     expect(screen.queryByRole("link", { name: "Adapters" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^Built-in/ })).not.toBeInTheDocument();
   });

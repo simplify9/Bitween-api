@@ -17,6 +17,9 @@ export interface Branding {
   primaryColor?: string;
   tabTitle?: string;
   companyName?: string;
+  /** "Production", "Staging": shown as a badge on every page. Empty for none. */
+  environmentName?: string;
+  environmentColor?: string;
   /** Override only — null means "use the shipped copy". */
   loginBlurb: string | null;
   /** Overrides only — null means "use the shipped asset". */
@@ -64,6 +67,8 @@ export function useBranding(): Branding {
       ready: data !== undefined,
       primaryColor: get("primaryColor"),
       tabTitle: get("tabTitle"),
+      environmentName: get("environmentName"),
+      environmentColor: get("environmentColor"),
       companyName: get("companyName"),
       loginBlurb: customized("bitweenText"),
       faviconUrl: customized("tabIcon"),
@@ -82,17 +87,25 @@ export function useBranding(): Branding {
   }, [data, draft]);
 }
 
-/** Side-effect half: keeps the accent color, tab title and favicon in sync. */
-export function useApplyBranding(): Branding {
+/**
+ * Side-effect half: keeps the accent color, tab title and favicon in sync.
+ *
+ * `page` leads the tab title — "Orders inbound · API gateways" — so a row of Bitween tabs, and the
+ * browser's history, say which page each one is. The instance's own title closes it, with the
+ * environment's name when one is set.
+ */
+export function useApplyBranding(page?: string | null): Branding {
   const branding = useBranding();
+  const app = branding.tabTitle || "Bitween";
+  const environment = branding.environmentName?.trim();
+
+  useEffect(() => {
+    document.title = [page, environment ? `${app} (${environment})` : app].filter(Boolean).join(" · ");
+  }, [page, app, environment]);
 
   useEffect(() => {
     if (branding.primaryColor) applyColorScale(branding.primaryColor);
   }, [branding.primaryColor]);
-
-  useEffect(() => {
-    if (branding.tabTitle) document.title = branding.tabTitle;
-  }, [branding.tabTitle]);
 
   useEffect(() => {
     const existing = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
