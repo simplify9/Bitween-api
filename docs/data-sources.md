@@ -44,7 +44,7 @@ Every stage of the pipeline goes through the same invoker, so any role (receiver
 | Name | Unique name |
 | Provider | The adapter id. Its settings form is built from what the adapter declares, in the adapter's order. |
 | Settings | Provider-specific connection settings. Secret settings are masked in the API. |
-| Placement | `Auto`, `Exclusive` or `PerNode`. Set only through the API. |
+| Placement | `Auto`, `Exclusive` or `PerNode`: **Runs on** on the data source page. A save that leaves it out, through the API, keeps it as it was. |
 | Inactive | Stops the adapter everywhere |
 | Deduplication window (days) | Brokers only. How long inbound message keys are remembered. Default 30; 0 turns deduplication off. |
 | Soft memory limit (MB) | Crossing it makes the host recycle the adapter between messages |

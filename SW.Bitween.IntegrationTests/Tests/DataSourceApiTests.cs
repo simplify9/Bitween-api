@@ -589,7 +589,27 @@ public class DataSourceApiTests(BitweenFixture fixture)
         return (DataSourceRow)await handler.Handle(id);
     }
 
-    private async Task UpdateAsync(int id, DataSourceRow row)
+    /// <summary>
+    /// Placement was reset to Auto by any save that left it out, which the admin UI always did:
+    /// renaming an Exclusive or PerNode source moved where it ran.
+    /// </summary>
+    [Fact]
+    public async Task A_save_that_leaves_placement_out_keeps_it()
+    {
+        var id = await CreateAsync(new Dictionary<string, string>());
+        await UpdateAsync(id, await GetAsync(id), placement: "PerNode");
+        Assert.Equal("PerNode", (await GetAsync(id)).Placement.ToString());
+
+        var renamed = await GetAsync(id);
+        renamed.Name = Unique("renamed");
+        await UpdateAsync(id, renamed);
+        Assert.Equal("PerNode", (await GetAsync(id)).Placement.ToString());
+
+        await UpdateAsync(id, await GetAsync(id), placement: "Auto");
+        Assert.Equal("Auto", (await GetAsync(id)).Placement.ToString());
+    }
+
+    private async Task UpdateAsync(int id, DataSourceRow row, string placement = null)
     {
         await using var scope = fixture.CreateScope();
         scope.Superuser();
@@ -606,7 +626,8 @@ public class DataSourceApiTests(BitweenFixture fixture)
             SoftMemoryLimitMb = row.SoftMemoryLimitMb,
             HardMemoryLimitMb = row.HardMemoryLimitMb,
             CpuPercentLimit = row.CpuPercentLimit,
-            CpuLimitSamples = row.CpuLimitSamples
+            CpuLimitSamples = row.CpuLimitSamples,
+            Placement = placement
         });
     }
 

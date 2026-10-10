@@ -424,6 +424,7 @@ export interface ApiClient {
       properties: Record<string, string>;
       secretProperties: string[];
       inactive: boolean;
+      placement: string;
       deduplicationWindowDays: number;
       softMemoryLimitMb: number;
       hardMemoryLimitMb: number;

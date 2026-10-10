@@ -98,6 +98,7 @@ export function DataSourcePage() {
         properties: d.properties,
         secretProperties: source.data!.secretProperties,
         inactive: d.inactive,
+        placement: d.placement,
         deduplicationWindowDays: d.deduplicationWindowDays,
         softMemoryLimitMb: d.softMemoryLimitMb,
         hardMemoryLimitMb: d.hardMemoryLimitMb,
@@ -488,6 +489,30 @@ export function DataSourcePage() {
               label="Active"
               description="Turning this off stops the connection without losing its settings."
             />
+
+            <Field
+              label="Runs on"
+              htmlFor="ds-placement"
+              hint={
+                draft.placement === "Exclusive"
+                  ? "One node at a time, chosen by lease: what a broker needs, so each message is consumed once."
+                  : draft.placement === "PerNode"
+                    ? "Every node that runs data sources holds its own: what a connection pool needs, since each node calls it for its own work."
+                    : `Decided by its kind: ${relational ? "a database runs on every node" : "a broker runs on one node at a time"}.`
+              }
+            >
+              <Select
+                id="ds-placement"
+                value={draft.placement}
+                disabled={!canEdit}
+                onChange={(e) => setDraft({ ...draft, placement: e.target.value })}
+                options={[
+                  { value: "Auto", label: `Automatic (${relational ? "every node" : "one node at a time"})` },
+                  { value: "Exclusive", label: "One node at a time" },
+                  { value: "PerNode", label: "Every node" },
+                ]}
+              />
+            </Field>
 
             {!relational && (
               <Field

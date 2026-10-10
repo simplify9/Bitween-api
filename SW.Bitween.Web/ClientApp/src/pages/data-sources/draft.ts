@@ -4,6 +4,8 @@ import type { DataSourceDetail } from "../../api/types";
 export interface Draft {
   name: string;
   inactive: boolean;
+  /** Auto, Exclusive or PerNode. Sent with every save: a save without it used to reset it to Auto. */
+  placement: string;
   deduplicationWindowDays: number;
   softMemoryLimitMb: number;
   hardMemoryLimitMb: number;
@@ -15,6 +17,7 @@ export interface Draft {
 export const draftOf = (d: DataSourceDetail): Draft => ({
   name: d.name,
   inactive: d.inactive,
+  placement: d.placement,
   deduplicationWindowDays: d.deduplicationWindowDays,
   softMemoryLimitMb: d.softMemoryLimitMb,
   hardMemoryLimitMb: d.hardMemoryLimitMb,
