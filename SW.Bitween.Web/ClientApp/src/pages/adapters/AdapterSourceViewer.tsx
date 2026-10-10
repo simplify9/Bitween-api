@@ -120,7 +120,7 @@ export default function AdapterSourceViewer({
           type="button"
           onClick={onClose}
           aria-label="Close source"
-          className="ml-auto rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+          className="ml-auto rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
         >
           <X className="size-4" />
         </button>

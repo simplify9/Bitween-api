@@ -121,7 +121,7 @@ export function SchemaBrowser({
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
-          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-500" />
           <TextInput
             className="pl-8"
             value={search}
@@ -186,7 +186,7 @@ export function SchemaBrowser({
           {groups.map((group) => (
             <div key={group.schema}>
               <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-ink-100 bg-ink-50/95 px-3 py-1.5 backdrop-blur">
-                <Database className="size-3.5 text-ink-400" />
+                <Database className="size-3.5 text-ink-500" />
                 <span className="font-mono text-[12px] font-semibold text-ink-700">
                   {group.schema}
                 </span>
@@ -283,11 +283,11 @@ function ObjectRow({
           aria-expanded={open}
         >
           {open ? (
-            <ChevronDown className="size-3.5 shrink-0 text-ink-400" />
+            <ChevronDown className="size-3.5 shrink-0 text-ink-500" />
           ) : (
-            <ChevronRight className="size-3.5 shrink-0 text-ink-400" />
+            <ChevronRight className="size-3.5 shrink-0 text-ink-500" />
           )}
-          <Table2 className="size-3.5 shrink-0 text-ink-400" />
+          <Table2 className="size-3.5 shrink-0 text-ink-500" />
           <span className="truncate font-mono text-[13px] text-ink-900">{object.name}</span>
           {object.rowCount != null && (
             <Badge tone="neutral" title="An estimate from the catalog, not a counted total.">
@@ -336,13 +336,13 @@ function ObjectRow({
                     <td className="py-0.5 pr-3 font-mono text-ink-800">
                       {column.name}
                       {column.primaryKey && (
-                        <span className="ml-1 text-ink-400" title="Part of the primary key">
+                        <span className="ml-1 text-ink-500" title="Part of the primary key">
                           pk
                         </span>
                       )}
                     </td>
                     <td className="py-0.5 pr-3 font-mono text-ink-500">{column.dbType}</td>
-                    <td className="py-0.5 text-ink-400">
+                    <td className="py-0.5 text-ink-500">
                       {/* Generated is worth saying out loud: it is the reason an insert that
                           supplies this column is rejected. */}
                       {column.generated
@@ -363,10 +363,10 @@ function ObjectRow({
                 {detail.data.parameters.map((parameter, i) => (
                   <tr key={`${parameter.name}-${i}`}>
                     <td className="py-0.5 pr-3 font-mono text-ink-800">
-                      {parameter.name || <span className="text-ink-400">(unnamed)</span>}
+                      {parameter.name || <span className="text-ink-500">(unnamed)</span>}
                     </td>
                     <td className="py-0.5 pr-3 font-mono text-ink-500">{parameter.dbType}</td>
-                    <td className="py-0.5 text-ink-400">{parameter.direction}</td>
+                    <td className="py-0.5 text-ink-500">{parameter.direction}</td>
                   </tr>
                 ))}
               </tbody>

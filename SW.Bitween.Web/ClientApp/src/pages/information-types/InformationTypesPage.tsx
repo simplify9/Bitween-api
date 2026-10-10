@@ -132,7 +132,7 @@ export function InformationTypesPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={q}
@@ -203,7 +203,7 @@ export function InformationTypesPage() {
               header: "Name",
               cell: (t) => (
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className={t.retiredOn ? "text-ink-400" : "font-medium text-ink-900"}>{t.name}</span>
+                  <span className={t.retiredOn ? "text-ink-500" : "font-medium text-ink-900"}>{t.name}</span>
                   {t.retiredOn && (
                     <Badge tone="neutral" title="Taken out of use — kept so its exchanges still name it, but no longer offered for new work.">
                       Retired
@@ -224,7 +224,7 @@ export function InformationTypesPage() {
                 t.busEnabled ? (
                   <code className="font-mono text-xs text-ink-600">{t.busMessageTypeName}</code>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
             {
@@ -241,7 +241,7 @@ export function InformationTypesPage() {
                     {t.promotedProperties.map((p) => p.key).join(", ")}
                   </span>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
             {

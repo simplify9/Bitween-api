@@ -476,7 +476,7 @@ export function ExchangesPage() {
         <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 <th className="w-10 py-2.5 pl-4">
                   <Can permission="exchanges.view">
                     <input
@@ -577,7 +577,7 @@ export function ExchangesPage() {
                           {x.partnerName}
                         </Link>
                       ) : (
-                        <span className="text-ink-400">—</span>
+                        <span className="text-ink-500">—</span>
                       )}
                     </td>
                     <td className="px-3 py-1.5 text-[13px]">
@@ -590,16 +590,16 @@ export function ExchangesPage() {
                           {x.subscriptionName}
                         </Link>
                       ) : (
-                        <span className="text-ink-400">—</span>
+                        <span className="text-ink-500">—</span>
                       )}
                     </td>
                     <td className="px-3 py-1.5 whitespace-nowrap text-ink-500">
                       {timeAgo(x.startedOn)}
                       {x.finishedOn && (
-                        <span className="text-xs text-ink-400"> · {duration(x.startedOn, x.finishedOn)}</span>
+                        <span className="text-xs text-ink-500"> · {duration(x.startedOn, x.finishedOn)}</span>
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-ink-400">
+                    <td className="px-2 py-1.5 text-ink-500">
                       {open.has(x.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
                     </td>
                   </tr>

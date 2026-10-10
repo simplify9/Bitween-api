@@ -30,7 +30,7 @@ const kb = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).t
 function MetaItem({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">{label}</dt>
+      <dt className="text-[11px] font-medium tracking-wide text-ink-500 uppercase">{label}</dt>
       <dd className="mt-0.5 text-[13px] text-ink-800">{children}</dd>
     </div>
   );
@@ -110,9 +110,9 @@ function DocumentPreview({
   return (
     <div className="overflow-hidden rounded-lg bg-ink-950">
       <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-1.5">
-        <FileText className="size-3 shrink-0 text-ink-500" aria-hidden />
+        <FileText className="size-3 shrink-0 text-ink-400" aria-hidden />
         <span className="truncate font-mono text-[11px] text-ink-300">{name}</span>
-        <span className="shrink-0 font-mono text-[11px] text-ink-500">· {kb(bytes)}</span>
+        <span className="shrink-0 font-mono text-[11px] text-ink-400">· {kb(bytes)}</span>
         {!loading && !errored && full !== "" && (
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             {formatted && (
@@ -260,10 +260,10 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
                     <>
                       <FileText className="size-3 shrink-0 text-ink-300" aria-hidden />
                       <span className="truncate font-mono">{file.name}</span>
-                      <span className="shrink-0 text-ink-400">· {kb(file.size)}</span>
+                      <span className="shrink-0 text-ink-500">· {kb(file.size)}</span>
                     </>
                   ) : (
-                    <span className="text-ink-400">{s.note ?? "No document"}</span>
+                    <span className="text-ink-500">{s.note ?? "No document"}</span>
                   )}
                 </div>
               </button>
@@ -310,7 +310,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           {x.finishedOn ? (
             <>
               {formatDateTime(x.finishedOn)}
-              <span className="text-ink-400"> · {duration(x.startedOn, x.finishedOn)}</span>
+              <span className="text-ink-500"> · {duration(x.startedOn, x.finishedOn)}</span>
             </>
           ) : (
             "Still processing"
@@ -329,7 +329,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               <CopyButton value={x.correlationId} label="correlation id" />
             </span>
           ) : (
-            <span className="text-ink-400">—</span>
+            <span className="text-ink-500">—</span>
           )}
         </MetaItem>
         <MetaItem label="Related">

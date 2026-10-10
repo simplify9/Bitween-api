@@ -17,6 +17,7 @@ import { useSubscriptionsCache, useWiredSubscriptionColumns } from "../../compon
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { GatewayRejections } from "./GatewayRejections";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
 
@@ -179,6 +180,8 @@ export function ApiGatewayPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (gateway.isPending) return <LoadingBlock label="Loading API gateway…" />;
   if (gateway.isError && !isNotFound(gateway.error))
     return <LoadError error={gateway.error} what="this API gateway" onRetry={() => void gateway.refetch()} />;
@@ -212,6 +215,7 @@ export function ApiGatewayPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/api-gateways" label="API gateways" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -335,7 +339,7 @@ export function ApiGatewayPage() {
             Without this, handing a partner the endpoint still leaves them guessing.
           */}
           <div className="mt-4 border-t border-ink-100 pt-4">
-            <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+            <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
               How a partner calls it
               {/* It previews the draft, so an admin copying it before saving would hand out a
                   call the gateway doesn't take yet. */}
@@ -434,7 +438,7 @@ export function ApiGatewayPage() {
           }
         >
           <div className="relative mb-3 max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
             <input
               type="search"
               value={attachmentsQuery}
@@ -509,16 +513,16 @@ export function ApiGatewayPage() {
                   wrap: true,
                   cell: (a) => {
                     const s = setupById.get(a.subscriptionId);
-                    if (!s) return <span className="text-ink-400">—</span>;
+                    if (!s) return <span className="text-ink-500">—</span>;
                     if (s.handlerId === null)
                       return (
-                        <span className="text-[13px] text-ink-400" title="It delivers nothing, so there is no response.">
+                        <span className="text-[13px] text-ink-500" title="It delivers nothing, so there is no response.">
                           Nothing delivered
                         </span>
                       );
                     const target = setups.find((x) => x.id === s.responseSubscriptionId);
                     if (!target && !s.responseMessageTypeName)
-                      return <span className="text-[13px] text-ink-400">Recorded only</span>;
+                      return <span className="text-[13px] text-ink-500">Recorded only</span>;
                     return (
                       <span className="block space-y-0.5">
                         {s.responseSubscriptionId !== null && (
@@ -551,14 +555,14 @@ export function ApiGatewayPage() {
                         <button
                           onClick={() => navigate(`/api-gateways/${gatewayId}/attachments/${a.partnerId}`)}
                           aria-label={`Edit attachment for ${a.partnerName}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                          className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                         >
                           <Pencil className="size-3.5" />
                         </button>
                         <button
                           onClick={() => setRemoving({ partnerId: a.partnerId, partnerName: a.partnerName })}
                           aria-label={`Detach ${a.partnerName}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                          className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -701,7 +705,7 @@ export function ApiGatewayPage() {
             await api.deleteApiGateway(gatewayId);
             void queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
             void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
-            navigate("/api-gateways", { replace: true });
+            leave(() => navigate("/api-gateways", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

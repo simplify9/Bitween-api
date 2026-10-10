@@ -96,7 +96,7 @@ export function EntryRow({
                   : "Change it, substitute it, or set its type"
               }
               className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 hover:bg-ink-100 ${
-                extras > 0 ? "text-crimson-600" : "text-ink-400 hover:text-ink-700"
+                extras > 0 ? "text-crimson-600" : "text-ink-500 hover:text-ink-700"
               }`}
             >
               {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}

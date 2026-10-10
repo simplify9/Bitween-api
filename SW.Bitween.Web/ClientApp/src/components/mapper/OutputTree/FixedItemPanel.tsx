@@ -195,7 +195,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                     'flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border transition',
                     hasLookup || isLookupOpen
                       ? 'border-crimson-400 bg-crimson-50 text-crimson-600'
-                      : 'border-ink-200 text-ink-400 hover:border-crimson-300 hover:text-crimson-500',
+                      : 'border-ink-200 text-ink-500 hover:border-crimson-300 hover:text-crimson-500',
                   ].join(' ')}
                 >Lookup</button>
               )}

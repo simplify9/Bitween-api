@@ -5,7 +5,7 @@ import { Check, Copy } from "lucide-react";
 export function CopyButton({
   value,
   label,
-  className = "rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700",
+  className = "rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700",
 }: {
   value: string;
   label: string;

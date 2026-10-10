@@ -93,7 +93,7 @@ export function Popover({
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="cursor-pointer rounded text-ink-400 underline-offset-2 hover:text-crimson-700 hover:underline"
+        className="cursor-pointer rounded text-ink-500 underline-offset-2 hover:text-crimson-700 hover:underline"
       >
         {button}
       </button>

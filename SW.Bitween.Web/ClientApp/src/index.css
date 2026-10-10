@@ -123,7 +123,7 @@
    like. */
 .doc-hl .hljs-tag,
 .doc-hl .hljs-punctuation {
-  color: var(--color-ink-400);
+  color: var(--color-ink-500);
 }
 .doc-hl .hljs-name,
 .doc-hl .hljs-attr {
@@ -137,7 +137,7 @@
   color: #1d4ed8;
 }
 .doc-hl .hljs-comment {
-  color: var(--color-ink-400);
+  color: var(--color-ink-500);
   font-style: italic;
 }
 .doc-hl .hljs-meta,
@@ -148,7 +148,7 @@
 /* On ink. Same roles, lifted enough to read against a near-black ground. */
 .doc-hl-dark .hljs-tag,
 .doc-hl-dark .hljs-punctuation {
-  color: var(--color-ink-500);
+  color: var(--color-ink-400);
 }
 .doc-hl-dark .hljs-name,
 .doc-hl-dark .hljs-attr {
@@ -162,10 +162,10 @@
   color: #93b8ff;
 }
 .doc-hl-dark .hljs-comment {
-  color: var(--color-ink-500);
+  color: var(--color-ink-400);
   font-style: italic;
 }
 .doc-hl-dark .hljs-meta,
 .doc-hl-dark .hljs-symbol {
-  color: var(--color-ink-400);
+  color: var(--color-ink-300);
 }

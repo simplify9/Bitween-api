@@ -65,7 +65,7 @@ function EnvironmentSettingRow({ row }: { row: SettingRow }) {
           <Badge tone={row.hasValue ? "ok" : "neutral"}>{row.hasValue ? "Set" : "Not set"}</Badge>
         ) : (
           <span
-            className={`font-mono text-sm break-all ${row.value?.trim() ? "text-ink-700" : "text-ink-400"}`}
+            className={`font-mono text-sm break-all ${row.value?.trim() ? "text-ink-700" : "text-ink-500"}`}
           >
             {formatValue(row, row.value ?? "")}
           </span>
@@ -165,7 +165,7 @@ function SettingRowEditor({
           </div>
         ) : masked ? (
           <div className="flex h-9.5 items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3">
-            <span className="font-mono text-sm tracking-widest text-ink-400">••••••••</span>
+            <span className="font-mono text-sm tracking-widest text-ink-500">••••••••</span>
             {!disabled && (
               <button
                 type="button"
@@ -207,7 +207,7 @@ function SettingRowEditor({
         ) : (
           !row.secret &&
           !showsOverridden && (
-            <p className="mt-1 text-xs text-ink-400">
+            <p className="mt-1 text-xs text-ink-500">
               Default: <span className="font-mono">{formatDefault(row)}</span>
             </p>
           )
@@ -345,7 +345,7 @@ export function SettingsPage() {
                     ) : (
                       customized > 0 && (
                         <span
-                          className="shrink-0 text-[11px] tabular-nums text-ink-400"
+                          className="shrink-0 text-[11px] tabular-nums text-ink-500"
                           title={`${customized} changed from the default`}
                         >
                           {customized}

@@ -57,7 +57,7 @@ export const ArrayInnerField: React.FC<ArrayInnerFieldProps> = ({
       <span className={['w-2 h-2 rounded-full flex-shrink-0', isMapped ? 'bg-ok-100' : 'bg-danger-300'].join(' ')} />
       <span className="font-mono text-ink-700 truncate">{node.key}</span>
       <span className="text-ink-300 mx-0.5 flex-shrink-0">←</span>
-      <span className={['font-mono text-xs truncate flex-1', displaySource ? 'text-crimson-600' : 'text-ink-400'].join(' ')}>
+      <span className={['font-mono text-xs truncate flex-1', displaySource ? 'text-crimson-600' : 'text-ink-500'].join(' ')}>
         {displaySource ?? '— unassigned —'}
       </span>
       <span className="text-[10px] text-crimson-400 border border-crimson-200 rounded px-1 flex-shrink-0 bg-crimson-50">

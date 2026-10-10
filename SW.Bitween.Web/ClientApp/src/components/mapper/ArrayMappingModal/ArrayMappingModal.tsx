@@ -80,7 +80,7 @@ const ArrayMappingModal: React.FC = () => {
             </h2>
             <p className="text-xs text-ink-500 mt-0.5">Configure a loop over a source array with optional filters</p>
           </div>
-          <button onClick={handleClose} className="text-ink-400 hover:text-ink-600 transition">
+          <button onClick={handleClose} className="text-ink-500 hover:text-ink-600 transition">
             <X size={18} />
           </button>
         </div>
@@ -149,7 +149,7 @@ const ArrayMappingModal: React.FC = () => {
                 <span className="text-xs font-semibold text-ink-700">Apply filter on array items</span>
               </label>
               {hasFilter && (
-                <span className="text-xs text-ink-400">
+                <span className="text-xs text-ink-500">
                   e.g. only include items where{' '}
                   <code className="font-mono bg-white px-1 rounded border border-ink-200">
                     {alias}.{filterField || 'field'} {filterOp} {filterValue || 'value'}
@@ -195,7 +195,7 @@ const ArrayMappingModal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-semibold text-ink-700">Field Mappings inside loop</span>
-              <span className="text-xs text-ink-400">
+              <span className="text-xs text-ink-500">
                 Use <code className="font-mono">{alias || 'item'}.fieldName</code> for source fields
               </span>
             </div>
@@ -244,7 +244,7 @@ const ArrayMappingModal: React.FC = () => {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-semibold text-ink-700">Nested Array Mappings</span>
-                <span className="text-xs text-ink-400">configured via their own loop buttons</span>
+                <span className="text-xs text-ink-500">configured via their own loop buttons</span>
               </div>
               <div className="space-y-1.5">
                 {childArrayMappings.map((child) => (
@@ -252,8 +252,8 @@ const ArrayMappingModal: React.FC = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-bold bg-warn-100 text-warn-700 border border-warn-100 rounded px-1.5">loop</span>
                       <span className="text-xs font-mono text-ink-700">
-                        {child.source} <span className="text-ink-400">{'→'}</span> {child.target}
-                        <span className="text-ink-400 ml-1">as {child.alias}</span>
+                        {child.source} <span className="text-ink-500">{'→'}</span> {child.target}
+                        <span className="text-ink-500 ml-1">as {child.alias}</span>
                       </span>
                       {child.filter && (
                         <span className="text-[10px] text-ink-500 font-mono border border-ink-200 rounded px-1 bg-white">

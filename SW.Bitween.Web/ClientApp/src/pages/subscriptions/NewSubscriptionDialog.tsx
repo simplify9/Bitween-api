@@ -74,7 +74,7 @@ export function NewSubscriptionDialog({ onClose }: { onClose: () => void }) {
                 <span className="block text-[13.5px] font-medium text-ink-900">{w.title}</span>
                 <span className="block text-[12.5px] text-ink-500">{w.body}</span>
               </span>
-              <ChevronRight className="size-4 shrink-0 text-ink-400" aria-hidden />
+              <ChevronRight className="size-4 shrink-0 text-ink-500" aria-hidden />
             </button>
           </li>
         ))}

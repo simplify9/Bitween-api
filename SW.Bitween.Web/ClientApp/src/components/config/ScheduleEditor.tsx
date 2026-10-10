@@ -107,7 +107,7 @@ function ScheduleDialog({
 
         <div className="rounded-lg bg-ink-50 px-3 py-2 text-[13px]">
           <p className="text-ink-600">{scheduleSummary(draft)}</p>
-          <p className="text-ink-400">→ {localTimePreview(draft)} in your timezone</p>
+          <p className="text-ink-500">→ {localTimePreview(draft)} in your timezone</p>
         </div>
 
         <div className="flex justify-end gap-2">
@@ -150,14 +150,14 @@ export function ScheduleEditor({
                   <button
                     onClick={() => setEditing(i)}
                     aria-label={`Edit schedule ${i + 1}`}
-                    className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                    className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                   >
                     <Pencil className="size-3.5" />
                   </button>
                   <button
                     onClick={() => onChange(schedules.filter((_, x) => x !== i))}
                     aria-label={`Remove schedule ${i + 1}`}
-                    className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                    className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

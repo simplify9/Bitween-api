@@ -103,7 +103,7 @@ export function SearchSelect({
           onChange={(e) => setQuery(e.target.value)}
           className={`${size === "sm" ? "h-8 text-[13px]" : "h-9.5 text-sm"} w-full rounded-lg border border-ink-200 bg-white pr-8 pl-3 text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500`}
         />
-        <ComboboxButton className="absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-ink-400 hover:text-ink-600">
+        <ComboboxButton className="absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-ink-500 hover:text-ink-600">
           <ChevronsUpDown className="size-3.5" aria-hidden />
         </ComboboxButton>
       </div>
@@ -130,7 +130,7 @@ export function SearchSelect({
                     {o.label}
                   </span>
                   {o.sublabel && (
-                    <span className="block truncate text-xs text-ink-400">{o.sublabel}</span>
+                    <span className="block truncate text-xs text-ink-500">{o.sublabel}</span>
                   )}
                 </span>
                 {o.code && (
@@ -141,7 +141,7 @@ export function SearchSelect({
                 {/* Shrinkable, unlike the label: whatever a hint adds, it is never the thing
                     worth reading if only one of the two can fit. */}
                 {o.hint && (
-                  <span className="max-w-[50%] min-w-0 truncate text-xs text-ink-400">{o.hint}</span>
+                  <span className="max-w-[50%] min-w-0 truncate text-xs text-ink-500">{o.hint}</span>
                 )}
                 <Check className="size-3.5 shrink-0 text-crimson-600 opacity-0 group-data-selected:opacity-100" aria-hidden />
               </>
@@ -164,7 +164,7 @@ export function SearchSelect({
           </div>
         )}
         {filtered.length === 0 && offered === null && (
-          <div className="px-3 py-2 text-sm text-ink-400">Nothing matches “{query}”.</div>
+          <div className="px-3 py-2 text-sm text-ink-500">Nothing matches “{query}”.</div>
         )}
       </ComboboxOptions>
     </Combobox>

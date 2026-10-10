@@ -309,7 +309,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+          className="absolute top-4 right-4 rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
         >
           <X className="size-5" />
         </button>

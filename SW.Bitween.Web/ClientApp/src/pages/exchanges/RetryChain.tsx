@@ -78,7 +78,7 @@ function Attempt({
             properties can open a panel of their own, and a button inside a link is neither. */}
         {isCurrent ? (
           <span
-            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-400 uppercase"
+            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase"
             title={`The ${ordinal(depth + 1)} attempt at this work — the one you are looking at`}
           >
             Attempt {depth + 1}
@@ -163,7 +163,7 @@ export function RetryChain({ id }: { id: string }) {
   // A line rather than a spinner block: this sits inside an already-rendered drawer, and it is
   // usually filled in before anyone looks at it — the row is prefetched on hover.
   if (isLoading)
-    return <p className="text-[13px] text-ink-400">Loading the retry chain…</p>;
+    return <p className="text-[13px] text-ink-500">Loading the retry chain…</p>;
   if (!tree || tree.attempts.length < 2) return null;
 
   const root = tree.attempts.find((a) => a.id === tree.rootId) ?? tree.attempts[0];
@@ -171,7 +171,7 @@ export function RetryChain({ id }: { id: string }) {
   return (
     <section className="rounded-lg border border-ink-200 bg-white p-3">
       <h4
-        className="mb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase"
+        className="mb-1.5 text-[11px] font-medium tracking-wide text-ink-500 uppercase"
         title="Every attempt at this work. An exchange is retried at most once, so retrying continues from the newest attempt rather than starting again from an old one."
       >
         Retry chain · {tree.attempts.length} attempts

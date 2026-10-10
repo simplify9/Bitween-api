@@ -83,7 +83,7 @@ function PartnerPropValue({ partnerId, propKey }: { partnerId: number; propKey: 
   const value = props.data?.[propKey];
   if (value === SECRET_SENTINEL)
     return (
-      <span className="text-ink-400" title="Locked on the partner — resolved on the server at run time">
+      <span className="text-ink-500" title="Locked on the partner — resolved on the server at run time">
         secret
       </span>
     );
@@ -152,14 +152,14 @@ function ReferenceMenu({
         onClick={() => setOpen((o) => !o)}
         title="Insert a reference"
         aria-label={label}
-        className="mt-1 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+        className="mt-1 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
       >
         <Braces className="size-4" />
       </button>
       {open && (
         <div className="absolute top-full right-0 z-40 mt-1.5 w-72 rounded-xl border border-ink-100 bg-white p-2 shadow-lg">
           <div className="relative mb-1.5">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-500" />
             <input
               autoFocus
               value={query}
@@ -170,12 +170,12 @@ function ReferenceMenu({
             />
           </div>
           <div className="max-h-64 space-y-1 overflow-y-auto">
-            {noMatches && <p className="px-2 py-2 text-[13px] text-ink-400">No matches.</p>}
+            {noMatches && <p className="px-2 py-2 text-[13px] text-ink-500">No matches.</p>}
             {/* First: only a subscription fed by a delivery is offered these, and there they are
                 what the field is most likely reaching for. Last, they sat below the scroll. */}
             {filteredSourceKeys.length > 0 && (
               <div>
-                <p className="px-2 pt-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                <p className="px-2 pt-1 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                   Original document
                 </p>
                 <p className="px-2 pb-1 text-[11px] leading-snug text-ink-500">
@@ -190,7 +190,7 @@ function ReferenceMenu({
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-ink-50"
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
-                    <span className="max-w-[45%] shrink-0 truncate text-xs text-ink-400" title={`Example: ${t.value}`}>
+                    <span className="max-w-[45%] shrink-0 truncate text-xs text-ink-500" title={`Example: ${t.value}`}>
                       e.g. {t.value}
                     </span>
                   </button>
@@ -199,7 +199,7 @@ function ReferenceMenu({
             )}
             {filteredGlobals.length > 0 && (
               <div>
-                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                   Global values
                 </p>
                 {filteredGlobals.map((t) => (
@@ -211,7 +211,7 @@ function ReferenceMenu({
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
                     <span
-                      className="max-w-24 shrink-0 truncate text-xs text-ink-400"
+                      className="max-w-24 shrink-0 truncate text-xs text-ink-500"
                       title={t.value ?? "Locked — the value is never sent to this page"}
                     >
                       {t.value ?? "secret"}
@@ -222,7 +222,7 @@ function ReferenceMenu({
             )}
             {filteredPartnerKeys.length > 0 && (
               <div>
-                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                   Partner properties
                 </p>
                 {filteredPartnerKeys.map((t) => (
@@ -233,7 +233,7 @@ function ReferenceMenu({
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-ink-50"
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
-                    <span className="shrink-0 text-xs text-ink-400">resolved per partner</span>
+                    <span className="shrink-0 text-xs text-ink-500">resolved per partner</span>
                   </button>
                 ))}
               </div>
@@ -346,7 +346,7 @@ function ReferenceHints({
                   </li>
                 ))}
                 {without > 0 && (
-                  <li className="text-ink-400">
+                  <li className="text-ink-500">
                     {without} partner{without === 1 ? " doesn't" : "s don't"} set it — their exchanges resolve it
                     empty.
                   </li>
@@ -470,7 +470,7 @@ function PropField({
     >
       {masked ? (
         <div className="flex h-9.5 items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3">
-          <span className="font-mono text-sm tracking-widest text-ink-400">••••••••</span>
+          <span className="font-mono text-sm tracking-widest text-ink-500">••••••••</span>
           {!disabled && (
             <Button size="sm" variant="ghost" onClick={() => emit("")}>
               Replace
@@ -607,7 +607,7 @@ export function AdapterConfig({
       */}
       <div className="rounded-xl border border-ink-200 bg-ink-50/70 px-3.5 py-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+          <span className="text-[11px] font-medium tracking-wide text-ink-500 uppercase">
             {KIND_LABELS[kind]}
           </span>
           <div className="w-full max-w-sm">
@@ -622,7 +622,7 @@ export function AdapterConfig({
             />
           </div>
           {adapter && (
-            <span className="text-[12px] text-ink-400">
+            <span className="text-[12px] text-ink-500">
               {adapter.native
                 ? "Runs in-process"
                 : [
@@ -655,7 +655,7 @@ export function AdapterConfig({
             <p className="text-[12.5px] leading-relaxed text-ink-600">
               {adapter.summary}
               {adapter.publisher && (
-                <span className="text-ink-400">
+                <span className="text-ink-500">
                   {adapter.summary ? " · " : ""}by {adapter.publisher}
                 </span>
               )}
@@ -704,7 +704,7 @@ export function AdapterConfig({
           )}
           {optionalProps.length > 0 && (
             <div className="border-t border-ink-100 pt-4">
-              <p className="mb-2.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <p className="mb-2.5 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 Optional · {optionalProps.length} field{optionalProps.length === 1 ? "" : "s"}
               </p>
               <div className="grid gap-4 @lg:grid-cols-2">{optionalProps.map(renderProp)}</div>

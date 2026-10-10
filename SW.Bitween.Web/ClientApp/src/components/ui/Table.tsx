@@ -94,7 +94,7 @@ export function Table<T>({
     <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
       <table className={`w-full ${minWidth} text-left text-sm`}>
         <thead>
-          <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+          <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
             {columns.map((c, i) => (
               <th key={i} className={cellClass(c)} title={c.headerTitle}>
                 <span className={c.headerTitle ? "cursor-help decoration-ink-300 decoration-dotted underline-offset-4 hover:underline" : undefined}>
@@ -204,7 +204,7 @@ export function MiniTable<T>({
     <div className="space-y-2">
       {searchable && (
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={query}
@@ -225,7 +225,7 @@ export function MiniTable<T>({
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 {columns.map((c, i) => (
                   <th key={i} className={`pb-1 ${cell(c)}`} title={c.headerTitle}>
                     <span className={c.headerTitle ? "cursor-help decoration-ink-300 decoration-dotted underline-offset-4 hover:underline" : undefined}>

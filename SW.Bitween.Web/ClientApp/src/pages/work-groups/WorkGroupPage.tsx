@@ -20,6 +20,7 @@ import { SetupList } from "../../components/config/shared";
 import { LiveQueueStats } from "./LiveQueueStats";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 /**
  * This group's slice of the live RabbitMQ picture — the same numbers the
@@ -83,6 +84,8 @@ export function WorkGroupPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (group.isPending) return <LoadingBlock label="Loading work group…" />;
   if (group.isError && !isNotFound(group.error))
     return <LoadError error={group.error} what="this work group" onRetry={() => void group.refetch()} />;
@@ -99,6 +102,7 @@ export function WorkGroupPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/work-groups" label="Work groups" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -160,7 +164,7 @@ export function WorkGroupPage() {
           onConfirm={async () => {
             await api.deleteWorkGroup(groupId);
             void queryClient.invalidateQueries({ queryKey: keys.workGroups.all });
-            navigate("/work-groups", { replace: true });
+            leave(() => navigate("/work-groups", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

@@ -94,7 +94,7 @@ export function DataSourcesPage() {
       />
 
       <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
         <input
           type="search"
           value={q}
@@ -133,7 +133,7 @@ export function DataSourcesPage() {
             {
               header: "Name",
               cell: (d: DataSourceRow) => (
-                <span className={d.inactive ? "text-ink-400 line-through" : "font-medium text-ink-900"}>
+                <span className={d.inactive ? "text-ink-500 line-through" : "font-medium text-ink-900"}>
                   {d.name}
                 </span>
               ),

@@ -98,7 +98,7 @@ function SecretValueCell({
             : "Still hidden — save to reveal this value."
         }
       >
-        <span className="font-mono text-sm tracking-widest text-ink-400" aria-label={ariaLabel}>
+        <span className="font-mono text-sm tracking-widest text-ink-500" aria-label={ariaLabel}>
           ••••••••
         </span>
         {!disabled && (
@@ -414,7 +414,7 @@ export function KeyValueEditor({
                       <button
                         onClick={() => remove(i)}
                         aria-label={`Remove ${row.key || "row"}`}
-                        className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                        className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
                       >
                         <Trash2 className="size-3.5" />
                       </button>

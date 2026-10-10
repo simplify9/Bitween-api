@@ -109,7 +109,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
       <span className="font-bold text-ink-800 text-sm tracking-tight">
         Mapping Editor
       </span>
-      <span className="text-xs text-ink-400">
+      <span className="text-xs text-ink-500">
         {assignedFieldCount} mappings ·{' '}
         {arrayMappings.length} array loops
       </span>
@@ -186,7 +186,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
       {/* Partner selector — visual mode only — for testing partner-scoped mappings */}
       {isVisualMode && (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-ink-400 font-medium uppercase tracking-wide flex-shrink-0">Test partner</span>
+          <span className="text-[10px] text-ink-500 font-medium uppercase tracking-wide flex-shrink-0">Test partner</span>
           <select
             className="text-xs border border-ink-200 rounded px-2 py-1 focus:outline-none focus:border-focus-400 bg-white text-ink-700 max-w-[160px]"
             value={selectedPartnerId ?? ''}

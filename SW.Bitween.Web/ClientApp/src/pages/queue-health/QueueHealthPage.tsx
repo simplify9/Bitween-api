@@ -217,7 +217,7 @@ export function QueueHealthPage() {
               <div className="min-w-0">
                 <p className="text-sm font-medium text-ink-900">{a.title}</p>
                 <p className="text-[13px] text-ink-600">{a.detail}</p>
-                <code className="font-mono text-[11px] text-ink-400">{a.queueName}</code>
+                <code className="font-mono text-[11px] text-ink-500">{a.queueName}</code>
               </div>
             </div>
           ))}
@@ -233,7 +233,7 @@ export function QueueHealthPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 <th className="py-2 pr-2">Lane</th>
                 <th className="px-2 py-2">Queue</th>
                 <th className="px-2 py-2 text-right">Nodes</th>
@@ -272,7 +272,7 @@ export function QueueHealthPage() {
                       ) : (
                         <span className="font-medium text-ink-800">{c.title}</span>
                       )}
-                      <span className="block text-xs text-ink-400">{roleOf(c)}</span>
+                      <span className="block text-xs text-ink-500">{roleOf(c)}</span>
                     </td>
                     <td className="px-2 py-2">
                       <code className="font-mono text-xs wrap-anywhere text-ink-500">{c.queueName}</code>
@@ -324,7 +324,7 @@ export function QueueHealthPage() {
                 <li key={r.queueName} className="flex items-center gap-2.5 text-sm">
                   <span className="min-w-0 flex-1">
                     <span className="font-medium text-ink-800">{r.title}</span>
-                    <code className="block truncate font-mono text-[11px] text-ink-400">{r.queueName}</code>
+                    <code className="block truncate font-mono text-[11px] text-ink-500">{r.queueName}</code>
                   </span>
                   <span className="text-xs text-ink-500">
                     in {r.incomingRate}/s · ack {r.ackRate}/s
@@ -471,7 +471,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
       <div className="max-h-80 overflow-auto">
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 bg-white">
-            <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+            <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
               {canOperate && (
                 <th className="w-7 py-2">
                   <input
@@ -513,7 +513,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
                 )}
                 <td className="py-1.5 pr-3">
                   <code className="font-mono text-xs text-ink-600">{q.queueName}</code>
-                  {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-400">+{q.queues - 1}</span>}
+                  {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-500">+{q.queues - 1}</span>}
                   {q.consumers > 0 && (
                     <Badge
                       className="ml-2"
@@ -523,13 +523,13 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
                     </Badge>
                   )}
                 </td>
-                <td className={`px-2 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                <td className={`px-2 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-500"}`}>
                   {q.messages}
                 </td>
-                <td className={`px-2 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                <td className={`px-2 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-500"}`}>
                   {q.retryMessages}
                 </td>
-                <td className={`px-2 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-400"}`}>
+                <td className={`px-2 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-500"}`}>
                   {q.deadMessages}
                 </td>
               </tr>
@@ -598,9 +598,9 @@ function DeadLetterItem({ row: d }: { row: DeadLetterRow }) {
       <div className="flex items-center gap-2.5">
         <span className="min-w-0 flex-1">
           <span className="font-medium text-ink-800">{d.title}</span>
-          <code className="block truncate font-mono text-[11px] text-ink-400">{d.queueName}</code>
+          <code className="block truncate font-mono text-[11px] text-ink-500">{d.queueName}</code>
         </span>
-        {d.lastFailedAt && <span className="text-xs text-ink-400">{timeAgo(d.lastFailedAt)}</span>}
+        {d.lastFailedAt && <span className="text-xs text-ink-500">{timeAgo(d.lastFailedAt)}</span>}
         <Badge tone="danger">{d.count} dead</Badge>
       </div>
       {d.lastExceptionMessage && (

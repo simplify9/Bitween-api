@@ -183,7 +183,7 @@ export function SubscriptionsPage() {
           </button>
         ))}
         <div className="relative ml-auto w-full max-w-55 sm:w-auto">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={q}
@@ -324,7 +324,7 @@ export function SubscriptionsPage() {
                 r.lastException ? (
                   <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
           ]}

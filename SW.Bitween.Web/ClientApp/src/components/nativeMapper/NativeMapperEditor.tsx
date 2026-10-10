@@ -366,7 +366,7 @@ function FormatSettings() {
             →
           </span>
           {name(rules.targetFormat)}
-          <ChevronDown size={12} aria-hidden className="text-ink-400" />
+          <ChevronDown size={12} aria-hidden className="text-ink-500" />
         </span>
       }
     >

@@ -64,7 +64,7 @@ export const PrimitiveArrayLeaf: React.FC<PrimitiveArrayLeafProps> = ({
         <span className="ml-auto text-[10px] font-medium text-warn-700 border border-warn-100 bg-warn-100 rounded px-1.5 py-px">
           {mappedCount}/{currentItems.length} mapped
         </span>
-        <span className="text-ink-400 text-[10px]">{panelOpen ? '▾' : '▸'}</span>
+        <span className="text-ink-500 text-[10px]">{panelOpen ? '▾' : '▸'}</span>
       </div>
 
       {/* Inline mapping panel */}
@@ -72,7 +72,7 @@ export const PrimitiveArrayLeaf: React.FC<PrimitiveArrayLeafProps> = ({
         <div className="mx-2 mb-1.5 rounded-lg border border-warn-100 bg-warn-100 px-2 py-2 space-y-1">
           {currentItems.length === 0 && !primAmId && (
             <div className="flex items-center gap-2 py-0.5">
-              <span className="text-[10px] text-ink-400 italic">Empty array — no elements to map.</span>
+              <span className="text-[10px] text-ink-500 italic">Empty array — no elements to map.</span>
               <button
                 className="ml-auto text-[10px] font-medium text-ok-600 border border-ok-100 bg-white rounded px-2 py-0.5 hover:bg-ok-100 transition"
                 onClick={onMapEmptyArray}
@@ -103,7 +103,7 @@ export const PrimitiveArrayLeaf: React.FC<PrimitiveArrayLeafProps> = ({
 
             return (
               <div key={idx} className="flex items-center gap-1">
-                <span className="font-mono text-[10px] text-ink-400 w-5 text-right flex-shrink-0">[{idx}]</span>
+                <span className="font-mono text-[10px] text-ink-500 w-5 text-right flex-shrink-0">[{idx}]</span>
                 <span className="text-ink-300 flex-shrink-0 text-xs">←</span>
                 <ModeToggleButtons
                   current={mode}

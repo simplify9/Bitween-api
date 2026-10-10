@@ -396,7 +396,7 @@ export function NewAggregationPage() {
             onClick={() => setStage(null)}
             aria-label="Close this step"
             title="Close"
-            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
           >
             <X className="size-4" />
           </button>

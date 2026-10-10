@@ -91,7 +91,7 @@ export function ListRow({
           onClick={onToggleCollapsed}
           aria-expanded={!collapsed}
           aria-label={`${collapsed ? "Expand" : "Collapse"} the list ${node.name || "at the root"}`}
-          className="flex-shrink-0 rounded p-0.5 text-ink-400 hover:bg-ink-100"
+          className="flex-shrink-0 rounded p-0.5 text-ink-500 hover:bg-ink-100"
         >
           {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
         </button>
@@ -167,7 +167,7 @@ export function ListRow({
           aria-label={`Settings for the list ${node.name || "at the root"}`}
           title="Skip some of the entries"
           className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 hover:bg-ink-100 ${
-            settings > 0 ? "text-crimson-600" : "text-ink-400 hover:text-ink-700"
+            settings > 0 ? "text-crimson-600" : "text-ink-500 hover:text-ink-700"
           }`}
         >
           {detail ? <ChevronDown size={13} /> : <ChevronRight size={13} />}

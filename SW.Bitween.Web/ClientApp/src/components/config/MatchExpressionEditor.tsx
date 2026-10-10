@@ -57,7 +57,7 @@ function ConditionRow({
         <button
           onClick={onRemove}
           aria-label="Remove condition"
-          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+          className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
         >
           <Trash2 className="size-3.5" />
         </button>
@@ -105,7 +105,7 @@ function GroupCard({
           <button
             onClick={onRemove}
             aria-label="Remove group"
-            className="ml-auto rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+            className="ml-auto rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
           >
             <Trash2 className="size-3.5" />
           </button>
@@ -113,7 +113,7 @@ function GroupCard({
       </div>
 
       {group.children.length === 0 && (
-        <p className="text-[13px] text-ink-400">Empty group — matches every message.</p>
+        <p className="text-[13px] text-ink-500">Empty group — matches every message.</p>
       )}
       {group.children.map((child, i) =>
         "path" in child ? (
@@ -212,7 +212,7 @@ export function MatchExpressionEditor({
             )}
           </>
         )}
-        <p className="text-[13px] text-ink-400">
+        <p className="text-[13px] text-ink-500">
           Filters can't be used on {formatLabel(format)} information types: Bitween doesn't read their content.
         </p>
       </div>
@@ -237,7 +237,7 @@ export function MatchExpressionEditor({
           </Button>
         )}
         {properties.length === 0 && (
-          <p className="text-[13px] text-ink-400">
+          <p className="text-[13px] text-ink-500">
             Filters match on promoted properties — this information type has none yet.{" "}
             {informationTypeId != null && canEditTypes && (
               <Link

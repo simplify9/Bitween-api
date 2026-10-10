@@ -9,7 +9,7 @@ import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 function LiveStat({ label, value, tone }: { label: string; value: ReactNode; tone?: "warn" | "danger" }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] leading-tight font-medium tracking-wide text-ink-400 uppercase">{label}</dt>
+      <dt className="text-[11px] leading-tight font-medium tracking-wide text-ink-500 uppercase">{label}</dt>
       <dd
         className={`mt-0.5 text-sm font-semibold tabular-nums ${
           tone === "danger" ? "text-danger-700" : tone === "warn" ? "text-warn-700" : "text-ink-800"
@@ -69,7 +69,7 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
             Backpressure
           </Badge>
         )}
-        <code className="font-mono text-[11px] text-ink-400">{consumer.queueName}</code>
+        <code className="font-mono text-[11px] text-ink-500">{consumer.queueName}</code>
       </div>
       <dl className="grid grid-cols-3 gap-x-4 gap-y-3 @sm:grid-cols-5 @2xl:grid-cols-9">
         <LiveStat label="Nodes" value={consumer.totalNodes} />

@@ -34,6 +34,7 @@ import { SourceDialog } from "./SourceDialog";
 import { ConnectionBadge } from "../data-sources/ConnectionBadge";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import {
   BUS_NODES,
   NEW_ROUTE,
@@ -450,6 +451,8 @@ function BusGatewayStudio() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (gateway.isPending) return <LoadingBlock label="Loading bus gateway…" />;
   if (gateway.isError && !isNotFound(gateway.error))
     return <LoadError error={gateway.error} what="this bus gateway" onRetry={() => void gateway.refetch()} />;
@@ -665,7 +668,7 @@ function BusGatewayStudio() {
             onOpenResponseSubscription={(target) => {
               const at = chain.findIndex((h) => h.id === target);
               if (at > activeIndex) setQuery({ hop: String(at), node: "subscription" });
-              else guard("this route", () => navigate(`/subscriptions/${target}`));
+              else guard("this route", () => leave(() => navigate(`/subscriptions/${target}`)));
             }}
           />
         );
@@ -674,6 +677,7 @@ function BusGatewayStudio() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {leaveDialog}
       {editingSource && <SourceDialog gateway={g} onClose={() => setEditingSource(false)} />}
 
       {/* ——— toolbar ——— */}
@@ -723,7 +727,7 @@ function BusGatewayStudio() {
           {g.dataSourceId == null &&
             ownType &&
             (ownType.busMessageTypeName ? (
-              <code className="font-mono text-[11px] text-ink-400">{ownType.busMessageTypeName}</code>
+              <code className="font-mono text-[11px] text-ink-500">{ownType.busMessageTypeName}</code>
             ) : (
               <span className="rounded-md bg-danger-100 px-1.5 py-0.5 text-[11px] font-medium text-danger-800">
                 Not on the bus
@@ -750,7 +754,7 @@ function BusGatewayStudio() {
           ) : (
             <>
               <span className="font-medium text-ink-800">{g.dataSourceName}</span>
-              <code className="font-mono text-[11px] text-ink-400">{g.endpoint}</code>
+              <code className="font-mono text-[11px] text-ink-500">{g.endpoint}</code>
               <ConnectionBadge state={g.dataSourceState} />
             </>
           )}
@@ -849,7 +853,7 @@ function BusGatewayStudio() {
               onOpenListener={(l) =>
                 l.gatewayId === gatewayId
                   ? select(l.routeId)
-                  : guard("this route", () => navigate(`/bus-gateways/${l.gatewayId}?route=${l.routeId}`))
+                  : guard("this route", () => leave(() => navigate(`/bus-gateways/${l.gatewayId}?route=${l.routeId}`)))
               }
               routeChosen={routeEdit.draft.subscriptionId !== null}
               gutterRem={listOpen ? 21 : 0}
@@ -997,7 +1001,7 @@ function BusGatewayStudio() {
             await api.deleteBusGateway(gatewayId);
             void queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
             void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
-            navigate("/bus-gateways", { replace: true });
+            leave(() => navigate("/bus-gateways", { replace: true }));
           }}
           onClose={() => setDeletingGateway(false)}
         />

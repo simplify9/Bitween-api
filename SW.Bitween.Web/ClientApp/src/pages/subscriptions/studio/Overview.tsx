@@ -49,13 +49,13 @@ export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: s
                 {e.partnerName}
               </Link>
             ) : (
-              <span className="text-ink-400">—</span>
+              <span className="text-ink-500">—</span>
             ),
         },
         {
           header: "Path",
           align: "right",
-          cell: (e) => <code className="font-mono text-xs text-ink-400">{e.detail}</code>,
+          cell: (e) => <code className="font-mono text-xs text-ink-500">{e.detail}</code>,
         },
       ]}
     />
@@ -64,7 +64,7 @@ export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: s
 
 
 function LastRunFact({ run }: { run: SubscriptionRun | undefined }) {
-  if (!run) return <span className="text-ink-400">Never</span>;
+  if (!run) return <span className="text-ink-500">Never</span>;
   return (
     <span className="flex items-center gap-1.5" title={formatDateTime(run.startedOn)}>
       {run.success === null ? (
@@ -76,7 +76,7 @@ function LastRunFact({ run }: { run: SubscriptionRun | undefined }) {
       )}
       <span>{timeAgo(run.startedOn)}</span>
       {run.durationMs !== null && (
-        <span className="text-ink-400">· {formatDurationMs(run.durationMs)}</span>
+        <span className="text-ink-500">· {formatDurationMs(run.durationMs)}</span>
       )}
     </span>
   );
@@ -130,7 +130,7 @@ function RunsTable({ runs, pending }: { runs: SubscriptionRun[]; pending: boolea
                 {r.error}
               </span>
             ) : (
-              <span className="text-ink-400">—</span>
+              <span className="text-ink-500">—</span>
             ),
         },
       ]}

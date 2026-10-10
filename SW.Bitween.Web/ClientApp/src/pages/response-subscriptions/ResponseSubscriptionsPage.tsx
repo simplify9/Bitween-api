@@ -89,7 +89,7 @@ export function ResponseSubscriptionsPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={q}
@@ -182,7 +182,7 @@ export function ResponseSubscriptionsPage() {
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
                 const name = id === null ? null : (workGroupNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">Ungrouped</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">Ungrouped</span>;
                 return name ? (
                   <Link
                     to={`/work-groups/${id}`}
@@ -192,7 +192,7 @@ export function ResponseSubscriptionsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">—</span>
                 );
               },
             },
@@ -202,7 +202,7 @@ export function ResponseSubscriptionsPage() {
               cell: (r) => {
                 const id = setupById.get(r.id)?.retryPolicyId ?? null;
                 const name = id === null ? null : (retryPolicyNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">None</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">None</span>;
                 return name ? (
                   <Link
                     to={`/retry-policies/${id}`}
@@ -212,7 +212,7 @@ export function ResponseSubscriptionsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">—</span>
                 );
               },
             },
@@ -237,7 +237,7 @@ export function ResponseSubscriptionsPage() {
                     {r.lastException}
                   </span>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
           ]}

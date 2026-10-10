@@ -70,7 +70,7 @@ function AppFooter({ branding }: { branding: Branding }) {
 
   return (
     <footer className="mt-auto border-t border-ink-100 px-4 py-3 sm:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-400">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
         <span>
           {footer.copyrightIcon} {new Date().getFullYear()} {companyName}. {footer.copyrightText}
         </span>
@@ -152,7 +152,7 @@ function SidebarContent({
             onClick={onToggleRail}
             aria-label={railed ? "Expand navigation" : "Collapse navigation"}
             title={`${railed ? "Expand" : "Collapse"} navigation  [`}
-            className="shrink-0 rounded-md p-1.5 text-ink-500 hover:bg-ink-900 hover:text-ink-100"
+            className="shrink-0 rounded-md p-1.5 text-ink-400 hover:bg-ink-900 hover:text-ink-100"
           >
             {railed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </button>
@@ -176,7 +176,7 @@ function SidebarContent({
                   aria-expanded={!isCollapsed}
                   className="flex w-full items-center justify-between rounded-md px-2.5 pb-1.5 text-left hover:text-ink-300"
                 >
-                  <span className="text-[11px] font-semibold tracking-widest text-ink-500 uppercase">
+                  <span className="text-[11px] font-semibold tracking-widest text-ink-400 uppercase">
                     {group.label}
                   </span>
                   {isCollapsed ? (

@@ -13,6 +13,7 @@ import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basi
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { languageFor } from "../../lib/adapterSource";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 const LANGUAGE_LABEL = { python: "Python", node: "JavaScript", typescript: "TypeScript" } as const;
 
@@ -68,14 +69,6 @@ function Editor({ draft }: { draft: AdapterDraft }) {
   const [build, setBuild] = useState<DraftBuild | null>(null);
   const [newFile, setNewFile] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  // Leaving with unsaved edits asks first, as a browser can.
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
 
   const save = async (overwrite = false) => {
     if (!dirty) return true;
@@ -144,8 +137,11 @@ function Editor({ draft }: { draft: AdapterDraft }) {
     if (selected === path) setSelected(Object.keys(rest).sort()[0]);
   };
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   return (
     <div>
+      {leaveDialog}
       <BackLink to="/adapters" label="Adapters" />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold text-ink-900">
@@ -302,7 +298,7 @@ function Editor({ draft }: { draft: AdapterDraft }) {
             await api.deleteAdapterDraft(draft.id);
             await queryClient.invalidateQueries({ queryKey: keys.adapterDrafts });
             setSavedFiles(files); // nothing left to warn about
-            navigate("/adapters");
+            leave(() => navigate("/adapters"));
           }}
           onClose={() => setDeleting(false)}
         />
@@ -343,7 +339,7 @@ function SettingsForm({
           />
         </Field>
       ))}
-      <p className="text-[12px] text-ink-400">Used for this page's calls only; never saved.</p>
+      <p className="text-[12px] text-ink-500">Used for this page's calls only; never saved.</p>
     </fieldset>
   );
 }
@@ -420,7 +416,7 @@ function BuildReport({ build }: { build: DraftBuild }) {
             ) : c.outcome === "Failed" ? (
               <XCircle className="mt-0.5 size-3.5 shrink-0 text-danger-600" aria-label="Failed" />
             ) : (
-              <CircleSlash className="mt-0.5 size-3.5 shrink-0 text-ink-400" aria-label="Skipped" />
+              <CircleSlash className="mt-0.5 size-3.5 shrink-0 text-ink-500" aria-label="Skipped" />
             )}
             <span>
               <span className="text-ink-800">{c.name}</span>

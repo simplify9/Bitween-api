@@ -100,7 +100,7 @@ export function LoginPage() {
       {microsoftEnabled && (
         <>
           {passwordEnabled ? (
-            <div className="my-6 flex items-center gap-3 text-xs text-ink-400">
+            <div className="my-6 flex items-center gap-3 text-xs text-ink-500">
               <span className="h-px flex-1 bg-ink-200" />
               or
               <span className="h-px flex-1 bg-ink-200" />

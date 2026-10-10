@@ -35,7 +35,7 @@ export interface StageFace {
 
 const titleTone: Record<StageState, string> = {
   set: "text-ink-800",
-  none: "text-ink-400",
+  none: "text-ink-500",
   missing: "text-danger-700",
 };
 
@@ -100,7 +100,7 @@ export function StageNode({
         >
           <Icon className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
           {label}
         </span>
         <span className="flex shrink-0 items-center gap-1">
@@ -131,7 +131,7 @@ export function StageNode({
         had no line box, and since a <button> centres its content, every node
         without a detail line sat 9px lower than its neighbours.
       */}
-      <p className="mt-1 truncate font-mono text-[11px] text-ink-400" title={face.detail}>
+      <p className="mt-1 truncate font-mono text-[11px] text-ink-500" title={face.detail}>
         {face.detail ?? " "}
       </p>
 

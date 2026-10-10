@@ -41,7 +41,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <p className="text-2xl font-semibold leading-snug tracking-tight text-ink-50">
             The quiet middleman for everything your systems exchange.
           </p>
-          <p className="mt-3 text-sm leading-relaxed text-ink-400">
+          <p className="mt-3 text-sm leading-relaxed text-ink-500">
             {branding.loginBlurb ??
               "Receive, transform and deliver documents between you and your partners — with every exchange traced."}
           </p>

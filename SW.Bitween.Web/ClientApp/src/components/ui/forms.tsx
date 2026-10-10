@@ -1,9 +1,41 @@
-import { useId, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 const inputClass =
-  "h-9.5 w-full rounded-lg border border-ink-200 bg-white px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:outline-none focus:ring-2 focus:ring-focus-100 disabled:bg-ink-50 disabled:text-ink-500";
+  "h-9.5 w-full rounded-lg border border-ink-200 bg-white px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:outline-none focus:ring-2 focus:ring-focus-100 aria-invalid:border-danger-600 disabled:bg-ink-50 disabled:text-ink-500";
 
+/**
+ * What a Field tells the control inside it: the id its label points at, the note under it that
+ * describes it, and whether that note is an error. A control's own props win.
+ */
+const FieldContext = createContext<{ id?: string; describedBy?: string; invalid: boolean } | null>(null);
+
+function useFieldProps<P extends { id?: string; "aria-describedby"?: string; "aria-invalid"?: unknown }>(props: P): P {
+  const field = useContext(FieldContext);
+  if (!field) return props;
+  return {
+    ...props,
+    id: props.id ?? field.id,
+    "aria-describedby": props["aria-describedby"] ?? field.describedBy,
+    "aria-invalid": props["aria-invalid"] ?? (field.invalid || undefined),
+  };
+}
+
+/**
+ * A label, the control it names, and a hint or an error under it.
+ *
+ * Without `htmlFor` the Field gives its control an id of its own, so the label names it for a
+ * screen reader and a click on the label focuses it. A Field holding several controls passes
+ * `htmlFor` and gives the ids itself.
+ */
 export function Field({
   label,
   hint,
@@ -17,28 +49,40 @@ export function Field({
   children: ReactNode;
   htmlFor?: string;
 }) {
+  const own = useId();
+  const id = htmlFor ?? own;
+  const noteId = `${id}-note`;
+  const note = error || hint;
   return (
-    <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-[13px] font-medium text-ink-700">
-        {label}
-      </label>
-      {children}
-      {error ? (
-        <p role="alert" className="text-[13px] text-danger-700">
-          {error}
-        </p>
-      ) : (
-        hint && <p className="text-[13px] text-ink-500">{hint}</p>
-      )}
-    </div>
+    <FieldContext.Provider value={{ id: htmlFor ? undefined : id, describedBy: note ? noteId : undefined, invalid: !!error }}>
+      <div className="space-y-1.5">
+        <label htmlFor={id} className="block text-[13px] font-medium text-ink-700">
+          {label}
+        </label>
+        {children}
+        {error ? (
+          <p id={noteId} role="alert" className="text-[13px] text-danger-700">
+            {error}
+          </p>
+        ) : (
+          hint && (
+            <p id={noteId} className="text-[13px] text-ink-500">
+              {hint}
+            </p>
+          )
+        )}
+      </div>
+    </FieldContext.Provider>
   );
 }
 
-export function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
+export function TextInput(own: InputHTMLAttributes<HTMLInputElement>) {
+  const props = useFieldProps(own);
   return <input {...props} className={`${inputClass} ${props.className ?? ""}`} />;
 }
 
-export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+export function PasswordInput(own: InputHTMLAttributes<HTMLInputElement>) {
+  const props = useFieldProps(own);
   const [visible, setVisible] = useState(false);
   return (
     <div className="relative">
@@ -51,7 +95,7 @@ export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? "Hide password" : "Show password"}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-ink-400 hover:text-ink-600"
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-ink-500 hover:text-ink-600"
       >
         {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
       </button>
@@ -83,14 +127,15 @@ export function Checkbox({
 
 export function Select({
   options,
-  ...props
+  ...own
 }: SelectHTMLAttributes<HTMLSelectElement> & {
   options: { value: string; label: string }[];
 }) {
+  const props = useFieldProps(own);
   return (
     <select
       {...props}
-      className={`h-9.5 w-full cursor-pointer rounded-lg border border-ink-200 bg-white px-2.5 text-sm text-ink-900 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500 ${props.className ?? ""}`}
+      className={`h-9.5 w-full cursor-pointer rounded-lg border border-ink-200 bg-white px-2.5 text-sm text-ink-900 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none aria-invalid:border-danger-600 disabled:bg-ink-50 disabled:text-ink-500 ${props.className ?? ""}`}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>

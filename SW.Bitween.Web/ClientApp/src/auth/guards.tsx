@@ -24,7 +24,7 @@ export function RequireAuth() {
   if (unreachable) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center">
-        <span className="flex size-12 items-center justify-center rounded-full bg-ink-100 text-ink-400">
+        <span className="flex size-12 items-center justify-center rounded-full bg-ink-100 text-ink-500">
           <CloudOff className="size-5" />
         </span>
         <h1 className="text-lg font-semibold text-ink-900">Can't reach Bitween</h1>
@@ -52,7 +52,7 @@ export function AccessDenied({ permission }: { permission: PermissionKey }) {
   const label = labelIn(usePermissionCatalog().data ?? [], permission);
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-ink-100 text-ink-400">
+      <span className="flex size-12 items-center justify-center rounded-full bg-ink-100 text-ink-500">
         <Lock className="size-5" />
       </span>
       <h1 className="text-lg font-semibold text-ink-900">You don't have access to this page</h1>

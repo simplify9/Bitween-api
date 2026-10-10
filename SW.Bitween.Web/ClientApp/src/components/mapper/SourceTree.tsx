@@ -92,7 +92,7 @@ const SourceLeaf: React.FC<LeafProps> = ({ node, isAssigned, isHovered, isSearch
       />
       <span className="truncate">{node.key}</span>
       {node.value !== undefined && (
-        <span className="ml-auto text-ink-400 truncate max-w-[80px]">
+        <span className="ml-auto text-ink-500 truncate max-w-[80px]">
           {String(node.value).substring(0, 20)}
         </span>
       )}
@@ -117,20 +117,20 @@ const SourceBranch: React.FC<BranchProps> = ({ node, depth = 0, assignedPaths, s
         onClick={() => dispatch(toggleNodeCollapsed(node.path))}
         className="flex items-center gap-1 w-full text-left px-2 py-[3px] rounded hover:bg-ink-100 transition-colors group"
       >
-        <span className="text-ink-400 text-xs w-3 flex-shrink-0">{isOpen ? '▾' : '▸'}</span>
+        <span className="text-ink-500 text-xs w-3 flex-shrink-0">{isOpen ? '▾' : '▸'}</span>
         <span className="text-xs font-medium text-ink-700 font-mono truncate">{node.key}</span>
         {node.type === 'array' && (
           <span className="text-xs text-crimson-500 font-mono ml-0.5">[{node.itemCount ?? '*'}]</span>
         )}
         {node.type === 'object' && (
-          <span className="text-xs text-ink-400 font-mono ml-0.5">{'{}'}</span>
+          <span className="text-xs text-ink-500 font-mono ml-0.5">{'{}'}</span>
         )}
         <span
           className={[
             'ml-auto text-xs',
             assignedCount === leaves.length && leaves.length > 0
               ? 'text-ok-600'
-              : 'text-ink-400',
+              : 'text-ink-500',
           ].join(' ')}
         >
           {assignedCount}/{leaves.length}
@@ -175,7 +175,7 @@ const SourceTree: React.FC<SourceTreeProps> = ({ nodes, onLeafRef }) => {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-4">
         <div className="text-3xl mb-2 text-ink-300">{'{ }'}</div>
-        <p className="text-xs text-ink-400">Paste source JSON above to see fields</p>
+        <p className="text-xs text-ink-500">Paste source JSON above to see fields</p>
       </div>
     );
   }

@@ -63,7 +63,7 @@ export function RouteList({
     <div className="pointer-events-auto flex max-h-full w-80 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white/95 shadow-md backdrop-blur">
       <div className="flex shrink-0 items-center gap-2 border-b border-ink-100 px-2.5 py-2">
         <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-2.5 left-2.5 size-3.5 text-ink-400" />
+          <Search className="pointer-events-none absolute top-2.5 left-2.5 size-3.5 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -172,7 +172,7 @@ function Row({
         )}
       </span>
       <span className="mt-1 flex items-baseline gap-1.5 pl-3 text-[12px]">
-        <span className="shrink-0 truncate text-ink-400" title={partner}>
+        <span className="shrink-0 truncate text-ink-500" title={partner}>
           {partner}
         </span>
         <span className="shrink-0 text-ink-300" aria-hidden>

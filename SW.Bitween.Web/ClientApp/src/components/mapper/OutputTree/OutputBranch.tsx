@@ -159,7 +159,7 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
           onClick={() => dispatch(toggleNodeCollapsed(`out:${node.path}`))}
           className="flex items-center gap-1 flex-1 text-left"
         >
-          <span className="text-ink-400 text-xs w-3 flex-shrink-0">{isOpen ? '▾' : '▸'}</span>
+          <span className="text-ink-500 text-xs w-3 flex-shrink-0">{isOpen ? '▾' : '▸'}</span>
           <span className="text-xs font-medium text-ink-700 font-mono truncate">
             {isRootArrayNode ? <span className="text-crimson-500 italic">root array</span> : node.key}
           </span>
@@ -178,7 +178,7 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
             </span>
           )}
           {node.type === 'object' && (
-            <span className="text-xs text-ink-400 font-mono ml-0.5">{'{}'}</span>
+            <span className="text-xs text-ink-500 font-mono ml-0.5">{'{}'}</span>
           )}
         </button>
 

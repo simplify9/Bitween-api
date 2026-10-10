@@ -283,7 +283,7 @@ function BranchHeader({
         onClick={onToggle}
         aria-expanded={!collapsed}
         aria-label={`${collapsed ? "Expand" : "Collapse"} ${name}`}
-        className="rounded p-0.5 text-ink-400 hover:bg-ink-100"
+        className="rounded p-0.5 text-ink-500 hover:bg-ink-100"
       >
         {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
       </button>
@@ -292,7 +292,7 @@ function BranchHeader({
         {"{}"}
       </span>
       {collapsed && (
-        <span className="text-[10px] text-ink-400">
+        <span className="text-[10px] text-ink-500">
           {count} {count === 1 ? "rule" : "rules"}
         </span>
       )}

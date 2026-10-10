@@ -154,7 +154,7 @@ export function AggregationsPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={q}
@@ -215,7 +215,7 @@ export function AggregationsPage() {
               cell: (r) => {
                 const name = r.aggregationForId === null ? null : nameById.get(r.aggregationForId);
                 if (r.aggregationForId === null)
-                  return <span className="text-[13px] text-ink-400">Not set</span>;
+                  return <span className="text-[13px] text-ink-500">Not set</span>;
                 return name ? (
                   <Link
                     to={`/subscriptions/${r.aggregationForId}`}
@@ -225,7 +225,7 @@ export function AggregationsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">—</span>
                 );
               },
             },
@@ -247,7 +247,7 @@ export function AggregationsPage() {
                 const run = lastRunById.get(r.id);
                 if (!run)
                   return (
-                    <span className="text-ink-400" title="No run in the last 30 days">
+                    <span className="text-ink-500" title="No run in the last 30 days">
                       —
                     </span>
                   );
@@ -256,7 +256,7 @@ export function AggregationsPage() {
                   <>
                     <span className="text-[13px] font-medium text-ink-800">{timeAgo(run.startedOn)}</span>
                     <span
-                      className={`block text-xs ${run.success === false ? "text-danger-700" : "text-ink-400"}`}
+                      className={`block text-xs ${run.success === false ? "text-danger-700" : "text-ink-500"}`}
                     >
                       {running
                         ? "running…"
@@ -278,7 +278,7 @@ export function AggregationsPage() {
               className: "whitespace-nowrap",
               cell: (r) => {
                 const run = lastRunById.get(r.id);
-                if (!run || run.recentTotal === 0) return <span className="text-ink-400">—</span>;
+                if (!run || run.recentTotal === 0) return <span className="text-ink-500">—</span>;
                 const failed = run.recentTotal - run.recentSucceeded;
                 return (
                   <span
@@ -300,10 +300,10 @@ export function AggregationsPage() {
                 r.nextReceiveOn ? (
                   <>
                     <span className="text-[13px] font-medium text-ink-800">{timeUntil(r.nextReceiveOn)}</span>
-                    <span className="block text-xs text-ink-400">{formatDateTime(r.nextReceiveOn)}</span>
+                    <span className="block text-xs text-ink-500">{formatDateTime(r.nextReceiveOn)}</span>
                   </>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
             {
@@ -328,7 +328,7 @@ export function AggregationsPage() {
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
                 const name = id === null ? null : (workGroupNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">Ungrouped</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">Ungrouped</span>;
                 return name ? (
                   <Link
                     to={`/work-groups/${id}`}
@@ -338,7 +338,7 @@ export function AggregationsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">—</span>
                 );
               },
             },
@@ -349,7 +349,7 @@ export function AggregationsPage() {
               cell: (r) => {
                 const id = setupById.get(r.id)?.retryPolicyId ?? null;
                 const name = id === null ? null : (retryPolicyNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">None</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">None</span>;
                 return name ? (
                   <Link
                     to={`/retry-policies/${id}`}
@@ -359,7 +359,7 @@ export function AggregationsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">—</span>
                 );
               },
             },
@@ -387,7 +387,7 @@ export function AggregationsPage() {
                     {r.lastException}
                   </span>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
             {

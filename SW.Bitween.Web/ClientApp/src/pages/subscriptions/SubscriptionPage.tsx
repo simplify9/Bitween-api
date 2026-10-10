@@ -31,6 +31,7 @@ import { draftOf, entryPointsOf, feedersOf, stageDirty, type Draft } from "./stu
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useResponseDetour } from "../../lib/responseDetour";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 /**
  * Keyed by id. Going from one subscription's page straight to another's — down a response
@@ -123,6 +124,14 @@ function SubscriptionStudio() {
     return JSON.stringify(draft) !== JSON.stringify(draftOf(subscription.data));
   }, [subscription.data, draft]);
 
+  // The mapping editor's link takes the picked mapper along, so a mapper choice alone isn't lost
+  // by following it. Anything else unsaved would be.
+  const dirtyBesidesMapper = useMemo(() => {
+    if (!subscription.data || !draft) return false;
+    const withoutMapper = (d: Draft) => ({ ...d, mapperId: null, mapperProperties: null, mapperVersion: null });
+    return JSON.stringify(withoutMapper(draft)) !== JSON.stringify(withoutMapper(draftOf(subscription.data)));
+  }, [subscription.data, draft]);
+
   // Escape closes the open stage — but only when it holds nothing unsaved. A
   // config panel that can be dismissed onto a half-finished handler is how you
   // lose an operator's work; if there are edits, Escape does nothing and the
@@ -208,6 +217,10 @@ function SubscriptionStudio() {
       void queryClient.invalidateQueries({ queryKey: keys.subscriptions.runs(subscriptionId) });
       void queryClient.invalidateQueries({ queryKey: keys.subscriptions.lastRuns });
     },
+  });
+
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty, {
+    carriedTo: (path) => path === `/subscriptions/${subscriptionId}/mapper` && !dirtyBesidesMapper,
   });
 
   if (subscription.isPending) return <LoadingBlock label="Loading subscription…" />;
@@ -505,7 +518,7 @@ function SubscriptionStudio() {
               disabled={!canEdit}
               candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== subscriptionId)}
               idPrefix="in-resp"
-              onNewResponseSubscription={() => detour.leave(draft, subscriptionId)}
+              onNewResponseSubscription={() => leave(() => detour.leave(draft, subscriptionId))}
               onOpenResponseSubscription={(target) =>
                 dirty ? setOpening(target) : navigate(`/subscriptions/${target}`)
               }
@@ -517,6 +530,7 @@ function SubscriptionStudio() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/subscriptions" label="Subscriptions" />
 
       {health?.stuck && (
@@ -680,7 +694,7 @@ function SubscriptionStudio() {
             onClick={() => selectStage(null)}
             aria-label="Close and show the overview"
             title="Close  Esc"
-            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
           >
             <X className="size-4" />
           </button>
@@ -763,7 +777,7 @@ function SubscriptionStudio() {
           confirmLabel="Save and open"
           onConfirm={async () => {
             await save.mutateAsync();
-            navigate(`/subscriptions/${opening}`);
+            leave(() => navigate(`/subscriptions/${opening}`));
           }}
           onClose={() => setOpening(null)}
         />
@@ -795,7 +809,7 @@ function SubscriptionStudio() {
           onConfirm={async () => {
             await api.deleteSubscription(subscriptionId);
             void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
-            navigate("/subscriptions", { replace: true });
+            leave(() => navigate("/subscriptions", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

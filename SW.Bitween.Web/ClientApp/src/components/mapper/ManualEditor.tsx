@@ -95,7 +95,7 @@ const ManualEditor: React.FC = () => {
         <span className="text-xs font-semibold text-ink-600 uppercase tracking-wide">
           Scriban Template
         </span>
-        <span className="text-xs text-ink-400">— edit the template directly</span>
+        <span className="text-xs text-ink-500">— edit the template directly</span>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={handleRegenerateFromVisual}
@@ -167,7 +167,7 @@ const ManualEditor: React.FC = () => {
             <span className="text-warn-700">{'{{- end -}}'}</span> condition
           </span>
           <span>
-            <span className="text-ink-400">{'{{- # comment -}}'}</span>
+            <span className="text-ink-500">{'{{- # comment -}}'}</span>
           </span>
         </div>
       </div>

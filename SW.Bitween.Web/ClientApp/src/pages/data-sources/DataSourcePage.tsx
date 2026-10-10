@@ -32,6 +32,7 @@ import { Statements, type StatementSeed } from "./Statements";
 import { SchemaBrowser } from "./SchemaBrowser";
 import { draftOf, editableFingerprint, type Draft } from "./draft";
 import { ExceptionLine } from "../../components/ui/Exception";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 /** A draft is the whole editable surface, so the save bar can compare against what was loaded. */
 
@@ -151,13 +152,16 @@ export function DataSourcePage() {
     mutationFn: () => api.deleteDataSource(dataSourceId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: keys.dataSources.all });
-      navigate("/data-sources");
+      leave(() => navigate("/data-sources"));
     },
     onError: (e) => {
       setRemoving(false);
       setError(e instanceof ApiRequestError ? e.message : "Could not delete this data source.");
     },
   });
+
+  const dirty = !!source.data && !!draft && JSON.stringify(draft) !== JSON.stringify(draftOf(source.data));
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
 
   if (source.isPending) return <LoadingBlock label="Loading data source…" />;
   if (source.isError && !isNotFound(source.error))
@@ -171,7 +175,6 @@ export function DataSourcePage() {
   // the node's, so it is a rough translation rather than a claim about the server.
   const cores = navigator.hardwareConcurrency || 8;
   const provider = providerOf(providers.data, d.adapterId);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(draftOf(d));
   // A database has no queue to redeliver from and no bus gateway to feed, so the broker-only
   // parts of this page are left off it rather than shown empty.
   const relational = d.kind === "Relational";
@@ -203,6 +206,7 @@ export function DataSourcePage() {
 
   return (
     <div className={canEdit && dirty ? "pb-24" : undefined}>
+      {leaveDialog}
       {removing && (
         <ConfirmDialog
           title={`Delete "${d.name}"?`}
@@ -602,7 +606,7 @@ export function DataSourcePage() {
                           type="button"
                           title={`Remove ${key}`}
                           onClick={() => removeProperty(key)}
-                          className="mt-7 rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 hover:text-danger-700"
+                          className="mt-7 rounded-lg p-1.5 text-ink-500 hover:bg-ink-100 hover:text-danger-700"
                         >
                           <Trash2 className="size-4" />
                         </button>
@@ -765,7 +769,7 @@ function CeilingInput({
           {label}
         </label>
         {/* Focusable so a keyboard reaches it too; the text itself is tied to the input below. */}
-        <button type="button" title={help} aria-label={`About ${label}`} className="cursor-help text-ink-400">
+        <button type="button" title={help} aria-label={`About ${label}`} className="cursor-help text-ink-500">
           <CircleHelp className="size-3.5" />
         </button>
       </div>

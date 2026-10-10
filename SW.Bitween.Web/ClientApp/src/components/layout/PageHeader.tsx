@@ -47,7 +47,7 @@ export function PageHeader({
           <button
             onClick={() => setHelpOpen(false)}
             aria-label="Close help"
-            className="absolute top-2.5 right-2.5 rounded-md p-1 text-ink-400 hover:text-ink-700"
+            className="absolute top-2.5 right-2.5 rounded-md p-1 text-ink-500 hover:text-ink-700"
           >
             <X className="size-4" />
           </button>

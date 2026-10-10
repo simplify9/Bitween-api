@@ -20,9 +20,9 @@ export function PreviewPanel({ isPreviewing }: { isPreviewing: boolean }) {
     <div className="flex h-full flex-col overflow-hidden bg-ink-50">
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-2">
         <span className="text-xs font-semibold tracking-wide text-ink-600 uppercase">Preview</span>
-        <span className="text-xs text-ink-400">— what a partner would receive</span>
+        <span className="text-xs text-ink-500">— what a partner would receive</span>
         {isPreviewing && (
-          <span className="flex-shrink-0 animate-pulse text-[10px] text-ink-400">Working…</span>
+          <span className="flex-shrink-0 animate-pulse text-[10px] text-ink-500">Working…</span>
         )}
         {previewOutput && (
           <button
@@ -74,7 +74,7 @@ export function PreviewPanel({ isPreviewing }: { isPreviewing: boolean }) {
       <div className="flex-1 overflow-auto">
         {previewOutput === null ? (
           <div className="flex h-full items-center justify-center px-4 text-center">
-            <p className="text-xs text-ink-400">
+            <p className="text-xs text-ink-500">
               {sourceSample.trim()
                 ? "Add a rule to see the document it produces."
                 : "Paste a sample document on the left to see the preview."}

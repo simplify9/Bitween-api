@@ -13,6 +13,7 @@ import { ExchangesList, SetupList } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { formatDate } from "../../lib/dates";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import {
   BusTypeRenameConfirm,
   InformationTypeFields,
@@ -70,6 +71,8 @@ export function InformationTypePage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.informationTypes.all }),
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (type.isPending) return <LoadingBlock label="Loading information type…" />;
   if (type.isError && !isNotFound(type.error))
     return <LoadError error={type.error} what="this information type" onRetry={() => void type.refetch()} />;
@@ -86,6 +89,7 @@ export function InformationTypePage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/information-types" label="Information types" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -237,7 +241,7 @@ export function InformationTypePage() {
           onConfirm={async () => {
             await api.deleteInformationType(typeId);
             void queryClient.invalidateQueries({ queryKey: keys.informationTypes.all });
-            navigate("/information-types", { replace: true });
+            leave(() => navigate("/information-types", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

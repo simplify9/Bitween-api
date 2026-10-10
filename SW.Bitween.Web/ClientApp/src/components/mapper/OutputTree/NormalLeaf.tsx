@@ -95,7 +95,7 @@ export const NormalLeaf: React.FC<NormalLeafProps> = ({
               'flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border transition',
               hasLookup || lookupOpen
                 ? 'border-crimson-400 bg-crimson-50 text-crimson-600'
-                : 'border-ink-200 text-ink-400 hover:border-crimson-300 hover:text-crimson-500',
+                : 'border-ink-200 text-ink-500 hover:border-crimson-300 hover:text-crimson-500',
             ].join(' ')}
           >Lookup</button>
         )}
@@ -156,7 +156,7 @@ export const NormalLeaf: React.FC<NormalLeafProps> = ({
         <div className="px-2 pb-1.5 space-y-0.5" onClick={(e) => e.stopPropagation()}>
           <span className="text-[10px] font-medium text-crimson-600 select-none">
             Transform{' '}
-            <span className="font-normal text-ink-400">(optional — modify the source value before output)</span>
+            <span className="font-normal text-ink-500">(optional — modify the source value before output)</span>
           </span>
           <input
             className="w-full border border-crimson-200 bg-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 placeholder-ink-300 text-crimson-700"

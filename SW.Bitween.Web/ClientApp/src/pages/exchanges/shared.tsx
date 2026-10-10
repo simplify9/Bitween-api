@@ -153,7 +153,7 @@ function ExchangeIdentity({
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <PromotedProps properties={properties} max={2} />
-      <span className="shrink-0 font-mono text-[11px] text-ink-400" title={id}>
+      <span className="shrink-0 font-mono text-[11px] text-ink-500" title={id}>
         {id.slice(0, 8)}…
       </span>
     </span>
@@ -240,7 +240,7 @@ export function RetryDialog({
                     {plan.substituted.map((s) => (
                       <li key={s.selectedId} className="flex items-center gap-1.5">
                         <ExchangeIdentity id={s.selectedId} properties={plan.properties[s.selectedId] ?? null} />
-                        <ArrowRight className="size-3 shrink-0 text-ink-400" aria-hidden />
+                        <ArrowRight className="size-3 shrink-0 text-ink-500" aria-hidden />
                         <ExchangeIdentity id={s.retryId} properties={plan.properties[s.retryId] ?? null} />
                       </li>
                     ))}

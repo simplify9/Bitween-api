@@ -69,7 +69,7 @@ export function RuleDetail({
 function Step({ n, label, children }: { n: number; label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="mb-1 text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
+      <p className="mb-1 text-[10px] font-semibold tracking-wide text-ink-500 uppercase">
         {n}. {label}
       </p>
       {children}

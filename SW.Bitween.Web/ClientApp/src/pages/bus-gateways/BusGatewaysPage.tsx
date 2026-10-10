@@ -100,7 +100,7 @@ export function BusGatewaysPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={q}
@@ -166,7 +166,7 @@ export function BusGatewaysPage() {
               wrap: true,
               cell: (g) => (
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className={`font-medium ${g.inactive ? "text-ink-400" : "text-ink-900"}`}>
+                  <span className={`font-medium ${g.inactive ? "text-ink-500" : "text-ink-900"}`}>
                     {g.name}
                   </span>
                   {/* Beside the name, not in the Health column: health reports on what the
@@ -212,7 +212,7 @@ export function BusGatewaysPage() {
                           {t.busMessageTypeName}
                         </code>
                       ) : (
-                        <span className="text-ink-400">—</span>
+                        <span className="text-ink-500">—</span>
                       );
                     },
                   },
@@ -226,7 +226,7 @@ export function BusGatewaysPage() {
                         (p) => p.key,
                       );
                       return keys.length === 0 ? (
-                        <span className="text-[13px] text-ink-400">Nothing promoted</span>
+                        <span className="text-[13px] text-ink-500">Nothing promoted</span>
                       ) : (
                         <span
                           className="block truncate font-mono text-[11px] text-ink-600"

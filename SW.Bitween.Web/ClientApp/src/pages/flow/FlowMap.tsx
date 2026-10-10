@@ -138,7 +138,7 @@ function NodeCard({
         >
           <Icon className="size-3.5" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold tracking-wide text-ink-500 uppercase">
           {label}
         </span>
         {onLoop ? (
@@ -149,7 +149,7 @@ function NodeCard({
       </div>
 
       <p className="mt-2 truncate text-[14px] font-semibold text-ink-800">{node.title}</p>
-      <p className="mt-0.5 truncate text-[11px] text-ink-400">
+      <p className="mt-0.5 truncate text-[11px] text-ink-500">
         {node.code && <code className="font-mono">{node.code}</code>}
         {node.code && node.detail && " · "}
         {/* A message with no publisher isn't broken — most traffic starts outside. */}

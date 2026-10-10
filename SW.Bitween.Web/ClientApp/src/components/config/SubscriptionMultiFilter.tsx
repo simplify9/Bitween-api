@@ -70,12 +70,12 @@ export function SubscriptionMultiFilter({
         }`}
       >
         <span className="min-w-0 flex-1 truncate text-left">{buttonLabel}</span>
-        <ChevronDown className="size-3.5 shrink-0 text-ink-400" />
+        <ChevronDown className="size-3.5 shrink-0 text-ink-500" />
       </button>
       {open && (
         <div className="absolute top-full left-0 z-40 mt-1.5 w-72 rounded-xl border border-ink-100 bg-white p-2 shadow-lg">
           <div className="relative mb-1.5">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-500" />
             <input
               autoFocus
               value={query}
@@ -96,7 +96,7 @@ export function SubscriptionMultiFilter({
           )}
           <div className="max-h-60 overflow-y-auto">
             {matches.length === 0 ? (
-              <p className="px-2 py-2 text-[13px] text-ink-400">No subscriptions match.</p>
+              <p className="px-2 py-2 text-[13px] text-ink-500">No subscriptions match.</p>
             ) : (
               matches.map((i) => (
                 <label
@@ -110,7 +110,7 @@ export function SubscriptionMultiFilter({
                     className="size-3.5 shrink-0 cursor-pointer rounded accent-crimson-600"
                   />
                   <span className="min-w-0 flex-1 truncate text-ink-800">{i.name}</span>
-                  <span className="shrink-0 text-[11px] text-ink-400">{SUBSCRIPTION_TYPE_LABELS[i.type]}</span>
+                  <span className="shrink-0 text-[11px] text-ink-500">{SUBSCRIPTION_TYPE_LABELS[i.type]}</span>
                 </label>
               ))
             )}

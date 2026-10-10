@@ -222,7 +222,7 @@ export function AuditPage() {
               cell: (r) => (
                 <>
                   <span className="font-medium text-ink-800">{timeAgo(r.on)}</span>
-                  <span className="block text-xs text-ink-400">{formatDateTime(r.on)}</span>
+                  <span className="block text-xs text-ink-500">{formatDateTime(r.on)}</span>
                 </>
               ),
             },
@@ -256,7 +256,7 @@ export function AuditPage() {
                       </Link>
                     ) : (
                       <span
-                        className="font-mono text-xs text-ink-400"
+                        className="font-mono text-xs text-ink-500"
                         title={r.action === "Deleted" ? "This row no longer exists." : undefined}
                       >
                         {r.entityKey}

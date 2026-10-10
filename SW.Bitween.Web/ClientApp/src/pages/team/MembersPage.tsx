@@ -92,7 +92,7 @@ export function MembersPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-56 flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={q}
@@ -172,7 +172,7 @@ export function MembersPage() {
                     <div className="flex items-center gap-3">
                       <Avatar name={user.displayName} dimmed={user.status === "disabled"} />
                       <div className="min-w-0">
-                        <p className={`truncate font-medium ${user.status === "disabled" ? "text-ink-400" : "text-ink-900"}`}>
+                        <p className={`truncate font-medium ${user.status === "disabled" ? "text-ink-500" : "text-ink-900"}`}>
                           {user.displayName}
                         </p>
                         <p className="truncate font-mono text-xs text-ink-500">{user.email}</p>

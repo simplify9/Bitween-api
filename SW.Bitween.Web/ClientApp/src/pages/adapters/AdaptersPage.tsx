@@ -152,7 +152,7 @@ function InstalledAdapters() {
       </Can>
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             aria-label="Search adapters"
@@ -254,9 +254,9 @@ function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: 
         className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-ink-50/60"
       >
         {open ? (
-          <ChevronDown className="mt-2 size-4 shrink-0 text-ink-400" aria-hidden />
+          <ChevronDown className="mt-2 size-4 shrink-0 text-ink-500" aria-hidden />
         ) : (
-          <ChevronRight className="mt-2 size-4 shrink-0 text-ink-400" aria-hidden />
+          <ChevronRight className="mt-2 size-4 shrink-0 text-ink-500" aria-hidden />
         )}
         <AdapterIcon adapter={a} />
         <span className="min-w-0 flex-1">
@@ -270,18 +270,18 @@ function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: 
             {a.currentVersion && <Badge tone="ink">v{a.currentVersion}</Badge>}
             {runtimeLabel(runtimeOf(a)) && <Badge tone="neutral">{runtimeLabel(runtimeOf(a))}</Badge>}
           </span>
-          <code className="block truncate font-mono text-[11.5px] text-ink-400">{a.id}</code>
+          <code className="block truncate font-mono text-[11.5px] text-ink-500">{a.id}</code>
           {(a.summary || a.publisher) && (
             <span className="mt-0.5 block text-[12.5px] text-ink-600">
               {a.summary}
-              {a.publisher && <span className="text-ink-400">{a.summary ? " · " : ""}by {a.publisher}</span>}
+              {a.publisher && <span className="text-ink-500">{a.summary ? " · " : ""}by {a.publisher}</span>}
             </span>
           )}
         </span>
         <span className="shrink-0 text-right text-[12px] text-ink-500">
           <span className="block">{used === 0 ? "Not used" : `Used by ${used} subscription${used === 1 ? "" : "s"}`}</span>
           {!a.native && (
-            <span className="block text-ink-400">
+            <span className="block text-ink-500">
               {pinnable === 0 ? "No versions" : `${pinnable} version${pinnable === 1 ? "" : "s"}`}
             </span>
           )}
@@ -435,7 +435,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
               {a.versions.map((v) => {
                 const pinned = usage?.pinned[v.version] ?? 0;
                 return (
-                  <tr key={v.version} className={v.withdrawn ? "text-ink-400" : "text-ink-700"}>
+                  <tr key={v.version} className={v.withdrawn ? "text-ink-500" : "text-ink-700"}>
                     <td className="py-1.5 pr-3 whitespace-nowrap">
                       <span className="font-mono">v{v.version}</span>
                       {v.version === a.currentVersion && (
@@ -452,7 +452,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                     <td className="py-1.5 pr-3 whitespace-nowrap">{runtimeLabel(v.runtime) ?? "—"}</td>
                     <td className="py-1.5 pr-3 whitespace-nowrap">
                       {v.publishedOn ? formatDate(v.publishedOn) : "—"}
-                      {v.publishedBy && <span className="block text-[11.5px] text-ink-400">{v.publishedBy}</span>}
+                      {v.publishedBy && <span className="block text-[11.5px] text-ink-500">{v.publishedBy}</span>}
                     </td>
                     <td className="py-1.5 pr-3">{pinned === 0 ? "—" : pinned}</td>
                     <td className="py-1.5 whitespace-pre-line">{v.releaseNotes ?? ""}</td>
@@ -469,7 +469,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                             View
                           </button>
                         ) : (
-                          <span className="text-ink-400" title="Published without its source">
+                          <span className="text-ink-500" title="Published without its source">
                             —
                           </span>
                         )}
@@ -791,11 +791,11 @@ function Drafts() {
         {drafts.data.map((d) => (
           <li key={d.id}>
             <Link to={`/adapters/drafts/${d.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-ink-50/60">
-              <Pencil className="size-4 text-ink-400" aria-hidden />
+              <Pencil className="size-4 text-ink-500" aria-hidden />
               <code className="font-mono text-[13px] text-ink-900">{d.adapterId}</code>
               <Badge tone="neutral">{DRAFT_LANGUAGE[d.language]}</Badge>
               <span className="text-[12.5px] text-ink-500">{d.baseVersion ? `from v${d.baseVersion}` : "not yet published"}</span>
-              <span className="ml-auto text-[12px] text-ink-400">
+              <span className="ml-auto text-[12px] text-ink-500">
                 {formatDate(d.modifiedOn ?? d.createdOn)}
                 {(d.modifiedBy ?? d.createdBy) && ` · ${d.modifiedBy ?? d.createdBy}`}
               </span>

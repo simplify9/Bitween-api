@@ -15,6 +15,7 @@ import { GroupDialog } from "./GroupDialog";
 import { UsagePanel } from "./UsagePanel";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 const matcherSummary = (m: RetryMatcher): string => {
   switch (m.type) {
@@ -100,7 +101,7 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
         <ol className="mt-4 space-y-1.5 border-t border-ink-100 pt-3">
           {test.data.map((a) => (
             <li key={a.attempt} className="flex items-start gap-2.5 text-[13px]">
-              <span className="mt-0.5 w-14 shrink-0 font-mono text-xs text-ink-400">#{a.attempt}</span>
+              <span className="mt-0.5 w-14 shrink-0 font-mono text-xs text-ink-500">#{a.attempt}</span>
               {a.shouldRetry ? <Badge tone="ok">Retries</Badge> : <Badge tone="danger">Stops</Badge>}
               <span className="min-w-0 flex-1 text-ink-600">
                 {a.matchedGroup && <strong className="font-medium text-ink-800">{a.matchedGroup}: </strong>}
@@ -278,6 +279,8 @@ export function RetryPolicyPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (policy.isPending) return <LoadingBlock label="Loading retry policy…" />;
   if (policy.isError && !isNotFound(policy.error))
     return <LoadError error={policy.error} what="this retry policy" onRetry={() => void policy.refetch()} />;
@@ -303,6 +306,7 @@ export function RetryPolicyPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/retry-policies" label="Retry policies" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -342,7 +346,7 @@ export function RetryPolicyPage() {
                 {
                   header: "#",
                   className: "w-8",
-                  cell: (g) => <span className="font-mono text-xs text-ink-400">{g.priority}</span>,
+                  cell: (g) => <span className="font-mono text-xs text-ink-500">{g.priority}</span>,
                 },
                 {
                   header: "Group",
@@ -385,7 +389,7 @@ export function RetryPolicyPage() {
                         className="block text-[13px] text-ink-600"
                         title={scope ? `${scope} · ${conditions}` : conditions}
                       >
-                        {scope && <span className="text-ink-400">{scope} · </span>}
+                        {scope && <span className="text-ink-500">{scope} · </span>}
                         {conditions}
                       </span>
                     );
@@ -403,7 +407,7 @@ export function RetryPolicyPage() {
                         {g.budget.delay.type}
                       </span>
                     ) : (
-                      <span className="text-ink-400">—</span>
+                      <span className="text-ink-500">—</span>
                     ),
                 },
                 {
@@ -411,9 +415,9 @@ export function RetryPolicyPage() {
                   truncate: true,
                   cell: (g) =>
                     g.action !== "Allow" ? (
-                      <span className="text-ink-400">—</span>
+                      <span className="text-ink-500">—</span>
                     ) : g.budget && g.budget.maxAttemptsTotal === null ? (
-                      <span className="text-ink-400" title="No total limit, so the budget never runs out and there is nothing to alert on.">
+                      <span className="text-ink-500" title="No total limit, so the budget never runs out and there is nothing to alert on.">
                         —
                       </span>
                     ) : g.alertMode === "Silent" ? (
@@ -421,7 +425,7 @@ export function RetryPolicyPage() {
                     ) : g.alertMode === "Send" && g.alertHandlerId ? (
                       <span className="block truncate font-mono text-xs text-ink-700">{g.alertHandlerId}</span>
                     ) : (
-                      <span className="text-[13px] text-ink-400 italic">
+                      <span className="text-[13px] text-ink-500 italic">
                         {alertHandlerId ? "Inherited" : "Nobody"}
                       </span>
                     ),
@@ -435,14 +439,14 @@ export function RetryPolicyPage() {
                         <button
                           onClick={() => setEditingGroup(g)}
                           aria-label={`Edit ${g.name}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                          className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                         >
                           <Pencil className="size-3.5" />
                         </button>
                         <button
                           onClick={() => setGroups((prev) => (prev ?? []).filter((x) => x.id !== g.id))}
                           aria-label={`Remove ${g.name}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                          className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -506,7 +510,7 @@ export function RetryPolicyPage() {
           onConfirm={async () => {
             await api.deleteRetryPolicy(policyId);
             void queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
-            navigate("/retry-policies", { replace: true });
+            leave(() => navigate("/retry-policies", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

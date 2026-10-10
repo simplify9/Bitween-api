@@ -19,6 +19,7 @@ import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 /** Live answer to "what would someone with this role actually see?" */
 function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
@@ -40,7 +41,7 @@ function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>
         <div className="space-y-3 rounded-lg bg-ink-950 p-3">
           {groups.map((group) => (
             <div key={group.label}>
-              <p className="px-1 pb-1 text-[10px] font-semibold tracking-widest text-ink-500 uppercase">
+              <p className="px-1 pb-1 text-[10px] font-semibold tracking-widest text-ink-400 uppercase">
                 {group.label}
               </p>
               <ul className="space-y-0.5">
@@ -130,9 +131,11 @@ export function RoleEditor() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.roles.all });
-      navigate("/team/roles", { replace: true });
+      leave(() => navigate("/team/roles", { replace: true }));
     },
   });
+
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
 
   if (catalog.isPending) return <LoadingBlock label="Loading permissions…" />;
   if (!loaded && source.isPending) return <LoadingBlock label="Loading role…" />;
@@ -179,6 +182,7 @@ export function RoleEditor() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/team/roles" label="Roles" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -341,7 +345,7 @@ export function RoleEditor() {
               <FormError>{save.error?.message}</FormError>
             </div>
             <div className="flex shrink-0 gap-2">
-              <Button onClick={() => navigate("/team/roles", { replace: true })}>Cancel</Button>
+              <Button onClick={() => leave(() => navigate("/team/roles", { replace: true }))}>Cancel</Button>
               <Button variant="primary" busy={save.isPending} onClick={() => save.mutate()}>
                 {isNew ? "Create role" : "Save changes"}
               </Button>
@@ -363,7 +367,7 @@ export function RoleEditor() {
           onConfirm={async () => {
             await api.deleteRole(id!);
             void queryClient.invalidateQueries({ queryKey: keys.roles.all });
-            navigate("/team/roles", { replace: true });
+            leave(() => navigate("/team/roles", { replace: true }));
           }}
           onClose={() => setConfirmingDelete(false)}
         />

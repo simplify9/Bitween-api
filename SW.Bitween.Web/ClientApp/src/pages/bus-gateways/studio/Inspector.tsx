@@ -49,7 +49,7 @@ export function Inspector({
   if (node === null)
     return (
       <div className="shrink-0 border-t border-ink-200 bg-white px-4 py-2.5">
-        <p className="text-[13px] text-ink-400">
+        <p className="text-[13px] text-ink-500">
           Pick a node on the canvas to configure it. Everything about this route — its filter, its
           partner, and the subscription it runs — is edited here.
         </p>
@@ -83,7 +83,7 @@ export function Inspector({
                 : "Hide this step and give the canvas the screen"
           }
           aria-label={collapsed ? "Show this step" : "Hide this step"}
-          className="shrink-0 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="shrink-0 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         </button>
@@ -92,7 +92,7 @@ export function Inspector({
           onClick={onClose}
           aria-label="Close this step"
           title="Close  Esc"
-          className="shrink-0 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+          className="shrink-0 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
         >
           <X className="size-4" />
         </button>

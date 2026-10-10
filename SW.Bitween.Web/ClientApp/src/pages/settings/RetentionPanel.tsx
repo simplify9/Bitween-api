@@ -25,7 +25,7 @@ export function NoticeList({ notices }: { notices: RetentionNotice[] }) {
           {n.level === "warning" ? (
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-label="Warning" />
           ) : (
-            <Info className="mt-0.5 size-3.5 shrink-0 text-ink-400" aria-label="Note" />
+            <Info className="mt-0.5 size-3.5 shrink-0 text-ink-500" aria-label="Note" />
           )}
           <span>{n.message}</span>
         </li>
@@ -105,7 +105,7 @@ export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: Set
           <h3 className="text-[13px] font-semibold text-ink-800">
             {previewing ? "What your unsaved changes would do" : "What these settings do"}
           </h3>
-          {loading && <span className="text-xs text-ink-400">Updating…</span>}
+          {loading && <span className="text-xs text-ink-500">Updating…</span>}
         </div>
         <NoticeList notices={status.notices} />
       </div>

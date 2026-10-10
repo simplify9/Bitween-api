@@ -12,6 +12,7 @@ import { MiniTable } from "../../components/ui/Table";
 import { ExchangesList, SetupList, usePartnerSubscriptions } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import {
   PartnerFields,
   partnerChanges,
@@ -62,6 +63,8 @@ export function PartnerPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (partner.isPending) return <LoadingBlock label="Loading partner…" />;
   if (partner.isError && !isNotFound(partner.error))
     return <LoadError error={partner.error} what="this partner" onRetry={() => void partner.refetch()} />;
@@ -97,6 +100,7 @@ export function PartnerPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/partners" label="Partners" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -213,7 +217,7 @@ export function PartnerPage() {
           onConfirm={async () => {
             await api.deletePartner(partnerId);
             void queryClient.invalidateQueries({ queryKey: keys.partners.all });
-            navigate("/partners", { replace: true });
+            leave(() => navigate("/partners", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

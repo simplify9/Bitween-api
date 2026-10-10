@@ -133,7 +133,7 @@ export function NotifiersPage() {
       />
 
       <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
         <input
           type="search"
           value={q}
@@ -177,7 +177,7 @@ export function NotifiersPage() {
                   {n.onFailed && <Badge tone="danger">Failed</Badge>}
                   {n.onBadResult && <Badge tone="warn">Bad result</Badge>}
                   {n.onSuccess && <Badge tone="ok">Success</Badge>}
-                  {!n.onFailed && !n.onBadResult && !n.onSuccess && <span className="text-ink-400">Never</span>}
+                  {!n.onFailed && !n.onBadResult && !n.onSuccess && <span className="text-ink-500">Never</span>}
                 </span>
               ),
             },

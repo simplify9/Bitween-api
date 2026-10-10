@@ -205,7 +205,7 @@ function StatementRow({
           {statement.description && (
             <p className="mt-0.5 text-[13px] text-ink-500">{statement.description}</p>
           )}
-          <code className="mt-1 block truncate text-[12px] text-ink-400">{statement.sql}</code>
+          <code className="mt-1 block truncate text-[12px] text-ink-500">{statement.sql}</code>
         </button>
 
         <Can permission="data-source-statements.delete">

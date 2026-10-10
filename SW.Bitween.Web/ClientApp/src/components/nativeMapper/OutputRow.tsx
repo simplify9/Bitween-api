@@ -182,7 +182,7 @@ export function OutputRow({
               ? "Has a transform or a table"
               : "Change it, substitute it, or set its type"
           }
-          className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700 ${
+          className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700 ${
             extras > 0 ? "text-crimson-600" : ""
           }`}
         >

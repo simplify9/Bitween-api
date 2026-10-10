@@ -30,7 +30,7 @@ function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGrou
       header: "Health",
       cell: (g) => {
         const c = consumerFor(g);
-        if (!c) return <span className="text-ink-400">—</span>;
+        if (!c) return <span className="text-ink-500">—</span>;
         return c.health === "critical" ? (
           <Badge tone="danger" title={queueHealthTitle("critical")}>Critical</Badge>
         ) : c.health === "warning" ? (
@@ -122,7 +122,7 @@ export function WorkGroupsPage() {
       />
 
       <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
         <input
           type="search"
           value={q}
@@ -194,7 +194,7 @@ export function WorkGroupsPage() {
                   }}
                   aria-label={`Open ${g.name}`}
                   title="Open"
-                  className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                  className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                 >
                   <ArrowUpRight className="size-4" />
                 </button>

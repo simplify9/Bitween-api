@@ -79,7 +79,7 @@ export function FlowPage() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <p className="text-[12px] text-ink-400 tabular-nums">
+          <p className="text-[12px] text-ink-500 tabular-nums">
             {gateways} {gateways === 1 ? "gateway" : "gateways"} · {messages}{" "}
             {messages === 1 ? "message" : "messages"}
             {graph.omitted > 0 && (

@@ -38,7 +38,7 @@ export function OutputPanel({ sourceRoot }: { sourceRoot: DocumentNode | null })
           >
             {rules.targetFormat}
           </span>
-          <span className="text-xs text-ink-400" title="How many rules have a value assigned">
+          <span className="text-xs text-ink-500" title="How many rules have a value assigned">
             {fields.length} {fields.length === 1 ? "rule" : "rules"} · {assigned} assigned
           </span>
 
@@ -57,7 +57,7 @@ export function OutputPanel({ sourceRoot }: { sourceRoot: DocumentNode | null })
         </div>
 
         <div className="relative">
-          <Search className="absolute top-1.5 left-2 text-ink-400" size={11} aria-hidden />
+          <Search className="absolute top-1.5 left-2 text-ink-500" size={11} aria-hidden />
           <TextInput
             className="h-7 pl-6 font-mono text-xs"
             placeholder="Search output fields…"
@@ -70,7 +70,7 @@ export function OutputPanel({ sourceRoot }: { sourceRoot: DocumentNode | null })
 
       <div data-mapper-scroll className="flex-1 overflow-y-auto px-2 py-1.5">
         {empty ? (
-          <p className="py-6 text-center text-xs text-ink-400">
+          <p className="py-6 text-center text-xs text-ink-500">
             No rules yet. Add a field, or build them from a sample of the output.
           </p>
         ) : (

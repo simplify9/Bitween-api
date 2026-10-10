@@ -119,7 +119,7 @@ export function Canvas({
         </div>
 
         <p
-          className="shrink-0 pr-6 pb-5 text-[12px] text-ink-400"
+          className="shrink-0 pr-6 pb-5 text-[12px] text-ink-500"
           style={{ paddingLeft: `${gutterRem + 1.5}rem` }}
         >
           Every message of this type is offered to all of this gateway's routes —{" "}
@@ -350,7 +350,7 @@ function CollapsedHop({ hop, label, onOpen }: { hop: Hop; label: string; onOpen:
         <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-ink-100 text-ink-500">
           <Workflow className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
           {label}
         </span>
         <span
@@ -400,7 +400,7 @@ function BusDestinationCard({
         <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-ink-100 text-ink-500">
           <Radio className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
           On the bus
         </span>
       </div>
@@ -433,7 +433,7 @@ function BusDestinationCard({
                   <span className="block truncate text-[12px] font-medium text-ink-800">
                     {l.subscriptionName}
                   </span>
-                  <span className="block truncate text-[11px] text-ink-400" title={l.condition}>
+                  <span className="block truncate text-[11px] text-ink-500" title={l.condition}>
                     {l.gatewayName} · {l.condition}
                   </span>
                 </button>

@@ -12,6 +12,7 @@ import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import {
   SUBSCRIPTION_TYPE_LABELS,
   SubscriptionMiniList,
@@ -75,6 +76,8 @@ export function GlobalValueSetPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (set.isPending) return <LoadingBlock label="Loading value set…" />;
   if (set.isError && !isNotFound(set.error))
     return <LoadError error={set.error} what="this value set" onRetry={() => void set.refetch()} />;
@@ -91,6 +94,7 @@ export function GlobalValueSetPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/global-values" label="Global values" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -211,7 +215,7 @@ export function GlobalValueSetPage() {
           onConfirm={async () => {
             await api.deleteValueSet(id);
             void queryClient.invalidateQueries({ queryKey: keys.valueSets.all });
-            navigate("/global-values", { replace: true });
+            leave(() => navigate("/global-values", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

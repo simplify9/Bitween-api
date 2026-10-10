@@ -19,7 +19,7 @@ const OutputTree: React.FC<OutputTreeProps> = ({ nodes, sourcePaths, onLeafRef }
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-3">
         <div className="text-3xl mb-1 text-ink-300">{'{}'}</div>
-        <p className="text-xs text-ink-400">No output fields. Paste a target JSON sample above to populate the tree.</p>
+        <p className="text-xs text-ink-500">No output fields. Paste a target JSON sample above to populate the tree.</p>
       </div>
     );
   }

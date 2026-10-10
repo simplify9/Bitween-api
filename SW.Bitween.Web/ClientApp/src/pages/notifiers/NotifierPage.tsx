@@ -17,6 +17,7 @@ import { timeAgo } from "../../lib/dates";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
@@ -51,14 +52,14 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
             n.exception ? (
               <ExceptionLine text={n.exception} className="text-[12px] text-danger-700" />
             ) : (
-              <span className="text-ink-400">—</span>
+              <span className="text-ink-500">—</span>
             ),
         },
         {
           header: "When",
           align: "right",
           className: "whitespace-nowrap",
-          cell: (n) => <span className="text-xs text-ink-400">{timeAgo(n.on)}</span>,
+          cell: (n) => <span className="text-xs text-ink-500">{timeAgo(n.on)}</span>,
         },
       ]}
     />
@@ -108,6 +109,8 @@ export function NotifierPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (notifier.isPending) return <LoadingBlock label="Loading notifier…" />;
   if (notifier.isError && !isNotFound(notifier.error))
     return <LoadError error={notifier.error} what="this notifier" onRetry={() => void notifier.refetch()} />;
@@ -146,6 +149,7 @@ export function NotifierPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/notifiers" label="Notifiers" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -276,7 +280,7 @@ export function NotifierPage() {
                   </p>
                 )}
                 <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
                   <input
                     type="search"
                     value={watchSearch}
@@ -306,14 +310,14 @@ export function NotifierPage() {
                         to={`/subscriptions/${s.id}`}
                         aria-label={`Open ${s.name}`}
                         title="Open"
-                        className="shrink-0 rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                        className="shrink-0 rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                       >
                         <ArrowUpRight className="size-3.5" />
                       </Link>
                     </li>
                   ))}
                   {filteredSubscriptions.length === 0 && (
-                    <li className="px-1 py-2 text-sm text-ink-400">No subscriptions match.</li>
+                    <li className="px-1 py-2 text-sm text-ink-500">No subscriptions match.</li>
                   )}
                 </ul>
               </div>
@@ -354,7 +358,7 @@ export function NotifierPage() {
           onConfirm={async () => {
             await api.deleteNotifier(notifierId);
             void queryClient.invalidateQueries({ queryKey: keys.notifiers.all });
-            navigate("/notifiers", { replace: true });
+            leave(() => navigate("/notifiers", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

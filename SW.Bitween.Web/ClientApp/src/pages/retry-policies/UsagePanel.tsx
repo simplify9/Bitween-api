@@ -77,13 +77,13 @@ function AlertCell({ row }: { row: RetryUsageRow }) {
     return (
       <span className="text-[13px] text-ink-700">
         <span className="font-mono text-xs">{row.resolvedHandlerId}</span>
-        {row.resolvedFrom && <span className="text-ink-400"> · set by {LEVEL_WORD[row.resolvedFrom]}</span>}
+        {row.resolvedFrom && <span className="text-ink-500"> · set by {LEVEL_WORD[row.resolvedFrom]}</span>}
       </span>
     );
 
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px]">
-      <BellOff className="size-3.5 text-ink-400" />
+      <BellOff className="size-3.5 text-ink-500" />
       {row.silencedAt ? (
         <span className="text-ink-500">Silenced by {LEVEL_WORD[row.silencedAt]}</span>
       ) : (
@@ -103,7 +103,7 @@ function AlertCell({ row }: { row: RetryUsageRow }) {
  */
 function AlertedCell({ row }: { row: RetryUsageRow }) {
   const { alert } = row;
-  if (!alert) return <span className="text-ink-400">—</span>;
+  if (!alert) return <span className="text-ink-500">—</span>;
   if (alert.delivered === false) return <Badge tone="danger">Not delivered</Badge>;
   if (alert.delivered === null)
     return (
@@ -155,7 +155,7 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
             >
               {a.exchangeId.slice(0, 8)}
             </Link>
-            <span className="w-20 shrink-0 text-ink-400" title={formatDateTime(a.failedOn)}>
+            <span className="w-20 shrink-0 text-ink-500" title={formatDateTime(a.failedOn)}>
               {timeAgo(a.failedOn)}
             </span>
             {a.retryPending ? (
@@ -331,7 +331,7 @@ export function UsagePanel({
                 on ? "bg-ink-900 text-white" : "bg-ink-50 text-ink-600 hover:bg-ink-100 hover:text-ink-900"
               }`}
             >
-              {f.label} <span className={on ? "text-white/60" : "text-ink-400"}>{counts[f.key]}</span>
+              {f.label} <span className={on ? "text-white/60" : "text-ink-500"}>{counts[f.key]}</span>
             </button>
           );
         })}
@@ -344,7 +344,7 @@ export function UsagePanel({
         <div className="overflow-x-auto">
           <table className="w-full min-w-200 text-left text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 <th className="w-px px-2 py-1.5" />
                 <th className="max-w-0 px-3 py-1.5">Subscription</th>
                 <th className="max-w-0 px-3 py-1.5">Group</th>
@@ -366,7 +366,7 @@ export function UsagePanel({
                         onClick={() => setOpen(isOpen ? null : key)}
                         aria-expanded={isOpen}
                         aria-label={`Failures for ${r.subscriptionName} in ${r.groupName}`}
-                        className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                        className="rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                       >
                         {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                       </button>
@@ -401,7 +401,7 @@ export function UsagePanel({
                       {r.lastAttemptOn ? (
                         <span title={formatDateTime(r.lastAttemptOn)}>{timeAgo(r.lastAttemptOn)}</span>
                       ) : (
-                        <span className="italic text-ink-400">never failed</span>
+                        <span className="italic text-ink-500">never failed</span>
                       )}
                     </td>
                     <td className="max-w-0 px-3 py-1.5">

@@ -119,9 +119,9 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
             onClick={handleLookupToggle}
             className={[
               'flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border transition leading-none',
-              !m.source ? 'opacity-30 cursor-not-allowed bg-white border-ink-200 text-ink-400'
+              !m.source ? 'opacity-30 cursor-not-allowed bg-white border-ink-200 text-ink-500'
                 : hasLookup ? 'bg-crimson-100 border-crimson-300 text-crimson-700'
-                : 'bg-white border-ink-200 text-ink-400 hover:border-crimson-300 hover:text-crimson-500',
+                : 'bg-white border-ink-200 text-ink-500 hover:border-crimson-300 hover:text-crimson-500',
             ].join(' ')}
           >
             Lookup
@@ -179,7 +179,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
         ) : (
           <select
             disabled={!m.target}
-            className={`flex-1 min-w-0 border-0 bg-transparent font-mono text-xs focus:outline-none ${!m.target ? 'opacity-30 cursor-not-allowed text-ink-400' : 'text-ink-500'}`}
+            className={`flex-1 min-w-0 border-0 bg-transparent font-mono text-xs focus:outline-none ${!m.target ? 'opacity-30 cursor-not-allowed text-ink-500' : 'text-ink-500'}`}
             value={m.source}
             onChange={(e) => {
               const val = e.target.value;
@@ -210,7 +210,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
               'flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border transition leading-none',
               panel === 'transform' ? 'bg-crimson-100 border-crimson-300 text-crimson-700'
                 : hasTransform ? 'bg-crimson-50 border-crimson-200 text-crimson-500'
-                : 'bg-white border-ink-200 text-ink-400 hover:border-crimson-300 hover:text-crimson-500',
+                : 'bg-white border-ink-200 text-ink-500 hover:border-crimson-300 hover:text-crimson-500',
             ].join(' ')}
           >
             Transform
@@ -230,7 +230,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
         <div className="space-y-0.5">
           <span className="text-[10px] font-medium text-crimson-600 select-none">
             Transform{' '}
-            <span className="font-normal text-ink-400">
+            <span className="font-normal text-ink-500">
               (optional — modify the value before output. Use <code className="font-mono">value</code> to refer to the source field.)
             </span>
           </span>

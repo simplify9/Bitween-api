@@ -51,7 +51,7 @@ export function SourcePanel({
           </span>
         </div>
         <div className="relative">
-          <Search className="absolute top-1.5 left-2 text-ink-400" size={11} />
+          <Search className="absolute top-1.5 left-2 text-ink-500" size={11} />
           <TextInput
             className="h-7 pl-6 font-mono text-xs"
             placeholder="Search fields…"
@@ -103,7 +103,7 @@ export function SourcePanel({
 
       <div data-mapper-scroll className="flex-1 overflow-y-auto py-1">
         {!root ? (
-          <p className="px-3 py-4 text-xs text-ink-400">
+          <p className="px-3 py-4 text-xs text-ink-500">
             Paste a sample document to see its fields.
           </p>
         ) : (
@@ -210,7 +210,7 @@ function NodeRow({
         <span className={`truncate ${matches ? "font-semibold text-crimson-700" : "text-ink-800"}`}>
           {node.key}
         </span>
-        <span className="ml-auto flex-shrink-0 truncate text-ink-400">
+        <span className="ml-auto flex-shrink-0 truncate text-ink-500">
           {describeSample(node.sample)}
         </span>
       </button>
@@ -231,9 +231,9 @@ function NodeRow({
         className="flex w-full items-center gap-1.5 py-0.5 pr-2 text-left font-mono text-[11px] text-ink-600 hover:bg-ink-50"
       >
         {folded ? (
-          <ChevronRight size={11} className="flex-shrink-0 text-ink-400" aria-hidden />
+          <ChevronRight size={11} className="flex-shrink-0 text-ink-500" aria-hidden />
         ) : (
-          <ChevronDown size={11} className="flex-shrink-0 text-ink-400" aria-hidden />
+          <ChevronDown size={11} className="flex-shrink-0 text-ink-500" aria-hidden />
         )}
         <span className="truncate font-semibold">{node.key || "(root)"}</span>
         {isList ? (
@@ -244,13 +244,13 @@ function NodeRow({
             list · {node.count}
           </span>
         ) : (
-          <span className="flex-shrink-0 text-ink-400" title="An object">
+          <span className="flex-shrink-0 text-ink-500" title="An object">
             {"{}"}
           </span>
         )}
         {covered.total > 0 && (
           <span
-            className="ml-auto flex-shrink-0 text-[10px] text-ink-400"
+            className="ml-auto flex-shrink-0 text-[10px] text-ink-500"
             title={`${covered.mapped} of ${covered.total} fields in here are read by a rule`}
           >
             {covered.mapped}/{covered.total}

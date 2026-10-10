@@ -188,7 +188,7 @@ export function DashboardPage() {
               className="absolute right-0 left-8 border-t border-ink-100"
               style={{ top: CHART_HEIGHT * (1 - f) }}
             >
-              <span className="absolute -top-2 -left-8 w-6 text-right font-mono text-[10px] text-ink-400 tabular-nums">
+              <span className="absolute -top-2 -left-8 w-6 text-right font-mono text-[10px] text-ink-500 tabular-nums">
                 {Math.round(maxDay * f)}
               </span>
             </div>
@@ -216,7 +216,7 @@ export function DashboardPage() {
                     )}
                     {d.success === 0 && d.failed === 0 && <div className="h-px bg-ink-100" />}
                   </div>
-                  <span className="mt-1 h-4 text-[10px] whitespace-nowrap text-ink-400">
+                  <span className="mt-1 h-4 text-[10px] whitespace-nowrap text-ink-500">
                     {i % 2 === 1 ? dayLabel.format(new Date(d.date)) : ""}
                   </span>
                 </div>
@@ -230,7 +230,7 @@ export function DashboardPage() {
           </summary>
           <table className="mt-2 text-[13px]">
             <thead>
-              <tr className="text-left text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="text-left text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 <th className="py-1 pr-6">Day</th>
                 <th className="py-1 pr-6 text-right">Succeeded</th>
                 <th className="py-1 text-right">Failed or rejected</th>
@@ -295,7 +295,7 @@ export function DashboardPage() {
                       {c.subscriptionName}
                     </Link>
                   )}
-                  <span className="ml-auto text-xs text-ink-400">{timeAgo(c.startedOn)}</span>
+                  <span className="ml-auto text-xs text-ink-500">{timeAgo(c.startedOn)}</span>
                 </div>
                 {c.exception && (
                   <ExceptionLine text={c.exception} className="mt-0.5 text-[12px] text-ink-600" />
@@ -332,7 +332,7 @@ export function DashboardPage() {
                         {f.subscriptionName}
                       </Link>
                     )}
-                    <span className="ml-auto text-xs text-ink-400">{timeAgo(f.on)}</span>
+                    <span className="ml-auto text-xs text-ink-500">{timeAgo(f.on)}</span>
                   </div>
                   {f.exception && (
                     <ExceptionLine text={f.exception} className="mt-0.5 text-[12px] text-ink-600" />

@@ -69,7 +69,7 @@ export function AggregationFields({
             </Link>
           </p>
         ) : (
-          <p className="flex h-9.5 items-center text-sm text-ink-400">Not set</p>
+          <p className="flex h-9.5 items-center text-sm text-ink-500">Not set</p>
         )}
       </Field>
       )}

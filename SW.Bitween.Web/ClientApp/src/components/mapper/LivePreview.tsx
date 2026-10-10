@@ -66,9 +66,9 @@ const LivePreview: React.FC = () => {
         <span className="text-xs font-semibold text-ink-600 uppercase tracking-wide">
           Live Preview
         </span>
-        <span className="text-xs text-ink-400">— evaluated output based on current mappings</span>
+        <span className="text-xs text-ink-500">— evaluated output based on current mappings</span>
         {isPreviewing && (
-          <span className="text-[10px] text-ink-400 animate-pulse flex-shrink-0">Evaluating…</span>
+          <span className="text-[10px] text-ink-500 animate-pulse flex-shrink-0">Evaluating…</span>
         )}
         {formatted && (
           <button
@@ -106,7 +106,7 @@ const LivePreview: React.FC = () => {
       <div className="flex-1 overflow-auto">
         {formatted === null ? (
           <div className="flex items-center justify-center h-full text-center px-4">
-            <p className="text-xs text-ink-400">Provide source JSON and mappings to see the output</p>
+            <p className="text-xs text-ink-500">Provide source JSON and mappings to see the output</p>
           </div>
         ) : (
           <pre className="px-4 py-3 text-xs font-mono text-ink-700 leading-5 whitespace-pre-wrap break-all">

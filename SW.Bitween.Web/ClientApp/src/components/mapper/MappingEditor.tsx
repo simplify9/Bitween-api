@@ -193,7 +193,7 @@ const MappingEditorInner: React.FC = () => {
                 </span>
               </div>
               <div className="relative">
-                <Search className="absolute left-2 top-1.5 text-ink-400" size={11} />
+                <Search className="absolute left-2 top-1.5 text-ink-500" size={11} />
                 <input
                   className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-focus-400 font-mono"
                   placeholder="Search fields…"
@@ -253,7 +253,7 @@ const MappingEditorInner: React.FC = () => {
                 <span className="text-xs font-semibold text-ink-500 uppercase tracking-wide">
                   Output Structure
                 </span>
-                <span className="text-xs text-ink-400">
+                <span className="text-xs text-ink-500">
                   {fieldMappings.filter((m) => m.target).length} fields ·{' '}
                   {assignedFieldCount} assigned
                 </span>
@@ -267,7 +267,7 @@ const MappingEditorInner: React.FC = () => {
                 </button>
               </div>
               <div className="relative">
-                <Search className="absolute left-2 top-1.5 text-ink-400" size={11} />
+                <Search className="absolute left-2 top-1.5 text-ink-500" size={11} />
                 <input
                   className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-focus-400 font-mono"
                   placeholder="Search fields…"
@@ -315,7 +315,7 @@ const MappingEditorInner: React.FC = () => {
               >
                 {showPreview ? '▾ Hide Preview' : '▸ Show Live Preview'}
                 {!showPreview && fieldMappings.length > 0 && (
-                  <span className="ml-auto text-ink-400">
+                  <span className="ml-auto text-ink-500">
                     {assignedFieldCount} mapped
                   </span>
                 )}

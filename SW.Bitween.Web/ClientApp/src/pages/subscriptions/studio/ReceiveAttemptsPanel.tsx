@@ -88,7 +88,7 @@ function CopyErrorButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 1400);
       }}
       title="Copy full error"
-      className="shrink-0 rounded p-0.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+      className="shrink-0 rounded p-0.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
     >
       {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
     </button>
@@ -107,7 +107,7 @@ function ErrorText({ text }: { text: string }) {
         }}
         aria-label={expanded ? "Collapse error" : "Expand error"}
         aria-expanded={expanded}
-        className="mt-0.5 shrink-0 text-ink-400 hover:text-ink-700"
+        className="mt-0.5 shrink-0 text-ink-500 hover:text-ink-700"
       >
         {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
       </button>
@@ -167,7 +167,7 @@ function AttemptExchanges({
   attemptId: number;
   exchanges: ReceiveAttemptRow["exchanges"];
 }) {
-  if (exchanges.length === 0) return <span className="text-ink-400">—</span>;
+  if (exchanges.length === 0) return <span className="text-ink-500">—</span>;
 
   const hidden = exchanges.length - EXCHANGES_SHOWN;
   return (

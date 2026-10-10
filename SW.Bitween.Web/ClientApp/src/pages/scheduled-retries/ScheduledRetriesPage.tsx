@@ -152,7 +152,7 @@ export function ScheduledRetriesPage() {
               cell: (r) => (
                 <>
                   <span className="font-medium text-ink-800">{timeUntil(r.on)}</span>
-                  <span className="block text-xs text-ink-400">{formatDateTime(r.on)}</span>
+                  <span className="block text-xs text-ink-500">{formatDateTime(r.on)}</span>
                 </>
               ),
             },
@@ -186,7 +186,7 @@ export function ScheduledRetriesPage() {
                     {r.subscriptionName}
                   </Link>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
             {
@@ -221,7 +221,7 @@ export function ScheduledRetriesPage() {
                     policy on {r.subscriptionName ?? "its subscription"}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">Policy since removed</span>
+                  <span className="text-[13px] text-ink-500">Policy since removed</span>
                 ),
             },
             {
@@ -231,7 +231,7 @@ export function ScheduledRetriesPage() {
                 r.exception ? (
                   <ExceptionLine text={r.exception} className="text-[12px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">—</span>
                 ),
             },
             {

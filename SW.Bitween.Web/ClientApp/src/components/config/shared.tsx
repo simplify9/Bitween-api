@@ -249,9 +249,9 @@ export function PromotedProps({
   // off the edge.
   if (!namesSomething(properties))
     return fallbackId ? (
-      <span className="font-mono text-xs break-all text-ink-400">{fallbackId}</span>
+      <span className="font-mono text-xs break-all text-ink-500">{fallbackId}</span>
     ) : (
-      <span className="text-[13px] text-ink-400">—</span>
+      <span className="text-[13px] text-ink-500">—</span>
     );
 
   const shown = entries.slice(0, max);
@@ -321,7 +321,7 @@ function PromotedPropsPanel({ entries }: { entries: [string, string][] }) {
   return (
     <>
       <div className="flex items-center justify-between gap-2 px-1.5 pb-1.5">
-        <p className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+        <p className="text-[11px] font-medium tracking-wide text-ink-500 uppercase">
           {entries.length} promoted {entries.length === 1 ? "property" : "properties"}
         </p>
         <button
@@ -433,7 +433,7 @@ export function ExchangesList({
       align: "right" as const,
       className: "whitespace-nowrap",
       cell: (x: ExchangeRef) => (
-        <span className="text-xs text-ink-400">{timeAgo(x.on)}</span>
+        <span className="text-xs text-ink-500">{timeAgo(x.on)}</span>
       ),
     },
   ];
@@ -712,7 +712,7 @@ export function useWiredSubscriptionColumns<T>(
       header: "Information type",
       cell: (row) => {
         const r = rowsById.get(subscriptionIdOf(row));
-        if (!r) return <span className="text-ink-400">—</span>;
+        if (!r) return <span className="text-ink-500">—</span>;
         return canSeeInfoTypes ? (
           <Link
             to={`/information-types/${r.informationTypeId}`}
@@ -738,14 +738,14 @@ export function useWiredSubscriptionColumns<T>(
         // every ungrouped subscription competes in. Matches the wording the
         // subscription page's work-group picker already uses.
         if (id === null)
-          return <span className="text-[13px] text-ink-400">Ungrouped</span>;
+          return <span className="text-[13px] text-ink-500">Ungrouped</span>;
         const name = workGroupNames.get(id);
         return name ? (
           <Link to={`/work-groups/${id}`} className={assignmentChip}>
             {name}
           </Link>
         ) : (
-          <span className="text-[13px] text-ink-400">—</span>
+          <span className="text-[13px] text-ink-500">—</span>
         );
       },
     },
@@ -754,14 +754,14 @@ export function useWiredSubscriptionColumns<T>(
       cell: (row) => {
         const id = setupById.get(subscriptionIdOf(row))?.retryPolicyId ?? null;
         if (id === null)
-          return <span className="text-[13px] text-ink-400">None</span>;
+          return <span className="text-[13px] text-ink-500">None</span>;
         const name = retryPolicyNames.get(id);
         return name ? (
           <Link to={`/retry-policies/${id}`} className={assignmentChip}>
             {name}
           </Link>
         ) : (
-          <span className="text-[13px] text-ink-400">—</span>
+          <span className="text-[13px] text-ink-500">—</span>
         );
       },
     },
@@ -769,7 +769,7 @@ export function useWiredSubscriptionColumns<T>(
       header: "Status",
       cell: (row) => {
         const r = rowsById.get(subscriptionIdOf(row));
-        if (!r) return <span className="text-ink-400">—</span>;
+        if (!r) return <span className="text-ink-500">—</span>;
         return (
           <span className="inline-flex items-center gap-1">
             <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
@@ -789,7 +789,7 @@ export function useWiredSubscriptionColumns<T>(
         return message ? (
           <ExceptionLine text={message} className="text-[12px] text-danger-700" />
         ) : (
-          <span className="text-ink-400">—</span>
+          <span className="text-ink-500">—</span>
         );
       },
     },
@@ -824,7 +824,7 @@ export function LinkListCell({
   /** Plural noun for the popover heading, e.g. "subscriptions". */
   label: string;
 }) {
-  if (items.length === 0) return <span className="text-ink-400">—</span>;
+  if (items.length === 0) return <span className="text-ink-500">—</span>;
 
   // One of something is just that thing. A chip reading "1" would cost the name and
   // buy a popover with a single row in it.
@@ -859,7 +859,7 @@ export function LinkListCell({
           </span>
         }
       >
-        <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+        <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
           {items.length} {label}
         </p>
         <ul className="border-t border-ink-100 pt-1">
@@ -912,7 +912,7 @@ export function ChangedCell({ changes: all, entity }: { changes: AuditChange[]; 
   // Ids and timestamps the database keeps for itself are not what anyone changed: a new row used
   // to read "Id, CreatedBy, CreatedOn +3 more".
   const changes = all.filter((c) => !isBookkeeping(c.property));
-  if (changes.length === 0) return <span className="text-ink-400">—</span>;
+  if (changes.length === 0) return <span className="text-ink-500">—</span>;
 
   const label = (c: AuditChange) => propertyLabel(entity, c.property);
   const shown = changes.slice(0, 3).map(label);
@@ -925,7 +925,7 @@ export function ChangedCell({ changes: all, entity }: { changes: AuditChange[]; 
       button={
         <span className="block text-left text-[13px] text-ink-600">
           {shown.join(", ")}
-          {rest > 0 && <span className="text-ink-400"> +{rest} more</span>}
+          {rest > 0 && <span className="text-ink-500"> +{rest} more</span>}
         </span>
       }
     >
@@ -934,7 +934,7 @@ export function ChangedCell({ changes: all, entity }: { changes: AuditChange[]; 
           <div key={c.property}>
             <dt className="text-[12px] font-medium text-ink-800">{label(c)}</dt>
             <dd className="mt-0.5 font-mono text-[11px] break-all text-ink-600">
-              <span className="text-ink-400">{showValue(c.old)}</span>
+              <span className="text-ink-500">{showValue(c.old)}</span>
               <span aria-hidden> → </span>
               <span className="sr-only"> changed to </span>
               {showValue(c.new)}
@@ -1012,7 +1012,7 @@ export function TrailTable({ entries }: { entries: TrailEntry[] }) {
           align: "right",
           className: "whitespace-nowrap",
           cell: (e) => (
-            <span className="text-xs text-ink-400">{formatDate(e.on)}</span>
+            <span className="text-xs text-ink-500">{formatDate(e.on)}</span>
           ),
         },
       ]}
