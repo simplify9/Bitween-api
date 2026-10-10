@@ -358,6 +358,16 @@ namespace SW.Bitween
                 b.HasIndex(p => p.PublishedOn);
             });
 
+            modelBuilder.Entity<Domain.Cluster.ClusterNode>(b =>
+            {
+                b.ToTable("ClusterNodes");
+                b.Property(p => p.Id).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Host).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.Runtimes).HasMaxLength(100).IsUnicode(false);
+                b.HasIndex(p => p.LastSeenOn);
+            });
+
             modelBuilder.Entity<AdapterDraft>(b =>
             {
                 b.ToTable("AdapterDrafts");

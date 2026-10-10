@@ -92,7 +92,7 @@ Bitween keeps configuration and runtime records in one relational database, thro
 | Area | Tables |
 |---|---|
 | Configuration | Documents, Partners, PartnerApiCredentials, Subscriptions, SubscriptionSchedules, SubscriptionCategories, WorkGroups, GlobalAdapterValuesSets, ApiGateways, ApiGatewayPartners, BusGateways, BusGatewayRoutes, RetryPolicies, RetryAlertOverrides, Notifiers, Settings, DataSources, DataSourceStatements |
-| Runtime | Xchanges, XchangeResults, XchangePromotedProperties, XchangeAggregations, XchangeNotifications, OnHoldXchanges, DelayedRetries, RetryGroupUsages, ReceiveAttempts, InboundMessages, AdapterStates, ClusterLeases |
+| Runtime | Xchanges, XchangeResults, XchangePromotedProperties, XchangeAggregations, XchangeNotifications, OnHoldXchanges, DelayedRetries, RetryGroupUsages, ReceiveAttempts, InboundMessages, AdapterStates, ClusterLeases, ClusterNodes |
 | Adapters | AdapterDrafts, AdapterReleases, AdapterSourceAccesses |
 | Identity | Accounts, Roles, AccountRoles, RefreshTokens |
 | Audit | AuditEntries |

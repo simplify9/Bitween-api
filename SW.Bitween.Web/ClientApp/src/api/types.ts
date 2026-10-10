@@ -1716,3 +1716,21 @@ export interface InstanceAbout {
   retention: { receiveAttemptRetentionDays: number; receiveAttemptCleanupCron: string; inboundMessagePruneCron: string };
   telemetry: { openTelemetry: boolean };
 }
+
+/** GET /cluster/nodes: the nodes, as their heartbeats describe them. */
+export interface ClusterNodes {
+  answeredBy: string;
+  goneAfterSeconds: number;
+  nodes: {
+    name: string;
+    host: string;
+    startedOn: string;
+    lastSeenOn: string;
+    online: boolean;
+    version: string;
+    dataSources: boolean;
+    runtimes: string[];
+    leases: { resource: string; term: number; acquiredOn: string }[];
+    holdsDataSources: { id: number; name: string }[];
+  }[];
+}

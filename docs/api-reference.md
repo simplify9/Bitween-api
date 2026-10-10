@@ -261,6 +261,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/roles/{id}` | `roles.edit` |
 | `DELETE /api/roles/{id}` | `roles.delete` |
 | `GET /api/settings` | `settings.view` |
+| `GET /api/cluster/nodes` | `settings.view`. Every node as its heartbeat last described it: host, started, last seen, online (seen in the last 90 seconds), version, whether it runs data sources, its adapter runtimes, the leases it holds and the exclusive data sources it owns. |
 | `GET /api/settings/about` | `settings.view`. This instance as the answering node sees it: version, node, database, storage, broker, the readiness checks run now, which adapter runtimes and pip/npm the node has, the adapter editor's limits, rate limits and other effective settings from configuration. Never a secret. |
 | `POST /api/settings/{key}` | `settings.edit`. `{ value }` |
 | `DELETE /api/settings/{key}` | `settings.edit`. Resets to the product default. |

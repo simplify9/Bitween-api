@@ -43,7 +43,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
 
         // Distinct per process, not per machine: two instances on one host must not believe they
         // are the same owner.
-        nodeName = $"{Environment.MachineName}:{Environment.ProcessId}";
+        nodeName = NodeHeartbeat.NodeName;
 
         var connectionString = configuration.GetConnectionString("RabbitMQ")
             ?? throw new InvalidOperationException(

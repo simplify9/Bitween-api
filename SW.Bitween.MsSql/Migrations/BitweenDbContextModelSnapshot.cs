@@ -444,6 +444,44 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("ClusterLeases", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Cluster.ClusterNode", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("DataSources")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Host")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("LastSeenOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Runtimes")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("StartedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LastSeenOn");
+
+                    b.ToTable("ClusterNodes", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.DataSources.AdapterState", b =>
                 {
                     b.Property<string>("AdapterId")

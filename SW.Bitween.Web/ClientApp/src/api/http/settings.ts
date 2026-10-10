@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { AggregationRetentionCheck, InstanceAbout, RetentionProposal, RetentionStatus, Schedule, SettingRow } from "../types";
+import type { AggregationRetentionCheck, ClusterNodes, InstanceAbout, RetentionProposal, RetentionStatus, Schedule, SettingRow } from "../types";
 import { get, post, request } from "./request";
 import { toRawSchedules } from "./subscriptionBody";
 
@@ -11,6 +11,11 @@ export const settingsMethods = {
    */
   listSettings(): Promise<SettingRow[]> {
     return get<SettingRow[]>("/settings");
+  },
+
+  /** The nodes, as their heartbeats describe them. */
+  getClusterNodes(): Promise<ClusterNodes> {
+    return get<ClusterNodes>("/cluster/nodes");
   },
 
   /** This Bitween and how it is set up: version, node, health, runtimes, effective limits. */

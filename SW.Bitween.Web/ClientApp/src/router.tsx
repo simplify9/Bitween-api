@@ -18,6 +18,7 @@ const AdapterEditorPage = lazy(() => import("./pages/adapters/AdapterEditorPage"
 const AdaptersPage = lazy(() => import("./pages/adapters/AdaptersPage").then((m) => ({ default: m.AdaptersPage })));
 const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
 const AuditPage = lazy(() => import("./pages/audit/AuditPage").then((m) => ({ default: m.AuditPage })));
+const NodesPage = lazy(() => import("./pages/nodes/NodesPage").then((m) => ({ default: m.NodesPage })));
 const SettingsPage = lazy(() => import("./pages/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 const ExchangeNewPage = lazy(() => import("./pages/exchanges/ExchangeNewPage").then((m) => ({ default: m.ExchangeNewPage })));
@@ -483,6 +484,14 @@ export const routes: RouteObject[] = [
             element: (
               <RequirePermission permission="settings.view">
                 <SettingsPage />
+              </RequirePermission>
+            ),
+          },
+          {
+            path: "nodes",
+            element: (
+              <RequirePermission permission="settings.view">
+                <NodesPage />
               </RequirePermission>
             ),
           },

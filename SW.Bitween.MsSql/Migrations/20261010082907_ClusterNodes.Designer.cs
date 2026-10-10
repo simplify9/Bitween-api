@@ -3,24 +3,29 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using SW.Bitween.MySql;
+using SW.Bitween.MsSql;
 
 #nullable disable
 
-namespace SW.Bitween.MySql.Migrations
+namespace SW.Bitween.MsSql.Migrations
 {
     [DbContext(typeof(BitweenDbContext))]
-    partial class BitweenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261010082907_ClusterNodes")]
+    partial class ClusterNodes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "9.0.20")
-                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.HasSequence("DocumentIds");
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.Account", b =>
                 {
@@ -28,24 +33,24 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("Deleted")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("Disabled")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(200)
@@ -53,28 +58,28 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<byte>("EmailProvider")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("LockoutEnd")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<byte>("LoginMethods")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<string>("MicrosoftIdentity")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("MustChangePassword")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Password")
                         .HasMaxLength(500)
@@ -87,7 +92,8 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Email] IS NOT NULL");
 
                     b.ToTable("Accounts", (string)null);
 
@@ -135,13 +141,13 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<byte>("LoginMethod")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<DateTime?>("SupersededOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -156,34 +162,34 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("IsSystem")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Permissions")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -228,7 +234,7 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AdapterId")
                         .IsRequired()
@@ -243,10 +249,10 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("FilesHash")
                         .IsRequired()
@@ -256,7 +262,7 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("FilesJson")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Kind")
                         .HasMaxLength(20)
@@ -271,10 +277,10 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("ModifiedBy")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -289,7 +295,7 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("AccountId")
                         .HasMaxLength(100)
@@ -312,7 +318,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("OccurredOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Version")
                         .IsRequired()
@@ -333,7 +339,7 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("AccountId")
                         .HasMaxLength(100)
@@ -347,11 +353,11 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<DateTime>("OccurredOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Path")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Version")
                         .HasMaxLength(50)
@@ -373,7 +379,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(32)");
 
                     b.Property<string>("Changes")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CorrelationId")
                         .IsRequired()
@@ -383,15 +389,15 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("EntityKey")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("EntityName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<DateTime>("OccurredOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("Sequence")
                         .HasColumnType("int");
@@ -426,7 +432,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<DateTime>("AcquiredOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("OwnerNode")
                         .HasMaxLength(200)
@@ -449,7 +455,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<bool>("DataSources")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Host")
                         .HasMaxLength(200)
@@ -457,7 +463,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<DateTime>("LastSeenOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Runtimes")
                         .HasMaxLength(100)
@@ -465,7 +471,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<DateTime>("StartedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Version")
                         .HasMaxLength(50)
@@ -497,11 +503,11 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<DateTime>("UpdatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Value")
                         .HasMaxLength(8000)
-                        .HasColumnType("varchar(8000)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("AdapterId", "InstanceKey", "Name");
 
@@ -514,7 +520,7 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AdapterId")
                         .IsRequired()
@@ -529,13 +535,13 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<double>("CpuPercentLimit")
-                        .HasColumnType("double");
+                        .HasColumnType("float");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("DeduplicationWindowDays")
                         .HasColumnType("int");
@@ -544,16 +550,16 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<int>("Kind")
                         .HasColumnType("int");
 
                     b.Property<string>("LastException")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("LastHeartbeatOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("LastKnownState")
                         .HasMaxLength(100)
@@ -561,15 +567,15 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("OwnedByNode")
                         .HasMaxLength(200)
@@ -580,10 +586,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SecretProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("SoftMemoryLimitMb")
                         .HasColumnType("int");
@@ -602,13 +608,13 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("CursorColumn")
                         .HasMaxLength(128)
@@ -620,10 +626,10 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("KeyColumn")
                         .HasMaxLength(128)
@@ -631,10 +637,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(128)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -644,7 +650,7 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("Sql")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("WorkGroupId")
                         .HasColumnType("int");
@@ -670,7 +676,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("SeenOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("XchangeId")
                         .HasMaxLength(50)
@@ -694,7 +700,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("On")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("RunFailures")
                         .HasColumnType("int");
@@ -710,12 +716,13 @@ namespace SW.Bitween.MySql.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("int")
+                        .HasDefaultValueSql("NEXT VALUE FOR [DocumentIds]");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseSequence(b.Property<int>("Id"), "DocumentIds");
 
                     b.Property<bool>("BusEnabled")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("BusMessageTypeName")
                         .HasMaxLength(500)
@@ -728,7 +735,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<bool?>("DisregardsUnfilteredMessages")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<int>("DocumentFormat")
                         .HasColumnType("int");
@@ -743,21 +750,23 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<string>("PromotedProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("RetiredOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ValidationSchema")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("BusMessageTypeName")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[BusMessageTypeName] IS NOT NULL");
 
                     b.HasIndex("Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -782,51 +791,51 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AuthMethod")
                         .HasColumnType("int");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("JwtAudience")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("JwtIssuer")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("JwtPartnerClaim")
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("PartnerKeyHeader")
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("UrlName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -848,16 +857,16 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("ApiGatewayId", "PartnerId", "SubscriptionId");
 
@@ -874,13 +883,13 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("DataSourceId")
                         .HasColumnType("int");
@@ -894,21 +903,21 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(500)");
 
                     b.Property<string>("EndpointProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -925,25 +934,25 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("BusGatewayId")
                         .HasColumnType("int");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("MatchExpression")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
@@ -970,13 +979,13 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SecretProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Values")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -989,20 +998,20 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("Scope")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("XchangeId")
                         .IsRequired()
@@ -1026,7 +1035,7 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
@@ -1034,27 +1043,27 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("RunOnBadResult")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("RunOnFailedResult")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("RunOnSubscriptions")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("RunOnSuccessfulResult")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -1067,29 +1076,29 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("BadData")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("CorrelationId")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Data")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("FileName")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
                     b.Property<string>("References")
                         .HasMaxLength(1024)
-                        .HasColumnType("varchar(1024)");
+                        .HasColumnType("nvarchar(1024)");
 
                     b.Property<string>("SourceValues")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SourceXchangeId")
                         .HasMaxLength(50)
@@ -1112,35 +1121,35 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("Attempts")
                         .HasColumnType("int");
 
                     b.Property<string>("Body")
                         .IsRequired()
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ClaimedUntil")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Headers")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LastError")
                         .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<string>("MessageType")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTime?>("PublishedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -1155,14 +1164,14 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AdapterProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("LoginIdentity")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1171,12 +1180,13 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("SecretProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("LoginIdentity")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[LoginIdentity] IS NOT NULL");
 
                     b.ToTable("Partners", (string)null);
 
@@ -1194,23 +1204,23 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ErrorMessage")
                         .HasMaxLength(4000)
-                        .HasColumnType("varchar(4000)");
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<string>("ExchangeIds")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FinishedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("Outcome")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("StartedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("SubscriptionId")
                         .HasColumnType("int");
@@ -1228,7 +1238,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<Guid>("GroupId")
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
@@ -1236,10 +1246,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("AlertHandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<byte>("AlertMode")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.HasKey("SubscriptionId", "GroupId");
 
@@ -1252,16 +1262,16 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<Guid>("GroupId")
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("AttemptsUsed")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("ExhaustedNotifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("LastAttemptOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("SubscriptionId", "GroupId");
 
@@ -1274,7 +1284,7 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
@@ -1282,27 +1292,27 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("AlertHandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Groups")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
 
@@ -1317,19 +1327,19 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Value")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -1342,16 +1352,16 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime?>("AggregateOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("AggregationForId")
                         .HasColumnType("int");
 
                     b.Property<byte>("AggregationTarget")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<int?>("AutoPauseAfterFailures")
                         .HasColumnType("int");
@@ -1363,13 +1373,13 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("CustomRetryPolicy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("DataSourceId")
                         .HasColumnType("int");
 
                     b.Property<string>("DocumentFilter")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
@@ -1380,7 +1390,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("HandlerVersion")
                         .HasMaxLength(50)
@@ -1388,13 +1398,13 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<bool>("Inactive")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsRunning")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("LastException")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -1402,7 +1412,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("MapperProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MapperVersion")
                         .HasMaxLength(50)
@@ -1410,24 +1420,24 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("MatchExpression")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
                     b.Property<bool>("PausedAutomatically")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("PausedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ReceiveOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("ReceiverId")
                         .HasMaxLength(200)
@@ -1435,7 +1445,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("ReceiverProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReceiverVersion")
                         .HasMaxLength(50)
@@ -1454,16 +1464,16 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<bool>("RunOnBadResponses")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("RunningSince")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("Temporary")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<byte>("Type")
-                        .HasColumnType("tinyint unsigned");
+                        .HasColumnType("tinyint");
 
                     b.Property<string>("ValidatorId")
                         .HasMaxLength(200)
@@ -1471,7 +1481,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("ValidatorProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ValidatorVersion")
                         .HasMaxLength(50)
@@ -1508,30 +1518,31 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Code")
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("CreatedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ModifiedBy")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ModifiedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("Code")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[Code] IS NOT NULL");
 
                     b.ToTable("SubscriptionCategory");
                 });
@@ -1542,7 +1553,7 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("BusMessageName")
                         .IsRequired()
@@ -1551,10 +1562,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<string>("Name")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Options")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -1569,14 +1580,14 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("CorrelationId")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
                     b.Property<string>("FilesPrefix")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
@@ -1584,7 +1595,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("HandlerProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("InputContentType")
                         .HasMaxLength(200)
@@ -1599,13 +1610,13 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("InputName")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("InputSize")
                         .HasColumnType("int");
 
                     b.Property<bool>("ManualRetry")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("MapperId")
                         .HasMaxLength(200)
@@ -1613,14 +1624,14 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(200)");
 
                     b.Property<string>("MapperProperties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
                     b.Property<string>("References")
                         .HasMaxLength(1024)
-                        .HasColumnType("varchar(1024)");
+                        .HasColumnType("nvarchar(1024)");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -1636,7 +1647,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<string>("SourceValues")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SourceXchangeId")
                         .HasMaxLength(50)
@@ -1644,7 +1655,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("StartedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("SubscriptionId")
                         .HasColumnType("int");
@@ -1672,7 +1683,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("AggregatedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("AggregationXchangeId")
                         .IsRequired()
@@ -1695,7 +1706,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(50)");
 
                     b.Property<DateTime>("DeliveredOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -1710,25 +1721,25 @@ namespace SW.Bitween.MySql.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Exception")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FinishedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<int?>("NotifierId")
                         .HasColumnType("int");
 
                     b.Property<string>("NotifierName")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("Success")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("Suppressed")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("XchangeId")
                         .HasMaxLength(50)
@@ -1757,10 +1768,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("varchar(2000)");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PropertiesRaw")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -1778,13 +1789,13 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("Exception")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FinishedOn")
-                        .HasColumnType("datetime(6)");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("OutputBad")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("OutputContentType")
                         .HasMaxLength(200)
@@ -1798,13 +1809,13 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("OutputName")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("OutputSize")
                         .HasColumnType("int");
 
                     b.Property<bool>("ResponseBad")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ResponseContentType")
                         .HasMaxLength(200)
@@ -1818,23 +1829,23 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("ResponseName")
                         .HasMaxLength(200)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("ResponseSize")
                         .HasColumnType("int");
 
                     b.Property<string>("ResponseXchangeId")
-                        .HasColumnType("longtext");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RetryBlockedReason")
                         .HasMaxLength(500)
-                        .HasColumnType("varchar(500)");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<Guid?>("RetryGroupId")
-                        .HasColumnType("char(36)");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("Success")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.HasKey("Id");
 
@@ -1846,7 +1857,7 @@ namespace SW.Bitween.MySql.Migrations
             modelBuilder.Entity("SW.Bitween.RunFlagUpdater+RunningResult", b =>
                 {
                     b.Property<bool>("IsRunning")
-                        .HasColumnType("tinyint(1)");
+                        .HasColumnType("bit");
 
                     b.ToTable((string)null);
 
@@ -1860,10 +1871,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Context")
-                        .HasColumnType("longtext")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("context");
 
                     b.Property<long?>("DurationMs")
@@ -1871,44 +1882,44 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnName("duration_ms");
 
                     b.Property<DateTime?>("EndTimeUtc")
-                        .HasColumnType("datetime(6)")
+                        .HasColumnType("datetime2")
                         .HasColumnName("end_time_utc");
 
                     b.Property<string>("Error")
-                        .HasColumnType("longtext")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("error");
 
                     b.Property<string>("FireInstanceId")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("fire_instance_id");
 
                     b.Property<string>("JobGroup")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_group");
 
                     b.Property<string>("JobName")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_name");
 
                     b.Property<string>("JobTypeName")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_type_name");
 
                     b.Property<string>("Node")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("node");
 
                     b.Property<DateTime>("StartTimeUtc")
-                        .HasColumnType("datetime(6)")
+                        .HasColumnType("datetime2")
                         .HasColumnName("start_time_utc");
 
                     b.Property<bool?>("Success")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("success");
 
                     b.HasKey("Id");
@@ -1926,88 +1937,88 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasIndex("JobGroup", "JobName", "StartTimeUtc")
                         .HasDatabaseName("idx_je_group_name_start");
 
-                    b.ToTable("job_executions", (string)null);
+                    b.ToTable("job_executions", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzBlobTrigger", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("TriggerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_name");
 
                     b.Property<string>("TriggerGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_group");
 
                     b.Property<byte[]>("BlobData")
-                        .HasColumnType("longblob")
+                        .HasColumnType("varbinary(max)")
                         .HasColumnName("blob_data");
 
                     b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
 
-                    b.ToTable("QRTZ_blob_triggers", (string)null);
+                    b.ToTable("QRTZ_blob_triggers", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzCalendar", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("CalendarName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("calendar_name");
 
                     b.Property<byte[]>("Calendar")
                         .IsRequired()
-                        .HasColumnType("longblob")
+                        .HasColumnType("varbinary(max)")
                         .HasColumnName("calendar");
 
                     b.HasKey("SchedulerName", "CalendarName");
 
-                    b.ToTable("QRTZ_calendars", (string)null);
+                    b.ToTable("QRTZ_calendars", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzCronTrigger", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("TriggerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_name");
 
                     b.Property<string>("TriggerGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_group");
 
                     b.Property<string>("CronExpression")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("cron_expression");
 
                     b.Property<string>("TimeZoneId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("time_zone_id");
 
                     b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
 
-                    b.ToTable("QRTZ_cron_triggers", (string)null);
+                    b.ToTable("QRTZ_cron_triggers", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzFiredTrigger", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("EntryId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("entry_id");
 
                     b.Property<long>("FiredTime")
@@ -2016,19 +2027,19 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("InstanceName")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("instance_name");
 
                     b.Property<bool>("IsNonConcurrent")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("is_nonconcurrent");
 
                     b.Property<string>("JobGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_group");
 
                     b.Property<string>("JobName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_name");
 
                     b.Property<int>("Priority")
@@ -2036,7 +2047,7 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnName("priority");
 
                     b.Property<bool?>("RequestsRecovery")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("requests_recovery");
 
                     b.Property<long>("ScheduledTime")
@@ -2045,17 +2056,17 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("State")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("state");
 
                     b.Property<string>("TriggerGroup")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_group");
 
                     b.Property<string>("TriggerName")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_name");
 
                     b.HasKey("SchedulerName", "EntryId");
@@ -2081,50 +2092,50 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasIndex("SchedulerName", "TriggerName", "TriggerGroup")
                         .HasDatabaseName("idx_QRTZ_ft_trig_nm_gp");
 
-                    b.ToTable("QRTZ_fired_triggers", (string)null);
+                    b.ToTable("QRTZ_fired_triggers", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzJobDetail", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("JobName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_name");
 
                     b.Property<string>("JobGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_group");
 
                     b.Property<string>("Description")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("description");
 
                     b.Property<bool>("IsDurable")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("is_durable");
 
                     b.Property<bool>("IsNonConcurrent")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("is_nonconcurrent");
 
                     b.Property<bool>("IsUpdateData")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("is_update_data");
 
                     b.Property<string>("JobClassName")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_class_name");
 
                     b.Property<byte[]>("JobData")
-                        .HasColumnType("longblob")
+                        .HasColumnType("varbinary(max)")
                         .HasColumnName("job_data");
 
                     b.Property<bool>("RequestsRecovery")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("requests_recovery");
 
                     b.HasKey("SchedulerName", "JobName", "JobGroup");
@@ -2132,47 +2143,47 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasIndex("RequestsRecovery")
                         .HasDatabaseName("idx_j_req_recovery");
 
-                    b.ToTable("QRTZ_job_details", (string)null);
+                    b.ToTable("QRTZ_job_details", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzLock", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("LockName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("lock_name");
 
                     b.HasKey("SchedulerName", "LockName");
 
-                    b.ToTable("QRTZ_locks", (string)null);
+                    b.ToTable("QRTZ_locks", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzPausedTriggerGroup", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("TriggerGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_group");
 
                     b.HasKey("SchedulerName", "TriggerGroup");
 
-                    b.ToTable("QRTZ_paused_trigger_grps", (string)null);
+                    b.ToTable("QRTZ_paused_trigger_grps", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzSchedulerState", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("InstanceName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("instance_name");
 
                     b.Property<long>("CheckInInterval")
@@ -2185,29 +2196,29 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasKey("SchedulerName", "InstanceName");
 
-                    b.ToTable("QRTZ_scheduler_state", (string)null);
+                    b.ToTable("QRTZ_scheduler_state", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzSimplePropertyTrigger", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("TriggerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_name");
 
                     b.Property<string>("TriggerGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_group");
 
                     b.Property<bool?>("BooleanProperty1")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("bool_prop_1");
 
                     b.Property<bool?>("BooleanProperty2")
-                        .HasColumnType("tinyint(1)")
+                        .HasColumnType("bit")
                         .HasColumnName("bool_prop_2");
 
                     b.Property<decimal?>("DecimalProperty1")
@@ -2235,38 +2246,38 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnName("long_prop_2");
 
                     b.Property<string>("StringProperty1")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("str_prop_1");
 
                     b.Property<string>("StringProperty2")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("str_prop_2");
 
                     b.Property<string>("StringProperty3")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("str_prop_3");
 
                     b.Property<string>("TimeZoneId")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("time_zone_id");
 
                     b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
 
-                    b.ToTable("QRTZ_simprop_triggers", (string)null);
+                    b.ToTable("QRTZ_simprop_triggers", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzSimpleTrigger", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("TriggerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_name");
 
                     b.Property<string>("TriggerGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_group");
 
                     b.Property<long>("RepeatCount")
@@ -2283,29 +2294,29 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
 
-                    b.ToTable("QRTZ_simple_triggers", (string)null);
+                    b.ToTable("QRTZ_simple_triggers", "dbo");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzTrigger", b =>
                 {
                     b.Property<string>("SchedulerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("sched_name");
 
                     b.Property<string>("TriggerName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_name");
 
                     b.Property<string>("TriggerGroup")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_group");
 
                     b.Property<string>("CalendarName")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("calendar_name");
 
                     b.Property<string>("Description")
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("description");
 
                     b.Property<long?>("EndTime")
@@ -2313,17 +2324,17 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnName("end_time");
 
                     b.Property<byte[]>("JobData")
-                        .HasColumnType("longblob")
+                        .HasColumnType("varbinary(max)")
                         .HasColumnName("job_data");
 
                     b.Property<string>("JobGroup")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_group");
 
                     b.Property<string>("JobName")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("job_name");
 
                     b.Property<int?>("MisfireInstruction")
@@ -2348,12 +2359,12 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("TriggerState")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_state");
 
                     b.Property<string>("TriggerType")
                         .IsRequired()
-                        .HasColumnType("varchar(200)")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("trigger_type");
 
                     b.HasKey("SchedulerName", "TriggerName", "TriggerGroup");
@@ -2369,7 +2380,7 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasIndex("SchedulerName", "JobName", "JobGroup");
 
-                    b.ToTable("QRTZ_triggers", (string)null);
+                    b.ToTable("QRTZ_triggers", "dbo");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
@@ -2501,7 +2512,7 @@ namespace SW.Bitween.MySql.Migrations
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
 
-                            MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b1.Property<int>("Id"));
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"));
 
                             b1.Property<string>("Key")
                                 .IsRequired()
@@ -2511,12 +2522,12 @@ namespace SW.Bitween.MySql.Migrations
 
                             b1.Property<string>("KeyPrefix")
                                 .HasMaxLength(10)
-                                .HasColumnType("varchar(10)");
+                                .HasColumnType("nvarchar(10)");
 
                             b1.Property<string>("Name")
                                 .IsRequired()
                                 .HasMaxLength(500)
-                                .HasColumnType("varchar(500)");
+                                .HasColumnType("nvarchar(500)");
 
                             b1.HasKey("PartnerId", "Id");
 
@@ -2593,16 +2604,16 @@ namespace SW.Bitween.MySql.Migrations
                                 .ValueGeneratedOnAdd()
                                 .HasColumnType("int");
 
-                            MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b1.Property<int>("Id"));
+                            SqlServerPropertyBuilderExtensions.UseIdentityColumn(b1.Property<int>("Id"));
 
                             b1.Property<bool>("Backwards")
-                                .HasColumnType("tinyint(1)");
+                                .HasColumnType("bit");
 
                             b1.Property<long>("On")
                                 .HasColumnType("bigint");
 
                             b1.Property<byte>("Recurrence")
-                                .HasColumnType("tinyint unsigned");
+                                .HasColumnType("tinyint");
 
                             b1.HasKey("SubscriptionId", "Id");
 

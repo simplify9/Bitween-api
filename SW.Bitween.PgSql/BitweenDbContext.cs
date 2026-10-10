@@ -151,6 +151,17 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 cl.Property(i => i.OwnerNode).HasMaxLength(200);
             });
 
+            modelBuilder.Entity<Domain.Cluster.ClusterNode>(b =>
+            {
+                b.ToTable("cluster_node");
+                b.HasKey(i => i.Id);
+                b.Property(i => i.Id).HasMaxLength(200);
+                b.Property(i => i.Host).HasMaxLength(200);
+                b.Property(i => i.Version).HasMaxLength(50);
+                b.Property(i => i.Runtimes).HasMaxLength(100);
+                b.HasIndex(i => i.LastSeenOn);
+            });
+
             modelBuilder.Entity<DataSourceStatement>(st =>
             {
                 st.ToTable("data_source_statement");

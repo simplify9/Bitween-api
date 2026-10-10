@@ -88,6 +88,8 @@ namespace SW.Bitween.Web
             services.AddMemoryCache();
             services.AddSingleton<SignInThrottle>();
             services.AddSingleton<CliSignInCodes>();
+            // Every node says it's here, so the Nodes view can list the cluster from any of them.
+            services.AddHostedService<SW.Bitween.Services.Cluster.NodeHeartbeat>();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<NativeAdapterDiscoveryService>();

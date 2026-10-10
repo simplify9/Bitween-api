@@ -14,6 +14,7 @@ import {
   RefreshCw,
   RotateCcw,
   ScrollText,
+  Server,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -113,6 +114,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Members", path: "/team/members", icon: Users, permissions: ["users.view"] },
       { label: "Roles", path: "/team/roles", icon: ShieldCheck, permissions: ["roles.view"] },
       { label: "Settings", path: "/settings", icon: Settings, permissions: ["settings.view"] },
+      { label: "Nodes", path: "/nodes", icon: Server, permissions: ["settings.view"] },
       // Last in Administration: it reports on everything above it rather than configuring
       // anything, and it is the one page whose value is that nobody can quietly change it.
       { label: "Audit trail", path: "/audit", icon: ScrollText, permissions: ["audit.view"] },

@@ -76,6 +76,7 @@ import type {
   RetentionStatus,
   SettingRow,
   InstanceAbout,
+  ClusterNodes,
   User,
   WorkGroup,
   WorkGroupDetail,
@@ -531,6 +532,7 @@ export interface ApiClient {
   // — settings —
   listSettings(): Promise<SettingRow[]>;
   getAbout(): Promise<InstanceAbout>;
+  getClusterNodes(): Promise<ClusterNodes>;
   /** How long exchanges and their files are kept under the saved settings. `refresh` re-reads the bucket's rules. */
   getRetention(refresh?: boolean): Promise<RetentionStatus>;
   /** The same, for settings not saved yet. Changes nothing. */
