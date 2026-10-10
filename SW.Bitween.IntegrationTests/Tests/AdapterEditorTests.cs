@@ -131,6 +131,38 @@ public class AdapterEditorTests(BitweenFixture fixture)
         Assert.Contains("# mine", (await Draft(id)).Files["main.py"]);
     }
 
+    [Fact]
+    public async Task A_try_that_uses_too_much_memory_is_stopped_and_says_so()
+    {
+        var id = await NewDraft(Unique("PyHog"));
+        await Save(id, files =>
+        {
+            // Holds on to more and more, as a leak would, until something stops it.
+            files["main.py"] = files["main.py"].Replace("import sw_serverless as sw",
+                "import time\nimport sw_serverless as sw\n_held = []\n\ndef _hog():\n    for _ in range(120):\n        _held.append(bytearray(8 * 1024 * 1024))\n        time.sleep(0.05)\n");
+            files["main.py"] = System.Text.RegularExpressions.Regex.Replace(files["main.py"],
+                @"(def handle\([^)]*\)[^:]*:\n)", "$1        _hog()\n");
+            return files;
+        });
+
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        var memory = options.AdapterEditorMemoryMb;
+        options.AdapterEditorMemoryMb = 150;
+        try
+        {
+            var run = (WorkshopRun)await As(sp => ActivatorUtilities.CreateInstance<Try>(sp).Handle(id, new AdapterDraftRun
+            {
+                Settings = Settings, Command = "Handle", Input = "{\"Data\":\"x\",\"Filename\":\"a.txt\"}",
+            }));
+            Assert.False(run.Succeeded);
+            Assert.Contains("memory limit of 150 MB", run.Error ?? string.Join("; ", run.Problems));
+        }
+        finally
+        {
+            options.AdapterEditorMemoryMb = memory;
+        }
+    }
+
     async Task<T> WithDependencies<T>(Func<Task<T>> act)
     {
         var options = fixture.App.Services.GetRequiredService<BitweenOptions>();

@@ -69,6 +69,17 @@ public class AdapterWorkshop(
     static readonly SemaphoreSlim Running = new(2, 2);
     const int CallTimeoutSeconds = 30;
 
+    /// <summary>
+    /// What a draft may use while it is checked or tried here, besides the two at a time and the
+    /// timeout per call: memory and sustained CPU, from Bitween:AdapterEditorMemoryMb and
+    /// AdapterEditorCpuCores. A run over either is stopped, and the editor shows which limit it hit.
+    /// </summary>
+    LocalAdapterLimits Limits => new()
+    {
+        MemoryLimitBytes = Math.Max(0, bitweenOptions.AdapterEditorMemoryMb) * 1024L * 1024L,
+        CpuPercentLimit = Math.Max(0, bitweenOptions.AdapterEditorCpuCores) * 100.0 / Environment.ProcessorCount,
+    };
+
     // ------------------------------------------------------------------ starting a draft
 
     /// <summary>A new adapter, from the template serverless init writes.</summary>
@@ -141,6 +152,7 @@ public class AdapterWorkshop(
                 // A receiver's DeleteFile changes the source it reads; never from here.
                 AllowDelete = false,
                 Contracts = { BitweenAdapters.Contract },
+                Limits = Limits,
             });
             result.Checks = report.Checks.Select(c => new WorkshopCheck(c.Name, c.Outcome.ToString(), c.Detail)).ToList();
             return result;
@@ -163,7 +175,7 @@ public class AdapterWorkshop(
             try
             {
                 await using var host = await LocalAdapterHost.StartAsync(built.PackageDirectory, settings ?? new Dictionary<string, string>(),
-                    commandTimeoutSeconds: CallTimeoutSeconds);
+                    commandTimeoutSeconds: CallTimeoutSeconds, limits: Limits);
                 return new WorkshopRun { Succeeded = true, Output = await host.CallAsync(command, ReadInput(input)) };
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -199,6 +211,7 @@ public class AdapterWorkshop(
                 Settings = settings ?? new Dictionary<string, string>(),
                 CommandTimeoutSeconds = CallTimeoutSeconds,
                 Contracts = { BitweenAdapters.Contract },
+                Limits = Limits,
             });
             result.Checks = report.Checks.Select(c => new WorkshopCheck(c.Name, c.Outcome.ToString(), c.Detail)).ToList();
             if (!report.Passed) return (null, result);

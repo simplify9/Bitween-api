@@ -141,6 +141,18 @@ namespace SW.Bitween
         public bool AdapterEditorDependencies { get; set; }
 
         /// <summary>
+        /// Memory, in megabytes, a draft may use while the adapter editor checks or tries it on the
+        /// server; past it the run is stopped and says so. 0 for no limit.
+        /// </summary>
+        public int AdapterEditorMemoryMb { get; set; } = 256;
+
+        /// <summary>
+        /// Cores a draft may keep busy while the editor checks or tries it, held for a few seconds
+        /// before it is stopped. 0 for no limit.
+        /// </summary>
+        public double AdapterEditorCpuCores { get; set; } = 1;
+
+        /// <summary>
         /// This deployment's release, e.g. 10.0.4 — set by a pipeline that knows it. Adapters may
         /// declare the lowest Bitween they work with; see <see cref="BitweenInfo"/>.
         /// </summary>
