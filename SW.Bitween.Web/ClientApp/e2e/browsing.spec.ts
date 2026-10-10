@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
 });
 
-test("the Adapters page opens on Installed, lists built-in adapters under Built-in and published ones under Custom with their versions, and narrows by kind and search", async ({
+test("the Adapters page opens on Built-in, lists published adapters under Installed with their versions, and narrows by kind and search in each", async ({
   page,
   request,
 }) => {
@@ -24,9 +24,9 @@ test("the Adapters page opens on Installed, lists built-in adapters under Built-
   const hasCustom = await api.hasAdapter("handlers", CUSTOM_HANDLER);
 
   await page.goto("adapters");
-  await expect(page.getByRole("tab", { name: "Installed" })).toHaveAttribute("aria-selected", "true");
-  const builtIn = page.getByRole("region", { name: /^Built-in/ });
-  const custom = page.getByRole("region", { name: /^Custom/ });
+  await expect(page.getByRole("tab", { name: /^Built-in/ })).toHaveAttribute("aria-selected", "true");
+  const builtIn = page.getByRole("tabpanel");
+  const custom = page.getByRole("region", { name: /^Published/ });
 
   // The two HTTP adapters every subscription in this suite is built from, by their display names.
   await expect(builtIn.getByRole("button", { name: /HTTP request/ })).toBeVisible();
@@ -34,6 +34,21 @@ test("the Adapters page opens on Installed, lists built-in adapters under Built-
   // Built-in adapters have no versions of their own, so nothing about versions is said of them.
   await expect(builtIn.getByText(/^\d+ versions?$/)).toHaveCount(0);
 
+  // Narrowed by kind: receivers only, so the HTTP request handler goes and the HTTP poll stays.
+  const kind = page.getByRole("radiogroup", { name: "Kind" });
+  await kind.getByRole("radio", { name: "Receivers" }).click();
+  await expect(builtIn.getByRole("button", { name: /HTTP poll/ })).toBeVisible();
+  await expect(builtIn.getByRole("button", { name: /HTTP request/ })).toHaveCount(0);
+
+  // And by search.
+  await kind.getByRole("radio", { name: "All" }).click();
+  await page.getByRole("searchbox", { name: "Search adapters" }).fill("smtp");
+  await expect(builtIn.getByRole("button", { name: /Email \(SMTP\)/ })).toBeVisible();
+  await expect(builtIn.getByRole("button", { name: /HTTP/ })).toHaveCount(0);
+
+  // Published adapters are under Installed, with their own search.
+  await page.getByRole("tab", { name: /^Installed/ }).click();
+  await expect(page).toHaveURL(/[?&]tab=installed/);
   if (hasCustom) {
     const row = custom.getByRole("button", { name: /Echo handler \(e2e\)/ });
     await expect(row).toContainText("v2.0.0");
@@ -43,23 +58,11 @@ test("the Adapters page opens on Installed, lists built-in adapters under Built-
     await expect(custom.getByRole("row").filter({ hasText: "v2.0.0" })).toContainText("Current");
     await expect(custom.getByRole("row").filter({ hasText: "v1.0.0" })).toContainText("Release 1.0.0.");
     await expect(custom.getByRole("row").filter({ hasText: "ContentType" })).toContainText("text/plain");
-    // Nothing in the built-in section is the custom one.
-    await expect(builtIn.getByText(CUSTOM_HANDLER)).toHaveCount(0);
+    // No built-in adapter is listed among the installed ones.
+    await expect(custom.getByText("Email (SMTP)")).toHaveCount(0);
   }
-
-  // Narrowed by kind: receivers only, so the HTTP request handler goes and the HTTP poll stays.
-  const kind = page.getByRole("radiogroup", { name: "Kind" });
-  await kind.getByRole("radio", { name: "Receivers" }).click();
-  await expect(builtIn.getByRole("button", { name: /HTTP poll/ })).toBeVisible();
-  await expect(builtIn.getByRole("button", { name: /HTTP request/ })).toHaveCount(0);
-  if (hasCustom) await expect(custom.getByText("No custom adapter matches.")).toBeVisible();
-
-  // And by search, across both sections.
-  await kind.getByRole("radio", { name: "All" }).click();
   await page.getByRole("searchbox", { name: "Search adapters" }).fill("smtp");
-  await expect(builtIn.getByRole("button", { name: /Email \(SMTP\)/ })).toBeVisible();
-  await expect(builtIn.getByRole("button", { name: /HTTP/ })).toHaveCount(0);
-  await expect(custom.getByText("No custom adapter matches.")).toBeVisible();
+  await expect(custom.getByText("No adapter matches.")).toBeVisible();
 });
 
 test("the Adapters page's Marketplace tab shows its placeholder, and the tab is kept in the URL across a reload", async ({
@@ -70,14 +73,14 @@ test("the Adapters page's Marketplace tab shows its placeholder, and the tab is 
   await expect(page).toHaveURL(/[?&]tab=marketplace/);
   await expect(page.getByRole("tab", { name: "Marketplace" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText("The marketplace is on its way")).toBeVisible();
-  await expect(page.getByRole("region", { name: /^Built-in/ })).toHaveCount(0);
+  await expect(page.getByRole("searchbox", { name: "Search adapters" })).toHaveCount(0);
 
   await page.reload();
   await expect(page.getByText("The marketplace is on its way")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Installed" }).click();
+  await page.getByRole("tab", { name: /^Built-in/ }).click();
   await expect(page).not.toHaveURL(/tab=/);
-  await expect(page.getByRole("region", { name: /^Built-in/ })).toBeVisible();
+  await expect(page.getByRole("tabpanel").getByRole("button", { name: /HTTP request/ })).toBeVisible();
 });
 
 test("the flow map draws an API gateway as a card that opens the gateway's page", async ({ page, request }) => {

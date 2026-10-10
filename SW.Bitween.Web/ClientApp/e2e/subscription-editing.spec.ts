@@ -178,8 +178,8 @@ test("pinning a subscription's custom handler to v1.0.0: the picker offers the p
   expect(pinned.handlerVersion).toBe("1.0.0");
 
   // The Adapters page counts the pin against the version.
-  await page.goto("adapters");
-  const custom = page.getByRole("region", { name: /^Custom/ });
+  await page.goto("adapters?tab=installed");
+  const custom = page.getByRole("region", { name: /^Published/ });
   await custom.getByRole("button", { name: new RegExp(CUSTOM_HANDLER_LABEL.replace(/[()]/g, "\\$&")) }).click();
   const v1 = custom.getByRole("row").filter({ hasText: "v1.0.0" });
   await expect(v1.getByRole("cell").nth(3)).toHaveText("1"); // Version, Runtime, Published, Pinned by

@@ -144,7 +144,7 @@ function Editor({ draft }: { draft: AdapterDraft }) {
   return (
     <div>
       {leaveDialog}
-      <BackLink to="/adapters" label="Adapters" />
+      <BackLink to="/adapters?tab=installed" label="Installed adapters" />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold text-ink-900">
           <code className="font-mono">{draft.adapterId}</code>
@@ -300,7 +300,7 @@ function Editor({ draft }: { draft: AdapterDraft }) {
             await api.deleteAdapterDraft(draft.id);
             await queryClient.invalidateQueries({ queryKey: keys.adapterDrafts });
             setSavedFiles(files); // nothing left to warn about
-            leave(() => navigate("/adapters"));
+            leave(() => navigate("/adapters?tab=installed"));
           }}
           onClose={() => setDeleting(false)}
         />

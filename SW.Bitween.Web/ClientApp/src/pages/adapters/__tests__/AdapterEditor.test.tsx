@@ -80,7 +80,7 @@ const LOADED = { timeout: 5000 };
 describe("the adapter editor", () => {
   it("starts a new adapter from the dialog and opens it", async () => {
     calls.length = 0;
-    const { user, router } = renderApp("/adapters", {
+    const { user, router } = renderApp("/adapters?tab=installed", {
       handlers: [
         http.post(apiPath("/adapterdrafts"), async (info) => {
           await record("create")(info);
@@ -103,7 +103,7 @@ describe("the adapter editor", () => {
   });
 
   it("lists drafts on the Adapters page", async () => {
-    renderApp("/adapters", { handlers: editorHandlers });
+    renderApp("/adapters?tab=installed", { handlers: editorHandlers });
     const drafts = (await screen.findByRole("heading", { name: /^Drafts/ }, LOADED)).closest("section")!;
     expect(within(drafts).getByRole("link", { name: /acme\.orders/ })).toHaveAttribute("href", "/adapters/drafts/7");
   });
@@ -229,8 +229,8 @@ describe("the adapter editor", () => {
 
   it("is refused, with no New adapter button, without adapter-source.edit", async () => {
     const permissions = ALL_PERMISSIONS.filter((p) => p !== "adapter-source.edit");
-    renderApp("/adapters", { handlers: editorHandlers, as: { permissions } });
-    expect(await screen.findByRole("heading", { name: /^Built-in/ }, LOADED)).toBeVisible();
+    renderApp("/adapters?tab=installed", { handlers: editorHandlers, as: { permissions } });
+    expect(await screen.findByRole("heading", { name: /^Published/ }, LOADED)).toBeVisible();
     expect(screen.queryByRole("button", { name: "New adapter" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^Drafts/ })).not.toBeInTheDocument();
   });
@@ -258,7 +258,7 @@ describe("published versions", () => {
 
   it("can be edited, or made current, by whoever may", async () => {
     calls.length = 0;
-    const { user, router } = renderApp("/adapters", {
+    const { user, router } = renderApp("/adapters?tab=installed", {
       handlers: [
         http.post(apiPath("/adapterdrafts"), async (info) => {
           await record("create")(info);
@@ -284,7 +284,7 @@ describe("published versions", () => {
 
   it("offers neither to a member without the permissions", async () => {
     const permissions = ALL_PERMISSIONS.filter((p) => !p.startsWith("adapter-source."));
-    const { user } = renderApp("/adapters", { handlers, as: { permissions } });
+    const { user } = renderApp("/adapters?tab=installed", { handlers, as: { permissions } });
     await user.click(await screen.findByRole("button", { name: /Acme orders/ }, LOADED));
     expect(screen.queryByRole("button", { name: /^Edit v/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /current$/ })).not.toBeInTheDocument();
@@ -292,7 +292,7 @@ describe("published versions", () => {
 
   it("offers no Edit for a .NET version", async () => {
     const dotnet = { ...ORDERS, versionHistory: ORDERS.versionHistory.map((v) => ({ ...v, runtime: "dotnet" })) };
-    const { user } = renderApp("/adapters", {
+    const { user } = renderApp("/adapters?tab=installed", {
       handlers: [
         http.get(apiPath("/adapters/Catalog"), ({ request }) =>
           HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [dotnet] : []),

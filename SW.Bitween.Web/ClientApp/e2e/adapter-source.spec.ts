@@ -26,8 +26,8 @@ test("an adapter only in the catalog is listed, its source is shown, and two ver
   // has stopped finding adapters that are only in the catalog.
   expect(await api.hasAdapter("handlers", SOURCE_HANDLER)).toBe(true);
 
-  await page.goto("adapters");
-  const custom = page.getByRole("region", { name: /^Custom/ });
+  await page.goto("adapters?tab=installed");
+  const custom = page.getByRole("region", { name: /^Published/ });
   const row = custom.getByRole("button", { name: /Source handler \(e2e\)/ });
   await expect(row).toContainText("v2.0.0");
   await row.click();

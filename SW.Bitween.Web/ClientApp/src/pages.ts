@@ -300,7 +300,7 @@ export const PAGES = definePages({
     title: "Adapters",
     permission: "subscriptions.view",
     nav: { group: "configuration", icon: Puzzle },
-    keywords: ["handlers", "mappers", "receivers", "plugins"],
+    keywords: ["handlers", "mappers", "receivers", "plugins", "marketplace", "installed"],
   },
   adapterDraft: {
     path: "adapters/drafts/:id",

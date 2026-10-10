@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/renderApp";
 
 /**
- * The Adapters page: built-in and custom adapters in their own sections, with versions and usage,
+ * The Adapters page: built-in and installed adapters in their own tabs, with versions and usage,
  * and the marketplace tab waiting for its content.
  */
 
@@ -86,14 +86,16 @@ const section = async (name: string) =>
   within((await screen.findByRole("heading", { name: new RegExp(`^${name}`) }, LOADED)).closest("section")!);
 
 describe("the Adapters page", () => {
-  it("lists built-in and custom adapters in their own sections", async () => {
-    renderApp("/adapters", { handlers });
+  it("lists built-in and installed adapters in their own tabs, with how many each holds", async () => {
+    const { user } = renderApp("/adapters", { handlers });
 
-    const builtIn = await section("Built-in");
-    expect(builtIn.getByText("Email (SMTP)")).toBeVisible();
-    expect(builtIn.queryByText("Acme orders")).not.toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /^Built-in \d+$/ }, LOADED)).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Email (SMTP)")).toBeVisible();
+    expect(screen.queryByText("Acme orders")).not.toBeInTheDocument();
 
-    const custom = await section("Custom");
+    await user.click(screen.getByRole("tab", { name: /^Installed/ }));
+    expect(screen.queryByText("Email (SMTP)")).not.toBeInTheDocument();
+    const custom = await section("Published");
     expect(custom.getByText("Acme orders")).toBeVisible();
     expect(custom.getByText("v1.1.0")).toBeVisible();
     expect(custom.getByText(/by Acme Ltd/)).toBeVisible();
@@ -105,7 +107,7 @@ describe("the Adapters page", () => {
   });
 
   it("shows a custom adapter's versions, notes and pins when opened", async () => {
-    const { user } = renderApp("/adapters", { handlers });
+    const { user } = renderApp("/adapters?tab=installed", { handlers });
 
     await user.click(await screen.findByRole("button", { name: /Acme orders/ }, LOADED));
 
@@ -127,21 +129,23 @@ describe("the Adapters page", () => {
     expect(screen.getByRole("link", { name: "Pinned orders" })).toHaveAttribute("href", "/subscriptions/1");
   });
 
-  it("filters by kind and search", async () => {
+  it("filters by kind and search, in each tab", async () => {
     const { user } = renderApp("/adapters", { handlers });
 
     await user.click(await screen.findByRole("radio", { name: "Receivers" }, LOADED));
-    expect((await section("Custom")).queryByText("Acme orders")).not.toBeInTheDocument();
-    expect((await section("Built-in")).getByText("No built-in adapter matches.")).toBeVisible();
+    expect(screen.getByText("No adapter matches.")).toBeVisible();
 
     await user.click(screen.getByRole("radio", { name: "All" }));
     await user.type(screen.getByRole("searchbox", { name: "Search adapters" }), "email");
-    expect((await section("Built-in")).getByText("Email (SMTP)")).toBeVisible();
-    expect((await section("Custom")).getByText("No custom adapter matches.")).toBeVisible();
+    expect(screen.getByText("Email (SMTP)")).toBeVisible();
+
+    await user.click(screen.getByRole("tab", { name: /^Installed/ }));
+    await user.type(screen.getByRole("searchbox", { name: "Search adapters" }), "email");
+    expect((await section("Published")).getByText("No adapter matches.")).toBeVisible();
   });
 
   it("shows what each custom adapter runs on, and filters by it", async () => {
-    const { user } = renderApp("/adapters", {
+    const { user } = renderApp("/adapters?tab=installed", {
       handlers: [
         http.get(apiPath("/adapterdrafts"), () => HttpResponse.json([])),
         http.get(apiPath("/adapters/Catalog"), ({ request }) =>
@@ -164,16 +168,18 @@ describe("the Adapters page", () => {
       ],
     });
 
-    const custom = await section("Custom");
+    const custom = await section("Published");
     // The current version's runtime, not the withdrawn .NET one's.
     expect(within(custom.getByRole("button", { name: /Acme orders/ })).getByText("Python")).toBeVisible();
     expect(within(custom.getByRole("button", { name: /Acme invoices/ })).getByText("Node.js")).toBeVisible();
 
     await user.click(screen.getByRole("radio", { name: "Node.js" }));
-    expect((await section("Custom")).queryByText("Acme orders")).not.toBeInTheDocument();
-    expect((await section("Custom")).getByText("Acme invoices")).toBeVisible();
-    // Built-in adapters have no runtime of their own, so none matches one.
-    expect((await section("Built-in")).getByText("No built-in adapter matches.")).toBeVisible();
+    expect((await section("Published")).queryByText("Acme orders")).not.toBeInTheDocument();
+    expect((await section("Published")).getByText("Acme invoices")).toBeVisible();
+
+    // Built-in adapters have no runtime of their own, so their tab doesn't offer the filter.
+    await user.click(screen.getByRole("tab", { name: /^Built-in/ }));
+    expect(screen.queryByRole("radio", { name: "Node.js" })).not.toBeInTheDocument();
   });
 
   it("withdraws a version that isn't current, saying what happens to its pins", async () => {
@@ -186,7 +192,7 @@ describe("the Adapters page", () => {
         { version: "1.2.0", publishedOn: "2026-10-05T00:00:00Z", publishedBy: "ci", releaseNotes: "Beta", withdrawn: false },
       ],
     };
-    const { user } = renderApp("/adapters", {
+    const { user } = renderApp("/adapters?tab=installed", {
       handlers: [
         http.get(apiPath("/adapters/Catalog"), ({ request }) =>
           HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [withThree] : []),
@@ -235,6 +241,8 @@ describe("the Adapters page", () => {
     await user.click(within(dialog).getByRole("button", { name: "Publish" }));
 
     expect(await within(dialog).findByText(/and made it current/)).toBeVisible();
+    // Behind the dialog, the page has moved to where the package now is.
+    expect(screen.getByRole("tab", { name: /^Installed/ })).toHaveAttribute("aria-selected", "true");
     // The bytes themselves aren't checked: jsdom's File isn't a Blob Node's fetch can send, which a
     // browser's is. The package goes as the body, typed as a zip, with the choices in the query.
     expect(received).toMatchObject({ query: "?version=minor&current=true", type: "application/zip" });
@@ -261,6 +269,6 @@ describe("the Adapters page", () => {
     });
     expect(await screen.findByRole("navigation", { name: "Main" })).toBeVisible();
     expect(screen.queryByRole("link", { name: "Adapters" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: /^Built-in/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /^Built-in/ })).not.toBeInTheDocument();
   });
 });

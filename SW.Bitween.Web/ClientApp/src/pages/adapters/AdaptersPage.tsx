@@ -9,7 +9,6 @@ import {
   Pencil,
   Plus,
   Puzzle,
-  Search,
   Store,
   Upload,
 } from "lucide-react";
@@ -21,6 +20,7 @@ import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useSubscriptionsCache } from "../../components/config/lookups";
+import { SearchBox } from "../../components/ui/SearchBox";
 import { formatDate } from "../../lib/dates";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
@@ -39,7 +39,7 @@ import {
 const AdapterSourceViewer = lazy(() => import("./AdapterSourceViewer"));
 
 
-type Tab = "installed" | "marketplace";
+type Tab = "built-in" | "installed" | "marketplace";
 type KindFilter = "all" | AdapterKind;
 
 const KIND_LABEL: Record<AdapterKind, string> = {
@@ -50,33 +50,55 @@ const KIND_LABEL: Record<AdapterKind, string> = {
 };
 
 /**
- * Every adapter this Bitween can run: the ones built in, and the custom packages published to it,
- * with their versions and who uses them. The marketplace — adapters that could be installed — is
- * its own tab, still to come.
+ * Every adapter this Bitween can run, in three tabs: the ones built in, the ones installed on this
+ * instance (published packages, and drafts being written), and the marketplace of adapters that
+ * could be installed, still to come. Each has its own search and filters; the tabs show counts.
  */
 export function AdaptersPage() {
   const [params, setParams] = useSearchParams();
-  const tab: Tab = params.get("tab") === "marketplace" ? "marketplace" : "installed";
+  const asked = params.get("tab");
+  const tab: Tab = asked === "installed" || asked === "marketplace" ? asked : "built-in";
   const selectTab = (next: Tab) =>
     setParams(
       (prev) => {
         const p = new URLSearchParams(prev);
-        if (next === "installed") p.delete("tab");
+        if (next === "built-in") p.delete("tab");
         else p.set("tab", next);
         return p;
       },
       { replace: true },
     );
 
+  // One request per kind, folded into one entry per adapter in `combine`, which only re-runs when
+  // one of the four results actually changes. Read here so each tab can say how many it holds.
+  const catalogs = useQueries({
+    queries: ADAPTER_KINDS.map((k) => ({ queryKey: keys.adapters(k), queryFn: () => api.listAdapters(k) })),
+    combine: (results) => ({
+      loading: results.some((r) => r.isPending),
+      error: results.find((r) => r.isError)?.error ?? null,
+      adapters: mergeCatalogs(Object.fromEntries(ADAPTER_KINDS.map((k, i) => [k, results[i].data ?? []]))),
+    }),
+  });
+  const subscriptions = useSubscriptionsCache();
+  const usage = useMemo(() => usageByAdapter(subscriptions.data ?? []), [subscriptions.data]);
+  const builtIn = catalogs.adapters.filter((a) => a.native);
+  const installed = catalogs.adapters.filter((a) => !a.native);
+
+  const tabs = [
+    ["built-in", "Built-in", Puzzle, catalogs.loading ? null : builtIn.length],
+    ["installed", "Installed", Package, catalogs.loading ? null : installed.length],
+    ["marketplace", "Marketplace", Store, null],
+  ] as const;
+
   return (
     <div>
       <PageHeader
         title="Adapters"
-        description="What Bitween can receive with, check, transform and deliver with — built in, or published to this instance."
+        description="What Bitween can receive with, check, transform and deliver with — built in, or installed on this instance."
         actions={
           <div className="flex gap-2">
             <Can permission="adapter-source.operate">
-              <UploadPackageButton />
+              <UploadPackageButton onPublished={() => selectTab("installed")} />
             </Can>
             <Can permission="adapter-source.edit">
               <NewAdapterButton />
@@ -86,12 +108,7 @@ export function AdaptersPage() {
       />
 
       <div role="tablist" aria-label="Adapters" className="mb-5 flex gap-1 border-b border-ink-200">
-        {(
-          [
-            ["installed", "Installed", Package],
-            ["marketplace", "Marketplace", Store],
-          ] as const
-        ).map(([value, label, Icon]) => (
+        {tabs.map(([value, label, Icon, count]) => (
           <button
             key={value}
             type="button"
@@ -108,72 +125,91 @@ export function AdaptersPage() {
           >
             <Icon className="size-4" aria-hidden />
             {label}
+            {/* A space for a screen reader ("Installed 3"); the flex gap already spaces it on screen. */}
+            {count !== null && " "}
+            {count !== null && (
+              <span className="rounded-full bg-ink-100 px-1.5 py-px text-[11.5px] font-medium text-ink-600 tabular-nums">
+                {count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       <div role="tabpanel" id={`adapters-panel-${tab}`} aria-labelledby={`adapters-tab-${tab}`}>
-        {tab === "installed" ? (
-          <InstalledAdapters />
-        ) : (
+        {tab === "marketplace" ? (
           <EmptyState icon={<Store />} title="The marketplace is on its way">
             Browsing and installing adapters published by Simplify9 and others will live here.
           </EmptyState>
+        ) : catalogs.loading ? (
+          <LoadingBlock label="Reading the adapters…" />
+        ) : catalogs.error ? (
+          <p className="text-sm text-danger-700">{catalogs.error.message}</p>
+        ) : tab === "built-in" ? (
+          <AdapterCatalog
+            key="built-in"
+            adapters={builtIn}
+            usage={usage}
+            description="Shipped with Bitween and run in-process. They are updated with Bitween itself, so they have no versions of their own."
+            empty="No built-in adapters."
+          />
+        ) : (
+          <div className="space-y-6">
+            <Can permission="adapter-source.edit">
+              <Drafts />
+            </Can>
+            <AdapterCatalog
+              key="installed"
+              title="Published"
+              adapters={installed}
+              usage={usage}
+              description="Packages published to this instance, in .NET, Python or JavaScript and TypeScript. Each runs in its own process, and published versions can be pinned per subscription."
+              empty="None published yet. Write one here with New adapter, upload a package, or build and publish one with the bitween CLI."
+            />
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-function InstalledAdapters() {
+/** One tab's adapters, with its own search and filters. */
+function AdapterCatalog({
+  title,
+  adapters,
+  usage,
+  description,
+  empty,
+}: {
+  title?: string;
+  adapters: InventoryAdapter[];
+  usage: Map<string, AdapterUsage>;
+  description: string;
+  empty: string;
+}) {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<KindFilter>("all");
   const [runtime, setRuntime] = useState("all");
 
-  // One request per kind, folded into one entry per adapter in `combine`, which only re-runs when
-  // one of the four results actually changes.
-  const catalogs = useQueries({
-    queries: ADAPTER_KINDS.map((k) => ({ queryKey: keys.adapters(k), queryFn: () => api.listAdapters(k) })),
-    combine: (results) => ({
-      loading: results.some((r) => r.isPending),
-      error: results.find((r) => r.isError)?.error ?? null,
-      adapters: mergeCatalogs(Object.fromEntries(ADAPTER_KINDS.map((k, i) => [k, results[i].data ?? []]))),
-    }),
-  });
-  const subscriptions = useSubscriptionsCache();
-  const usage = useMemo(() => usageByAdapter(subscriptions.data ?? []), [subscriptions.data]);
-
-  if (catalogs.loading) return <LoadingBlock label="Reading the adapters…" />;
-  if (catalogs.error) return <p className="text-sm text-danger-700">{catalogs.error.message}</p>;
-
-  // Offered once custom adapters run on more than one runtime; a built-in adapter has none of its own.
-  const runtimes = [...new Set(catalogs.adapters.map(runtimeOf).filter((r): r is string => r !== null))].sort();
-  const shown = catalogs.adapters.filter(
+  // Offered once installed adapters run on more than one runtime; a built-in adapter has none.
+  const runtimes = [...new Set(adapters.map(runtimeOf).filter((r): r is string => r !== null))].sort();
+  const filtered = query !== "" || kind !== "all" || runtime !== "all";
+  const shown = adapters.filter(
     (a) =>
       (kind === "all" || a.kinds.includes(kind)) &&
       (runtime === "all" || runtimeOf(a) === runtime) &&
       matchesSearch(a, query),
   );
-  const builtIn = shown.filter((a) => a.native);
-  const custom = shown.filter((a) => !a.native);
 
   return (
-    <div className="space-y-6">
-      <Can permission="adapter-source.edit">
-        <Drafts />
-      </Can>
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
-          <input
-            type="search"
-            aria-label="Search adapters"
-            placeholder="Search by name, id, publisher or tag"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-ink-200 bg-white py-2 pr-3 pl-9 text-[13.5px] focus:border-focus-500 focus:outline-none"
-          />
-        </div>
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          label="Search adapters"
+          placeholder="Search by name, id, publisher or tag"
+        />
         <SegmentedControl<KindFilter>
           label="Kind"
           size="sm"
@@ -194,24 +230,12 @@ function InstalledAdapters() {
           />
         )}
       </div>
-
       <AdapterSection
-        title="Built-in"
-        description="Shipped with Bitween and run in-process. They are updated with Bitween itself, so they have no versions of their own."
-        adapters={builtIn}
+        title={title}
+        description={description}
+        adapters={shown}
         usage={usage}
-        empty={query || kind !== "all" || runtime !== "all" ? "No built-in adapter matches." : "No built-in adapters."}
-      />
-      <AdapterSection
-        title="Custom"
-        description="Packages published to this instance, in .NET, Python or JavaScript and TypeScript. Each runs in its own process, and published versions can be pinned per subscription."
-        adapters={custom}
-        usage={usage}
-        empty={
-          query || kind !== "all" || runtime !== "all"
-            ? "No custom adapter matches."
-            : "None published yet. Write one here with New adapter, or build and publish one with the bitween CLI."
-        }
+        empty={filtered ? "No adapter matches." : empty}
       />
     </div>
   );
@@ -224,19 +248,22 @@ function AdapterSection({
   usage,
   empty,
 }: {
-  title: string;
+  /** A heading, when the tab holds more than this list. */
+  title?: string;
   description: string;
   adapters: InventoryAdapter[];
   usage: Map<string, AdapterUsage>;
   empty: string;
 }) {
   return (
-    <section aria-labelledby={`section-${title}`}>
+    <section aria-labelledby={title ? `section-${title}` : undefined} aria-label={title ? undefined : "Adapters"}>
       <div className="mb-2.5">
-        <h2 id={`section-${title}`} className="flex items-center gap-2 text-[15px] font-semibold text-ink-900">
-          {title}
-          <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-medium text-ink-600">{adapters.length}</span>
-        </h2>
+        {title && (
+          <h2 id={`section-${title}`} className="flex items-center gap-2 text-[15px] font-semibold text-ink-900">
+            {title}
+            <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-medium text-ink-600">{adapters.length}</span>
+          </h2>
+        )}
         <p className="mt-0.5 text-[12.5px] text-ink-500">{description}</p>
       </div>
       {adapters.length === 0 ? (
@@ -604,7 +631,7 @@ const LANGUAGES = [
  * Publishes a package built elsewhere, by the bitween CLI, in any language .NET included: what
  * bitween adapter publish does, from the browser.
  */
-function UploadPackageButton() {
+function UploadPackageButton({ onPublished }: { onPublished: () => void }) {
   const [open, setOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [version, setVersion] = useState("");
@@ -632,6 +659,8 @@ function UploadPackageButton() {
     try {
       setDone(await api.uploadAdapterPackage(file, { version, current, releaseNotes: notes }));
       await queryClient.invalidateQueries({ queryKey: ["adapters"] });
+      // Where it now is.
+      onPublished();
     } catch (e) {
       setError(e instanceof Error ? e.message : "The package couldn't be published.");
     } finally {

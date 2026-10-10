@@ -81,7 +81,7 @@ const editor = () => screen.findByTestId("source-editor", undefined, LOADED);
 
 describe("adapter source", () => {
   it("offers source only for versions that carry it", async () => {
-    const { user } = renderApp("/adapters", { handlers });
+    const { user } = renderApp("/adapters?tab=installed", { handlers });
     const versions = await openVersions(user);
 
     expect(within(versions).getByRole("button", { name: "View source of v1.2.0" })).toBeVisible();
@@ -91,7 +91,7 @@ describe("adapter source", () => {
 
   it("shows a version's files and the first file's content", async () => {
     reads.length = 0;
-    const { user } = renderApp("/adapters", { handlers });
+    const { user } = renderApp("/adapters?tab=installed", { handlers });
     const versions = await openVersions(user);
     await user.click(within(versions).getByRole("button", { name: "View source of v1.2.0" }));
 
@@ -112,7 +112,7 @@ describe("adapter source", () => {
 
   it("compares two versions: what was added, removed and changed, and the change itself", async () => {
     reads.length = 0;
-    const { user } = renderApp("/adapters", { handlers });
+    const { user } = renderApp("/adapters?tab=installed", { handlers });
     const versions = await openVersions(user);
     await user.click(within(versions).getByRole("button", { name: "View source of v1.2.0" }));
     await screen.findByRole("list", { name: "Source files" }, LOADED);
@@ -153,7 +153,7 @@ describe("adapter source", () => {
   });
 
   it("closes", async () => {
-    const { user } = renderApp("/adapters", { handlers });
+    const { user } = renderApp("/adapters?tab=installed", { handlers });
     const versions = await openVersions(user);
     await user.click(within(versions).getByRole("button", { name: "View source of v1.1.0" }));
     await screen.findByRole("list", { name: "Source files" }, LOADED);
@@ -163,7 +163,7 @@ describe("adapter source", () => {
   });
 
   it("is not offered without adapter-source.view", async () => {
-    const { user } = renderApp("/adapters", {
+    const { user } = renderApp("/adapters?tab=installed", {
       handlers,
       as: { permissions: ALL_PERMISSIONS.filter((p) => p !== "adapter-source.view") },
     });
@@ -175,7 +175,7 @@ describe("adapter source", () => {
 
   it("shows nothing extra for a server that predates source", async () => {
     const legacy = { ...ORDERS, versionHistory: ORDERS.versionHistory.map(({ hasSource: _, ...v }) => v) };
-    const { user } = renderApp("/adapters", {
+    const { user } = renderApp("/adapters?tab=installed", {
       handlers: [
         http.get(apiPath("/adapters/Catalog"), ({ request }) =>
           HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [legacy] : []),
