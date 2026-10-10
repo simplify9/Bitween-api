@@ -2,16 +2,12 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { api, type SubscriptionType } from "../../../api";
-import { useSessionCan } from "../../../auth/guards";
+import { useSessionCan } from "../../../auth/useSessionCan";
 import { Field } from "../../../components/ui/forms";
 import { Button } from "../../../components/ui/basics";
 import { CodeBadge } from "../../../components/ui/Panel";
-import {
-  SubscriptionStatusBadges,
-  TypeBadge,
-  useSubscriptionRowsById,
-  useSubscriptionsCache,
-} from "../../../components/config/shared";
+import { SubscriptionStatusBadges, TypeBadge } from "../../../components/config/shared";
+import { useSubscriptionRowsById, useSubscriptionsCache } from "../../../components/config/lookups";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { InformationTypeDialog } from "../../../components/config/InformationTypeDialog";
 import { busMessageNameProblem } from "../../../lib/busMessageName";

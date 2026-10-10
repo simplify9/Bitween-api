@@ -4,7 +4,7 @@ import { CloudOff, Lock } from "lucide-react";
 import type { PermissionKey } from "../api";
 import { labelIn, usePermissionCatalog } from "../api/permissions";
 import { Button } from "../components/ui/basics";
-import { useSession } from "./SessionContext";
+import { useSession } from "./useSession";
 
 /** Redirects to /login when signed out; shows a splash while checking. */
 export function RequireAuth() {
@@ -82,10 +82,4 @@ export function Can({ permission, children }: { permission: PermissionKey; child
   const { can } = useSession();
   if (!can(permission)) return null;
   return <>{children}</>;
-}
-
-/** Convenience hook for components that branch on a permission. */
-export function useSessionCan(permission: PermissionKey): boolean {
-  const { can } = useSession();
-  return can(permission);
 }

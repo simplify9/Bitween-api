@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { clearToken } from "../../api/http/request";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { resetAppConfig } from "../../api/http/appConfig";
 import { server } from "./server";
@@ -12,6 +12,11 @@ globalThis.ResizeObserver ??= class {
   unobserve() {}
   disconnect() {}
 };
+
+// How long a findBy waits for the page. The 1s default is a fast machine with nothing else to do;
+// under a full parallel run a page could take longer than that to answer, and the test failed
+// on a page that was right, only slow.
+configure({ asyncUtilTimeout: 4_000 });
 
 /** Requests the page made that no handler answered, collected so the test can fail on them. */
 const unanswered: string[] = [];

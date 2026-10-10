@@ -3,21 +3,22 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/ui/KeyValueEditor";
+import { KeyValueEditor, type KvRow } from "../../components/ui/KeyValueEditor";
+import { toRecord, toRows } from "../../components/ui/keyValueRows";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
-import {
-  SUBSCRIPTION_TYPE_LABELS,
-  SubscriptionMiniList,
-  useSubscriptionsCache,
-} from "../../components/config/shared";
+import { SUBSCRIPTION_TYPE_LABELS } from "../../components/config/subscriptionLabels";
+import { SubscriptionMiniList } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 
 export function GlobalValueSetPage() {
   const { id = "" } = useParams();

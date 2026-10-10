@@ -3,20 +3,15 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CornerDownLeft, Plus, Search } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import {
-  HealthBadge,
-  LinkListCell,
-  SubscriptionStatusBadges,
-  useRetryPolicyNames,
-  useSubscriptionsCache,
-  useWorkGroupNames,
-} from "../../components/config/shared";
+import { HealthBadge, LinkListCell, SubscriptionStatusBadges } from "../../components/config/shared";
+import { useRetryPolicyNames, useSubscriptionsCache, useWorkGroupNames } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
 

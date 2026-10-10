@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/basics";
-import { queueHealthTitle } from "../../components/config/shared";
+import { queueHealthTitle } from "../../components/config/subscriptionLabels";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 

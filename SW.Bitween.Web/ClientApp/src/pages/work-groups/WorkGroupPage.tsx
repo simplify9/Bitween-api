@@ -3,18 +3,19 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Trash2 } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import {
   BusRenameConfirm,
   QueuedMessagesWarning,
-  renamesQueues,
   WorkGroupFields,
-  workGroupDraftOf,
   type WorkGroupDraft,
 } from "../../components/config/WorkGroupDialog";
+import { renamesQueues, workGroupDraftOf } from "../../components/config/workGroupDraft";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { SetupList } from "../../components/config/shared";
 import { LiveQueueStats } from "./LiveQueueStats";

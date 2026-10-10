@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Check, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import { allKeysIn, usePermissionCatalog } from "../api/permissions";
-import { useSession } from "../auth/SessionContext";
+import { useSession } from "../auth/useSession";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Avatar } from "../components/ui/Avatar";
 import { Badge, Button, FormError } from "../components/ui/basics";

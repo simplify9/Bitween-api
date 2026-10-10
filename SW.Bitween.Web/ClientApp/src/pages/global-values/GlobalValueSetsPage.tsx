@@ -10,10 +10,12 @@ import { Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../co
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { suggestSlug } from "../../lib/identifiers";
 import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
+import { NONE } from "../../lib/none";
 
 function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -99,7 +101,7 @@ export function GlobalValueSetsPage() {
   const creating = searchParams.get("new") === "1";
 
   const sets = useQuery({ queryKey: keys.valueSets.list, queryFn: () => api.listValueSets() });
-  const subscriptions = useSubscriptionsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? NONE;
 
   const setParam = (key: string, value: string | null) =>
     setSearchParams(

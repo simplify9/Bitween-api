@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../api";
-import { useSessionCan } from "../../../auth/guards";
+import { useSessionCan } from "../../../auth/useSessionCan";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
 import { CreateRetryPolicyDialog } from "../../../components/config/RetryPolicyDialog";

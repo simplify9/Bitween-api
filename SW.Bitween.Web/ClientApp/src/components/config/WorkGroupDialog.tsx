@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type WorkGroup } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { api } from "../../api";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
 import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { suggestSlug } from "../../lib/identifiers";
 import { keys } from "../../api/queryKeys";
-import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
+import { workGroupDraftOf, useQueuedMessages, renamesQueues } from "./workGroupDraft";
 
 /**
  * A work group's editable settings, as one component.
@@ -22,13 +22,6 @@ export interface WorkGroupDraft {
   prefetch: number;
   priority: number;
 }
-
-export const workGroupDraftOf = (g: WorkGroup): WorkGroupDraft => ({
-  name: g.name,
-  busMessageName: g.busMessageName,
-  prefetch: g.options.rabbitMqOptions.consumerSettings.prefetch,
-  priority: g.options.rabbitMqOptions.consumerSettings.priority,
-});
 
 export function WorkGroupFields({
   draft,
@@ -116,25 +109,6 @@ export function WorkGroupFields({
 }
 
 /**
- * Messages still in a group's queues — both of its lanes, retries and dead letters included —
- * from the same live snapshot Queue health polls. `null` when it can't be known: no right to see
- * queue health, RabbitMQ management not configured, or not loaded yet.
- */
-export function useQueuedMessages(groupId: number | null): number | null {
-  const canMonitor = useSessionCan("monitoring.view");
-  const rabbitMqConfigured = useRabbitMqManagementConfigured();
-  const { data } = useQuery({
-    queryKey: keys.queueHealth,
-    queryFn: () => api.getQueueHealth(),
-    enabled: groupId !== null && canMonitor && rabbitMqConfigured,
-  });
-  if (groupId === null || !data) return null;
-  return data.consumers
-    .filter((c) => c.workGroupId === groupId)
-    .reduce((n, c) => n + c.queueCount + c.retryCount + c.failedCount, 0);
-}
-
-/**
  * The messages that go with a group's current queues, which are deleted along with the group or
  * when its bus message name changes.
  */
@@ -150,9 +124,6 @@ export function QueuedMessagesWarning({ groupId }: { groupId: number }) {
     </p>
   );
 }
-
-/** Whether a new bus message name means new queues. Case alone doesn't: queue names are lowercase. */
-export const renamesQueues = (from: string, to: string): boolean => from.toLowerCase() !== to.toLowerCase();
 
 /** Asked before saving a new bus message name, which moves the group to new queues. */
 export function BusRenameConfirm({

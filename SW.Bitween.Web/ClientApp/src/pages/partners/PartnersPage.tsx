@@ -10,7 +10,8 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
 

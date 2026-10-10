@@ -3,22 +3,21 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Cable, Network, Plus, Search } from "lucide-react";
 import { api, type BusGatewayRow, type SubscriptionRow } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { Table } from "../../components/ui/Table";
-import {
-  LinkListCell,
-  WiredHealthBadge,
-  useSubscriptionRowsById,
-} from "../../components/config/shared";
+import { LinkListCell, WiredHealthBadge } from "../../components/config/shared";
+import { useSubscriptionRowsById } from "../../components/config/lookups";
 import { matchSummary } from "../../lib/match";
 import { keys } from "../../api/queryKeys";
 import { ConnectionBadge } from "../data-sources/ConnectionBadge";
 import { useSearchText } from "../../lib/useSearchText";
+import { NONE } from "../../lib/none";
 
 /**
  * Bus gateways — messages picked off the bus. A gateway listens for one
@@ -55,7 +54,7 @@ export function BusGatewaysPage() {
       queryKey: keys.informationTypes.list,
       queryFn: () => api.listInformationTypes(),
       enabled: canSeeInfoTypes,
-    }).data ?? [];
+    }).data ?? NONE;
   const infoTypeById = useMemo(() => new Map(infoTypes.map((t) => [t.id, t])), [infoTypes]);
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>

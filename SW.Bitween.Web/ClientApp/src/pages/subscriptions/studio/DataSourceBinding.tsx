@@ -6,7 +6,7 @@ import { api, type DataSourceStatement } from "../../../api";
 import { keys } from "../../../api/queryKeys";
 import { Field, Select, TextInput } from "../../../components/ui/forms";
 import { Button, FormError } from "../../../components/ui/basics";
-import { useSessionCan } from "../../../auth/guards";
+import { useSessionCan } from "../../../auth/useSessionCan";
 
 /**
  * Binds an adapter slot to a database: which connection, which statement, and what to do with it.

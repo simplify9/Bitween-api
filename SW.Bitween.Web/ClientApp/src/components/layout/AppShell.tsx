@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import type { SettingRow } from "../../api";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { type Branding, useApplyBranding } from "../../lib/branding";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 import { visibleGroups } from "../../nav";

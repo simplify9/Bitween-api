@@ -1,12 +1,8 @@
 import React, { useCallback, useState } from "react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
 import type { PrimitiveArrayItem } from "../../../lib/mapping/types";
-import {
-  useMappingEditorDispatch,
-  addArrayMapping,
-  removeArrayMapping,
-  updateArrayMapping,
-} from "../../../lib/mapping/MappingEditorContext";
+import { useMappingEditorDispatch } from "../../../lib/mapping/mappingEditorHooks";
+import { addArrayMapping, removeArrayMapping, updateArrayMapping } from "../../../lib/mapping/mappingEditorActions";
 
 // ─── Return type ──────────────────────────────────────────────────────────────
 

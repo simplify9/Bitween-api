@@ -4,16 +4,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, KeyRound, LockOpen, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { HistoryList } from "../../components/config/HistoryCard";
 import { Avatar } from "../../components/ui/Avatar";
 import { CopyField } from "../../components/ui/CopyField";
-import { Badge, Button, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { useModalFocus } from "../../components/ui/useModalFocus";
 import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
-import { statusBadge } from "./MembersPage";
+import { statusBadge } from "./memberStatus";
 import { keys } from "../../api/queryKeys";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

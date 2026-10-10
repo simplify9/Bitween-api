@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import { loadMapping, saveMapping, toWire } from "../../lib/nativeMapper/serialize";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import type { SourceDocument } from "../config/sourceValues";

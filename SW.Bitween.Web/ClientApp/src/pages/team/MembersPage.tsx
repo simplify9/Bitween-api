@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Search, UserPlus, UsersRound } from "lucide-react";
-import { api, type User, type UserStatus } from "../../api";
+import { api, type User } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Avatar } from "../../components/ui/Avatar";
@@ -13,20 +13,13 @@ import { AddMemberDialog } from "./AddMemberDialog";
 import { MemberDrawer } from "./MemberDrawer";
 import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
+import { statusBadge } from "./memberStatus";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "disabled", label: "Disabled" },
 ];
-
-export function statusBadge(status: UserStatus, lockedUntil?: string | null) {
-  if (status !== "active") return <Badge tone="neutral">Disabled</Badge>;
-  // A lockout expires on its own, so it is reported with its own tone rather than
-  // as a failure — and never as "Active", which would say the opposite of the truth.
-  if (lockedUntil) return <Badge tone="warn">Locked</Badge>;
-  return <Badge tone="ok">Active</Badge>;
-}
 
 export function MembersPage() {
   const [searchParams, setSearchParams] = useSearchParams();

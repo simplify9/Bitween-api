@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ExchangeFileRef, ExchangeRow, ExchangeStatus } from "../../../api";
-import { journeyStages } from "../shared";
+import { journeyStages } from "../journey";
 
 /**
  * A stage's name is a claim about what happened to the document. The cards used to be named

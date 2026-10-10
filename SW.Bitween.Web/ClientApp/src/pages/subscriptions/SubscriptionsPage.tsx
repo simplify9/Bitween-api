@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Search, Workflow } from "lucide-react";
 import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
@@ -12,18 +13,14 @@ import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
-import { ManageCategoriesDialog, useCategories } from "../../components/config/CategoryDialogs";
+import { ManageCategoriesDialog } from "../../components/config/CategoryDialogs";
+import { useCategories } from "../../components/config/categories";
 import { NewSubscriptionDialog } from "./NewSubscriptionDialog";
-import {
-  HealthBadge,
-  SUBSCRIPTION_TYPE_LABELS,
-  SubscriptionStatusBadges,
-  LinkListCell,
-  TypeBadge,
-  useGatewayPartners,
-  useSubscriptionsCache,
-} from "../../components/config/shared";
+import { HealthBadge, SubscriptionStatusBadges, LinkListCell, TypeBadge } from "../../components/config/shared";
+import { SUBSCRIPTION_TYPE_LABELS } from "../../components/config/subscriptionLabels";
+import { useGatewayPartners, useSubscriptionsCache } from "../../components/config/lookups";
 import { useSearchText } from "../../lib/useSearchText";
+import { NONE } from "../../lib/none";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
@@ -67,7 +64,7 @@ export function SubscriptionsPage() {
   const [managingCategories, setManagingCategories] = useState(false);
   const [choosingWay, setChoosingWay] = useState(false);
   const categories = useCategories().data ?? [];
-  const allSubscriptions = useSubscriptionsCache().data ?? [];
+  const allSubscriptions = useSubscriptionsCache().data ?? NONE;
   const categoryUsage = useMemo(() => {
     const counts = new Map<number, number>();
     for (const s of allSubscriptions) if (s.categoryId != null) counts.set(s.categoryId, (counts.get(s.categoryId) ?? 0) + 1);

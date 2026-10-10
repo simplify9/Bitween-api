@@ -4,14 +4,14 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Play, X } from "lucide-react";
 import { api, type ScheduledRetryQuery } from "../../api";
 import { Can } from "../../auth/guards";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { TextInput } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { PromotedProps } from "../../components/config/shared";
 import { keys } from "../../api/queryKeys";

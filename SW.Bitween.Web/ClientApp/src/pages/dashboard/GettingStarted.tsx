@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Circle, X } from "lucide-react";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useSession } from "../../auth/SessionContext";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSession } from "../../auth/useSession";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 
 const DISMISSED_KEY = "bitween_getting_started_dismissed";
 

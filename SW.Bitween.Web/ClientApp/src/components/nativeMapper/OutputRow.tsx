@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import { isAssigned, isItemAssigned } from "../../lib/nativeMapper/rulesReducer";
 import type { OutputRowNode } from "../../lib/nativeMapper/outputTree";
 import { TYPE_BADGES, freshSource, sourceKindsFor } from "../../lib/nativeMapper/types";

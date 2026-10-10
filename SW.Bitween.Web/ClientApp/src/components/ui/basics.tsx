@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { CloudOff, Loader2, Lock, SearchX, TriangleAlert } from "lucide-react";
 import { ApiRequestError } from "../../api/types";
 import { summarizeException } from "../../lib/exceptionSummary";
+import { isNotFound } from "./isNotFound";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -109,10 +110,6 @@ export function EmptyState({
     </div>
   );
 }
-
-/** Whether a load failed because the thing asked for isn't there (404). */
-export const isNotFound = (error: unknown): boolean =>
-  error instanceof ApiRequestError && (error.status === 404 || error.code === "NOT_FOUND");
 
 /**
  * What a failed load says in place of the content. A list that couldn't be read used to show its

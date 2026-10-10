@@ -4,11 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, ChevronDown, Eraser, Eye, EyeOff, Link2, Redo2, Undo2 } from "lucide-react";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
-import {
-  RulesEditorProvider,
-  useRules,
-  useRulesDispatch,
-} from "../../lib/nativeMapper/RulesEditorContext";
+import { RulesEditorProvider } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import {
   coverageByPath,
   parseSample,

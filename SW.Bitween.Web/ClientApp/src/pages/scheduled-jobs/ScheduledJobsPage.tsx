@@ -3,26 +3,22 @@ import { Link, useNavigate, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, DownloadCloud, Plus, Search } from "lucide-react";
 import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import {
-  HealthBadge,
-  SubscriptionStatusBadges,
-  LinkListCell,
-  scheduleFault,
-  useSubscriptionsCache,
-  useRetryPolicyNames,
-  useWorkGroupNames,
-} from "../../components/config/shared";
+import { HealthBadge, SubscriptionStatusBadges, LinkListCell } from "../../components/config/shared";
+import { scheduleFault } from "../../components/config/subscriptionLabels";
+import { useSubscriptionsCache, useRetryPolicyNames, useWorkGroupNames } from "../../components/config/lookups";
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { useSearchText } from "../../lib/useSearchText";
+import { NONE } from "../../lib/none";
 
 function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -111,15 +107,15 @@ export function ScheduledJobsPage() {
   });
   // The list rows don't carry work group or retry policy; the subscriptions
   // cache does, and every page already holds it.
-  const setups = useSubscriptionsCache().data ?? [];
+  const setups = useSubscriptionsCache().data ?? NONE;
   const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
   // One request for the whole list rather than one per row.
-  const lastRuns = useQuery({ queryKey: keys.subscriptions.lastRuns, queryFn: () => api.listLastRuns() }).data ?? [];
+  const lastRuns = useQuery({ queryKey: keys.subscriptions.lastRuns, queryFn: () => api.listLastRuns() }).data ?? NONE;
   const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.subscriptionId, r])), [lastRuns]);
   const health =
-    useQuery({ queryKey: keys.subscriptions.scheduleHealth, queryFn: () => api.listScheduleHealth() }).data ?? [];
+    useQuery({ queryKey: keys.subscriptions.scheduleHealth, queryFn: () => api.listScheduleHealth() }).data ?? NONE;
   const healthById = useMemo(() => new Map(health.map((h) => [h.subscriptionId, h])), [health]);
 
   const setParam = (key: string, value: string | null, resetOffset = true) =>

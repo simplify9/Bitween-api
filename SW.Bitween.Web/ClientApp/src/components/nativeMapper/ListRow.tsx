@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Repeat, Trash2 } from "lucide-react";
 import { listPaths, type DocumentNode } from "../../lib/nativeMapper/documentTree";
 import type { OutputListNode } from "../../lib/nativeMapper/outputTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import {
   FILTER_OPERATORS,
   type FilterOperatorName,

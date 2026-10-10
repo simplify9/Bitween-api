@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { namesSomething } from "../shared";
+import { namesSomething } from "../subscriptionLabels";
 
 /**
  * Whether promoted properties can stand in for an exchange's identity. An information type can

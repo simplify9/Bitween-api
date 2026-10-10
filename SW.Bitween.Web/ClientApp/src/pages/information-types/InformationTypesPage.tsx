@@ -12,10 +12,17 @@ import { Select } from "../../components/ui/forms";
 import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
-import { CARRIED_FORMAT_NOTE, formatLabel, INFORMATION_TYPE_FORMATS, readsContent } from "../../lib/informationTypeFormat";
+import {
+  CARRIED_FORMAT_NOTE,
+  formatLabel,
+  INFORMATION_TYPE_FORMATS,
+  readsContent,
+} from "../../lib/informationTypeFormat";
 import { useSearchText } from "../../lib/useSearchText";
+import { NONE } from "../../lib/none";
 
 const PAGE_SIZE = 25;
 
@@ -47,7 +54,7 @@ export function InformationTypesPage() {
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const subscriptions = useSubscriptionsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? NONE;
 
   // The backend's Search endpoint has no "id is in this set" filter, so filtering by
   // which subscriptions use a type can't be pushed down like name/format/bus can. Falls

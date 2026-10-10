@@ -2,14 +2,13 @@ import React, { useEffect } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { scribanLanguage } from "./scribanLanguage";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../lib/mapping/mappingEditorHooks";
 import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
   setArrayMappings,
   setFieldMappings,
   setManualTemplate,
   syncManualTemplate,
-} from "../../lib/mapping/MappingEditorContext";
+} from "../../lib/mapping/mappingEditorActions";
 import { generateScriban, parseScriban } from "../../lib/mapping/scribanGenerator";
 
 const SCRIBAN_HINT = `{{- # Scriban template — edit freely -}}
@@ -37,7 +36,9 @@ const ManualEditor: React.FC = () => {
     if (!isManualDirty) {
       dispatch(syncManualTemplate(generateScriban(fieldMappings, arrayMappings, undefined, undefined)));
     }
-  }, []); // Only on mount — ongoing sync is handled by handleModeChange
+    // Only on mount — ongoing sync is handled by handleModeChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEditorChange = (value: string) => {
     dispatch(setManualTemplate(value));

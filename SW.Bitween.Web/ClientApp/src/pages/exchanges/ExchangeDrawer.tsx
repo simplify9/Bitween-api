@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Download, FileText, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { HighlightedDocument } from "../../components/ui/HighlightedDocument";
@@ -11,9 +11,11 @@ import { CopyButton } from "../../components/ui/CopyButton";
 import { ExceptionBlock } from "../../components/ui/Exception";
 import { formatDateTime, duration, timeUntil } from "../../lib/dates";
 import { formatDocument } from "../../lib/documentPreview";
-import { useSubscriptionsCache } from "../../components/config/shared";
-import { RetryDialog, journeyStages, type JourneyStage } from "./shared";
-import { RetryChain, hasRetryChain, newestAttempt, retryTreeQuery } from "./RetryChain";
+import { useSubscriptionsCache } from "../../components/config/lookups";
+import { RetryDialog, type JourneyStage } from "./shared";
+import { journeyStages } from "./journey";
+import { RetryChain } from "./RetryChain";
+import { hasRetryChain, newestAttempt, retryTreeQuery } from "./retryTree";
 import { keys } from "../../api/queryKeys";
 
 const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNode }> = {

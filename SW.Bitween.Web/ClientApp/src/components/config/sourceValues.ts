@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, type InformationType, type SubscriptionInfo, type SubscriptionType } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useSubscriptionsCache } from "./shared";
+import { useSubscriptionsCache } from "./lookups";
 
 /**
  * What a subscription can read from the original document — the input of the exchange whose

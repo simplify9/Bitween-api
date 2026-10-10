@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useSessionCan } from "../../../auth/guards";
-import { CategoryDialog, useCategories } from "../../../components/config/CategoryDialogs";
+import { useSessionCan } from "../../../auth/useSessionCan";
+import { CategoryDialog } from "../../../components/config/CategoryDialogs";
+import { useCategories } from "../../../components/config/categories";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { Fact } from "./Fact";
 

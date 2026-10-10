@@ -11,10 +11,11 @@ import {
   permissionKey,
   usePermissionCatalog,
 } from "../../api/permissions";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { visibleGroups } from "../../nav";
-import { Badge, Button, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";

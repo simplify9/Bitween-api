@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { Terminal } from "lucide-react";
 import { grantCliSignIn } from "../../api";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { Button, FormError } from "../../components/ui/basics";
 import { AuthLayout } from "./AuthLayout";
 

@@ -5,13 +5,11 @@ import { X } from "lucide-react";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
-import {
-  AdapterConfig,
-  useAdapterCatalog,
-} from "../../components/config/AdapterConfig";
+import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { InfoTypePicker } from "../../components/config/pickers";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { api } from "../../api";
 import { STAGES, type StageId } from "../subscriptions/studio/stages";
 import { StageRail } from "../subscriptions/studio/StageRail";

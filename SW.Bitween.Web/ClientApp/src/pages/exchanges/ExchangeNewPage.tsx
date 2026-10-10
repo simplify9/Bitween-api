@@ -7,7 +7,7 @@ import { FormatButton } from "../../components/ui/FormatButton";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
 import { payloadProblem } from "../../lib/payloadCheck";
 

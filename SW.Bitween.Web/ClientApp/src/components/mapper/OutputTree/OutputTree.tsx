@@ -1,7 +1,7 @@
 import React from "react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
 import { buildTypeMap } from "../../../lib/mapping/scribanGenerator";
-import { useMappingEditorState } from "../../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import { OutputLeaf } from "./OutputLeaf";
 import { OutputBranch } from "./OutputBranch";
 

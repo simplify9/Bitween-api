@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { SquarePen, Trash2 } from "lucide-react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
   addArrayMapping,
   openArrayModal,
   toggleNodeCollapsed,
   updateArrayMapping,
-} from "../../../lib/mapping/MappingEditorContext";
+} from "../../../lib/mapping/mappingEditorActions";
 import { getFullTargetPrefix } from "../../../lib/mapping/mappingTreeUtils";
 import { OutputLeaf } from "./OutputLeaf";
 import {

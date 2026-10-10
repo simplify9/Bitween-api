@@ -13,10 +13,10 @@ import {
 } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { queueHealthTitle } from "../../components/config/shared";
+import { queueHealthTitle } from "../../components/config/subscriptionLabels";
 import { Panel } from "../../components/ui/Panel";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";

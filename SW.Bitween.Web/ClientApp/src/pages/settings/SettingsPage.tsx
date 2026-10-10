@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import { api, resetAppConfig, type SettingRow } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, LoadingBlock } from "../../components/ui/basics";

@@ -20,6 +20,9 @@ export default defineConfig({
           include: ["src/**/__tests__/**/*.test.tsx"],
           environment: "jsdom",
           setupFiles: ["./src/__tests__/support/setup.ts"],
+          // A whole page renders here, and a full parallel run shares the machine between dozens
+          // of them: the 5s default failed tests that pass in a second alone.
+          testTimeout: 20_000,
         },
       },
     ],

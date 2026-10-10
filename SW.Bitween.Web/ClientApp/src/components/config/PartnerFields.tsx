@@ -1,16 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { api, referencesPartnerProp, type ApiCredentialRef, type Partner } from "../../api";
+import { api, referencesPartnerProp, type ApiCredentialRef } from "../../api";
 import { Can } from "../../auth/guards";
 import { Button, FormError } from "../ui/basics";
 import { CopyField } from "../ui/CopyField";
 import { Field, TextInput } from "../ui/forms";
-import { KeyValueEditor, toRecord, toRows, type KvRow } from "../ui/KeyValueEditor";
+import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
 import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { Panel } from "../ui/Panel";
 import { MiniTable } from "../ui/Table";
-import { SubscriptionMiniList, usePartnerSubscriptions } from "./shared";
+import { SubscriptionMiniList } from "./shared";
+import { usePartnerSubscriptions } from "./lookups";
 import { keys } from "../../api/queryKeys";
 import { formatDateTime, timeAgo } from "../../lib/dates";
 
@@ -35,35 +36,6 @@ export interface PartnerDraft {
   secretProperties: string[];
   loginIdentity: string;
 }
-
-export const partnerDraftOf = (
-  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties" | "loginIdentity">,
-): PartnerDraft => ({
-  name: p.name,
-  properties: toRows(p.adapterProperties),
-  secretProperties: [...p.secretProperties],
-  loginIdentity: p.loginIdentity ?? "",
-});
-
-export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean =>
-  draft.name !== saved.name ||
-  JSON.stringify(toRecord(draft.properties)) !== JSON.stringify(toRecord(saved.properties)) ||
-  // Locking a property changes nothing about its value, so the value comparison above
-  // cannot see it — without this the save bar never appears for a lock on its own.
-  JSON.stringify([...draft.secretProperties].sort()) !==
-    JSON.stringify([...saved.secretProperties].sort()) ||
-  draft.loginIdentity.trim() !== saved.loginIdentity.trim();
-
-/** What the host sends to `updatePartner`. */
-export const partnerChanges = (draft: PartnerDraft) => ({
-  name: draft.name.trim(),
-  adapterProperties: toRecord(draft.properties.filter((r) => r.key.trim())),
-  // A lock on a property that was renamed or removed would otherwise linger forever.
-  secretProperties: draft.secretProperties.filter((n) =>
-    draft.properties.some((r) => r.key.trim().toLowerCase() === n.toLowerCase()),
-  ),
-  loginIdentity: draft.loginIdentity.trim() || null,
-});
 
 export function PartnerFields({
   draft,

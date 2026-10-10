@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { validatePassword } from "../../lib/passwordPolicy";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, PasswordInput } from "../../components/ui/forms";

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Wand2 } from "lucide-react";
 import { parseSample } from "../../lib/nativeMapper/documentTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import type { ScaffoldTally } from "../../lib/nativeMapper/scaffold";
 import { FormatButton } from "../ui/FormatButton";
 import { Popover } from "../ui/Popover";

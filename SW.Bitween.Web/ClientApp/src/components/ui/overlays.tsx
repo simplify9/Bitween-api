@@ -2,18 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button, FormError } from "./basics";
 import { useModalFocus } from "./useModalFocus";
-
-/**
- * Every dialog currently mounted, innermost last.
- *
- * Escape used to belong to all of them at once: a confirm opened from inside a
- * dialog, on a page with its own Escape handling, closed all three in one press
- * and threw away two levels of context nobody asked to leave. Only the top of the
- * stack responds now, and pages ask `dialogsOpen()` before claiming the key.
- */
-const openDialogs: symbol[] = [];
-
-export const dialogsOpen = (): boolean => openDialogs.length > 0;
+import { openDialogs } from "./dialogStack";
 
 /** Centered modal. Closes on Escape (when it is the topmost) and backdrop click. */
 export function Dialog({

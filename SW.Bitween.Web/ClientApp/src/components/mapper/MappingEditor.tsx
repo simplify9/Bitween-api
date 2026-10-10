@@ -2,17 +2,16 @@ import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Search } from "lucide-react";
+import { MappingEditorProvider } from "../../lib/mapping/MappingEditorContext";
 import {
-  MappingEditorProvider,
-  useMappingEditorState,
-  useMappingEditorDispatch,
   generateFromTargetJson,
   setInputJson,
   setOutputJson,
   setSearchInput,
   setSearchOutput,
   togglePreview,
-} from "../../lib/mapping/MappingEditorContext";
+} from "../../lib/mapping/mappingEditorActions";
+import { useMappingEditorState, useMappingEditorDispatch } from "../../lib/mapping/mappingEditorHooks";
 import {
   buildTree,
   flattenLeafPaths,

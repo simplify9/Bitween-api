@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, CornerDownRight, Trash2 } from "lucide-react";
 import type { OutputEntryNode } from "../../lib/nativeMapper/outputTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import {
   TYPE_BADGES,
   freshSource,

@@ -1,18 +1,10 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, onSessionEnded, onSignedOutElsewhere, type PermissionKey, type Session } from "../api";
 import { useIdleLogout } from "./useIdleLogout";
+import { SessionContext } from "./useSession";
 
-interface SessionContextValue {
+export interface SessionContextValue {
   session: Session | null;
   /** True until the stored session has been checked once at startup. */
   initializing: boolean;
@@ -35,8 +27,6 @@ interface SessionContextValue {
   /** Ask again after `unreachable`. */
   retry: () => void;
 }
-
-const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -210,10 +200,4 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
-}
-
-export function useSession(): SessionContextValue {
-  const ctx = useContext(SessionContext);
-  if (!ctx) throw new Error("useSession must be used inside <SessionProvider>");
-  return ctx;
 }

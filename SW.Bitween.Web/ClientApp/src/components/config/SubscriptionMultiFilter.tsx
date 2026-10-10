@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import type { SubscriptionInfo } from "../../api";
-import { SUBSCRIPTION_TYPE_LABELS } from "./shared";
+import { SUBSCRIPTION_TYPE_LABELS } from "./subscriptionLabels";
 
 /**
  * Pick any number of subscriptions, to filter a table down to the rows connected to at

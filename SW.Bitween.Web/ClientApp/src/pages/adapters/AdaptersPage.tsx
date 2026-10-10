@@ -1,7 +1,18 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, FileCode, Package, Pencil, Plus, Puzzle, Search, Store, Upload } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileCode,
+  Package,
+  Pencil,
+  Plus,
+  Puzzle,
+  Search,
+  Store,
+  Upload,
+} from "lucide-react";
 import { api, type AdapterKind, type AdapterUploadResult } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -9,9 +20,10 @@ import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../compon
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { formatDate } from "../../lib/dates";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import {
   ADAPTER_KINDS,
   matchesSearch,

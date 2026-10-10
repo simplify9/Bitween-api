@@ -3,12 +3,12 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api, type InformationTypeRow } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { SearchSelect } from "../ui/SearchSelect";
 import { InformationTypeDialog } from "./InformationTypeDialog";
 import { SubscriptionDialog } from "./SubscriptionDialog";
 import { PartnerDialog } from "./PartnerDialog";
-import { useSubscriptionsCache } from "./shared";
+import { useSubscriptionsCache } from "./lookups";
 import { keys } from "../../api/queryKeys";
 import { formatLabel } from "../../lib/informationTypeFormat";
 

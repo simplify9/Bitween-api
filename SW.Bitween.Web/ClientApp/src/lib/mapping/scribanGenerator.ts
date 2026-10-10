@@ -1,4 +1,4 @@
-import { ArrayMapping, FieldMapping, FilterOperator, LookupDictionary, LookupEntry } from './types';
+import { ArrayMapping, FieldMapping, FilterOperator } from './types';
 
 /** Map of valuesSetId → (key → value) for enum lookups */
 export type ValuesSetMap = Record<string, Record<string, string>>;
@@ -207,14 +207,6 @@ function renderFieldValue(
     return `{{ ${castExpr(path, targetType, sourceType)} | json }}`;
   }
   return `{{ ${path} | json }}`;
-}
-
-function indent(lines: string, spaces: number): string {
-  const pad = ' '.repeat(spaces);
-  return lines
-    .split('\n')
-    .map((l) => pad + l)
-    .join('\n');
 }
 
 /**

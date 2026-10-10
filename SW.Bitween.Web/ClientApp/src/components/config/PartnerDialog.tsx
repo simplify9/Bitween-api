@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Dialog } from "../ui/overlays";
 import { keys } from "../../api/queryKeys";
-import {
-  PartnerFields,
-  partnerChanges,
-  partnerDirty,
-  partnerDraftOf,
-  type PartnerDraft,
-} from "./PartnerFields";
+import { PartnerFields, type PartnerDraft } from "./PartnerFields";
+import { partnerChanges, partnerDirty, partnerDraftOf } from "./partnerDraft";
 
 /**
  * A partner, created or edited without leaving whatever you were doing.

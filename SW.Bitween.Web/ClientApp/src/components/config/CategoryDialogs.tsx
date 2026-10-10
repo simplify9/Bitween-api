@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Trash2 } from "lucide-react";
 import { api, type SubscriptionCategory } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Button, FormError, LoadError, LoadingBlock } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
 import { Dialog } from "../ui/overlays";
-
-export const useCategories = () => useQuery({ queryKey: keys.categories, queryFn: () => api.listCategories() });
+import { useCategories } from "./categories";
 
 /** A category's code and description, for a new one or an existing one. */
 export function CategoryDialog({

@@ -2,15 +2,8 @@ import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, RefreshCw, Trash2, Undo2, Redo2 } from "lucide-react";
-import {
-  useMappingEditorState,
-  useMappingEditorDispatch,
-  autoMatch,
-  clearAll,
-  redo,
-  undo,
-  setSelectedPartner,
-} from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState, useMappingEditorDispatch } from "../../lib/mapping/mappingEditorHooks";
+import { autoMatch, clearAll, redo, undo, setSelectedPartner } from "../../lib/mapping/mappingEditorActions";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
 
@@ -83,7 +76,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
     if (selectedPartnerId == null) return;
     if (isPartnerFetching) return;
     dispatch(setSelectedPartner(selectedPartnerId, adapterProperties ?? {}));
-  }, [adapterProperties, selectedPartnerId, isPartnerFetching]);
+  }, [adapterProperties, selectedPartnerId, isPartnerFetching, dispatch]);
 
   const assignedFieldCount = useMemo(
     () => fieldMappings.filter((m) => m.target && (Boolean(m.source) || m.fixedValue !== undefined)).length,

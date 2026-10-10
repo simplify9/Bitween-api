@@ -1,7 +1,7 @@
 import { produce } from 'immer';
 import { KeyValuePair } from './types';
 import { parseScriban, resolveParentArrayIds } from './scribanGenerator';
-import { ArrayMapping, FieldMapping, ValidationError, genId } from './types';
+import { ArrayMapping, FieldMapping, genId } from './types';
 import { CoreState, MappingEditorAction, MappingEditorState } from './mappingEditorActions';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -306,7 +306,7 @@ export function mappingEditorReducer(
         draft.past = [...draft.past.slice(-49), snapshot(state)];
         draft.future = [];
         const norm = (s: string) =>
-          (s.split('.').pop() ?? s).toLowerCase().replace(/[_\-\[\]\*]/g, '');
+          (s.split('.').pop() ?? s).toLowerCase().replace(/[_\-[\]*]/g, '');
         let inputPaths: string[] = [];
         let outputPaths: string[] = [];
         try { inputPaths = flatPathsFromObj(JSON.parse(state.inputJson)); } catch {}

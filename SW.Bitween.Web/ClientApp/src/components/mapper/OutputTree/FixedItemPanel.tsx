@@ -2,7 +2,7 @@ import type React from "react";
 import { useState } from "react";
 import { SquarePen, Trash2 } from "lucide-react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
-import { useMappingEditorState } from "../../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import {
   FIXED_ITEM_MAX_DEPTH,
   initDraftFieldsFromNode,

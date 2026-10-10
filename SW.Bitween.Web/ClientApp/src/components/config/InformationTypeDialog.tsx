@@ -1,21 +1,19 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Dialog } from "../ui/overlays";
 import { keys } from "../../api/queryKeys";
+import { BusTypeRenameConfirm, InformationTypeFields, type InformationTypeDraft } from "./InformationTypeFields";
 import {
-  BusTypeRenameConfirm,
   EMPTY_INFORMATION_TYPE,
-  InformationTypeFields,
   renamesBusQueue,
   informationTypeChanges,
   informationTypeDirty,
   informationTypeDraftOf,
   informationTypeMissing,
-  type InformationTypeDraft,
-} from "./InformationTypeFields";
+} from "./informationTypeDraft";
 import { splitErrors } from "../../lib/fieldErrors";
 import { INFORMATION_TYPE_ERRORS } from "./informationTypeErrors";
 

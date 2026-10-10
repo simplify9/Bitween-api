@@ -2,7 +2,13 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Download, Layers, Plus, RotateCcw, X } from "lucide-react";
-import { api, type BulkRetrySelection, type ExchangeQuery, type ExchangeStatus, type ExportFilesCheck } from "../../api";
+import {
+  api,
+  type BulkRetrySelection,
+  type ExchangeQuery,
+  type ExchangeStatus,
+  type ExportFilesCheck,
+} from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
@@ -10,13 +16,15 @@ import { Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { timeAgo, timeUntil, duration } from "../../lib/dates";
 import { ExchangeDrawer } from "./ExchangeDrawer";
-import { hasRetryChain, retryTreeQuery } from "./RetryChain";
-import { JourneyStrip, RetryDialog, STATUS_LABELS, StatusBadge } from "./shared";
+import { hasRetryChain, retryTreeQuery } from "./retryTree";
+import { JourneyStrip, RetryDialog, StatusBadge } from "./shared";
+import { STATUS_LABELS } from "./journey";
 import { PromotedProps } from "../../components/config/shared";
 import { keys } from "../../api/queryKeys";
+import { NONE } from "../../lib/none";
 
 const PAGE_SIZE = 25;
 const STATUSES: ExchangeStatus[] = ["processing", "success", "badResponse", "failed"];
@@ -102,7 +110,7 @@ export function ExchangesPage() {
   const subscriptions = useSubscriptionsCache().data ?? [];
   const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() }).data ?? [];
   const infoTypes =
-    useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? [];
+    useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? NONE;
 
   /**
    * Every promoted key any information type declares, with the types that declare it.

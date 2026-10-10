@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useRules } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules } from "../../lib/nativeMapper/rulesEditorHooks";
 import type { ValueSource, ValueTypeName } from "../../lib/nativeMapper/types";
 import { lackingPath, lackingPathWarning } from "../config/sourceValues";
 import { RowInput, RowSelect, RowSuggestInput } from "./rowControls";

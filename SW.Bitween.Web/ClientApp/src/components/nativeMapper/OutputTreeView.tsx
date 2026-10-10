@@ -6,7 +6,7 @@ import {
   type DocumentNode,
 } from "../../lib/nativeMapper/documentTree";
 import type { OutputNode } from "../../lib/nativeMapper/outputTree";
-import { useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import type { EditorListRule, RuleId } from "../../lib/nativeMapper/types";
 import { EntryRow } from "./EntryRow";
 import { ListRow } from "./ListRow";

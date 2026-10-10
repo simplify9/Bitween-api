@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Trash2, Undo2 } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { CodeBadge, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
@@ -18,12 +20,14 @@ import {
   BusTypeRenameConfirm,
   InformationTypeFields,
   InformationTypeMessagesWarning,
+  type InformationTypeDraft,
+} from "../../components/config/InformationTypeFields";
+import {
   renamesBusQueue,
   informationTypeChanges,
   informationTypeDirty,
   informationTypeDraftOf,
-  type InformationTypeDraft,
-} from "../../components/config/InformationTypeFields";
+} from "../../components/config/informationTypeDraft";
 import { splitErrors } from "../../lib/fieldErrors";
 import { INFORMATION_TYPE_ERRORS } from "../../components/config/informationTypeErrors";
 

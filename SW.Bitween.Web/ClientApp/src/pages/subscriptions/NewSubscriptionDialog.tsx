@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router";
 import { CalendarClock, ChevronRight, CornerDownLeft, Layers, Webhook, Workflow } from "lucide-react";
 import type { ReactNode } from "react";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Dialog } from "../../components/ui/overlays";
 
 type Way = { icon: ReactNode; title: string; body: string; to: string; permission: Parameters<typeof useSessionCan>[0] };

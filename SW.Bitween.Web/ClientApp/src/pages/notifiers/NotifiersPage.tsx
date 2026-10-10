@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { BellRing, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
-import { useAdapterCatalog } from "../../components/config/AdapterConfig";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
@@ -12,7 +12,8 @@ import { Dialog } from "../../components/ui/overlays";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
-import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { useSearchText } from "../../lib/useSearchText";
 
 function CreateNotifierDialog({ onClose }: { onClose: () => void }) {

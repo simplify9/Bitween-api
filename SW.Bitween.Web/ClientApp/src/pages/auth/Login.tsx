@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getAppConfig, type Session } from "../../api";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { homePath } from "../../nav";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, PasswordInput, TextInput } from "../../components/ui/forms";

@@ -1,11 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
-  removeFieldMapping,
-  selectMapping,
-} from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../lib/mapping/mappingEditorHooks";
+import { removeFieldMapping, selectMapping } from "../../lib/mapping/mappingEditorActions";
 import type { ArrayMapping } from "../../lib/mapping/types";
 
 // ─── Path helpers (mirrors OutputTree / ArrayMappingModal) ────────────────────

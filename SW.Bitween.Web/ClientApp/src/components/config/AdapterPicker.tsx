@@ -1,16 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
-import { api, type AdapterInfo, type AdapterKind } from "../../api";
+import { type AdapterInfo, type AdapterKind } from "../../api";
 import { SearchSelect } from "../ui/SearchSelect";
-import { keys } from "../../api/queryKeys";
-
-export function useAdapterCatalog(kind: AdapterKind) {
-  return useQuery({
-    queryKey: keys.adapters(kind),
-    queryFn: () => api.listAdapters(kind),
-  });
-}
 
 /** The sentinel option that opens the custom list. Not an adapter id. */
 const CUSTOM = "__custom__";

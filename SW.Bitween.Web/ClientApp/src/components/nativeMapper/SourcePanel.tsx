@@ -5,7 +5,7 @@ import {
   type Coverage,
   type DocumentNode,
 } from "../../lib/nativeMapper/documentTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import { FormatButton } from "../ui/FormatButton";
 import { TextInput } from "../ui/forms";
 import { RowSelect } from "./rowControls";

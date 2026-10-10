@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { LookupRule } from "../../lib/nativeMapper/types";
-import { KeyValueEditor, toRecord, toRows, type KvRow } from "../ui/KeyValueEditor";
+import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
+import { toRecord, toRows } from "../ui/keyValueRows";
 import { Checkbox } from "../ui/forms";
 import { RowInput } from "./rowControls";
 

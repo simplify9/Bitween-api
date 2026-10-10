@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { api, type InformationTypeFormat, type SubscriptionType } from "../../../api";
-import { useSessionCan } from "../../../auth/guards";
+import { useSessionCan } from "../../../auth/useSessionCan";
 import { Badge } from "../../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../../components/ui/forms";
 import { InfoTypePicker } from "../../../components/config/pickers";

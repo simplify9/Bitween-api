@@ -2,7 +2,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Copy } from "lucide-react";
-import { useMappingEditorState } from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState } from "../../lib/mapping/mappingEditorHooks";
 import { generateScriban } from "../../lib/mapping/scribanGenerator";
 import { useValuesSetMap } from "./data";
 import { api } from "../../api";
@@ -56,7 +56,7 @@ const LivePreview: React.FC = () => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [inputJson, fieldMappings, arrayMappings, manualTemplate, mode, valuesSetMap, partnerAdapterProperties, selectedPartnerId]);
+  }, [inputJson, targetSchemaJson, fieldMappings, arrayMappings, manualTemplate, mode, valuesSetMap, partnerAdapterProperties, selectedPartnerId, previewMapping]);
 
   const formatted = outputJson !== null ? outputJson : null;
 

@@ -7,7 +7,7 @@ import { type Extension } from "@codemirror/state";
 import { CheckCircle2, CircleSlash, FilePlus, Play, Rocket, Save, Trash2, XCircle } from "lucide-react";
 import { api, ApiRequestError, type AdapterDraft, type DraftBuild, type DraftRun } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { BackLink } from "../../components/ui/BackLink";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";

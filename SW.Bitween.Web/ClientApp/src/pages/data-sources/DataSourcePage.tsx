@@ -10,9 +10,11 @@ import {
   type DataSourceInspectResult,
   type DataSourceTestResult,
 } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { BackLink } from "../../components/ui/BackLink";

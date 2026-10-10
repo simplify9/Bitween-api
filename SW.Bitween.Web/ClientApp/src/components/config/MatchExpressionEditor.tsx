@@ -1,7 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import type { InformationTypeFormat, MatchCondition, MatchGroup, MatchNode } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { formatLabel, readsContent } from "../../lib/informationTypeFormat";
 import { matchSummary } from "../../lib/match";
 import { Button } from "../ui/basics";

@@ -3,22 +3,23 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadCloud, FileStack, Pause, Play, Power, PowerOff, Trash2, X } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
-import { Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
+import { ConfirmDialog } from "../../components/ui/overlays";
+import { dialogsOpen } from "../../components/ui/dialogStack";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
-import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
+import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { MatchExpressionEditor } from "../../components/config/MatchExpressionEditor";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { AggregationRetentionWarning } from "../../components/config/AggregationRetentionWarning";
 import { AggregationFields } from "../../components/config/AggregationFields";
 import { useSourceDocument } from "../../components/config/sourceValues";
-import {
-  SubscriptionStatusBadges,
-  TypeBadge,
-  scheduleFault,
-  useSubscriptionsCache,
-} from "../../components/config/shared";
+import { SubscriptionStatusBadges, TypeBadge } from "../../components/config/shared";
+import { scheduleFault } from "../../components/config/subscriptionLabels";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { DataSourceBinding } from "./studio/DataSourceBinding";
 import { useBindsToDataSource } from "../data-sources/providers";

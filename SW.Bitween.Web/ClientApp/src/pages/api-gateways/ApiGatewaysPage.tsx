@@ -9,11 +9,8 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
-import {
-  LinkListCell,
-  WiredHealthBadge,
-  useSubscriptionRowsById,
-} from "../../components/config/shared";
+import { LinkListCell, WiredHealthBadge } from "../../components/config/shared";
+import { useSubscriptionRowsById } from "../../components/config/lookups";
 import { useSearchText } from "../../lib/useSearchText";
 
 /**

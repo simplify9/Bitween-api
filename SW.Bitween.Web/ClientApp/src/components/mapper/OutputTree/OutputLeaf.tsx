@@ -1,7 +1,7 @@
 import type React from "react";
 import { useMemo } from "react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
-import { useMappingEditorState } from "../../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import { getFullTargetPrefix, isFieldMappingPopulated } from "../../../lib/mapping/mappingTreeUtils";
 import { useGlobalSets } from "../data";
 import type { PrimitiveArrayItem } from "../../../lib/mapping/types";

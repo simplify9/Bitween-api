@@ -1,5 +1,5 @@
 import type { AdapterInfo, SubscriptionType } from "../../../api";
-import { AGGREGATION_TARGET_DETAIL } from "../../../components/config/AggregationFields";
+import { AGGREGATION_TARGET_DETAIL } from "../../../components/config/aggregationTargets";
 import { schedulesSummary } from "../../../lib/schedules";
 import { formatDateTime } from "../../../lib/dates";
 import type { StageFace } from "./StageRail";

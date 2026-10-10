@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Copy } from "lucide-react";
-import { useRules } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules } from "../../lib/nativeMapper/rulesEditorHooks";
 import { HighlightedDocument } from "../ui/HighlightedDocument";
 
 /**

@@ -5,28 +5,16 @@ import { ArrowUpRight, Braces, ChevronDown, ChevronRight, Search } from "lucide-
 import { api, SECRET_SENTINEL, type AdapterInfo, type AdapterKind, type PartnerRow } from "../../api";
 import { Button } from "../ui/basics";
 import { Field } from "../ui/forms";
-import { AdapterPicker, useAdapterCatalog } from "./AdapterPicker";
+import { AdapterPicker } from "./AdapterPicker";
+import { useAdapterCatalog } from "./adapterCatalog";
 import { keys } from "../../api/queryKeys";
-import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import { runtimeLabel } from "../../lib/adapterInventory";
 import { lackingPath, lackingPathWarning, type SourceDocument } from "./sourceValues";
+import { usesVisualMappingEditor } from "./mapperEditors";
 
 // Lives with the picker, re-exported here because this is where every screen
 // already imports it from.
-export { useAdapterCatalog };
 
-/**
- * Mappers whose mapping is built in the visual editor rather than typed into
- * adapter properties. Both are listed while the old mapper is still in use by
- * running subscriptions; its entry goes when they have been moved over.
- *
- * The old id is spelled out because its module sits outside the app's tsconfig.
- */
-const VISUAL_EDITOR_MAPPERS: readonly string[] = ["NativeJSONMapper", NATIVE_MAPPER_ID];
-
-export function usesVisualMappingEditor(adapterId: string | null | undefined): boolean {
-  return adapterId != null && VISUAL_EDITOR_MAPPERS.includes(adapterId);
-}
 
 /** What the picker is choosing, named for the band above the fields. */
 const KIND_LABELS: Record<AdapterKind, string> = {

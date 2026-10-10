@@ -3,23 +3,21 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
-import { ExchangesList, SetupList, usePartnerSubscriptions } from "../../components/config/shared";
+import { ExchangesList, SetupList } from "../../components/config/shared";
+import { usePartnerSubscriptions } from "../../components/config/lookups";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
-import {
-  PartnerFields,
-  partnerChanges,
-  partnerDirty,
-  partnerDraftOf,
-  type PartnerDraft,
-} from "../../components/config/PartnerFields";
+import { PartnerFields, type PartnerDraft } from "../../components/config/PartnerFields";
+import { partnerChanges, partnerDirty, partnerDraftOf } from "../../components/config/partnerDraft";
 
 export function PartnerPage() {
   const { id = "" } = useParams();

@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
   addArrayMapping,
   openArrayModal,
   removeArrayMapping,
   updateArrayMapping,
-} from "../../../lib/mapping/MappingEditorContext";
+} from "../../../lib/mapping/mappingEditorActions";
 import { type FilterOperator, type LookupDictionary } from "../../../lib/mapping/types";
 import { buildTypeMap } from "../../../lib/mapping/scribanGenerator";
 import {
@@ -255,6 +254,9 @@ export function useArrayMappingModal(): UseArrayMappingModalResult {
       setPendingMappings([]);
     }
     setOpenPanels({});
+    // Fills the form when a different mapping is opened. Re-filling it when the input document
+    // changes would throw away what is being edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [am, inputScalarProps, editingArrayId]);
 
   // ── Actions ────────────────────────────────────────────────────────────────

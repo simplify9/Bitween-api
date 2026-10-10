@@ -1,6 +1,6 @@
 import type React from "react";
 import { PlusCircle, X } from "lucide-react";
-import { useMappingEditorState } from "../../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import type { FilterOperator } from "../../../lib/mapping/types";
 import { generateExample } from "../../../lib/mapping/arrayMappingHelpers";
 import { useArrayMappingModal } from "./useArrayMappingModal";

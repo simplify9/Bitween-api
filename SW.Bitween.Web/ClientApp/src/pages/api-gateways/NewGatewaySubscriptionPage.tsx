@@ -3,20 +3,19 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { api } from "../../api";
-import { Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
-import {
-  AdapterConfig,
-  useAdapterCatalog,
-} from "../../components/config/AdapterConfig";
+import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { InfoTypePicker } from "../../components/config/pickers";
 import { DataSourceBinding } from "../subscriptions/studio/DataSourceBinding";
 import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { STAGES, stagesFor, type StageId } from "../subscriptions/studio/stages";
 import { StageRail } from "../subscriptions/studio/StageRail";
 import { EntryPointsTable } from "../subscriptions/studio/Overview";

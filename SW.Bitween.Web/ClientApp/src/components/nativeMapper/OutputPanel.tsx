@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Search } from "lucide-react";
 import type { DocumentNode } from "../../lib/nativeMapper/documentTree";
 import { filterTree, outputTreeOf } from "../../lib/nativeMapper/outputTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import { everyFieldRule, isAssigned, isItemAssigned } from "../../lib/nativeMapper/rulesReducer";
 import { TextInput } from "../ui/forms";
 import { AddRuleButtons, OutputTreeView } from "./OutputTreeView";

@@ -3,13 +3,16 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pause, PanelLeftClose, PanelLeftOpen, Play, Trash2 } from "lucide-react";
 import { api, type BusGatewayDetail, type InlineSubscriptionDraft, type SubscriptionDetail } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, FormError, isNotFound, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
+import { ConfirmDialog } from "../../components/ui/overlays";
+import { dialogsOpen } from "../../components/ui/dialogStack";
 import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
-import { useAdapterCatalog } from "../../components/config/AdapterConfig";
-import { useSubscriptionRowsById, useSubscriptionsCache } from "../../components/config/shared";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
+import { useSubscriptionRowsById, useSubscriptionsCache } from "../../components/config/lookups";
 import { useSourceDocument } from "../../components/config/sourceValues";
 import {
   EMPTY_SUBSCRIPTION,

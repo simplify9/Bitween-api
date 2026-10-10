@@ -2,13 +2,8 @@ import type React from "react";
 import { useCallback } from "react";
 import { flattenLeafPaths } from "../../lib/mapping/mappingPreview";
 import type { TreeNode } from "../../lib/mapping/mappingPreview";
-import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
-  addFieldMapping,
-  setHoveredPath,
-  toggleNodeCollapsed,
-} from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../lib/mapping/mappingEditorHooks";
+import { addFieldMapping, setHoveredPath, toggleNodeCollapsed } from "../../lib/mapping/mappingEditorActions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
