@@ -194,6 +194,8 @@ export interface RequestOptions {
   body?: unknown;
   /** Internal: prevents the 401 → refresh → retry loop from recursing. */
   _retried?: boolean;
+  /** A file sent as the body itself rather than as JSON: an adapter package. */
+  file?: Blob;
   /** Lets a caller cancel the request — only `logout` needs this, and says why. */
   signal?: AbortSignal;
 }
@@ -233,15 +235,16 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   // `Content-Type: application/json` — even a body-less command like logout.
   // Without it the framework rejects the call with 415 before the handler runs;
   // an empty `{}` satisfies it.
-  const sendJson = method === "POST";
+  const sendJson = method === "POST" && !opts.file;
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: "include",
     headers: {
       ...(sendJson ? { "Content-Type": "application/json" } : {}),
+      ...(opts.file ? { "Content-Type": opts.file.type || "application/zip" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: sendJson ? JSON.stringify(opts.body ?? {}) : undefined,
+    body: opts.file ?? (sendJson ? JSON.stringify(opts.body ?? {}) : undefined),
     ...(opts.signal ? { signal: opts.signal } : {}),
   });
 

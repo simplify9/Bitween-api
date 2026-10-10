@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/renderApp";
 
 /**
@@ -174,6 +174,70 @@ describe("the Adapters page", () => {
     expect((await section("Custom")).getByText("Acme invoices")).toBeVisible();
     // Built-in adapters have no runtime of their own, so none matches one.
     expect((await section("Built-in")).getByText("No built-in adapter matches.")).toBeVisible();
+  });
+
+  it("withdraws a version that isn't current, saying what happens to its pins", async () => {
+    const posts: Array<{ path: string; body: unknown }> = [];
+    const withThree = {
+      ...ORDERS,
+      versions: ["1.1.0", "1.2.0"],
+      versionHistory: [
+        ...ORDERS.versionHistory,
+        { version: "1.2.0", publishedOn: "2026-10-05T00:00:00Z", publishedBy: "ci", releaseNotes: "Beta", withdrawn: false },
+      ],
+    };
+    const { user } = renderApp("/adapters", {
+      handlers: [
+        http.get(apiPath("/adapters/Catalog"), ({ request }) =>
+          HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [withThree] : []),
+        ),
+        http.post(apiPath("/adapters/withdraw"), async ({ request }) => {
+          posts.push({ path: "withdraw", body: await request.json() });
+          return HttpResponse.json({ adapterId: "acme.handlers.orders", withdrawn: "1.2.0" });
+        }),
+        ...handlers,
+      ],
+    });
+
+    await user.click(await screen.findByRole("button", { name: /Acme orders/ }, LOADED));
+    // The current version can't be withdrawn, and a withdrawn one can't be again.
+    expect(screen.queryByRole("button", { name: "Withdraw v1.1.0" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Withdraw v1.0.0" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Withdraw v1.2.0" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/can't be pinned or made current again/)).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Withdraw v1.2.0" }));
+
+    await vi.waitFor(() => expect(posts).toEqual([{ path: "withdraw", body: { adapterId: "acme.handlers.orders", version: "1.2.0" } }]));
+  });
+
+  it("publishes an uploaded package, current only when asked", async () => {
+    let received: { query: string; type: string | null } | null = null;
+    const { user } = renderApp("/adapters", {
+      handlers: [
+        http.post(apiPath("/adapters/packages"), async ({ request }) => {
+          received = {
+            query: new URL(request.url).search,
+            type: request.headers.get("content-type"),
+          };
+          return HttpResponse.json({ adapterId: "acme.orders", version: "0.2.0", current: true, sha256: "x" });
+        }),
+        ...handlers,
+      ],
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Upload package" }, LOADED));
+    const dialog = await screen.findByRole("dialog");
+    await user.upload(within(dialog).getByLabelText("Package"), new File(["PK-zip-bytes"], "acme.orders-0.2.0.zip", { type: "application/zip" }));
+    await user.selectOptions(within(dialog).getByLabelText("Version"), "minor");
+    await user.click(within(dialog).getByRole("checkbox"));
+    await user.click(within(dialog).getByRole("button", { name: "Publish" }));
+
+    expect(await within(dialog).findByText(/and made it current/)).toBeVisible();
+    // The bytes themselves aren't checked: jsdom's File isn't a Blob Node's fetch can send, which a
+    // browser's is. The package goes as the body, typed as a zip, with the choices in the query.
+    expect(received).toMatchObject({ query: "?version=minor&current=true", type: "application/zip" });
   });
 
   it("has a marketplace tab, still to come", async () => {

@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { AdapterDraft, AdapterDraftSummary, DraftBuild, DraftPublishResult, DraftRun } from "../types";
+import type { AdapterDraft, AdapterDraftSummary, DraftBuild, DraftPublishResult, DraftRun, AdapterUploadResult } from "../types";
 import { get, post, request } from "./request";
 
 export const adapterDraftMethods = {
@@ -29,5 +29,15 @@ export const adapterDraftMethods = {
 
   async promoteAdapter(adapterId: string, version: string) {
     await post("/adapters/promote", { adapterId, version });
+  },
+
+  async withdrawAdapterVersion(adapterId: string, version: string) {
+    await post("/adapters/withdraw", { adapterId, version });
+  },
+
+  uploadAdapterPackage(file: Blob, options: { version: string; current: boolean; releaseNotes: string }) {
+    const query = new URLSearchParams({ version: options.version, current: String(options.current) });
+    if (options.releaseNotes.trim()) query.set("releaseNotes", options.releaseNotes.trim());
+    return request<AdapterUploadResult>(`/adapters/packages?${query.toString()}`, { method: "POST", file });
   },
 } satisfies Partial<ApiClient>;

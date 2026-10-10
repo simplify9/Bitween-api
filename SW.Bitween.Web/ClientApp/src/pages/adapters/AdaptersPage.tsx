@@ -1,8 +1,8 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, FileCode, Package, Pencil, Plus, Puzzle, Search, Store } from "lucide-react";
-import { api, type AdapterKind } from "../../api";
+import { ChevronDown, ChevronRight, FileCode, Package, Pencil, Plus, Puzzle, Search, Store, Upload } from "lucide-react";
+import { api, type AdapterKind, type AdapterUploadResult } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
@@ -62,9 +62,14 @@ export function AdaptersPage() {
         title="Adapters"
         description="What Bitween can receive with, check, transform and deliver with — built in, or published to this instance."
         actions={
-          <Can permission="adapter-source.edit">
-            <NewAdapterButton />
-          </Can>
+          <div className="flex gap-2">
+            <Can permission="adapter-source.operate">
+              <UploadPackageButton />
+            </Can>
+            <Can permission="adapter-source.edit">
+              <NewAdapterButton />
+            </Can>
+          </div>
         }
       />
 
@@ -382,6 +387,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
   const canPromote = useSessionCan("adapter-source.operate");
   const [sourceOf, setSourceOf] = useState<string | null>(null);
   const [promoting, setPromoting] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
   const [editError, setEditError] = useState("");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -390,6 +396,8 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
   const editable = (v: (typeof a.versions)[number]) =>
     canEdit && v.hasSource && (v.runtime === "python" || v.runtime === "node");
   const promotable = (v: (typeof a.versions)[number]) => canPromote && !v.withdrawn && v.version !== a.currentVersion;
+  // Not the current one: the server refuses, since everything following current would have nothing to run.
+  const withdrawable = promotable;
   const actionColumn = a.hasCatalog && a.versions.some((v) => editable(v) || promotable(v));
   const edit = async (version: string) => {
     setEditError("");
@@ -491,6 +499,16 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                               Make current
                             </button>
                           )}
+                          {withdrawable(v) && (
+                            <button
+                              type="button"
+                              onClick={() => setWithdrawing(v.version)}
+                              aria-label={`Withdraw v${v.version}`}
+                              className="font-medium text-ink-600 hover:text-danger-700 hover:underline"
+                            >
+                              Withdraw
+                            </button>
+                          )}
                         </span>
                       </td>
                     )}
@@ -520,6 +538,22 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                 await queryClient.invalidateQueries({ queryKey: ["adapters"] });
               }}
               onClose={() => setPromoting(null)}
+            />
+          )}
+          {withdrawing && (
+            <ConfirmDialog
+              title={`Withdraw v${withdrawing}?`}
+              body={`It stays listed, but can't be pinned or made current again.${
+                (usage?.pinned[withdrawing] ?? 0) > 0
+                  ? ` The ${usage!.pinned[withdrawing] === 1 ? "subscription" : `${usage!.pinned[withdrawing]} subscriptions`} pinned to it keep running it until they are moved.`
+                  : ""
+              } Nothing is deleted.`}
+              confirmLabel={`Withdraw v${withdrawing}`}
+              onConfirm={async () => {
+                await api.withdrawAdapterVersion(a.id, withdrawing);
+                await queryClient.invalidateQueries({ queryKey: ["adapters"] });
+              }}
+              onClose={() => setWithdrawing(null)}
             />
           )}
           {sourceColumn && sourceOf && (
@@ -554,6 +588,121 @@ const LANGUAGES = [
 ];
 
 /** Starts a new Python or JavaScript adapter in the editor, from the template serverless init writes. */
+/**
+ * Publishes a package built elsewhere, by the bitween CLI, in any language .NET included: what
+ * bitween adapter publish does, from the browser.
+ */
+function UploadPackageButton() {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [version, setVersion] = useState("");
+  const [current, setCurrent] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState<AdapterUploadResult | null>(null);
+  const queryClient = useQueryClient();
+
+  const close = () => {
+    setOpen(false);
+    setFile(null);
+    setVersion("");
+    setCurrent(false);
+    setNotes("");
+    setError("");
+    setDone(null);
+  };
+
+  const upload = async () => {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      setDone(await api.uploadAdapterPackage(file, { version, current, releaseNotes: notes }));
+      await queryClient.invalidateQueries({ queryKey: ["adapters"] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The package couldn't be published.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>
+        <Upload className="size-4" aria-hidden />
+        Upload package
+      </Button>
+      {open && (
+        <Dialog title="Upload an adapter package" onClose={close}>
+          {done ? (
+            <div className="space-y-4">
+              <p className="text-sm text-ink-700">
+                Published <code className="font-mono">{done.adapterId}</code> v{done.version}
+                {done.current ? ", and made it current." : ". It isn't current: make it current on its row when it should run."}
+              </p>
+              <div className="flex justify-end">
+                <Button variant="primary" onClick={close}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void upload();
+              }}
+            >
+              <Field
+                label="Package"
+                hint="The .zip bitween adapter build made. Its manifest says which adapter it is; nothing in it runs while it is published."
+                htmlFor="upload-package"
+              >
+                <input
+                  id="upload-package"
+                  type="file"
+                  accept=".zip,application/zip"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm text-ink-700 file:mr-3 file:rounded-md file:border file:border-ink-200 file:bg-white file:px-3 file:py-1.5 file:text-sm"
+                />
+              </Field>
+              <Field label="Version" htmlFor="upload-version">
+                <Select
+                  id="upload-version"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  options={[
+                    { value: "", label: "The package's own" },
+                    { value: "patch", label: "Next patch" },
+                    { value: "minor", label: "Next minor" },
+                    { value: "major", label: "Next major" },
+                  ]}
+                />
+              </Field>
+              <Field label="Release notes" hint="Replaces the package's own, if it has any." htmlFor="upload-notes">
+                <TextInput id="upload-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </Field>
+              <label className="flex items-center gap-2 text-sm text-ink-700">
+                <input type="checkbox" checked={current} onChange={(e) => setCurrent(e.target.checked)} />
+                Make it current: subscriptions that don't pin a version run it from their next exchange
+              </label>
+              <FormError>{error}</FormError>
+              <div className="flex justify-end gap-2">
+                <Button onClick={close}>Cancel</Button>
+                <Button variant="primary" type="submit" busy={busy} disabled={!file}>
+                  Publish
+                </Button>
+              </div>
+            </form>
+          )}
+        </Dialog>
+      )}
+    </>
+  );
+}
+
 function NewAdapterButton() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -609,7 +758,8 @@ function NewAdapterButton() {
             </Field>
             <p className="text-[12.5px] text-ink-500">
               It starts as a draft only you and other editors see, and runs nowhere until a version is published and made
-              current. Adapters that need packages beyond the SDK are built with the serverless CLI.
+              current. Adapters that need packages beyond the SDK are built with the bitween CLI, unless this Bitween's
+              editor fetches dependencies (see Settings › About this instance).
             </p>
             <FormError>{error}</FormError>
             <div className="flex justify-end gap-2">

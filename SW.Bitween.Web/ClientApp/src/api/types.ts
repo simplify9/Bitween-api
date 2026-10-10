@@ -1734,3 +1734,11 @@ export interface ClusterNodes {
     holdsDataSources: { id: number; name: string }[];
   }[];
 }
+
+/** POST /adapters/packages: what was published. */
+export interface AdapterUploadResult {
+  adapterId: string;
+  version: string;
+  current: boolean;
+  sha256: string;
+}

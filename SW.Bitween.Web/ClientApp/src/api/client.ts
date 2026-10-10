@@ -76,6 +76,7 @@ import type {
   RetentionStatus,
   SettingRow,
   InstanceAbout,
+  AdapterUploadResult,
   ClusterNodes,
   User,
   WorkGroup,
@@ -335,6 +336,10 @@ export interface ApiClient {
   publishAdapterDraft(id: number, input: { version: string; releaseNotes: string; settings: Record<string, string> }): Promise<DraftPublishResult>;
   /** Makes a published version the one that runs wherever nothing is pinned. */
   promoteAdapter(adapterId: string, version: string): Promise<void>;
+  /** Takes a version out of use: still listed and still run where pinned, never pinned or made current again. */
+  withdrawAdapterVersion(adapterId: string, version: string): Promise<void>;
+  /** Publishes a package built by bitween adapter build, any language. */
+  uploadAdapterPackage(file: Blob, options: { version: string; current: boolean; releaseNotes: string }): Promise<AdapterUploadResult>;
 
   // — work groups —
   listWorkGroups(): Promise<WorkGroupRow[]>;

@@ -387,7 +387,12 @@ What is published, and where:
 A version is published without being made current unless `--current` is given, so subscriptions keep
 running what they ran until it is promoted, or until a subscription pins it. Making an older version
 current again is how a release is rolled back. A withdrawn version stays listed but can't be pinned
-or made current.
+or made current; subscriptions already pinned to it keep running it.
+
+On the **Adapters** page, someone with `adapter-source.operate` can do the same from the browser:
+**Upload package** publishes a `.zip` built by `bitween adapter build` (any language, with the version
+taken from the package or bumped, and made current only when ticked), and each version that isn't
+current has **Make current** and **Withdraw**.
 
 The adapter's kinds come from its manifest — `bitween adapter build` writes them from what the code
 declares — so an adapter can be named anything. Packages published before manifests are found by the
