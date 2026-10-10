@@ -161,7 +161,8 @@ test("pinning a subscription's custom handler to v1.0.0: the picker offers the p
   // The built-in picker lists the native adapters; custom ones are a step further in.
   await pickOption(page, "handler adapter", /^Custom adapter/);
   await pickOption(page, "Custom handler adapter", new RegExp(CUSTOM_HANDLER_LABEL.replace(/[()]/g, "\\$&")));
-  await expect(page.getByText("Custom · v2.0.0")).toBeVisible();
+  // What it runs on is named too: the sample handler is .NET.
+  await expect(page.getByText("Custom · .NET · v2.0.0")).toBeVisible();
 
   const version = page.getByRole("combobox", { name: "Adapter version" });
   await expect(version.locator("option")).toHaveText(["Follow current (v2.0.0)", "v2.0.0", "v1.0.0"]);
@@ -181,7 +182,7 @@ test("pinning a subscription's custom handler to v1.0.0: the picker offers the p
   const custom = page.getByRole("region", { name: /^Custom/ });
   await custom.getByRole("button", { name: new RegExp(CUSTOM_HANDLER_LABEL.replace(/[()]/g, "\\$&")) }).click();
   const v1 = custom.getByRole("row").filter({ hasText: "v1.0.0" });
-  await expect(v1.getByRole("cell").nth(2)).toHaveText("1");
+  await expect(v1.getByRole("cell").nth(3)).toHaveText("1"); // Version, Runtime, Published, Pinned by
   await expect(custom.getByRole("row").filter({ hasText: "v2.0.0" })).toContainText("Current");
 
   // The pinned package really runs: an exchange sent to the subscription is delivered by it.
