@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AdapterInfo, SubscriptionInfo } from "../../api";
-import { matchesSearch, mergeCatalogs, usageByAdapter } from "../adapterInventory";
+import { matchesSearch, mergeCatalogs, runtimeLabel, runtimeOf, usageByAdapter } from "../adapterInventory";
 
 const adapter = (over: Partial<AdapterInfo>): AdapterInfo => ({
   id: "x",
@@ -81,5 +81,22 @@ describe("matchesSearch", () => {
     });
     for (const q of ["orders", "ACME.ORD", "acme ltd", "EDI", ""]) expect(matchesSearch(a, q)).toBe(true);
     expect(matchesSearch(a, "nothing")).toBe(false);
+  });
+});
+
+describe("runtimeOf", () => {
+  const v = (version: string, runtime: string | null, withdrawn = false) => ({
+    version, runtime, withdrawn, publishedOn: null, publishedBy: null, releaseNotes: null, hasSource: false,
+  });
+
+  it("is the current version's runtime", () => {
+    expect(runtimeOf({ native: false, currentVersion: "1.0.0", versions: [v("2.0.0", "node"), v("1.0.0", "python")] })).toBe("python");
+  });
+
+  it("falls back to the newest version not withdrawn, and is null for built-in adapters", () => {
+    expect(runtimeOf({ native: false, currentVersion: null, versions: [v("2.0.0", "node", true), v("1.0.0", "dotnet")] })).toBe("dotnet");
+    expect(runtimeOf({ native: true, currentVersion: null, versions: [] })).toBeNull();
+    expect(runtimeLabel("node")).toBe("Node.js");
+    expect(runtimeLabel(null)).toBeNull();
   });
 });

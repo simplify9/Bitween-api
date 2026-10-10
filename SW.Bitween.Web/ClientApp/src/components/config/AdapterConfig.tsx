@@ -8,6 +8,7 @@ import { Field } from "../ui/forms";
 import { AdapterPicker, useAdapterCatalog } from "./AdapterPicker";
 import { keys } from "../../api/queryKeys";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
+import { runtimeLabel } from "../../lib/adapterInventory";
 import { lackingPath, lackingPathWarning, type SourceDocument } from "./sourceValues";
 
 // Lives with the picker, re-exported here because this is where every screen
@@ -624,9 +625,15 @@ export function AdapterConfig({
             <span className="text-[12px] text-ink-400">
               {adapter.native
                 ? "Runs in-process"
-                : (adapter.currentVersion ?? adapter.versions.at(-1))
-                  ? `Custom · v${adapter.currentVersion ?? adapter.versions.at(-1)}`
-                  : "Custom package"}
+                : [
+                    "Custom",
+                    pinnedRuntime(adapter, version ?? null),
+                    (version ?? adapter.currentVersion ?? adapter.versions.at(-1))
+                      ? `v${version ?? adapter.currentVersion ?? adapter.versions.at(-1)}`
+                      : "package",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
               {adapter.props.length > 0 &&
                 ` · ${adapter.props.length} setting${adapter.props.length === 1 ? "" : "s"}`}
             </span>
@@ -709,6 +716,12 @@ export function AdapterConfig({
   );
 }
 
+/** What the pinned version, or the one followed, runs on: shown beside the adapter. */
+function pinnedRuntime(adapter: AdapterInfo, version: string | null): string | null {
+  const runs = version ?? adapter.currentVersion ?? adapter.versions.at(-1);
+  return runtimeLabel(adapter.versionHistory.find((v) => v.version === runs)?.runtime);
+}
+
 /**
  * Which published version a slot runs: the current one, or a version pinned so that publishing a
  * newer one doesn't change this subscription. A pinned version that has since been withdrawn stays
@@ -732,6 +745,11 @@ function VersionSelect({
 
   const pinned = version ? history.find((v) => v.version === version) : undefined;
   const current = adapter.currentVersion ?? adapter.versions.at(-1) ?? null;
+  // Named on each option only when versions differ in what they run on: pinning a version can then
+  // move a step to another runtime, and that should be visible before it is picked.
+  const runtimes = new Set(history.map((v) => ("runtime" in v ? v.runtime : null) ?? null));
+  const label = (v: (typeof history)[number]) =>
+    runtimes.size > 1 && "runtime" in v && runtimeLabel(v.runtime) ? ` · ${runtimeLabel(v.runtime)}` : "";
 
   return (
     <label className="flex items-center gap-1.5 text-[12px] text-ink-500">
@@ -752,6 +770,7 @@ function VersionSelect({
             title={v.releaseNotes ?? undefined}
           >
             v{v.version}
+            {label(v)}
             {v.withdrawn ? " (withdrawn)" : ""}
           </option>
         ))}

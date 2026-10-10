@@ -32,8 +32,8 @@ const ORDERS = {
   tags: ["orders"],
   currentVersion: "1.1.0",
   versionHistory: [
-    { version: "1.0.0", publishedOn: "2026-09-01T00:00:00Z", publishedBy: "ci", releaseNotes: "First cut", withdrawn: true },
-    { version: "1.1.0", publishedOn: "2026-10-01T00:00:00Z", publishedBy: "ci", releaseNotes: "Retries on 503", withdrawn: false },
+    { version: "1.0.0", publishedOn: "2026-09-01T00:00:00Z", publishedBy: "ci", releaseNotes: "First cut", withdrawn: true, runtime: "dotnet" },
+    { version: "1.1.0", publishedOn: "2026-10-01T00:00:00Z", publishedBy: "ci", releaseNotes: "Retries on 503", withdrawn: false, runtime: "python" },
   ],
 };
 /** Published by an older installer: no manifest, no catalog, only version files. */
@@ -116,7 +116,10 @@ describe("the Adapters page", () => {
       expect.stringContaining("v1.0.0Withdrawn"),
     ]);
     expect(within(rows[0]).getByText("Retries on 503")).toBeVisible();
-    expect(within(rows[0]).getAllByRole("cell")[2]).toHaveTextContent("1"); // pinned by one
+    const cells = within(rows[0]).getAllByRole("cell");
+    expect(cells[1]).toHaveTextContent("Python");
+    expect(within(rows[1]).getAllByRole("cell")[1]).toHaveTextContent(".NET");
+    expect(cells[3]).toHaveTextContent(/^1$/); // pinned by one
     expect(within(versions).getByText("1 use follows the current version.")).toBeVisible();
 
     expect(screen.getByText("Token")).toBeVisible();
@@ -135,6 +138,42 @@ describe("the Adapters page", () => {
     await user.type(screen.getByRole("searchbox", { name: "Search adapters" }), "email");
     expect((await section("Built-in")).getByText("Email (SMTP)")).toBeVisible();
     expect((await section("Custom")).getByText("No custom adapter matches.")).toBeVisible();
+  });
+
+  it("shows what each custom adapter runs on, and filters by it", async () => {
+    const { user } = renderApp("/adapters", {
+      handlers: [
+        http.get(apiPath("/adapterdrafts"), () => HttpResponse.json([])),
+        http.get(apiPath("/adapters/Catalog"), ({ request }) =>
+          HttpResponse.json(
+            new URL(request.url).searchParams.get("prefix") === "handlers"
+              ? [
+                  SMTP,
+                  ORDERS,
+                  {
+                    ...ORDERS,
+                    key: "acme.handlers.invoices",
+                    displayName: "Acme invoices",
+                    versionHistory: [{ ...ORDERS.versionHistory[1], runtime: "node" }],
+                  },
+                ]
+              : [],
+          ),
+        ),
+        handlers[2],
+      ],
+    });
+
+    const custom = await section("Custom");
+    // The current version's runtime, not the withdrawn .NET one's.
+    expect(within(custom.getByRole("button", { name: /Acme orders/ })).getByText("Python")).toBeVisible();
+    expect(within(custom.getByRole("button", { name: /Acme invoices/ })).getByText("Node.js")).toBeVisible();
+
+    await user.click(screen.getByRole("radio", { name: "Node.js" }));
+    expect((await section("Custom")).queryByText("Acme orders")).not.toBeInTheDocument();
+    expect((await section("Custom")).getByText("Acme invoices")).toBeVisible();
+    // Built-in adapters have no runtime of their own, so none matches one.
+    expect((await section("Built-in")).getByText("No built-in adapter matches.")).toBeVisible();
   });
 
   it("has a marketplace tab, still to come", async () => {

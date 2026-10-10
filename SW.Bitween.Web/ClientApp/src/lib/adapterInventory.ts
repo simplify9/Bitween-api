@@ -2,6 +2,28 @@ import type { AdapterInfo, AdapterKind, AdapterVersion, SubscriptionInfo } from 
 
 export const ADAPTER_KINDS: AdapterKind[] = ["receiver", "validator", "mapper", "handler"];
 
+/** What a published version runs on, as its manifest names it. JavaScript and TypeScript both run on node. */
+export const RUNTIME_LABEL: Record<string, string> = {
+  dotnet: ".NET",
+  python: "Python",
+  node: "Node.js",
+  exec: "Native binary",
+};
+
+export const runtimeLabel = (runtime: string | null | undefined): string | null =>
+  runtime ? (RUNTIME_LABEL[runtime] ?? runtime) : null;
+
+/**
+ * The runtime an adapter runs on where nothing is pinned: its current version's, else its newest
+ * version's that hasn't been withdrawn. Null for a built-in adapter, or a package whose manifest
+ * doesn't say (one published before manifests named their runtime is .NET, but nothing records it).
+ */
+export function runtimeOf(a: { native: boolean; currentVersion: string | null; versions: AdapterVersion[] }): string | null {
+  if (a.native) return null;
+  const current = a.versions.find((v) => v.version === a.currentVersion);
+  return current?.runtime ?? a.versions.find((v) => !v.withdrawn && v.runtime)?.runtime ?? null;
+}
+
 /** One adapter as the Adapters page shows it: every kind it serves, gathered from the per-kind catalogs. */
 export interface InventoryAdapter {
   id: string;
@@ -93,5 +115,7 @@ export function usageByAdapter(subscriptions: SubscriptionInfo[]): Map<string, A
 export function matchesSearch(a: InventoryAdapter, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return [a.label, a.id, a.summary, a.publisher, ...a.tags].some((v) => v?.toLowerCase().includes(q));
+  return [a.label, a.id, a.summary, a.publisher, runtimeLabel(runtimeOf(a)), ...a.tags].some((v) =>
+    v?.toLowerCase().includes(q),
+  );
 }

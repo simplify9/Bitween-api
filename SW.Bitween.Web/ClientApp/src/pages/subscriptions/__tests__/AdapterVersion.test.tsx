@@ -74,7 +74,7 @@ const raw = (fields: Raw): Raw => ({
 
 
 /** A mock backend holding `subjects`, recording what each save posts. */
-function backend(subjects: Raw[]) {
+function backend(subjects: Raw[], adapter: Record<string, unknown> = ORDERS_ADAPTER) {
   const saves: Record<string, unknown>[] = [];
   const all = subjects;
   const handlers = [
@@ -115,7 +115,7 @@ function backend(subjects: Raw[]) {
     http.get(apiPath("/audit"), () => HttpResponse.json(noRows)),
     // The adapters don't matter to either node — only that the delivering one has a handler.
     http.get(apiPath("/adapters/Catalog"), ({ request }) =>
-      HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [ORDERS_ADAPTER] : []),
+      HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [adapter] : []),
     ),
     http.get(apiPath("/datasources/Providers"), () => HttpResponse.json([])),
     ...["/apigateways", "/busgateways", "/xchanges", "/documents", "/partners", "/workgroups", "/retrypolicies"].map(
@@ -148,6 +148,26 @@ describe("pinning an adapter version", () => {
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(saves[0].handlerVersion).toBe("1.0.0");
     expect(saves[0].handlerId).toBe("acme.handlers.orders");
+  });
+
+  it("names each version's runtime when they differ, and what the pinned one runs on", async () => {
+    const [first, second] = ORDERS_ADAPTER.versionHistory;
+    const { handlers } = backend([sub()], {
+      ...ORDERS_ADAPTER,
+      versionHistory: [
+        { ...first, runtime: "dotnet" },
+        { ...second, runtime: "python" },
+      ],
+    });
+    const { user } = renderApp("/subscriptions/10?stage=delivery", { handlers });
+
+    const picker = await screen.findByRole("combobox", { name: "Adapter version" });
+    expect(within(picker).getByRole("option", { name: "v1.0.0 · .NET" })).toBeInTheDocument();
+    expect(within(picker).getByRole("option", { name: "v1.1.0 · Python" })).toBeInTheDocument();
+    expect(screen.getByText(/Custom · Python · v1\.1\.0/)).toBeVisible();
+
+    await user.selectOptions(picker, "1.0.0");
+    expect(await screen.findByText(/Custom · \.NET · v1\.0\.0/)).toBeVisible();
   });
 
   it("keeps the pin through a save that changes something else", async () => {

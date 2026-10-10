@@ -19,6 +19,8 @@ import {
   usageByAdapter,
   type AdapterUsage,
   type InventoryAdapter,
+  runtimeLabel,
+  runtimeOf,
 } from "../../lib/adapterInventory";
 
 // CodeMirror, its diff view and the language packs load only when someone opens source.
@@ -111,6 +113,7 @@ export function AdaptersPage() {
 function InstalledAdapters() {
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<KindFilter>("all");
+  const [runtime, setRuntime] = useState("all");
 
   // One request per kind, folded into one entry per adapter in `combine`, which only re-runs when
   // one of the four results actually changes.
@@ -128,7 +131,14 @@ function InstalledAdapters() {
   if (catalogs.loading) return <LoadingBlock label="Reading the adapters…" />;
   if (catalogs.error) return <p className="text-sm text-danger-700">{catalogs.error.message}</p>;
 
-  const shown = catalogs.adapters.filter((a) => (kind === "all" || a.kinds.includes(kind)) && matchesSearch(a, query));
+  // Offered once custom adapters run on more than one runtime; a built-in adapter has none of its own.
+  const runtimes = [...new Set(catalogs.adapters.map(runtimeOf).filter((r): r is string => r !== null))].sort();
+  const shown = catalogs.adapters.filter(
+    (a) =>
+      (kind === "all" || a.kinds.includes(kind)) &&
+      (runtime === "all" || runtimeOf(a) === runtime) &&
+      matchesSearch(a, query),
+  );
   const builtIn = shown.filter((a) => a.native);
   const custom = shown.filter((a) => !a.native);
 
@@ -159,6 +169,15 @@ function InstalledAdapters() {
             ...ADAPTER_KINDS.map((k) => ({ value: k, label: `${KIND_LABEL[k]}s` })),
           ]}
         />
+        {runtimes.length > 1 && (
+          <SegmentedControl<string>
+            label="Runtime"
+            size="sm"
+            value={runtime}
+            onChange={setRuntime}
+            options={[{ value: "all", label: "Any runtime" }, ...runtimes.map((r) => ({ value: r, label: runtimeLabel(r) ?? r }))]}
+          />
+        )}
       </div>
 
       <AdapterSection
@@ -166,17 +185,17 @@ function InstalledAdapters() {
         description="Shipped with Bitween and run in-process. They are updated with Bitween itself, so they have no versions of their own."
         adapters={builtIn}
         usage={usage}
-        empty={query || kind !== "all" ? "No built-in adapter matches." : "No built-in adapters."}
+        empty={query || kind !== "all" || runtime !== "all" ? "No built-in adapter matches." : "No built-in adapters."}
       />
       <AdapterSection
         title="Custom"
-        description="Packages published to this instance with the installer. Each runs in its own process, and published versions can be pinned per subscription."
+        description="Packages published to this instance, in .NET, Python or JavaScript and TypeScript. Each runs in its own process, and published versions can be pinned per subscription."
         adapters={custom}
         usage={usage}
         empty={
-          query || kind !== "all"
+          query || kind !== "all" || runtime !== "all"
             ? "No custom adapter matches."
-            : "None published yet. Custom adapters are published with the serverless installer."
+            : "None published yet. Write one here with New adapter, or build and publish one with the bitween CLI."
         }
       />
     </div>
@@ -246,6 +265,7 @@ function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: 
               </Badge>
             ))}
             {a.currentVersion && <Badge tone="crimson">v{a.currentVersion}</Badge>}
+            {runtimeLabel(runtimeOf(a)) && <Badge tone="neutral">{runtimeLabel(runtimeOf(a))}</Badge>}
           </span>
           <code className="block truncate font-mono text-[11.5px] text-ink-400">{a.id}</code>
           {(a.summary || a.publisher) && (
@@ -397,6 +417,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
             <thead className="text-ink-500">
               <tr>
                 <th className="py-1 pr-3 font-medium">Version</th>
+                <th className="py-1 pr-3 font-medium">Runtime</th>
                 <th className="py-1 pr-3 font-medium">Published</th>
                 <th className="py-1 pr-3 font-medium">Pinned by</th>
                 <th className="py-1 font-medium">Release notes</th>
@@ -422,6 +443,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                         </Badge>
                       )}
                     </td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">{runtimeLabel(v.runtime) ?? "—"}</td>
                     <td className="py-1.5 pr-3 whitespace-nowrap">
                       {v.publishedOn ? formatDate(v.publishedOn) : "—"}
                       {v.publishedBy && <span className="block text-[11.5px] text-ink-400">{v.publishedBy}</span>}
