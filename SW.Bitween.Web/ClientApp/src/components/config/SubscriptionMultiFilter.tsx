@@ -5,7 +5,7 @@ import { SUBSCRIPTION_TYPE_LABELS } from "./subscriptionLabels";
 
 /**
  * Pick any number of subscriptions, to filter a table down to the rows connected to at
- * least one of them — "which partners does this subscription use", read the other way.
+ * least one of them - "which partners does this subscription use", read the other way.
  *
  * Modelled on `ReferenceMenu`'s local popover rather than the portalled `Popover`: a
  * filter row sits above the table, not inside its `overflow-x-auto` wrapper, so nothing

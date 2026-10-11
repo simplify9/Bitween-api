@@ -51,7 +51,7 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
   return (
     <Panel
       title="Try it out"
-      description="Simulate a failure against the groups as configured above — including unsaved changes."
+      description="Simulate a failure against the groups as configured above - including unsaved changes."
     >
       <form onSubmit={submit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -120,7 +120,7 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
 }
 
 /**
- * The policy-wide alert, summarised — with its adapter form behind a dialog.
+ * The policy-wide alert, summarised - with its adapter form behind a dialog.
  *
  * Left open, a mail handler's thirteen fields filled the whole column and left the groups
  * table sitting beside a void; two columns of them inside a 360px rail wrapped every address
@@ -176,7 +176,7 @@ function PolicyAlertCard({
           <p className="font-mono text-[13px] text-ink-800">{handlerId}</p>
           <p className="mt-1 text-[13px] text-ink-500">
             {inheriting.length === 0
-              ? "No group inherits it — each one routes its own alert, or is silent."
+              ? "No group inherits it - each one routes its own alert, or is silent."
               : `${inheriting.length} of ${canAlert.length} ${canAlert.length === 1 ? "group sends" : "groups send"} here.`}
           </p>
         </>
@@ -199,7 +199,7 @@ function PolicyAlertCard({
               adapterId={draftId}
               properties={draftProps}
               disabled={false}
-              noneLabel="No alert — nothing is sent when a budget runs out"
+              noneLabel="No alert - nothing is sent when a budget runs out"
               onChange={(id, props) => {
                 setDraftId(id);
                 setDraftProps(props);
@@ -319,7 +319,7 @@ export function RetryPolicyPage() {
             <EditableTitle value={name} onChange={setName} disabled={!canEdit} placeholder="Policy name" />
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Groups are checked top to bottom — the first match decides.
+            Groups are checked top to bottom - the first match decides.
           </p>
         </div>
         <Can permission="retry-policies.delete">
@@ -345,7 +345,7 @@ export function RetryPolicyPage() {
               rows={sortedGroups}
               rowKey={(g) => g.id}
               onRowClick={canEdit ? (g) => setEditingGroup(g) : undefined}
-              empty="No groups yet — failures under this policy are never retried."
+              empty="No groups yet - failures under this policy are never retried."
               columns={[
                 {
                   header: "#",
@@ -357,7 +357,7 @@ export function RetryPolicyPage() {
                   wrap: true,
                   cell: (g) => (
                     <span
-                      title={g.notes ? `${g.name} — ${g.notes}` : g.name}
+                      title={g.notes ? `${g.name} - ${g.notes}` : g.name}
                       className={`block font-medium text-ink-900 ${g.enabled ? "" : "opacity-60"}`}
                     >
                       {g.name}
@@ -400,7 +400,7 @@ export function RetryPolicyPage() {
                   },
                 },
                 {
-                  // Bounded text — two numbers and one of three delay names — so it shrinks to
+                  // Bounded text - two numbers and one of three delay names - so it shrinks to
                   // fit instead of truncating, leaving the slack to the columns that need it.
                   header: "Budget",
                   cell: (g) =>
@@ -411,7 +411,7 @@ export function RetryPolicyPage() {
                         {g.budget.delay.type}
                       </span>
                     ) : (
-                      <span className="text-ink-500">—</span>
+                      <span className="text-ink-500">-</span>
                     ),
                 },
                 {
@@ -419,10 +419,10 @@ export function RetryPolicyPage() {
                   truncate: true,
                   cell: (g) =>
                     g.action !== "Allow" ? (
-                      <span className="text-ink-500">—</span>
+                      <span className="text-ink-500">-</span>
                     ) : g.budget && g.budget.maxAttemptsTotal === null ? (
                       <span className="text-ink-500" title="No total limit, so the budget never runs out and there is nothing to alert on.">
-                        —
+                        -
                       </span>
                     ) : g.alertMode === "Silent" ? (
                       <span className="text-[13px] text-ink-500">Silent</span>

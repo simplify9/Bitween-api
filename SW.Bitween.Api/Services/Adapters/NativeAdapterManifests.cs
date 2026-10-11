@@ -10,8 +10,8 @@ namespace SW.Bitween.Services.Adapters;
 
 /// <summary>
 /// The manifests the native, in-process adapters carry, as embedded <c>adapter.json</c> resources
-/// beside their code. They describe and present an adapter the same way a published one's does —
-/// display name, summary, publisher, icon, properties — so a catalog or marketplace treats both alike.
+/// beside their code. They describe and present an adapter the same way a published one's does -
+/// display name, summary, publisher, icon, properties - so a catalog or marketplace treats both alike.
 /// </summary>
 /// <remarks>
 /// What a native adapter needs configured is still read from its startup-values type, which is the

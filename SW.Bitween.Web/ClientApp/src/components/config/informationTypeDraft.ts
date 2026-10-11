@@ -73,7 +73,7 @@ export function informationTypeMissing(draft: InformationTypeDraft): string[] {
 }
 
 /**
- * Messages in a type's bus queue — retries and dead letters included — from the same live
+ * Messages in a type's bus queue - retries and dead letters included - from the same live
  * snapshot Queue health polls. A paused type has no consumer, so its queue is found among the
  * ones nothing reads. `null` when it can't be known: no right to see queue health, RabbitMQ
  * management not configured, or not loaded yet.

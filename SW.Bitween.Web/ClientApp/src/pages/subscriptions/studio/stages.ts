@@ -25,8 +25,8 @@ export type StageId =
  * Node title, icon, and the one-line purpose shown above the stage's
  * configuration.
  *
- * The icons are deliberately monochrome. Colour on this page means *status* —
- * a red node is broken, an amber one is degraded — so spending green and amber
+ * The icons are deliberately monochrome. Colour on this page means *status* -
+ * a red node is broken, an amber one is degraded - so spending green and amber
  * on decoration would make a healthy pipeline look like a traffic light.
  */
 export const STAGES: Record<StageId, { label: string; description: string; icon: LucideIcon }> = {
@@ -61,7 +61,7 @@ export const STAGES: Record<StageId, { label: string; description: string; icon:
 };
 
 /**
- * The pipeline, per subscription type — the shape of the rail and, with it,
+ * The pipeline, per subscription type - the shape of the rail and, with it,
  * which configuration the page offers at all.
  *
  * Two absences are deliberate:
@@ -79,7 +79,7 @@ export const STAGES: Record<StageId, { label: string; description: string; icon:
  *   `XchangeService` when the delivery that feeds it returns.
  *
  * Aggregation gets Schedule and Transformation like any other pipeline. It used to have
- * neither — a single "Aggregation" node saying it was not editable — while the schedule
+ * neither - a single "Aggregation" node saying it was not editable - while the schedule
  * fault badge was pinned to that very node. The page would tell you an aggregation's
  * schedule was broken and then offer no way to fix it, and the mapper it hid genuinely
  * runs on the roll-up.

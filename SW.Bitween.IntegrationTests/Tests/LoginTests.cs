@@ -13,7 +13,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// The account login handler — the one door into the system, and the only place a password is
+/// The account login handler - the one door into the system, and the only place a password is
 /// checked.
 /// </summary>
 /// <remarks>
@@ -31,7 +31,7 @@ public class LoginTests(BitweenFixture fixture)
     /// <summary>
     /// One attempt in its own scope, because that is what a real request is. Sharing a scope across
     /// attempts would share a DbContext, and the lockout counter is written with a database-side
-    /// UPDATE that the change tracker never sees — so a second attempt would read a stale account
+    /// UPDATE that the change tracker never sees - so a second attempt would read a stale account
     /// and the lockout would look broken when it isn't.
     /// </summary>
     private async Task<object> Login(string email, string password, string address = "203.0.113.1")
@@ -308,7 +308,7 @@ public class LoginTests(BitweenFixture fixture)
 
     /// <summary>
     /// A sign-out whose request never completes leaves the refresh cookie in the browser. Signing in
-    /// as someone else then has to sign in as them — it used to prefer the cookie and hand back the
+    /// as someone else then has to sign in as them - it used to prefer the cookie and hand back the
     /// previous person's session.
     /// </summary>
     [Fact]
@@ -329,8 +329,8 @@ public class LoginTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// Two requests carrying the same refresh token — a refresh racing a sign-out, or a page load
-    /// racing the one before it — used to both load it and both delete it, and the loser failed with
+    /// Two requests carrying the same refresh token - a refresh racing a sign-out, or a page load
+    /// racing the one before it - used to both load it and both delete it, and the loser failed with
     /// a 500. Within the grace after a token is replaced, a repeat is served, not refused, so a
     /// browser whose copy of the new token was lost is not signed out.
     /// </summary>

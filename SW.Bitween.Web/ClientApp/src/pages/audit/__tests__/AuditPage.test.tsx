@@ -10,7 +10,7 @@ import { auditRow, auditTrail } from "./trail";
  */
 const members = http.get(apiPath("/accounts"), () => HttpResponse.json({ result: [], totalCount: 0 }));
 
-/** One save that touched two rows — a partner and its key — beside an unrelated one. */
+/** One save that touched two rows - a partner and its key - beside an unrelated one. */
 const ROWS = [
   auditRow({ entityName: "Partner", entityKey: "42", correlationId: "save-a", sequence: 0 }),
   auditRow({ entityName: "ApiCredential", entityKey: "42:primary", correlationId: "save-a", sequence: 1 }),
@@ -33,7 +33,7 @@ describe("the audit trail page", () => {
     expect(screen.getByRole("row", { name: /Partner/ })).toBeVisible();
     expect(screen.getByRole("link", { name: "42" })).toHaveAttribute("href", "/partners/42");
 
-    // "Saved together" pivots to the correlation id — every row one SaveChanges wrote.
+    // "Saved together" pivots to the correlation id - every row one SaveChanges wrote.
     await user.click(screen.getAllByRole("button", { name: "Saved together" })[0]);
     expect(router.state.location.search).toMatch(/correlationId=save-a/);
     expect(await screen.findByText("Showing one save only")).toBeVisible();
@@ -50,7 +50,7 @@ describe("the audit trail page", () => {
     renderApp(`/audit?offset=${offset}`, { handlers: [trail.handler, members] });
 
     expect(await screen.findByRole("heading", { name: "Audit trail" })).toBeVisible();
-    expect(await screen.findByText(/Showing 1[–-]/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1[--]/)).toBeVisible();
     expect(trail.asked.map((q) => q.get("offset"))).toEqual(["0"]);
   });
 });

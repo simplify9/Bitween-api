@@ -39,7 +39,7 @@ const unanswered: string[] = [];
 
 beforeAll(() => {
   // Printing alone isn't enough: vitest hides a passing test's output, and the page just renders
-  // its error state — which can satisfy an assertion as easily as the real thing would.
+  // its error state - which can satisfy an assertion as easily as the real thing would.
   server.listen({
     onUnhandledRequest: (request, print) => {
       const url = new URL(request.url);

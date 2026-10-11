@@ -8,7 +8,7 @@ import { SEED } from "./seed-data";
 /**
  * The legacy JSON mapper (NativeJSONMapper) and its own editor. New subscriptions can't pick it any
  * more, but the ones already on it keep it and keep this editor, so it still has to open their
- * mapping, save it, and — what matters to them — run it. The subscription is made through the
+ * mapping, save it, and - what matters to them - run it. The subscription is made through the
  * API because the picker no longer offers the mapper; everything after that is the editor.
  */
 

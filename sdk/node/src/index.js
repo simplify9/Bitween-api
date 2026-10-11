@@ -43,7 +43,7 @@ const VALIDATION_RESULT_SCHEMA = {
 
 /**
  * A file as Bitween passes it to and from adapters. `data` is the content: text, or base64 for
- * binary content. `badData` marks a bad response, a delivery the partner rejected — returned, not thrown.
+ * binary content. `badData` marks a bad response, a delivery the partner rejected - returned, not thrown.
  */
 class ExchangeFile {
   constructor({ data = "", filename = null, badData = false, contentType = null } = {}) {
@@ -72,7 +72,7 @@ class ExchangeFile {
   }
 }
 
-/** What a validator found: each failure as a key — often the field it concerns — and a message. */
+/** What a validator found: each failure as a key - often the field it concerns - and a message. */
 class ValidationResult {
   constructor(validations = []) {
     this.validations = validations;
@@ -173,7 +173,7 @@ Validator.prototype.validate = abstract("validate");
 
 /**
  * Fetches files from a source on a schedule. One session per run: initialize, listFiles, then for
- * each file getFile and — once it is safely taken in — deleteFile, and finally finalize, which is
+ * each file getFile and - once it is safely taken in - deleteFile, and finally finalize, which is
  * also called after a failure.
  */
 class Receiver extends Kind {

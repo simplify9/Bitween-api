@@ -8,14 +8,14 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween;
 
 /// <summary>
-/// Keeps adapter secrets — an api key, a mail password — out of responses, and puts them back when
+/// Keeps adapter secrets - an api key, a mail password - out of responses, and puts them back when
 /// an unchanged one is saved again.
 /// </summary>
 /// <remarks>
 /// <para>
 /// An adapter marks a startup value <c>[Secure]</c>, which is what <see cref="StartupValue.Private"/>
 /// reports. <see cref="Mask"/> replaces those values with <see cref="Sentinel"/> on the way out, and
-/// <see cref="Merge"/> reads the sentinel on the way back in as "keep what is stored" — so a form
+/// <see cref="Merge"/> reads the sentinel on the way back in as "keep what is stored" - so a form
 /// that only changed the subject line does not overwrite the password with a row of dots.
 /// </para>
 /// <para>
@@ -68,7 +68,7 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
     /// secrets nobody can ask an adapter about.
     /// </summary>
     /// <remarks>
-    /// A partner property or a global value is not a startup value of any one adapter — it is
+    /// A partner property or a global value is not a startup value of any one adapter - it is
     /// referenced as <c>{{partner.KEY}}</c> by however many adapters point at it, so there is no
     /// single adapter to describe. The owner names its own secrets instead, exactly as a data
     /// source does. Unlike <c>DataSources.Secrets</c> this does not also guess from the key's name:
@@ -114,7 +114,7 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
     /// <summary>
     /// Whether a sentinel may still mean "keep what is stored". Not once the adapter is a different
     /// one, or a property saying where it connects has changed: a secret kept across that goes to
-    /// wherever the editor pointed it — their own server, say — without their ever having seen it.
+    /// wherever the editor pointed it - their own server, say - without their ever having seen it.
     /// Re-entering it then proves they know it.
     /// </summary>
     public static bool MayKeepStoredSecrets(string storedAdapterId, string newAdapterId,
@@ -149,7 +149,7 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
 
     /// <summary>
     /// <see cref="Merge(IReadOnlyDictionary{string,string},IReadOnlyDictionary{string,string})"/>,
-    /// except that when <paramref name="keepStored"/> is false a sentinel restores nothing — the
+    /// except that when <paramref name="keepStored"/> is false a sentinel restores nothing - the
     /// secret has to be entered again.
     /// </summary>
     public static Dictionary<string, string> Merge(IReadOnlyDictionary<string, string> stored,
@@ -160,7 +160,7 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
     /// <see cref="Mask"/> applied to the dictionary the caller already holds.
     /// </summary>
     /// <remarks>
-    /// <see cref="RetryGroup"/> is an immutable value object — every property is <c>init</c> — so a
+    /// <see cref="RetryGroup"/> is an immutable value object - every property is <c>init</c> - so a
     /// group's properties cannot be swapped for a masked copy. Editing the dictionary in place is
     /// the way to reach them without either loosening that contract or rebuilding each group
     /// property by property, which would silently drop whatever property is added to it next.

@@ -61,7 +61,7 @@ const MappingEditorInner: React.FC = () => {
   const { isSaving, saveSuccess, handleValidate, handleSave, handleModeChange } = useSave(subscriptionId);
   useKeyboardShortcuts(() => void handleSave());
 
-  const [jsonAreaHeight, setJsonAreaHeight] = useState(96); // px — both panels share this
+  const [jsonAreaHeight, setJsonAreaHeight] = useState(96); // px - both panels share this
   const srcTextareaRef = useRef<HTMLTextAreaElement>(null);
   const tgtTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,7 +73,7 @@ const MappingEditorInner: React.FC = () => {
 
   // ── Trees ───────────────────────────────────────────────────────────────────
   const inputObj = useMemo(() => tryParseJson(inputJson), [inputJson]);
-  // outputObj is only used for "Generate from JSON" — the live tree is always driven by fieldMappings
+  // outputObj is only used for "Generate from JSON" - the live tree is always driven by fieldMappings
   const outputObj = useMemo(() => tryParseJson(outputJson), [outputJson]);
   const sourceTree: TreeNode[] = useMemo(
     () => (inputObj ? buildTree(inputObj) : []),
@@ -106,7 +106,7 @@ const MappingEditorInner: React.FC = () => {
     const paths = basePaths;
     for (const am of arrayMappings) {
       if (am.isRootOutput) {
-        // Root-output AM has no named target — its container path is '[*]'
+        // Root-output AM has no named target - its container path is '[*]'
         if (!paths.includes('[*]')) paths.push('[*]');
         for (const m of am.mappings) {
           if (m.target) paths.push(`[*].${m.target}`);
@@ -282,7 +282,7 @@ const MappingEditorInner: React.FC = () => {
                 ref={tgtTextareaRef}
                 className="w-full min-h-[40px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-focus-400 bg-ink-50"
                 style={{ height: jsonAreaHeight }}
-                placeholder='{ "desired": "output shape" }  (optional — used to generate structure)'
+                placeholder='{ "desired": "output shape" }  (optional - used to generate structure)'
                 value={outputJson}
                 onChange={(e) => dispatch(setOutputJson(e.target.value))}
                 onMouseUp={() => syncHeight('tgt')}

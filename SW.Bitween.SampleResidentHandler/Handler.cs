@@ -7,7 +7,7 @@ using SW.Serverless.Sdk.Resident;
 namespace SW.Bitween.SampleResidentHandler;
 
 /// <summary>
-/// A handler that STAYS RUNNING, used exactly where a classic one would be — as a subscription's
+/// A handler that STAYS RUNNING, used exactly where a classic one would be - as a subscription's
 /// handler or mapper.
 ///
 /// It implements IInfolinkHandler like any other, so nothing about the pipeline's contract changes.
@@ -15,7 +15,7 @@ namespace SW.Bitween.SampleResidentHandler;
 /// hold an open connection or a warm cache instead of paying for them on every message.
 ///
 /// It counts what it has handled and reports that on the heartbeat, so a test can prove the SAME
-/// process served more than one message — which is the whole distinction from the classic
+/// process served more than one message - which is the whole distinction from the classic
 /// lifecycle, and not something a single call could show.
 /// </summary>
 public class Handler : IResidentAdapter, IInfolinkHandler

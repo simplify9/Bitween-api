@@ -8,8 +8,8 @@ namespace SW.Bitween.MySql.Migrations
     /// Gives the Quartz tables the names Quartz looks for, on a server where the case matters.
     /// </summary>
     /// <remarks>
-    /// QuartzAndAutoRetry created them as SW.Scheduler's EF model names them — <c>QRTZ_job_details</c>
-    /// — while its Quartz store queries <c>QRTZ_JOB_DETAILS</c>. MySQL on Linux compares table names
+    /// QuartzAndAutoRetry created them as SW.Scheduler's EF model names them - <c>QRTZ_job_details</c>
+    /// - while its Quartz store queries <c>QRTZ_JOB_DETAILS</c>. MySQL on Linux compares table names
     /// case-sensitively by default (lower_case_table_names = 0), so the scheduler refused to start
     /// there. On a server that ignores case the names already match, and renaming a table to what
     /// it already is called would fail, so only a case-sensitive server renames, and only a table

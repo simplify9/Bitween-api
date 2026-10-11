@@ -9,7 +9,7 @@ namespace SW.Bitween;
 /// Holds a synchronous gateway call open while its exchange is processed, polling for the result.
 /// </summary>
 /// <remarks>
-/// The loops this replaced compared the polling step — capped at eight seconds — with the requested
+/// The loops this replaced compared the polling step - capped at eight seconds - with the requested
 /// wait, so any wait of eight seconds or more, the default of 120 included, never ended. An exchange
 /// that never got a result held its request, a DI scope and a database context for as long as the
 /// process lived, and a caller could open as many as it liked. Now the wait is measured in elapsed

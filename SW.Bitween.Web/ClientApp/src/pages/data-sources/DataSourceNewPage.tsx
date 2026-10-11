@@ -12,8 +12,8 @@ import { declaredSecrets, initialProperties, useDataSourceProviders } from "./pr
 /**
  * Creating asks for a name, a provider, and the settings that provider can't connect without.
  *
- * The connection settings depend on the provider — RabbitMQ wants a virtual host, SQS wants a
- * region — so they appear once it is chosen. Only the required ones are asked here: a data source
+ * The connection settings depend on the provider - RabbitMQ wants a virtual host, SQS wants a
+ * region - so they appear once it is chosen. Only the required ones are asked here: a data source
  * created without them sat on its page with a red error and twenty fields, none of which said
  * which to fill in first. The rest keep their defaults and are on the next screen.
  *
@@ -78,8 +78,8 @@ export function DataSourceNewPage() {
       <div className="max-w-xl">
         <BackLink to="/data-sources" label="Data sources" className="mb-3" />
         <FormError>
-          No data source provider adapters are installed. Publish one — bitween.bus.rabbitmq and
-          bitween.bus.sqs ship with Bitween — and it will appear here.
+          No data source provider adapters are installed. Publish one - bitween.bus.rabbitmq and
+          bitween.bus.sqs ship with Bitween - and it will appear here.
         </FormError>
       </div>
     );

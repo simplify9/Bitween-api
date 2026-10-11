@@ -85,7 +85,7 @@ namespace SW.Bitween.MySql.Migrations
 
             // Backticks: MySQL reads double quotes as string literals unless the server runs in
             // ANSI_QUOTES mode, so a fresh install on a default server stopped at this migration.
-            // An install that already applied it is not affected — applied migrations never rerun.
+            // An install that already applied it is not affected - applied migrations never rerun.
             migrationBuilder.Sql(@"
                 CREATE TABLE `SubscriptionSchedules` (
                 `Id` int NOT NULL AUTO_INCREMENT,

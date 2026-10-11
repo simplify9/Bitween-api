@@ -3,7 +3,7 @@ import type { JourneyStage, StageState } from "./shared";
 
 /**
  * Past tense only once the stage is actually behind us. "Mapped" beside a Running badge
- * claims something that has not happened yet — while it is in flight, or was skipped, or
+ * claims something that has not happened yet - while it is in flight, or was skipped, or
  * was never reached, the stage is named for the work rather than for a result it lacks.
  */
 function stageLabel(key: JourneyStage["key"], state: StageState): string {

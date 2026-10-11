@@ -44,7 +44,7 @@ namespace SW.Bitween.Resources.Documents
                     //
                     // The '$' branch is checked rather than trusted. Treating any leading '$' as
                     // proof of a JSONPath let "$", "$." and "$.." through, none of which select
-                    // anything — they saved cleanly and failed only once a message arrived. A step
+                    // anything - they saved cleanly and failed only once a message arrived. A step
                     // is a '.'/'..' followed by a name, or a bracket; names stay deliberately
                     // permissive (anything but a delimiter) so paths that already work keep working.
                     var valid = trimmed.StartsWith("$")

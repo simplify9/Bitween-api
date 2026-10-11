@@ -115,7 +115,7 @@ public class RetiringMapperTests
     {
         await ParkExistingUsers();
 
-        // Nothing on it: it is gone from the picker, and the new mapper is still there — a filter
+        // Nothing on it: it is gone from the picker, and the new mapper is still there - a filter
         // that took out more than it should would pass an assertion about the old one alone.
         var withoutUsers = await ListedMappers();
         Assert.DoesNotContain(OldMapper, withoutUsers);

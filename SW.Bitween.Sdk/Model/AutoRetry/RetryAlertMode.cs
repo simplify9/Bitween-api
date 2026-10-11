@@ -18,7 +18,7 @@ public enum RetryAlertMode
     /// <summary>Send through this level's own handler, ignoring anything configured above it.</summary>
     Send,
 
-    /// <summary>Send nothing, and stop the walk — an alert configured above is deliberately suppressed here.</summary>
+    /// <summary>Send nothing, and stop the walk - an alert configured above is deliberately suppressed here.</summary>
     Silent,
 }
 

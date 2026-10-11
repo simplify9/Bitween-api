@@ -1,9 +1,9 @@
 # =============================================================================
-# Critical Dependabot Vulnerability Check — Caller template
+# Critical Dependabot Vulnerability Check - Caller template
 # =============================================================================
 # USAGE:
 #   Copy this file to your repo at .github/workflows/critical-vuln-check.yml.
-#   No REPLACE values needed — this template requires no customization.
+#   No REPLACE values needed - this template requires no customization.
 #
 # WHAT IT DOES:
 #   Runs on every PR targeting main or develop. Fails if the repository has
@@ -11,9 +11,9 @@
 #
 #   Enforcement differs by target branch via each repo's OWN branch
 #   protection settings (not by anything in this file):
-#     - On `main`:    mark this check REQUIRED in branch protection — merge
+#     - On `main`:    mark this check REQUIRED in branch protection - merge
 #                     is physically blocked while a critical alert is open.
-#     - On `develop`: leave this check NOT required — it still shows as a
+#     - On `develop`: leave this check NOT required - it still shows as a
 #                     failing/red check (a visible warning) without blocking
 #                     the merge.
 # =============================================================================

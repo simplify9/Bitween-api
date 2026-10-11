@@ -12,15 +12,15 @@ import { LookupFields } from "./LookupFields";
 /**
  * Everything about one rule that does not fit on its line.
  *
- * Laid out in the order the mapper applies it — the value, then the transform,
- * then the table, then the type — so the panel reads as the pipeline it is.
+ * Laid out in the order the mapper applies it - the value, then the transform,
+ * then the table, then the type - so the panel reads as the pipeline it is.
  */
 /**
  * A numeric argument as a number, unless that would change what was typed.
  *
  * `Number("1.")` is 1, so storing the number and rendering it back deleted the point
  * as it was typed and made "1.16" impossible to enter. Text is kept whenever the
- * number would not round-trip to the same characters — the server parses a numeric
+ * number would not round-trip to the same characters - the server parses a numeric
  * string for these arguments either way.
  */
 function numericOrText(kind: TransformArg["kind"], text: string): string | number {
@@ -110,7 +110,7 @@ export function TransformFields({
 
       {chosen?.args.map((arg) => {
         const value = String(transform?.[arg.name] ?? "");
-        const label = `${chosen.label} — ${arg.label}`;
+        const label = `${chosen.label} - ${arg.label}`;
 
         const set = (next: string) => {
           const changed: TransformRule = { ...(transform ?? { fn: chosen.fn }) };
@@ -123,7 +123,7 @@ export function TransformFields({
         //
         // A stored value the list does not offer is kept as its own option. The engine
         // formats with any .NET pattern, so a mapping can legitimately hold one that was
-        // set through the API or listed here under a label that has since changed — and a
+        // set through the API or listed here under a label that has since changed - and a
         // select with no matching option shows nothing selected, which reads as "no
         // format chosen" and would be saved back as exactly that.
         if (arg.kind === "choice") {

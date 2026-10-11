@@ -26,7 +26,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// settings page shows before anyone changes either.
 /// </summary>
 /// <remarks>
-/// The collection shares one database, and the job removes every exchange older than its cutoff —
+/// The collection shares one database, and the job removes every exchange older than its cutoff -
 /// so the exchanges here are backdated far past anything another test would create, and the job runs
 /// with a cutoff only they fall behind.
 /// </remarks>
@@ -366,7 +366,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         var links = JsonConvert.DeserializeObject<string[]>(
             await scope.ServiceProvider.GetRequiredService<XchangeService>().GetFile(rollUp, XchangeFileType.Input));
 
-        // Still a list of links, so handlers written for it are unaffected — just links Bitween
+        // Still a list of links, so handlers written for it are unaffected - just links Bitween
         // serves, since the storage URLs they replace don't open private files.
         var service = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var fileLinks = scope.ServiceProvider.GetRequiredService<FileLinks>();
@@ -428,7 +428,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         var service = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var cloudFiles = scope.ServiceProvider.GetRequiredService<ICloudFilesService>();
         var sourceKey = service.FileKey(source, XchangeFileType.Input);
-        // What a roll-up held before: the storage URL of each collected file — next to anything else.
+        // What a roll-up held before: the storage URL of each collected file - next to anything else.
         string[] before =
         [
             cloudFiles.GetUrl(sourceKey),
@@ -486,7 +486,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
             Task.FromResult(open);
     }
 
-    // ———————————————————————————————————————————————————————————————— helpers
+    // ---------------------------------------------------------------- helpers
 
     private sealed class ListeningOn : IServer
     {

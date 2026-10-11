@@ -18,7 +18,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             throw new SWValidationException("WORK_GROUP_NOT_FOUND", $"Category with id {key} was not found");
 
         // Update binds the same CreateWorkGroupModel type as Create, so Create's
-        // Validate (IValidator<CreateWorkGroupModel>) already runs for this request too —
+        // Validate (IValidator<CreateWorkGroupModel>) already runs for this request too -
         // CqApiController resolves validators by the request's concrete type.
         var oldBusMessageName = workGroup.GetBusMessageName();
         workGroup.Name = request.Name;

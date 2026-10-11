@@ -23,7 +23,7 @@ namespace SW.Bitween.Domain
         /// <summary>
         /// Logs an attempt to deliver a "retry budget exhausted" alert. These rows have no
         /// <see cref="NotifierId"/> because the alert is configured on the retry policy rather than
-        /// on a notifier — which is also how the send is recognised as already done on a redelivery.
+        /// on a notifier - which is also how the send is recognised as already done on a redelivery.
         /// </summary>
         public static XchangeNotification ForRetryBudgetAlert(string xchangeId, string exception = null) =>
             new(xchangeId, null, RetryBudgetAlertName, exception);

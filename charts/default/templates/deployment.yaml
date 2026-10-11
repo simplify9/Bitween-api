@@ -190,7 +190,7 @@ spec:
                   key: db
 
             # As with Bitween__DocumentPrefix above, these three seed the Settings table on
-            # the first boot only. Editing them later has no effect — change Microsoft sign-on
+            # the first boot only. Editing them later has no effect - change Microsoft sign-on
             # under Settings → Single sign-on (Microsoft).
             - name: Bitween__MsalClientId
               value: {{ .Values.msalClientId }}

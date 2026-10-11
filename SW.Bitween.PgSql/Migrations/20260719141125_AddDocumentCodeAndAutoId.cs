@@ -37,7 +37,7 @@ namespace SW.Bitween.PgSql.Migrations
                 column: "code",
                 value: null);
 
-            // Code is optional — existing rows stay code = NULL rather than being
+            // Code is optional - existing rows stay code = NULL rather than being
             // backfilled from name, which risked duplicate-derived codes colliding
             // against the unique index on environments with less controlled data.
             migrationBuilder.CreateIndex(

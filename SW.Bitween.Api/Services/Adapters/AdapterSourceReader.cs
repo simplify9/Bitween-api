@@ -45,8 +45,8 @@ public class AdapterSourceFile
 }
 
 /// <summary>
-/// Reads the source a published adapter version carries — <c>serverless build</c> puts it in the
-/// package under the manifest's source folder, whatever the language — so it can be shown and
+/// Reads the source a published adapter version carries - <c>serverless build</c> puts it in the
+/// package under the manifest's source folder, whatever the language - so it can be shown and
 /// compared in Bitween. Packages published before that, or with <c>--no-source</c>, carry none,
 /// and say so by having no source in their manifest.
 /// </summary>

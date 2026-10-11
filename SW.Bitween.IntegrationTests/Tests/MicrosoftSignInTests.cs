@@ -20,8 +20,8 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// <summary>
 /// Signing in with Microsoft through the whole login handler, against the real database. The
 /// tokens are signed here, with the key the handler is told Microsoft publishes; everything after
-/// that — matching the account, binding the Microsoft identity to it, refusing another identity or
-/// a disabled account — is the code that runs in production.
+/// that - matching the account, binding the Microsoft identity to it, refusing another identity or
+/// a disabled account - is the code that runs in production.
 /// </summary>
 [Collection("Bitween")]
 public class MicrosoftSignInTests(BitweenFixture fixture) : IDisposable

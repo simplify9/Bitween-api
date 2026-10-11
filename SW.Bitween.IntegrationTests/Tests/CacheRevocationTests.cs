@@ -19,7 +19,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// <remarks>
 /// Announcing means <c>BroadcastRevoke()</c>, which publishes rather than clearing directly: each
 /// instance owns a private queue bound to the shared node exchange, so every instance clears its
-/// own copy — including the one that handled the write. The fixture deliberately does not call
+/// own copy - including the one that handled the write. The fixture deliberately does not call
 /// <c>AddBusConsume</c>, so that round trip cannot complete here and the announcement is asserted
 /// at the handler instead, with a cache that records the call.
 /// </remarks>

@@ -11,11 +11,11 @@ namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
 /// <c>{{partner.…}}</c> in an adapter's properties has to be replaced by the time the Xchange is
-/// written, because that is the copy the handler runs on — nothing resolves it later.
+/// written, because that is the copy the handler runs on - nothing resolves it later.
 /// </summary>
 /// <remarks>
 /// Every caller of <c>CreateXchange</c> that has a partner in hand (a bus gateway route, an API
-/// gateway call) passed one, and every caller that didn't left the token literal — so a handler
+/// gateway call) passed one, and every caller that didn't left the token literal - so a handler
 /// posted to the URL <c>{{partner.webhookUrl}}</c>. The subscription's own partner was sitting
 /// on the subscription the whole time; these tests pin down that it is now used.
 /// </remarks>

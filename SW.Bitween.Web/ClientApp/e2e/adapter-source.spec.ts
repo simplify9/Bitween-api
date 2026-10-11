@@ -4,12 +4,12 @@ import { signInAsAdmin } from "./helpers";
 
 /**
  * An adapter version's source, read and compared on the Adapters page against a real package in
- * storage — and the read recorded in the audit trail.
+ * storage - and the read recorded in the audit trail.
  */
 
 /**
  * Published by tools/e2e.sh: a Python handler with versions 1.0.0 and 2.0.0 (current), each
- * carrying its source, and — like every adapter not on .NET — in the catalog only.
+ * carrying its source, and - like every adapter not on .NET - in the catalog only.
  */
 const SOURCE_HANDLER = "e2e.sourcehandler";
 

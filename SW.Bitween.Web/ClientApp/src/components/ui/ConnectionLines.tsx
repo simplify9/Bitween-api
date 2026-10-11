@@ -20,7 +20,7 @@ interface Line {
  * Curves joining two lists that scroll independently.
  *
  * Endpoints are found by a data attribute rather than by ref maps the panels have
- * to register into and keep in step — the DOM already knows where its own rows
+ * to register into and keep in step - the DOM already knows where its own rows
  * are. The svg draws outside its own box on purpose, so it needs only a narrow
  * gutter to live in while the curves reach the rows on either side.
  */

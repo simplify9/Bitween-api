@@ -76,7 +76,7 @@ public class RetryChainTests
 
         Assert.Contains(second.Id, error.Message);
 
-        // Still exactly one retry from it — the point of the rule.
+        // Still exactly one retry from it - the point of the rule.
         Assert.Equal(1, await db.Set<Xchange>().CountAsync(x => x.RetryFor == xchange.Id));
     }
 
@@ -174,7 +174,7 @@ public class RetryChainTests
     /// <summary>
     /// Every selection in one chain has to resolve to the same end of it. The first version walked
     /// the tree a level at a time with a set of nodes already seen, which made a selection lagging
-    /// behind another stop on a node the leader had stepped over — so it was reported as handing
+    /// behind another stop on a node the leader had stepped over - so it was reported as handing
     /// over to an attempt that had itself been retried, and retrying that threw ALREADY_RETRIED and
     /// took the whole selection down. Needs three or more attempts and two selections at different
     /// depths to show up at all.
@@ -241,7 +241,7 @@ public class RetryChainTests
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var ctx = scope.Superuser();
 
-        // Three failures on one subscription — more than a page would show, in miniature.
+        // Three failures on one subscription - more than a page would show, in miniature.
         var (sub, first) = await FailedXchange(db, xs, "Bulk Filter Doc");
         var second = await xs.CreateXchange(sub, new XchangeFile("{}"));
         var third = await xs.CreateXchange(sub, new XchangeFile("{}"));
@@ -289,7 +289,7 @@ public class RetryChainTests
     /// <summary>
     /// Retrying is an operator's action, and until this was added the endpoints took anyone's word
     /// for it: the UI hid the button without a permission, but the API accepted the call from any
-    /// signed-in account. <c>PermissionGuardTests</c> could not have caught it — those exercise
+    /// signed-in account. <c>PermissionGuardTests</c> could not have caught it - those exercise
     /// <c>EnsurePermission</c> itself, and the gap was in never calling it.
     /// </summary>
     [Fact]
@@ -320,7 +320,7 @@ public class RetryChainTests
 
     /// <summary>
     /// The plan has to answer the question actually being asked. Re-resolving properties needs the
-    /// subscription, so for an exchange that has none the answer differs with the choice — and a
+    /// subscription, so for an exchange that has none the answer differs with the choice - and a
     /// plan that promised a retry the retry then skipped would make the confirmation worthless.
     /// </summary>
     [Fact]
@@ -364,7 +364,7 @@ public class RetryChainTests
 
     /// <summary>
     /// A status the filter cannot read used to be dropped, which widened the selection to every
-    /// exchange there is — harmless in a search, but bulk retry runs over whatever this selects.
+    /// exchange there is - harmless in a search, but bulk retry runs over whatever this selects.
     /// </summary>
     [Fact]
     public async Task BulkRetry_refuses_a_filter_carrying_an_unreadable_status()
@@ -421,7 +421,7 @@ public class RetryChainTests
         Assert.Equal(4, listed.GetProperty("Attempts").GetInt32());
         Assert.DoesNotContain(chains, c => c.GetProperty("Id").GetString() == healedRetry.Id);
 
-        // Superseded attempts are not listed either — only where each chain got to.
+        // Superseded attempts are not listed either - only where each chain got to.
         foreach (var stale in new[] { deep.Id, second.Id, third.Id })
             Assert.DoesNotContain(chains, c => c.GetProperty("Id").GetString() == stale);
 
@@ -460,7 +460,7 @@ public class RetryChainTests
 
     /// <summary>
     /// A chain is one piece of work, however many attempts it took. Asking for the newest attempt
-    /// only is what turns a list of failures into a list of things still to deal with — and, used
+    /// only is what turns a list of failures into a list of things still to deal with - and, used
     /// with a bulk retry, means the selection is already the attempts that can be retried.
     /// </summary>
     [Fact]

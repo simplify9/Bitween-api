@@ -23,12 +23,12 @@ interface Draft {
 }
 
 /**
- * Routed create page for one gateway attachment — who calls, and what runs when
+ * Routed create page for one gateway attachment - who calls, and what runs when
  * they do. Deliberately shaped like `EditAttachmentPage`, its edit twin: two
  * questions on one form, not a guided flow.
  *
- * "New subscription" leaves this page rather than opening in place — see
- * `NewGatewaySubscriptionPage` — so `?picked=`/`?partnerId=` restore the choices
+ * "New subscription" leaves this page rather than opening in place - see
+ * `NewGatewaySubscriptionPage` - so `?picked=`/`?partnerId=` restore the choices
  * this page had on the way out.
  */
 export function AttachPartnerPage() {
@@ -49,7 +49,7 @@ export function AttachPartnerPage() {
     subscriptionId: searchParams.get("picked") ? Number(searchParams.get("picked")) : null,
   });
 
-  // Consumed once, on the way back from creating a subscription — cleared so a
+  // Consumed once, on the way back from creating a subscription - cleared so a
   // refresh of this page doesn't keep re-seeding the same values.
   useEffect(() => {
     if (searchParams.has("picked") || searchParams.has("partnerId")) setSearchParams({}, { replace: true });

@@ -5,7 +5,7 @@ import { AdapterConfig } from "../../components/config/AdapterConfig";
 /**
  * Where a "retry budget ran out" alert goes, as set at one level of the hierarchy.
  *
- * Three levels decide between them — the policy, a group, and one subscription-and-group pair —
+ * Three levels decide between them - the policy, a group, and one subscription-and-group pair -
  * resolved most specific first. A level that sends **replaces** the level above rather than
  * merging into it, so whichever one wins has to carry the handler *and* every property it needs.
  * That is why each level offers the whole adapter form and not just a handler name: a handler
@@ -28,7 +28,7 @@ export function AlertRouting({
   value: RetryAlertConfig;
   onChange: (next: RetryAlertConfig) => void;
   /**
-   * What Inherit resolves to right now, spelled out — "Inherit" alone tells you the rule but
+   * What Inherit resolves to right now, spelled out - "Inherit" alone tells you the rule but
    * not the outcome, and the outcome is the thing being decided.
    */
   inherited: ReactNode;

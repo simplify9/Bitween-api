@@ -21,7 +21,7 @@ import {
 const sidebarLinks = (page: Page) =>
   page.getByRole("navigation").getByRole("link").filter({ hasNotText: /^$/ });
 
-/** Calls the API directly with the signed-in member's own token — no UI in the way. */
+/** Calls the API directly with the signed-in member's own token - no UI in the way. */
 async function apiStatus(
   page: Page,
   method: "GET" | "POST",

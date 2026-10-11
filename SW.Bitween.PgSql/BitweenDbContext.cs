@@ -139,7 +139,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     .IsRequired().OnDelete(DeleteBehavior.Restrict);
             });
 
-            // NOTE: this context does NOT call base.OnModelCreating — it redeclares the model.
+            // NOTE: this context does NOT call base.OnModelCreating - it redeclares the model.
             // Anything configured only in SW.Bitween.Api's context is inert here. DataSource
             // reached the model anyway, by convention, through the BusGateway.DataSource
             // navigation; InboundMessage has no such navigation and has to be declared.
@@ -190,7 +190,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 st.Property(p => p.Sql).IsRequired();
                 st.Property(p => p.Description).HasMaxLength(1000);
 
-                // Column names, so the database's own identifier limit is the ceiling — 128 is
+                // Column names, so the database's own identifier limit is the ceiling - 128 is
                 // above every engine's (Oracle allows 128, PostgreSQL 63).
                 st.Property(p => p.CursorColumn).HasMaxLength(128);
                 st.Property(p => p.KeyColumn).HasMaxLength(128);
@@ -227,7 +227,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 im.ToTable("inbound_message");
 
                 // The dedupe key IS the primary key. Deduplication is decided by an insert
-                // failing, not by a lookup succeeding — see the type's remarks.
+                // failing, not by a lookup succeeding - see the type's remarks.
                 im.HasKey(i => i.Id);
                 im.Property(i => i.Id).HasMaxLength(400);
                 im.Property(i => i.XchangeId).HasMaxLength(50);
@@ -407,7 +407,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 // No b-tree on PropertiesRaw. The only query on it is the Exchanges page's substring
                 // search, a leading-wildcard LIKE no b-tree can serve (Postgres has a trigram index
                 // for it, PromotedPropertiesTrigramIndex). Having one made long values fail the
-                // save — after the delivery, so the retry delivered again — and it is what had
+                // save - after the delivery, so the retry delivered again - and it is what had
                 // capped the column at 450 characters on SQL Server and 255 on MySQL.
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id)
                     .OnDelete(DeleteBehavior.Cascade);
@@ -512,7 +512,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
             });
 
-            // ——— Audit trail ———
+            // --- Audit trail ---
             // A table that only ever grows and is only ever appended to. The indexes answer the two
             // questions asked of it: the history of one row, and everything one save changed.
             modelBuilder.Entity<AuditEntry>(b =>

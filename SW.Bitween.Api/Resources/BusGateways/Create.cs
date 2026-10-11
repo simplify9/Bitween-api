@@ -42,7 +42,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext, I
         /// <summary>
         /// Shared by Create and Update. An endpoint is what the supervisor turns into the adapter's
         /// consume list, so an external gateway without one is a gateway that can never receive
-        /// anything — and it would fail silently, which is the worst way for it to fail.
+        /// anything - and it would fail silently, which is the worst way for it to fail.
         /// </summary>
         internal static async Task EnsureDataSourceAsync(BitweenDbContext dbContext, BusGatewayCreate model)
         {
@@ -56,8 +56,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext, I
             if (dataSource == null)
                 throw new SWNotFoundException($"DataSource with Id {model.DataSourceId} not found");
 
-            // A data source is not only a broker connection — a resident adapter holding a database
-            // session is one too — and only a broker has queues to consume. Reading this from the
+            // A data source is not only a broker connection - a resident adapter holding a database
+            // session is one too - and only a broker has queues to consume. Reading this from the
             // kind rather than from the adapter id keeps the rule true for providers nobody has
             // written yet.
             if (dataSource.Kind != Domain.DataSources.DataSourceKind.Broker)
@@ -67,7 +67,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext, I
 
             if (string.IsNullOrWhiteSpace(model.Endpoint))
                 throw new SWException(
-                    "An external bus gateway needs an endpoint — the queue, topic or subscription "
+                    "An external bus gateway needs an endpoint - the queue, topic or subscription "
                     + "on that data source it reads from.");
 
             // Two gateways consuming one endpoint on one data source would both be offered every

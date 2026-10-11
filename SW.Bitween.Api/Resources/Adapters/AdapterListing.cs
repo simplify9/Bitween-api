@@ -10,11 +10,11 @@ namespace SW.Bitween.Resources.Adapters;
 /// <param name="Key">The adapter id, as a subscription stores it.</param>
 /// <param name="Native">In-process, so it has no published versions of its own.</param>
 /// <param name="VersionPaths">
-/// Published version files, as paths relative to the remote adapter root — the trailing segment is
+/// Published version files, as paths relative to the remote adapter root - the trailing segment is
 /// the version number.
 /// </param>
 /// <param name="Manifest">
-/// What the adapter says about itself — the current package's manifest, or a native adapter's. Null
+/// What the adapter says about itself - the current package's manifest, or a native adapter's. Null
 /// for a package published before manifests existed.
 /// </param>
 /// <param name="Catalog">The published adapter's catalog entry; null when it has none.</param>
@@ -84,8 +84,8 @@ public class AdapterListing(
 
     /// <summary>
     /// Adapters that are in the catalog but have no package at <c>adapters/{id}</c>, which is all
-    /// the listing above looks at. An adapter in another runtime than .NET is never put there —
-    /// older hosts would start it with dotnet — and neither is a .NET version published without
+    /// the listing above looks at. An adapter in another runtime than .NET is never put there -
+    /// older hosts would start it with dotnet - and neither is a .NET version published without
     /// being made current. Each is listed under the kinds its manifests declare, or the old
     /// naming convention, and only while it has a version that can still be used.
     /// </summary>
@@ -129,7 +129,7 @@ public class AdapterListing(
     /// Two ways an adapter says what it is for, and both are honoured. The Kind stamped on it at
     /// publish time is the real answer: it comes from the code rather than from whoever typed the
     /// id, it is the only way a third party's adapter can be found at all, and it lets an adapter
-    /// be reclassified without being renamed — a rename is not free, because every subscription
+    /// be reclassified without being renamed - a rename is not free, because every subscription
     /// stores the id.
     ///
     /// The infolink6.&lt;kind&gt;s. prefix is the old convention, and everything published before the
@@ -143,7 +143,7 @@ public class AdapterListing(
         var byConvention = (await cloudFilesService.ListAsync($"{root}/infolink6.{prefix}")).ToList();
         var named = byConvention.Select(i => i.Key).ToHashSet(System.StringComparer.OrdinalIgnoreCase);
 
-        // The plural the UI asks with — "handlers" — against the singular an adapter declares.
+        // The plural the UI asks with - "handlers" - against the singular an adapter declares.
         var kind = prefix?.TrimEnd('s') ?? "";
         if (string.IsNullOrWhiteSpace(kind)) return byConvention;
 
@@ -162,7 +162,7 @@ public class AdapterListing(
     /// <summary>
     /// The kinds one adapter declared. Metadata reads are cached by the installer, and an adapter
     /// whose metadata cannot be read declares nothing rather than taking the whole catalogue down
-    /// with it — the list is what an operator needs to configure anything at all.
+    /// with it - the list is what an operator needs to configure anything at all.
     /// </summary>
     private async Task<string[]> DeclaredKindsAsync(string key, string root)
     {

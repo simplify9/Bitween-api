@@ -8,7 +8,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.ApiGateways;
 
 /// <summary>
-/// The url name is the path partners call — <c>/api/gateway/{urlName}/sync</c> — so anything
+/// The url name is the path partners call - <c>/api/gateway/{urlName}/sync</c> - so anything
 /// needing escaping there makes a gateway that reads as configured and cannot be reached. A
 /// space is the one that actually happens: it saves, the endpoint shown on the page is the one
 /// the partner copies, and the call 404s with nothing on screen to explain it.
@@ -30,7 +30,7 @@ internal static partial class GatewayUrlName
         if (!Allowed().IsMatch(urlName))
             throw new SWValidationException("GATEWAY_URL_NAME_INVALID",
                 $"'{urlName}' cannot be used in a URL. Use lowercase letters, digits, hyphens " +
-                "and underscores, with / between parts — no spaces, and no part starting or " +
+                "and underscores, with / between parts - no spaces, and no part starting or " +
                 "ending with a separator.");
 
         // The call ends in /sync or /async, and it is the last segment that says which. A name
@@ -38,7 +38,7 @@ internal static partial class GatewayUrlName
         var last = urlName[(urlName.LastIndexOf('/') + 1)..];
         if (last is "sync" or "async")
             throw new SWValidationException("GATEWAY_URL_NAME_INVALID",
-                $"'{urlName}' cannot end in '{last}' — partners add /sync or /async after it.");
+                $"'{urlName}' cannot end in '{last}' - partners add /sync or /async after it.");
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ internal static partial class GatewayUrlName
     /// updating, so saving a gateway without touching its url name isn't a collision with itself.
     /// </summary>
     /// <remarks>
-    /// The column is uniquely indexed, so this was already refused — as a constraint violation
+    /// The column is uniquely indexed, so this was already refused - as a constraint violation
     /// that reached the screen as "Request failed (500)", with nothing to say the name was taken
     /// or which gateway has it.
     /// </remarks>

@@ -9,7 +9,7 @@ const MARGIN = 8;
  *
  * Portalled with fixed coordinates rather than positioned `absolute` inside the
  * trigger, because every list table is an `overflow-x-auto` scroll container
- * and a scroll container clips on *both* axes — an in-flow panel would be cut
+ * and a scroll container clips on *both* axes - an in-flow panel would be cut
  * off by the row it belongs to.
  *
  * Closes on Esc, on an outside click, and on any scroll that isn't the panel's
@@ -32,7 +32,7 @@ export function Popover({
   /** Tailwind width class for the panel. */
   width?: string;
   /**
-   * Off for a trigger that cannot scroll away from its panel — one in a fixed
+   * Off for a trigger that cannot scroll away from its panel - one in a fixed
    * toolbar, say. The scroll listener is on `document` in the capture phase, so
    * it fires for *any* scrolling element on the page, including a pane that
    * merely re-rendered somewhere else; where the trigger never moves, that
@@ -103,7 +103,7 @@ export function Popover({
             ref={panelRef}
             // The portal escapes the DOM tree but NOT React's: a click in here
             // still bubbles to whatever contains <Popover>, which for a table
-            // cell is the row — clicking a link in the panel would follow the
+            // cell is the row - clicking a link in the panel would follow the
             // row's destination instead of the link's.
             onClick={(e) => e.stopPropagation()}
             style={{ top: pos.top, left: pos.left }}

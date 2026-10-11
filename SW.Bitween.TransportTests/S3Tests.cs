@@ -119,7 +119,7 @@ public class S3Tests(S3Fixture minio) : IClassFixture<S3Fixture>
 
     /// <summary>
     /// As shipped, a fixed file name is the whole key: the folder is not put in front of it. Pinned
-    /// so a change to it is a decision — deployments may be writing to the root on purpose.
+    /// so a change to it is a decision - deployments may be writing to the root on purpose.
     /// </summary>
     [Fact]
     public async Task A_fixed_file_name_is_the_whole_key_and_overwrites()

@@ -21,21 +21,21 @@ import { SearchBox } from "../../components/ui/SearchBox";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
- * One shared `queue-health` query feeds every row — the same cache entry the
+ * One shared `queue-health` query feeds every row - the same cache entry the
  * Queue health page uses, so this costs one poll, not one per group.
  */
 function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGroupRow>[] {
   const consumerFor = (g: WorkGroupRow) => snapshot?.consumers.find((c) => c.workGroupId === g.id);
   const num = (get: (g: WorkGroupRow) => number | undefined) => (g: WorkGroupRow) => {
     const v = get(g);
-    return <span className="tabular-nums text-ink-700">{v ?? "—"}</span>;
+    return <span className="tabular-nums text-ink-700">{v ?? "-"}</span>;
   };
   return [
     {
       header: "Health",
       cell: (g) => {
         const c = consumerFor(g);
-        if (!c) return <span className="text-ink-500">—</span>;
+        if (!c) return <span className="text-ink-500">-</span>;
         return c.health === "critical" ? (
           <Badge tone="danger" title={queueHealthTitle("critical")}>Critical</Badge>
         ) : c.health === "warning" ? (
@@ -104,11 +104,11 @@ export function WorkGroupsPage() {
             <>
               <p>
                 Every subscription runs in the default (ungrouped) lane unless assigned to a work
-                group. Groups get their own RabbitMQ queue — <strong>prefetch</strong> controls how
+                group. Groups get their own RabbitMQ queue - <strong>prefetch</strong> controls how
                 many messages a consumer pulls at once, <strong>priority</strong> decides which
                 group's queue is drained first when several are busy.
               </p>
-              <p>Changes to a group's settings apply live — no restart needed.</p>
+              <p>Changes to a group's settings apply live - no restart needed.</p>
             </>
           ),
         }}
@@ -120,7 +120,7 @@ export function WorkGroupsPage() {
       {canMonitor && !rabbitMqConfigured && (
         <InlineNotice>
           Live queue stats (Health, Nodes, Queued, …) need RabbitMQ management configured on the
-          backend — those columns will stay blank until then.
+          backend - those columns will stay blank until then.
         </InlineNotice>
       )}
 
@@ -151,10 +151,10 @@ export function WorkGroupsPage() {
             {
               // The queue rather than the bare bus message name: nothing stops two groups
               // sharing both a name and a bus message name, and then neither column tells
-              // them apart. The queue carries the id, so it always does — and it is what
+              // them apart. The queue carries the id, so it always does - and it is what
               // these rows are called in RabbitMQ.
               header: "Queue",
-              headerTitle: "The group's queue in RabbitMQ — its id followed by its bus message name.",
+              headerTitle: "The group's queue in RabbitMQ - its id followed by its bus message name.",
               cell: (g) => <code className="font-mono text-xs text-ink-600">{workGroupQueueName(g)}</code>,
             },
             {
@@ -162,7 +162,7 @@ export function WorkGroupsPage() {
               wrap: true,
               cell: (g) => <UsedByCell items={subscriptions.filter((s) => s.workGroupId === g.id)} />,
             },
-            // `enabled: false` on the `live` query only stops it refetching — it doesn't clear a
+            // `enabled: false` on the `live` query only stops it refetching - it doesn't clear a
             // result already cached from before RabbitMQ management was disabled. Pass undefined
             // explicitly so the columns actually go blank rather than showing stale numbers.
             ...(canMonitor ? liveColumns(rabbitMqConfigured ? live.data : undefined) : []),

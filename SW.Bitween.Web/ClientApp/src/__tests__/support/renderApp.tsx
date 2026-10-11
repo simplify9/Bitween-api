@@ -62,7 +62,7 @@ export interface RenderAppOptions {
 }
 
 /**
- * Mounts the whole app — session, router, data layer — at one URL, against the mock network.
+ * Mounts the whole app - session, router, data layer - at one URL, against the mock network.
  *
  * The real routes and the real API client run; only the server is fake. So a test here reads like
  * the Playwright spec it replaced, minus the backend and the database that made those slow and

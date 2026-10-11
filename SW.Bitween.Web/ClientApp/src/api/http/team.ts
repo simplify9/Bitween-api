@@ -66,7 +66,7 @@ const toRole = (r: RawRole): Role => ({
   memberCount: r.memberCount,
 });
 
-/** One page big enough for any realistic team — the backend defaults to 20. */
+/** One page big enough for any realistic team - the backend defaults to 20. */
 const ALL_MEMBERS = 500;
 
 async function fetchUsers(): Promise<User[]> {
@@ -82,12 +82,12 @@ async function fetchUser(id: string): Promise<User> {
 }
 
 export const teamMethods = {
-  // — permission catalog —
+  // - permission catalog -
   async getPermissionCatalog(): Promise<PermissionArea[]> {
     return await get<PermissionArea[]>("/permissions");
   },
 
-  // — members —
+  // - members -
   listUsers: fetchUsers,
   getUser: fetchUser,
 
@@ -135,7 +135,7 @@ export const teamMethods = {
     await post(`/accounts/${id}/remove`, {});
   },
 
-  // — roles —
+  // - roles -
   async listRoles(): Promise<Role[]> {
     const res = await get<SearchyResponse<RawRole>>("/roles?pageSize=200");
     return (res.result ?? []).map(toRole);

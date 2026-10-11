@@ -9,7 +9,7 @@ import type { DataSourceProvider, DataSourceProviderSetting } from "../../api/ty
  *
  * This used to be a hand-written table right here: the fields each provider starts with, their
  * defaults, their allowed values, which of them are credentials. That is a copy of a contract the
- * front end does not own, and it drifted — a hint told operators to set "Tls" while the adapter
+ * front end does not own, and it drifted - a hint told operators to set "Tls" while the adapter
  * only ever read "UseSsl", so a connection that looked encrypted in this form was in the clear on
  * the wire.
  *
@@ -51,7 +51,7 @@ export const initialProperties = (provider: DataSourceProvider): Record<string, 
  * The order to show a data source's settings in: the adapter's, not the dictionary's.
  *
  * What comes back from the server is a map, and a map has whatever order the database and the
- * serializer between them produced — which is how a form ended up asking for a password before the
+ * serializer between them produced - which is how a form ended up asking for a password before the
  * username it belongs to. The adapter declares its settings in a deliberate order (connection
  * first, then credentials, then tuning), and that is the order to render.
  *
@@ -92,10 +92,10 @@ export const isSecretName = (
 
 /**
  * Which adapters bind to a data source at all, as a hook so every page asking the
- * question shares one answer — the subscription's own page and all three create pages.
+ * question shares one answer - the subscription's own page and all three create pages.
  *
  * A relational one always does; a BROKER one does in a delivery, because that is how a
- * subscription answers on the customer's own queue — ingress from a broker comes through
+ * subscription answers on the customer's own queue - ingress from a broker comes through
  * a bus gateway rather than through a subscription slot.
  */
 export function useBindsToDataSource() {
@@ -115,7 +115,7 @@ const ACRONYMS: Record<string, string> = {
 
 /**
  * A setting's name as a label: "UserName" reads "User name", "UseSsl" reads "Use SSL". Only the
- * label changes — the adapter still receives the setting under its own name.
+ * label changes - the adapter still receives the setting under its own name.
  */
 export const settingLabel = (name: string): string => {
   const words = name

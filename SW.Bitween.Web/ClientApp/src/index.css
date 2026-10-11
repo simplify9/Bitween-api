@@ -6,7 +6,7 @@
   Bitween design tokens.
 
   Brand: the crimson ramp is carried over verbatim from the existing
-  Bitween-UI tailwind.config.js — the only thing preserved from the old UI.
+  Bitween-UI tailwind.config.js - the only thing preserved from the old UI.
   Neutrals ("ink") are derived from the logo's own wordmark color #372f2e,
   so chrome and brand always harmonize.
 */
@@ -48,7 +48,7 @@
     Warn reads YELLOW, not brown. The old pair was a tan fill (#fbeed0) with an
     olive text (#92600a), and since a badge takes its perceived colour from the
     fill, "Bad response" looked brown. Dark yellow *is* brown, so the fix can't
-    come from the text — it comes from making the fill an unambiguous yellow and
+    come from the text - it comes from making the fill an unambiguous yellow and
     keeping the text only as dark as legibility needs.
 
     warn-400 is the solid-fill yellow, for places that paint a block of colour
@@ -72,7 +72,7 @@
   /*
     Status red, deliberately NOT the crimson ramp. Brand color is customer-settable
     (Theme.PrimaryColor rewrites every --color-crimson-* at runtime), so anything
-    that means "this failed" or "this destroys data" has to live outside it —
+    that means "this failed" or "this destroys data" has to live outside it -
     otherwise a yellow-branded tenant gets yellow error badges. Reads as the
     ok/warn pair's missing third: green good, amber degraded, red bad.
 
@@ -115,7 +115,7 @@
 
 /* ── Colouring a JSON or XML document ─────────────────────────────────────────
    The classes highlight.js emits, in this app's palette rather than one of its
-   own themes — those assume a background of their own, and these documents are
+   own themes - those assume a background of their own, and these documents are
    read on two: the mapper's preview on paper, an exchange payload on ink.
 
    Only the tokens JSON and XML actually produce are named. Anything else keeps

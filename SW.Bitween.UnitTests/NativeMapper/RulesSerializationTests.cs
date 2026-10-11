@@ -11,7 +11,7 @@ namespace SW.Bitween.UnitTests.NativeMapper;
 /// </summary>
 /// <remarks>
 /// Pinned because both sides depend on it and neither can see the other's types. The editor writes
-/// what a JavaScript developer would write — camelCase names, lowercase enum values — so these
+/// what a JavaScript developer would write - camelCase names, lowercase enum values - so these
 /// tests exist to make sure that keeps working rather than being an accident of Newtonsoft's
 /// defaults.
 /// </remarks>
@@ -134,7 +134,7 @@ public class RulesSerializationTests
     public void RootLoop_ForRootArrayOutput() =>
         Assert.AreEqual("lines", Read("""{ "root": { "over": "lines" } }""").Root!.Over);
 
-    /// <summary>Empty rules are valid — a mapping being built has none yet.</summary>
+    /// <summary>Empty rules are valid - a mapping being built has none yet.</summary>
     [TestMethod]
     public void EmptyObject_GivesDefaults()
     {
@@ -174,7 +174,7 @@ public class RulesSerializationTests
 
     /// <summary>
     /// Fixed entries, and the three states of <c>over</c>. Absent and empty mean different things
-    /// — nothing walked, versus the document is the list — so a serialiser that flattened one into
+    /// - nothing walked, versus the document is the list - so a serialiser that flattened one into
     /// the other would quietly change what a mapping produces.
     /// </summary>
     [TestMethod]

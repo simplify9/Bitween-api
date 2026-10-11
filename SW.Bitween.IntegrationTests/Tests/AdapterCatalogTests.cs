@@ -18,7 +18,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Adapter manifests, the catalog and version pinning — and, first of all, that a deployment which
+/// Adapter manifests, the catalog and version pinning - and, first of all, that a deployment which
 /// has none of them behaves exactly as it did: adapters published the old way list, describe and
 /// run as before, and subscriptions that pin nothing run the current package.
 /// </summary>
@@ -32,7 +32,7 @@ public class AdapterCatalogTests(BitweenFixture fixture)
     static string Unique(string prefix) => $"{prefix}-{Interlocked.Increment(ref _seq)}";
 
     /// <summary>
-    /// A handler published the old way — package and metadata, no manifest, no catalog — or, with
+    /// A handler published the old way - package and metadata, no manifest, no catalog - or, with
     /// <paramref name="versions"/>, also as versioned packages with a catalog entry naming the last current.
     /// </summary>
     async Task<string> PublishHandler(string[] versions = null, string withdrawn = null,
@@ -127,8 +127,8 @@ public class AdapterCatalogTests(BitweenFixture fixture)
         scope.Superuser();
         var handler = ActivatorUtilities.CreateInstance<Resources.Adapters.Catalog>(scope.ServiceProvider);
         return JArray.FromObject(await handler.Handle(new AdapterSearchRequest { Prefix = prefix }),
-            // Camel-cased property names, as the API sends them, with dictionary keys — property
-            // names of the adapter — left as they are.
+            // Camel-cased property names, as the API sends them, with dictionary keys - property
+            // names of the adapter - left as they are.
             JsonSerializer.Create(new JsonSerializerSettings
             {
                 ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver
@@ -211,7 +211,7 @@ public class AdapterCatalogTests(BitweenFixture fixture)
         Assert.Equal(["1.0.0", "1.1.0"], history.Select(v => (string)v["version"]));
         Assert.True((bool)history[0]["withdrawn"]);
         Assert.Equal("Notes for 1.1.0", (string)history[1]["releaseNotes"]);
-        // The old field is still there, for the old UI — with what can be pinned, so not the withdrawn one.
+        // The old field is still there, for the old UI - with what can be pinned, so not the withdrawn one.
         Assert.Equal(["1.1.0"], ((JArray)listed["versions"]).Select(v => (string)v));
     }
 
@@ -281,7 +281,7 @@ public class AdapterCatalogTests(BitweenFixture fixture)
 
     /// <summary>
     /// The request validator checks required settings before the version is checked. It used to
-    /// describe the unknown version by starting it, which threw — a 500 instead of the refusal.
+    /// describe the unknown version by starting it, which threw - a 500 instead of the refusal.
     /// </summary>
     [Fact]
     public async Task The_settings_check_leaves_an_unknown_version_to_the_version_check()
@@ -321,7 +321,7 @@ public class AdapterCatalogTests(BitweenFixture fixture)
     [Fact]
     public async Task A_version_an_older_installer_published_lists_and_can_be_pinned()
     {
-        // Where the installer put versions before they had a prefix of their own — beside the
+        // Where the installer put versions before they had a prefix of their own - beside the
         // current package, under adapters/{id}/. (Only the version, here: a file-system store
         // can't also hold adapters/{id} as a file.)
         var id = $"infolink6.handlers.oldlayout{Interlocked.Increment(ref _seq)}";

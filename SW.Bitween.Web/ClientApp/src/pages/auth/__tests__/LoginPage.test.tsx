@@ -4,7 +4,7 @@ import { renderApp } from "../../../__tests__/support/renderApp";
 
 /**
  * What the sign-in page offers is driven by the anonymous config endpoint, so each case is just
- * a different answer from it — which is also why these never touch the real setting: flipping
+ * a different answer from it - which is also why these never touch the real setting: flipping
  * `Bitween.DisableEmailPasswordLogin` on a real instance with no Microsoft app locks everyone out.
  */
 const passwordField = () => document.querySelector("#login-password");

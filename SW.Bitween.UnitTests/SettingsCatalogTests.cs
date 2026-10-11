@@ -5,8 +5,8 @@ using SW.Bitween.Services;
 namespace SW.Bitween.UnitTests;
 
 /// <summary>
-/// The settings page renders whatever the catalog says, so what an administrator is offered — which
-/// sections, which rows are edits and which are only shown — is decided here rather than in the UI.
+/// The settings page renders whatever the catalog says, so what an administrator is offered - which
+/// sections, which rows are edits and which are only shown - is decided here rather than in the UI.
 /// </summary>
 [TestClass]
 public class SettingsCatalogTests
@@ -66,7 +66,7 @@ public class SettingsCatalogTests
     {
         var definition = SettingsCatalog.Find("Bitween.DisableEmailPasswordLogin");
 
-        // It applies per request — the Login handler and the config endpoint both read it live — so
+        // It applies per request - the Login handler and the config endpoint both read it live - so
         // it belongs in the catalog as an edit rather than a read-only environment row.
         Assert.AreEqual("Single sign-on (Microsoft)", definition.Section);
         Assert.AreEqual("Microsoft sign-in only", definition.Label);

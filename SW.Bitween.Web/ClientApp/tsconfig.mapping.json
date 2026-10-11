@@ -20,7 +20,7 @@
 
     /* The mapping lib is copied verbatim from the legacy Bitween-UI repo
        (see BITWEEN_UI_REDESIGN_BRIEF.md §9 chunk F). It is held to the legacy
-       repo's laxer rules on purpose so the files stay byte-identical — the port's
+       repo's laxer rules on purpose so the files stay byte-identical - the port's
        whole guarantee is that the mapping logic is untouched. The stricter
        app-wide flags (verbatimModuleSyntax / noUnusedLocals / noUnusedParameters)
        are intentionally NOT applied here. */

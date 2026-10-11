@@ -10,7 +10,7 @@ import { keys } from "../../api/queryKeys";
 /**
  * Creating a retry policy, as one component.
  *
- * A policy is born with nothing but a name — its budget, groups and alert routing are
+ * A policy is born with nothing but a name - its budget, groups and alert routing are
  * configured on its own page, which is too much to ask for inside a dialog. So the two
  * callers want opposite things once it exists, and `onCreated` is what tells them apart:
  * the policies list sends you to the new policy's page to carry on configuring it, while

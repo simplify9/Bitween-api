@@ -6,7 +6,7 @@ import { SEED } from "./seed-data";
 /**
  * The read-only views: the Adapters page, the flow map, and the filters on the subscription
  * list. Nothing here changes anything through the page; what each view shows is checked against
- * rows the test made, so a view that shows the wrong thing — not just nothing — fails.
+ * rows the test made, so a view that shows the wrong thing - not just nothing - fails.
  */
 
 /** Published by tools/e2e.sh: a custom handler with versions 1.0.0 and 2.0.0 (current). */
@@ -177,7 +177,7 @@ test("the subscription list's search, type, partner and status filters each narr
   await page.getByRole("combobox", { name: "Filter by status" }).selectOption("false");
   await shown(acme);
 
-  // The filters live in the URL, so a reload — or a link sent to someone — shows the same rows.
+  // The filters live in the URL, so a reload - or a link sent to someone - shows the same rows.
   await page.reload();
   await shown(acme);
 

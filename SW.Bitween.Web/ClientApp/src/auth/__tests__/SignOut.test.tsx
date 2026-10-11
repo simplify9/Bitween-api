@@ -9,15 +9,15 @@ import { server } from "../../__tests__/support/server";
 /**
  * Signing out, and the ways it used to go wrong.
  *
- * The session lives in four places — a row in the database, the HttpOnly refresh
+ * The session lives in four places - a row in the database, the HttpOnly refresh
  * cookie, the Jwt in localStorage, and React's own copy. Only the last one decides
  * what you see, and it used to be the one thing a sign-out could fail to clear:
  * `signOut` awaited the server first, so any failure threw before the session was
  * ended and left the whole app on screen with the Jwt already deleted. Every test
  * here is a way that could happen.
  *
- * The one that needs two real tabs — a sign-out in one ending the session in the
- * other — stays in e2e/sign-out.spec.ts.
+ * The one that needs two real tabs - a sign-out in one ending the session in the
+ * other - stays in e2e/sign-out.spec.ts.
  */
 
 /** Somewhere every account can be, which asks the API for nothing but the permission catalog. */
@@ -46,7 +46,7 @@ const acceptSignIn = () =>
   server.use(http.post(apiPath("/accounts/login"), () => HttpResponse.json({ jwt: "fresh-token" })));
 
 /**
- * A logout the test answers when it chooses — or never. Records the request, so a test can
+ * A logout the test answers when it chooses - or never. Records the request, so a test can
  * see it went out, and whether it was cancelled while waiting.
  */
 function heldLogout(answer: (request: Request) => Response = () => HttpResponse.json({})) {
@@ -132,7 +132,7 @@ describe("signing out", () => {
 
   it("cannot let a slow sign-out response wipe the session that replaced it", async () => {
     // The logout response carries `Clear-Site-Data: "cache", "cookies", "storage"`, which
-    // the browser applies to the whole origin whenever it lands — including over a newer
+    // the browser applies to the whole origin whenever it lands - including over a newer
     // sign-in. Cancelling the request means the response never arrives. jsdom ignores the
     // header, so the mock does what the browser would, and only if the response reaches it.
     const logout = heldLogout((request) => {
@@ -156,7 +156,7 @@ describe("signing out", () => {
 
   it("cannot let a slow session read flash the app back after a sign-out", async () => {
     // Held open so it lands after the sign-out below. It then falls through to the ordinary
-    // 200 — the Jwt went out before the sign-out and is still valid — so its result must be
+    // 200 - the Jwt went out before the sign-out and is still valid - so its result must be
     // discarded on arrival rather than trusted, or the app appears again over a dead session.
     let profileRequested = false;
     let release!: () => void;

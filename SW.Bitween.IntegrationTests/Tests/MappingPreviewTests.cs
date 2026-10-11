@@ -19,7 +19,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// </summary>
 /// <remarks>
 /// The last test here is the one that matters. The old mapper's preview built its own template and
-/// assembled its own partner values, and the two drifted — a mapping using a partner property on a
+/// assembled its own partner values, and the two drifted - a mapping using a partner property on a
 /// root-array payload previewed correctly and failed in production. Both paths now run the same
 /// three steps against the same context factory, and this pins that.
 /// </remarks>
@@ -96,7 +96,7 @@ public class MappingPreviewTests
     }
 
     /// <summary>
-    /// An unreadable document is a general error rather than a rule error — no rule is at fault, and
+    /// An unreadable document is a general error rather than a rule error - no rule is at fault, and
     /// the editor should say so above the document instead of marking rows.
     /// </summary>
     [Fact]
@@ -139,7 +139,7 @@ public class MappingPreviewTests
         // Named rather than a format that merely happens to be unsupported today: this test asked
         // for "csv" until delimited text landed, at which point it stopped testing anything and
         // failed on a null error message instead. Asserting the whole supported list is the half
-        // that has to be kept honest — the next format to arrive is meant to break this line, and
+        // that has to be kept honest - the next format to arrive is meant to break this line, and
         // it now says so out loud.
         var response = await PreviewAsync(new { version = 1, sourceFormat = "yaml" }, "{}");
 
@@ -171,7 +171,7 @@ public class MappingPreviewTests
 
     /// <summary>
     /// The writer's own tests prove it honours a delimiter and a header. This pins that the ones on
-    /// the rules are the ones it is handed — the preview builds its target format from them.
+    /// the rules are the ones it is handed - the preview builds its target format from them.
     /// </summary>
     [Fact]
     public async Task A_delimited_file_is_written_with_the_delimiter_and_header_the_rules_ask_for()
@@ -269,7 +269,7 @@ public class MappingPreviewTests
     }
 
     /// <summary>
-    /// The same rules, the same document, the same partner — through the preview endpoint and
+    /// The same rules, the same document, the same partner - through the preview endpoint and
     /// through a real exchange. Byte for byte.
     /// </summary>
     /// <remarks>

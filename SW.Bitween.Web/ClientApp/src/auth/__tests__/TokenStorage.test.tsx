@@ -7,7 +7,7 @@ import { apiPath, profile, renderApp } from "../../__tests__/support/renderApp";
 /**
  * The Jwt lives in memory, not in localStorage, where any script that ever ran on the page could
  * read it. A reload therefore starts without one and gets it back from the HttpOnly refresh
- * cookie — but only when this browser held a session, so the sign-in page doesn't spend the
+ * cookie - but only when this browser held a session, so the sign-in page doesn't spend the
  * sign-in rate limit probing for one.
  */
 const empty = () => HttpResponse.json({ result: [], totalCount: 0 });

@@ -66,7 +66,7 @@ namespace SW.Bitween.Model
         public string Filter { get; set; }
 
         /// <summary>
-        /// Exchanges to leave out of a <see cref="Filter"/> selection — the rows unticked after
+        /// Exchanges to leave out of a <see cref="Filter"/> selection - the rows unticked after
         /// selecting everything.
         /// </summary>
         public List<string> ExcludeIds { get; set; }
@@ -118,7 +118,7 @@ namespace SW.Bitween.Model
 
         /// <summary>
         /// <c>true</c> when the selection is past <see cref="Limit"/>. Nothing else is filled in
-        /// then — resolving thousands of chains to describe a request that will be refused
+        /// then - resolving thousands of chains to describe a request that will be refused
         /// costs more than the answer is worth.
         /// </summary>
         public bool OverLimit { get; set; }
@@ -143,7 +143,7 @@ namespace SW.Bitween.Model
 
     /// <summary>
     /// A selected exchange that had already been retried, paired with the newest attempt in its
-    /// chain — the one a retry actually runs, since retrying the selected one again is refused.
+    /// chain - the one a retry actually runs, since retrying the selected one again is refused.
     /// </summary>
     public class XchangeRetrySubstitution
     {
@@ -154,8 +154,8 @@ namespace SW.Bitween.Model
     public class XchangeRetrySkip
     {
         /// <summary>
-        /// The exchange the skip is about: the one selected, or — once it had already been
-        /// retried — the later attempt that stood in for it.
+        /// The exchange the skip is about: the one selected, or - once it had already been
+        /// retried - the later attempt that stood in for it.
         /// </summary>
         public string Id { get; set; }
 
@@ -164,7 +164,7 @@ namespace SW.Bitween.Model
 
     public class XchangeRetryTreeRequest
     {
-        /// <summary>Any exchange in the chain — the answer is the same whichever one is asked about.</summary>
+        /// <summary>Any exchange in the chain - the answer is the same whichever one is asked about.</summary>
         public string Id { get; set; }
     }
 
@@ -290,7 +290,7 @@ namespace SW.Bitween.Model
         /// </summary>
         /// <remarks>
         /// Carried on the row rather than left to the retry-tree endpoint so that the common
-        /// case — an exchange with no retries either side of it — needs no second request at
+        /// case - an exchange with no retries either side of it - needs no second request at
         /// all. Costs one index lookup per returned row, on the index over <c>RetryFor</c>.
         /// </remarks>
         public bool HasRetry { get; set; }

@@ -34,7 +34,7 @@ function useDraft<T extends object>(initial: T) {
 }
 
 
-/** The whole pipeline — same nodes the studio page edits. */
+/** The whole pipeline - same nodes the studio page edits. */
 const STAGES_HERE: StageId[] = ["source", "schedule", "transformation", "delivery", "response"];
 
 type Draft = Pick<
@@ -62,7 +62,7 @@ const EMPTY: Draft = {
   informationTypeId: null,
   receiverId: null,
   receiverProperties: {},
-  // A sensible default so the node starts valid — edited through the full
+  // A sensible default so the node starts valid - edited through the full
   // recurrence editor on demand.
   schedules: [{ recurrence: "Daily", days: 0, hours: 0, minutes: 0, backwards: false }],
   mapperId: null,
@@ -82,7 +82,7 @@ const EMPTY: Draft = {
  *
  * This was a four-step wizard. It is the studio with empty nodes now, for one
  * reason: you learn the pipeline once, and after Create you land on the page you
- * were already looking at. Name and information type live above the diagram —
+ * were already looking at. Name and information type live above the diagram -
  * they identify the job rather than being a step in it.
  */
 export function NewScheduledJobPage() {
@@ -92,7 +92,7 @@ export function NewScheduledJobPage() {
   const detour = useResponseDetour<Draft>();
   const returned = detour.kept !== null || detour.pickedResponse !== null;
   const [stage, setStage] = useState<StageId | null>(returned ? "response" : "source");
-  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
@@ -150,7 +150,7 @@ export function NewScheduledJobPage() {
     // Aggregation only, and this page never creates one.
     aggregationTarget: "Input",
     enabled: draft.enable,
-    // Receiving has no Validation stage — see stages.ts.
+    // Receiving has no Validation stage - see stages.ts.
     validatorId: null,
     validatorProperties: {},
     matchExpression: null,
@@ -235,7 +235,7 @@ export function NewScheduledJobPage() {
               properties={draft.mapperProperties}
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
-              noneLabel="None — the document passes through unchanged"
+              noneLabel="None - the document passes through unchanged"
               onOpenMapperEditor={() => setMapping(true)}
             />
             {bindsToDataSource(draft.mapperId, "mapper") && (
@@ -340,7 +340,7 @@ export function NewScheduledJobPage() {
 
       {/* The two settings that belong to no stage, in the strip the subscription's own
           page keeps them in. Offered here because the API has always accepted them on a
-          create — leaving them out is what made a new job need a second visit. */}
+          create - leaving them out is what made a new job need a second visit. */}
       <div className="mb-5 flex flex-wrap items-start gap-x-10 gap-y-4 border-y border-ink-200 px-1 py-4">
         <LaneAndRetry
           workGroupId={draft.workGroupId}

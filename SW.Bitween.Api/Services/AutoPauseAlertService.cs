@@ -24,7 +24,7 @@ public class SubscriptionAutoPausedNotification
 }
 
 /// <summary>
-/// Tells someone a subscription paused itself, through the alert handler of its retry policy — the
+/// Tells someone a subscription paused itself, through the alert handler of its retry policy - the
 /// place already set up to hear that deliveries stopped going through. A subscription with no such
 /// policy, or one with no alert handler, has the pause logged and shown on its page, and nothing sent.
 /// </summary>

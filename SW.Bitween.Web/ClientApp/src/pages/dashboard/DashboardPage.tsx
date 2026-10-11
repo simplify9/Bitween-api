@@ -57,7 +57,7 @@ function StatTile({
 
 /**
  * The operational front page: today at a glance, two weeks of traffic, and
- * what needs a human — everything links into the page that can act on it.
+ * what needs a human - everything links into the page that can act on it.
  */
 export function DashboardPage() {
   const rabbitMqConfigured = useRabbitMqManagementConfigured();
@@ -72,7 +72,7 @@ export function DashboardPage() {
   if (isError && !data)
     return (
       <EmptyState title="Couldn't load the dashboard">
-        Something went wrong fetching dashboard data. It'll keep retrying in the background — try
+        Something went wrong fetching dashboard data. It'll keep retrying in the background - try
         refreshing the page.
       </EmptyState>
     );
@@ -100,12 +100,12 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="Dashboard"
-        description="Traffic and health at a glance — every number links to the page where you can act on it."
+        description="Traffic and health at a glance - every number links to the page where you can act on it."
       />
 
       <GettingStarted exchangesSeen={data.trafficByDay.some((d) => d.success + d.failed > 0) || data.today.total > 0} />
 
-      {/* — KPI row — */}
+      {/* - KPI row - */}
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile
           label="Exchanges today"
@@ -123,7 +123,7 @@ export function DashboardPage() {
           label="Success rate (7 days)"
           // With nothing finished in the week there is no rate to give: 100% claimed a success
           // that never happened.
-          value={finishedThisWeek > 0 ? `${data.successRate7d}%` : "—"}
+          value={finishedThisWeek > 0 ? `${data.successRate7d}%` : "-"}
           sub="of finished exchanges"
           to="/exchanges?status=success"
         />
@@ -134,7 +134,7 @@ export function DashboardPage() {
           to="/exchanges?status=failed"
           accent={data.today.failed > 0 ? "danger" : undefined}
         />
-        {/* "Failed today" counts attempts, and a chain retried nine times is nine of them —
+        {/* "Failed today" counts attempts, and a chain retried nine times is nine of them -
             none of which is the current state of anything. This counts the ends of chains, so
             it is the number of problems, and it opens exactly that list. */}
         <StatTile
@@ -145,7 +145,7 @@ export function DashboardPage() {
           sub={data.failuresToActOn > 0 ? "newest attempt of each chain" : "every failure was retried"}
           to="/exchanges?status=failed&latest=1"
           accent={data.failuresToActOn > 0 ? "danger" : undefined}
-          title="Failures that nothing has been retried from yet, over the last 14 days. A chain of nine failed attempts counts once — as the attempt at the end of it, which is the one still to deal with."
+          title="Failures that nothing has been retried from yet, over the last 14 days. A chain of nine failed attempts counts once - as the attempt at the end of it, which is the one still to deal with."
         />
         <StatTile
           label="Pending auto-retries"
@@ -156,14 +156,14 @@ export function DashboardPage() {
         />
         <StatTile
           label="Queue alerts"
-          value={queueAlerts ?? "—"}
+          value={queueAlerts ?? "-"}
           sub={queueAlertsSub}
           to="/queue-health"
           accent={queueAlerts !== null && queueAlerts > 0 ? "warn" : undefined}
         />
       </div>
 
-      {/* — 14-day traffic — */}
+      {/* - 14-day traffic - */}
       <Panel
         title="Traffic, last 14 days"
         description="Exchanges per day."
@@ -201,7 +201,7 @@ export function DashboardPage() {
                 <div key={d.date} className="group relative flex h-full flex-1 flex-col items-center justify-end">
                   {/* hover tooltip */}
                   <div className="pointer-events-none absolute bottom-full z-10 mb-1 hidden w-max rounded-md bg-ink-950 px-2 py-1 text-[11px] text-ink-100 group-hover:block">
-                    <span className="font-medium">{dayLabel.format(new Date(d.date))}</span> — {d.success} ok
+                    <span className="font-medium">{dayLabel.format(new Date(d.date))}</span> - {d.success} ok
                     {d.failed > 0 && <span> · {d.failed} failed</span>}
                   </div>
                   <div className="flex w-full max-w-6 flex-col items-stretch gap-0.5">
@@ -249,9 +249,9 @@ export function DashboardPage() {
         </details>
       </Panel>
 
-      {/* — chains that keep failing —
+      {/* - chains that keep failing -
           "Latest failures" answers what broke most recently. This answers which of them is not
-          getting better however often it is retried — the difference between bad luck and
+          getting better however often it is retried - the difference between bad luck and
           something a person has to go and fix. The retry success rate sits in the description,
           because a long chain only means "broken" where retries usually work. */}
       <Panel
@@ -313,7 +313,7 @@ export function DashboardPage() {
       </Panel>
 
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
-        {/* — latest failures — */}
+        {/* - latest failures - */}
         <Panel title="Latest failures" description="The most recent exchanges that need a look.">
           {data.latestFailures.length === 0 ? (
             <EmptyState title="Nothing has failed">When an exchange fails, it shows up here first.</EmptyState>
@@ -349,7 +349,7 @@ export function DashboardPage() {
           </Link>
         </Panel>
 
-        {/* — subscription health — */}
+        {/* - subscription health - */}
         <Panel title="Subscription health" description="Subscriptions that aren't running clean.">
           {unhealthy.length === 0 ? (
             <EmptyState title="All subscriptions healthy">No failures piling up, nothing paused.</EmptyState>
@@ -377,7 +377,7 @@ export function DashboardPage() {
               {unhealthy.length > HEALTH_PAGE_SIZE && (
                 <div className="mt-3 flex items-center justify-between text-[13px]">
                   <span className="text-ink-500 tabular-nums" title="Failing subscriptions first, then paused ones.">
-                    {healthStart + 1}–{Math.min(healthStart + HEALTH_PAGE_SIZE, unhealthy.length)} of{" "}
+                    {healthStart + 1}-{Math.min(healthStart + HEALTH_PAGE_SIZE, unhealthy.length)} of{" "}
                     {unhealthy.length}
                   </span>
                   <span className="flex gap-4 font-medium text-crimson-700">
@@ -405,7 +405,7 @@ export function DashboardPage() {
         </Panel>
       </div>
 
-      {/* — busiest subscriptions — */}
+      {/* - busiest subscriptions - */}
       <Panel title="Busiest subscriptions" description="Traffic share over the last 7 days.">
         {data.busiest.length === 0 ? (
           <EmptyState title="No traffic yet">Once exchanges flow, the busiest pipelines rank here.</EmptyState>

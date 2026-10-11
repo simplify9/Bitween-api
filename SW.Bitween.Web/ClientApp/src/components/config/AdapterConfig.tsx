@@ -40,7 +40,7 @@ function useReferenceTokens() {
       label: `${s.id}.${key}`,
       token: `{{globals.${s.id}.${key}}}`,
       // A locked value arrives as the sentinel. It is still perfectly usable as a
-      // reference — the substitution happens on the server — so the token stays in
+      // reference - the substitution happens on the server - so the token stays in
       // the list and only its preview is withheld.
       value: value === SECRET_SENTINEL ? undefined : value,
     })),
@@ -71,13 +71,13 @@ function PartnerPropValue({ partnerId, propKey }: { partnerId: number; propKey: 
   const value = props.data?.[propKey];
   if (value === SECRET_SENTINEL)
     return (
-      <span className="text-ink-500" title="Locked on the partner — resolved on the server at run time">
+      <span className="text-ink-500" title="Locked on the partner - resolved on the server at run time">
         secret
       </span>
     );
   return (
     <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] break-all text-ink-700">
-      {value === undefined || value === "" ? "—" : value}
+      {value === undefined || value === "" ? "-" : value}
     </code>
   );
 }
@@ -200,7 +200,7 @@ function ReferenceMenu({
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
                     <span
                       className="max-w-24 shrink-0 truncate text-xs text-ink-500"
-                      title={t.value ?? "Locked — the value is never sent to this page"}
+                      title={t.value ?? "Locked - the value is never sent to this page"}
                     >
                       {t.value ?? "secret"}
                     </span>
@@ -248,13 +248,13 @@ function ReferenceHints({
   value: string;
   globals: ReferenceToken[];
   partners: PartnerRow[];
-  /** Null unless this is a response or bus gateway subscription — nothing else fills `{{source.…}}`. */
+  /** Null unless this is a response or bus gateway subscription - nothing else fills `{{source.…}}`. */
   source: SourceDocument | null;
 }) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
 
-  // Set ids and keys are free-form (spaces included) on the backend — match on the
+  // Set ids and keys are free-form (spaces included) on the backend - match on the
   // `{{…}}` delimiters themselves, not a restrictive charset, or refs with a space
   // in the id/key (e.g. "schedule source url") silently fail to match here.
   const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.[^}]+\}\}/g)].map((m) => m[0]))];
@@ -292,7 +292,7 @@ function ReferenceHints({
                 {ref.value}
               </code>
             ) : (
-              <span className="font-medium text-danger-700">not found — check the set and key</span>
+              <span className="font-medium text-danger-700">not found - check the set and key</span>
             )}
           </div>
         );
@@ -335,7 +335,7 @@ function ReferenceHints({
                 ))}
                 {without > 0 && (
                   <li className="text-ink-500">
-                    {without} partner{without === 1 ? " doesn't" : "s don't"} set it — their exchanges resolve it
+                    {without} partner{without === 1 ? " doesn't" : "s don't"} set it - their exchanges resolve it
                     empty.
                   </li>
                 )}
@@ -358,7 +358,7 @@ function ReferenceHints({
                   className="font-medium text-warn-700"
                   title="Saved anyway: documents vary, and the next one may have it. An exchange whose original document has no value there fails, naming the path."
                 >
-                  ⚠ {lackingPathWarning(lacking)} — an exchange without it fails
+                  ⚠ {lackingPathWarning(lacking)} - an exchange without it fails
                 </span>
               ) : example !== undefined ? (
                 <span
@@ -384,7 +384,7 @@ function ReferenceHints({
 
 /**
  * Whether a value is a reference and nothing else. Substitution happens on the
- * server, so what sits in the field is the pointer — worth showing even on a field
+ * server, so what sits in the field is the pointer - worth showing even on a field
  * the adapter marked secure, because an operator who cannot see which partner
  * property a password comes from cannot tell a correct wiring from a typo.
  */
@@ -432,7 +432,7 @@ function PropField({
     onChange(next);
   };
 
-  // A value that is nothing but a reference token is a pointer, not a secret — masking
+  // A value that is nothing but a reference token is a pointer, not a secret - masking
   // it would make the field uneditable and hide a config mistake behind dots.
   const masked = prop.secret && !!value && !entering && !isPureReference(value);
 
@@ -522,14 +522,14 @@ export function AdapterConfig({
   onChange: (adapterId: string | null, properties: Record<string, string>) => void;
   disabled: boolean;
   required?: boolean;
-  /** What "no adapter" means here, e.g. "None — payload passes through unchanged". */
+  /** What "no adapter" means here, e.g. "None - payload passes through unchanged". */
   noneLabel?: string;
   /** When a mapper with a visual editor is selected, where that editor lives. */
-  /** Null while the subscription is still a draft — there is no page to open yet. */
+  /** Null while the subscription is still a draft - there is no page to open yet. */
   mapperEditorHref?: string | null;
   /**
    * Opens the editor in place instead of navigating to it. The create pages hold their
-   * subscription in memory, so there is no page to link to — but the editor no longer
+   * subscription in memory, so there is no page to link to - but the editor no longer
    * needs one, and leaving the page would throw the draft away.
    */
   onOpenMapperEditor?: (() => void) | null;
@@ -540,7 +540,7 @@ export function AdapterConfig({
   sourceValues?: SourceDocument | null;
   /**
    * The pinned version, null to follow the current one. Only screens that pass
-   * `onVersionChange` offer the choice — the create pages don't, so a new subscription follows
+   * `onVersionChange` offer the choice - the create pages don't, so a new subscription follows
    * whatever is current.
    */
   version?: string | null;
@@ -550,7 +550,7 @@ export function AdapterConfig({
   const adapter = catalog.data?.find((a) => a.id === adapterId);
 
   // Every field is on screen, required first. The busiest adapters (the HTTP
-  // handler has ~20 optional props) do become a wall — that's the accepted
+  // handler has ~20 optional props) do become a wall - that's the accepted
   // trade for never hiding configuration behind a chevron.
   const requiredProps = adapter?.props.filter((p) => !p.optional) ?? [];
   const optionalProps = adapter?.props.filter((p) => p.optional) ?? [];
@@ -590,7 +590,7 @@ export function AdapterConfig({
       {/*
         The adapter is what this step *is*; the fields below are its settings.
         Left as a bare select at the top of the same stack it read as just another
-        property — the first one, unlabelled — so it gets its own tinted band,
+        property - the first one, unlabelled - so it gets its own tinted band,
         outside the field grid, everywhere AdapterConfig is used.
       */}
       <div className="rounded-xl border border-ink-200 bg-ink-50/70 px-3.5 py-3">
@@ -666,7 +666,7 @@ export function AdapterConfig({
             // Which mapper is *picked*, which is not yet which mapper is saved. Without
             // it the editor asks the server and gets the one being replaced, so choosing
             // a mapper and opening its editor gave you the other one until you saved
-            // first — in both directions, and with nothing on screen to explain it.
+            // first - in both directions, and with nothing on screen to explain it.
             to={`${mapperEditorHref}?mapper=${encodeURIComponent(adapter.id)}`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-crimson-700 hover:border-ink-300 hover:bg-ink-50"
           >
@@ -713,7 +713,7 @@ function pinnedRuntime(adapter: AdapterInfo, version: string | null): string | n
 /**
  * Which published version a slot runs: the current one, or a version pinned so that publishing a
  * newer one doesn't change this subscription. A pinned version that has since been withdrawn stays
- * shown — it is what runs — but can't be picked again.
+ * shown - it is what runs - but can't be picked again.
  */
 function VersionSelect({
   adapter,

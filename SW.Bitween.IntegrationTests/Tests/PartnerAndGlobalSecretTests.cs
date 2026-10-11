@@ -16,7 +16,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// response while leaving the <c>{{partner.…}}</c> / <c>{{globals.…}}</c> reference to it usable.
 /// </summary>
 /// <remarks>
-/// Until this existed the two were the only property bags in the app served in clear — a data
+/// Until this existed the two were the only property bags in the app served in clear - a data
 /// source masks, a subscription's adapter properties mask, and these did not, which made them the
 /// worst place to keep a credential and the only place operators could share one. The flag is
 /// declared rather than guessed from the key's name: these values have always been readable, so
@@ -29,7 +29,7 @@ public class PartnerAndGlobalSecretTests(BitweenFixture fixture)
 
     /// <summary>
     /// The whole point: a locked value does not come back. Get is the only endpoint that ever
-    /// served a partner's property values — Search has always sent names alone.
+    /// served a partner's property values - Search has always sent names alone.
     /// </summary>
     [Fact]
     public async Task A_locked_partner_property_is_never_returned_in_clear()
@@ -47,7 +47,7 @@ public class PartnerAndGlobalSecretTests(BitweenFixture fixture)
 
     /// <summary>
     /// Nothing is hidden until someone says so. A property whose name reads like a credential is
-    /// still served in clear, because it always was — the alternative silently blinds an operator
+    /// still served in clear, because it always was - the alternative silently blinds an operator
     /// on the day they upgrade.
     /// </summary>
     [Fact]
@@ -183,7 +183,7 @@ public class PartnerAndGlobalSecretTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// The list endpoint feeds the reference picker, which is why it sends values at all — so it
+    /// The list endpoint feeds the reference picker, which is why it sends values at all - so it
     /// is also a way out for a locked one. The key stays, because a secret nobody can point at is
     /// no use; only the value goes.
     /// </summary>

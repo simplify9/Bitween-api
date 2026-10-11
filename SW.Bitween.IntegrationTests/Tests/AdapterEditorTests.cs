@@ -18,7 +18,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// <summary>
 /// The adapter editor, end to end on real storage: a Python or JavaScript adapter started from the
 /// template, built and checked against the Bitween contract, tried, published as a version that is
-/// not current, made current, and started again from what was published — with what it refuses,
+/// not current, made current, and started again from what was published - with what it refuses,
 /// who may do it, and the audit trail.
 /// </summary>
 [Collection("Bitween")]

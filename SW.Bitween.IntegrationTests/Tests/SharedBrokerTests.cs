@@ -23,7 +23,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// One customer broker, several integrations — which is what a real one looks like.
+/// One customer broker, several integrations - which is what a real one looks like.
 ///
 /// Everything else in this suite exercises a data source with a single queue behind it. That is
 /// the easy case and it hides the questions that actually matter once a second integration lands
@@ -44,7 +44,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
     /// The multiplexing claim, stated as a number: three gateways, one process.
     ///
     /// If each gateway opened its own connection, a customer with twenty integrations on one broker
-    /// would have Bitween holding twenty connections and twenty adapter processes — and every one
+    /// would have Bitween holding twenty connections and twenty adapter processes - and every one
     /// of them would need its own lease, its own restart budget and its own credentials in memory.
     /// The whole point of separating the connection from what is done with it is that this stays
     /// one of each.
@@ -119,7 +119,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
             await CountAsync(shipments.DocumentId) >= each,
             TimeSpan.FromSeconds(90), "the queues did not all drain");
 
-        // Settle, then assert nothing extra landed anywhere — a crossed-over message shows up as a
+        // Settle, then assert nothing extra landed anywhere - a crossed-over message shows up as a
         // surplus on one document and a shortfall on another.
         await Task.Delay(TimeSpan.FromSeconds(3));
 
@@ -139,7 +139,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
     /// <summary>
     /// The customer's broker is not Bitween's broker.
     ///
-    /// Acme runs other things on it — a queue their warehouse app drains, another their own
+    /// Acme runs other things on it - a queue their warehouse app drains, another their own
     /// services talk over. Bitween is pointed at three queues and must touch nothing else: an
     /// adapter that consumed everything it could see would silently eat another system's traffic,
     /// and the first anyone would know is when the warehouse stopped receiving orders.
@@ -171,7 +171,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
     /// <summary>
     /// A fourth integration goes live on Monday. The three already running must not notice.
     ///
-    /// The adapter restarts to pick up the new consume list — that is expected, and safe, because
+    /// The adapter restarts to pick up the new consume list - that is expected, and safe, because
     /// nothing is acknowledged until Bitween has persisted it. What must NOT happen is the other
     /// three losing messages or needing to be reconfigured.
     /// </summary>
@@ -210,9 +210,9 @@ public class SharedBrokerTests(BitweenFixture fixture)
     /// <summary>
     /// Turning one integration off leaves the rest running.
     ///
-    /// Deactivating a gateway has to stop its queue being consumed — otherwise Bitween keeps
+    /// Deactivating a gateway has to stop its queue being consumed - otherwise Bitween keeps
     /// acknowledging messages that no longer route anywhere, which is a silent drop rather than a
-    /// pause — while every other queue on the same connection carries on.
+    /// pause - while every other queue on the same connection carries on.
     /// </summary>
     [Fact]
     public async Task Deactivating_one_gateway_stops_only_its_queue()
@@ -239,7 +239,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
         await WaitAsync(async () => await CountAsync(orders.DocumentId) == 2,
             TimeSpan.FromSeconds(60), "the active integration stopped working too");
 
-        // The deactivated one's message is still on the broker, waiting — not acknowledged and
+        // The deactivated one's message is still on the broker, waiting - not acknowledged and
         // thrown away, which is the outcome that would look identical from Bitween's side.
         await Task.Delay(TimeSpan.FromSeconds(3));
         Assert.Equal(1, await CountAsync(invoices.DocumentId));
@@ -252,7 +252,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
     ///
     /// A broker's message id is only unique within whatever produced it, so two systems publishing
     /// to two queues on one broker can easily pick the same one. Deduplicating across the whole
-    /// data source would silently drop the second — so the key carries the endpoint.
+    /// data source would silently drop the second - so the key carries the endpoint.
     /// </summary>
     [Fact]
     public async Task The_same_message_id_on_two_queues_is_two_messages()
@@ -271,7 +271,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
         await WaitAsync(async () =>
             await CountAsync(orders.DocumentId) == 1 && await CountAsync(invoices.DocumentId) == 1,
             TimeSpan.FromSeconds(60),
-            "one of the two was deduplicated away — the key is not scoped to the endpoint");
+            "one of the two was deduplicated away - the key is not scoped to the endpoint");
 
         // And a genuine redelivery on ONE of them still is a duplicate.
         Publish(orders.Queue, """{"from":"orders"}""", shared);
@@ -323,7 +323,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
     /// The point of all of it: three queues on one broker running three different integrations,
     /// each producing its own result.
     ///
-    /// Everything above is about plumbing. This is the outcome the plumbing exists for — a message
+    /// Everything above is about plumbing. This is the outcome the plumbing exists for - a message
     /// arriving on Acme's broker runs the subscription configured for that queue, and the result is
     /// recorded against the right one.
     /// </summary>
@@ -361,7 +361,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
 
     private sealed record Integration(string Queue, int DocumentId, int GatewayId, int SubscriptionId);
 
-    /// <summary>A data source with connection settings only — the endpoints come from its gateways.</summary>
+    /// <summary>A data source with connection settings only - the endpoints come from its gateways.</summary>
     private async Task<int> BrokerAsync(string label)
     {
         await using var scope = fixture.CreateScope();
@@ -380,7 +380,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
         return dataSource.Id;
     }
 
-    /// <summary>One queue, one information type, one gateway — and optionally a subscription behind it.</summary>
+    /// <summary>One queue, one information type, one gateway - and optionally a subscription behind it.</summary>
     private async Task<Integration> IntegrationAsync(int dataSourceId, string label,
         bool withSubscription = false)
     {
@@ -397,7 +397,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
         if (withSubscription)
         {
             // Every Subscription constructor sets Inactive = true, so it has to be turned on or
-            // the filter never matches it — see PipelineEndToEndTests.
+            // the filter never matches it - see PipelineEndToEndTests.
             var subscription = new Subscription(Unique($"sub-{label}"), document.Id,
                 SubscriptionType.BusGateway)
             {
@@ -531,7 +531,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
 
     /// <summary>
     /// A supervisor that cleans up after itself. Only instances that appeared after it was built
-    /// are stopped — the collection shares one resident host, so stopping "whatever is running"
+    /// are stopped - the collection shares one resident host, so stopping "whatever is running"
     /// would reach into another test.
     /// </summary>
     private sealed class TestSupervisor : IAsyncDisposable

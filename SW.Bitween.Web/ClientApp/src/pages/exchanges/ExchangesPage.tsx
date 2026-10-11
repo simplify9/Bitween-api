@@ -115,7 +115,7 @@ export function ExchangesPage() {
   /**
    * Every promoted key any information type declares, with the types that declare it.
    * Read off the list already fetched for the information-type filter, so offering the
-   * keys costs nothing — and picking from real names beats remembering how one was spelled.
+   * keys costs nothing - and picking from real names beats remembering how one was spelled.
    *
    * Narrowed to the picked information type when there is one: a short list of its own keys
    * beats the whole catalogue with a disambiguating line on every row.
@@ -139,7 +139,7 @@ export function ExchangesPage() {
         label: key,
         // A second line rather than text beside the name: these run long enough
         // ("InventoryTransactionPosted") that sharing one line left the name with no room at
-        // all. Dropped once a type is picked above — naming it again on every row says nothing.
+        // all. Dropped once a type is picked above - naming it again on every row says nothing.
         sublabel: query.informationTypeId ? undefined : carriers.map((c) => c.type).join(", "),
         // What the key actually reads out of the payload. The thing you want when a filter
         // comes back empty and you can't tell whether the key or the value is wrong.
@@ -198,7 +198,7 @@ export function ExchangesPage() {
     : { ids: [...selected] };
 
   /**
-   * A selection means a set of exchanges, and changing the filters changes which set that is —
+   * A selection means a set of exchanges, and changing the filters changes which set that is -
    * for "all matching" it would silently come to mean something else entirely. Paging is not a
    * filter, so ticking rows across pages still accumulates.
    */
@@ -207,7 +207,7 @@ export function ExchangesPage() {
 
   /**
    * What the retry would do, asked for while the confirm is open. A selection is rarely just
-   * itself — anything already retried hands over to its newest attempt — so this is shown
+   * itself - anything already retried hands over to its newest attempt - so this is shown
    * before anyone commits rather than reported afterwards.
    */
   const { data: plan, isFetching: planLoading } = useQuery({
@@ -270,7 +270,7 @@ export function ExchangesPage() {
     <div>
       <PageHeader
         title="Exchanges"
-        description="Every message that flows through Bitween — expand a row to follow its journey through the pipeline."
+        description="Every message that flows through Bitween - expand a row to follow its journey through the pipeline."
         actions={
           <Can permission="exchanges.operate">
             <Link to="/exchanges/new">
@@ -283,7 +283,7 @@ export function ExchangesPage() {
         }
       />
 
-      {/* — status pills + live refresh — */}
+      {/* - status pills + live refresh - */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <button
           onClick={() => setParam("status", null)}
@@ -314,7 +314,7 @@ export function ExchangesPage() {
           );
         })}
 
-        {/* Separated from the status pills, which pick one of a set — this one narrows whatever
+        {/* Separated from the status pills, which pick one of a set - this one narrows whatever
             they picked. A chain is one piece of work however many attempts it took, so this is
             what turns a list of failures into a list of things still to deal with. */}
         <span className="mx-1 h-5 w-px bg-ink-200" aria-hidden />
@@ -323,7 +323,7 @@ export function ExchangesPage() {
         <button
           onClick={() => setParam("latest", query.latest ? null : "1")}
           aria-pressed={!!query.latest}
-          title="Hide attempts that have since been retried, leaving the newest attempt of each chain — the one that is still the state of that work."
+          title="Hide attempts that have since been retried, leaving the newest attempt of each chain - the one that is still the state of that work."
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
             query.latest
               ? "border border-crimson-300 bg-crimson-50 text-crimson-700"
@@ -338,7 +338,7 @@ export function ExchangesPage() {
           {refreshMs > 0 && (
             <span
               className="inline-block size-1.5 animate-pulse rounded-full bg-ok-600"
-              title={`Live — refreshed ${timeAgo(new Date(dataUpdatedAt).toISOString())}`}
+              title={`Live - refreshed ${timeAgo(new Date(dataUpdatedAt).toISOString())}`}
             />
           )}
           <Select
@@ -351,7 +351,7 @@ export function ExchangesPage() {
         </span>
       </div>
 
-      {/* — filters — */}
+      {/* - filters - */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
         <SearchSelect
           aria-label="Filter by subscription"
@@ -454,7 +454,7 @@ export function ExchangesPage() {
         <p className="mb-3 rounded-lg bg-ok-100 px-3 py-2 text-sm text-ok-600">{bulkResult}</p>
       )}
 
-      {/* — list — */}
+      {/* - list - */}
       {isLoading ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
@@ -477,7 +477,7 @@ export function ExchangesPage() {
           {query.offset > 0
             ? "The list ends before this page."
             : activeFilterCount > 0
-              ? "Try removing some filters — or widen the date range."
+              ? "Try removing some filters - or widen the date range."
               : "Traffic will show up here as soon as a subscription processes something."}
         </EmptyState>
       ) : (
@@ -524,7 +524,7 @@ export function ExchangesPage() {
                     aria-expanded={open.has(x.id)}
                     /* Hovering a row is most of a second's head start on opening it, which is
                        enough that its retry chain is already there when the drawer renders.
-                       Only for rows that have one — most exchanges do not. */
+                       Only for rows that have one - most exchanges do not. */
                     onMouseEnter={() => {
                       if (hasRetryChain(x)) void queryClient.prefetchQuery(retryTreeQuery(x.id));
                     }}
@@ -559,7 +559,7 @@ export function ExchangesPage() {
                     <td className="px-3 py-1.5">
                       <JourneyStrip x={x} />
                     </td>
-                    {/* One column per thing, so values line up down the page —
+                    {/* One column per thing, so values line up down the page -
                         the old single "Flow" cell was a sentence you had to re-read
                         on every row.
 
@@ -585,7 +585,7 @@ export function ExchangesPage() {
                           {x.partnerName}
                         </Link>
                       ) : (
-                        <span className="text-ink-500">—</span>
+                        <span className="text-ink-500">-</span>
                       )}
                     </td>
                     <td className="px-3 py-1.5 text-[13px]">
@@ -598,7 +598,7 @@ export function ExchangesPage() {
                           {x.subscriptionName}
                         </Link>
                       ) : (
-                        <span className="text-ink-500">—</span>
+                        <span className="text-ink-500">-</span>
                       )}
                     </td>
                     <td className="px-3 py-1.5 whitespace-nowrap text-ink-500">
@@ -623,12 +623,12 @@ export function ExchangesPage() {
             </tbody>
           </table>
 
-          {/* — paging — */}
+          {/* - paging - */}
           <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
             <span>
-              Showing {query.offset + 1}–{query.offset + rows.length} of{" "}
+              Showing {query.offset + 1}-{query.offset + rows.length} of{" "}
               {totalIsCapped ? (
-                <span title={`More than ${COUNT_CAP.toLocaleString()} match — narrow the filters for an exact count`}>
+                <span title={`More than ${COUNT_CAP.toLocaleString()} match - narrow the filters for an exact count`}>
                   {COUNT_CAP.toLocaleString()}+
                 </span>
               ) : (
@@ -646,7 +646,7 @@ export function ExchangesPage() {
               <Button
                 size="sm"
                 /* Past the cap the total no longer says where the end is, so fall back to "was this
-                   page full" — otherwise Next would dead-end at row 10,000. Below the cap the total
+                   page full" - otherwise Next would dead-end at row 10,000. Below the cap the total
                    is exact, so keep using it and Next stops on the true last page. */
                 disabled={totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
                 onClick={() => setParam("offset", String(query.offset + PAGE_SIZE), false)}
@@ -658,7 +658,7 @@ export function ExchangesPage() {
         </div>
       )}
 
-      {/* — bulk action bar — */}
+      {/* - bulk action bar - */}
       {selectedCount > 0 && (
         <div className="sticky bottom-4 mt-4 space-y-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 shadow-lg">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -667,7 +667,7 @@ export function ExchangesPage() {
                 {totalIsCapped && allMatching ? `${COUNT_CAP.toLocaleString()}+` : selectedCount.toLocaleString()}
               </strong>{" "}
               selected
-              {allMatching && <span className="text-ink-500"> — everything this filter matches</span>}
+              {allMatching && <span className="text-ink-500"> - everything this filter matches</span>}
               {allMatching && excluded.size > 0 && (
                 <span className="text-ink-500">, {excluded.size} unticked</span>
               )}
@@ -705,7 +705,7 @@ export function ExchangesPage() {
             </p>
           )}
 
-          {/* The whole page is ticked but there is more behind it — the one moment where
+          {/* The whole page is ticked but there is more behind it - the one moment where
               "select all matching" is what someone actually wants, so it is offered there
               rather than living permanently in the toolbar. */}
           {!allMatching && allOnPageSelected && total > rows.length && (

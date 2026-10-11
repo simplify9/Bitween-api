@@ -15,7 +15,7 @@ namespace SW.Bitween.Services;
 /// <summary>
 /// The SYSTEM partner is seeded with an API key that is published in this repository. Whoever
 /// holds it can post any document type into content routing without signing in, so it must not
-/// stay in place — but deployments that have been running for years may have systems that post
+/// stay in place - but deployments that have been running for years may have systems that post
 /// with it, so it cannot simply be changed under them.
 /// </summary>
 public static class SystemPartnerKey
@@ -26,7 +26,7 @@ public static class SystemPartnerKey
     /// <summary>
     /// Replaces the published key on the SYSTEM partner. Runs after <c>MigrateDatabase</c>; once
     /// the key is anything else this does nothing, so changing the configured value later has no
-    /// effect — rotate it from the partner's page.
+    /// effect - rotate it from the partner's page.
     /// </summary>
     private static bool IsPublished(ApiCredential credential) =>
         credential.Key == PublishedKey || credential.Key == PartnerKeyHash.Of(PublishedKey);
@@ -45,8 +45,8 @@ public static class SystemPartnerKey
     /// <remarks>
     /// With <c>Bitween:SystemPartnerKey</c> configured, the published key is replaced by it, so an
     /// operator can rotate the key and hand the new one to whatever posts with it in one step.
-    /// Without it, a new installation — the seeded administrator is the only account, as
-    /// <see cref="SeededAdministrator"/> judges it — gets a random key, since nothing can be
+    /// Without it, a new installation - the seeded administrator is the only account, as
+    /// <see cref="SeededAdministrator"/> judges it - gets a random key, since nothing can be
     /// using the old one yet. An existing installation keeps the published key, so nothing that
     /// posts with it breaks on upgrade, and every start logs that it is still in place.
     /// </remarks>

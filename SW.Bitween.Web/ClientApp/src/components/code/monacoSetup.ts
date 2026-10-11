@@ -5,7 +5,7 @@ import JsonWorker from "monaco-editor/language/json/json.worker?worker";
 import { languageOf } from "./languages";
 
 /*
- * Monaco — the editor VS Code is built on — bundled with the app rather than fetched from a CDN:
+ * Monaco - the editor VS Code is built on - bundled with the app rather than fetched from a CDN:
  * the page's Content-Security-Policy allows scripts and workers from this origin only, and an
  * instance on a closed network has no CDN to reach. This module is only loaded by the adapter
  * editor, so nothing here weighs on any other page. Each language's grammar is its own chunk,
@@ -20,7 +20,7 @@ self.MonacoEnvironment = {
   },
 };
 
-// The adapter's imports — the SDK, its dependencies — aren't in the browser, so the language
+// The adapter's imports - the SDK, its dependencies - aren't in the browser, so the language
 // service can't resolve them. Saying so on every import line would bury the real problems; the
 // Check runs the actual build and reports what really fails.
 const IGNORED_DIAGNOSTICS = [

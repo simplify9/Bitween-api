@@ -22,7 +22,7 @@ namespace SW.Bitween
         private readonly IPublish publish = publish;
 
         // Parsed as Unspecified kind, so the .ToUniversalTime() calls at every use site below used
-        // to convert using whatever timezone the current machine happened to be in — deterministic
+        // to convert using whatever timezone the current machine happened to be in - deterministic
         // on any one developer's machine, but different on every other machine/CI runner, which
         // permanently disagreed with whichever machine last regenerated the migration snapshot.
         protected readonly DateTime defaultCreatedOn = DateTime.SpecifyKind(DateTime.Parse("1/1/2022"), DateTimeKind.Utc);
@@ -147,7 +147,7 @@ namespace SW.Bitween
                 st.Property(p => p.Sql).IsRequired();
                 st.Property(p => p.Description).HasMaxLength(1000);
 
-                // Column names, so the database's own identifier limit is the ceiling — 128 is
+                // Column names, so the database's own identifier limit is the ceiling - 128 is
                 // above every engine's (Oracle allows 128, PostgreSQL 63).
                 st.Property(p => p.CursorColumn).HasMaxLength(128).IsUnicode(false);
                 st.Property(p => p.KeyColumn).HasMaxLength(128).IsUnicode(false);
@@ -181,7 +181,7 @@ namespace SW.Bitween
 
             // Declared here rather than only in the PgSql context: leader election needs this table
             // on every provider Bitween supports, and a node whose database has no cluster_lease
-            // cannot fence anything — which means two nodes can consume one queue, silently.
+            // cannot fence anything - which means two nodes can consume one queue, silently.
             modelBuilder.Entity<Domain.Cluster.ClusterLease>(cl =>
             {
                 cl.ToTable("ClusterLeases");
@@ -195,7 +195,7 @@ namespace SW.Bitween
                 im.ToTable("InboundMessages");
 
                 // The dedupe key IS the key. A unique constraint the database enforces is the
-                // whole mechanism — see the type's remarks.
+                // whole mechanism - see the type's remarks.
                 im.HasKey(i => i.Id);
                 im.Property(i => i.Id).HasMaxLength(400).IsUnicode(false);
                 im.Property(i => i.XchangeId).HasMaxLength(50).IsUnicode(false);
@@ -551,7 +551,7 @@ namespace SW.Bitween
                 // No b-tree on PropertiesRaw. The only query on it is the Exchanges page's substring
                 // search, a leading-wildcard LIKE no b-tree can serve (Postgres has a trigram index
                 // for it, PromotedPropertiesTrigramIndex). Having one made long values fail the
-                // save — after the delivery, so the retry delivered again — and it is what had
+                // save - after the delivery, so the retry delivered again - and it is what had
                 // capped the column at 450 characters on SQL Server and 255 on MySQL.
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id)
@@ -645,7 +645,7 @@ namespace SW.Bitween
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
             });
 
-            // ——— Audit trail ———
+            // --- Audit trail ---
             // A table that only ever grows and is only ever appended to. The indexes answer the two
             // questions asked of it: the history of one row, and everything one save changed.
             modelBuilder.Entity<AuditEntry>(b =>
@@ -668,8 +668,8 @@ namespace SW.Bitween
         }
 
         /// <summary>
-        /// The built-in roles. Their grants aren't stored — <see cref="Role.GetEffectivePermissions"/>
-        /// derives them from the catalog — so adding a permission never needs a data fix-up here.
+        /// The built-in roles. Their grants aren't stored - <see cref="Role.GetEffectivePermissions"/>
+        /// derives them from the catalog - so adding a permission never needs a data fix-up here.
         /// </summary>
         protected Role[] SystemRoleSeed() =>
         [
@@ -686,21 +686,21 @@ namespace SW.Bitween
 
         /// <summary>
         /// Refused, because it would save without auditing. Only <see cref="SaveChangesAsync"/>
-        /// captures the trail, and an audit table with a silent hole in it is worse than none —
+        /// captures the trail, and an audit table with a silent hole in it is worse than none -
         /// nobody would know which changes it had missed. Nothing in Bitween calls this today;
         /// this makes sure a future caller finds out immediately rather than quietly.
         /// </summary>
         public override int SaveChanges() => throw new NotSupportedException(
-            "Use SaveChangesAsync — the synchronous path would skip the audit trail.");
+            "Use SaveChangesAsync - the synchronous path would skip the audit trail.");
 
         /// <summary>
         /// Saves, and records what was saved. The audit rows are written inside the same transaction
-        /// as the change they describe, so the trail can never disagree with the data — a save that
+        /// as the change they describe, so the trail can never disagree with the data - a save that
         /// rolls back takes its audit rows with it.
         /// </summary>
         /// <remarks>
-        /// The transaction is opened only when there is something to audit. Runtime traffic — every
-        /// xchange, result and receive attempt — is excluded by <see cref="AuditPolicy"/> and so
+        /// The transaction is opened only when there is something to audit. Runtime traffic - every
+        /// xchange, result and receive attempt - is excluded by <see cref="AuditPolicy"/> and so
         /// still saves in exactly one round trip, unchanged. When a caller has already opened a
         /// transaction of its own, that one is used rather than nested.
         /// </remarks>
@@ -755,7 +755,7 @@ namespace SW.Bitween
             }
             catch
             {
-                // Not saved, so not to be published — and not left tracked, or the next save
+                // Not saved, so not to be published - and not left tracked, or the next save
                 // would insert them alongside a second copy made from the same events.
                 foreach (var message in outgoing) Entry(message).State = EntityState.Detached;
                 throw;
@@ -768,8 +768,8 @@ namespace SW.Bitween
             foreach (var entity in raised) entity.Events.Clear();
 
             // Published straight after the commit, as before; the outbox is for when that fails.
-            // Inside a caller's transaction nothing is committed yet — announcing a row that may
-            // still roll back would send every consumer after a row that never existed — so those
+            // Inside a caller's transaction nothing is committed yet - announcing a row that may
+            // still roll back would send every consumer after a row that never existed - so those
             // wait for the dispatcher.
             if (outgoing.Count > 0 && Database.CurrentTransaction is null)
                 await PublishOutboxAsync(outgoing, cancellationToken);
@@ -778,7 +778,7 @@ namespace SW.Bitween
         }
 
         /// <summary>
-        /// Saves without an audit entry or an outbox message — for rewriting stored values in a new
+        /// Saves without an audit entry or an outbox message - for rewriting stored values in a new
         /// form, which changes nothing a person did. Only <see cref="SecretColumnEncryptionPass"/>
         /// should need it.
         /// </summary>
@@ -843,7 +843,7 @@ namespace SW.Bitween
             catch
             {
                 // Published but not marked: the dispatcher will publish them again. Consumers take a
-                // repeat — Process checks for an existing result before doing anything.
+                // repeat - Process checks for an existing result before doing anything.
             }
 
             return published.Count;

@@ -1,7 +1,7 @@
 # The bitween CLI
 
-`bitween` works with a Bitween from a terminal. This release covers adapters — writing, building,
-checking and publishing them with the Bitween contract — and signing in to a Bitween, which the
+`bitween` works with a Bitween from a terminal. This release covers adapters - writing, building,
+checking and publishing them with the Bitween contract - and signing in to a Bitween, which the
 commands that change it use.
 
 It is built on [SW-Serverless](https://github.com/simplify9/SW-Serverless)'s tooling. `sw-serverless`
@@ -98,8 +98,8 @@ user name, and nothing reaches Bitween's audit trail.
 
 ### Exit codes
 
-`0` when the command did what was asked, `1` otherwise — a failed check, a refused publish, a problem
-in the arguments — with the reason printed. `bitween adapter test` prints each check as `PASS`, `FAIL`
+`0` when the command did what was asked, `1` otherwise - a failed check, a refused publish, a problem
+in the arguments - with the reason printed. `bitween adapter test` prints each check as `PASS`, `FAIL`
 or `SKIP`.
 
 The CLI is `SW.Bitween.Cli`, built on `SW.Bitween.Adapters.Tooling`, which the adapter editor in Bitween

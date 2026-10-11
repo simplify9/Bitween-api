@@ -12,14 +12,14 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Audit;
 
 /// <summary>
-/// The audit trail, newest first. Serves both the global history page and the per-entity timeline —
+/// The audit trail, newest first. Serves both the global history page and the per-entity timeline -
 /// the latter is this same query with <see cref="SearchAuditModel.EntityName"/> and
 /// <see cref="SearchAuditModel.EntityKey"/> set, which is what the composite index covers.
 /// </summary>
 public class Search(BitweenDbContext dbContext, RequestContext requestContext)
     : IQueryHandler<SearchAuditModel, object>
 {
-    /// <summary>Rows per page ceiling — each row carries its changes as JSON.</summary>
+    /// <summary>Rows per page ceiling - each row carries its changes as JSON.</summary>
     const int MaxLimit = 200;
 
     public async Task<object> Handle(SearchAuditModel request)

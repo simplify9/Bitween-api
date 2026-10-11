@@ -60,7 +60,7 @@ public class PipelineTests(HttpFixture fixture)
             .Distinct().OrderBy(r => r).Select(r => new object[] { r });
 
     /// <summary>
-    /// Every resource refuses a caller with no token — its list, a record by key, a command — rather
+    /// Every resource refuses a caller with no token - its list, a record by key, a command - rather
     /// than answering, which is what a route that slipped out of protection would do.
     /// </summary>
     [Theory]
@@ -95,7 +95,7 @@ public class PipelineTests(HttpFixture fixture)
             .OrderBy(o => o[0]).ThenBy(o => o[1]);
 
     /// <summary>
-    /// Every named operation — "requeuedeadletters", "generatekey", "setroles", … — answers a caller
+    /// Every named operation - "requeuedeadletters", "generatekey", "setroles", … - answers a caller
     /// with no token with 401 on whichever of its routes exists. A named handler is easy to add and
     /// easy to leave unguarded, and it is not reached by the resource-level calls above.
     /// </summary>
@@ -115,7 +115,7 @@ public class PipelineTests(HttpFixture fixture)
 
         Assert.DoesNotContain(responses, r => (int)r.Status is >= 200 and < 300);
         Assert.True(responses.Any(r => r.Status == HttpStatusCode.Unauthorized),
-            $"{handler}: no route answered 401 — {string.Join(", ", responses.Select(r => $"{r.Call} {(int)r.Status}"))}");
+            $"{handler}: no route answered 401 - {string.Join(", ", responses.Select(r => $"{r.Call} {(int)r.Status}"))}");
     }
 
     static StringContent Json() => new("{}", Encoding.UTF8, "application/json");

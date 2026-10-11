@@ -59,7 +59,7 @@ public class NativeRebexFtpReceiver(string? licenseKey = null) : INativeInfolink
         _ftpOrSftp = null!;
     }
 
-    /// <summary>Closes a connection a run left open — one that failed before Finalize.</summary>
+    /// <summary>Closes a connection a run left open - one that failed before Finalize.</summary>
     public void Dispose()
     {
         try { _ftpOrSftp?.Dispose(); } catch { /* closing only */ }

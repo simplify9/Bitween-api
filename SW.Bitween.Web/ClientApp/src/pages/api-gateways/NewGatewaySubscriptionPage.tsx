@@ -74,7 +74,7 @@ const STAGES_HERE = stagesFor("GatewayApiCall");
 /**
  * Creating the subscription a partner attachment points at.
  *
- * A dialog here used to ask only for a name, a type and a delivery — the least an
+ * A dialog here used to ask only for a name, a type and a delivery - the least an
  * attachment can't exist without. That made it a worse copy of the subscription's
  * own page for anyone who wanted more. This is that same page's pipeline instead,
  * routed rather than saved-then-configured: nothing points at the subscription
@@ -83,8 +83,8 @@ const STAGES_HERE = stagesFor("GatewayApiCall");
  * already picked.
  *
  * It offers every setting the subscription's own page does, because the create call
- * has always accepted them all. What it used to leave out — the lane, the retry
- * policy, the connection, the mapping — was the whole reason a new subscription had
+ * has always accepted them all. What it used to leave out - the lane, the retry
+ * policy, the connection, the mapping - was the whole reason a new subscription had
  * to be opened a second time to finish it.
  */
 export function NewGatewaySubscriptionPage() {
@@ -99,7 +99,7 @@ export function NewGatewaySubscriptionPage() {
   const detour = useResponseDetour<Draft>();
   const returned = detour.kept !== null || detour.pickedResponse !== null;
   const [stage, setStage] = useState<StageId | null>(returned ? "response" : "delivery");
-  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
   const gateway = useQuery({
@@ -215,7 +215,7 @@ export function NewGatewaySubscriptionPage() {
     });
     // Nothing can be wired up before the subscription exists, so the "missing"
     // reading faceOf gives a saved-but-unattached subscription would just be
-    // noise here — dashed and flat instead, like every other node this page
+    // noise here - dashed and flat instead, like every other node this page
     // can't offer real configuration for.
     return stageId === "trigger" ? { ...face, readOnly: true, state: "none" as const } : face;
   });
@@ -235,7 +235,7 @@ export function NewGatewaySubscriptionPage() {
           <Panel title={label} description={description}>
             <EntryPointsTable
               rows={[]}
-              empty="Not wired into any gateway yet — attach it to a partner once it's created."
+              empty="Not wired into any gateway yet - attach it to a partner once it's created."
             />
           </Panel>
         );
@@ -248,7 +248,7 @@ export function NewGatewaySubscriptionPage() {
               properties={draft.validatorProperties}
               onChange={(validatorId, validatorProperties) => update({ validatorId, validatorProperties })}
               disabled={false}
-              noneLabel="None — accepts everything"
+              noneLabel="None - accepts everything"
             />
           </Panel>
         );
@@ -261,7 +261,7 @@ export function NewGatewaySubscriptionPage() {
               properties={draft.mapperProperties}
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
-              noneLabel="None — the document passes through unchanged"
+              noneLabel="None - the document passes through unchanged"
               onOpenMapperEditor={() => setMapping(true)}
             />
             {bindsToDataSource(draft.mapperId, "mapper") && (
@@ -334,7 +334,7 @@ export function NewGatewaySubscriptionPage() {
         New subscription for {g.name}
       </h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
-        Everything it needs, in one go — nothing here has to wait until after it is created.
+        Everything it needs, in one go - nothing here has to wait until after it is created.
       </p>
 
       <div className="mb-5 flex flex-wrap gap-5">
@@ -369,7 +369,7 @@ export function NewGatewaySubscriptionPage() {
 
       {/* The two settings that belong to no stage, in the strip the subscription's own
           page keeps them in. Offered here because the API has always accepted them on a
-          create — leaving them out is what made a new subscription need a second visit. */}
+          create - leaving them out is what made a new subscription need a second visit. */}
       <div className="mb-5 flex flex-wrap items-start gap-x-10 gap-y-4 border-y border-ink-200 px-1 py-4">
         <LaneAndRetry
           workGroupId={draft.workGroupId}

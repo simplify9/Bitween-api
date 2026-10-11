@@ -28,8 +28,8 @@ namespace SW.Bitween
 
         /// <summary>
         /// Present on a token issued to an account whose password nobody has chosen. Such a token
-        /// authenticates but grants nothing, so the account can reach self-service — changing the
-        /// password — and nothing else.
+        /// authenticates but grants nothing, so the account can reach self-service - changing the
+        /// password - and nothing else.
         /// </summary>
         /// <remarks>
         /// A sign-in has to succeed for the password to be changeable at all: the change requires

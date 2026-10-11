@@ -19,7 +19,7 @@ namespace SW.Bitween.Model
         public DateTime StartedOn { get; set; }
 
         /// <summary>
-        /// How many notifications like this one — same notifier, subscription and outcome — were
+        /// How many notifications like this one - same notifier, subscription and outcome - were
         /// held back since the last one sent, so an outage reads as one message with a count.
         /// </summary>
         public int SuppressedSinceLast { get; set; }

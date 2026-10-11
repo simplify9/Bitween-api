@@ -20,7 +20,7 @@ export function StatusBadge({ status }: { status: ExchangeStatus }) {
   return <Badge tone={tone}>{STATUS_LABELS[status]}</Badge>;
 }
 
-// ——— The pipeline journey ———
+// --- The pipeline journey ---
 
 export type StageState = "done" | "bad" | "failed" | "skipped" | "running" | "notReached";
 
@@ -57,7 +57,7 @@ export function JourneyStrip({ x }: { x: ExchangeRow }) {
   );
 }
 
-/** A full exchange id — mono, never truncated, click to copy. */
+/** A full exchange id - mono, never truncated, click to copy. */
 export function XchangeId({ id, className = "" }: { id: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async (e: React.MouseEvent) => {
@@ -87,7 +87,7 @@ export function XchangeId({ id, className = "" }: { id: string; className?: stri
  * and enough of the id to tell two of them apart.
  *
  * The id stays because a substitution puts two exchanges side by side, and an information type
- * whose promoted paths resolved to nothing gives both of them the same chips — "trackingNo= →
+ * whose promoted paths resolved to nothing gives both of them the same chips - "trackingNo= →
  * trackingNo=" says which fields exist and nothing about which exchanges these are.
  */
 function ExchangeIdentity({
@@ -117,7 +117,7 @@ function ExchangeIdentity({
 }
 
 /**
- * Shared confirm for single and bulk retries — carries the "reset adapter properties" choice
+ * Shared confirm for single and bulk retries - carries the "reset adapter properties" choice
  * that decides whether the retry re-resolves config.
  *
  * A bulk retry also passes the `plan` the server worked out for the same selection, because a
@@ -135,14 +135,14 @@ export function RetryDialog({
   onClose,
 }: {
   count: number;
-  /** Bulk retries only — a single retry has nothing to resolve. */
+  /** Bulk retries only - a single retry has nothing to resolve. */
   plan?: BulkRetryPlan | null;
   planLoading?: boolean;
   busy: boolean;
   onConfirm: (reset: boolean) => void;
   /**
-   * Bulk retries only: the plan depends on this choice — re-resolving properties is impossible
-   * for an exchange whose subscription is gone — so the caller has to be able to ask again.
+   * Bulk retries only: the plan depends on this choice - re-resolving properties is impossible
+   * for an exchange whose subscription is gone - so the caller has to be able to ask again.
    */
   onResetChange?: (reset: boolean) => void;
   onClose: () => void;
@@ -160,8 +160,8 @@ export function RetryDialog({
         {plan?.overLimit ? (
           <p className="text-sm text-ink-600">
             {plan.selected.toLocaleString()} exchanges match this filter, which is more than the{" "}
-            {plan.limit.toLocaleString()} a single retry will carry out. Narrow the filter — by
-            status, partner or date — and retry the rest after.
+            {plan.limit.toLocaleString()} a single retry will carry out. Narrow the filter - by
+            status, partner or date - and retry the rest after.
           </p>
         ) : (
           <>
@@ -173,7 +173,7 @@ export function RetryDialog({
                     ? "Nothing here can be retried."
                     : `${plan.willRetry.toLocaleString()} ${
                         plan.willRetry === 1 ? "exchange" : "exchanges"
-                      } will run again — the original input document goes back through the pipeline as a new exchange.`
+                      } will run again - the original input document goes back through the pipeline as a new exchange.`
                   : `The original input document${count === 1 ? "" : "s"} will run through the pipeline again as ${
                       count === 1 ? "a new exchange" : "new exchanges"
                     }.`}
@@ -219,7 +219,7 @@ export function RetryDialog({
                     {plan.skipped.map((s) => (
                       <li key={s.id} className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-600">
                         <ExchangeIdentity id={s.id} properties={plan.properties[s.id] ?? null} />
-                        <span>— {s.reason}</span>
+                        <span>- {s.reason}</span>
                       </li>
                     ))}
                   </ul>

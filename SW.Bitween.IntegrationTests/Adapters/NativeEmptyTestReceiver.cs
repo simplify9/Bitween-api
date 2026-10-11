@@ -6,7 +6,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.IntegrationTests.Adapters;
 
-/// <summary>Always finds nothing — for exercising ReceivingJob's no-new-data path.</summary>
+/// <summary>Always finds nothing - for exercising ReceivingJob's no-new-data path.</summary>
 public class NativeEmptyTestReceiver : INativeInfolinkReceiver
 {
     public string Name => nameof(NativeEmptyTestReceiver);

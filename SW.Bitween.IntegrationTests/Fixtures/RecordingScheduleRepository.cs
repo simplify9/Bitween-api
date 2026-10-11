@@ -12,7 +12,7 @@ namespace SW.Bitween.IntegrationTests.Fixtures;
 /// <remarks>
 /// The handlers that create and update integrations register their schedules through this, so
 /// without an implementation they can't be constructed at all. A real Quartz job store would work
-/// — the migrations create its tables — but it would put a background scheduler behind every test
+/// - the migrations create its tables - but it would put a background scheduler behind every test
 /// in the collection, firing real jobs against shared state at unpredictable moments. Whether
 /// Quartz itself schedules correctly is a separate question, and the receiving and retry tests
 /// already answer it by driving the jobs directly.

@@ -14,8 +14,8 @@ import { DATE_ORDERS, type DateOrderName } from "../../lib/nativeMapper/types";
 /**
  * The shape of the source document, as a tree of paths a rule can read.
  *
- * A list's own contents are shown, named relative to one entry — `sku`, not
- * `order.line.sku` — because that is what a rule inside a list reading that list
+ * A list's own contents are shown, named relative to one entry - `sku`, not
+ * `order.line.sku` - because that is what a rule inside a list reading that list
  * writes. Dragging one onto a rule outside such a list produces a path that names
  * nothing, and the rule says so rather than the tree pretending the field is not
  * there at all.
@@ -79,7 +79,7 @@ export function SourcePanel({
         </div>
 
         {/* Part of the mapping, unlike the sample above it: how this partner writes
-            dates is a fact about their documents, and it is the same for every field —
+            dates is a fact about their documents, and it is the same for every field -
             so it is asked once here rather than on each rule that formats a date. */}
         <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-500">
           Dates
@@ -196,9 +196,9 @@ function NodeRow({
         onMouseLeave={() => dispatch({ type: "HOVER_PATH", path: null })}
         // The row shows only the last segment, because the indentation carries the
         // rest. That leaves the accessible name as a bare "customer", which is not
-        // enough to tell one field from another — so the name is the full path.
+        // enough to tell one field from another - so the name is the full path.
         aria-label={node.path}
-        title={`${node.path} — drag it onto a rule, or click to fill the selected one`}
+        title={`${node.path} - drag it onto a rule, or click to fill the selected one`}
         className={`flex w-full items-center gap-2 py-0.5 pr-2 text-left font-mono text-[11px] hover:bg-ink-50 ${
           dim ? "opacity-40" : ""
         } ${hoveredPath === node.path ? "bg-crimson-50" : ""}`}
@@ -239,7 +239,7 @@ function NodeRow({
         {isList ? (
           <span
             className="flex-shrink-0 rounded bg-warn-100 px-1 text-[9px] font-semibold tracking-wide text-warn-700 uppercase"
-            title="A list. Add a list on the output side to walk it — the fields below are read one entry at a time."
+            title="A list. Add a list on the output side to walk it - the fields below are read one entry at a time."
           >
             list · {node.count}
           </span>
@@ -259,7 +259,7 @@ function NodeRow({
       </button>
 
       {/* A list's fields are shown too, and named the way a rule inside that list
-          names them — `sku`, not `order.line.sku`. Hiding them meant the only way to
+          names them - `sku`, not `order.line.sku`. Hiding them meant the only way to
           see what was in a list was to paste the sample somewhere else. */}
       {!folded && (
         <NodeRows

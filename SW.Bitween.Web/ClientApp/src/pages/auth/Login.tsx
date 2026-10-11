@@ -123,7 +123,7 @@ export function LoginPage() {
         </>
       )}
 
-      {/* Microsoft-only with no MSAL configured locks everyone out — say so rather than
+      {/* Microsoft-only with no MSAL configured locks everyone out - say so rather than
           rendering an empty card. */}
       {!passwordEnabled && !microsoftEnabled && (
         <FormError>

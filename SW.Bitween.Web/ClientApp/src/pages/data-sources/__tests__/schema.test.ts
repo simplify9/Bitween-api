@@ -35,7 +35,7 @@ describe("qualify", () => {
 
   it("quotes anything that would not resolve unquoted", () => {
     // PostgreSQL folds an unquoted name to lower case, so an unquoted mixed-case name finds
-    // nothing — generating SQL the user cannot run is worse than generating none.
+    // nothing - generating SQL the user cannot run is worse than generating none.
     expect(qualify("sales", "Orders")).toBe('sales."Orders"');
     expect(qualify("my schema", "order-line")).toBe('"my schema"."order-line"');
   });
@@ -77,7 +77,7 @@ describe("draftStatementFor", () => {
       }),
     );
 
-    // A statement meant for Call holds the procedure's NAME, not SQL — that is what
+    // A statement meant for Call holds the procedure's NAME, not SQL - that is what
     // CommandType.StoredProcedure takes, and on Oracle it is the only form that works. Drafting
     // "call sales.release_order(@order_id)" made a statement whose procedure name was that entire
     // string, which fails on first use and nowhere near here.

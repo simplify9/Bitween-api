@@ -13,7 +13,7 @@ public class NativeS3Receiver : INativeInfolinkReceiver, IDisposable
 
     /// <summary>
     /// The clients, or an error that says what actually went wrong. Both fields are null until
-    /// Initialize() runs, because that is when the adapter's settings arrive — so they cannot be
+    /// Initialize() runs, because that is when the adapter's settings arrive - so they cannot be
     /// readonly, and every use would otherwise carry a bare `!` that asserts something no caller
     /// can see is true.
     /// </summary>

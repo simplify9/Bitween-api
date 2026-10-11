@@ -84,7 +84,7 @@ public class SubscriptionSchedulerService(IScheduleRepository scheduleRepo)
         }
         catch (SWValidationException)
         {
-            // Schedule didn't exist in Quartz — nothing to remove.
+            // Schedule didn't exist in Quartz - nothing to remove.
         }
     }
 }

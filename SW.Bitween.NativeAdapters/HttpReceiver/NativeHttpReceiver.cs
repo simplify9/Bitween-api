@@ -53,7 +53,7 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
     {
       HttpClient client = httpProxy.GetClient(_options.Url);
 
-      // On the request, never on the client — see NativeHttpHandler: the client is shared by
+      // On the request, never on the client - see NativeHttpHandler: the client is shared by
       // every subscription calling the same origin.
       string? apiKey = null;
       AuthenticationHeaderValue? authorization = null;

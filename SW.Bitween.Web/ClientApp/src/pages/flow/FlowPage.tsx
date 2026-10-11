@@ -129,7 +129,7 @@ export function FlowPage() {
  * The things on the map that look configured and move nothing.
  *
  * Above the canvas rather than floating over it. As a panel it covered whichever
- * node happened to be top-left — and the node it hid was, of course, one of the
+ * node happened to be top-left - and the node it hid was, of course, one of the
  * ones it was warning about. Collapsed by default so the diagram keeps the height:
  * the count alone is enough to make someone open it.
  */

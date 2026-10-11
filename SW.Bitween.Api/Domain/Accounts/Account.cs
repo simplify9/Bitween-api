@@ -45,7 +45,7 @@ namespace SW.Bitween.Domain.Accounts
         public bool MustChangePassword { get; private set; }
 
         /// <summary>
-        /// The Microsoft identity — object id and tenant id — this account signs in as, bound on its
+        /// The Microsoft identity - object id and tenant id - this account signs in as, bound on its
         /// first Microsoft sign-in. Matching by address alone let anyone who could get Microsoft to
         /// put that address in a token sign in as the account.
         /// </summary>

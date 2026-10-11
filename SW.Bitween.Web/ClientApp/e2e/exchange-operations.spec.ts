@@ -7,8 +7,8 @@ import { signInAsAdmin } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
- * What the Exchanges page does to exchanges — retry them in bulk and one at a time, with and
- * without re-resolving the subscription's settings, and export their files — each followed to
+ * What the Exchanges page does to exchanges - retry them in bulk and one at a time, with and
+ * without re-resolving the subscription's settings, and export their files - each followed to
  * its effect: deliveries arriving at an endpoint the test runs, the API's record of the chain,
  * and the bytes of the download.
  *
@@ -107,7 +107,7 @@ test("selecting all matching failures across pages and retrying them with re-res
     await page.getByRole("checkbox", { name: "Select all on this page" }).check();
     await expect(page.getByText("Only the 25 rows on this page.")).toBeVisible();
     await page.getByRole("button", { name: `Select all ${count} matching this filter` }).click();
-    await expect(page.getByText("— everything this filter matches")).toBeVisible();
+    await expect(page.getByText("- everything this filter matches")).toBeVisible();
 
     await page.getByRole("button", { name: "Retry selected…" }).click();
     const dialog = page.getByRole("dialog", { name: `Retry ${count} exchanges?` });

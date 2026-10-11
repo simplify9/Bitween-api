@@ -684,7 +684,7 @@ describe("a list of plain values", () => {
 
   it("does not call a value read from the document assigned", () => {
     // Switching the box to "document" and leaving the path empty is the whole
-    // incoming document written into every slot of the list — a mistake, and the
+    // incoming document written into every slot of the list - a mistake, and the
     // one empty path here that nobody means.
     const rule = emptyFieldRule();
     expect(isItemAssigned({ ...rule, from: { kind: "rootPath", path: "" } })).toBe(false);
@@ -709,7 +709,7 @@ describe("a list of plain values", () => {
   });
 
   it("does not treat the mark on a list that walks nothing as a rule with a value", () => {
-    // Nothing is walked, so that rule never runs — counting it assigned would pad
+    // Nothing is walked, so that rule never runs - counting it assigned would pad
     // the tally with a rule the mapper does not read.
     const rules = emptyRules();
     const list = emptyListRule(["codes"]);

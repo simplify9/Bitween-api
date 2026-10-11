@@ -11,7 +11,7 @@ namespace SW.Bitween.Resources.Settings;
 /// Stores a new value for one setting. It's applied to the live options singletons as well as
 /// stored, so the very next request already sees it; the cache-revoke broadcast carries the change
 /// to any other instance. Secrets are encrypted before they're written. Only editable settings can
-/// be written at all — the environment-owned ones the page also lists are rejected here.
+/// be written at all - the environment-owned ones the page also lists are rejected here.
 /// </summary>
 public class Update(
     BitweenDbContext dbContext,
@@ -36,7 +36,7 @@ public class Update(
                 $"{definition.Label} is a secret and can only be stored once " +
                 $"{BitweenOptions.ConfigurationSection}:{nameof(BitweenOptions.SettingsEncryptionKey)} is configured.");
 
-        // Empty is a real value — it's how you clear an optional link or a license key.
+        // Empty is a real value - it's how you clear an optional link or a license key.
         var value = request?.Value ?? string.Empty;
 
         try
@@ -51,7 +51,7 @@ public class Update(
         await Store(definition, value);
         settings.Apply(definition, value);
 
-        // Some settings need more than the property assignment above — re-scheduling a job, for
+        // Some settings need more than the property assignment above - re-scheduling a job, for
         // instance. Runs after Apply so the hook reads the value that's now in effect.
         if (definition.OnChange is not null) await definition.OnChange(serviceProvider);
 

@@ -14,8 +14,8 @@ namespace SW.Bitween.Resources.Ops;
 /// <param name="Queues">How many queues this lane is (main plus whichever of retry/bad exist).</param>
 /// <param name="Consumers">
 /// Consumers the broker reports across the lane's queues, from any instance. Above zero means
-/// something still reads it — a listener that outlived its work group, or another instance
-/// running different code during a deploy — so it isn't safe to delete.
+/// something still reads it - a listener that outlived its work group, or another instance
+/// running different code during a deploy - so it isn't safe to delete.
 /// </param>
 /// <param name="InformationTypeId">
 /// Set when the lane is the queue of an information type paused on the bus: the type keeps its
@@ -36,7 +36,7 @@ public record UnattendedQueueView(
 /// Every other Ops endpoint derives its list from the consumer definitions of the running
 /// process, so it can only ever show queues this instance already knows about. A paused
 /// information type's queue is one of these; so is anything left behind before deletes and
-/// renames took their queues with them, or recreated empty by a client reconnecting — and they
+/// renames took their queues with them, or recreated empty by a client reconnecting - and they
 /// vanish from those endpoints while keeping whatever they still hold. This is the only view
 /// that asks the broker instead of asking ourselves.
 /// </para>

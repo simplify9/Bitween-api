@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
  *
  * Every keystroke used to rewrite the URL, and on a list searched on the server every rewrite
  * was a request: "orders" asked six times. The box now answers at once and the search follows
- * once typing pauses. When the search changes some other way — Back, a link, a cleared filter —
+ * once typing pauses. When the search changes some other way - Back, a link, a cleared filter -
  * the box shows what it now is.
  */
 export function useSearchText(search: string, run: (text: string) => void, delayMs = 250) {

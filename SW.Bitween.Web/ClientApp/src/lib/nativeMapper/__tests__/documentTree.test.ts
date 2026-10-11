@@ -42,7 +42,7 @@ describe("reading a sample document", () => {
 
   /**
    * The difference from the old editor. It made a list behave as its own first
-   * element, so `order.line.sku` appeared as something you could map — and it
+   * element, so `order.line.sku` appeared as something you could map - and it
    * silently meant the first line only.
    */
   it("does not offer paths inside a list as readable", () => {
@@ -195,7 +195,7 @@ describe("coverageByPath", () => {
     ).root!;
 
     // A rule inside a list reads `sku`, which is how the list's own contents are named
-    // here — so both halves agree on what "read" means.
+    // here - so both halves agree on what "read" means.
     const coverage = coverageByPath(root, new Set(["order.customer", "sku"]));
 
     expect(coverage.get("order")).toEqual({ mapped: 2, total: 4 });

@@ -7,8 +7,8 @@ import { SEED } from "./seed-data";
 
 /**
  * Running a schedule now instead of waiting for it: Receive now on a scheduled job, and Roll up
- * now on an aggregation. Each is followed to what it should cause — a document fetched from a
- * source and delivered, a roll-up of the source's exchanges delivered — at endpoints this test
+ * now on an aggregation. Each is followed to what it should cause - a document fetched from a
+ * source and delivered, a roll-up of the source's exchanges delivered - at endpoints this test
  * runs, and to the run it records on the subscription's page.
  */
 

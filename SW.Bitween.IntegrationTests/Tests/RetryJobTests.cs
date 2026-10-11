@@ -197,7 +197,7 @@ public class RetryJobTests(BitweenFixture fixture)
         var healthy = await xs.CreateXchange(doc, WorkGroup.None, new XchangeFile("{}"));
         await db.SaveChangesAsync();
 
-        // One selection containing both. This threw before, so the whole bulk retry failed — including
+        // One selection containing both. This threw before, so the whole bulk retry failed - including
         // for the exchanges that were perfectly retryable.
         await new Resources.Xchanges.BulkRetry(db, scope.Superuser(), xs).Handle(new XchangeBulkRetry
         {

@@ -12,8 +12,8 @@ namespace SW.Bitween.Resources.Subscriptions;
 /// Guards what a delivery response may be fed into.
 /// <para>
 /// Only a <see cref="SubscriptionType.Response"/> subscription, because it is the only type whose
-/// entry point this is. Every other type has a door of its own — a gateway, a schedule, a
-/// partner's call — and feeding it a response runs it through a door it does not have. A bus
+/// entry point this is. Every other type has a door of its own - a gateway, a schedule, a
+/// partner's call - and feeding it a response runs it through a door it does not have. A bus
 /// gateway route was the sharpest case: it ran with the bus skipped, so none of the other routes
 /// bound to the same message saw it. <c>ResponseMessageTypeName</c> is the field that actually
 /// puts a response on the bus.

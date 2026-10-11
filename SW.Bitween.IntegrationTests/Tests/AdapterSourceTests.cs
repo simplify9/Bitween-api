@@ -21,7 +21,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
 /// Reading the source a published version carries: listed from the catalog, read from the package,
-/// checked against the manifest's hashes, guarded, and audited — and nothing for a version that
+/// checked against the manifest's hashes, guarded, and audited - and nothing for a version that
 /// carries none, which is every version published before source was.
 /// </summary>
 [Collection("Bitween")]

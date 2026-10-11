@@ -14,7 +14,7 @@ const TARGET_OPTIONS = (Object.keys(AGGREGATION_TARGET_LABEL) as AggregationTarg
  *
  * Shared by the subscription's studio card and the create dialog, so the wording a person
  * reads while making one is the wording they read afterwards. The source is display-only
- * here and picked by the caller instead — it is fixed at creation by the backend, whose
+ * here and picked by the caller instead - it is fixed at creation by the backend, whose
  * `AggregationForId` has a private setter and is skipped by the configuration applier.
  */
 export function AggregationFields({
@@ -38,7 +38,7 @@ export function AggregationFields({
       {source !== undefined && (
       <Field
         label="Rolls up"
-        hint="Fixed once created. Only its successful exchanges are collected — a failed one is never picked up, even if a later retry succeeds."
+        hint="Fixed once created. Only its successful exchanges are collected - a failed one is never picked up, even if a later retry succeeds."
       >
         {source ? (
           <p className="flex h-9.5 items-center text-sm">
@@ -58,7 +58,7 @@ export function AggregationFields({
       <Field
         label="Collects"
         htmlFor="agg-target"
-        hint="Links only — the documents are not combined. Your mapper or delivery does that."
+        hint="Links only - the documents are not combined. Your mapper or delivery does that."
       >
         <Select
           id="agg-target"

@@ -5,7 +5,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Permissions;
 
 /// <summary>
-/// The permission catalog. Static data — the management UI builds its role matrix from this, so
+/// The permission catalog. Static data - the management UI builds its role matrix from this, so
 /// the grants it offers can't drift from what the handlers actually enforce.
 /// </summary>
 public class Get : IQueryHandler<object>

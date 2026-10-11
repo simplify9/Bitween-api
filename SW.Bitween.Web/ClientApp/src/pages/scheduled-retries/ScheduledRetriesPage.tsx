@@ -76,7 +76,7 @@ export function ScheduledRetriesPage() {
     <div>
       <PageHeader
         title="Scheduled retries"
-        description="Failed exchanges the retry policies will automatically re-run — soonest first."
+        description="Failed exchanges the retry policies will automatically re-run - soonest first."
         help={{
           title: "How scheduled retries work",
           body: (
@@ -85,14 +85,14 @@ export function ScheduledRetriesPage() {
               <Link to="/retry-policies" className="font-medium text-crimson-700 hover:underline">
                 retry policy
               </Link>{" "}
-              decides whether — and when — to try again. The retry job re-runs each entry at its
+              decides whether - and when - to try again. The retry job re-runs each entry at its
               scheduled time; "Run now" executes one immediately instead of waiting.
             </>
           ),
         }}
       />
 
-      {/* — filters — */}
+      {/* - filters - */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
         <SearchSelect
           aria-label="Filter by subscription"
@@ -186,7 +186,7 @@ export function ScheduledRetriesPage() {
                     {r.subscriptionName}
                   </Link>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {
@@ -197,7 +197,7 @@ export function ScheduledRetriesPage() {
             {
               // The policy is what decided the "Runs" time, so it's the one thing the
               // exception alone can't explain. This is the subscription's policy as it
-              // stands now — editing a policy doesn't reschedule retries it already queued.
+              // stands now - editing a policy doesn't reschedule retries it already queued.
               header: "Scheduled by",
               wrap: true,
               cell: (r) =>
@@ -231,7 +231,7 @@ export function ScheduledRetriesPage() {
                 r.exception ? (
                   <ExceptionLine text={r.exception} className="text-[12px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {
@@ -260,7 +260,7 @@ export function ScheduledRetriesPage() {
           footer={
             <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
               <span>
-                Showing {query.offset + 1}–{Math.min(query.offset + PAGE_SIZE, total)} of {total}
+                Showing {query.offset + 1}-{Math.min(query.offset + PAGE_SIZE, total)} of {total}
               </span>
               <span className="flex gap-1.5">
                 <Button

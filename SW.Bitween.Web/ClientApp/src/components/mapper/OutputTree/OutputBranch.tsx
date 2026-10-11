@@ -72,11 +72,11 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
     return `${fullPrefix}[*]` === node.path;
   });
 
-  // Count nesting depth by number of [*] in the path — max 3 levels allowed
+  // Count nesting depth by number of [*] in the path - max 3 levels allowed
   const nestingDepth = (node.path.match(/\[\*\]/g) ?? []).length;
   const canConfigureLoop = nestingDepth <= 3;
 
-  // Scalar (non-array) leaf paths from the root input JSON — for source field suggestions
+  // Scalar (non-array) leaf paths from the root input JSON - for source field suggestions
   const inputScalarProps = React.useMemo(() => {
     try {
       const parsed = JSON.parse(inputJson);

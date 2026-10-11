@@ -43,8 +43,8 @@ const catalog = http.get(apiPath("/permissions"), () =>
 
 describe("team history", () => {
   it("a custom role's page carries its history", async () => {
-    // Built-in roles are deliberately excluded — their grants are computed rather than stored,
-    // so nothing ever edits one — which makes a custom role the case worth covering.
+    // Built-in roles are deliberately excluded - their grants are computed rather than stored,
+    // so nothing ever edits one - which makes a custom role the case worth covering.
     const trail = auditTrail([auditRow({ entityName: "Role", entityKey: "12" })]);
     const { user } = renderApp("/team/roles", {
       handlers: [

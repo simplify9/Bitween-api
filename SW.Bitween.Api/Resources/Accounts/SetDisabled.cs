@@ -10,7 +10,7 @@ namespace SW.Bitween.Resources.Accounts;
 
 /// <summary>
 /// Suspends or restores an account. A disabled account keeps its roles and history but can't sign
-/// in — see the Disabled check in the login handler.
+/// in - see the Disabled check in the login handler.
 /// </summary>
 [HandlerName("setDisabled")]
 public class SetDisabled(BitweenDbContext dbContext, RequestContext requestContext)
@@ -38,7 +38,7 @@ public class SetDisabled(BitweenDbContext dbContext, RequestContext requestConte
         await dbContext.SaveChangesAsync();
 
         // A refresh token re-issues a Jwt without asking for the password, so a disabled account's
-        // sessions have to go with it — the same reasoning as SetPassword.
+        // sessions have to go with it - the same reasoning as SetPassword.
         if (request.Disabled)
             await dbContext.Set<RefreshToken>()
                 .Where(t => t.AccountId == account.Id)

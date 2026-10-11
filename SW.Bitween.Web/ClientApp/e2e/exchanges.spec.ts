@@ -23,7 +23,7 @@ async function unretriedFailures(page: Page, count: number): Promise<string[]> {
         ids = ((await res.json()) as { result: { id: string }[] }).result.map((x) => x.id);
         return ids.length;
       },
-      { message: `fewer than ${count} un-retried failed exchanges — did the seed project run?`, timeout: 15000 },
+      { message: `fewer than ${count} un-retried failed exchanges - did the seed project run?`, timeout: 15000 },
     )
     .toBeGreaterThanOrEqual(count);
   return ids;
@@ -48,12 +48,12 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
 
   // Which exchanges to retry is asked of the API rather than read off the top of the list. The
   // newest rows are whatever the last run left there: a retry still in flight, or a success
-  // whose subscription has since been deleted — neither can be retried, and a bulk retry of
+  // whose subscription has since been deleted - neither can be retried, and a bulk retry of
   // nothing but those offers no Retry button to press. The seed keeps at least three failures
   // nobody has retried yet; these are three of them.
   const [single, ...pair] = await unretriedFailures(page, 3);
 
-  // Expand the row (click the chevron cell — other cells stop propagation)
+  // Expand the row (click the chevron cell - other cells stop propagation)
   // and retry it from the drawer.
   await page.goto(`exchanges?ids=${single}`);
   await page.locator(`tr:has(input[aria-label="Select ${single}"])`).locator("td").last().click();
@@ -61,12 +61,12 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   await page.getByRole("dialog").getByRole("button", { name: "Retry" }).click();
   await expect(page.getByText(/Retry started/)).toBeVisible({ timeout: 10000 });
 
-  // Bulk retry a couple of specific rows (not the whole page — each retry does
+  // Bulk retry a couple of specific rows (not the whole page - each retry does
   // real file I/O against storage, so keep this fast and deterministic).
   await page.goto(`exchanges?ids=${pair.join(",")}`);
   await page.getByLabel("Refresh interval").selectOption("0");
   // Row checkboxes only. "Select all on this page" also starts with "Select", and its checked
-  // state is derived from every row on the page — so a refetch landing mid-click flips it back
+  // state is derived from every row on the page - so a refetch landing mid-click flips it back
   // and reads as a click that did nothing. A row checkbox is keyed by its own id and survives that.
   for (const id of pair) await page.getByRole("checkbox", { name: `Select ${id}`, exact: true }).check();
   await expect(page.getByText("2 selected")).toBeVisible();
@@ -125,7 +125,7 @@ test("a retried exchange shows its chain and sends you to the newest attempt", a
 
   // Whichever failed exchange has not been retried yet. Most have not, but this database
   // accumulates chains as the suite runs, and an already-retried one has no Retry button to
-  // press — which is the very thing under test further down.
+  // press - which is the very thing under test further down.
   let retried: string | null = null;
   const failedRows = page.getByRole("row").filter({ hasText: "Failed" });
   // The whole page, not the first few rows: this database accumulates chains as the suite runs,

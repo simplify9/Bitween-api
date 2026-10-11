@@ -27,8 +27,8 @@ const sectionOf = (rows: SettingRow[], key: string) => rows.find((r) => r.key ==
 /**
  * The one section with a reset-the-lot button, and deliberately the only one.
  * Everything here is cosmetic and re-enterable from what you can see on screen;
- * other sections hold values the database is the sole home for — the Rebex
- * license key, the MSAL client ids — where one click is far too little standing
+ * other sections hold values the database is the sole home for - the Rebex
+ * license key, the MSAL client ids - where one click is far too little standing
  * between an administrator and config nobody can reconstruct. Per-row "Reset to
  * default" still covers those, one considered decision at a time.
  */
@@ -46,7 +46,7 @@ const formatValue = (row: SettingRow, value: string): string => {
 
 /**
  * A setting this instance was started with. Read once at startup, so there's nothing to change
- * here — the row exists so an administrator can see what the instance is actually running on
+ * here - the row exists so an administrator can see what the instance is actually running on
  * without shelling into it. A `presence` row's value never leaves the server.
  */
 function EnvironmentSettingRow({ row }: { row: SettingRow }) {
@@ -231,7 +231,7 @@ function SettingRowEditor({
 
 /**
  * Edits stage into a draft (never saved on the spot). The draft previews
- * live across the whole app — leave this page and look around; the shell's
+ * live across the whole app - leave this page and look around; the shell's
  * banner brings you back. Save writes everything; Discard reverts it all.
  */
 export function SettingsPage() {
@@ -246,7 +246,7 @@ export function SettingsPage() {
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
   // Deleting exchanges, or changing where files go and so how long they last, is said out loud
-  // before it's saved — the same preview the panel shows, now as the thing being confirmed.
+  // before it's saved - the same preview the panel shows, now as the thing being confirmed.
   const retention = useRetention(
     rows ?? [],
     draft,
@@ -299,13 +299,13 @@ export function SettingsPage() {
     <div className={dirtyCount > 0 ? "pb-20" : ""}>
       <PageHeader
         title="Settings"
-        description="Instance-wide configuration. Changes preview live across the app — walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
+        description="Instance-wide configuration. Changes preview live across the app - walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
       />
 
       {/* A left column, not a row of pill tabs: eight sections wrap to a second row on a
           narrow window, and a wrapped tab row is precisely where you lose track of which
           one you're in. House pattern for anything that wanted tabs. On a phone it stacks
-          above the rows — settings is a desk job, and a list that never wraps beats one
+          above the rows - settings is a desk job, and a list that never wraps beats one
           that sometimes does. */}
       <div className="grid grid-cols-1 gap-x-6 gap-y-3 lg:grid-cols-[13.5rem_minmax(0,48rem)] lg:items-start">
         <nav aria-label="Settings sections" className="lg:sticky lg:top-4">
@@ -313,7 +313,7 @@ export function SettingsPage() {
             {sections.map((s) => {
               const active = s === section;
               const hasUnsaved = rows.some((r) => r.section === s && r.key in draft);
-              // Standing count of rows this instance has moved off the product default —
+              // Standing count of rows this instance has moved off the product default -
               // the answer to "what has been done to this instance", visible without
               // opening all eight sections.
               const customized = rows.filter((r) => r.section === s && r.overridden).length;
@@ -377,7 +377,7 @@ export function SettingsPage() {
             {resettable.length > 0 && (
               <p className="mt-1.5 text-[13px] text-ink-500">
                 {resettable.length} of these {resettable.length === 1 ? "is" : "are"} customized.
-                Resetting stages the change like any other — nothing is written until you save.
+                Resetting stages the change like any other - nothing is written until you save.
               </p>
             )}
           </div>

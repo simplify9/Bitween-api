@@ -12,7 +12,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
 /// Unpausing releases what was held while the subscription was paused. It is released in batches,
-/// so a long pause can't load the whole backlog — payloads and all — into memory at once.
+/// so a long pause can't load the whole backlog - payloads and all - into memory at once.
 /// </summary>
 [Collection("Bitween")]
 public class UnpauseTests(BitweenFixture fixture)

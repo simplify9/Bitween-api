@@ -6,13 +6,13 @@ using CsvHelper.Configuration;
 namespace SW.Bitween.NativeAdapters.Mapper.Formats;
 
 /// <summary>
-/// Reads and writes delimited text — comma, semicolon, pipe or tab.
+/// Reads and writes delimited text - comma, semicolon, pipe or tab.
 /// </summary>
 /// <remarks>
 /// <para>
 /// A file in this format <em>is</em> a list of rows, and that is the whole reason it needs so little
 /// here. A list rule walking <c>""</c> already means "the document is itself the list", and
-/// <c>Root</c> already means "the whole output is a list" — both written for a JSON document that is
+/// <c>Root</c> already means "the whole output is a list" - both written for a JSON document that is
 /// a bare array, both already tested. So the mapper is untouched: this is a reader and a writer, and
 /// everything between them already exists.
 /// </para>
@@ -23,7 +23,7 @@ namespace SW.Bitween.NativeAdapters.Mapper.Formats;
 /// it, and it does it because someone asked rather than because something guessed.
 /// </para>
 /// <para>
-/// An object output — not a list — is written as a header and exactly one row. That falls out of
+/// An object output - not a list - is written as a header and exactly one row. That falls out of
 /// treating a row as an object rather than being a case of its own.
 /// </para>
 /// </remarks>
@@ -37,7 +37,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
 
     /// <summary>No: a file of one row is a list of one, and says so.</summary>
     /// <remarks>
-    /// Unlike XML, there is no ambiguity to resolve — a row is a row whether there is one of them or
+    /// Unlike XML, there is no ambiguity to resolve - a row is a row whether there is one of them or
     /// a thousand, so nothing has to be tolerated after the fact.
     /// </remarks>
     public bool SingleValueIsAList => false;
@@ -47,7 +47,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
     /// </summary>
     /// <remarks>
     /// A row is flat and a mapping is not, so a rule writing to <c>destination.city</c> has to land
-    /// somewhere. It becomes a column of exactly that name — which is how the editor already shows
+    /// somewhere. It becomes a column of exactly that name - which is how the editor already shows
     /// the path, and the only way to produce such a column at all, since the output-field name box
     /// splits what is typed into it on dots.
     /// </remarks>
@@ -73,7 +73,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
             if (_options.HasHeader)
             {
                 // A file that is nothing but a header is a list of no rows, which is a true answer
-                // and not an error — a carrier with nothing to report sends exactly that.
+                // and not an error - a carrier with nothing to report sends exactly that.
                 if (!parser.Read()) return list;
                 foreach (var name in parser.Record ?? [])
                     names.Add(Unique(name.Length > 0 ? name : Position(names.Count), used));
@@ -117,8 +117,8 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
                 "This mapping produced a single value."),
         };
 
-        // Every column any row has, in the order they first appear. Rows can legitimately differ —
-        // entries written into a list carry their own rules — and taking the first row's columns
+        // Every column any row has, in the order they first appear. Rows can legitimately differ -
+        // entries written into a list carry their own rules - and taking the first row's columns
         // would drop the rest without a word.
         var columns = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -163,7 +163,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
     /// </summary>
     /// <remarks>
     /// A list inside a row is refused rather than folded. There is no column name that would make
-    /// <c>["A1","B7"]</c> fit into one cell, and inventing one — joining them, taking the first —
+    /// <c>["A1","B7"]</c> fit into one cell, and inventing one - joining them, taking the first -
     /// would lose data quietly, which is the one outcome worth refusing over.
     /// </remarks>
     private static void Flatten(ValueNode node, string prefix, Dictionary<string, string> cells)
@@ -175,7 +175,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
                     Flatten(child, prefix.Length == 0 ? key : prefix + PathSeparator + key, cells);
                 break;
 
-            // A row that is a single value — a list of plain values, which is a perfectly ordinary
+            // A row that is a single value - a list of plain values, which is a perfectly ordinary
             // one-column file of tracking numbers. It has no name to take, so it takes the name any
             // column has when nothing names it: its position.
             case ScalarNode scalar:
@@ -207,7 +207,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
     /// <param name="forWriting">
     /// Whether to pin the line ending. CsvHelper applies <c>NewLine</c> on reading only when it has
     /// been set explicitly, and setting it there would refuse a file that separates its rows with
-    /// bare newlines — which most of them do. So it is pinned for writing, where RFC 4180 asks for
+    /// bare newlines - which most of them do. So it is pinned for writing, where RFC 4180 asks for
     /// CRLF, and left alone for reading, where whatever the partner sent has to be accepted.
     /// </param>
     private CsvConfiguration Configuration(bool forWriting)
@@ -220,7 +220,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
             HasHeaderRecord = false,
             // A partner file is not a well-formed file. A stray quote in the middle of a field is
             // common enough that refusing the whole document over one would stop a day's shipments,
-            // and the field still arrives — as the characters that are actually there.
+            // and the field still arrives - as the characters that are actually there.
             BadDataFound = null,
             MissingFieldFound = null,
             DetectColumnCountChanges = false,
@@ -238,7 +238,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
                  args.Field.Contains('\n')),
         };
 
-        // Assigned only for writing, because assigning it at all is what counts as setting it —
+        // Assigned only for writing, because assigning it at all is what counts as setting it -
         // and a reader pinned to one line ending refuses every file that uses the other.
         if (forWriting) configuration.NewLine = "\r\n";
 
@@ -277,8 +277,8 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
     /// Whether a record is a blank line rather than a row.
     /// </summary>
     /// <remarks>
-    /// <c>IgnoreBlankLines</c> covers an empty line, but a line holding only delimiters — which the
-    /// samples have between blocks of records — parses as a row of empty fields. Mapping that would
+    /// <c>IgnoreBlankLines</c> covers an empty line, but a line holding only delimiters - which the
+    /// samples have between blocks of records - parses as a row of empty fields. Mapping that would
     /// produce a row of nothing for every gap in the file.
     /// </remarks>
     private static bool IsBlank(string[] record) => record.All(field => field.Length == 0);
@@ -287,7 +287,7 @@ public class CsvFormat(CsvOptions? options = null) : IDocumentFormat
     /// Drops the byte-order mark, if the text still carries one.
     /// </summary>
     /// <remarks>
-    /// Excel writes one, and left in place it becomes part of the first column's name — so a header
+    /// Excel writes one, and left in place it becomes part of the first column's name - so a header
     /// of <c>ShipmentNumber</c> arrives as <c>﻿ShipmentNumber</c> and every rule reading it
     /// resolves to nothing, with the editor showing a name that looks exactly right.
     /// </remarks>

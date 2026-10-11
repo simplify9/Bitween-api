@@ -10,7 +10,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.RetryPolicies;
 
 /// <summary>
-/// Sets, changes or clears where one subscription's alerts go for one group of this policy — the most
+/// Sets, changes or clears where one subscription's alerts go for one group of this policy - the most
 /// specific level of the hierarchy.
 /// </summary>
 [HandlerName("savealertoverride")]
@@ -44,7 +44,7 @@ public class SaveAlertOverride(BitweenDbContext dbContext, RequestContext reques
                                       && o.GroupId == request.GroupId);
 
         // Inherit is the absence of an override, so store nothing rather than a row that does nothing
-        // — otherwise the routing list would have to explain a row that changes no behaviour.
+        // - otherwise the routing list would have to explain a row that changes no behaviour.
         if (request.AlertMode == RetryAlertMode.Inherit)
         {
             if (existing != null) dbContext.Remove(existing);
@@ -54,8 +54,8 @@ public class SaveAlertOverride(BitweenDbContext dbContext, RequestContext reques
 
         // A masked secret has to be restored from whichever level the caller was shown it at. Usage
         // masks two things for a pair: the override's own properties, and the properties of the level
-        // it currently inherits from. Overriding an inherited alert starts from the second — there is
-        // no override row yet — so both are offered here, with the override's own winning.
+        // it currently inherits from. Overriding an inherited alert starts from the second - there is
+        // no override row yet - so both are offered here, with the override's own winning.
         var group = policy.Groups.First(g => g.Id == request.GroupId);
         var inherited = RetryAlertResolver.Resolve(existing, group, policy);
 

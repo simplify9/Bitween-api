@@ -10,12 +10,12 @@ namespace SW.Bitween.Resources.Subscriptions;
 
 /// <summary>
 /// Puts a <see cref="SubscriptionConfiguration"/> onto a subscription. Create and Update both
-/// go through here, so a field cannot be honoured by one and silently ignored by the other —
+/// go through here, so a field cannot be honoured by one and silently ignored by the other -
 /// which is what happened for as long as create couldn't accept a pipeline at all.
 /// <para>
 /// Deliberately does not touch name, document, partner or aggregation-for. On create those are
 /// decided by the constructor, and an Aggregation subscription's <c>DocumentId</c> is
-/// <see cref="Document.AggregationDocumentId"/> rather than anything the caller sent — copying
+/// <see cref="Document.AggregationDocumentId"/> rather than anything the caller sent - copying
 /// the model over it would corrupt the subscription.
 /// </para>
 /// </summary>
@@ -86,7 +86,7 @@ internal static class SubscriptionConfigurationApplier
             throw new SWValidationException("AutoPauseAfterFailures",
                 "Pause after between 1 and 1000 failures in a row, or leave it empty to never pause.");
         entity.AutoPauseAfterFailures = model.AutoPauseAfterFailures;
-        // Meaningless for every other type, where it stays at its default — but harmless
+        // Meaningless for every other type, where it stays at its default - but harmless
         // there, and applying it unconditionally is what stops create and update disagreeing.
         entity.AggregationTarget = model.AggregationTarget;
 

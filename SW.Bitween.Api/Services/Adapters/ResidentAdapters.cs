@@ -10,7 +10,7 @@ namespace SW.Bitween.Services.Adapters;
 ///
 /// It lives here because two services outside the runtime need to ask, and both got the answer
 /// wrong in the same way: they probed the adapter by SPAWNING it down the classic stdio path. A
-/// resident adapter dials out instead of speaking stdio, so that probe never gets an answer — one
+/// resident adapter dials out instead of speaking stdio, so that probe never gets an answer - one
 /// caller failed as "Received null data" and refused to save the subscription at all, the other
 /// failed closed and masked every property as a secret. Neither failure named a cause.
 /// </summary>

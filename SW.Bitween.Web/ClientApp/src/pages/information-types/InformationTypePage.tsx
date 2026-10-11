@@ -109,7 +109,7 @@ export function InformationTypePage() {
             {t.isSystem && (
               <Badge
                 tone="ink"
-                title="Seeded by Bitween and used by aggregation itself — it can't be retired or deleted."
+                title="Seeded by Bitween and used by aggregation itself - it can't be retired or deleted."
               >
                 Built-in
               </Badge>
@@ -156,8 +156,8 @@ export function InformationTypePage() {
               </Can>
             </div>
             {/*
-              Retire refuses for reasons the user can act on — a subscription still carrying the
-              type, say — and without this the refusal reached the network tab and nowhere else.
+              Retire refuses for reasons the user can act on - a subscription still carrying the
+              type, say - and without this the refusal reached the network tab and nowhere else.
             */}
             {retire.error && (
               <p className="max-w-md text-right text-[13px] text-danger-700">
@@ -240,7 +240,7 @@ export function InformationTypePage() {
             <div className="space-y-2">
               <p>
                 <strong className="font-medium text-ink-800">{t.code ?? t.name}</strong> and its promoted
-                properties will be gone for good — <strong className="font-medium text-ink-800">along with
+                properties will be gone for good - <strong className="font-medium text-ink-800">along with
                 every exchange recorded against it</strong>, and their payloads. A type still carried by a
                 subscription, or listened for by a bus gateway, can't be deleted.
               </p>

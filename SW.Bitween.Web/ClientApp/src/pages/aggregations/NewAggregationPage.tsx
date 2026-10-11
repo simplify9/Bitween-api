@@ -35,7 +35,7 @@ function useDraft<T extends object>(initial: T) {
   return [draft, update] as const;
 }
 
-/** The whole pipeline — the same nodes the studio page edits for a saved aggregation. */
+/** The whole pipeline - the same nodes the studio page edits for a saved aggregation. */
 const STAGES_HERE: StageId[] = ["aggregation", "schedule", "transformation", "delivery", "response"];
 
 type Draft = Pick<
@@ -70,7 +70,7 @@ const EMPTY: Draft = {
   partnerTouched: false,
   aggregationTarget: "Input",
   // A sensible default so the node starts valid, edited through the full recurrence editor
-  // on demand — matching the scheduled-job page. An aggregation has no other trigger, so a
+  // on demand - matching the scheduled-job page. An aggregation has no other trigger, so a
   // draft that starts with none would open on a broken node.
   schedules: [{ recurrence: "Daily", days: 0, hours: 0, minutes: 0, backwards: false }] as Schedule[],
   mapperId: null,
@@ -86,7 +86,7 @@ const EMPTY: Draft = {
 };
 
 /**
- * Creating an aggregation, on the same pipeline the studio page edits — the scheduled-job
+ * Creating an aggregation, on the same pipeline the studio page edits - the scheduled-job
  * page's shape, for the same reason: you learn the rail once, and after Create you land on
  * the page you were already looking at.
  *
@@ -105,7 +105,7 @@ export function NewAggregationPage() {
   const returned = detour.kept !== null || detour.pickedResponse !== null;
 
   const [stage, setStage] = useState<StageId | null>(returned ? "response" : "aggregation");
-  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
@@ -122,7 +122,7 @@ export function NewAggregationPage() {
 
   const source = allSubscriptions.data?.find((s) => s.id === draft.aggregationForId) ?? null;
 
-  // An aggregation may point at another aggregation — the backend does not stop it, and a
+  // An aggregation may point at another aggregation - the backend does not stop it, and a
   // chain of roll-ups summarising roll-ups is not a shape anyone has asked for.
   const candidates = (allSubscriptions.data ?? []).filter((s) => s.type !== "Aggregation");
 
@@ -136,7 +136,7 @@ export function NewAggregationPage() {
       api.createSubscription({
         type: "Aggregation",
         name: draft.name.trim(),
-        // Ignored for this type — the backend forces the built-in Aggregation Document.
+        // Ignored for this type - the backend forces the built-in Aggregation Document.
         informationTypeId: 0,
         partnerId,
         aggregationForId: draft.aggregationForId,
@@ -172,7 +172,7 @@ export function NewAggregationPage() {
     handlerVersion: null,
     enabled: draft.enable,
     // An aggregation is fed by its source, not by a receiver, and has no Validation
-    // stage — see stages.ts.
+    // stage - see stages.ts.
     receiverId: null,
     receiverProperties: {},
     validatorId: null,
@@ -203,10 +203,10 @@ export function NewAggregationPage() {
     draft.name.trim().length < 2 && "a name",
     partnerId === null && "a partner",
     // As strict as the scheduled-job page, for the same reason: a roll-up with nowhere to go
-    // is built and then thrown away. It also keeps the rail honest — the Delivery node reads
+    // is built and then thrown away. It also keeps the rail honest - the Delivery node reads
     // "Needed" while nothing is set, and that has to mean something.
     draft.handlerId === null && "a delivery",
-    // Create does not demand a schedule, but update does — one saved without could never be
+    // Create does not demand a schedule, but update does - one saved without could never be
     // saved again from its own page. The surface that can make that mistake refuses to.
     draft.schedules.length === 0 && "a schedule",
     unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
@@ -245,7 +245,7 @@ export function NewAggregationPage() {
               properties={draft.mapperProperties}
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
-              noneLabel="None — the list of links is delivered as it is"
+              noneLabel="None - the list of links is delivered as it is"
               onOpenMapperEditor={() => setMapping(true)}
             />
             <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-500">
@@ -321,7 +321,7 @@ export function NewAggregationPage() {
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">New aggregation</h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
         On a schedule, collects another subscription's successful exchanges into one exchange
-        listing links to their files. It does not combine the files — the transformation or the
+        listing links to their files. It does not combine the files - the transformation or the
         delivery does that.
       </p>
 
@@ -332,7 +332,7 @@ export function NewAggregationPage() {
               id="na-name"
               value={draft.name}
               autoFocus
-              placeholder={source ? `e.g. ${source.name} — daily manifest` : "e.g. Daily invoice manifest"}
+              placeholder={source ? `e.g. ${source.name} - daily manifest` : "e.g. Daily invoice manifest"}
               onChange={(e) => update({ name: e.target.value })}
             />
           </Field>
@@ -360,7 +360,7 @@ export function NewAggregationPage() {
           <Field
             label="Partner"
             htmlFor="na-partner"
-            // The question this answers is not "whose exchanges are collected" — one roll-up
+            // The question this answers is not "whose exchanges are collected" - one roll-up
             // can sweep up exchanges belonging to many partners, or to none. It is who the
             // roll-up itself belongs to.
             hint="Who the roll-up exchange belongs to, and whose values fill {{partner.…}} in the delivery below. It does not affect which exchanges are collected."
@@ -376,7 +376,7 @@ export function NewAggregationPage() {
 
       {/* The two settings that belong to no stage, in the strip the subscription's own
           page keeps them in. Offered here because the API has always accepted them on a
-          create — leaving them out is what made a new aggregation need a second visit. */}
+          create - leaving them out is what made a new aggregation need a second visit. */}
       <div className="mb-5 flex flex-wrap items-start gap-x-10 gap-y-4 border-y border-ink-200 px-1 py-4">
         <LaneAndRetry
           workGroupId={draft.workGroupId}
@@ -411,7 +411,7 @@ export function NewAggregationPage() {
           // Off by default, unlike a scheduled job: the first run of a new aggregation sweeps
           // up every successful exchange its source has ever produced, which for an old source
           // can be a very large first roll-up going straight to a partner.
-          description="Off by default — the first run collects everything the source has ever produced, so enable it when you've checked the pipeline."
+          description="Off by default - the first run collects everything the source has ever produced, so enable it when you've checked the pipeline."
           checked={draft.enable}
           onChange={(e) => update({ enable: e.target.checked })}
         />

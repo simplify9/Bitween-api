@@ -14,13 +14,13 @@ import { formatLabel } from "../../lib/informationTypeFormat";
 
 /*
  * Pick-one controls used inside flows. Creating or amending the thing you are
- * picking happens in a dialog, right here — no page change, so nothing has to be
+ * picking happens in a dialog, right here - no page change, so nothing has to be
  * remembered across a trip and no draft has to survive one. That replaced a routed
  * detour (`?return=` + sessionStorage + `?picked=`), which is why none of these
  * take a return context any more.
  *
  * They were lists of one card per candidate. That is fine with six partners and
- * unusable with six hundred, so they are typeaheads — the same `SearchSelect` the
+ * unusable with six hundred, so they are typeaheads - the same `SearchSelect` the
  * rest of the app uses, which shows a code and a hint per row and searches both.
  */
 
@@ -141,7 +141,7 @@ export function SubscriptionPicker({
   id,
   /**
    * Given, "New subscription" defines one where the caller stands instead of opening a
-   * dialog — the caller renders its fields and saves it with whatever points at it.
+   * dialog - the caller renders its fields and saves it with whatever points at it.
    */
   onDefineHere,
 }: {
@@ -207,7 +207,7 @@ export function SubscriptionPicker({
 }
 
 /**
- * Pick a partner — and create or amend one without leaving.
+ * Pick a partner - and create or amend one without leaving.
  *
  * `detourCtx` is gone: a partner is edited in a dialog now, so there is no page to
  * come back from and no draft to persist across the trip.

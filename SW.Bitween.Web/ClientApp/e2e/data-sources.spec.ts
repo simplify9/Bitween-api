@@ -5,7 +5,7 @@ import { signInAsAdmin } from "./helpers";
 
 /**
  * A PostgreSQL data source, made and used entirely through its pages, against a database that is
- * certainly there: the one Bitween itself runs on. Every step goes through the real adapter —
+ * certainly there: the one Bitween itself runs on. Every step goes through the real adapter -
  * the connection test, the catalog the schema browser reads, and the statements it prepares.
  */
 
@@ -17,7 +17,7 @@ test.beforeEach(async ({ page, request }) => {
   const providers = await api.get<{ adapterId: string }[]>("/datasources/providers");
   test.skip(
     !providers.some((p) => p.adapterId === PROVIDER),
-    `${PROVIDER} is not published here — tools/e2e.sh publishes it; another instance needs it published`,
+    `${PROVIDER} is not published here - tools/e2e.sh publishes it; another instance needs it published`,
   );
   await signInAsAdmin(page);
 });
@@ -85,7 +85,7 @@ test("a PostgreSQL data source pointed at the e2e database: a wrong password fai
   await save(page);
   await expect(await testConnection(page)).toHaveText("The connection works");
 
-  // Stored, and masked from then on — on the page and from the API.
+  // Stored, and masked from then on - on the page and from the API.
   await page.reload();
   await expect(page.locator("#ds-prop-Password")).toHaveValue("");
   await expect(page.locator("#ds-prop-Password")).toHaveAttribute("placeholder", "••••••••");
@@ -128,7 +128,7 @@ test("the schema browser lists the database's tables and opens one to its column
   await table.getByRole("button", { expanded: false }).click();
   await expect(table.getByText("login_identity", { exact: true })).toBeVisible({ timeout: 30_000 });
 
-  // A statement drafted from the table, saved — which prepares it against the database.
+  // A statement drafted from the table, saved - which prepares it against the database.
   await table.getByRole("button", { name: "Use in a statement" }).click();
   const statements = page.locator("section").filter({
     has: page.getByRole("heading", { name: "SQL statements", exact: true }),

@@ -44,7 +44,7 @@ public class GetLastRuns(
 
         // One small indexed query per scheduled subscription. The subscription id
         // only exists inside the execution's JSON parameter, so there is nothing to
-        // GROUP BY — but each of these is an ordered top-N, and the alternative
+        // GROUP BY - but each of these is an ordered top-N, and the alternative
         // (pulling a whole retention window of every job's executions and grouping
         // in memory) is far worse on an instance with chatty schedules.
         //

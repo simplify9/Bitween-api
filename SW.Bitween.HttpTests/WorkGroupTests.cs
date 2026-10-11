@@ -11,7 +11,7 @@ namespace SW.Bitween.HttpTests;
 /// <summary>
 /// A work group is its own pair of lanes on the broker. Over HTTP and against the real broker: its
 /// subscriptions are processed through its lane, renaming its bus name moves the lane, and deleting
-/// it — refused while a subscription is in it — takes the lanes away.
+/// it - refused while a subscription is in it - takes the lanes away.
 /// </summary>
 [Collection("Http")]
 public class WorkGroupTests(HttpFixture fixture)

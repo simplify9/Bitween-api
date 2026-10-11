@@ -19,7 +19,7 @@ public static class ScribanJsonHelper
         // 6. Strip trailing commas that may appear after the last field/element
         rendered = StripTrailingCommas(rendered);
 
-        // 7. Parse rendered output — root may be an object OR an array
+        // 7. Parse rendered output - root may be an object OR an array
         JToken renderedToken;
         try
         {
@@ -39,13 +39,13 @@ public static class ScribanJsonHelper
     /// without requiring the result to be JSON.
     /// </summary>
     /// <remarks>
-    /// For templates whose output is prose rather than a payload — an email subject or body, say.
+    /// For templates whose output is prose rather than a payload - an email subject or body, say.
     /// <see cref="Render"/> builds on this and adds the JSON validation and dotted-key expansion
     /// that a mapper needs and a sentence does not.
     /// </remarks>
     public static string RenderText(string scribanTemplate, string inputJson)
     {
-        // 1. Parse input JSON — handle both root object and root array
+        // 1. Parse input JSON - handle both root object and root array
         var rootToken = JToken.Parse(inputJson);
 
         // 2. Build top-level ScriptObject from input (recursive)
@@ -90,7 +90,7 @@ public static class ScribanJsonHelper
         }));
 
         // 4. Create template context. Each loop is already capped (LoopLimit, 1000 by default),
-        // but loops nest, so three of them are a billion iterations inside the API process — and
+        // but loops nest, so three of them are a billion iterations inside the API process - and
         // the preview endpoint renders a template the caller writes. The time limit bounds that.
         using var timeout = new CancellationTokenSource(RenderTimeout);
         var context = new TemplateContext { StrictVariables = false, CancellationToken = timeout.Token };
@@ -158,7 +158,7 @@ public static class ScribanJsonHelper
         return output.ToString();
     }
 
-    /// <summary>Custom | json Scriban pipe — serializes any value to its JSON representation.</summary>
+    /// <summary>Custom | json Scriban pipe - serializes any value to its JSON representation.</summary>
     private static string JsonFilter(object? value)
     {
         return value switch

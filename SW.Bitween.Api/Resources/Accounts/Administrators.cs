@@ -24,7 +24,7 @@ internal static class Administrators
 
     /// <summary>
     /// Blocks an operation that would remove the last administrator. Only applies when the account
-    /// actually holds the role — otherwise nothing is being taken away.
+    /// actually holds the role - otherwise nothing is being taken away.
     /// </summary>
     public static async Task EnsureNotTheLast(BitweenDbContext dbContext, int accountId)
     {

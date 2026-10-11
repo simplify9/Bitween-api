@@ -14,7 +14,7 @@ import { RowInput, RowSelect } from "./rowControls";
  * The three states of a list's source, encoded for a select.
  *
  * A select hands back one string, and "" already means "the source document is
- * itself the list" — so "walks nothing" needs a value of its own rather than
+ * itself the list" - so "walks nothing" needs a value of its own rather than
  * being confused with it.
  */
 const NO_SOURCE_LIST = "none";
@@ -30,7 +30,7 @@ const decodeOver = (value: string) =>
  *
  * The header is one line like a field's, and what the list walks sits on it because
  * that is the thing you check when reading a mapping. The filter is behind the
- * chevron. What each entry holds is not a setting at all — it is the rows in the
+ * chevron. What each entry holds is not a setting at all - it is the rows in the
  * list, the same as everywhere else in the tree.
  */
 export function ListRow({
@@ -71,7 +71,7 @@ export function ListRow({
       onClick={(e) => {
         // `label` matters as much as `input`: a checkbox's text is a label that
         // forwards the click to its box, so treating it as the row's own click
-        // toggled the box and folded the panel away in the same tick — which read
+        // toggled the box and folded the panel away in the same tick - which read
         // as the box refusing to tick at all.
         if (
           (e.target as HTMLElement).closest(
@@ -130,7 +130,7 @@ export function ListRow({
           options={[
             // Not the same as choosing nothing: this list is exactly the entries
             // written into it, rather than one per entry of a source list.
-            { value: NO_SOURCE_LIST, label: "— just the entries below —" },
+            { value: NO_SOURCE_LIST, label: "- just the entries below -" },
             ...(list.over !== undefined && !listOptions.includes(list.over)
               ? [{ value: encodeOver(list.over), label: list.over || "choose a list…" }]
               : []),

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.ApiGateways
 {
     /// <summary>
-    /// Paged, searched view of one gateway's attachments — the full list lives on
+    /// Paged, searched view of one gateway's attachments - the full list lives on
     /// <see cref="Get"/> for callers that need every attached partner id (e.g. the
     /// attach-partner picker's exclude list), this is only for the gateway page's own table.
     /// </summary>

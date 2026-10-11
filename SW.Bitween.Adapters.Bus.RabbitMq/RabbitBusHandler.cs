@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Adapters.Bus.RabbitMq;
 
 /// <summary>
-/// Bitween's external RabbitMQ bus provider — a broker that is NOT the internal one, owned by
+/// Bitween's external RabbitMQ bus provider - a broker that is NOT the internal one, owned by
 /// someone else, whose queues Bitween consumes and publishes to.
 ///
 /// The ack ordering is the contract:
@@ -24,7 +24,7 @@ namespace SW.Bitween.Adapters.Bus.RabbitMq;
 ///              -> ONLY THEN BasicAck
 ///
 /// A host rejection becomes BasicNack(requeue: true), so a Bitween outage does not lose the
-/// customer's messages — it just stops draining their queue, which is the correct failure.
+/// customer's messages - it just stops draining their queue, which is the correct failure.
 /// </summary>
 // Two roles, one package. "bus" is what makes it configurable as a broker connection; "handler"
 // is what puts it in the delivery picker, because the same resident instance both consumes a
@@ -81,7 +81,7 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
             VirtualHost = _options.VirtualHost,
             RequestedConnectionTimeout = TimeSpan.FromSeconds(15),
 
-            // The supervisor owns restart policy — backoff, crash-loop quarantine, health
+            // The supervisor owns restart policy - backoff, crash-loop quarantine, health
             // write-back. A second, hidden recovery loop in here would fight it.
             AutomaticRecoveryEnabled = false,
 
@@ -101,7 +101,7 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
         };
 
         // With confirmations tracked, a publish completes only once the broker has confirmed it,
-        // and throws when the broker refuses it or — mandatory — routes it nowhere.
+        // and throws when the broker refuses it or - mandatory - routes it nowhere.
         _publishChannel = await _connection.CreateChannelAsync(
             new CreateChannelOptions(
                 publisherConfirmationsEnabled: _options.PublisherConfirms,
@@ -114,7 +114,7 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
         // Manage-only: the connection is up and the topology is declared, but nothing is consumed.
         // TestConnection still checks every endpoint, because it reads _endpoints rather than the
-        // consumers — so a test proves the queues exist without draining them.
+        // consumers - so a test proves the queues exist without draining them.
         if (!_options.Consume)
         {
             _state = "Idle";
@@ -252,8 +252,8 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
             var result = await _context.PublishAsync(
                 delivery.Body,
-                // The broker's own message id, and nothing else. NOT the delivery tag — tags are
-                // per channel and restart at 1 on every reconnect — and NOT a content hash: two
+                // The broker's own message id, and nothing else. NOT the delivery tag - tags are
+                // per channel and restart at 1 on every reconnect - and NOT a content hash: two
                 // messages that legitimately carry the same body are two messages, and hashing
                 // them would silently drop the second for the whole deduplication window. An
                 // unkeyed delivery is handled once per delivery, which is the honest answer when
@@ -296,7 +296,7 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
     /// <summary>
     /// A message Bitween did not take. It used to go straight back on the queue, so one that always
-    /// fails came straight back too — round and round, as fast as the broker could deliver it,
+    /// fails came straight back too - round and round, as fast as the broker could deliver it,
     /// holding a prefetch slot and filling the log. Now each requeue waits a little longer, and
     /// after <see cref="RabbitOptions.MaxDeliveryAttempts"/> the poison action takes over.
     /// </summary>
@@ -380,7 +380,7 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
     /// <summary>
     /// Publishes and, with confirmations on, returns only once the broker has confirmed it. Without
-    /// that, a message the broker dropped — a full queue, a failover — was still recorded as
+    /// that, a message the broker dropped - a full queue, a failover - was still recorded as
     /// delivered. A refusal, or a mandatory message routed nowhere, throws.
     /// </summary>
     private async Task PublishConfirmedAsync(string exchange, string routingKey, bool mandatory,
@@ -451,14 +451,14 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
     /// Egress through the PIPELINE: a subscription's delivery stage, publishing the message it was
     /// given to a queue on this broker.
     ///
-    /// <see cref="Publish"/> has existed since this adapter did, and nothing could reach it —
+    /// <see cref="Publish"/> has existed since this adapter did, and nothing could reach it -
     /// Bitween's pipeline calls <c>Handle</c> on a handler, and this class had none, so an operator
     /// could consume from a customer's broker and had no way to answer on it. This is the two of
     /// them joined up; the publishing itself is unchanged.
     ///
     /// Where to send is the SUBSCRIPTION's business, not the connection's: one instance serves
     /// every gateway on this broker, so the endpoint travels with the call rather than with the
-    /// process. Deliberately NOT restricted to the endpoints the data source consumes — the common
+    /// process. Deliberately NOT restricted to the endpoints the data source consumes - the common
     /// case for egress is a queue Bitween does not drain.
     /// </summary>
     public Task<XchangeFile> Handle(XchangeFile xchangeFile)

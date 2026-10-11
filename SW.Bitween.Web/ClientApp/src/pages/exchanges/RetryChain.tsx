@@ -32,7 +32,7 @@ function Attempt({
     <>
       <li
         // The whole row opens the attempt, the way a row of the exchange list opens its own
-        // drawer — the identity on the right can no longer be a link itself, since promoted
+        // drawer - the identity on the right can no longer be a link itself, since promoted
         // properties bring a panel of their own and a button cannot sit inside a link.
         onClick={isCurrent ? undefined : () => navigate(`/exchanges?ids=${encodeURIComponent(node.id)}`)}
         className={`flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 ${
@@ -45,7 +45,7 @@ function Attempt({
         {isCurrent ? (
           <span
             className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase"
-            title={`The ${ordinal(depth + 1)} attempt at this work — the one you are looking at`}
+            title={`The ${ordinal(depth + 1)} attempt at this work - the one you are looking at`}
           >
             Attempt {depth + 1}
           </span>
@@ -63,7 +63,7 @@ function Attempt({
           tone="neutral"
           title={
             node.retryFor === null
-              ? "The original run — nobody retried anything to produce this"
+              ? "The original run - nobody retried anything to produce this"
               : node.manualRetry
                 ? "Someone pressed Retry for this attempt"
                 : "A retry policy scheduled this attempt"
@@ -77,7 +77,7 @@ function Attempt({
         {children.length > 1 && (
           <Badge
             tone="warn"
-            title="This exchange was retried more than once, which happened before an exchange was limited to a single retry. Each of those retries begins its own branch below — which is why an attempt number can appear twice."
+            title="This exchange was retried more than once, which happened before an exchange was limited to a single retry. Each of those retries begins its own branch below - which is why an attempt number can appear twice."
           >
             {children.length} retries from here
           </Badge>
@@ -91,7 +91,7 @@ function Attempt({
           {timeAgo(node.startedOn)}
         </span>
 
-        {/* Named the way the exchange list names a row — the promoted properties are what
+        {/* Named the way the exchange list names a row - the promoted properties are what
             someone recognises an exchange by, and the id falls back in when there are none. */}
         <span className="ml-auto flex items-center gap-2">
           {namesSomething(node.promotedProperties) ? (
@@ -127,7 +127,7 @@ export function RetryChain({ id }: { id: string }) {
   const { data: tree, isLoading } = useQuery(retryTreeQuery(id));
 
   // A line rather than a spinner block: this sits inside an already-rendered drawer, and it is
-  // usually filled in before anyone looks at it — the row is prefetched on hover.
+  // usually filled in before anyone looks at it - the row is prefetched on hover.
   if (isLoading)
     return <p className="text-[13px] text-ink-500">Loading the retry chain…</p>;
   if (!tree || tree.attempts.length < 2) return null;
@@ -147,7 +147,7 @@ export function RetryChain({ id }: { id: string }) {
       </ul>
       {tree.truncated && (
         <p className="mt-1.5 text-[13px] text-ink-500">
-          Only the attempts nearest this one are shown — the chain is longer than this view walks.
+          Only the attempts nearest this one are shown - the chain is longer than this view walks.
         </p>
       )}
     </section>

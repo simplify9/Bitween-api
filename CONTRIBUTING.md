@@ -280,7 +280,7 @@ Four layers, fastest first. Put a test in the lowest layer that can see the bug 
 |---|---|---|
 | Unit | `SW.Bitween.UnitTests` (MSTest); `ClientApp/src/**/__tests__/*.test.ts` (vitest) | Logic with no database, bus or screen: the mapping engine, transforms, schedules, parsing, the editor's reducer. |
 | Integration | `SW.Bitween.IntegrationTests` (xUnit, real Postgres and RabbitMQ in Docker) | Anything that crosses into the database, the bus, or a permission guard. |
-| Component | `ClientApp/src/**/__tests__/*.test.tsx` (vitest in jsdom, against a mock network — see `src/__tests__/support`) | What one page shows and does: which controls appear, what a click sends, how an error reads. |
+| Component | `ClientApp/src/**/__tests__/*.test.tsx` (vitest in jsdom, against a mock network - see `src/__tests__/support`) | What one page shows and does: which controls appear, what a click sends, how an error reads. |
 | End-to-end | `ClientApp/e2e` (Playwright, against the running backend) | A whole user journey through the real app, and what only a real browser can check: layout widths, drag and drop, two tabs. |
 
 An end-to-end test that asserts what the engine returns, or what one page renders, belongs a layer down: it runs far slower, and fails for reasons that have nothing to do with what it tests.

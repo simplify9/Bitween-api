@@ -88,7 +88,7 @@ public class ReceiveAttemptFilterTests(BitweenFixture fixture)
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
 
         // Exchanges exist; this run just is not responsible for any of them. Dropping the filter
-        // instead of honouring it would return all of them — and bulk retry acts on this selection.
+        // instead of honouring it would return all of them - and bulk retry acts on this selection.
         await ARunThatCreated(db, xs, "Attempt filter bystander");
 
         var empty = new ReceiveAttempt

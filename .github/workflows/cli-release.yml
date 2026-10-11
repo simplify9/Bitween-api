@@ -93,8 +93,8 @@ jobs:
           install="curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/releases/r10.0/scripts/install-cli.sh"
           if [ "${{ needs.channel.outputs.prerelease }}" = "true" ]; then
             gh release create "cli-v$v" dist/* --title "bitween CLI $v (pre-release)" --target "${{ github.sha }}" --prerelease \
-              --notes "A pre-release of the bitween command, built from ${{ github.ref_name }}, to try out. Install: $install | BITWEEN_CLI_VERSION=$v sh — or download the archive for your platform and check it against SHA256SUMS."
+              --notes "A pre-release of the bitween command, built from ${{ github.ref_name }}, to try out. Install: $install | BITWEEN_CLI_VERSION=$v sh - or download the archive for your platform and check it against SHA256SUMS."
           else
             gh release create "cli-v$v" dist/* --title "bitween CLI $v" --target "${{ github.sha }}" --latest \
-              --notes "The bitween command, self-contained for each platform. Install: $install | sh — or download the archive for your platform and check it against SHA256SUMS."
+              --notes "The bitween command, self-contained for each platform. Install: $install | sh - or download the archive for your platform and check it against SHA256SUMS."
           fi

@@ -20,14 +20,14 @@ public enum AdapterRole
 /// A run of calls against ONE adapter instance.
 ///
 /// A receiver is why this is a session rather than a single call: Initialize, ListFiles, a GetFile
-/// and DeleteFile per item, then Finalize — all of which have to reach the same instance, or
+/// and DeleteFile per item, then Finalize - all of which have to reach the same instance, or
 /// Initialize runs somewhere the listing never sees.
 /// </summary>
 public interface IAdapterSession : IAsyncDisposable
 {
     Task<TResult> InvokeAsync<TResult>(string method, object argument = null);
 
-    /// <summary>For a method that returns nothing — Initialize, DeleteFile, Finalize.</summary>
+    /// <summary>For a method that returns nothing - Initialize, DeleteFile, Finalize.</summary>
     Task InvokeAsync(string method, object argument = null);
 }
 
@@ -42,7 +42,7 @@ public interface IAdapterRuntime
 {
     /// <summary>
     /// Whether this runtime is the one for that adapter. Async because deciding can mean reading
-    /// the adapter's published metadata — cached, but not free.
+    /// the adapter's published metadata - cached, but not free.
     /// </summary>
     Task<bool> CanRunAsync(string adapterId);
 
@@ -53,7 +53,7 @@ public interface IAdapterRuntime
 /// <summary>
 /// The one thing the pipeline calls to run an adapter. Everything that needs a mapper, handler,
 /// validator or receiver goes through here, so the choice of runtime is made once and in one
-/// place — and so a test can replace the lot.
+/// place - and so a test can replace the lot.
 /// </summary>
 public interface IAdapterInvoker
 {

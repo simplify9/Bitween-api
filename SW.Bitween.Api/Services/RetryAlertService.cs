@@ -18,7 +18,7 @@ namespace SW.Bitween;
 /// <remarks>
 /// Deliberately a separate consumer rather than another branch inside <c>XchangeService</c>'s
 /// result handling: alerts go through a customer-configured adapter that may be slow or broken, and
-/// on the shared result queue that would hold up — or fail — the ordinary notifiers for the same
+/// on the shared result queue that would hold up - or fail - the ordinary notifiers for the same
 /// exchange. Its own <see cref="IConsume{TMessage}"/> means its own queue, and the two fail apart.
 /// </remarks>
 public class RetryAlertService(
@@ -30,7 +30,7 @@ public class RetryAlertService(
     {
         // The bus is at-least-once, and the exhaustion is stamped on the exchange rather than on
         // the send, so a redelivery would otherwise email the same alert twice. A *successful* log
-        // row is the record that it already went out — matching any alert row would let one failed
+        // row is the record that it already went out - matching any alert row would let one failed
         // send stand in for a delivery and silence every later attempt. The name is checked too, so
         // a row written by some other path can never be mistaken for this alert.
         var alreadySent = await dbContext.Set<XchangeNotification>()

@@ -47,7 +47,7 @@ public class QueueTests(HttpFixture fixture)
 
     /// <summary>
     /// A message the consumer cannot read is retried through the retry queue and then parked in the
-    /// bad queue — not lost, and not retried for ever.
+    /// bad queue - not lost, and not retried for ever.
     /// </summary>
     [Fact(Skip = "SimplyWorks.Bus 8.1.0 to 10.0.1 drop such a message instead of parking it: the ack comes " +
                  "before the bad-queue publish, which always throws. Fixed in SW-Bus fix/dead-letter-lost; " +

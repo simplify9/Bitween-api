@@ -27,7 +27,7 @@ probes:
   startupFailureThreshold: 60
 
 # North-south routing. The chart uses ingress-nginx by default. Set
-# gateway.enabled=true to switch to Gateway API (HTTPRoute) instead — this
+# gateway.enabled=true to switch to Gateway API (HTTPRoute) instead - this
 # automatically suppresses the Ingress resource below.
 ingress:
   enabled: true
@@ -44,7 +44,7 @@ ingress:
     #   hosts:
   #     - chart-example.local
 
-# Gateway API (HTTPRoute). Disabled by default — the chart renders nothing
+# Gateway API (HTTPRoute). Disabled by default - the chart renders nothing
 # Gateway-API-related unless gateway.enabled is set to true at deploy time.
 # When enabled, the Ingress above is suppressed and routing works exactly like
 # the Gateway API chart. Override parentRefs/hostnames/routes for your cluster

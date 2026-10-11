@@ -51,7 +51,7 @@ function AggregateNowButton({ job }: { job: SubscriptionRow }) {
           // Not a dry run: the roll-up exchange goes down its own pipeline, so this can
           // reach a partner. Everything it collects is also marked as collected, so a
           // later scheduled run will not include it again.
-          body={`${job.name} collects everything outstanding immediately and runs its delivery — outside the regular schedule.`}
+          body={`${job.name} collects everything outstanding immediately and runs its delivery - outside the regular schedule.`}
           confirmLabel="Roll up now"
           onConfirm={async () => {
             await aggregate.mutateAsync();
@@ -69,7 +69,7 @@ const STATUS_OPTIONS = [
   { value: "true", label: "Disabled" },
 ];
 
-/** The scheduler disagreeing with the subscription's own record — see the scheduled-jobs page. */
+/** The scheduler disagreeing with the subscription's own record - see the scheduled-jobs page. */
 function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
   const fault = scheduleFault(health);
   if (!fault) return null;
@@ -81,7 +81,7 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 }
 
 /**
- * Aggregations — the other scheduled type. On a schedule, one collects another
+ * Aggregations - the other scheduled type. On a schedule, one collects another
  * subscription's successful exchanges and creates a single exchange whose payload is a
  * JSON list of links to their files.
  *
@@ -136,7 +136,7 @@ export function AggregationsPage() {
     <div>
       <PageHeader
         title="Aggregations"
-        description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined — a mapper or delivery does that."
+        description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined - a mapper or delivery does that."
         actions={createAction}
       />
 
@@ -203,7 +203,7 @@ export function AggregationsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-500">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -226,7 +226,7 @@ export function AggregationsPage() {
                 if (!run)
                   return (
                     <span className="text-ink-500" title="No run in the last 30 days">
-                      —
+                      -
                     </span>
                   );
                 const running = run.success === null;
@@ -256,7 +256,7 @@ export function AggregationsPage() {
               className: "whitespace-nowrap",
               cell: (r) => {
                 const run = lastRunById.get(r.id);
-                if (!run || run.recentTotal === 0) return <span className="text-ink-500">—</span>;
+                if (!run || run.recentTotal === 0) return <span className="text-ink-500">-</span>;
                 const failed = run.recentTotal - run.recentSucceeded;
                 return (
                   <span
@@ -281,7 +281,7 @@ export function AggregationsPage() {
                     <span className="block text-xs text-ink-500">{formatDateTime(r.nextReceiveOn)}</span>
                   </>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {
@@ -316,7 +316,7 @@ export function AggregationsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-500">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -337,7 +337,7 @@ export function AggregationsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-500">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -365,7 +365,7 @@ export function AggregationsPage() {
                     {r.lastException}
                   </span>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {

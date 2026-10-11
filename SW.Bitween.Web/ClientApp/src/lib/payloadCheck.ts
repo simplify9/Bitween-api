@@ -1,7 +1,7 @@
 import type { InformationTypeFormat } from "../api";
 
 /**
- * Whether a payload reads as the format its information type says, and if not, why — in the
+ * Whether a payload reads as the format its information type says, and if not, why - in the
  * parser's words. A malformed payload used to be accepted by hand and then fail inside the
  * pipeline as a Newtonsoft error. Only JSON and XML are checked; other formats are taken as they come.
  */

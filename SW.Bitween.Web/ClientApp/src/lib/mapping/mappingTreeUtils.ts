@@ -46,7 +46,7 @@ export function insertNode(
   if (parts.length === 0) return;
   const rawPart = parts[0];
   const isArray = rawPart.includes('[*]') || rawPart.includes('[]');
-  // When rawPart is purely '[*]' (root array), key would be empty — use 'root' to match
+  // When rawPart is purely '[*]' (root array), key would be empty - use 'root' to match
   // the synthetic node created by buildTree() so isRootArrayNode detection works correctly.
   const key = rawPart.replace(/\[\*\]|\[\]/g, '') || 'root';
   const currentPath = parentPath ? `${parentPath}.${rawPart}` : rawPart;

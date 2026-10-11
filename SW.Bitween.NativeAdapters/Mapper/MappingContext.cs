@@ -4,8 +4,8 @@ namespace SW.Bitween.NativeAdapters.Mapper;
 /// The values a mapping can use that do not come out of the document being mapped.
 /// </summary>
 /// <remarks>
-/// Passed alongside the payload rather than written into it. The previous approach — writing
-/// <c>__partner__</c> and <c>__globals__</c> keys into the incoming JSON — meant the payload had to
+/// Passed alongside the payload rather than written into it. The previous approach - writing
+/// <c>__partner__</c> and <c>__globals__</c> keys into the incoming JSON - meant the payload had to
 /// be parsed as JSON before anything knew which mapper was configured, so a non-JSON document could
 /// not be mapped at all; a document with a real key of the same name lost it; and only a JSON object
 /// was enriched, so the same mapping behaved differently for a root array.
@@ -21,8 +21,8 @@ public class MappingContext
         new Dictionary<string, IReadOnlyDictionary<string, string>>();
 
     /// <summary>
-    /// Values read from the original document — the input of the exchange whose delivery got the
-    /// response being mapped — by path. Empty
+    /// Values read from the original document - the input of the exchange whose delivery got the
+    /// response being mapped - by path. Empty
     /// unless a response or bus gateway subscription is being mapped.
     /// </summary>
     public IReadOnlyDictionary<string, string> Source { get; init; } =
@@ -78,7 +78,7 @@ public class MappingFailedException : Exception
     private static string BuildMessage(IReadOnlyList<MappingError> errors)
     {
         var count = errors.Count == 1 ? "1 rule" : $"{errors.Count} rules";
-        return $"Mapping failed — {count} could not be applied: " +
+        return $"Mapping failed - {count} could not be applied: " +
                string.Join("; ", errors.Select(e => e.ToString()));
     }
 }

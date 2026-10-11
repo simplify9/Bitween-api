@@ -26,10 +26,10 @@ export const OutputLeaf: React.FC<OutputLeafProps> = ({ node, sourcePaths, typeM
   const { arrayMappings, outputJson, partnerAdapterProperties } = useMappingEditorState();
   const allGlobalSets = useGlobalSets();
 
-  // ── Array inner field detection (derived — no hooks after this) ───────────
+  // ── Array inner field detection (derived - no hooks after this) ───────────
   const isArrayField = node.path.includes('[*].');
 
-  // ── Primitive array detection — must run unconditionally (hooks rules) ────
+  // ── Primitive array detection - must run unconditionally (hooks rules) ────
   const primitiveArrayValues = useMemo((): unknown[] | null => {
     if (isArrayField) return null;
     try {

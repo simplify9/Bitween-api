@@ -15,7 +15,7 @@ namespace SW.Bitween.Resources.Documents
         /// Refuses a name another type holds. Compared lower-cased, because that is how the bus
         /// compares them: both BasicPublisher and ConsumerDefinition derive the routing key with
         /// ToLower(), so "Foo" and "foo" are one message on the wire. ToLower() rather than a
-        /// provider-specific collation — this runs on Postgres, MySql and MsSql.
+        /// provider-specific collation - this runs on Postgres, MySql and MsSql.
         /// <para>
         /// A type paused on the bus holds its name too: its queue is still collecting messages for
         /// it, and a second type on the same name would consume them. Said as such, because

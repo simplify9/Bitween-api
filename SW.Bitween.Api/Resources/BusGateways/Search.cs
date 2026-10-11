@@ -32,7 +32,7 @@ namespace SW.Bitween.Resources.BusGateways
                                 .Select(d => d.Name).FirstOrDefault(),
 
                             // Null name means the internal bus, which is what the list column
-                            // reads — an operator should be able to tell at a glance which of
+                            // reads - an operator should be able to tell at a glance which of
                             // their gateways reach outside.
                             DataSourceId = gateway.DataSourceId,
                             DataSourceName = dataSources.Where(d => d.Id == gateway.DataSourceId)

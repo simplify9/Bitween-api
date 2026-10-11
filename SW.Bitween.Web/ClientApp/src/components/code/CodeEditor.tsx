@@ -11,7 +11,7 @@ export interface CodeEditorProps {
   theme: "dark" | "light";
   /** What the last Check said about particular lines, drawn as squiggles in the code. */
   checkProblems: EditorProblem[];
-  /** A request to put the cursor somewhere — a click in Problems. `seq` makes a repeat count. */
+  /** A request to put the cursor somewhere - a click in Problems. `seq` makes a repeat count. */
   revealAt: { path: string; line: number; column: number; seq: number } | null;
   onChange: (path: string, text: string) => void;
   onCursor: (at: { line: number; column: number }) => void;
@@ -31,8 +31,8 @@ const SEVERITY: Record<EditorProblem["severity"], monaco.MarkerSeverity> = {
 
 /**
  * One Monaco editor over every file of a draft. Each file is its own model, kept for as long as
- * the file exists, so switching tabs keeps each file's undo history, cursor and scroll position —
- * as in VS Code — and the TypeScript service sees every file at once, so imports between them
+ * the file exists, so switching tabs keeps each file's undo history, cursor and scroll position -
+ * as in VS Code - and the TypeScript service sees every file at once, so imports between them
  * resolve. Loaded on demand (see AdapterEditorPage): Monaco is the heaviest thing in the app.
  */
 export default function CodeEditor(props: CodeEditorProps) {

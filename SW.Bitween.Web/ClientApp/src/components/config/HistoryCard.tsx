@@ -8,8 +8,8 @@ import { TrailTable } from "./shared";
 /**
  * What has happened to one row.
  *
- * Self-fetching on purpose: the alternative — folding the trail into each entity's detail
- * request, as this originally did for information types and subscriptions — means adding
+ * Self-fetching on purpose: the alternative - folding the trail into each entity's detail
+ * request, as this originally did for information types and subscriptions - means adding
  * history to a page costs a change to that page's API client, its detail type and its handler,
  * and makes the whole page wait on a query nobody is looking at yet. Here it is one line per
  * page, and the page renders without it.
@@ -18,7 +18,7 @@ export function HistoryList({
   entityName,
   entityKey,
 }: {
-  /** The audited entity's name, as the backend records it — e.g. `Partner`. */
+  /** The audited entity's name, as the backend records it - e.g. `Partner`. */
   entityName: string;
   /** Its primary key. Omit to show every change to entities of this kind. */
   entityKey?: string | number;
@@ -36,7 +36,7 @@ export function HistoryList({
 
 /**
  * `HistoryList` in a panel of its own, for the entity pages. Wrapped in `Can` so it
- * simply isn't there for a session without `audit.view` — hide, don't dim.
+ * simply isn't there for a session without `audit.view` - hide, don't dim.
  *
  * Hosts that bring their own section chrome (the member drawer) use `HistoryList` directly.
  */

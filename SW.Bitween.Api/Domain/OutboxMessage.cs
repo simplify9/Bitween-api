@@ -11,7 +11,7 @@ namespace SW.Bitween.Domain;
 /// Messages used to be published straight after the commit. When the broker was unreachable at
 /// that moment, the change was saved and its message was lost: an exchange that was stored and
 /// never processed, with nothing to notice. Now the message is stored with the change, published
-/// straight after the commit as before, and — when that fails — published later by
+/// straight after the commit as before, and - when that fails - published later by
 /// <c>OutboxDispatcher</c>. Delivery is at least once, so consumers must tolerate a repeat.
 /// </remarks>
 public class OutboxMessage

@@ -28,7 +28,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// Everything else in the external-bus feature has been exercised through an adapter started by
 /// hand. That skips the part most likely to go wrong in production, because reconciliation is not a
 /// one-shot: it runs every thirty seconds, for ever, against a database other people are editing.
-/// The failures it can produce are the expensive kind — an adapter restarted on every pass drops
+/// The failures it can produce are the expensive kind - an adapter restarted on every pass drops
 /// in-flight messages, a lease held after it was superseded means two nodes consuming one queue,
 /// and one unreachable broker taking the loop down with it stops every other integration on the
 /// node.
@@ -41,7 +41,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 {
     /// <summary>
     /// The whole point, end to end: a row in the database becomes a live broker connection, and a
-    /// message on that broker becomes an Xchange — with nobody starting an adapter by hand.
+    /// message on that broker becomes an Xchange - with nobody starting an adapter by hand.
     /// </summary>
     [Fact]
     public async Task Reconciling_starts_the_adapter_for_an_active_data_source()
@@ -113,7 +113,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     /// The most consequential thing this loop does is NOTHING. Reconciliation runs every thirty
     /// seconds; if an unchanged data source were restarted each pass, every long-running consumer
     /// on the node would be torn down twice a minute and whatever it held in flight would be
-    /// redelivered. The process id is the honest witness — a restart cannot preserve it.
+    /// redelivered. The process id is the honest witness - a restart cannot preserve it.
     /// </summary>
     [Fact]
     public async Task An_unchanged_data_source_is_left_alone_across_passes()
@@ -175,7 +175,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// Stopping is not enough — the lease has to go too. A node holding a lock on a data source
+    /// Stopping is not enough - the lease has to go too. A node holding a lock on a data source
     /// nobody is running would block whichever node later wants it, and nothing would ever
     /// release it.
     /// </summary>
@@ -202,7 +202,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
     /// <summary>
     /// Placement. A data source another node already owns must not be started here, or both nodes
-    /// consume the same queue and every message is processed twice — the failure this whole design
+    /// consume the same queue and every message is processed twice - the failure this whole design
     /// exists to prevent.
     /// </summary>
     [Fact]
@@ -226,16 +226,16 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     /// lease to be superseded still believes it holds ownership; the database term is what tells it
     /// otherwise. Bumping the term stands in for that pause.
     ///
-    /// What the supervisor must do is STOP — immediately, and without draining, because another
+    /// What the supervisor must do is STOP - immediately, and without draining, because another
     /// node may already be consuming and finishing in-flight work here would process the same
     /// messages twice. The process id is the witness: it can only change if the adapter was torn
     /// down and started again.
     ///
     /// It then starts again under a new term, and that is correct rather than a miss. Losing the
-    /// term does not mean the resource is taken — it means this node's claim is no longer proof
+    /// term does not mean the resource is taken - it means this node's claim is no longer proof
     /// that it isn't. So it drops everything and asks again. Here nobody else holds the broker
     /// lock, so it legitimately wins; when another node really does hold it, the re-acquire fails
-    /// and the adapter stays down — which is what
+    /// and the adapter stays down - which is what
     /// <see cref="A_data_source_taken_over_by_another_node_is_stopped_here"/> covers.
     /// </summary>
     [Fact]
@@ -273,7 +273,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
     /// <summary>
     /// The handover this node is on the losing side of. Once another node holds the resource, an
-    /// adapter still running here is duplicate processing — so it has to go, even though the data
+    /// adapter still running here is duplicate processing - so it has to go, even though the data
     /// source is perfectly active and perfectly healthy.
     ///
     /// StopAsync releases the leases but leaves the supervisor's idea of what it is running intact,
@@ -318,7 +318,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
         await using var supervisor = Supervisor();
 
-        // Not "does not throw" — the pass has to complete far enough to start the good one.
+        // Not "does not throw" - the pass has to complete far enough to start the good one.
         await supervisor.ReconcileAsync();
 
         Assert.Null(InstanceOf(broken));
@@ -329,7 +329,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// A node that cannot start a data source — it can't reach the broker, say — used to keep the
+    /// A node that cannot start a data source - it can't reach the broker, say - used to keep the
     /// lease and retry forever, so the node that could have run it never got the chance. After a
     /// few failed starts it lets go.
     /// </summary>
@@ -412,7 +412,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
     /// <summary>
     /// An inactive gateway must not contribute its endpoint. Otherwise deactivating a gateway would
-    /// leave Bitween still consuming its queue and acking messages nobody routes anywhere — a
+    /// leave Bitween still consuming its queue and acking messages nobody routes anywhere - a
     /// silent drop, which is worse than an error.
     /// </summary>
     [Fact]

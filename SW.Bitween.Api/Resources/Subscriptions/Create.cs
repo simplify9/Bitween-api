@@ -82,7 +82,7 @@ namespace SW.Bitween.Resources.Subscriptions
             public Validate(BitweenDbContext dbContext, AdapterRequirements adapterRequirements)
             {
                 // Same rule Documents enforces on BusMessageTypeName. Publishing to a name no
-                // information type carries is legitimate — the consumer may be another product —
+                // information type carries is legitimate - the consumer may be another product -
                 // but it still becomes a RabbitMQ routing key, and a name with a space in it
                 // could never be answered by an information type anyway.
                 RuleFor(i => i.ResponseMessageTypeName)
@@ -118,8 +118,8 @@ namespace SW.Bitween.Resources.Subscriptions
                 When(i => i.Type == SubscriptionType.Aggregation,
                     () => { RuleFor(i => i.AggregationForId).NotEmpty(); });
 
-                // An adapter that is named has to be usable. Nothing is required to be named —
-                // create without a pipeline is still legitimate — but a half-configured adapter
+                // An adapter that is named has to be usable. Nothing is required to be named -
+                // create without a pipeline is still legitimate - but a half-configured adapter
                 // is the failure this endpoint exists to stop committing.
                 RuleFor(i => i.ReceiverProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
@@ -149,8 +149,8 @@ namespace SW.Bitween.Resources.Subscriptions
                 // what Subscription.SetSchedules rejects outright.
                 //
                 // The type is the whole condition. Guarding on `Schedules != null` as well let the
-                // rule be skipped by the one case it most needed to catch — omitting the field
-                // entirely — so a scheduled job or aggregation saved with no trigger at all and
+                // rule be skipped by the one case it most needed to catch - omitting the field
+                // entirely - so a scheduled job or aggregation saved with no trigger at all and
                 // then simply never ran.
                 RuleFor(i => i.Schedules)
                     .NotEmpty()

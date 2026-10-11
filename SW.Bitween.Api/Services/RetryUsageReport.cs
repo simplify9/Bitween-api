@@ -8,7 +8,7 @@ using SW.Bitween.Model;
 namespace SW.Bitween;
 
 /// <summary>
-/// Builds the state of subscription-and-group pairs — spent budget, and where the pair's
+/// Builds the state of subscription-and-group pairs - spent budget, and where the pair's
 /// budget-exhausted alert would go.
 /// </summary>
 /// <remarks>
@@ -25,7 +25,7 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
     /// <param name="subscriptions">The pairs' subscriptions, with the names to report.</param>
     /// <param name="allGroups">Every group of the applicable policy; the unusable ones are dropped here.</param>
     /// <param name="policy">
-    /// The shared policy, or <c>null</c> for an inline one — which has no row to carry a
+    /// The shared policy, or <c>null</c> for an inline one - which has no row to carry a
     /// policy-level alert, so those pairs can only resolve to a group or an override.
     /// </param>
     public async Task<List<RetryGroupUsageRow>> Build(
@@ -33,7 +33,7 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
         IReadOnlyList<RetryGroup> allGroups,
         RetryPolicy policy)
     {
-        // Only groups that allow retries have a budget to spend — and a group that can never spend
+        // Only groups that allow retries have a budget to spend - and a group that can never spend
         // one can never exhaust it, so it can never alert either. Listing those would invite
         // configuring an alert that cannot fire. A ceiling of zero counts as "never": TryConsume
         // denies it outright rather than claiming and exhausting it. No ceiling at all can never run
@@ -52,8 +52,8 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
             .ToListAsync();
 
         // What became of the alerts that were raised. The counter records only that one was
-        // claimed — claiming is what stops a redelivery sending it twice, and it happens before
-        // the send is tried — so whether anyone was actually told lives here instead, in the
+        // claimed - claiming is what stops a redelivery sending it twice, and it happens before
+        // the send is tried - so whether anyone was actually told lives here instead, in the
         // delivery log. The pair is reconstructed the same way the alert reached it: the exchange
         // names the integration, its result names the group.
         var alertLog = await (
@@ -76,7 +76,7 @@ public class RetryUsageReport(BitweenDbContext dbContext, AdapterSecretPropertie
                 })
             .ToListAsync();
 
-        // One success is delivery, however many failures preceded it — the same rule the sender
+        // One success is delivery, however many failures preceded it - the same rule the sender
         // itself applies when it decides an alert has already gone out. Failing that, the most
         // recent failure is the outcome.
         var alertByPair = alertLog

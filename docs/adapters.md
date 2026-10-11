@@ -354,7 +354,7 @@ run(Orders);
 
 `bitween adapter init AcmeOrders --lang typescript --kind handler` (or `--lang node` for JavaScript) starts
 one. `bitween adapter build` needs no TypeScript compiler: Node strips the types, so only syntax that
-strips cleanly is allowed — no enums, namespaces or parameter properties. Dependencies in `package.json`
+strips cleanly is allowed - no enums, namespaces or parameter properties. Dependencies in `package.json`
 are installed into the package with npm; one with native code has to be built on the platform the adapter
 runs on. Bitween runs it with `node`, which the Docker image includes (the Node 22 binary, without npm).
 It runs on the same hosts and nodes as a Python adapter.
@@ -374,7 +374,7 @@ Publishing through Bitween needs `adapter-source.operate`, so an author needs a 
 than the storage's keys, and every version is in the audit trail. Bitween checks the package's manifest
 and settles its version; it does not run the contract checks, so run `bitween adapter test` first. With
 `-p` and the storage flags, the CLI publishes straight to storage instead, as `sw-serverless publish`
-does — for CI that holds the keys.
+does - for CI that holds the keys.
 
 What is published, and where:
 
@@ -394,8 +394,8 @@ On the **Adapters** page, someone with `adapter-source.operate` can do the same 
 taken from the package or bumped, and made current only when ticked), and each version that isn't
 current has **Make current** and **Withdraw**.
 
-The adapter's kinds come from its manifest — `bitween adapter build` writes them from what the code
-declares — so an adapter can be named anything. Packages published before manifests are found by the
+The adapter's kinds come from its manifest - `bitween adapter build` writes them from what the code
+declares - so an adapter can be named anything. Packages published before manifests are found by the
 older convention, `infolink6.{kind}s.{name}`, and by the `Kind` metadata they were published with.
 
 An adapter in another runtime than .NET, and a .NET version published without being made current,

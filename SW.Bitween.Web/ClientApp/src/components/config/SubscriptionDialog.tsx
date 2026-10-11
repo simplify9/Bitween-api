@@ -56,7 +56,7 @@ export function SubscriptionDialog({
         informationTypeId: pickedTypeId!,
         handlerId,
         handlerProperties,
-        // Safe to enable: neither type ever runs on its own — a GatewayApiCall waits
+        // Safe to enable: neither type ever runs on its own - a GatewayApiCall waits
         // for an attachment, a BusGateway for a route, and that is what you are in
         // the middle of making.
         enabled: true,

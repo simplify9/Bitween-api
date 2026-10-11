@@ -15,7 +15,7 @@ namespace SW.Bitween.UnitTests;
 /// The Bitween adapter contract, and the two .NET families that implement it: adapters built on
 /// SW.PrimitiveTypes (IInfolinkHandler and friends) and on SW.Bitween.Adapters (IBitweenHandler and
 /// friends). Bitween calls both by method name and reads their JSON into SW.PrimitiveTypes' types,
-/// so the method names must be the contract's and the JSON must be identical — and JSON written by
+/// so the method names must be the contract's and the JSON must be identical - and JSON written by
 /// an adapter in any other language must read the same way.
 /// </summary>
 [TestClass]

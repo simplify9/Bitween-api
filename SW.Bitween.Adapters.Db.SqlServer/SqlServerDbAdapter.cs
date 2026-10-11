@@ -16,8 +16,8 @@ namespace SW.Bitween.Adapters.Db.SqlServer;
 /// <summary>
 /// Bitween's SQL Server data source provider, which serves Azure SQL too.
 ///
-/// Everything generic — the command surface, paging, the statement allow-list, the polling receiver
-/// — lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely SQL
+/// Everything generic - the command surface, paging, the statement allow-list, the polling receiver
+/// - lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely SQL
 /// Server: the connection string, the sys catalog views, and what this principal is granted.
 /// </summary>
 // Three roles, one package. "datasource" is what makes it configurable as a connection;
@@ -45,7 +45,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
                 + "an unqualified name in a statement resolves against.");
 
         // A named instance is resolved through the SQL Server Browser, not by port, and supplying
-        // both is an error the driver reports obscurely — so the port is only added when the host
+        // both is an error the driver reports obscurely - so the port is only added when the host
         // is not already naming an instance.
         var host = (_options.Host ?? "").Trim();
         var dataSource = host.Contains('\\') || host.Contains(',')
@@ -139,12 +139,12 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
     /// SQL Server is checked with <c>sp_describe_undeclared_parameters</c> rather than by preparing.
     ///
     /// <c>SqlCommand.Prepare</c> refuses unless every parameter has been given an explicit type and
-    /// size — which is exactly what a caller checking somebody else's SQL does not know, and
+    /// size - which is exactly what a caller checking somebody else's SQL does not know, and
     /// guessing nvarchar(4000) for a parameter compared against an int would make the check answer
     /// a different question from the one asked.
     ///
     /// The procedure parses the batch and binds every name in it, then reports the parameters it
-    /// would need — so it catches a syntax error and a missing table, which are the two things this
+    /// would need - so it catches a syntax error and a missing table, which are the two things this
     /// check exists to catch, and needs nothing supplied.
     /// </summary>
     protected override async Task CheckSyntaxAsync(DbConnection connection, string sql)
@@ -178,7 +178,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
         ProcedureOutParameters = true,
 
         // A procedure returns result sets by SELECTing, with nothing to declare and nothing to
-        // bind — so Call returns rows directly, where PostgreSQL needs a set-returning function
+        // bind - so Call returns rows directly, where PostgreSQL needs a set-returning function
         // queried with SELECT and Oracle needs an explicit REF CURSOR.
         ProcedureResultSets = true,
         MultipleResultSets = true,
@@ -192,7 +192,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
             ["ReadUncommitted", "ReadCommitted", "RepeatableRead", "Serializable", "Snapshot"],
 
         // SqlBulkCopy exists and is the fastest path there is, but BulkLoad is not implemented for
-        // it yet — false rather than advertising a path that would quietly fall back to row-by-row.
+        // it yet - false rather than advertising a path that would quietly fall back to row-by-row.
         BulkCopy = false,
 
         // The real thing, not an approximation of one.
@@ -218,7 +218,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
         ReceiveModes = ["bulk", "incrementing", "timestamp", "timestamp+incrementing", "marker"],
 
         // TOP, which goes before the column list rather than after the query. OFFSET/FETCH exists
-        // too and is what paging uses, but it requires an ORDER BY — TOP is the form that works on
+        // too and is what paging uses, but it requires an ORDER BY - TOP is the form that works on
         // a draft nobody has ordered yet.
         LimitStyle = "top"
     };
@@ -246,7 +246,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
         }
         catch (Exception ex)
         {
-            // A principal that cannot call fn_my_permissions is unusual but not broken — it just
+            // A principal that cannot call fn_my_permissions is unusual but not broken - it just
             // cannot tell us what it can do. Saying so beats failing the connection test over it.
             Logger.LogDebug(ex, "Could not read permissions.");
             privileges.Add($"(could not be read: {ex.Message})");
@@ -308,7 +308,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
         if (schema != null) { sql.Append(" and s.name = @schema"); parameters["schema"] = schema; }
         if (like != null) { sql.Append(" and charindex(@nameLike, lower(o.name)) > 0"); parameters["nameLike"] = like; }
 
-        // OFFSET/FETCH needs an ORDER BY, which this has anyway — the list is meant to be stable
+        // OFFSET/FETCH needs an ORDER BY, which this has anyway - the list is meant to be stable
         // between pages.
         sql.Append(" order by s.name, o.name offset @skip rows fetch next @take rows only");
         parameters["skip"] = request.Skip;
@@ -332,7 +332,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
 
                     // The heap or clustered index row count from the partition stats: maintained by
                     // the engine and cheap to read. Reported as an estimate everywhere it surfaces
-                    // — the alternative is COUNT(*) on a stranger's table, which a menu should not
+                    // - the alternative is COUNT(*) on a stranger's table, which a menu should not
                     // do. Null for a view, which has no partitions of its own.
                     RowCount = !request.IncludeRowCounts || reader.IsDBNull(4)
                         ? null
@@ -388,7 +388,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
 
             var typeName = reader.GetString(3);
 
-            // max_length is in BYTES, and an nvarchar stores two per character — so the number a
+            // max_length is in BYTES, and an nvarchar stores two per character - so the number a
             // schema was declared with is half of it. -1 is the max/blob form.
             var maxLength = reader.GetInt16(4);
             var wide = typeName.StartsWith("n", StringComparison.OrdinalIgnoreCase)
@@ -428,7 +428,7 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
         string schema, string like, CancellationToken cancellationToken)
     {
         // P stored procedure; FN scalar, IF inline table-valued, TF multi-statement table-valued.
-        // All three function forms are worth listing — the table-valued ones are what a receive
+        // All three function forms are worth listing - the table-valued ones are what a receive
         // statement would select from.
         var types = request.ObjectType == "procedure"
             ? new[] { "P" }
@@ -569,8 +569,8 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
     /// <summary>
     /// The page's (schema, object) pairs as a table to join against.
     ///
-    /// SQL Server has no row constructor in IN — <c>where (a, b) in ((..),(..))</c> is PostgreSQL
-    /// and MySQL syntax and is a parse error here — so the pairs become a VALUES table and the
+    /// SQL Server has no row constructor in IN - <c>where (a, b) in ((..),(..))</c> is PostgreSQL
+    /// and MySQL syntax and is a parse error here - so the pairs become a VALUES table and the
     /// filter becomes an EXISTS against it. The collation is forced to the database's own because
     /// a VALUES literal takes the server default, and on an instance whose default differs from
     /// the database's the comparison fails outright rather than merely matching oddly.
@@ -580,14 +580,14 @@ public class SqlServerDbAdapter(IOptions<SqlServerOptions> options, ILogger<SqlS
 
     /// <summary>
     /// An N-prefixed literal for the pairs above. Doubling the quote is SQL Server's own
-    /// escape, and these are identifiers this connection just read back from the catalog — quoted
+    /// escape, and these are identifiers this connection just read back from the catalog - quoted
     /// anyway, because "it cannot contain a quote" is the kind of assumption that survives right up
     /// until a table is named oddly.
     /// </summary>
     static string Quote(string value) => "N'" + (value ?? "").Replace("'", "''") + "'";
 
     /// <summary>
-    /// What a value of this column arrives as in a result row. Coarse on purpose — it tells a
+    /// What a value of this column arrives as in a result row. Coarse on purpose - it tells a
     /// mapper author whether to expect a string or a number, and is not trying to be a type system.
     /// </summary>
     static string ClrTypeOf(string typeName) => typeName.ToLowerInvariant() switch

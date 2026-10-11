@@ -1,7 +1,7 @@
 // ─── The shape of a sample document, as the mapper sees it ───────────────────
 //
 // Deliberately not the old editor's buildTree. That one makes a list behave as its
-// own first element, so `order.line.sku` shows up as a leaf you can map — which
+// own first element, so `order.line.sku` shows up as a leaf you can map - which
 // silently meant "the first line's sku" and had no way to say anything else. The
 // new mapper does not do that: a path stops at a list, and a list is something a
 // list walks. The tree has to show the same thing, or the editor would offer paths
@@ -23,7 +23,7 @@ export interface DocumentNode {
   /** How many entries the list had in the sample. */
   count?: number;
   /**
-   * For a list, the shape of its items — the paths inside are relative to the item,
+   * For a list, the shape of its items - the paths inside are relative to the item,
    * because that is what a list's field rules are written against.
    */
   children: DocumentNode[];
@@ -35,7 +35,7 @@ export interface DocumentNode {
  * It changes what an XML tree keeps. Reading a partner's document, a prefix is theirs
  * to change between one message and the next, so paths match on the local name and
  * declarations are machinery. Writing one for them, the prefixes and declarations are
- * the document — their parser may well insist on them — so the tree keeps both and the
+ * the document - their parser may well insist on them - so the tree keeps both and the
  * rules carry them through to the writer.
  */
 export type SampleRole = "source" | "target";
@@ -78,8 +78,8 @@ export function parseSample(
 function toNode(key: string, path: string, value: unknown): DocumentNode {
   if (Array.isArray(value)) {
     // Every entry, not just the first: one entry's shape is only the whole list's
-    // shape when nothing in it is optional. Children are named relative to the item —
-    // `sku`, not `line[0].sku` — because that is the path a rule inside the list uses.
+    // shape when nothing in it is optional. Children are named relative to the item -
+    // `sku`, not `line[0].sku` - because that is the path a rule inside the list uses.
     return {
       key,
       path,
@@ -114,12 +114,12 @@ function itemShape(item: unknown): DocumentNode[] {
  *
  * An optional field is the whole reason. If the first entry has no `discount` and the
  * second does, taking the first entry's shape means the editor never offers `discount`
- * at all — and the field is right there in the document, so nothing looks wrong: the
+ * at all - and the field is right there in the document, so nothing looks wrong: the
  * mapping reads complete and quietly drops it. Merging over the list means a field that
  * appears in any entry is offered for all of them, which is what the mapper does anyway.
  *
- * Entry order is kept, so a list whose entries all have the same shape — nearly all of
- * them — comes out exactly as it did when only the first was read.
+ * Entry order is kept, so a list whose entries all have the same shape - nearly all of
+ * them - comes out exactly as it did when only the first was read.
  */
 function mergeShape(nodes: DocumentNode[]): DocumentNode[] {
   const merged = new Map<string, DocumentNode>();
@@ -174,7 +174,7 @@ function mergeNode(a: DocumentNode, b: DocumentNode): DocumentNode {
  */
 function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
   // d3-dsv takes one character. The wire format allows more, since the server's parser
-  // does — so a mapping hand-edited to a longer delimiter still runs, it just cannot be
+  // does - so a mapping hand-edited to a longer delimiter still runs, it just cannot be
   // shown here, and saying so is better than drawing a tree that is wrong.
   // Defended rather than assumed: rules can be written by hand or by an older build, and a
   // missing delimiter here would throw while the editor was drawing itself.
@@ -208,7 +208,7 @@ function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
       kind: "list",
       count: body.length,
       // Merged over every row, so a column that is empty in the first one still shows a
-      // sample from a row that has something in it — and a row with extra fields still
+      // sample from a row that has something in it - and a row with extra fields still
       // offers them.
       children: mergeShape(
         body.flatMap((row) => {
@@ -235,7 +235,7 @@ function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
  *
  * Two columns cannot share a name: a rule reads a column by its name, so the second would be
  * unreachable and the editor would offer one path for two different fields. Falling back to the
- * position is not enough on its own either, because a header can be a number — a file headed
+ * position is not enough on its own either, because a header can be a number - a file headed
  * `2,` names its first column `2` and then wants `2` again for the blank one beside it.
  *
  * The same rule as `CsvFormat.Unique` on the server, and it has to stay that way: a name only
@@ -312,7 +312,7 @@ function parseXmlSample(text: string, role: SampleRole): ParsedSample {
   const name = qualified ? root.tagName : root.localName;
 
   // The root element is a named key rather than the tree itself, so its name is part
-  // of every path — the same as the server's reader.
+  // of every path - the same as the server's reader.
   return {
     root: {
       key: "",
@@ -339,7 +339,7 @@ function xmlNode(
   const elements = Array.from(element.children);
   const nameOf = (e: Element) => (qualified ? e.tagName : e.localName);
 
-  // Nothing but text: the element is its value. An empty element is "" — present and
+  // Nothing but text: the element is its value. An empty element is "" - present and
   // empty, which is what it says, and different from one that is not there at all.
   if (attributes.length === 0 && elements.length === 0) {
     return { key, path, kind: "value", sample: element.textContent ?? "", children: [] };
@@ -352,7 +352,7 @@ function xmlNode(
     children.push({ key: name, path: under(path, name), kind: "value", sample: attribute.value, children: [] });
   }
 
-  // Grouped by name — by the local one when reading, because the same namespace turns
+  // Grouped by name - by the local one when reading, because the same namespace turns
   // up under a different prefix in the very next document.
   const groups = new Map<string, Element[]>();
   for (const child of elements) {
@@ -368,8 +368,8 @@ function xmlNode(
     }
 
     // A repeated name is how XML writes a list. Its contents are named relative to one
-    // entry, because that is what a rule inside the list is written against — hence the
-    // empty path — and they are merged over every occurrence, because an element the
+    // entry, because that is what a rule inside the list is written against - hence the
+    // empty path - and they are merged over every occurrence, because an element the
     // first `<line>` happens to leave out is still a field the later ones have.
     children.push({
       key: name,
@@ -390,7 +390,7 @@ function xmlNode(
   return { key, path, kind: "object", children };
 }
 
-/** An element's own text, not its descendants' — which is all mixed content is. */
+/** An element's own text, not its descendants' - which is all mixed content is. */
 function ownText(element: Element): string {
   let text = "";
   for (const node of Array.from(element.childNodes)) {
@@ -450,8 +450,8 @@ export function itemShapeAt(root: DocumentNode | null, path: string): DocumentNo
  * What the rules inside a list read their paths against: one entry of the list at
  * `over`, wrapped so it can be walked like a document of its own.
  *
- * This is the scope the mapper itself uses — `MapInto` hands a list's nested lists the
- * current item, not the document — so a list nested in another names its list
+ * This is the scope the mapper itself uses - `MapInto` hands a list's nested lists the
+ * current item, not the document - so a list nested in another names its list
  * relative to the entry around it (`tags`), never from the root (`order.line.tags`).
  */
 export function itemScopeOf(scope: DocumentNode | null, over: string): DocumentNode {
@@ -461,7 +461,7 @@ export function itemScopeOf(scope: DocumentNode | null, over: string): DocumentN
 /**
  * The node at a path, within one namespace.
  *
- * A list's children are named relative to one entry — `sku`, not `order.line.sku` — so
+ * A list's children are named relative to one entry - `sku`, not `order.line.sku` - so
  * they live in a different namespace to everything above them. Searching through a list
  * would let `findNode(root, "tag")` answer with a `tag` nested inside some list when the
  * caller meant a `tag` at the top, which is how `itemShapeAt` could scope a list's rules
@@ -498,7 +498,7 @@ export interface Coverage {
  * subtree made that quadratic on a document with any depth to it.
  *
  * Counted over the paths as they are named here, which for a list's contents is
- * relative to one entry — the same name a rule inside that list uses, so the two
+ * relative to one entry - the same name a rule inside that list uses, so the two
  * halves agree.
  */
 export function coverageByPath(

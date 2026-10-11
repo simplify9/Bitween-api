@@ -412,7 +412,7 @@ function Editor({ draft }: { draft: AdapterDraft }) {
 
 /**
  * The settings the adapter declares, as its last build reported them. Sent with each check, try
- * and publish, and never stored — a test key typed here stays in this page.
+ * and publish, and never stored - a test key typed here stays in this page.
  */
 function SettingsForm({
   build,

@@ -5,7 +5,7 @@ using SW.Bitween.Adapters.Tooling;
 namespace SW.Bitween.Cli;
 
 /// <summary>
-/// bitween — Bitween from a terminal.
+/// bitween - Bitween from a terminal.
 ///
 ///   bitween login https://bitween.example.com
 ///   bitween adapter init AcmeOrders --kind handler --lang python
@@ -99,7 +99,7 @@ public static class Program
             .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "dev";
 
     const string Usage = """
-        bitween — Bitween from a terminal
+        bitween - Bitween from a terminal
 
           bitween login <url>              Sign in to a Bitween through the browser (--no-browser to paste
                                            a code; --email and --password-stdin for a password)

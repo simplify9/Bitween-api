@@ -13,7 +13,7 @@ namespace SW.Bitween.Resources.Subscriptions;
 /// </summary>
 /// <remarks>
 /// The policy-scoped report answers the same question for every subscription sharing a policy, but it
-/// can only find subscriptions by policy id — so a subscription carrying an inline
+/// can only find subscriptions by policy id - so a subscription carrying an inline
 /// <c>CustomRetryPolicy</c> is invisible to it while still spending and recording budget. Asking from
 /// the subscription's side reaches those too.
 /// </remarks>
@@ -31,7 +31,7 @@ public class RetryUsage(BitweenDbContext dbContext, RequestContext requestContex
         if (subscription == null) throw new SWNotFoundException(key.ToString());
 
         // Whichever policy actually applies. An inline one has no row, so the policy level of the
-        // alert hierarchy simply is not there for it — passed as null, which the resolver expects.
+        // alert hierarchy simply is not there for it - passed as null, which the resolver expects.
         var groups = subscription.CustomRetryPolicy?.Groups ?? subscription.RetryPolicy?.Groups ?? [];
 
         return await report.Build(

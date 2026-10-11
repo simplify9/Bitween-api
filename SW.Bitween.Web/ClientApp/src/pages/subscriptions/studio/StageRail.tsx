@@ -5,14 +5,14 @@ import { STAGES, type StageId } from "./stages";
 export type StageState =
   /** Configured. */
   | "set"
-  /** Deliberately empty — the stage is optional and does nothing. */
+  /** Deliberately empty - the stage is optional and does nothing. */
   | "none"
   /** Empty but required: the pipeline can't run like this. */
   | "missing";
 
 export interface StageFace {
   id: StageId;
-  /** What defines this stage right now — usually the chosen adapter. */
+  /** What defines this stage right now - usually the chosen adapter. */
   title: string;
   /** The concrete thing it points at: a bucket, a host, the next fire time. */
   detail?: string;
@@ -26,7 +26,7 @@ export interface StageFace {
    */
   fault?: { label: string; tone: "warn" | "danger"; title: string };
   /**
-   * This node explains itself rather than offering configuration — the Trigger
+   * This node explains itself rather than offering configuration - the Trigger
    * on a create page, where the attachment or route is made elsewhere. Drawn
    * dashed and flat so it doesn't promise a form it can't deliver.
    */
@@ -39,7 +39,7 @@ const titleTone: Record<StageState, string> = {
   missing: "text-danger-700",
 };
 
-/** The connector — a continuous track, so the row reads as flow and not as tabs. */
+/** The connector - a continuous track, so the row reads as flow and not as tabs. */
 export function Connector() {
   return (
     <span className="flex shrink-0 items-center self-center" aria-hidden>
@@ -114,8 +114,8 @@ export function StageNode({
           {face.state === "missing" && (
             <span
               className="size-2 rounded-full bg-danger-600"
-              title="Required — not configured"
-              aria-label="Required — not configured"
+              title="Required - not configured"
+              aria-label="Required - not configured"
             />
           )}
         </span>
@@ -125,7 +125,7 @@ export function StageNode({
         {face.title}
       </p>
       {/*
-        Always rendered so every node keeps the same baseline — and with a
+        Always rendered so every node keeps the same baseline - and with a
         non-breaking space, not a plain one: `truncate` sets `white-space:
         nowrap`, which collapses an ordinary space away to nothing. The <p> then
         had no line box, and since a <button> centres its content, every node
@@ -154,7 +154,7 @@ export function StageNode({
  *
  * The canvas is the point: on a plain page these nodes read as a row of buttons
  * above the "real" content, and the eye goes straight past them to the tables.
- * Given a surface of their own — grid, depth, room to breathe — they read as
+ * Given a surface of their own - grid, depth, room to breathe - they read as
  * the data path, which is what an operator is here to understand first.
  *
  * It is deliberately *not* a pannable canvas. The pipeline is a fixed line of

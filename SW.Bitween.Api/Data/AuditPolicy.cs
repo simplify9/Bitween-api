@@ -34,8 +34,8 @@ public static class AuditPolicy
 {
     /// <summary>
     /// The configuration entities, their owned children, and the account/role records. Runtime
-    /// traffic — every <c>Xchange</c>, result, delivery, receive attempt, retry usage counter and
-    /// refresh token — is deliberately absent.
+    /// traffic - every <c>Xchange</c>, result, delivery, receive attempt, retry usage counter and
+    /// refresh token - is deliberately absent.
     /// </summary>
     private static readonly HashSet<Type> Audited =
     [
@@ -71,7 +71,7 @@ public static class AuditPolicy
     /// <summary>
     /// Properties whose values never enter the trail. The adapter property bags are here because
     /// each is stored as a single JSON column, so the change tracker sees one property rather than
-    /// the individual keys — there is no way to keep <c>Host</c> and drop <c>Password</c> without
+    /// the individual keys - there is no way to keep <c>Host</c> and drop <c>Password</c> without
     /// cracking the JSON open and asking the adapter which of its keys are <c>[Secure]</c>, which
     /// would mean starting a serverless adapter in the middle of a save. Recording that a
     /// subscription was edited without saying which adapter key changed is the deliberate trade.
@@ -117,7 +117,7 @@ public static class AuditPolicy
             return false;
 
         // A setting's value is only sometimes a secret, and unlike an adapter's properties the
-        // catalog says which — a static lookup, no adapter to start — so the theme colour stays
+        // catalog says which - a static lookup, no adapter to start - so the theme colour stays
         // readable in the trail while the licence key never enters it.
         if (entry.Entity is Setting setting && property.Name == nameof(Setting.Value))
             return SettingsCatalog.Find(setting.Id)?.Secret != true;

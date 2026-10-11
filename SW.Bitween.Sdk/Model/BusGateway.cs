@@ -13,7 +13,7 @@ namespace SW.Bitween.Model
         public bool Inactive { get; set; }
 
         /// <summary>
-        /// Null is the INTERNAL bus — the only behaviour that existed before, and still the
+        /// Null is the INTERNAL bus - the only behaviour that existed before, and still the
         /// default. Set it and this gateway is fed by an external broker instead, through the
         /// resident adapter that data source names.
         /// </summary>
@@ -28,7 +28,7 @@ namespace SW.Bitween.Model
 
         /// <summary>
         /// Per-gateway overrides passed to the adapter. NOT YET CONSUMED by either bundled
-        /// adapter — see BusGateway.EndpointProperties on the entity.
+        /// adapter - see BusGateway.EndpointProperties on the entity.
         /// </summary>
         public Dictionary<string, string> EndpointProperties { get; set; } = new();
     }

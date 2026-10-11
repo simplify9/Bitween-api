@@ -20,7 +20,7 @@ public record Received(string Method, string Path, string Body, string? ContentT
 
 /// <summary>
 /// A partner's HTTP endpoints, served by a real Kestrel on a loopback port: it records each request
-/// and answers as the path asks — success, a bad request, too many requests, a failure, slowness,
+/// and answers as the path asks - success, a bad request, too many requests, a failure, slowness,
 /// and the token endpoints the adapters sign in with.
 /// </summary>
 public sealed class PartnerServer : IAsyncLifetime

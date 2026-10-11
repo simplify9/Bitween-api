@@ -22,7 +22,7 @@ namespace SW.Bitween.Controllers;
 /// <summary>
 /// The files of several exchanges as one zip, for the exchange list's "Export files": one folder per
 /// exchange, named like its archive (<c>{main value}_{id}</c>), holding <c>input</c>, <c>mapped</c>
-/// and <c>handled</c> — whichever it has. <see cref="Check"/> says beforehand how many exchanges are
+/// and <c>handled</c> - whichever it has. <see cref="Check"/> says beforehand how many exchanges are
 /// older than storage keeps their files, so the person hears it before choosing to export. Files missing
 /// anyway, or for another reason, are listed in <c>missing.txt</c>, so one of them never costs the rest.
 /// </summary>
@@ -33,8 +33,8 @@ namespace SW.Bitween.Controllers;
 /// <c>{prefix}/{resource}/{token}</c>, the way <see cref="FileLinksController"/>'s does.
 /// </para>
 /// <para>
-/// Refusals answer the way CqApi does — 401 without the permission, 400 with <c>{ code: [message] }</c>
-/// — so the client reads them like any other call. They're all decided before the first byte is sent.
+/// Refusals answer the way CqApi does - 401 without the permission, 400 with <c>{ code: [message] }</c>
+/// - so the client reads them like any other call. They're all decided before the first byte is sent.
 /// </para>
 /// </remarks>
 [ApiController]
@@ -44,7 +44,7 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     : ControllerBase
 {
     /// <summary>
-    /// The most exchanges one zip takes — the bulk retry's ceiling, for the same reason: every file is
+    /// The most exchanges one zip takes - the bulk retry's ceiling, for the same reason: every file is
     /// read from storage in sequence, inside the one request.
     /// </summary>
     public const int Limit = 500;

@@ -11,7 +11,7 @@ namespace SW.Bitween.Services.DataSources;
 /// This is the seam that let statements become their own entity without touching the adapter
 /// contract: the adapter has always been handed name-to-SQL as JSON and has never known whether
 /// that came from a field somebody typed into or from rows with their own permissions and audit
-/// trail. Keeping the composition here — rather than inline in the supervisor — is what makes it
+/// trail. Keeping the composition here - rather than inline in the supervisor - is what makes it
 /// testable without starting a database.
 /// </summary>
 public static class StatementComposer
@@ -41,7 +41,7 @@ public static class StatementComposer
     }
 
     /// <summary>
-    /// A bare SQL string, unless the statement carries the columns a receiver needs — in which
+    /// A bare SQL string, unless the statement carries the columns a receiver needs - in which
     /// case an object.
     ///
     /// Both shapes on purpose. A statement that is only ever queried composes to exactly the

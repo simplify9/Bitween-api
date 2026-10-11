@@ -10,12 +10,12 @@ export type Selection = number | "new" | null;
  *
  * It was a full-height column, and with three routes that was a tall empty block
  * of chrome beside the thing you came to look at. Floating, it is only as tall as
- * it needs to be, and the canvas keeps its whole width — the path reserves a
+ * it needs to be, and the canvas keeps its whole width - the path reserves a
  * gutter so nothing is ever hidden underneath.
  *
  * Still a list and not a row of chips: all four facts an operator triages on stay
- * on the row — what it matches, whose values it runs with, what it runs, and
- * whether that is healthy — and at a hundred routes a horizontal strip of chips
+ * on the row - what it matches, whose values it runs with, what it runs, and
+ * whether that is healthy - and at a hundred routes a horizontal strip of chips
  * answers none of them.
  */
 export function RouteList({
@@ -93,7 +93,7 @@ export function RouteList({
             onSelect={() => onSelect("new")}
             condition={conditionText(pending.matchExpression)}
             partner={pending.partner === "none" ? "Any partner" : "…"}
-            subscriptionName="New route — not saved"
+            subscriptionName="New route - not saved"
             health="unknown"
             dirty
           />
@@ -115,7 +115,7 @@ export function RouteList({
         {rows.length === 0 && !pending && (
           <p className="px-3 py-6 text-[13px] text-ink-500">
             {routes.length === 0
-              ? "No routes yet — every message reaching this gateway is ignored."
+              ? "No routes yet - every message reaching this gateway is ignored."
               : "No route matches that search."}
           </p>
         )}

@@ -9,7 +9,7 @@ interface SearchyResponse<T> {
 }
 
 /**
- * What a save answers with. `checked` is false when the database was never asked — the adapter for
+ * What a save answers with. `checked` is false when the database was never asked - the adapter for
  * this connection is not running on the node that handled the request, so there was nobody to
  * validate against. Worth saying: a save that reported nothing would look exactly like one that
  * had been verified.

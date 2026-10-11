@@ -90,7 +90,7 @@ export function backend(subjects: Raw[], adapter: Record<string, unknown> = ORDE
         retiredOn: null,
       }),
     ),
-    // What a subscription's overview shows below the rail — none of it matters here.
+    // What a subscription's overview shows below the rail - none of it matters here.
     http.post(apiPath("/subscriptions/:id/retryusage"), () => HttpResponse.json([])),
     // Nothing has delivered yet, so a response subscription has no paths to offer.
     http.get(apiPath("/subscriptions/sourcepaths"), ({ request }) =>
@@ -102,7 +102,7 @@ export function backend(subjects: Raw[], adapter: Record<string, unknown> = ORDE
       }),
     ),
     http.get(apiPath("/audit"), () => HttpResponse.json(noRows)),
-    // The adapters don't matter to either node — only that the delivering one has a handler.
+    // The adapters don't matter to either node - only that the delivering one has a handler.
     http.get(apiPath("/adapters/Catalog"), ({ request }) =>
       HttpResponse.json(new URL(request.url).searchParams.get("prefix") === "handlers" ? [adapter] : []),
     ),

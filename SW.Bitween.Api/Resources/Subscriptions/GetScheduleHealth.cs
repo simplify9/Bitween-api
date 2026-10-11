@@ -26,7 +26,7 @@ public class GetScheduleHealth(
     ISchedulerFactory schedulerFactory) : IQueryHandler<SearchSubscriptionScheduleHealthModel, object>
 {
     /// <summary>
-    /// Mirrors SW.Scheduler's internal Constants.JobParamsKey — the Quartz data-map
+    /// Mirrors SW.Scheduler's internal Constants.JobParamsKey - the Quartz data-map
     /// entry it serializes the job parameter under. Stable: it is persisted in
     /// qrtz_job_details, so changing it would break existing schedules.
     /// </summary>
@@ -96,8 +96,8 @@ public class GetScheduleHealth(
     }
 
     /// <summary>
-    /// Subscription ids the scheduler is executing right now. This — not the
-    /// job-execution rows — is what distinguishes a genuinely running job from a
+    /// Subscription ids the scheduler is executing right now. This - not the
+    /// job-execution rows - is what distinguishes a genuinely running job from a
     /// stale IsRunning flag: a killed run never writes its end either, so its
     /// execution row stays open forever and would look identical.
     /// </summary>
@@ -125,7 +125,7 @@ public class GetScheduleHealth(
     /// <summary>The state worth reporting: anything that stops a fire outranks the ones that don't.</summary>
     private static string WorstState(IReadOnlyCollection<TriggerState> states, int scheduleCount)
     {
-        // No trigger where a schedule says there should be one — the job simply
+        // No trigger where a schedule says there should be one - the job simply
         // isn't registered with the scheduler and nothing will ever fire it.
         if (states.Count < scheduleCount) return "Missing";
         if (states.Count == 0) return "Missing";

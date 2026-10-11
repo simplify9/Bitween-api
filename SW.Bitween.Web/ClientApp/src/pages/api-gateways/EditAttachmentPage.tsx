@@ -22,7 +22,7 @@ interface Draft {
   subscriptionId: number | null;
 }
 
-/** Routed edit page for one gateway attachment — reached from the gateway's own page. */
+/** Routed edit page for one gateway attachment - reached from the gateway's own page. */
 export function EditAttachmentPage() {
   const { id = "", partnerId = "" } = useParams();
   const gatewayId = Number(id);

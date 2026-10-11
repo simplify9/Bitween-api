@@ -1,5 +1,5 @@
 /**
- * The workspace's colours in each theme — VS Code's own, so the layout reads as the editor people
+ * The workspace's colours in each theme - VS Code's own, so the layout reads as the editor people
  * already know, with Bitween's accent in place of VS Code's blue.
  */
 export const PALETTE = {

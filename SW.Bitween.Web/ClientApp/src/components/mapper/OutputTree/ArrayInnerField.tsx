@@ -27,7 +27,7 @@ function resolveDisplaySource(m: FieldMapping | undefined): string | null {
 
 // ─── ArrayInnerField ──────────────────────────────────────────────────────────
 // Read-only row for a field that lives inside an array loop.
-// All editing is done via the array loop modal — clicking opens it.
+// All editing is done via the array loop modal - clicking opens it.
 
 export const ArrayInnerField: React.FC<ArrayInnerFieldProps> = ({
   node,
@@ -48,7 +48,7 @@ export const ArrayInnerField: React.FC<ArrayInnerFieldProps> = ({
     <div
       ref={ref}
       onClick={onOpenArrayModal}
-      title="Managed by array mapping — click to open loop editor"
+      title="Managed by array mapping - click to open loop editor"
       className={[
         'flex items-center gap-1.5 px-2 py-[3px] rounded border border-transparent text-xs cursor-pointer transition-all select-none hover:border-crimson-200 hover:bg-crimson-50',
         isSearchMatch ? 'bg-warn-100 ring-1 ring-warn-100' : '',
@@ -58,7 +58,7 @@ export const ArrayInnerField: React.FC<ArrayInnerFieldProps> = ({
       <span className="font-mono text-ink-700 truncate">{node.key}</span>
       <span className="text-ink-300 mx-0.5 flex-shrink-0">←</span>
       <span className={['font-mono text-xs truncate flex-1', displaySource ? 'text-crimson-600' : 'text-ink-500'].join(' ')}>
-        {displaySource ?? '— unassigned —'}
+        {displaySource ?? '- unassigned -'}
       </span>
       <span className="text-[10px] text-crimson-400 border border-crimson-200 rounded px-1 flex-shrink-0 bg-crimson-50">
         loop

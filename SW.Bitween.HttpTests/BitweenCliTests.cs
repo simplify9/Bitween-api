@@ -14,7 +14,7 @@ namespace SW.Bitween.HttpTests;
 /// <summary>
 /// The bitween CLI against a Bitween, through its real entry point: sign in, write a Python adapter,
 /// check it against the Bitween contract, publish it through the API, list, promote and withdraw its
-/// versions — and a Member who signs in refused the publishing.
+/// versions - and a Member who signs in refused the publishing.
 /// </summary>
 [Collection("Http")]
 public class BitweenCliTests(HttpFixture fixture) : IDisposable
@@ -116,7 +116,7 @@ public class BitweenCliTests(HttpFixture fixture) : IDisposable
             .Select(r => (string)r!["changes"]!["Action"]!["new"]! + " " + (string)r["changes"]!["Version"]!["new"]!).OrderBy(a => a).ToArray();
         Assert.Equal(["promoted 0.1.0", "promoted 0.2.0", "published 0.1.0", "published 0.2.0", "withdrawn 0.2.0"], actions);
 
-        // And it runs, on a node with data sources off — the default: Python adapters run on the
+        // And it runs, on a node with data sources off - the default: Python adapters run on the
         // resident host, which every node has.
         using (var scope = fixture.App.Services.CreateScope())
         {

@@ -91,7 +91,7 @@ public class GatewayCallers(
             ValidIssuer = gateway.JwtIssuer,
             ValidAudience = gateway.JwtAudience,
             // Keys come from the login server, and are fetched again when a token is signed with
-            // one not seen yet — which is what a login server rotating its keys looks like here.
+            // one not seen yet - which is what a login server rotating its keys looks like here.
             ConfigurationManager = keys,
             ValidAlgorithms = SigningAlgorithms,
             RequireSignedTokens = true,

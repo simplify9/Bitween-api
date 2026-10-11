@@ -66,7 +66,7 @@ const LivePreview: React.FC = () => {
         <span className="text-xs font-semibold text-ink-600 uppercase tracking-wide">
           Live Preview
         </span>
-        <span className="text-xs text-ink-500">— evaluated output based on current mappings</span>
+        <span className="text-xs text-ink-500">- evaluated output based on current mappings</span>
         {isPreviewing && (
           <span className="text-[10px] text-ink-500 animate-pulse flex-shrink-0">Evaluating…</span>
         )}

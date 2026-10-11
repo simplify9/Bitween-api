@@ -18,7 +18,7 @@ import { SearchBox } from "../../components/ui/SearchBox";
 
 const PAGE_SIZE = 25;
 
-/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 - no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -42,7 +42,7 @@ export function PartnersPage() {
   // The backend's Search endpoint has no "id is in this set" filter, so filtering by
   // which subscriptions a partner is wired to can't be pushed down like the name search
   // can. Every partner is already loaded once for `usePartnerSubscriptions` above, so
-  // reusing the same full list here — and paging it client-side — costs nothing extra
+  // reusing the same full list here - and paging it client-side - costs nothing extra
   // and stays correct across pages. The plain search case keeps the server-paged path,
   // since that's the one that has to scale.
   const filtering = subscriptionIds.length > 0;
@@ -89,7 +89,7 @@ export function PartnersPage() {
     <div>
       <PageHeader
         title="Partners"
-        description="The external parties you exchange data with — their connection properties and API keys."
+        description="The external parties you exchange data with - their connection properties and API keys."
         actions={createAction}
       />
 
@@ -134,7 +134,7 @@ export function PartnersPage() {
                 <span className="flex items-center gap-2 font-medium text-ink-900">
                   {p.name}
                   {p.isSystem && (
-                    <Badge tone="ink" title="A system-provided partner used internally — it can't be edited or deleted.">
+                    <Badge tone="ink" title="A system-provided partner used internally - it can't be edited or deleted.">
                       Built-in
                     </Badge>
                   )}
@@ -142,7 +142,7 @@ export function PartnersPage() {
               ),
             },
             {
-              // The property names themselves, not a count — a count tells you
+              // The property names themselves, not a count - a count tells you
               // nothing you can act on, the keys are what adapters reference.
               header: "Properties",
               truncate: true,
@@ -155,13 +155,13 @@ export function PartnersPage() {
                     {p.propertyKeys.join(", ")}
                   </span>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {
               header: "API keys",
               align: "right",
-              cell: (p) => <span className="tabular-nums text-ink-600">{p.credentialCount || "—"}</span>,
+              cell: (p) => <span className="tabular-nums text-ink-600">{p.credentialCount || "-"}</span>,
             },
             {
               header: "Used by",

@@ -10,12 +10,12 @@ Two mutually exclusive routing modes, selected at deploy time:
 
 | Mode | How to select | Renders |
 |------|---------------|---------|
-| **ingress-nginx** (default) | nothing — this is the default | `Ingress` |
+| **ingress-nginx** (default) | nothing - this is the default | `Ingress` |
 | **Gateway API** | `--set gateway.enabled=true` | `HTTPRoute` (and the `Ingress` is suppressed) |
 
 `gateway.enabled` defaults to `false`, so the chart renders only the `Ingress`
 out of the box. Setting `gateway.enabled=true` flips routing to the Gateway API
-and automatically suppresses the `Ingress` — you do **not** need to also set
+and automatically suppresses the `Ingress` - you do **not** need to also set
 `ingress.enabled=false`.
 
 ### Behavior matrix
@@ -52,7 +52,7 @@ helm install bitween ./charts/default \
 The Gateway API requires the
 [Gateway API CRDs](https://gateway-api.sigs.k8s.io/) and a Gateway controller in
 the cluster, plus a `Gateway` for the `parentRefs` to attach to. The chart does
-**not** create the `Gateway` or any TLS `Certificate` — those are cluster/CI
+**not** create the `Gateway` or any TLS `Certificate` - those are cluster/CI
 concerns.
 
 ## Values

@@ -19,7 +19,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// Secrets are masked on the way out as <c>__private__</c> and restored on the way back in. That
 /// leaves an obvious way to destroy one by accident: the browser sends back the dots it was shown,
 /// and a handler that took them literally would overwrite a working password with the placeholder
-/// — breaking the integration at the next run, with nothing in the audit trail that looks like a
+/// - breaking the integration at the next run, with nothing in the audit trail that looks like a
 /// password change. These tests hold that behaviour in place from both directions: the sentinel
 /// never lands in storage, and a real new value still does.
 /// </remarks>
@@ -154,7 +154,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
         await Update(id, documentId, partnerId,
             new KeyAndValue { Key = "Host", Value = "smtp.example.com" });
 
-        // Only a mask restores the stored value. A property the caller omits entirely is gone —
+        // Only a mask restores the stored value. A property the caller omits entirely is gone -
         // otherwise a setting could never be cleared once set.
         Assert.False((await StoredProperties(id)).ContainsKey("Password"));
     }
@@ -170,7 +170,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
             new KeyAndValue { Key = "ApiKey", Value = Sentinel });
 
         // There is nothing to restore, so the sentinel must not be written through as if it were
-        // the value — that is how the literal string "__private__" ends up being sent as an API key.
+        // the value - that is how the literal string "__private__" ends up being sent as an API key.
         var properties = await StoredProperties(id);
         Assert.False(properties.ContainsKey("ApiKey"));
         Assert.Equal(RealPassword, properties["Password"]);

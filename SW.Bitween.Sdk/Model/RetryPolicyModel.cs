@@ -14,7 +14,7 @@ public class RetryPolicyCreate
     /// </summary>
     public string? AlertHandlerId { get; set; }
 
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
+    /// <summary>That adapter's own settings - api key, recipients, subject.</summary>
     public Dictionary<string, string>? AlertHandlerProperties { get; set; }
 }
 
@@ -46,7 +46,7 @@ public class RetryPolicyRow
 /// when a budget runs out is "did anyone get told?", and that needs both.
 /// </para>
 /// <para>
-/// A row exists for every pair, including subscriptions that have never failed — an alert override
+/// A row exists for every pair, including subscriptions that have never failed - an alert override
 /// has to be configurable before the first failure, not after. Those rows carry the group's ceiling
 /// with nothing spent against it, and a null <see cref="LastAttemptOn"/>.
 /// </para>
@@ -71,7 +71,7 @@ public class RetryGroupUsageRow
     public DateTime? LastAttemptOn { get; set; }
 
     /// <summary>
-    /// When the exhaustion alert was raised, or null if the budget still has room — or ran out
+    /// When the exhaustion alert was raised, or null if the budget still has room - or ran out
     /// before alerts existed.
     /// </summary>
     public DateTime? ExhaustedNotifiedOn { get; set; }
@@ -82,8 +82,8 @@ public class RetryGroupUsageRow
     /// <remarks>
     /// Separate from <see cref="ExhaustedNotifiedOn"/> because they are different facts:
     /// claiming the alert is what stops it firing twice, and it is claimed before the send is
-    /// attempted. A send through a customer-configured adapter can fail — a wrong password, a
-    /// refused TLS handshake — and the counter records none of that. Reporting only the claim
+    /// attempted. A send through a customer-configured adapter can fail - a wrong password, a
+    /// refused TLS handshake - and the counter records none of that. Reporting only the claim
     /// tells the reader someone was told when nobody was, which is the one thing this page
     /// must never do.
     ///
@@ -189,7 +189,7 @@ public class RetryAlertOverrideSave
     public Dictionary<string, string>? AlertHandlerProperties { get; set; }
 }
 
-/// <summary>Empty request body — the subject is identified by the route key.</summary>
+/// <summary>Empty request body - the subject is identified by the route key.</summary>
 public class RetryPolicyUsageRequest
 {
 }
@@ -221,10 +221,10 @@ public class RetryPolicyResetUsage
 /// </summary>
 public class TestRetryPolicyRequest
 {
-    /// <summary>The draft groups to test — not necessarily the persisted policy's groups.</summary>
+    /// <summary>The draft groups to test - not necessarily the persisted policy's groups.</summary>
     public List<RetryGroup> Groups { get; set; } = [];
 
-    /// <summary>Error or BadResult — Success is never retried and is rejected.</summary>
+    /// <summary>Error or BadResult - Success is never retried and is rejected.</summary>
     public XchangeResultType ResultType { get; set; }
 
     /// <summary>Exception text for Error, or the raw JSON response body for BadResult.</summary>

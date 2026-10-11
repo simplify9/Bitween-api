@@ -15,7 +15,7 @@ import { keys } from "../../../api/queryKeys";
 const PAGE_SIZE = 25;
 
 /**
- * Both scheduled types write into the same history, so this panel serves both — but a
+ * Both scheduled types write into the same history, so this panel serves both - but a
  * receiver "checks for new data" and an aggregation "rolls up what its source produced",
  * and one set of words cannot honestly describe both. The outcomes underneath are the
  * same three; only what they mean to a person changes.
@@ -39,16 +39,16 @@ const WORDING: Record<
   }
 > = {
   receiving: {
-    description: "Every time this subscription checked for new data — what it found, and what happened to it.",
+    description: "Every time this subscription checked for new data - what it found, and what happened to it.",
     empty: "No checks recorded yet",
     emptyHint: "This subscription hasn't checked for new data since this history started being kept.",
     exchangeHeader: "Exchange",
     exchangeHint: "The exchanges this run created, one per document it received.",
     resultHint: "What the run found when it checked its source.",
     failed: "Couldn't check",
-    failedHint: "The run could not reach or read its source — no documents were received.",
+    failedHint: "The run could not reach or read its source - no documents were received.",
     nothing: "Nothing new",
-    nothingHint: "Checked for new data — there was nothing to receive this time.",
+    nothingHint: "Checked for new data - there was nothing to receive this time.",
     outcomes: [
       { value: "", label: "All" },
       { value: "Failed", label: "Couldn't check" },
@@ -57,14 +57,14 @@ const WORDING: Record<
     ],
   },
   aggregation: {
-    description: "Every time this aggregation ran — whether it had anything to collect, and the exchange it produced.",
+    description: "Every time this aggregation ran - whether it had anything to collect, and the exchange it produced.",
     empty: "No runs recorded yet",
     emptyHint: "This aggregation hasn't run since this history started being kept.",
     exchangeHeader: "Roll-up",
     exchangeHint: "The single exchange this run produced. Opening it also lists everything it collected.",
     resultHint: "Whether the run found anything outstanding to roll up.",
     failed: "Couldn't run",
-    failedHint: "The run threw before it finished — nothing was rolled up.",
+    failedHint: "The run threw before it finished - nothing was rolled up.",
     nothing: "Nothing to roll up",
     nothingHint: "Ran, but the source had no new successful exchanges waiting. No exchange is created for an empty period.",
     outcomes: [
@@ -138,7 +138,7 @@ function AttemptResult({ attempt, kind }: { attempt: ReceiveAttemptRow; kind: At
     );
   if (attempt.outcome === "NoNewData") return <Badge title={w.nothingHint}>{w.nothing}</Badge>;
   // No count for an aggregation: the attempt holds the one roll-up it made, not the number
-  // of exchanges that went into it — saying "Rolled up 1" would be a plain lie. The link in
+  // of exchanges that went into it - saying "Rolled up 1" would be a plain lie. The link in
   // the next column opens the roll-up together with everything it collected.
   if (kind === "aggregation")
     return (
@@ -156,7 +156,7 @@ function AttemptResult({ attempt, kind }: { attempt: ReceiveAttemptRow; kind: At
 /**
  * A single poll can pick up dozens of documents, and each one is a line here. Uncapped,
  * one busy run makes a row taller than the screen while its When and Result cells stay
- * two short lines — so the column is capped and the rest is one click away.
+ * two short lines - so the column is capped and the rest is one click away.
  */
 const EXCHANGES_SHOWN = 5;
 
@@ -167,7 +167,7 @@ function AttemptExchanges({
   attemptId: number;
   exchanges: ReceiveAttemptRow["exchanges"];
 }) {
-  if (exchanges.length === 0) return <span className="text-ink-500">—</span>;
+  if (exchanges.length === 0) return <span className="text-ink-500">-</span>;
 
   const hidden = exchanges.length - EXCHANGES_SHOWN;
   return (
@@ -200,11 +200,11 @@ function AttemptExchanges({
 }
 
 /**
- * Every time a Receiving subscription checked for new data — replaces the old pairing of
+ * Every time a Receiving subscription checked for new data - replaces the old pairing of
  * the scheduler's own run history (Quartz vocabulary an operator has no reason to know,
  * and which always reports success even when the receive step itself failed) next to a
  * capped 8-row exchange glance. One row per run regardless of what it found, so a poll
- * that couldn't even connect shows up here just as much as one that produced an exchange —
+ * that couldn't even connect shows up here just as much as one that produced an exchange -
  * "Exchanges" as a title would undersell the rows that have none.
  */
 export function ReceiveAttemptsPanel({

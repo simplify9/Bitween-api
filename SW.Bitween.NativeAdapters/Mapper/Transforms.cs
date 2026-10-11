@@ -9,7 +9,7 @@ namespace SW.Bitween.NativeAdapters.Mapper;
 /// <remarks>
 /// <para>
 /// A closed list rather than a free-text expression, which means there is no expression language to
-/// parse, sandbox or generate — and the editor can offer a dropdown instead of a syntax to learn.
+/// parse, sandbox or generate - and the editor can offer a dropdown instead of a syntax to learn.
 /// Each function here is an ordinary method with its own test.
 /// </para>
 /// <para>
@@ -42,7 +42,7 @@ public static class Transforms
         // that: it aborts the run at the first bad rule and surfaces as a stack trace instead.
         //
         // Arguments come from a saved rule and are not validated on the way in, so a few of them
-        // throw rather than return — an out-of-range decimal cast for a substring index, a decimal
+        // throw rather than return - an out-of-range decimal cast for a substring index, a decimal
         // multiplication that overflows, a date format string the framework rejects. Those become
         // ordinary failures here.
         try
@@ -119,7 +119,7 @@ public static class Transforms
             case "replace":
             {
                 var find = ArgAsString(rule, "find");
-                // Replacing the empty string is not a no-op — String.Replace throws for it — and
+                // Replacing the empty string is not a no-op - String.Replace throws for it - and
                 // there is no sensible reading of "replace nothing with something".
                 if (string.IsNullOrEmpty(find))
                 {
@@ -283,8 +283,8 @@ public static class Transforms
     /// A value as text, for the string functions.
     /// </summary>
     /// <remarks>
-    /// Uses the same spellings <see cref="Values.TryCoerce"/> does — round-trip for numbers, and
-    /// lowercase for booleans — so <c>upper</c> on a number cannot produce a different string than
+    /// Uses the same spellings <see cref="Values.TryCoerce"/> does - round-trip for numbers, and
+    /// lowercase for booleans - so <c>upper</c> on a number cannot produce a different string than
     /// a <c>string</c> target would have.
     /// </remarks>
     private static string AsString(object value) =>

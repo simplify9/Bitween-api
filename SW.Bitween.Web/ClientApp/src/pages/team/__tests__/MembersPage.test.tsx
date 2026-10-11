@@ -89,7 +89,7 @@ describe("the member list", () => {
     // holds the write itself.
     await expect.poll(() => row("on.leave@test.local").textContent).toContain("Disabled");
 
-    // A disabled account keeps its roles and history but must not be able to sign in — that
+    // A disabled account keeps its roles and history but must not be able to sign in - that
     // refusal is the server's, and LoginTests.A_disabled_account_cannot_sign_in holds it.
 
     await user.click(panel.getByRole("button", { name: "Re-enable account" }));
@@ -124,7 +124,7 @@ describe("the member list", () => {
     expect(panel.queryByRole("button", { name: "Remove from team" })).not.toBeInTheDocument();
     expect(panel.queryByRole("button", { name: "Disable account" })).not.toBeInTheDocument();
 
-    // Dropping the role is offered, but the server refuses it — and says why.
+    // Dropping the role is offered, but the server refuses it - and says why.
     await user.click(role);
     await user.click(panel.getByRole("button", { name: "Save roles" }));
     expect(await panel.findByText(/only member with the Administrator role/i)).toBeVisible();

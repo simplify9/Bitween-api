@@ -19,7 +19,7 @@ namespace SW.Bitween.HttpTests;
 
 /// <summary>
 /// An adapter version's source over HTTP: the list and a file at their routes, the read in the
-/// audit trail under the reader's name, and the permission — refused to Members, grantable to a
+/// audit trail under the reader's name, and the permission - refused to Members, grantable to a
 /// custom role.
 /// </summary>
 [Collection("Http")]

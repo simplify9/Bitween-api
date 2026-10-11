@@ -4,7 +4,7 @@ import type { FlowEdge, FlowGraph, FlowNode, FlowNodeKind } from "./model";
  * Turns the graph into coordinates.
  *
  * Layered left to right by longest path, so distance from the left edge means
- * "how many hops from something that starts outside Bitween" — the one spatial
+ * "how many hops from something that starts outside Bitween" - the one spatial
  * fact worth encoding. Nodes are never dragged: the layout *is* the configuration,
  * and letting it be rearranged would only produce diagrams that disagree with it.
  */

@@ -5,7 +5,7 @@ import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/
 import { compareListings, languageFor } from "../../../lib/adapterSource";
 
 /**
- * Reading an adapter version's source on the Adapters page, and comparing two versions — for any
+ * Reading an adapter version's source on the Adapters page, and comparing two versions - for any
  * language, since the server only hands over files and hashes.
  */
 

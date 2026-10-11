@@ -22,7 +22,7 @@ test("add a member, they can sign in, then remove them", async ({ page }) => {
   await expect(row).toContainText("Viewer");
   await expect(row).toContainText("Active");
 
-  // The account is real from the first moment — no accept step in between.
+  // The account is real from the first moment - no accept step in between.
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);
   await expect(page.getByRole("button", { name: "Account menu" })).toContainText("New Joiner");

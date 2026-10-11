@@ -25,8 +25,8 @@ const PAGE = 200;
  *
  * This replaces reading `Discover` as raw JSON, which worked in the sense that the answer was on
  * screen: 1,812 lines of it on the first real database we pointed it at. Nobody finds a column
- * that way. What an operator is doing here is one of two things — checking a name they half
- * remember, or writing a statement against a table they have never seen — and both need search,
+ * that way. What an operator is doing here is one of two things - checking a name they half
+ * remember, or writing a statement against a table they have never seen - and both need search,
  * grouping, and columns on demand.
  *
  * Three things are deliberately not done here:
@@ -37,7 +37,7 @@ const PAGE = 200;
  * - **No columns up front.** The adapter refuses to make that the default, and it is right: a
  *   thousand tables' columns is not a menu, it is a download. They arrive when a row is opened.
  * - **No writes.** Everything reaches the adapter through `Inspect`, whose allow-list holds only
- *   Describe, Discover and GetStats. Query and Execute are not on it, and must not be — a
+ *   Describe, Discover and GetStats. Query and Execute are not on it, and must not be - a
  *   View-level read must not become a way to run SQL on a customer's database.
  */
 export function SchemaBrowser({
@@ -95,7 +95,7 @@ export function SchemaBrowser({
   const types = capabilities.data?.supportedObjects ?? ["table", "view"];
 
   // Only the schemas in the page, so this narrows what is on screen rather than pretending to
-  // know every schema in the database — the catalog is paged and this page may not hold them all.
+  // know every schema in the database - the catalog is paged and this page may not hold them all.
   const groups = useMemo(() => groupBySchema(objects.data?.objects ?? []), [objects.data]);
   const schemasHere = groups.map((g) => g.schema);
 
@@ -115,7 +115,7 @@ export function SchemaBrowser({
         <p className="mb-3 text-[12px] text-ink-500">
           {capabilities.data.engine} {capabilities.data.serverVersion}
           {!capabilities.data.schemaDiscovery &&
-            " — this engine does not report its catalog, so nothing will be listed."}
+            " - this engine does not report its catalog, so nothing will be listed."}
         </p>
       )}
 
@@ -176,7 +176,7 @@ export function SchemaBrowser({
       {objects.data && rows.length === 0 && (
         <p className="py-3 text-[13px] text-ink-500">
           {nameLike
-            ? `Nothing here is called “${nameLike}”. The search matches anywhere in the name, and the database does the matching — so this is the whole catalog's answer, not just this page's.`
+            ? `Nothing here is called “${nameLike}”. The search matches anywhere in the name, and the database does the matching - so this is the whole catalog's answer, not just this page's.`
             : "This connection can see no objects of this type. That may be the schema it is pointed at, or what its role is granted."}
         </p>
       )}
@@ -217,9 +217,9 @@ export function SchemaBrowser({
             Next
           </Button>
           <span className="text-[12px] text-ink-500">
-            {/* A count, not a total: the catalog is never counted, only paged — see the adapter's
-                "never SELECT COUNT(*)". Claiming "1–200 of 4,000" would be inventing the 4,000. */}
-            Showing {page * PAGE + 1}–{page * PAGE + rows.length}
+            {/* A count, not a total: the catalog is never counted, only paged - see the adapter's
+                "never SELECT COUNT(*)". Claiming "1-200 of 4,000" would be inventing the 4,000. */}
+            Showing {page * PAGE + 1}-{page * PAGE + rows.length}
             {hasMore ? ", and there are more" : ""}
           </span>
         </div>
@@ -240,7 +240,7 @@ const LABELS: Record<string, string> = {
 };
 
 /**
- * One object, closed. Opening it fetches that object alone — the only way to see columns without
+ * One object, closed. Opening it fetches that object alone - the only way to see columns without
  * asking for every table's at once.
  */
 function ObjectRow({
@@ -270,7 +270,7 @@ function ObjectRow({
   });
 
   // The listed object until its detail arrives, so the header does not flicker and "use this"
-  // still works on a row whose columns are still loading — it just writes `select *`.
+  // still works on a row whose columns are still loading - it just writes `select *`.
   const full = detail.data ?? object;
 
   return (
@@ -377,7 +377,7 @@ function ObjectRow({
             detail.data.columns.length === 0 &&
             detail.data.parameters.length === 0 && (
               <span className="text-[12px] text-ink-500">
-                Nothing to show — this object reports no columns or parameters.
+                Nothing to show - this object reports no columns or parameters.
               </span>
             )}
 

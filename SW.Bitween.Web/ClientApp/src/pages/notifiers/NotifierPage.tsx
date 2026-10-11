@@ -56,7 +56,7 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
             n.exception ? (
               <ExceptionLine text={n.exception} className="text-[12px] text-danger-700" />
             ) : (
-              <span className="text-ink-500">—</span>
+              <span className="text-ink-500">-</span>
             ),
         },
         {
@@ -217,7 +217,7 @@ export function NotifierPage() {
                 />
                 {!draft.onFailed && !draft.onBadResult && !draft.onSuccess && (
                   <p className="rounded-lg bg-warn-100 px-3 py-2 text-[13px] text-warn-700">
-                    No outcomes selected — this notifier never sends anything.
+                    No outcomes selected - this notifier never sends anything.
                   </p>
                 )}
               </div>
@@ -321,7 +321,7 @@ export function NotifierPage() {
 
           <Panel
             title="Recent notifications"
-            description="Every delivery attempt — expand a failed one to see why."
+            description="Every delivery attempt - expand a failed one to see why."
           >
             <NotificationsList items={n.recentNotifications} />
           </Panel>

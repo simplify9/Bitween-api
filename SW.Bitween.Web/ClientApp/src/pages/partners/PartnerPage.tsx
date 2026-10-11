@@ -79,7 +79,7 @@ export function PartnerPage() {
 
   const p = partner.data;
 
-  // Both gateway kinds in one table — a partner is reached through gateways,
+  // Both gateway kinds in one table - a partner is reached through gateways,
   // and which mechanism it is belongs in a column, not in a separate list.
   const gatewayUses = [
     ...p.apiGateways.map((g) => ({

@@ -4,7 +4,7 @@ import type { SettingRow } from "../api";
 /**
  * Pending (unsaved) setting changes: key → new value, or null for a pending
  * "reset to default". Lives in sessionStorage so the draft survives leaving
- * the Settings page — the whole app renders with the draft applied, letting
+ * the Settings page - the whole app renders with the draft applied, letting
  * you walk around and preview a change (the brand color, the footer links…)
  * before committing it. Saving writes every entry through the API; discarding
  * clears the draft and the preview reverts instantly.
@@ -56,7 +56,7 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener);
 };
 
-/** Reactive view of the draft — updates any component when it changes. */
+/** Reactive view of the draft - updates any component when it changes. */
 export function useSettingsDraft(): SettingsDraft {
   return useSyncExternalStore(subscribe, () => cache);
 }

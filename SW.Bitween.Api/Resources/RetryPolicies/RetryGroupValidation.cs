@@ -9,7 +9,7 @@ namespace SW.Bitween.Resources.RetryPolicies;
 
 /// <summary>
 /// Rejects retry groups that could never fire. The evaluator skips such groups silently
-/// (matchers must support the result type being evaluated — see
+/// (matchers must support the result type being evaluated - see
 /// <see cref="Matcher.Supports"/>), which reads as "retries just don't work", so the
 /// misconfiguration is caught at write time instead.
 /// </summary>
@@ -35,7 +35,7 @@ public static class RetryGroupValidation
                         $"Group '{group.Name}' applies to {resultType} but none of its matchers can be " +
                         $"evaluated against {resultType} content. {SupportedMatchersFor(resultType)}");
 
-            // Allow with no budget has nothing to work from — no per-message cap, no total, no delay —
+            // Allow with no budget has nothing to work from - no per-message cap, no total, no delay -
             // so the evaluator can only refuse it. Caught here because a group saved that way silently
             // stops retrying, which reads as the whole feature being broken.
             if (group.Action == RetryAction.Allow && group.Budget == null)
@@ -55,7 +55,7 @@ public static class RetryGroupValidation
     }
 
     /// <summary>
-    /// Rejects an alert override that claims to send but names nothing to send with — the same trap
+    /// Rejects an alert override that claims to send but names nothing to send with - the same trap
     /// as <see cref="EnsureCanFire"/> guards at group level.
     /// </summary>
     public static void EnsureAlertCanSend(RetryAlertMode mode, string handlerId)
@@ -71,14 +71,14 @@ public static class RetryGroupValidation
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The handler refuses this at send time too, which is the guarantee that matters — properties
+    /// The handler refuses this at send time too, which is the guarantee that matters - properties
     /// can also arrive straight through the API or out of a global values set. Catching it here is
     /// so the person configuring it finds out when they save, rather than from a missing alert and a
     /// line in the log days later.
     /// </para>
     /// <para>
     /// Only the mail handler is named, because only it has a password. A general answer belongs in
-    /// the adapter contract — an adapter saying which of its own settings conflict — not here.
+    /// the adapter contract - an adapter saying which of its own settings conflict - not here.
     /// </para>
     /// </remarks>
     public static void EnsureAlertTransportIsSecure(
@@ -88,7 +88,7 @@ public static class RetryGroupValidation
         if (!nameof(NativeSmtpHandler).Equals(handlerId, StringComparison.OrdinalIgnoreCase)) return;
 
         // A masked password counts as set: the sentinel means one is stored, not that the field is
-        // empty. Only an explicit "false" turns encryption off — absent means the adapter's own
+        // empty. Only an explicit "false" turns encryption off - absent means the adapter's own
         // default, which is on.
         var password = Value(properties, nameof(SmtpHandlerInput.Password));
         var useTls = Value(properties, nameof(SmtpHandlerInput.UseTls));

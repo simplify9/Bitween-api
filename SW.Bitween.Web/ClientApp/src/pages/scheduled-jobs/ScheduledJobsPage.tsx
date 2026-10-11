@@ -48,7 +48,7 @@ function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
       {confirming && (
         <ConfirmDialog
           title="Receive now?"
-          body={`${job.name} checks its source immediately — anything found becomes new exchanges, outside the regular schedule.`}
+          body={`${job.name} checks its source immediately - anything found becomes new exchanges, outside the regular schedule.`}
           confirmLabel="Receive now"
           onConfirm={async () => {
             await receive.mutateAsync();
@@ -62,7 +62,7 @@ function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
 
 /**
  * The scheduler disagreeing with the subscription's own record. Everything here
- * means the job is not going to run, while Status still reads "Active" — so it
+ * means the job is not going to run, while Status still reads "Active" - so it
  * outranks the ordinary badges rather than sitting beside them.
  */
 const STATUS_OPTIONS = [
@@ -82,7 +82,7 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 }
 
 /**
- * Scheduled jobs — `Receiving` subscriptions, which pull documents in on a
+ * Scheduled jobs - `Receiving` subscriptions, which pull documents in on a
  * schedule. They also appear on the Subscriptions page; this page exists for the
  * columns only a scheduled thing has, and for running one off-schedule.
  *
@@ -137,7 +137,7 @@ export function ScheduledJobsPage() {
     <div>
       <PageHeader
         title="Scheduled jobs"
-        description="Subscriptions that pull documents in on a schedule — from an FTP folder, a mailbox, an API."
+        description="Subscriptions that pull documents in on a schedule - from an FTP folder, a mailbox, an API."
         actions={createAction}
       />
 
@@ -209,7 +209,7 @@ export function ScheduledJobsPage() {
                 if (!run)
                   return (
                     <span className="text-ink-500" title="No run in the last 30 days">
-                      —
+                      -
                     </span>
                   );
                 const running = run.success === null;
@@ -240,7 +240,7 @@ export function ScheduledJobsPage() {
               className: "whitespace-nowrap",
               cell: (r) => {
                 const run = lastRunById.get(r.id);
-                if (!run || run.recentTotal === 0) return <span className="text-ink-500">—</span>;
+                if (!run || run.recentTotal === 0) return <span className="text-ink-500">-</span>;
                 const failed = run.recentTotal - run.recentSucceeded;
                 return (
                   <span
@@ -256,12 +256,12 @@ export function ScheduledJobsPage() {
               // The rule and its next outcome in one column rather than two: they answer
               // the same question ("when does this run?"), and an eleventh column pushed
               // the table wider than its card. The schedule leads because it is the thing
-              // that was missing — a list showing only the next fire could never tell you
+              // that was missing - a list showing only the next fire could never tell you
               // a job runs hourly without opening it.
               header: "Runs",
               className: "whitespace-nowrap",
               cell: (r) => {
-                if (!r.scheduleSummary && !r.nextReceiveOn) return <span className="text-ink-500">—</span>;
+                if (!r.scheduleSummary && !r.nextReceiveOn) return <span className="text-ink-500">-</span>;
                 return (
                   <>
                     <span className="text-[13px] font-medium text-ink-800">
@@ -291,7 +291,7 @@ export function ScheduledJobsPage() {
               ),
             },
             {
-              // Which queue lane it runs in — the difference between a job that
+              // Which queue lane it runs in - the difference between a job that
               // is merely idle and one that is queued behind everything else.
               header: "Work group",
               wrap: true,
@@ -308,7 +308,7 @@ export function ScheduledJobsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-500">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -328,7 +328,7 @@ export function ScheduledJobsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-500">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -349,7 +349,7 @@ export function ScheduledJobsPage() {
                 r.lastException ? (
                   <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {

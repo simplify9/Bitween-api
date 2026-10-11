@@ -3,7 +3,7 @@ import type { MatchGroup, MatchNode } from "../types";
 /**
  * The backend's match tree is strictly binary (and/or each take exactly two
  * operands) and uses snake_case type discriminators, unlike the frontend's
- * n-ary MatchGroup. Shared by Subscriptions and BusGatewayRoute — both use the
+ * n-ary MatchGroup. Shared by Subscriptions and BusGatewayRoute - both use the
  * exact same backend type (`IPropertyMatchSpecification`).
  */
 export type RawMatchSpec =
@@ -48,7 +48,7 @@ function toBackendNode(node: MatchNode): RawMatchSpec | null {
     return { type: node.op === "oneOf" ? "one_of" : "not_one_of", path: node.path, values: node.values };
   }
   const parts = node.children.map(toBackendNode).filter((s): s is RawMatchSpec => s !== null);
-  if (parts.length === 0) return null; // empty group — matches everything, i.e. no constraint
+  if (parts.length === 0) return null; // empty group - matches everything, i.e. no constraint
   if (parts.length === 1) return parts[0];
   return parts.reduceRight((right, left) => ({ type: node.op, left, right }));
 }

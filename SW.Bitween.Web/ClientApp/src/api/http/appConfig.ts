@@ -10,7 +10,7 @@ export interface AppConfig {
   isRabbitMqManagementConfigured?: boolean;
   /** Effective brand values (any stored override already applied), keyed like `ThemeOptions`. */
   theme?: Record<string, string | boolean | null>;
-  /** The same keys as configured, before any override — lets us tell "set" from "untouched". */
+  /** The same keys as configured, before any override - lets us tell "set" from "untouched". */
   themeDefaults?: Record<string, string>;
 }
 
@@ -18,7 +18,7 @@ let cached: Promise<AppConfig> | null = null;
 
 /**
  * Bootstrap config served before authentication (MSAL parameters, feature
- * flags, branding). Fetched once and memoised. Never throws to callers — an
+ * flags, branding). Fetched once and memoised. Never throws to callers - an
  * unreachable backend just yields an empty config, so the login page degrades
  * gracefully.
  */

@@ -29,7 +29,7 @@ function roundTrip(
   };
 }
 
-// Strip id before comparing — parsed output never has one
+// Strip id before comparing - parsed output never has one
 function stripId(m: FieldMapping): Omit<FieldMapping, 'id'> {
   const { id: _id, ...rest } = m;
   return rest;
@@ -142,7 +142,7 @@ describe('round-trip: transform', () => {
     const fm = [field({ target: 'doubled', source: 'amount', transform: 'value * 2' })];
     const { fieldMappings } = roundTrip(fm);
     expect(fieldMappings[0]).toMatchObject({ target: 'doubled', source: 'amount' });
-    // transform is present (exact expression may differ — just verify it round-trips without null)
+    // transform is present (exact expression may differ - just verify it round-trips without null)
     expect(fieldMappings[0].transform).toBeTruthy();
   });
 });

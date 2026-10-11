@@ -21,7 +21,7 @@ import { NONE } from "../../lib/none";
 import { SearchBox } from "../../components/ui/SearchBox";
 
 /**
- * Bus gateways — messages picked off the bus. A gateway listens for one
+ * Bus gateways - messages picked off the bus. A gateway listens for one
  * information type; its routes decide which subscription handles which message.
  */
 const PAGE_SIZE = 25;
@@ -79,7 +79,7 @@ export function BusGatewaysPage() {
         actions={
           <>
             {/* Offered here because this is where someone asking "what feeds what?"
-                is already standing — the map is one level above this table. */}
+                is already standing - the map is one level above this table. */}
             <Button variant="secondary" onClick={() => navigate("/flow")}>
               <Network className="size-4" /> Flow map
             </Button>
@@ -172,13 +172,13 @@ export function BusGatewaysPage() {
                 ),
             },
             // A bus gateway listens for exactly one information type, so unlike
-            // the API gateway list these CAN be columns — one row, one value, no
+            // the API gateway list these CAN be columns - one row, one value, no
             // pairing to lose.
             ...(canSeeInfoTypes
               ? [
                   {
                     // The name on the wire, which is what the inbound queue is
-                    // built from (`…busservice.<name>`) — the fact you need when
+                    // built from (`…busservice.<name>`) - the fact you need when
                     // a publisher says it sent something and nothing arrived.
                     header: "Message type",
                     wrap: true,
@@ -192,7 +192,7 @@ export function BusGatewaysPage() {
                           {t.busMessageTypeName}
                         </code>
                       ) : (
-                        <span className="text-ink-500">—</span>
+                        <span className="text-ink-500">-</span>
                       );
                     },
                   },
@@ -258,7 +258,7 @@ export function BusGatewaysPage() {
               header: "Health",
               cell: (g) => {
                 // Nothing can reach this gateway at all if its type was taken off
-                // the bus — no queue is declared for it. That outranks anything
+                // the bus - no queue is declared for it. That outranks anything
                 // the routes have to say.
                 //
                 // Only for a gateway on the INTERNAL bus, though: an external one is fed by its

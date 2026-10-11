@@ -20,7 +20,7 @@ export function PreviewPanel({ isPreviewing }: { isPreviewing: boolean }) {
     <div className="flex h-full flex-col overflow-hidden bg-ink-50">
       <div className="flex flex-shrink-0 items-center gap-2 border-b border-ink-200 bg-white px-3 py-2">
         <span className="text-xs font-semibold tracking-wide text-ink-600 uppercase">Preview</span>
-        <span className="text-xs text-ink-500">— what a partner would receive</span>
+        <span className="text-xs text-ink-500">- what a partner would receive</span>
         {isPreviewing && (
           <span className="flex-shrink-0 animate-pulse text-[10px] text-ink-500">Working…</span>
         )}
@@ -28,7 +28,7 @@ export function PreviewPanel({ isPreviewing }: { isPreviewing: boolean }) {
           <button
             type="button"
             className="ml-auto flex items-center gap-1 rounded border border-ink-200 px-2 py-0.5 text-xs text-ink-500 transition hover:text-ink-700"
-            // A browser may refuse this — no permission, or no clipboard at all — and an
+            // A browser may refuse this - no permission, or no clipboard at all - and an
             // unhandled rejection is not how a reader should find that out.
             onClick={() => {
               const say = (state: "done" | "failed") => {

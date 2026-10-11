@@ -9,7 +9,7 @@ const DEFAULT_COLOR = "#e3311d";
 const brandColorVar = (page: Page) =>
   page.evaluate(() => document.documentElement.style.getPropertyValue("--color-crimson-600").trim());
 
-/** Sections are real links — a section is a URL you can paste into a ticket — not buttons. */
+/** Sections are real links - a section is a URL you can paste into a ticket - not buttons. */
 const sectionLink = (page: Page, name: string) => page.getByRole("link", { name });
 
 /** The hex box beside the colour swatch; `exact` keeps it apart from the picker itself. */
@@ -66,7 +66,7 @@ test("the sign-in page brands itself before anyone has signed in", async ({ page
   await expect(page.getByText("Unsaved", { exact: true })).toHaveCount(0);
 
   await signOut(page);
-  // No session here at all — the login page reads branding from the anonymous config endpoint.
+  // No session here at all - the login page reads branding from the anonymous config endpoint.
   await expect.poll(() => brandColorVar(page)).toBe(INDIGO);
 
   await signInAsAdmin(page);

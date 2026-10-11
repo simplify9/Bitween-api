@@ -57,7 +57,7 @@ namespace SW.Bitween.Domain
 
         public DateTime Next(DateTime? currentDate = null)
         {
-            // On.Hours/On.Minutes are UTC wall-clock time — the Quartz cron trigger that
+            // On.Hours/On.Minutes are UTC wall-clock time - the Quartz cron trigger that
             // actually fires this schedule is explicitly pinned to TimeZoneInfo.Utc
             // (see SW.Scheduler's WithCronSchedule(...).InTimeZone(TimeZoneInfo.Utc) call
             // sites), so this must agree rather than each side defaulting independently.

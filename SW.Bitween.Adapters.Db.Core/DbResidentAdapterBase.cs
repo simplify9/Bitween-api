@@ -25,7 +25,7 @@ namespace SW.Bitween.Adapters.Db;
 /// handshake and an authentication round trip on every message.
 ///
 /// It is also shared. One instance serves every subscription bound to its data source, concurrently
-/// — so nothing here may keep per-message state in a field. Paging cursors and receive batches are
+/// - so nothing here may keep per-message state in a field. Paging cursors and receive batches are
 /// keyed and held in concurrent maps for exactly that reason.
 /// </summary>
 public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolinkHandler, IInfolinkReceiver
@@ -83,7 +83,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     /// <summary>The marker a parameter is written with in SQL: <c>:</c>, <c>@</c>.</summary>
     protected abstract string ParameterPrefix { get; }
 
-    /// <summary>Anything the driver needs before a command runs — ODP.NET's BindByName, say.</summary>
+    /// <summary>Anything the driver needs before a command runs - ODP.NET's BindByName, say.</summary>
     protected virtual void PrepareCommand(DbCommand command) { }
 
     /// <summary>A one-row, no-side-effect query used to prove the connection answers.</summary>
@@ -172,7 +172,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
         return Task.FromResult(status);
     }
 
-    /// <summary>Engine-specific heartbeat detail — Oracle's session count, say.</summary>
+    /// <summary>Engine-specific heartbeat detail - Oracle's session count, say.</summary>
     protected virtual IEnumerable<KeyValuePair<string, string>> ExtraStatusDetails() =>
         Array.Empty<KeyValuePair<string, string>>();
 
@@ -192,13 +192,13 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     ///
     /// The list is written per engine and is therefore about the engine at its newest. Called once
     /// the server version is known, which is the only point at which the difference can be told.
-    /// Does nothing unless an engine overrides it — most capabilities have been there for a decade.
+    /// Does nothing unless an engine overrides it - most capabilities have been there for a decade.
     /// </summary>
     protected virtual void AdjustForVersion(DbCapabilities described) { }
 
     /// <summary>
     /// The major version this server reports, or 0 when it cannot be read. Drivers spell it
-    /// differently — "16.14", "8.4.11", "16.00.4135" — but all of them lead with the major.
+    /// differently - "16.14", "8.4.11", "16.00.4135" - but all of them lead with the major.
     /// </summary>
     protected static int MajorVersionOf(string serverVersion)
     {
@@ -213,7 +213,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     ///
     /// For the settings an engine will not take in a connection string. PostgreSQL puts search_path
     /// there and Oracle takes CURRENT_SCHEMA the same way; SQL Server has neither, because its
-    /// default schema belongs to the login rather than to the connection — so it is the one that
+    /// default schema belongs to the login rather than to the connection - so it is the one that
     /// needs this.
     ///
     /// A pooled connection carries whatever this did into its next use, which is the point: it is
@@ -236,7 +236,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
 
     /// <summary>
     /// Values only, always as parameters. A value is never concatenated into the text, whatever it
-    /// looks like — that rule and the statement allow-list are the two halves of the same defence.
+    /// looks like - that rule and the statement allow-list are the two halves of the same defence.
     /// </summary>
     void Bind(DbCommand command, IDictionary<string, object> parameters)
     {
@@ -318,7 +318,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
             // nothing.
             //
             // All of them, not up to the first failure. Stopping early meant fixing one statement
-            // only to be told about the next, one connection test at a time — and the second
+            // only to be told about the next, one connection test at a time - and the second
             // failure is often the same mistake repeated, which is obvious when both are on
             // screen and invisible when they arrive a fix apart.
             var bad = 0;
@@ -438,7 +438,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
 
     /// <summary>
     /// <paramref name="adHocAllowed"/> is for SQL that came from the DATA SOURCE rather than from a
-    /// message — the receive statement, the mark-processed statement. Those are configuration, so
+    /// message - the receive statement, the mark-processed statement. Those are configuration, so
     /// they are already what the allow-list is protecting; running them through it would mean
     /// forcing AllowAdHocSql on to use the receiver at all.
     /// </summary>
@@ -497,7 +497,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
         if (!cursors.TryGetValue(request.CursorId, out var cursor))
             throw new InvalidOperationException(
                 $"Cursor '{request.CursorId}' is not open. It was either already read to the end, "
-                + $"closed, or left idle longer than {Options.CursorIdleTimeoutSeconds} seconds — "
+                + $"closed, or left idle longer than {Options.CursorIdleTimeoutSeconds} seconds - "
                 + "an open cursor holds a pooled connection, so idle ones are reclaimed.");
 
         var take = request.Take > 0 ? request.Take : Options.MaxRows;
@@ -541,7 +541,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
             var result = new QueryResult();
 
             // A write with RETURNING / OUTPUT hands back rows, and losing them would make the
-            // engine's most useful write form unusable — so read them when they are there.
+            // engine's most useful write form unusable - so read them when they are there.
             if (capabilities != null && capabilities.Returning)
             {
                 using var reader = await command.ExecuteReaderAsync();
@@ -626,7 +626,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     }
 
     /// <summary>
-    /// Whether a statement is a bare routine name — <c>release_order</c>, <c>SALES.PKG.RELEASE</c> —
+    /// Whether a statement is a bare routine name - <c>release_order</c>, <c>SALES.PKG.RELEASE</c> -
     /// rather than SQL. Identifier characters only, so anything with a space, a parenthesis or a
     /// keyword is treated as SQL and prepared.
     /// </summary>
@@ -643,19 +643,19 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     /// prepared without being run. Nothing is bound to a value: this is a syntax and schema check.
     /// </summary>
     /// <summary>
-    /// Asks the database whether one piece of SQL is valid, by PREPARING it — parsed and planned,
+    /// Asks the database whether one piece of SQL is valid, by PREPARING it - parsed and planned,
     /// never run. The check behind both the connection test and the one a statement gets when it
     /// is saved, so the two cannot disagree about what is acceptable.
     /// </summary>
     async Task<(bool Ok, string Detail)> CheckStatementAsync(DbConnection connection, string sql)
     {
-        // A statement meant for Call holds a PROCEDURE NAME, not SQL — that is what
+        // A statement meant for Call holds a PROCEDURE NAME, not SQL - that is what
         // CommandType.StoredProcedure takes, and on Oracle it is the only form that works.
         // Preparing it as text is a syntax error every time, so the check would fail on a
         // statement that is perfectly correct. Say what was and was not verified instead of
         // quietly passing it.
         if (IsBareRoutineName(sql))
-            return (true, "procedure name — existence not checked, it is resolved when called");
+            return (true, "procedure name - existence not checked, it is resolved when called");
 
         try
         {
@@ -673,7 +673,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     ///
     /// PREPARE is the portable form and is what most drivers want: the server parses the text and
     /// binds every name in it, which is the whole check. It is overridable because one engine
-    /// cannot be asked that way — see the SQL Server adapter, whose driver refuses to prepare a
+    /// cannot be asked that way - see the SQL Server adapter, whose driver refuses to prepare a
     /// command unless every parameter has been given an explicit type, which is precisely what a
     /// caller checking someone else's SQL does not know.
     /// </summary>
@@ -684,7 +684,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
         command.CommandTimeout = 10;
 
         // The placeholders have to be declared before Prepare, because some drivers validate that
-        // every parameter in the text has been supplied — Npgsql refuses outright — and a check
+        // every parameter in the text has been supplied - Npgsql refuses outright - and a check
         // that fell over on every parameterised statement would be worse than none.
         DeclarePlaceholders(command);
         PrepareCommand(command);
@@ -695,7 +695,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     /// The one mistake worth naming rather than leaving to a position offset.
     ///
     /// Every engine has its own placeholder character, and the driver reports the other one as a
-    /// bare syntax error at a column number — true, and no help at all to someone who copied a
+    /// bare syntax error at a column number - true, and no help at all to someone who copied a
     /// working statement from an Oracle data source into a PostgreSQL one. If the SQL uses the
     /// other convention, say so.
     /// </summary>
@@ -709,7 +709,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
         var match = System.Text.RegularExpressions.Regex.Match(sql ?? "", pattern);
         if (!match.Success) return "";
 
-        return $" — this looks like the wrong placeholder for {DescribeEngine().Engine}: it binds "
+        return $" - this looks like the wrong placeholder for {DescribeEngine().Engine}: it binds "
              + $"parameters as {ParameterPrefix}name, so write {ParameterPrefix}{match.Groups[1].Value} "
              + $"rather than {other}{match.Groups[1].Value}.";
     }
@@ -758,7 +758,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
 
     /// <summary>
     /// Adds one declared out parameter. Overridden where the driver needs a provider-specific type
-    /// — Oracle's REF CURSOR being the case that forces this to exist at all.
+    /// - Oracle's REF CURSOR being the case that forces this to exist at all.
     /// </summary>
     protected virtual void AddOutParameter(DbCommand command, DbRoutineParameter declared)
     {
@@ -827,7 +827,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     /// <summary>
     /// The subscription pipeline's handler and mapper contract.
     ///
-    /// The message body is a <see cref="StatementRequest"/> — or, when the subscription names a
+    /// The message body is a <see cref="StatementRequest"/> - or, when the subscription names a
     /// statement in its adapter properties, just the parameters. That second form is the one worth
     /// having: the mapper produces a flat object of values and the statement is configuration, so
     /// nothing about the SQL depends on message content.
@@ -893,7 +893,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
                 "With a Statement configured, the message body has to be a JSON object of parameter "
                 + $"names to values. This one is a {token.Type}.");
 
-        // A nested object stays as its JSON text — which is what a json column wants, and what a
+        // A nested object stays as its JSON text - which is what a json column wants, and what a
         // driver would otherwise refuse outright.
         return obj.Properties().ToDictionary(p => p.Name, p => (object)p.Value);
     }
@@ -911,7 +911,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
     /// Fills one page and reports what is behind it.
     ///
     /// Returns the row that PROVES there is more. A reader cannot be rewound, so asking "is there
-    /// another row" consumes one — and dropping it loses exactly one row per page, which surfaces
+    /// another row" consumes one - and dropping it loses exactly one row per page, which surfaces
     /// months later as a single missing order and is close to unfindable. So it is handed back and
     /// carried into the next page. Null means the result set ended.
     /// </summary>
@@ -1014,7 +1014,7 @@ public abstract partial class DbResidentAdapterBase : IResidentAdapter, IInfolin
             new Dictionary<string, string> { ["engine"] = capabilities?.Engine ?? "" });
     }
 
-    /// <summary>Recorded for the heartbeat. The message only — never the SQL, never the values.</summary>
+    /// <summary>Recorded for the heartbeat. The message only - never the SQL, never the values.</summary>
     protected void RecordError(Exception exception)
     {
         lastError = exception.Message;

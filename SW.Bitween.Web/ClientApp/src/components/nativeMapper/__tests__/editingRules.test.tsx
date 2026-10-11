@@ -17,7 +17,7 @@ import {
  *
  * The reducer underneath has its own tests (src/lib/nativeMapper/__tests__), and the engine the
  * preview runs is the C# suite's. What neither can see is whether the rows on screen do what they
- * say — a remove button that removes, a fold that only folds — and whether what the editor then
+ * say - a remove button that removes, a fold that only folds - and whether what the editor then
  * asks the server to map is still the mapping on screen.
  */
 
@@ -61,7 +61,7 @@ describe("editing the rules", { timeout: 20000 }, () => {
     await user.click(screen.getByRole("button", { name: "Remove the rule for customer" }));
 
     expect(screen.getByText(/No rules yet\./)).toBeVisible();
-    // Removing every rule is a mapping that produces an empty document, not a failure — so it is
+    // Removing every rule is a mapping that produces an empty document, not a failure - so it is
     // still sent to be mapped, and what comes back is shown. That the engine answers `{}` is
     // DocumentMapperTests.EmptyRules_ProduceAnEmptyDocument.
     await expectSent(backend, { fields: [], lists: [] });
@@ -125,7 +125,7 @@ describe("editing the rules", { timeout: 20000 }, () => {
     expect(nameBoxes()).toHaveLength(1);
     expect(nameBoxes()[0]).toHaveValue("city");
 
-    // Searching does not change the mapping — only what is shown of it. Nothing new is sent to
+    // Searching does not change the mapping - only what is shown of it. Nothing new is sent to
     // be mapped, and the whole document, `name` included, is still what the preview shows.
     await expectPreview('"name": "Ali"');
     expect(backend.previews).toHaveLength(sent);

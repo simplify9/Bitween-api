@@ -28,7 +28,7 @@ const REASON: Record<string, { label: string; meaning: string }> = {
 };
 
 /**
- * Calls to this gateway turned away, and why — what "the partner says they get 401" needed and had
+ * Calls to this gateway turned away, and why - what "the partner says they get 401" needed and had
  * nowhere to look. Counted in memory on the node that answers, since it started.
  */
 export function GatewayRejections({ gatewayId }: { gatewayId: number }) {

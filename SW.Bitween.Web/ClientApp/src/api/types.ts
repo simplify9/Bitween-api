@@ -59,11 +59,11 @@ export interface RoleSummary {
 export interface Session {
   user: User;
   roles: RoleSummary[];
-  /** The union of every permission the user's roles grant — resolved by the backend. */
+  /** The union of every permission the user's roles grant - resolved by the backend. */
   permissions: PermissionKey[];
   /**
    * The account still has the password it was created with. The backend grants such a token
-   * nothing, so `permissions` is empty and every screen would refuse — the app sends them to
+   * nothing, so `permissions` is empty and every screen would refuse - the app sends them to
    * change it instead of leaving them staring at an empty shell.
    */
   mustChangePassword: boolean;
@@ -100,7 +100,7 @@ export const isPermanentError = (error: unknown): boolean =>
 export const shouldRetryQuery = (failureCount: number, error: unknown): boolean =>
   !isPermanentError(error) && failureCount < 3;
 
-// ——— Configuration entities (sub-phase 2) ———
+// --- Configuration entities (sub-phase 2) ---
 
 /** Lightweight references for "used by" panels. */
 export interface SubscriptionSetupRef {
@@ -147,7 +147,7 @@ export interface SubscriptionInfo {
   type: SubscriptionType;
   /**
    * The subscription's OWN partner, which only the legacy types carry. Partners
-   * linked through a gateway attachment or a bus route are NOT here — the list
+   * linked through a gateway attachment or a bus route are NOT here - the list
    * endpoint doesn't know about them. Use `usePartnerSubscriptions()` when you
    * need the full picture.
    */
@@ -158,7 +158,7 @@ export interface SubscriptionInfo {
   categoryId: number | null;
   retryPolicyId: number | null;
   /**
-   * Its delivery step. Null means nothing is delivered — and since a response is
+   * Its delivery step. Null means nothing is delivered - and since a response is
    * whatever the delivery hands back, null here means the two response fields below
    * can never be reached, however they are set.
    */
@@ -174,7 +174,7 @@ export interface SubscriptionInfo {
   responseSubscriptionId: number | null;
   /**
    * Reference tokens found in its adapter properties. Both are matched
-   * case-insensitively, as the backend resolver does — compare them with
+   * case-insensitively, as the backend resolver does - compare them with
    * `referencesPartnerProp`/`referencesGlobal` rather than `===`.
    */
   partnerPropKeys: string[];
@@ -202,8 +202,8 @@ export interface TrailEntry {
   entityName: string;
   entityKey: string;
   /**
-   * Groups everything one save changed. A single edit often touches several rows — a
-   * gateway and its routes — and this is what shows them as the one change they were.
+   * Groups everything one save changed. A single edit often touches several rows - a
+   * gateway and its routes - and this is what shows them as the one change they were.
    */
   correlationId: string;
   changes: AuditChange[];
@@ -222,7 +222,7 @@ export interface AuditQuery {
 
 export interface ApiCredentialRef {
   name: string;
-  /** Only the first characters — full keys are shown once, at creation. */
+  /** Only the first characters - full keys are shown once, at creation. */
   keyPrefix: string;
   createdOn: string;
   /** When a gateway last let a call through with it, to within a few minutes; null if none has been seen. */
@@ -251,7 +251,7 @@ export interface Partner {
 export interface PartnerRow extends Partner {
   credentialCount: number;
   usedByCount: number;
-  /** Property names only — the list endpoint never sends values, which may be secrets. */
+  /** Property names only - the list endpoint never sends values, which may be secrets. */
   propertyKeys: string[];
 }
 export interface PartnerDetail extends Partner {
@@ -285,7 +285,7 @@ export interface InformationType {
    */
   retiredOn: string | null;
   /**
-   * Seeded by the backend and referenced by machinery rather than by configuration —
+   * Seeded by the backend and referenced by machinery rather than by configuration -
    * the Aggregation Document. Can't be edited away, retired or deleted.
    */
   isSystem: boolean;
@@ -304,7 +304,7 @@ export interface GlobalValuesSet {
   id: string;
   name: string;
   values: Record<string, string>;
-  /** Which value names are secrets — same sentinel round trip as Partner.secretProperties. */
+  /** Which value names are secrets - same sentinel round trip as Partner.secretProperties. */
   secretProperties: string[];
   createdOn: string;
 }
@@ -318,7 +318,7 @@ export interface GlobalValuesSetDetail extends GlobalValuesSet {
   usedBy: ValueSetUsage[];
 }
 
-// ——— Retry policies ———
+// --- Retry policies ---
 
 export type RetryResultType = "Error" | "BadResult";
 
@@ -363,7 +363,7 @@ export interface RetryGroup {
   /** OR logic; empty = any failure of the applicable kind. */
   matchers: RetryMatcher[];
   action: "Allow" | "Block";
-  /** `maxAttemptsTotal: null` is no group-wide limit — only the per-message cap applies. */
+  /** `maxAttemptsTotal: null` is no group-wide limit - only the per-message cap applies. */
   budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number | null; delay: RetryDelay };
   notes?: string;
   /** Where this group's budget-exhausted alert goes, for every subscription using the policy. */
@@ -396,7 +396,7 @@ export interface RetryPolicyDetail extends RetryPolicy {
 /**
  * What became of a budget-exhausted alert.
  *
- * `claimedOn` is when the alert was raised — all the counter itself records. Whether it then
+ * `claimedOn` is when the alert was raised - all the counter itself records. Whether it then
  * reached anyone is a separate fact that can fail, so the two are reported apart: a page showing
  * only the claim tells the reader someone was notified when nobody was.
  */
@@ -412,8 +412,8 @@ export interface RetryAlertOutcome {
  * The whole state of one subscription-and-group pair: how much of the group's budget that
  * subscription has spent, and where the pair's budget-exhausted alert would go.
  *
- * Budgets are counted per pair — a shared policy gives every subscription its own separate total
- * — so there is no such thing as "this policy's usage". Any single figure on a policy or a group
+ * Budgets are counted per pair - a shared policy gives every subscription its own separate total
+ * - so there is no such thing as "this policy's usage". Any single figure on a policy or a group
  * would be an aggregate matching nothing anyone can act on, which is why the pair is also what
  * resetting and overriding both address.
  */
@@ -426,20 +426,20 @@ export interface RetryUsageRow {
   total: number;
   /** Spent out: this subscription gets no further automatic retries from this group. */
   exhausted: boolean;
-  /** Null when the pair has never failed — also how you know there is no counter to reset. */
+  /** Null when the pair has never failed - also how you know there is no counter to reset. */
   lastAttemptOn: string | null;
   /** Where the alert actually goes, or null when nothing sends for this pair. */
   resolvedHandlerId: string | null;
   resolvedHandlerProperties: Record<string, string>;
   resolvedFrom: RetryAlertLevel | null;
-  /** Which level deliberately switched the alert off — a decision, as against an oversight. */
+  /** Which level deliberately switched the alert off - a decision, as against an oversight. */
   silencedAt: RetryAlertLevel | null;
   /** This pair's own override; `Inherit` when it has none. */
   override: RetryAlertConfig;
   alert: RetryAlertOutcome | null;
 }
 
-/** One failure a group caught — what a usage row spent its budget on. */
+/** One failure a group caught - what a usage row spent its budget on. */
 export interface RetryAttempt {
   exchangeId: string;
   /** How deep the retry chain was, 0 being the original delivery. Null for older failures. */
@@ -469,7 +469,7 @@ export interface RetryTestAttempt {
   reason: string;
 }
 
-// ——— Notifiers ———
+// --- Notifiers ---
 
 export interface Notifier {
   id: number;
@@ -499,10 +499,10 @@ export interface NotifierDetail extends Notifier {
   recentNotifications: NotificationEntry[];
 }
 
-// ——— Subscriptions (subscriptions) ———
+// --- Subscriptions (subscriptions) ---
 
 /**
- * Backend Subscription.Type. Internal and ApiCall are legacy — shown and
+ * Backend Subscription.Type. Internal and ApiCall are legacy - shown and
  * editable, never created.
  */
 
@@ -513,7 +513,7 @@ export interface NotifierDetail extends Notifier {
 export type AggregationTarget = "Input" | "Output" | "Response";
 /**
  * The editable fields of a subscription being defined inline, while whatever points
- * at it is being made. Mirrors the studio's own draft — deliberately, so the canvas
+ * at it is being made. Mirrors the studio's own draft - deliberately, so the canvas
  * can hand its draft straight to the client.
  */
 export interface InlineSubscriptionDraft {
@@ -538,7 +538,7 @@ export interface InlineSubscriptionDraft {
   /** Response type only. */
   runOnBadResponses?: boolean;
   /**
-   * A response subscription to create in the same save and hand the response to — instead
+   * A response subscription to create in the same save and hand the response to - instead
    * of `responseSubscriptionId`, never with it.
    */
   newResponseSubscription?: NewResponseSubscriptionDraft | null;
@@ -546,7 +546,7 @@ export interface InlineSubscriptionDraft {
 
 /** A response subscription being defined alongside the subscription that feeds it. */
 export interface NewResponseSubscriptionDraft extends InlineSubscriptionDraft {
-  /** What the responses it runs on are — nothing imposes it, unlike a bus gateway's own. */
+  /** What the responses it runs on are - nothing imposes it, unlike a bus gateway's own. */
   informationTypeId: number;
   runOnBadResponses: boolean;
 }
@@ -620,7 +620,7 @@ export interface AdapterSourceListing {
   runtime: string | null;
   buildCommand: string | null;
   lockfiles: string[];
-  /** Relative to the source folder, sorted, each with its SHA-256 — enough to tell what two versions differ in. */
+  /** Relative to the source folder, sorted, each with its SHA-256 - enough to tell what two versions differ in. */
   files: { path: string; sha256: string }[];
 }
 
@@ -705,7 +705,7 @@ export type Recurrence = "Hourly" | "Daily" | "Weekly" | "Monthly";
 
 export interface Schedule {
   recurrence: Recurrence;
-  /** Weekly: weekday 0–6 (Sun–Sat); Monthly: day of month 1–27; otherwise 0. */
+  /** Weekly: weekday 0-6 (Sun-Sat); Monthly: day of month 1-27; otherwise 0. */
   days: number;
   hours: number;
   minutes: number;
@@ -718,7 +718,7 @@ export interface Subscription {
   name: string;
   type: SubscriptionType;
   informationTypeId: number;
-  /** Direct partner — legacy Internal/ApiCall (and Aggregation) only. */
+  /** Direct partner - legacy Internal/ApiCall (and Aggregation) only. */
   partnerId: number | null;
   /** Inverse of backend Inactive. Disabled = not scheduled, not matched. */
   enabled: boolean;
@@ -765,16 +765,16 @@ export interface Subscription {
   /** Response type only: also run when the delivery that fed it came back bad. */
   runOnBadResponses: boolean;
   /**
-   * Aggregation only: whose exchanges get rolled up. Fixed at creation — the backend
+   * Aggregation only: whose exchanges get rolled up. Fixed at creation - the backend
    * property has a private setter and the configuration applier deliberately skips it,
    * so no update can repoint a live roll-up.
    */
   aggregationForId: number | null;
   /** Aggregation only. Meaningless for every other type, where it stays "Input". */
   aggregationTarget: AggregationTarget;
-  // — health (read-only) —
+  // - health (read-only) -
   isRunning: boolean;
-  /** Receiving (and Aggregation) only — when the schedule will next fire, not when it last did. */
+  /** Receiving (and Aggregation) only - when the schedule will next fire, not when it last did. */
   nextReceiveOn: string | null;
   consecutiveFailures: number;
   lastException: string | null;
@@ -795,7 +795,7 @@ export interface SubscriptionRow {
   lastException: string | null;
   scheduleSummary?: string;
   /**
-   * Receiving and Aggregation only — when the schedule will next fire, not when it last
+   * Receiving and Aggregation only - when the schedule will next fire, not when it last
    * did. The two types keep it in different columns on the backend (`ReceiveOn` vs
    * `AggregateOn`); this is whichever one applies.
    */
@@ -809,7 +809,7 @@ export interface SubscriptionRow {
 
 /**
  * One execution of a scheduled subscription, from the scheduler's own history.
- * Kept for `RetentionDays` (~30) — older runs are purged, not archived here.
+ * Kept for `RetentionDays` (~30) - older runs are purged, not archived here.
  */
 export interface SubscriptionRun {
   startedOn: string;
@@ -830,7 +830,7 @@ export interface SubscriptionLastRun extends SubscriptionRun {
   recentSucceeded: number;
 }
 
-/** One poll of a Receiving subscription's own receive step — independent of the scheduler's
+/** One poll of a Receiving subscription's own receive step - independent of the scheduler's
  * run history, which only knows whether the method threw (it never does; failures here are
  * caught and reported this way instead). */
 export type ReceiveOutcome = "Failed" | "NoNewData" | "Received";
@@ -876,7 +876,7 @@ export interface ScheduleHealth {
   state: "Normal" | "Paused" | "Blocked" | "Error" | "Complete" | "Missing";
   /** The scheduler's own next fire time, computed independently of `nextReceiveOn`. */
   nextFireOn: string | null;
-  /** Flagged as running with nothing executing — the concurrency guard is skipping every run. */
+  /** Flagged as running with nothing executing - the concurrency guard is skipping every run. */
   stuck: boolean;
 }
 
@@ -916,14 +916,14 @@ export interface WorkGroupDetail extends WorkGroup {
   subscriptions: SubscriptionSetupRef[];
 }
 
-// ——— API gateways ———
+// --- API gateways ---
 
 export interface ApiGatewayAttachment {
   partnerId: number;
   partnerName: string;
   subscriptionId: number;
   subscriptionName: string;
-  /** null when the partner has none — it can't call a gateway that takes tokens. */
+  /** null when the partner has none - it can't call a gateway that takes tokens. */
   partnerLoginIdentity: string | null;
 }
 /** How a gateway's callers prove who they are: the gateway chooses, not the caller. */
@@ -958,7 +958,7 @@ export interface ApiGatewayDetail extends ApiGateway {
   defaultKeyHeader: string;
 }
 
-// ——— Bus gateways ———
+// --- Bus gateways ---
 
 export interface BusGatewayRoute {
   id: number;
@@ -978,7 +978,7 @@ export interface BusGateway {
   createdOn: string;
 
   /**
-   * Where the messages come from. Null is Bitween's own internal bus — the only behaviour that
+   * Where the messages come from. Null is Bitween's own internal bus - the only behaviour that
    * existed before data sources, and still the default, so no gateway changes meaning. Set it and
    * this gateway is fed by a broker outside Bitween instead.
    */
@@ -990,10 +990,10 @@ export interface BusGateway {
   endpoint: string | null;
 }
 
-// ——— Data sources ———
+// --- Data sources ---
 
 /**
- * A connection to something outside Bitween — today a broker.
+ * A connection to something outside Bitween - today a broker.
  *
  * It holds the connection and nothing else: what Bitween does with the messages belongs to the bus
  * gateway pointing at it, which is why one data source can feed many gateways the way one broker
@@ -1014,9 +1014,9 @@ export interface DataSource {
    */
   deduplicationWindowDays: number;
 
-  /** Soft ceiling in MB — crossing it recycles the adapter between messages. 0 = host default. */
+  /** Soft ceiling in MB - crossing it recycles the adapter between messages. 0 = host default. */
   softMemoryLimitMb: number;
-  /** Hard ceiling in MB — becomes the adapter's GC heap hard limit. 0 = host default. */
+  /** Hard ceiling in MB - becomes the adapter's GC heap hard limit. 0 = host default. */
   hardMemoryLimitMb: number;
 
   /**
@@ -1052,13 +1052,13 @@ export interface DataSourceDetail extends DataSourceRow {
 
 /**
  * What the connection is doing right now, read from the adapter's heartbeat rather than from the
- * data source row — which only carries what the last reconcile wrote back.
+ * data source row - which only carries what the last reconcile wrote back.
  */
 /**
  * One named piece of SQL a data source may run.
  *
  * A record rather than a field on the data source, so that writing a query and changing the
- * database credentials are different permissions — see the backend entity for why SQL cannot live
+ * database credentials are different permissions - see the backend entity for why SQL cannot live
  * on the subscription instead.
  */
 export interface DataSourceStatement {
@@ -1094,7 +1094,7 @@ export interface DataSourceStatementUsage {
 export interface DataSourceStatementUsageEntry {
   subscriptionId: number;
   subscriptionName: string;
-  /** Handler, Mapper or Receiver — which adapter slot names it. */
+  /** Handler, Mapper or Receiver - which adapter slot names it. */
   role: string;
   /** query, execute or call. */
   operation: string;
@@ -1112,7 +1112,7 @@ export interface DataSourceTelemetry {
   inFlight: number;
   lastError: string | null;
 
-  /** Whatever the adapter reports — per-queue depth, counters, prefetch. Untyped by design. */
+  /** Whatever the adapter reports - per-queue depth, counters, prefetch. Untyped by design. */
   details: Record<string, string>;
 
   // Host-observed: these keep working when the adapter is wedged, which is when they matter.
@@ -1133,7 +1133,7 @@ export interface DataSourceTelemetry {
 export interface DataSourceInspectResult {
   ran: boolean;
   command: string | null;
-  /** The adapter's own JSON, as text — Bitween does not model any broker's topology. */
+  /** The adapter's own JSON, as text - Bitween does not model any broker's topology. */
   result: string | null;
   error: string | null;
 }
@@ -1163,23 +1163,23 @@ export interface BusGatewayDetail extends BusGateway {
   routes: BusGatewayRoute[];
 }
 
-// ——— Settings ———
+// --- Settings ---
 
 export type SettingValueKind = "string" | "number" | "boolean" | "color";
 
 /**
  * How a row behaves:
- * - `editable` — stored in the database, changeable here, takes effect immediately.
- * - `readonly` — an environment value, shown so you can see what this instance runs
+ * - `editable` - stored in the database, changeable here, takes effect immediately.
+ * - `readonly` - an environment value, shown so you can see what this instance runs
  *   on. Read once at startup, so there's nothing to change here.
- * - `presence` — an environment value whose content stays on the server; only
+ * - `presence` - an environment value whose content stays on the server; only
  *   whether it's set is reported.
  */
 export type SettingAccess = "editable" | "readonly" | "presence";
 
 /**
  * One setting on the settings page. Only settings that take effect immediately are
- * editable, so there is no "restart required" state to represent — anything read
+ * editable, so there is no "restart required" state to represent - anything read
  * once at startup appears as `readonly` or `presence` instead.
  */
 export interface SettingRow {
@@ -1192,22 +1192,22 @@ export interface SettingRow {
   kind: SettingValueKind;
   /** The product default a reset returns to. Stored as a string per `kind`; empty for secrets. */
   defaultValue: string;
-  /** The stored value, or null for a secret — those never leave the server. */
+  /** The stored value, or null for a secret - those never leave the server. */
   value: string | null;
   secret: boolean;
   /** The stored value differs from the product default, so a reset would do something. */
   overridden: boolean;
-  /** Whether the effective value is non-empty — the only way a secret reveals it is set. */
+  /** Whether the effective value is non-empty - the only way a secret reveals it is set. */
   hasValue: boolean;
   /**
    * Whether this row can be written. False for every environment value, and for a secret on an
-   * instance with no encryption key configured — there's nowhere safe to store that one.
+   * instance with no encryption key configured - there's nowhere safe to store that one.
    */
   editable: boolean;
   access: SettingAccess;
 }
 
-// ——— Retention ———
+// --- Retention ---
 
 /** Retention settings to preview before saving; anything left out keeps its current value. */
 export interface RetentionProposal {
@@ -1264,7 +1264,7 @@ export interface AggregationRetentionCheck {
   warning: string | null;
 }
 
-// ——— Exchanges ———
+// --- Exchanges ---
 
 /**
  * The four observable outcomes of an exchange. "badResponse" = the handler
@@ -1280,7 +1280,7 @@ export interface ExchangeFileRef {
   key: string | null;
 }
 
-/** One exchange as the Exchanges page sees it — names pre-resolved for display. */
+/** One exchange as the Exchanges page sees it - names pre-resolved for display. */
 export interface ExchangeRow {
   id: string;
   status: ExchangeStatus;
@@ -1298,7 +1298,7 @@ export interface ExchangeRow {
   retryFor: string | null;
   /**
    * True when a retry has already been made from this exchange. An exchange gets at most one
-   * retry, so this is also what makes it un-retryable — the newest attempt in the chain is the
+   * retry, so this is also what makes it un-retryable - the newest attempt in the chain is the
    * one to act on.
    */
   hasRetry: boolean;
@@ -1315,7 +1315,7 @@ export interface ExchangeRow {
   sourceXchangeId: string | null;
   /** What it read from the input of `sourceXchangeId`, the original document, by path. */
   sourceValues: Record<string, string | null> | null;
-  /** True when the subscription has no mapper — the Mapped stage is skipped. */
+  /** True when the subscription has no mapper - the Mapped stage is skipped. */
   mapperSkipped: boolean;
   files: {
     input: ExchangeFileRef | null;
@@ -1329,7 +1329,7 @@ export interface RetryTreeNode {
   id: string;
   /** null on the original attempt. */
   retryFor: string | null;
-  /** What the payload promoted — how an attempt is named, the same as in the exchange list. */
+  /** What the payload promoted - how an attempt is named, the same as in the exchange list. */
   promotedProperties: Record<string, string | null> | null;
   startedOn: string;
   finishedOn: string | null;
@@ -1365,7 +1365,7 @@ export interface RetrySubstitution {
 }
 
 export interface RetrySkip {
-  /** The exchange the skip is about — the one selected, or the attempt that stood in for it. */
+  /** The exchange the skip is about - the one selected, or the attempt that stood in for it. */
   id: string;
   reason: string;
 }
@@ -1404,7 +1404,7 @@ export interface ExchangeQuery {
   ids?: string;
   /**
    * The exchanges one run of a scheduled job created. The server reads the run's own list of
-   * them, so this says the same thing as spelling every id into `ids` — at any size, and
+   * them, so this says the same thing as spelling every id into `ids` - at any size, and
    * without putting them all in the URL.
    */
   receiveAttemptId?: number;
@@ -1432,7 +1432,7 @@ export interface Paged<T> {
   total: number;
 }
 
-// ——— Scheduled retries ———
+// --- Scheduled retries ---
 
 /** A failed exchange whose retry policy scheduled an automatic retry. */
 export interface ScheduledRetryRow {
@@ -1447,12 +1447,12 @@ export interface ScheduledRetryRow {
   exception: string | null;
   /** When the failed exchange originally started. */
   startedOn: string;
-  /** What the exchange carries — how a pending retry identifies itself in a list. */
+  /** What the exchange carries - how a pending retry identifies itself in a list. */
   promotedProperties: Record<string, string | null> | null;
   /**
    * The shared retry policy the subscription currently points at. Null when the
-   * policy is defined inline on the subscription instead, so the subscription — not
-   * the Retry policies list — is where to go and look.
+   * policy is defined inline on the subscription instead, so the subscription - not
+   * the Retry policies list - is where to go and look.
    */
   retryPolicyId: number | null;
   retryPolicyName: string | null;
@@ -1469,7 +1469,7 @@ export interface ScheduledRetryQuery {
   limit: number;
 }
 
-// ——— Queue health (Ops) ———
+// --- Queue health (Ops) ---
 
 export type QueueSeverity = "healthy" | "warning" | "critical";
 
@@ -1488,7 +1488,7 @@ export interface QueueHealthSummary {
 
 /**
  * What a queue is for. Resolved by `Ops/LaneResolver`, which sits next to
- * `WorkGroup.GetBusMessageName()` — the formula that builds the name in the
+ * `WorkGroup.GetBusMessageName()` - the formula that builds the name in the
  * first place. The wording for each lane is this app's, in `QueueHealthPage`.
  */
 export type QueueLane = "FrontDoor" | "Work" | "Notifications" | "Legacy" | "Control";
@@ -1541,7 +1541,7 @@ export interface DeadLetterRow {
 /**
  * A queue RabbitMQ has that nothing here reads: a paused information type's, or one left
  * behind by an older version of Bitween. Every other view on this page is built from what
- * the running process declares — so these are invisible everywhere else.
+ * the running process declares - so these are invisible everywhere else.
  */
 export interface UnattendedQueue {
   queueName: string;
@@ -1595,11 +1595,11 @@ export interface QueueHealthSnapshot {
   alerts: QueueAlert[];
 }
 
-// ——— Dashboard ———
+// --- Dashboard ---
 
 /** One chain that has been retried repeatedly and is still failing. */
 export interface FailingChain {
-  /** The newest attempt — where this chain got to, and the one a retry continues from. */
+  /** The newest attempt - where this chain got to, and the one a retry continues from. */
   id: string;
   /** How many attempts it has taken, counting the original as one. */
   attempts: number;
@@ -1627,10 +1627,10 @@ export interface DashboardData {
   failuresToActOn: number;
   today: { total: number; failed: number; processing: number };
   yesterdayTotal: number;
-  /** Percentage 0–100 across the last 7 days of finished exchanges. */
+  /** Percentage 0-100 across the last 7 days of finished exchanges. */
   successRate7d: number;
   pendingRetries: number;
-  /** Null when the RabbitMQ management API is unavailable — never counts as zero. */
+  /** Null when the RabbitMQ management API is unavailable - never counts as zero. */
   queueAlerts: number | null;
   /** Last 14 days, oldest first; today is the final entry. */
   trafficByDay: { date: string; success: number; failed: number }[];
@@ -1652,12 +1652,12 @@ export interface DashboardData {
 }
 
 /**
- * One connection setting, as the adapter itself declares it. The UI keeps no list of its own —
+ * One connection setting, as the adapter itself declares it. The UI keeps no list of its own -
  * see DataSourceProviderCatalog on the server for why.
  */
 export interface DataSourceProviderSetting {
   name: string;
-  /** string, number or boolean — enough to pick an input, nothing more. */
+  /** string, number or boolean - enough to pick an input, nothing more. */
   type: "string" | "number" | "boolean";
   hint: string | null;
   /** What a new data source starts with. Null means start it empty. */
@@ -1673,7 +1673,7 @@ export interface DataSourceProvider {
   label: string;
   /**
    * What it connects to: Broker, Relational, Document, ObjectStore or Http. A bus gateway can
-   * only read from a Broker — a provider that holds a database session is a data source too, but
+   * only read from a Broker - a provider that holds a database session is a data source too, but
    * it has no queue to consume.
    */
   kind: string;

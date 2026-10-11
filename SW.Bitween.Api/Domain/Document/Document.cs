@@ -24,7 +24,7 @@ namespace SW.Bitween.Domain
             DocumentFormat = format;
         }
 
-        /// <summary>Production creation path — Id is database-generated. Code is optional.</summary>
+        /// <summary>Production creation path - Id is database-generated. Code is optional.</summary>
         public Document(string code, string name, DocumentFormat format)
         {
             Code = code;

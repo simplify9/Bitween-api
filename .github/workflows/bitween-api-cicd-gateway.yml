@@ -52,14 +52,14 @@ jobs:
       image-name: 'simplify9/bitween'
 
       # Build + unit-test + push the SDK NuGet package (versioned with the
-      # pipeline semver, e.g. 8.1.x — was 8.0.<run_number> in the old job),
+      # pipeline semver, e.g. 8.1.x - was 8.0.<run_number> in the old job),
       # and the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference.
       nuget-projects: >-
         SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
         SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
       run-tests: 'true'
       # Integration tests run against real Postgres/RabbitMQ/MailHog via
-      # Testcontainers — self-contained, no extra CI services needed, since
+      # Testcontainers - self-contained, no extra CI services needed, since
       # ubuntu-latest already has a Docker daemon available.
       test-projects: |
         SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
@@ -73,7 +73,7 @@ jobs:
       routing-mode: 'gateway-api'
       gateway-hostnames: 'app-dev.bitween.io'
       # '/' serves the admin SPA out of this image's wwwroot, so the root has to route
-      # here too — previously only /api and /swagger did, leaving the root on the retired
+      # here too - previously only /api and /swagger did, leaving the root on the retired
       # legacy Bitween-UI deployment and making every deploy look like the UI never changed.
       gateway-paths: '/,/api,/swagger'
       # app-dev.bitween.io is not *.sf9.io, so the deploy auto-onboards a
@@ -95,7 +95,7 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # NuGet API key for the SDK package push (publishes to nuget.org, the
-      # reusable's default feed — no nuget-source override needed).
+      # reusable's default feed - no nuget-source override needed).
       nuget-api-key: ${{ secrets.SWNUGETKEY }}
 
       # Gateway-API cluster kubeconfig (V2)
@@ -106,7 +106,7 @@ jobs:
       # App configuration passed to helm --set-string during deploy (masked)
       #
       # global.token.key signs every authentication token. The chart still carries a sample
-      # key as its default, and that value is published in this public repository — anyone
+      # key as its default, and that value is published in this public repository - anyone
       # holding it can mint a token for any identity, so the app refuses to start on it.
       # Set the TokenKey secret to a long random string unique to this environment
       # (openssl rand -base64 48). Changing it signs out everyone holding an older token.

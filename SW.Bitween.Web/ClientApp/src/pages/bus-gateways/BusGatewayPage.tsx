@@ -59,7 +59,7 @@ const LIST_KEY = "bitween-bus-studio-list";
 interface RouteEdit {
   routeId: number | "new";
   draft: RouteDraft;
-  /** null while the route is being added — nothing to compare to yet. */
+  /** null while the route is being added - nothing to compare to yet. */
   saved: RouteDraft | null;
 }
 interface SubscriptionEdit {
@@ -68,7 +68,7 @@ interface SubscriptionEdit {
   saved: SubscriptionDraft;
   /**
    * A response subscription being defined here only: the information type of the responses it
-   * runs on. Not in the draft because nothing else asks — every other hop's is fixed.
+   * runs on. Not in the draft because nothing else asks - every other hop's is fixed.
    */
   informationTypeId?: number | null;
 }
@@ -76,15 +76,15 @@ interface SubscriptionEdit {
 /**
  * The bus gateway, as a workspace rather than a table of routes.
  *
- * A route is three answers — what it matches, whose values it runs with, and what
- * it runs — and the thing an operator actually needs to see is the fourth: what
+ * A route is three answers - what it matches, whose values it runs with, and what
+ * it runs - and the thing an operator actually needs to see is the fourth: what
  * happens after that. The table could show the first three and nothing else, so
  * every question past "which subscription" meant leaving the page. Here the whole
  * path is one diagram and every part of it is editable in place: the route, the
  * subscription behind it, its delivery, its response, and whoever picks that
  * response up.
  *
- * Keyed by id. Opening another gateway from here — a listener card on the canvas — keeps
+ * Keyed by id. Opening another gateway from here - a listener card on the canvas - keeps
  * the same route mounted, and without a key the page you left stayed in its state: its
  * name in the title, read back as an unsaved rename, which Save wrote onto the new gateway.
  */
@@ -130,7 +130,7 @@ function BusGatewayStudio() {
   const [routeEdit, setRouteEdit] = useState<RouteEdit | null>(null);
   /**
    * One per hop that has been opened, by subscription id. Kept per hop rather than for the open
-   * one alone, so defining a response subscription — which changes the hop before it too — and
+   * one alone, so defining a response subscription - which changes the hop before it too - and
    * moving between the two loses neither.
    */
   const [edits, setEdits] = useState<Record<number, SubscriptionEdit>>({});
@@ -164,7 +164,7 @@ function BusGatewayStudio() {
       { replace: true },
     );
 
-  // ——— drafts ———
+  // --- drafts ---
 
   const g: BusGatewayDetail | undefined = gateway.data;
 
@@ -192,7 +192,7 @@ function BusGatewayStudio() {
     if (found) setRouteEdit({ routeId: selection, draft: routeDraftOf(found), saved: routeDraftOf(found) });
   }, [selection, g, routeEdit]);
 
-  // ——— the response chain, up to three hops ———
+  // --- the response chain, up to three hops ---
 
   const id0 = routeEdit?.draft.subscriptionId ?? null;
   const q0 = useQuery({
@@ -269,7 +269,7 @@ function BusGatewayStudio() {
       }));
       return;
     }
-    // A new response subscription is seeded when it is started — see `startNewResponse`.
+    // A new response subscription is seeded when it is started - see `startNewResponse`.
     if (active.id < 0 || !activeData || activeData.id !== active.id) return;
     const seeded = draftOf(activeData);
     setEdits((all) => ({ ...all, [active.id]: { subscriptionId: active.id, draft: seeded, saved: structuredClone(seeded) } }));
@@ -287,7 +287,7 @@ function BusGatewayStudio() {
       type: "Response" as const,
     }));
 
-  // ——— what's unsaved ———
+  // --- what's unsaved ---
 
   const nameDirty = !!g && name !== null && name !== g.name;
   const isNewRoute = routeEdit?.routeId === "new";
@@ -350,7 +350,7 @@ function BusGatewayStudio() {
 
   /**
    * Hop `index` in the shape the API takes, with a response subscription being defined after it
-   * nested inside — the two are written in one save, so neither can exist without the other.
+   * nested inside - the two are written in one save, so neither can exist without the other.
    */
   const inlineHop = (index: number): InlineSubscriptionDraft => {
     const own = edits[chain[index].id]!;
@@ -369,12 +369,12 @@ function BusGatewayStudio() {
     };
   };
 
-  // Escape closes the open node, but only when it holds nothing unsaved — the
+  // Escape closes the open node, but only when it holds nothing unsaved - the
   // same rule the subscription studio applies to its stages.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || !node) return;
-      // A dialog on top owns Escape — see `dialogsOpen`.
+      // A dialog on top owns Escape - see `dialogsOpen`.
       if (dialogsOpen()) return;
       const el = document.activeElement;
       if (el instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName)) return;
@@ -387,7 +387,7 @@ function BusGatewayStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node, routeIsDirty, isNewRoute, edit]);
 
-  // ——— saving ———
+  // --- saving ---
 
   const save = useMutation({
     mutationFn: async () => {
@@ -396,7 +396,7 @@ function BusGatewayStudio() {
       if (nameDirty && name !== null)
         await api.updateBusGateway(gatewayId, { name, inactive: g.inactive });
       // A subscription being defined here is not written on its own: it goes with the
-      // route — or, for a response subscription, with the hop feeding it — in the one call
+      // route - or, for a response subscription, with the hop feeding it - in the one call
       // the endpoint commits as a single transaction, so a failure can't leave a
       // subscription nothing points at.
       const definingSubscription = routeEdit?.draft.subscriptionId === NEW_SUBSCRIPTION_ID;
@@ -438,7 +438,7 @@ function BusGatewayStudio() {
         queryFn: () => api.getBusGateway(gatewayId),
         // This has to be the saved gateway, not the one we already had: fetchQuery honours
         // staleTime, and this key inherits the five minutes registered for bus gateways, so
-        // without this it returns the copy from before the save — and the new route would be
+        // without this it returns the copy from before the save - and the new route would be
         // missing from fresh.routes below.
         staleTime: 0,
       });
@@ -583,7 +583,7 @@ function BusGatewayStudio() {
       return (
         <p className="text-sm text-ink-500">
           {routeEdit?.draft.subscriptionId === null
-            ? "Pick the subscription this route runs, or define one — this step belongs to it."
+            ? "Pick the subscription this route runs, or define one - this step belongs to it."
             : "Loading the subscription…"}
         </p>
       );
@@ -593,7 +593,7 @@ function BusGatewayStudio() {
     const isResponseHop = isNewResponseSubscriptionId(edit.subscriptionId) || activeData?.type === "Response";
 
     // Its cards drawn straight on the canvas as the next hop, the way a route's new subscription
-    // is. Not past the third hop — the canvas draws no further, so it could not be edited.
+    // is. Not past the third hop - the canvas draws no further, so it could not be edited.
     const startNewResponse =
       activeIndex < 2
         ? () => {
@@ -668,7 +668,7 @@ function BusGatewayStudio() {
               (x) => x.id !== edit.subscriptionId,
             )}
             onNewResponseSubscription={startNewResponse}
-            // It is already the next hop on the canvas, so opening it is selecting that hop —
+            // It is already the next hop on the canvas, so opening it is selecting that hop -
             // unless this is the last hop the canvas draws, and then it is its own page.
             onOpenResponseSubscription={(target) => {
               const at = chain.findIndex((h) => h.id === target);
@@ -685,7 +685,7 @@ function BusGatewayStudio() {
       {leaveDialog}
       {editingSource && <SourceDialog gateway={g} onClose={() => setEditingSource(false)} />}
 
-      {/* ——— toolbar ——— */}
+      {/* --- toolbar --- */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-ink-200 bg-white px-4 py-2.5">
         <BackLink to="/bus-gateways" label="Bus gateways" className="shrink-0" />
         <span className="h-5 w-px shrink-0 bg-ink-200" aria-hidden />
@@ -713,16 +713,16 @@ function BusGatewayStudio() {
         {g.inactive && <Badge tone="warn">Deactivated</Badge>}
         {/* The information type, its bus message name, and whether it is even on the
             bus. This was a canvas node, but it is a property of the gateway, not of
-            any one route — repeating it on every route's diagram said otherwise. */}
+            any one route - repeating it on every route's diagram said otherwise. */}
         <Link
           to={`/information-types/${g.informationTypeId}`}
           className="flex shrink-0 items-center gap-1.5"
           title={
             g.dataSourceId == null
-              ? `${g.informationTypeName} — listens on the bus${
+              ? `${g.informationTypeName} - listens on the bus${
                   ownType?.busMessageTypeName ? ` as ${ownType.busMessageTypeName}` : ""
                 }`
-              : `${g.informationTypeName} — arrives from ${g.dataSourceName}`
+              : `${g.informationTypeName} - arrives from ${g.dataSourceName}`
           }
         >
           <CodeBadge code={g.informationTypeCode} name={g.informationTypeName} />
@@ -741,7 +741,7 @@ function BusGatewayStudio() {
         </Link>
 
         {/* Where the messages come from. Next to the information type because the two are one
-            thought — what arrives, and from where — and both belong to the gateway rather than to
+            thought - what arrives, and from where - and both belong to the gateway rather than to
             any one route. */}
         <button
           type="button"
@@ -750,7 +750,7 @@ function BusGatewayStudio() {
           title={
             g.dataSourceId == null
               ? "Reads Bitween's own internal bus. Click to read a broker outside Bitween instead."
-              : `Reads ${g.endpoint ?? "—"} on ${g.dataSourceName}. Click to change.`
+              : `Reads ${g.endpoint ?? "-"} on ${g.dataSourceName}. Click to change.`
           }
           className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-ink-600 enabled:hover:bg-ink-100"
         >
@@ -812,7 +812,7 @@ function BusGatewayStudio() {
         </Can>
       </div>
 
-      {/* ——— workspace ——— */}
+      {/* --- workspace --- */}
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="relative flex min-h-0 flex-1 flex-col">
           {/* Over the canvas rather than beside it: the panel is as tall as its
@@ -833,7 +833,7 @@ function BusGatewayStudio() {
           )}
           {routeEdit === null ? (
             <div className="flex min-h-0 flex-1 items-center justify-center bg-canvas p-8">
-              <EmptyState title={`No routes — every ${g.informationTypeCode} message here is ignored`}>
+              <EmptyState title={`No routes - every ${g.informationTypeCode} message here is ignored`}>
                 {canEdit && (
                   <Button
                     variant="primary"
@@ -911,7 +911,7 @@ function BusGatewayStudio() {
         </div>
       </div>
 
-      {/* ——— dialogs ——— */}
+      {/* --- dialogs --- */}
       {partnerDialog !== undefined && (
         <PartnerDialog
           partnerId={partnerDialog}
@@ -928,7 +928,7 @@ function BusGatewayStudio() {
           body={
             <>
               You have unsaved changes to {dirtyLabels.join(", ")}. Leaving {guarded.what} now throws them
-              away — Save changes first if you want to keep them.
+              away - Save changes first if you want to keep them.
             </>
           }
           confirmLabel="Discard and continue"
@@ -980,7 +980,7 @@ function BusGatewayStudio() {
           title={g.inactive ? `Activate ${g.name}?` : `Deactivate ${g.name}?`}
           body={
             g.inactive
-              ? `${g.informationTypeName} messages reach its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"} again. Anything published while it was off is gone — the message was offered and this gateway wasn't listening.`
+              ? `${g.informationTypeName} messages reach its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"} again. Anything published while it was off is gone - the message was offered and this gateway wasn't listening.`
               : `${g.informationTypeName} messages stop reaching its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"}. Other gateways bound to the same message are unaffected, and the routes themselves are kept.`
           }
           confirmLabel={g.inactive ? "Activate" : "Deactivate"}
@@ -1020,7 +1020,7 @@ function BusGatewayStudio() {
  * record otherwise. Taking the draft is what makes picking a response
  * target grow the chain on the canvas before anything is saved.
  *
- * Matched on the subscription's own id rather than on which hop is active — a
+ * Matched on the subscription's own id rather than on which hop is active - a
  * stale `?hop=` in the URL would otherwise leave the edited node reading from
  * saved data while the draft went nowhere.
  */

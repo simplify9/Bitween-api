@@ -14,14 +14,14 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Creating, changing and removing an integration — the entity the whole product is arranged
+/// Creating, changing and removing an integration - the entity the whole product is arranged
 /// around, and the one the redesigned UI touches on nearly every screen.
 /// </summary>
 /// <remarks>
 /// The delete path gets most of the attention here. All four references are RESTRICT in the
 /// database, so a delete was always refused; what the handler adds is <em>saying what is holding
 /// it</em> instead of letting a foreign key violation surface as a 500. That message is the whole
-/// feature, so these tests assert on its content rather than just on the refusal — a check that
+/// feature, so these tests assert on its content rather than just on the refusal - a check that
 /// only asserted "it threw" would still pass if the message went back to being useless.
 /// </remarks>
 [Collection("Bitween")]
@@ -101,7 +101,7 @@ public class SubscriptionLifecycleTests(BitweenFixture fixture)
     ///
     /// Sounds too small to test, and it is exactly the field a merge dropped from the projection
     /// once. Nothing failed: the API answered with dataSourceId null while the row held an id, so
-    /// the UI read every bound subscription as unbound — and saving one from that screen wrote the
+    /// the UI read every bound subscription as unbound - and saving one from that screen wrote the
     /// null back and quietly unbound it. A projection is only as good as the thing that notices a
     /// field missing from it.
     /// </summary>
@@ -157,7 +157,7 @@ public class SubscriptionLifecycleTests(BitweenFixture fixture)
 
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => Delete(id));
 
-        // The operator has to be able to go straight to the thing holding it — a bare refusal
+        // The operator has to be able to go straight to the thing holding it - a bare refusal
         // sends them hunting through every gateway by hand.
         Assert.Contains("Orders bus", ex.Message);
         Assert.Contains("route", ex.Message);

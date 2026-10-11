@@ -99,7 +99,7 @@ export function ApiGatewayPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const canEdit = useSessionCan("api-gateways.edit");
   const wiredColumns = useWiredSubscriptionColumns<ApiGatewayAttachment>((a) => a.subscriptionId);
-  // Where each attached subscription's response goes — not on the attachment rows themselves.
+  // Where each attached subscription's response goes - not on the attachment rows themselves.
   const cachedSetups = useSubscriptionsCache().data;
   const setups = useMemo(() => cachedSetups ?? [], [cachedSetups]);
   const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
@@ -174,7 +174,7 @@ export function ApiGatewayPage() {
       api.updateApiGateway(gatewayId, {
         name,
         urlName: finishUrlName(urlName),
-        // Round-tripped, never edited here — Update replaces the record, so leaving it
+        // Round-tripped, never edited here - Update replaces the record, so leaving it
         // out would reactivate a deactivated gateway on an unrelated rename.
         inactive: gateway.data?.inactive ?? false,
         authentication: trimmedAuth(auth),
@@ -268,8 +268,8 @@ export function ApiGatewayPage() {
                 onChange={(e) => setUrlName(toUrlName(e.target.value))}
               />
             </Field>
-            <CopyField value={`/api/gateway/${urlName}/sync`} label="Synchronous — waits for the result" />
-            <CopyField value={`/api/gateway/${urlName}/async`} label="Asynchronous — returns the exchange id" />
+            <CopyField value={`/api/gateway/${urlName}/sync`} label="Synchronous - waits for the result" />
+            <CopyField value={`/api/gateway/${urlName}/async`} label="Asynchronous - returns the exchange id" />
           </div>
         </Panel>
 
@@ -342,7 +342,7 @@ export function ApiGatewayPage() {
 
           {/*
             The URLs alone are not enough to make a call, and how to prove who is calling
-            appears nowhere else in the product — it is only in the C# that checks it.
+            appears nowhere else in the product - it is only in the C# that checks it.
             Without this, handing a partner the endpoint still leaves them guessing.
           */}
           <div className="mt-4 border-t border-ink-100 pt-4">
@@ -355,7 +355,7 @@ export function ApiGatewayPage() {
                   className="ml-2 tracking-normal text-warn-700 normal-case"
                   title="Partners can't call it this way until you save."
                 >
-                  — with your unsaved changes
+                  - with your unsaved changes
                 </span>
               )}
             </p>
@@ -369,8 +369,8 @@ export function ApiGatewayPage() {
                   className="mt-2 divide-y divide-ink-100 rounded-lg border border-ink-200"
                 >
                   {[
-                    { label: "iss", tip: "Who issued the token: the login server above.", value: auth.issuer.trim() || "—" },
-                    { label: "aud", tip: "Who the token is for: the audience above.", value: auth.audience.trim() || "—" },
+                    { label: "iss", tip: "Who issued the token: the login server above.", value: auth.issuer.trim() || "-" },
+                    { label: "aud", tip: "Who the token is for: the audience above.", value: auth.audience.trim() || "-" },
                     {
                       label: claim,
                       tip: "Who is calling: must equal the login server identity on one attached partner's page.",
@@ -388,7 +388,7 @@ export function ApiGatewayPage() {
                 </dl>
                 <p className="mt-2 text-[12px] text-ink-500">
                   The token's <code className="rounded bg-ink-100 px-1 py-0.5 font-mono text-[11px]">{claim}</code>{" "}
-                  is what identifies the caller — it decides which attached partner the exchange runs as. Each
+                  is what identifies the caller - it decides which attached partner the exchange runs as. Each
                   partner's identity is set on its{" "}
                   <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
                     partner page
@@ -417,7 +417,7 @@ export function ApiGatewayPage() {
                   ))}
                 </dl>
                 <p className="mt-2 text-[12px] text-ink-500">
-                  The key is what identifies the caller — it decides which attached partner the exchange
+                  The key is what identifies the caller - it decides which attached partner the exchange
                   runs as, so each partner sends its own. Keys are issued on a{" "}
                   <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
                     partner's page
@@ -464,7 +464,7 @@ export function ApiGatewayPage() {
               empty={
                 attachmentsQuery
                   ? "No attached partners match."
-                  : "No partners attached — the gateway answers 401 to everyone. Attach a partner to bring it to life."
+                  : "No partners attached - the gateway answers 401 to everyone. Attach a partner to bring it to life."
               }
               columns={[
                 {
@@ -472,7 +472,7 @@ export function ApiGatewayPage() {
                   // Both name columns wrap rather than shrink to fit. Every column here but
                   // "Last error" was shrink-to-content, so all the slack in a full-width panel
                   // pooled in that one column and left the other six bunched against each other
-                  // down the left-hand side — which is what read as cramped, more than the
+                  // down the left-hand side - which is what read as cramped, more than the
                   // padding did. `wrap` is what the width strategy says a name should use anyway.
                   wrap: true,
                   cell: (a) => (
@@ -520,7 +520,7 @@ export function ApiGatewayPage() {
                   wrap: true,
                   cell: (a) => {
                     const s = setupById.get(a.subscriptionId);
-                    if (!s) return <span className="text-ink-500">—</span>;
+                    if (!s) return <span className="text-ink-500">-</span>;
                     if (s.handlerId === null)
                       return (
                         <span className="text-[13px] text-ink-500" title="It delivers nothing, so there is no response.">

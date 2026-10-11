@@ -27,7 +27,7 @@ public class GatewayController(
 {
     /// <summary>
     /// <c>{gateway's url name}/sync</c> or <c>/async</c>. The url name can be several segments,
-    /// so it is everything before the last one — a route can't put a literal after a catch-all.
+    /// so it is everything before the last one - a route can't put a literal after a catch-all.
     /// </summary>
     /// <remarks>
     /// The literal "gateway" is what keeps this clear of CqApi, which owns the rest of /api/ with
@@ -90,7 +90,7 @@ public class GatewayController(
         await activity.KeyUsedAsync(partner.Id, keyName);
 
         // After authorisation on purpose: whether a gateway exists and is switched off is
-        // something only an attached partner should learn — checking it earlier would
+        // something only an attached partner should learn - checking it earlier would
         // answer that for anyone who guessed the url.
         //
         // 503 rather than 404 because the url is right and the partner should keep it: a
@@ -113,7 +113,7 @@ public class GatewayController(
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
-        // The file name travels with the exchange into handlers, some of which write it to disk —
+        // The file name travels with the exchange into handlers, some of which write it to disk -
         // a slash there is a directory nobody asked for. JSON and XML types keep the ".json"
         // they have always had, since whatever picks those files up may expect it.
         var document = await cache.DocumentByIdAsync(subscription.DocumentId);
@@ -139,7 +139,7 @@ public class GatewayController(
 
         var xchangeReferences = new List<string> { callerReference };
 
-        // A repeat of a call the partner couldn't be sure arrived — same Idempotency-Key — gets the
+        // A repeat of a call the partner couldn't be sure arrived - same Idempotency-Key - gets the
         // exchange the first one made, not a second. Scoped to this gateway and this partner.
         var idempotencyKey = Request.Headers[IdempotencyGuard.Header].FirstOrDefault()?.Trim();
         if (idempotencyKey?.Length > IdempotencyGuard.MaxKeyLength)

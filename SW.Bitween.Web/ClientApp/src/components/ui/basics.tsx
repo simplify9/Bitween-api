@@ -46,7 +46,7 @@ export function Button({
 
 /**
  * `crimson` is brand emphasis ("You", "Unsaved") and follows the theme color.
- * `danger` means something is wrong and stays red — see the danger ramp in index.css.
+ * `danger` means something is wrong and stays red - see the danger ramp in index.css.
  */
 type BadgeTone = "neutral" | "crimson" | "danger" | "ok" | "warn" | "ink";
 
@@ -67,7 +67,7 @@ export function Badge({
 }: {
   tone?: BadgeTone;
   className?: string;
-  /** Hover explanation — for badges whose one word can't carry the whole meaning. */
+  /** Hover explanation - for badges whose one word can't carry the whole meaning. */
   title?: string;
   children: ReactNode;
 }) {

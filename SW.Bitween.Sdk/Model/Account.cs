@@ -15,7 +15,7 @@ public class CreateAccountModel
 
     /// <summary>
     /// Legacy coarse role. Nullable on purpose: when it was a plain int, a request that omitted it
-    /// sent 0 — which is Admin — so a member added with no roles came out an administrator.
+    /// sent 0 - which is Admin - so a member added with no roles came out an administrator.
     /// </summary>
     public int? Role { get; set; }
 
@@ -29,7 +29,7 @@ public class UpdateAccountModel
 
     /// <summary>
     /// Legacy coarse role. Nullable on purpose: when it was a plain int, a request that omitted it
-    /// sent 0 — which is Admin. Only supplied values are applied, and only with users.edit.
+    /// sent 0 - which is Admin. Only supplied values are applied, and only with users.edit.
     /// </summary>
     public int? Role { get; set; }
 }
@@ -85,7 +85,7 @@ public class ProfileModel : AccountModel
     /// <summary>
     /// The account still has the password it was created with, so its token grants nothing until
     /// that is changed. Here as well as on the sign-in response because a reload has no sign-in
-    /// response to read — without it, refreshing the page lands on an app with every screen denied
+    /// response to read - without it, refreshing the page lands on an app with every screen denied
     /// and no explanation.
     /// </summary>
     public bool MustChangePassword { get; set; }

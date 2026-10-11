@@ -23,7 +23,7 @@ public class IdempotencyKey
 
     public long Id { get; private set; }
 
-    /// <summary>Who the key belongs to — gateway and partner — so two callers can't collide.</summary>
+    /// <summary>Who the key belongs to - gateway and partner - so two callers can't collide.</summary>
     public string Scope { get; private set; }
 
     public string Key { get; private set; }

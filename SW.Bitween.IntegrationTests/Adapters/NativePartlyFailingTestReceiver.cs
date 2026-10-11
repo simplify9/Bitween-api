@@ -8,7 +8,7 @@ using System.Threading;
 
 namespace SW.Bitween.IntegrationTests.Adapters;
 
-/// <summary>Lists three items and cannot read the middle one — for the "one bad file" path.</summary>
+/// <summary>Lists three items and cannot read the middle one - for the "one bad file" path.</summary>
 public class NativePartlyFailingTestReceiver : INativeInfolinkReceiver
 {
     public static readonly ConcurrentBag<string> Deleted = new();

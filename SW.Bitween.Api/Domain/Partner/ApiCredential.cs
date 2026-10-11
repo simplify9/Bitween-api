@@ -19,7 +19,7 @@ namespace SW.Bitween.Domain
 
         public string Name { get; private set; }
 
-        /// <summary>The key's hash — <c>sha256:...</c> — or, on a row not yet converted, the key.</summary>
+        /// <summary>The key's hash - <c>sha256:...</c> - or, on a row not yet converted, the key.</summary>
         public string Key { get; private set; }
 
         /// <summary>The first characters of the key, so a screen can tell one key from another.</summary>

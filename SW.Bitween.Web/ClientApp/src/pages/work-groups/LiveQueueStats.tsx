@@ -22,7 +22,7 @@ function LiveStat({ label, value, tone }: { label: string; value: ReactNode; ton
 }
 
 /**
- * One work group's slice of the live RabbitMQ picture — the same numbers
+ * One work group's slice of the live RabbitMQ picture - the same numbers
  * the Queue health page shows, on the group's own page. The list page renders
  * these as columns instead, off the same shared query.
  */
@@ -64,7 +64,7 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
         {consumer.isBackpressured && (
           <Badge
             tone="warn"
-            title="Queue depth has passed its configured threshold — messages are arriving faster than they're being consumed."
+            title="Queue depth has passed its configured threshold - messages are arriving faster than they're being consumed."
           >
             Backpressure
           </Badge>

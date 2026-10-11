@@ -16,9 +16,9 @@ import {
  * The audit trail, end to end.
  *
  * Two things make these tests different from the rest of the suite. Audit rows are never
- * deleted — that is the point of the table — so nothing here may assume the trail is empty or
+ * deleted - that is the point of the table - so nothing here may assume the trail is empty or
  * that its own row is first; every assertion is scoped to the entity it created. And the
- * trail's whole value rests on one negative claim — that credentials never reach it — which is
+ * trail's whole value rests on one negative claim - that credentials never reach it - which is
  * asserted against the stored row, not against what the screen happens to render.
  */
 
@@ -63,12 +63,12 @@ test.describe("audit trail", () => {
     await expect(page).toHaveURL(/\/partners\/\d+$/);
     const id = page.url().split("/").pop()!;
 
-    // — the create shows on the partner's own page —
+    // - the create shows on the partner's own page -
     const panel = historyPanel(page);
     await expect(panel).toBeVisible();
     await expect(panel.getByRole("row").filter({ hasText: "Added" })).toBeVisible();
 
-    // — renaming records both sides of the change —
+    // - renaming records both sides of the change -
     await page.getByRole("textbox", { name: "Name", exact: true }).fill(renamed);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
@@ -77,7 +77,7 @@ test.describe("audit trail", () => {
     // so it has to catch up on its own. It used to need a manual refresh.
     await expect(panel.getByRole("row").filter({ hasText: "Modified" })).toBeVisible();
 
-    // The before/after values are reachable without a mouse — they used to be in a title,
+    // The before/after values are reachable without a mouse - they used to be in a title,
     // which keyboard and touch users can't get at.
     await panel.getByRole("button", { name: /Show what changed/ }).first().click();
     await expect(page.getByText(`"${name}"`, { exact: false }).first()).toBeVisible();
@@ -88,7 +88,7 @@ test.describe("audit trail", () => {
     const modified = afterRename.result.find((r) => r.state === "Modified");
     expect(modified?.changes.Name).toEqual({ old: name, new: renamed });
 
-    // — the deletion is recorded, which the trails this replaced never did —
+    // - the deletion is recorded, which the trails this replaced never did -
     await page.getByRole("button", { name: "Delete partner" }).first().click();
     await page.getByRole("button", { name: "Delete partner" }).last().click();
     await expect(page).toHaveURL(/\/partners$/);
@@ -102,7 +102,7 @@ test.describe("audit trail", () => {
   });
 
   test("without audit.view there is no nav item, no page, and no card", async ({ page }) => {
-    // Everything the role needs to reach the pages the card sits on — but not the trail.
+    // Everything the role needs to reach the pages the card sits on - but not the trail.
     const role = await createRole(page, {
       name: `PW No Audit ${Date.now()}`,
       permissions: [
@@ -116,7 +116,7 @@ test.describe("audit trail", () => {
 
     await expect(page.getByRole("navigation").getByRole("link", { name: "Audit trail" })).toHaveCount(0);
 
-    // Typing the URL must not work either — hiding a link is not a permission system.
+    // Typing the URL must not work either - hiding a link is not a permission system.
     await page.goto("audit");
     await expect(page.getByRole("heading", { name: "Audit trail" })).toHaveCount(0);
 

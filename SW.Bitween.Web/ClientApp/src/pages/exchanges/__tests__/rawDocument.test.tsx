@@ -83,7 +83,7 @@ describe("an exchange's document", () => {
   it("shows the bytes as they arrived, uncoloured, under Raw", async () => {
     // The Raw toggle's whole promise is that nothing has been done to the document. Colour is a
     // claim about its structure, and the pane was making that claim on both sides of the
-    // toggle — including for a payload that never parsed, where the parts a grammar still
+    // toggle - including for a payload that never parsed, where the parts a grammar still
     // recognises would come out looking fine.
     const { user } = openExchanges();
 

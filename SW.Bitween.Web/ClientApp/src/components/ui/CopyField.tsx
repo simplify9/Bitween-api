@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-/** A read-only mono value with a copy button — invite links, reset links. */
+/** A read-only mono value with a copy button - invite links, reset links. */
 export function CopyField({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 

@@ -15,7 +15,7 @@ namespace SW.Bitween.Model
 
         /// <summary>
         /// How callers prove who they are. Left out on create, the gateway takes partner keys;
-        /// left out on update, it keeps what it has — so a save that only renames or pauses the
+        /// left out on update, it keeps what it has - so a save that only renames or pauses the
         /// gateway can't quietly switch it back to partner keys.
         /// </summary>
         public ApiGatewayAuthentication? Authentication { get; set; }

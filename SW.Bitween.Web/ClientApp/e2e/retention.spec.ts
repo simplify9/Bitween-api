@@ -19,7 +19,7 @@ async function api<T>(page: Page, path: string): Promise<T> {
 
 /**
  * Whether the bucket deletes exchange files by age at all. The cloud providers' buckets carry a
- * temp30/ rule; local-disk storage — what tools/e2e.sh runs on — reports no rules, because
+ * temp30/ rule; local-disk storage - what tools/e2e.sh runs on - reports no rules, because
  * nothing on a local filesystem deletes files by age. The tests about that rule can only run
  * where it exists.
  */

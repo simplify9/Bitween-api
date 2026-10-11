@@ -14,7 +14,7 @@ import { LeafValueInput } from "../LeafValueInput";
 import { LookupDictionaryPanel } from "../LookupDictionaryPanel";
 import { useGlobalSets } from "../data";
 
-// ─── FixedItemFieldRows — recursive form for one fixed item's fields ──────────
+// ─── FixedItemFieldRows - recursive form for one fixed item's fields ──────────
 
 export interface FixedItemFieldRowsProps {
   fields: DraftField[];
@@ -107,7 +107,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                               {f.mode === 'source' ? (f.transform ? `fx(${f.value})` : f.value)
                                 : f.mode === 'partner' ? `__partner__.${f.partnerPropKey ?? ''}`
                                 : f.mode === 'global' ? `__globals__.${f.globalSetId ?? ''}["${f.globalKey ?? ''}"]`
-                                : (f.value || '—')}
+                                : (f.value || '-')}
                             </span>
                           </div>
                         ) : (
@@ -181,7 +181,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                 }}
               />
 
-              {/* Lookup button — only in source mode, matches OutputLeaf styling */}
+              {/* Lookup button - only in source mode, matches OutputLeaf styling */}
               {df.mode === 'source' && (
                 <button
                   onClick={() => {
@@ -220,7 +220,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                 onGlobalKeyChange={(key) => updateField(i, { globalKey: key })}
               />
 
-              {/* Delete row — only for free-key fields */}
+              {/* Delete row - only for free-key fields */}
               {hasFreeKey && (
                 <button
                   className="flex-shrink-0 text-ink-300 hover:text-crimson-500 transition"
@@ -244,7 +244,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
           </div>
         );
       })}
-      {/* Nested array dropdown — schema-only, depth-gated */}
+      {/* Nested array dropdown - schema-only, depth-gated */}
       {depth < FIXED_ITEM_MAX_DEPTH && availableArrayNodes.length > 0 && (
         <select
           className="w-full border border-crimson-200 bg-white rounded px-1.5 py-0.5 text-[10px] font-mono text-crimson-700 focus:outline-none focus:border-focus-400"

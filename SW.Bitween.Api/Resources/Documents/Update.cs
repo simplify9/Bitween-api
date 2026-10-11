@@ -63,16 +63,16 @@ namespace SW.Bitween.Resources.Documents
             var oldBusMessageTypeName = entity.BusMessageTypeName;
 
             // An absent list means none, the same as it does for retry policy groups.
-            // Left implicit it threw ArgumentNullException — a 500 for a request the
+            // Left implicit it threw ArgumentNullException - a 500 for a request the
             // API had simply never decided the meaning of.
             entity.SetDictionaries((model.PromotedProperties ?? []).ToDictionary());
-            // Name/Code have private setters — SetProperties only writes public-setter
+            // Name/Code have private setters - SetProperties only writes public-setter
             // properties, so it silently no-ops on these two (verified empirically).
             entity.SetName(model.Name);
             entity.SetCode(code);
             // The route key is what identifies the type; the body carries an Id too, and
             // SetProperties copies it straight onto the tracked entity. A caller that omits it
-            // sends 0, which EF rejects as an attempt to change a primary key — a 500 for a
+            // sends 0, which EF rejects as an attempt to change a primary key - a 500 for a
             // request that was perfectly well formed. Normalising it here makes the copy a no-op
             // whatever the body said.
             model.Id = key;

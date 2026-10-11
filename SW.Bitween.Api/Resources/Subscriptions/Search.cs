@@ -64,7 +64,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     Temporary = subscriber.Temporary,
                     ReceiveOn = subscriber.ReceiveOn,
                     // The next-fire time of the other scheduled type. Left out, an aggregation
-                    // row had no next run to show at all — ReceiveOn is only ever set for
+                    // row had no next run to show at all - ReceiveOn is only ever set for
                     // Receiving, and the list page reads one field for both.
                     AggregateOn = subscriber.AggregateOn,
                     AggregationTarget = subscriber.AggregationTarget,
@@ -125,7 +125,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
         /// <summary>Empties the adapter property collections on every returned row.</summary>
         /// <remarks>
-        /// Adapter properties hold credentials — a storage key, an OAuth secret, the password for a
+        /// Adapter properties hold credentials - a storage key, an OAuth secret, the password for a
         /// partner system. <c>Subscriptions/Get</c> replaces those with a sentinel before answering;
         /// this list endpoint returned them verbatim, which put every integration's secrets one
         /// request away from anyone allowed to see the list at all.
@@ -133,12 +133,12 @@ namespace SW.Bitween.Resources.Subscriptions
         /// Emptied here rather than left out of the projection because the projection needs them:
         /// the <c>rawsubscriptionproperties</c> filter searches inside their values, in memory, over
         /// the rows this query produced. So they are loaded, used, and then dropped before the
-        /// response is shaped. Nothing reads them off this endpoint — both UIs configure a
+        /// response is shaped. Nothing reads them off this endpoint - both UIs configure a
         /// subscription from <c>Subscriptions/Get</c>, and the list has never shown them.
         /// </para>
         /// <para>
         /// Emptied rather than masked because masking can only hide what an adapter declares
-        /// <c>[Secure]</c>, and the external adapters declare nothing — masking here would have
+        /// <c>[Secure]</c>, and the external adapters declare nothing - masking here would have
         /// looked like a fix while leaving those integrations exactly as exposed.
         /// </para>
         /// </remarks>
@@ -157,7 +157,7 @@ namespace SW.Bitween.Resources.Subscriptions
         /// <remarks>
         /// A second query rather than part of the projection above: <c>Schedule.On</c> is a
         /// <see cref="System.TimeSpan"/> stored as ticks, and reading <c>.Days</c>/<c>.Hours</c>/
-        /// <c>.Minutes</c> off it inside that joined query is what Postgres cannot translate — a
+        /// <c>.Minutes</c> off it inside that joined query is what Postgres cannot translate - a
         /// date_part type mismatch. Read flat for the ids actually being returned and shaped in
         /// memory, which asks nothing of the translator, so the list can finally say when a job
         /// runs instead of leaving its schedule column blank.
@@ -224,7 +224,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 };
             }
 
-            // Only the page being returned, same as the normal path — the edge-case filters run
+            // Only the page being returned, same as the normal path - the edge-case filters run
             // over the whole set in memory, and shaping schedules for all of it would be waste.
             var page = data.Skip(searchyRequest.PageSize * searchyRequest.PageIndex)
                 .Take(searchyRequest.PageSize).ToList();

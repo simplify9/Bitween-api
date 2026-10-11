@@ -72,7 +72,7 @@ export const PrimitiveArrayLeaf: React.FC<PrimitiveArrayLeafProps> = ({
         <div className="mx-2 mb-1.5 rounded-lg border border-warn-100 bg-warn-100 px-2 py-2 space-y-1">
           {currentItems.length === 0 && !primAmId && (
             <div className="flex items-center gap-2 py-0.5">
-              <span className="text-[10px] text-ink-500 italic">Empty array — no elements to map.</span>
+              <span className="text-[10px] text-ink-500 italic">Empty array - no elements to map.</span>
               <button
                 className="ml-auto text-[10px] font-medium text-ok-600 border border-ok-100 bg-white rounded px-2 py-0.5 hover:bg-ok-100 transition"
                 onClick={onMapEmptyArray}

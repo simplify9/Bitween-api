@@ -33,7 +33,7 @@ function collectLeafKeysFromChildren(children: TreeNode[], prefix = ''): string[
     const path = prefix ? `${prefix}.${c.key}` : c.key;
     if (c.type === 'leaf') return [path];
     if (c.type === 'object') return collectLeafKeysFromChildren(c.children, path);
-    return []; // skip arrays — handled separately
+    return []; // skip arrays - handled separately
   });
 }
 

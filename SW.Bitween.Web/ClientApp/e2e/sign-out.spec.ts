@@ -4,7 +4,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers";
 /**
  * Signing out, in the one way that needs a real browser: two tabs.
  *
- * The session lives in four places — a row in the database, the HttpOnly refresh
+ * The session lives in four places - a row in the database, the HttpOnly refresh
  * cookie, each tab's in-memory Jwt, and React's own copy. Only the last one decides
  * what you see, and each tab has its own. The other ways a sign-out used to leave
  * the app on screen are in src/auth/__tests__/SignOut.test.tsx; this one depends on
@@ -42,6 +42,6 @@ test("signing out in one tab ends the session in the other", async ({ page, cont
   await signOut(page);
   await page.waitForURL(/\/login/, { timeout: 5000 });
   // Both credentials are shared by every tab, so the session really has ended here
-  // too — this tab just never used to find out until someone pressed refresh.
+  // too - this tab just never used to find out until someone pressed refresh.
   await other.waitForURL(/\/login/, { timeout: 8000 });
 });

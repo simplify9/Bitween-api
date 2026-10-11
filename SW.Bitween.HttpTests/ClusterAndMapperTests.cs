@@ -8,7 +8,7 @@ using Xunit;
 namespace SW.Bitween.HttpTests;
 
 /// <summary>
-/// What one instance changes, another instance on the same database and broker picks up — by the
+/// What one instance changes, another instance on the same database and broker picks up - by the
 /// cache-revoke broadcast over RabbitMQ, not by a restart. And saving a subscription's mapper.
 /// </summary>
 [Collection("Http")]

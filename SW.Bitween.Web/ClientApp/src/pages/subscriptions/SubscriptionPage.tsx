@@ -39,8 +39,8 @@ import { PAGES, pathOf } from "../../pages";
 import { usePageTitle } from "../../lib/pageTitle";
 
 /**
- * Keyed by id. Going from one subscription's page straight to another's — down a response
- * chain, say — keeps the same route mounted, and without a key the draft of the one you left
+ * Keyed by id. Going from one subscription's page straight to another's - down a response
+ * chain, say - keeps the same route mounted, and without a key the draft of the one you left
  * stayed on screen as the next one's: its name in the title, its save bar, and its settings
  * written over the next one's on Save.
  */
@@ -85,7 +85,7 @@ function SubscriptionStudio() {
   const handlers = useAdapterCatalog("handler");
 
   // Shares the scheduled-jobs page's cache entry. The only per-stage fault we
-  // can honestly attribute — it comes from the scheduler's own trigger state.
+  // can honestly attribute - it comes from the scheduler's own trigger state.
   // Which adapters are database providers, so the connection controls appear only where they mean
   // something. Called with the other queries because this component returns early below, and a
   // hook after that point runs in a different order on the two paths.
@@ -110,7 +110,7 @@ function SubscriptionStudio() {
   const [opening, setOpening] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   // Back from creating a response subscription: the edits as they were left, with that one
-  // picked. Used for the first load only — Discard after that goes back to what is saved.
+  // picked. Used for the first load only - Discard after that goes back to what is saved.
   const detour = useResponseDetour<Draft>();
   const returning = useRef({ kept: detour.kept, picked: detour.pickedResponse });
 
@@ -138,14 +138,14 @@ function SubscriptionStudio() {
     return JSON.stringify(withoutMapper(draft)) !== JSON.stringify(withoutMapper(draftOf(subscription.data)));
   }, [subscription.data, draft]);
 
-  // Escape closes the open stage — but only when it holds nothing unsaved. A
+  // Escape closes the open stage - but only when it holds nothing unsaved. A
   // config panel that can be dismissed onto a half-finished handler is how you
   // lose an operator's work; if there are edits, Escape does nothing and the
   // save bar stays the way out.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // A dialog on top owns Escape — see `dialogsOpen`.
+      // A dialog on top owns Escape - see `dialogsOpen`.
       if (dialogsOpen()) return;
       const open = params.get("stage") as StageId | null;
       if (!open || !subscription.data || !draft) return;
@@ -169,7 +169,7 @@ function SubscriptionStudio() {
   // One call, because `all` is a prefix of `detail` and already covers it. Invalidating both
   // cancelled the detail refetch the first call had just started (invalidateQueries cancels by
   // default), so the promise awaited below belonged to the cancelled one and could resolve before
-  // the fresh data landed — the very race the await exists to prevent.
+  // the fresh data landed - the very race the await exists to prevent.
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
 
   const save = useMutation({
@@ -189,7 +189,7 @@ function SubscriptionStudio() {
   // Its own one-field write rather than a draft edit ridden along on the save
   // bar: this is the switch that drops work on the floor, so it applies when
   // asked for and not at some later save of unrelated configuration. The draft
-  // is patched to match so an operator's half-finished edits below survive it —
+  // is patched to match so an operator's half-finished edits below survive it -
   // and so the value doesn't immediately read back as unsaved.
   const setEnabled = useMutation({
     mutationFn: (enabled: boolean) => api.updateSubscription(subscriptionId, { enabled }),
@@ -288,8 +288,8 @@ function SubscriptionStudio() {
     );
 
   const triggerEmpty = isApiCall
-    ? "Invoked directly by id (legacy) — nothing to configure here."
-    : "Not wired into any gateway yet — it never runs.";
+    ? "Invoked directly by id (legacy) - nothing to configure here."
+    : "Not wired into any gateway yet - it never runs.";
 
   const saved = draftOf(s);
   const health = scheduleHealth.data?.find((h) => h.subscriptionId === s.id);
@@ -304,7 +304,7 @@ function SubscriptionStudio() {
       entryPoints,
       nextRunOn: s.nextReceiveOn,
       // The fault belongs to the Schedule node now that aggregations have one. It used
-      // to be pinned to the aggregation node too, which was the only node they had —
+      // to be pinned to the aggregation node too, which was the only node they had -
       // and that node could not be edited, so the page reported a broken schedule and
       // offered no way to fix it.
       fault: id === "schedule" ? fault : undefined,
@@ -438,7 +438,7 @@ function SubscriptionStudio() {
               version={draft.validatorVersion}
               onVersionChange={(v) => set("validatorVersion", v)}
               disabled={!canEdit}
-              noneLabel="None — accept every document"
+              noneLabel="None - accept every document"
             />
           </Panel>
         );
@@ -465,7 +465,7 @@ function SubscriptionStudio() {
               version={draft.mapperVersion}
               onVersionChange={(v) => set("mapperVersion", v)}
               disabled={!canEdit}
-              noneLabel="None — the document passes through unchanged"
+              noneLabel="None - the document passes through unchanged"
               mapperEditorHref={`/subscriptions/${s.id}/mapper`}
             />
             {bindsToDataSource(draft.mapperId, "mapper") && (
@@ -508,7 +508,7 @@ function SubscriptionStudio() {
               version={draft.handlerVersion}
               onVersionChange={(v) => set("handlerVersion", v)}
               disabled={!canEdit}
-              noneLabel="None — the document stops here"
+              noneLabel="None - the document stops here"
               sourceValues={sourceValues}
             />
             {bindsToDataSource(draft.handlerId, "handler") && (
@@ -558,7 +558,7 @@ function SubscriptionStudio() {
         <div role="alert" className="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
           <p className="font-medium">Every scheduled run is being skipped.</p>
           <p className="mt-0.5">
-            It is still marked as running from a run that didn't finish — usually one stopped with its node — so each
+            It is still marked as running from a run that didn't finish - usually one stopped with its node - so each
             run that comes due sees it busy and skips. The mark clears itself after a while; clearing it now lets the
             next run start.
           </p>
@@ -585,7 +585,7 @@ function SubscriptionStudio() {
             <TypeBadge type={s.type} />
             {/* Status is reported here and changed from the buttons on the right.
                 It used to be a clickable chip, indistinguishable from the Paused
-                badge beside it, that only edited the draft — so the lossy switch
+                badge beside it, that only edited the draft - so the lossy switch
                 saved later and quietly, while Pause, which keeps the work, asked
                 first and applied at once. */}
             <SubscriptionStatusBadges enabled={s.enabled} paused={paused} />
@@ -637,7 +637,7 @@ function SubscriptionStudio() {
                 title={
                   s.enabled
                     ? "Collect everything outstanding immediately and run the delivery, without waiting for the schedule."
-                    : "Enable the aggregation first — a disabled one never runs, even when triggered by hand."
+                    : "Enable the aggregation first - a disabled one never runs, even when triggered by hand."
                 }
               >
                 <Play className="size-4" /> Roll up now
@@ -645,7 +645,7 @@ function SubscriptionStudio() {
             )}
             {/* Creating the aggregation from here rather than from a type picker: the
                 thing being rolled up is the page you are standing on, so it can never
-                be the wrong one. Not offered on an aggregation — roll-ups of roll-ups
+                be the wrong one. Not offered on an aggregation - roll-ups of roll-ups
                 are not a shape anyone has asked for, and the picker refuses them too. */}
             {!isAggregation && (
               <Can permission="subscriptions.create">
@@ -667,14 +667,14 @@ function SubscriptionStudio() {
               </Button>
             )}
             {/* Beside Pause, because the two questions an operator actually has
-                are the same shape — stop it, or hold it — and the answer differs
+                are the same shape - stop it, or hold it - and the answer differs
                 only in whether the work survives. */}
             {canEdit && (
               <Button
                 onClick={() => setEnabling(!s.enabled)}
                 title={
                   s.enabled
-                    ? "Stop it running at all. Work that arrives while it is off is not kept — pause instead to hold it."
+                    ? "Stop it running at all. Work that arrives while it is off is not kept - pause instead to hold it."
                     : "Let it match and run again."
                 }
               >
@@ -757,7 +757,7 @@ function SubscriptionStudio() {
               <>
                 <strong className="font-medium text-ink-800">{s.name}</strong> stops being matched
                 and stops being scheduled. Anything that arrives for it while it is off is{" "}
-                <strong className="font-medium text-ink-800">not kept</strong> — pause it instead to
+                <strong className="font-medium text-ink-800">not kept</strong> - pause it instead to
                 hold that work and release it later.
               </>
             )
@@ -773,7 +773,7 @@ function SubscriptionStudio() {
       {confirmingReceive && (
         <ConfirmDialog
           title="Receive now?"
-          body={`${s.name} checks its source immediately — anything found becomes new exchanges, outside the regular schedule.`}
+          body={`${s.name} checks its source immediately - anything found becomes new exchanges, outside the regular schedule.`}
           confirmLabel="Receive now"
           onConfirm={async () => {
             await receive.mutateAsync();
@@ -807,7 +807,7 @@ function SubscriptionStudio() {
       {confirmingAggregate && (
         <ConfirmDialog
           title="Roll up now?"
-          body={`${s.name} collects everything outstanding immediately and runs its delivery — outside the regular schedule.`}
+          body={`${s.name} collects everything outstanding immediately and runs its delivery - outside the regular schedule.`}
           confirmLabel="Roll up now"
           onConfirm={async () => {
             await aggregate.mutateAsync();
@@ -823,7 +823,7 @@ function SubscriptionStudio() {
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and its configuration
               will be gone for good. One a gateway or another subscription still points at can't be
-              deleted — it will say which.
+              deleted - it will say which.
             </>
           }
           confirmLabel="Delete subscription"

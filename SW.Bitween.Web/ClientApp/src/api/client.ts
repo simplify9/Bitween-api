@@ -103,24 +103,24 @@ import type { SaveResult } from "./http/dataSourceStatements";
  * so an endpoint's shape can change in one place.
  */
 export interface ApiClient {
-  // — session —
+  // - session -
   getSession(): Promise<Session | null>;
   login(email: string, password: string): Promise<Session>;
   loginWithMicrosoft(): Promise<Session>;
   logout(): Promise<void>;
 
-  // — self service —
-  // No password-reset flow exists on the backend yet (BACKEND_WIRING_PLAN.md G3) — it needs
+  // - self service -
+  // No password-reset flow exists on the backend yet (BACKEND_WIRING_PLAN.md G3) - it needs
   // outbound mail, which Bitween doesn't have. Hidden in the UI rather than faked.
   updateProfile(changes: { displayName: string }): Promise<Session>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
 
-  // — members —
+  // - members -
   listUsers(): Promise<User[]>;
   getUser(id: string): Promise<User>;
   /**
    * Creates a member outright, password and all. Bitween has no outbound mail, so there's no
-   * invite link — whoever adds the member passes the first password on themselves.
+   * invite link - whoever adds the member passes the first password on themselves.
    */
   createUser(input: {
     displayName: string;
@@ -136,7 +136,7 @@ export interface ApiClient {
   setUserDisabled(id: string, disabled: boolean): Promise<User>;
   deleteUser(id: string): Promise<void>;
 
-  // — roles —
+  // - roles -
   /** The catalog the backend enforces, so the role matrix can never offer a grant it ignores. */
   getPermissionCatalog(): Promise<PermissionArea[]>;
   listRoles(): Promise<Role[]>;
@@ -148,7 +148,7 @@ export interface ApiClient {
   ): Promise<Role>;
   deleteRole(id: string): Promise<void>;
 
-  // — partners —
+  // - partners -
   listPartners(): Promise<PartnerRow[]>;
   searchPartners(query: { search: string; offset: number; limit: number }): Promise<Paged<PartnerRow>>;
   getPartner(id: number): Promise<PartnerDetail>;
@@ -175,7 +175,7 @@ export interface ApiClient {
   addPartnerCredential(id: number, name: string): Promise<{ key: string }>;
   revokePartnerCredential(id: number, name: string): Promise<void>;
 
-  // — information types —
+  // - information types -
   listInformationTypes(): Promise<InformationTypeRow[]>;
   searchInformationTypes(query: {
     search: string;
@@ -187,7 +187,7 @@ export interface ApiClient {
   getInformationType(id: number): Promise<InformationTypeDetail>;
   /** Same payload as update: a new type arrives complete, promoted properties included. */
   // `retiredOn` and `isSystem` are absent from both on purpose: retiring is its own command
-  // and being built-in is the backend's to say, so neither is a field a save can carry —
+  // and being built-in is the backend's to say, so neither is a field a save can carry -
   // otherwise a form that round-trips a type could change them by accident.
   createInformationType(
     input: Omit<InformationType, "id" | "createdOn" | "retiredOn" | "isSystem">,
@@ -200,7 +200,7 @@ export interface ApiClient {
   /** Toggles: retires a type that is in use, restores one that is retired. */
   retireInformationType(id: number): Promise<{ retiredOn: string | null }>;
 
-  // — global values —
+  // - global values -
   listValueSets(): Promise<GlobalValuesSetRow[]>;
   getValueSet(id: string): Promise<GlobalValuesSetDetail>;
   createValueSet(input: {
@@ -215,10 +215,10 @@ export interface ApiClient {
   ): Promise<GlobalValuesSetRow>;
   deleteValueSet(id: string): Promise<void>;
 
-  // — subscriptions (light summaries; cache aggressively) —
+  // - subscriptions (light summaries; cache aggressively) -
   listSubscriptions(): Promise<SubscriptionInfo[]>;
 
-  // — subscriptions —
+  // - subscriptions -
   listSubscriptionRows(): Promise<SubscriptionRow[]>;
   searchSubscriptionRows(query: {
     search: string;
@@ -236,7 +236,7 @@ export interface ApiClient {
     type: SubscriptionType;
     name: string;
     informationTypeId: number;
-    /** Required by the types that carry their own partner — Internal and ApiCall. */
+    /** Required by the types that carry their own partner - Internal and ApiCall. */
     partnerId?: number | null;
     /** Aggregation only: whose exchanges get rolled up. Required, and fixed once created. */
     aggregationForId?: number | null;
@@ -311,7 +311,7 @@ export interface ApiClient {
   ): Promise<Paged<ReceiveAttemptRow>>;
   /** The paths in the last document a subscription received. Needs exchanges.view. */
   getSourcePaths(subscriptionId: number): Promise<SourcePaths>;
-  /** Newest run of every scheduled subscription — one request for a whole list. */
+  /** Newest run of every scheduled subscription - one request for a whole list. */
   listLastRuns(): Promise<SubscriptionLastRun[]>;
   /** Will these schedules actually fire? Asks the scheduler, not the subscription record. */
   listScheduleHealth(): Promise<ScheduleHealth[]>;
@@ -321,7 +321,7 @@ export interface ApiClient {
   /** One source file of a published version; each read is audited. Needs adapter-source.view. */
   getAdapterSourceFile(adapterId: string, version: string, path: string): Promise<AdapterSourceFile>;
 
-  // — the adapter editor (adapter-source.edit; publishing and promoting need adapter-source.operate) —
+  // - the adapter editor (adapter-source.edit; publishing and promoting need adapter-source.operate) -
   listAdapterDrafts(): Promise<AdapterDraftSummary[]>;
   getAdapterDraft(id: number): Promise<AdapterDraft>;
   /** A new adapter from the template; resolves to the draft's id. */
@@ -345,7 +345,7 @@ export interface ApiClient {
   /** Publishes a package built by bitween adapter build, any language. */
   uploadAdapterPackage(file: Blob, options: { version: string; current: boolean; releaseNotes: string }): Promise<AdapterUploadResult>;
 
-  // — work groups —
+  // - work groups -
   listWorkGroups(): Promise<WorkGroupRow[]>;
   searchWorkGroups(query: { search: string; offset: number; limit: number }): Promise<Paged<WorkGroupRow>>;
   getWorkGroup(id: number): Promise<WorkGroupDetail>;
@@ -361,7 +361,7 @@ export interface ApiClient {
   ): Promise<WorkGroup>;
   deleteWorkGroup(id: number): Promise<void>;
 
-  // — API gateways —
+  // - API gateways -
   listApiGateways(): Promise<ApiGatewayRow[]>;
   searchApiGateways(query: {
     search: string;
@@ -377,7 +377,7 @@ export interface ApiClient {
     query: { search: string; offset: number; limit: number },
   ): Promise<Paged<ApiGatewayAttachment>>;
   createApiGateway(input: { name: string; urlName: string }): Promise<ApiGateway>;
-  /** Leave `authentication` out to keep what the gateway has — pausing it must not change who can call. */
+  /** Leave `authentication` out to keep what the gateway has - pausing it must not change who can call. */
   updateApiGateway(
     id: number,
     changes: { name: string; urlName: string; inactive: boolean; authentication?: GatewayAuthentication },
@@ -388,7 +388,7 @@ export interface ApiClient {
   updateGatewayAttachment(id: number, input: { partnerId: number; subscriptionId: number }): Promise<void>;
   removeGatewayAttachment(id: number, partnerId: number): Promise<void>;
 
-  // — bus gateways —
+  // - bus gateways -
   listBusGateways(): Promise<BusGatewayRow[]>;
   searchBusGateways(query: {
     search: string;
@@ -411,7 +411,7 @@ export interface ApiClient {
   ): Promise<BusGateway>;
   deleteBusGateway(id: number): Promise<void>;
 
-  // ——— Data sources ———
+  // --- Data sources ---
   /** What Bitween can connect to, and what each provider accepts. */
   listDataSourceProviders(): Promise<DataSourceProvider[]>;
   listDataSources(): Promise<DataSourceRow[]>;
@@ -426,7 +426,7 @@ export interface ApiClient {
     adapterId: string;
     properties: Record<string, string>;
     secretProperties: string[];
-    /** Broker, Relational, Document, ObjectStore or Http — the provider declares it. */
+    /** Broker, Relational, Document, ObjectStore or Http - the provider declares it. */
     kind?: string;
   }): Promise<{ id: number }>;
   updateDataSource(
@@ -457,7 +457,7 @@ export interface ApiClient {
     args?: Record<string, string>,
   ): Promise<DataSourceInspectResult>;
 
-  // ——— data source statements: the SQL a relational data source may run ———
+  // --- data source statements: the SQL a relational data source may run ---
   listDataSourceStatements(dataSourceId: number): Promise<DataSourceStatement[]>;
   createDataSourceStatement(
     dataSourceId: number,
@@ -466,7 +466,7 @@ export interface ApiClient {
       sql: string;
       description?: string | null;
       workGroupId?: number | null;
-      /** Only for a statement a receiver polls with — see DataSourceStatement. */
+      /** Only for a statement a receiver polls with - see DataSourceStatement. */
       cursorColumn?: string | null;
       keyColumn?: string | null;
     },
@@ -494,7 +494,7 @@ export interface ApiClient {
   ): Promise<void>;
   removeBusRoute(id: number, routeId: number): Promise<void>;
 
-  // — retry policies —
+  // - retry policies -
   listRetryPolicies(): Promise<RetryPolicyListRow[]>;
   searchRetryPolicies(query: {
     search: string;
@@ -525,27 +525,27 @@ export interface ApiClient {
   getRetryUsage(policyId: number): Promise<RetryUsageRow[]>;
   /**
    * The same report for one subscription, which is the only way to reach one whose policy is an
-   * inline `CustomRetryPolicy` — those carry no policy id for the policy-scoped report to address,
+   * inline `CustomRetryPolicy` - those carry no policy id for the policy-scoped report to address,
    * yet still spend budget and can sit stopped with no counter anyone can see.
    */
   getSubscriptionRetryUsage(subscriptionId: number): Promise<RetryUsageRow[]>;
-  /** The failures one group caught for one subscription — what its spent budget went on. */
+  /** The failures one group caught for one subscription - what its spent budget went on. */
   getRetryAttempts(policyId: number, pair: { subscriptionId: number; groupId: string }): Promise<RetryAttempts>;
   /** Hands a spent budget back so the group retries again. Omit a field to reset across it. */
   resetRetryUsage(policyId: number, pair?: { subscriptionId?: number; groupId?: string }): Promise<void>;
   /** Reset by subscription, for the inline-policy case the policy-scoped reset cannot reach. */
   resetSubscriptionRetryUsage(subscriptionId: number, groupId?: string): Promise<void>;
-  /** Sets, changes or clears where one pair's alert goes — the most specific level. */
+  /** Sets, changes or clears where one pair's alert goes - the most specific level. */
   saveRetryAlertOverride(
     policyId: number,
     input: { subscriptionId: number; groupId: string } & RetryAlertConfig,
   ): Promise<void>;
 
-  // — settings —
+  // - settings -
   listSettings(): Promise<SettingRow[]>;
   getAbout(): Promise<InstanceAbout>;
 
-  // — subscription categories —
+  // - subscription categories -
   listCategories(): Promise<SubscriptionCategory[]>;
   createCategory(input: { code: string; description: string }): Promise<number>;
   updateCategory(id: number, input: { code: string; description: string }): Promise<void>;
@@ -562,19 +562,19 @@ export interface ApiClient {
   /** `value: null` resets the setting back to its default. */
   updateSetting(key: string, value: string | null): Promise<void>;
 
-  // — notifiers —
-  // No backend delete/test-send endpoint exists yet (BACKEND_WIRING_PLAN.md G8) — hidden in the UI.
-  // Channel choices come from listAdapters("handler") — same catalog as any other handler slot.
+  // - notifiers -
+  // No backend delete/test-send endpoint exists yet (BACKEND_WIRING_PLAN.md G8) - hidden in the UI.
+  // Channel choices come from listAdapters("handler") - same catalog as any other handler slot.
   searchNotifiers(query: { search: string; offset: number; limit: number }): Promise<Paged<Notifier>>;
   getNotifier(id: number): Promise<NotifierDetail>;
   createNotifier(input: { name: string }): Promise<Notifier>;
   updateNotifier(id: number, changes: Omit<Notifier, "id" | "createdOn">): Promise<Notifier>;
   deleteNotifier(id: number): Promise<void>;
 
-  // — exchanges —
+  // - exchanges -
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;
 
-  // — audit trail —
+  // - audit trail -
   /** Who changed what, and when. Filters narrow it; with none set it is the whole trail. */
   searchAudit(query: AuditQuery): Promise<Paged<TrailEntry>>;
   /** Fetches a stage document's raw text content by its storage key (`ExchangeFileRef.key`). */
@@ -602,12 +602,12 @@ export interface ApiClient {
     data: string;
   }): Promise<{ id: string }>;
 
-  // — scheduled retries —
+  // - scheduled retries -
   searchScheduledRetries(query: ScheduledRetryQuery): Promise<Paged<ScheduledRetryRow>>;
   /** Executes a pending auto-retry immediately instead of waiting for its slot. */
   runScheduledRetryNow(id: string): Promise<void>;
 
-  // — queue health —
+  // - queue health -
   getQueueHealth(): Promise<QueueHealthSnapshot>;
   /** Deletes unattended lanes (all of each one's queues) and whatever they hold. */
   deleteUnattendedQueues(queueNames: string[]): Promise<UnattendedDeleteResult>;
@@ -616,10 +616,10 @@ export interface ApiClient {
   /** Sends a dead-letter queue's messages back to be tried again; resolves to how many went. */
   requeueDeadLetters(queueName: string): Promise<number>;
 
-  // — dashboard —
+  // - dashboard -
   getDashboard(): Promise<DashboardData>;
 
-  // — mappers —
+  // - mappers -
   /** Executes a Scriban template against sample input, injecting the partner's adapter properties and global value sets exactly as the runtime mapper does. */
   previewMapping(input: {
     scribanTemplate: string;
@@ -629,7 +629,7 @@ export interface ApiClient {
 
   /**
    * Maps a sample document with unsaved rules, through the same read/map/write the exchange
-   * pipeline runs — so what the editor shows is what a partner would receive.
+   * pipeline runs - so what the editor shows is what a partner would receive.
    *
    * `ruleErrors` carries one entry per rule that could not be applied, keyed by its target path,
    * so the editor can mark the rows that are wrong. `error` is set instead when the mapping could

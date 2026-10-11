@@ -29,7 +29,7 @@ public class CsvOptions
     /// </summary>
     /// <remarks>
     /// False is not the unusual case. Two of the three files a single client sends start straight
-    /// into data, so the fields have no names at all and paths are positions instead — see
+    /// into data, so the fields have no names at all and paths are positions instead - see
     /// <see cref="CsvFormat"/>.
     /// </remarks>
     public bool HasHeader { get; set; } = true;
@@ -41,7 +41,7 @@ public class CsvOptions
     /// <para>
     /// Three bytes that tell Excel the text is UTF-8. Without them a name like
     /// <c>BEAUTRAIT Raphaël</c> opens as <c>RaphaÃ«l</c>, and whoever opens it has no way to
-    /// correct that after the fact — which is why this has to be decided when the file is written.
+    /// correct that after the fact - which is why this has to be decided when the file is written.
     /// </para>
     /// <para>
     /// Off by default, because a partner's own parser can just as easily choke on three bytes it

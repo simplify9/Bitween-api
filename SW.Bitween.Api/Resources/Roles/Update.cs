@@ -16,7 +16,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
 
         var role = await RoleValidation.Load(dbContext, key);
 
-        // Built-in roles are the floor an instance can always fall back to — if Administrator
+        // Built-in roles are the floor an instance can always fall back to - if Administrator
         // could be edited, an admin could lock everyone out of members and roles for good.
         if (role.IsSystem)
             throw new SWValidationException("ROLE_IS_BUILT_IN",

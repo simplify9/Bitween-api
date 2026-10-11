@@ -18,7 +18,7 @@ export function RequireAuth() {
       </div>
     );
   }
-  // Nobody said this session was over — the server could not be asked. Sending someone
+  // Nobody said this session was over - the server could not be asked. Sending someone
   // to sign in here would be a lie, and one that loses the page they were on and invites
   // them to re-enter a password they never needed to.
   if (unreachable) {
@@ -29,7 +29,7 @@ export function RequireAuth() {
         </span>
         <h1 className="text-lg font-semibold text-ink-900">Can't reach Bitween</h1>
         <p className="max-w-prose text-sm text-ink-500">
-          You are still signed in — the server just didn't answer. This usually clears on its own.
+          You are still signed in - the server just didn't answer. This usually clears on its own.
         </p>
         <Button onClick={retry}>Try again</Button>
       </div>
@@ -48,7 +48,7 @@ export function RequireAuth() {
 
 /** Full-page stop for routes the session's roles don't unlock. */
 export function AccessDenied({ permission }: { permission: PermissionKey }) {
-  // Falls back to the raw key until the catalog lands — never blocks the message.
+  // Falls back to the raw key until the catalog lands - never blocks the message.
   const label = labelIn(usePermissionCatalog().data ?? [], permission);
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-24 text-center">

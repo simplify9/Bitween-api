@@ -22,7 +22,7 @@ namespace SW.Bitween.MsSql.Migrations
             // EF scaffolded a plain UpdateData here, because as far as the model is concerned the
             // seeded row simply gained a column value. That would have demanded a new password from
             // every installation on the next deploy, including the ones that chose theirs years ago
-            // — a forced interruption for people who had already done the right thing.
+            // - a forced interruption for people who had already done the right thing.
             //
             // Matching on the stored hash narrows it to the installations the flag is actually for:
             // those still signing in with the password published in our public repository. On

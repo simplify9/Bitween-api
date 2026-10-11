@@ -22,7 +22,7 @@ const MAX_LIST_DEPTH = 3;
  * Two things travel down with it. `prefix` is the branch segments a rule at this
  * point sits under, so a row can show its own name and still rebuild the whole
  * target. `scope` is the source node paths here are read against, which narrows at
- * every list — because the mapper hands a list's rules the current entry, not the
+ * every list - because the mapper hands a list's rules the current entry, not the
  * document.
  */
 export function OutputTreeView({
@@ -109,7 +109,7 @@ function TreeNode({
             collapsed={collapsed}
             onToggle={() => setCollapsed((c) => !c)}
             // An object is not a rule of its own, so adding "under" it just means a
-            // rule whose target starts with its name — and the empty last segment
+            // rule whose target starts with its name - and the empty last segment
             // is the name the user is about to type.
             onAddField={() =>
               dispatch({ type: "ADD_FIELD", listId, target: [...prefix, node.name, ""] })
@@ -118,7 +118,7 @@ function TreeNode({
         </div>
         {!collapsed && (
           // A named group, so it is possible to tell which object a row belongs
-          // to — the indentation says it to the eye and nothing to a reader.
+          // to - the indentation says it to the eye and nothing to a reader.
           <div role="group" aria-label={`Fields inside ${node.name}`}>
             <OutputTreeView
               nodes={node.children}
@@ -184,7 +184,7 @@ function TreeNode({
           aria-label={`Rules for the list ${node.name || "at the root"}`}
         >
           {/* A fixed entry has no entry of its own, so its rules read what the list
-              reads — which is why these are not given the item scope below. */}
+              reads - which is why these are not given the item scope below. */}
           <OutputTreeView
             nodes={node.fixed}
             scope={scope}
@@ -209,7 +209,7 @@ function TreeNode({
               indent={indent + 1}
             />
           )}
-          {/* Written after everything above them, which is where a trailer goes — and the
+          {/* Written after everything above them, which is where a trailer goes - and the
               only point from which counting can see the whole list. */}
           <OutputTreeView
             nodes={node.after}
@@ -251,7 +251,7 @@ function TreeNode({
  *
  * Only while it holds nothing at all. A list's shape follows what is put in it, so
  * one that already has fields, nested lists or written entries has answered the
- * question — and offering to change it then would mean deciding what happens to
+ * question - and offering to change it then would mean deciding what happens to
  * everything already there.
  */
 function stillUndecided(list: EditorListRule): boolean {
@@ -335,7 +335,7 @@ export function AddRuleButtons({
    * Offered on a list that has not yet been made of anything.
    *
    * What a list holds is decided by what is put in it, so this sits beside Field and
-   * List rather than being a setting behind a chevron — and once one of the three has
+   * List rather than being a setting behind a chevron - and once one of the three has
    * been used the other kind is no longer offered.
    */
   onAddValue?: () => void;
@@ -374,7 +374,7 @@ export function AddRuleButtons({
           type="button"
           onClick={onAddClosingEntry}
           aria-label={`Add a closing entry${where}`}
-          title="An entry written after the walked ones — a trailer, which is the only place a rule can count what the list holds"
+          title="An entry written after the walked ones - a trailer, which is the only place a rule can count what the list holds"
           className="flex items-center gap-1 rounded border border-warn-300 bg-white px-1.5 py-0.5 text-[11px] text-warn-700 hover:bg-warn-100/50"
         >
           <Plus size={11} /> Closing entry

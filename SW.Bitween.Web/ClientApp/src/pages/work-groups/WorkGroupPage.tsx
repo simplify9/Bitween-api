@@ -25,7 +25,7 @@ import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../lib/pageTitle";
 
 /**
- * This group's slice of the live RabbitMQ picture — the same numbers the
+ * This group's slice of the live RabbitMQ picture - the same numbers the
  * Queue health page shows, brought to where the group is configured.
  */
 function LiveQueuePanel({ groupId }: { groupId: number }) {

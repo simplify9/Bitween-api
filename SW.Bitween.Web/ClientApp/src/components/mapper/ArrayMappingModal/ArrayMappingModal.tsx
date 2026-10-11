@@ -113,7 +113,7 @@ const ArrayMappingModal: React.FC = () => {
                   value={source}
                   onChange={(e) => { setSource(e.target.value); }}
                 >
-                  <option value="">— select array —</option>
+                  <option value="">- select array -</option>
                   {sourceArrayPaths.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               ) : (
@@ -239,7 +239,7 @@ const ArrayMappingModal: React.FC = () => {
             </button>
           </div>
 
-          {/* Child Array Mappings — read-only */}
+          {/* Child Array Mappings - read-only */}
           {!isCreating && childArrayMappings.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-2">
@@ -265,7 +265,7 @@ const ArrayMappingModal: React.FC = () => {
                       <div className="space-y-0.5 pl-2 border-l border-warn-100">
                         {child.mappings.map((m) => (
                           <div key={m.id} className="text-[10px] font-mono text-ink-500">
-                            {m.source || (m.fixedValue !== undefined ? `"${m.fixedValue}"` : '—')}
+                            {m.source || (m.fixedValue !== undefined ? `"${m.fixedValue}"` : '-')}
                             {' '}<span className="text-ink-300">{'→'}</span>{' '}
                             {m.target}
                           </div>

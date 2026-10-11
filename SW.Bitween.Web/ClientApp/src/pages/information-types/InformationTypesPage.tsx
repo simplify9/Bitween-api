@@ -35,7 +35,7 @@ const BUS_OPTIONS = [
   { value: "false", label: "Not on the bus" },
 ];
 
-/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 - no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -60,7 +60,7 @@ export function InformationTypesPage() {
   // The backend's Search endpoint has no "id is in this set" filter, so filtering by
   // which subscriptions use a type can't be pushed down like name/format/bus can. Falls
   // back to the full list, filtered and paged client-side, only while that filter is
-  // active — same trade-off as the Partners and Global values pages.
+  // active - same trade-off as the Partners and Global values pages.
   const filtering = subscriptionIds.length > 0;
 
   const serverSearch = useQuery({
@@ -107,7 +107,7 @@ export function InformationTypesPage() {
     <div>
       <PageHeader
         title="Information types"
-        description="The kinds of business documents flowing between you and your partners — each with a short code used across the system."
+        description="The kinds of business documents flowing between you and your partners - each with a short code used across the system."
         help={{
           title: "How information types work",
           body: (
@@ -119,7 +119,7 @@ export function InformationTypesPage() {
               </p>
               <p>
                 <strong>Promoted properties</strong> pull values out of the payload (by JSON path
-                or XML path) so routes and filters can match on them — for example routing orders
+                or XML path) so routes and filters can match on them - for example routing orders
                 by store number.
               </p>
             </>
@@ -193,7 +193,7 @@ export function InformationTypesPage() {
                 <span className="flex flex-wrap items-center gap-1.5">
                   <span className={t.retiredOn ? "text-ink-500" : "font-medium text-ink-900"}>{t.name}</span>
                   {t.retiredOn && (
-                    <Badge tone="neutral" title="Taken out of use — kept so its exchanges still name it, but no longer offered for new work.">
+                    <Badge tone="neutral" title="Taken out of use - kept so its exchanges still name it, but no longer offered for new work.">
                       Retired
                     </Badge>
                   )}
@@ -212,11 +212,11 @@ export function InformationTypesPage() {
                 t.busEnabled ? (
                   <code className="font-mono text-xs text-ink-600">{t.busMessageTypeName}</code>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {
-              // The promoted keys themselves — these are what exchange search
+              // The promoted keys themselves - these are what exchange search
               // filters on, so knowing there are "3" of them helps nobody.
               header: "Promoted",
               truncate: true,
@@ -229,7 +229,7 @@ export function InformationTypesPage() {
                     {t.promotedProperties.map((p) => p.key).join(", ")}
                   </span>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {

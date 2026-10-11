@@ -153,13 +153,13 @@ namespace SW.Bitween
         public double AdapterEditorCpuCores { get; set; } = 1;
 
         /// <summary>
-        /// This deployment's release, e.g. 10.0.4 — set by a pipeline that knows it. Adapters may
+        /// This deployment's release, e.g. 10.0.4 - set by a pipeline that knows it. Adapters may
         /// declare the lowest Bitween they work with; see <see cref="BitweenInfo"/>.
         /// </summary>
         public string Version { get; set; }
 
         /// <summary>
-        /// Runs resident data source providers on this node — brokers and databases alike.
+        /// Runs resident data source providers on this node - brokers and databases alike.
         ///
         /// Named for brokers because it predates database sources; renaming it would break every
         /// deployment that already sets it, so operator-facing messages say what it gates rather
@@ -219,7 +219,7 @@ namespace SW.Bitween
 
         /// <summary>
         /// Passphrase used to encrypt secret settings before they're stored. Environment-only and
-        /// never itself a setting — it's what protects the table, so it can't live in it. Without
+        /// never itself a setting - it's what protects the table, so it can't live in it. Without
         /// it, secret settings are neither imported nor editable and keep coming from configuration.
         /// Rotating it makes anything already stored unreadable.
         /// </summary>
@@ -257,7 +257,7 @@ namespace SW.Bitween
         public int ReceiveAttemptRetentionDays { get; set; } = 30;
 
         /// <summary>
-        /// Quartz cron expression for <c>ReceiveAttemptCleanupJob</c>. Defaults to daily at 3am —
+        /// Quartz cron expression for <c>ReceiveAttemptCleanupJob</c>. Defaults to daily at 3am -
         /// offset from the scheduler library's own cleanup job (2am) so they don't run at once.
         /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
         /// </summary>

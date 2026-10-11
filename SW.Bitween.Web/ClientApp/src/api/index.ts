@@ -3,7 +3,7 @@ import { httpClient } from "./http/httpClient";
 
 /**
  * The swap point. Everything in the UI imports `api` from here.
- * This is the real HTTP client — no mock, no toggle.
+ * This is the real HTTP client - no mock, no toggle.
  */
 export const api: ApiClient = httpClient;
 

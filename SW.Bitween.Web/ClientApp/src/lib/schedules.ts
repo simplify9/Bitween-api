@@ -4,7 +4,7 @@ export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** "Daily at 02:00 UTC", "Hourly at :15", "Weekly on Monday at 08:30 UTC"… — hour/minute are always UTC. */
+/** "Daily at 02:00 UTC", "Hourly at :15", "Weekly on Monday at 08:30 UTC"… - hour/minute are always UTC. */
 export const scheduleSummary = (s: Schedule): string => {
   const time = `${pad(s.hours)}:${pad(s.minutes)} UTC`;
   const tail = s.backwards ? " (counted from the end)" : "";
@@ -30,7 +30,7 @@ export const schedulesSummary = (list: Schedule[]): string =>
 /**
  * Translates a schedule's UTC hour/minute (and, for Weekly/Monthly, day) into the
  * viewer's own browser timezone, so editors don't have to do the mental conversion.
- * Uses fixed reference dates purely as a vehicle for the time-of-day/day-of-week math —
+ * Uses fixed reference dates purely as a vehicle for the time-of-day/day-of-week math -
  * Dec 31 2023 was a Sunday, so WEEKDAYS[0] lines up with s.days=0 after the UTC->local shift.
  */
 export const localTimePreview = (s: Schedule): string => {

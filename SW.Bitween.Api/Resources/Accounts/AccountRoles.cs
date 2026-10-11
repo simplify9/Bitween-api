@@ -10,7 +10,7 @@ namespace SW.Bitween.Resources.Accounts;
 
 internal static class AccountRoles
 {
-    /// <summary>Role summaries for a set of accounts, in one query — keyed by account id.</summary>
+    /// <summary>Role summaries for a set of accounts, in one query - keyed by account id.</summary>
     public static async Task<Dictionary<int, List<AccountRoleSummary>>> For(BitweenDbContext dbContext,
         List<int> accountIds)
     {
@@ -57,7 +57,7 @@ internal static class AccountRoles
 
     /// <summary>
     /// Keeps the legacy <see cref="Account.Role"/> column meaningful for older API consumers. It no
-    /// longer drives authorization — it's derived from whichever built-in role the member holds,
+    /// longer drives authorization - it's derived from whichever built-in role the member holds,
     /// falling back to Member for someone who only holds custom roles.
     /// </summary>
     public static AccountRole LegacyRoleFor(List<int> roleIds)

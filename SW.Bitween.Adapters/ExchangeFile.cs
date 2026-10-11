@@ -21,7 +21,7 @@ public class ExchangeFile
 
     /// <param name="data">The content: text, or base64 for binary content.</param>
     /// <param name="filename">The file's name, when it has one.</param>
-    /// <param name="badData">Whether this is a bad response — a delivery the partner rejected.</param>
+    /// <param name="badData">Whether this is a bad response - a delivery the partner rejected.</param>
     public ExchangeFile(string data, string? filename = null, bool badData = false)
     {
         Data = data;
@@ -49,7 +49,7 @@ public class ExchangeFile
         }
     }
 
-    /// <summary>Whether this is a bad response — a delivery the partner rejected.</summary>
+    /// <summary>Whether this is a bad response - a delivery the partner rejected.</summary>
     public bool BadData { get; set; }
 
     /// <summary>The content's media type, when known.</summary>

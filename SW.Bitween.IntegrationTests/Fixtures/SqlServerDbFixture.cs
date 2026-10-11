@@ -8,14 +8,14 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Fixtures;
 
 /// <summary>
-/// A SQL Server for the adapter tests to point at — deliberately its own container rather than the
+/// A SQL Server for the adapter tests to point at - deliberately its own container rather than the
 /// one <see cref="BitweenFixture"/> runs for the application database.
 ///
 /// A class fixture, not <see cref="IAsyncLifetime"/> on the test class: xUnit builds a new instance
 /// of a test class per test method, so a container started there is a container per test.
 ///
 /// The image is the 2022 developer edition, which is what Testcontainers defaults to and what runs
-/// on both x64 and, through emulation, Apple silicon. It is around 1.5 GB — an order of magnitude
+/// on both x64 and, through emulation, Apple silicon. It is around 1.5 GB - an order of magnitude
 /// less than Oracle's, so unlike those these run on every pass rather than nightly.
 /// </summary>
 public class SqlServerDbFixture : IAsyncLifetime
@@ -46,7 +46,7 @@ public class SqlServerDbFixture : IAsyncLifetime
         {
             _container = new MsSqlBuilder()
                 // Pinned, and not to Testcontainers' default. That default is 2019, which has no
-                // arm64 image and no emulation path — it exits the moment it starts on an Apple
+                // arm64 image and no emulation path - it exits the moment it starts on an Apple
                 // silicon machine, which surfaces as "container is not running" rather than as
                 // anything about the architecture. 2022 is the first release Microsoft publishes
                 // for arm64, and it runs on both.
@@ -56,7 +56,7 @@ public class SqlServerDbFixture : IAsyncLifetime
                 // Wait on the PORT, not on the built-in sqlcmd probe. SQL Server listens well
                 // before it will accept a login, and under emulation on Apple silicon the gap is
                 // long enough that the default readiness check gives up and the container is torn
-                // down — which surfaces as "container is not running" rather than as a timeout.
+                // down - which surfaces as "container is not running" rather than as a timeout.
                 .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
                 .Build();
 
@@ -122,7 +122,7 @@ public class SqlServerDbFixture : IAsyncLifetime
         await using var connection = new SqlConnection(AdminConnectionString);
         await connection.OpenAsync();
 
-        // A schema of its own, so the discovery tests can prove the schema filter does something —
+        // A schema of its own, so the discovery tests can prove the schema filter does something -
         // everything would otherwise be dbo, where a filter that did nothing would still pass.
         await ExecuteAsync(connection, "create schema sales");
 
@@ -166,7 +166,7 @@ public class SqlServerDbFixture : IAsyncLifetime
                 select @p_total = count(*) from sales.{Table} where customer = @p_customer;
             end");
 
-        // An inline table-valued function — the SQL Server shape a receive statement would select
+        // An inline table-valued function - the SQL Server shape a receive statement would select
         // from, and a different object type in the catalog from a scalar one.
         await ExecuteAsync(connection, $@"
             create function sales.orders_for(@p_customer nvarchar(50))

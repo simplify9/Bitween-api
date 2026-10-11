@@ -14,8 +14,8 @@ import { Fact } from "./Fact";
  * Which lane a subscription runs in, and what happens when it fails.
  *
  * Extracted from `Overview` so the create pages can offer the same two settings the
- * edit page does. They belong to no pipeline stage — they are properties of the
- * subscription itself — which is why they sit beside the facts rather than in the rail.
+ * edit page does. They belong to no pipeline stage - they are properties of the
+ * subscription itself - which is why they sit beside the facts rather than in the rail.
  *
  * Both were create-time blind spots: the API has always accepted them on a create, but
  * no create page asked, so every new subscription was born ungrouped and un-retried and
@@ -40,7 +40,7 @@ export function LaneAndRetry({
   onWorkGroupChange: (id: number | null) => void;
   onRetryPolicyChange: (id: number | null) => void;
   canEdit: boolean;
-  /** Ids have to be unique per page — the create pages render this beside their own fields. */
+  /** Ids have to be unique per page - the create pages render this beside their own fields. */
   idPrefix: string;
 }) {
   const canCreateWorkGroup = useSessionCan("workgroups.create");
@@ -106,7 +106,7 @@ export function LaneAndRetry({
             clearLabel={
               inlineRetryGroups !== null && !inlineReplaced
                 ? "Its own rules, set through the API"
-                : "None — failures are not retried"
+                : "None - failures are not retried"
             }
             options={(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
           />
@@ -146,7 +146,7 @@ export function LaneAndRetry({
         />
       )}
       {creatingPolicy && (
-        // Selects the new policy rather than navigating to it — the rest of the policy is
+        // Selects the new policy rather than navigating to it - the rest of the policy is
         // configured behind "View", and leaving here would abandon the subscription edit.
         <CreateRetryPolicyDialog
           onClose={() => setCreatingPolicy(false)}

@@ -10,7 +10,7 @@ namespace SW.Bitween.Services.Adapters;
 ///
 /// The pipeline asks for a mapper, handler, validator or receiver by id and role; which of the
 /// three runtimes ends up running it is decided here and nowhere else. That is what keeps the
-/// choice from being copied into every call site — and what lets a test replace the whole thing.
+/// choice from being copied into every call site - and what lets a test replace the whole thing.
 /// </summary>
 public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes) : IAdapterInvoker
 {

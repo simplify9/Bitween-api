@@ -7,8 +7,8 @@ import { SearchSelect } from "../ui/SearchSelect";
 const CUSTOM = "__custom__";
 
 /**
- * Picks one adapter, in two steps: the adapters that ship with Bitween, and —
- * behind one row — the custom ones deployed to this instance.
+ * Picks one adapter, in two steps: the adapters that ship with Bitween, and -
+ * behind one row - the custom ones deployed to this instance.
  *
  * The two are never listed together. Mixed, the only thing separating a
  * supported adapter from something a client uploaded was a word at the end of
@@ -55,8 +55,8 @@ export function AdapterPicker({
   /*
     Which list is open follows what is *selected*, so opening a subscription that
     runs a custom adapter shows it straight away rather than an empty built-in
-    list. An adapter the catalog no longer lists — unpublished, or no longer
-    declaring this kind — counts as custom: it is certainly not one of ours, and
+    list. An adapter the catalog no longer lists - unpublished, or no longer
+    declaring this kind - counts as custom: it is certainly not one of ours, and
     it has to stay visible, or the page reads as unconfigured when it is not.
     State only carries the case the value can't: "custom, nothing picked yet".
   */

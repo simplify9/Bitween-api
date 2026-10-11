@@ -18,7 +18,7 @@ import { useSourceValues } from "./sourceValuesContext";
  *
  * A header line a partner expects, or one slot of a list whose entries each come
  * from somewhere different. Its rules read whatever the list reads, because there
- * is no entry of its own to read — which is what lets a constant entry still pull a
+ * is no entry of its own to read - which is what lets a constant entry still pull a
  * value out of the document, the partner or a values set.
  *
  * An entry holding one value is a whole rule on this line, so it gets what any other
@@ -28,7 +28,7 @@ import { useSourceValues } from "./sourceValuesContext";
  */
 export function EntryRow({
   node,
-  /** The paths this entry may read — the list's own scope, not an entry of it. */
+  /** The paths this entry may read - the list's own scope, not an entry of it. */
   paths,
 }: {
   node: OutputEntryNode;
@@ -56,7 +56,7 @@ export function EntryRow({
   return (
     <div
       // Named, so this entry's own controls can be told apart from the list's and
-      // from the other entries' — the position is the only thing distinguishing them.
+      // from the other entries' - the position is the only thing distinguishing them.
       role="group"
       aria-label={named}
       className={`rounded border ${

@@ -20,7 +20,7 @@ import {
 
 /**
  * One subscription in the response chain. Only `active` is expanded into editable
- * nodes; the rest are summaries — three hops fully expanded is fifteen nodes, and
+ * nodes; the rest are summaries - three hops fully expanded is fifteen nodes, and
  * nobody reads fifteen nodes.
  */
 export interface Hop {
@@ -37,7 +37,7 @@ export interface Hop {
 /**
  * The gateway's data path for one route, left to right.
  *
- * Pan and zoom live in `PanZoomCanvas`, shared with the flow map — the two diagrams
+ * Pan and zoom live in `PanZoomCanvas`, shared with the flow map - the two diagrams
  * have to behave identically to feel like one tool.
  */
 export function Canvas({
@@ -54,7 +54,7 @@ export function Canvas({
   routeChosen,
   /** Room reserved on the left for the floating route panel, in rem. */
   gutterRem,
-  /** Changes when the route changes — the view resets to the start of the path. */
+  /** Changes when the route changes - the view resets to the start of the path. */
   resetKey,
 }: {
   routeFace: Omit<StageFace, "id">;
@@ -67,7 +67,7 @@ export function Canvas({
   catalogs: AdapterCatalogs;
   subscriptionNames: { id: number; name: string }[];
   onOpenListener: (listener: BusListener) => void;
-  /** False while a new route still has no subscription — there is no chain to draw yet. */
+  /** False while a new route still has no subscription - there is no chain to draw yet. */
   routeChosen: boolean;
   gutterRem: number;
   resetKey: string;
@@ -99,7 +99,7 @@ export function Canvas({
             <Connector />
             <div className="flex w-64 shrink-0 items-center rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-3.5">
               <p className="text-[13px] text-ink-500">
-                Pick the subscription this route runs — it appears here, with its whole pipeline.
+                Pick the subscription this route runs - it appears here, with its whole pipeline.
               </p>
             </div>
           </>
@@ -122,7 +122,7 @@ export function Canvas({
           className="shrink-0 pr-6 pb-5 text-[12px] text-ink-500"
           style={{ paddingLeft: `${gutterRem + 1.5}rem` }}
         >
-          Every message of this type is offered to all of this gateway's routes —{" "}
+          Every message of this type is offered to all of this gateway's routes -{" "}
           <Link to={`/information-types/${informationTypeId}`} className="hover:text-ink-600 hover:underline">
             see the information type
           </Link>{" "}
@@ -138,7 +138,7 @@ export function Canvas({
  * Recursive, and forked rather than flattened into a single row: a Response can
  * both chain into another subscription *and* publish on the bus, and those two are
  * siblings. Drawn one after the other, the bus card read as if it fed the chained
- * subscription, which is a different — and wrong — story about the data path.
+ * subscription, which is a different - and wrong - story about the data path.
  */
 function HopChain({
   hops,

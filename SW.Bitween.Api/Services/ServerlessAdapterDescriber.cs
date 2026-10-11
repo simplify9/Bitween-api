@@ -16,7 +16,7 @@ namespace SW.Bitween;
 /// <remarks>
 /// <para>
 /// Asking is expensive out of all proportion to the answer: the package is downloaded and unzipped,
-/// a <c>dotnet</c> child process is started, and the question goes over stdio — to be told a handful
+/// a <c>dotnet</c> child process is started, and the question goes over stdio - to be told a handful
 /// of key names. So the answer is cached, one ask is shared by everyone who wants it at that moment,
 /// and only so many adapters may be running at once.
 /// </para>
@@ -35,7 +35,7 @@ public class ServerlessAdapterDescriber(
     /// <summary>
     /// How many adapters may be running at once, across the whole process.
     /// <para>
-    /// Each one is a child process, and the callers are not coordinated — a screen loading four
+    /// Each one is a child process, and the callers are not coordinated - a screen loading four
     /// kinds of adapter is four requests, and there can be a request per user on top of that. Six
     /// is what one browser was already allowed per host before any of this was batched, so the
     /// server holds no more open at a time than it used to.
@@ -58,7 +58,7 @@ public class ServerlessAdapterDescriber(
 
         // Everyone who wants this adapter while it is being asked waits on the one ask, rather than
         // starting an identical child process of their own. Without this the cache does not help
-        // the case it most needs to — a cold start, when every request arrives at once.
+        // the case it most needs to - a cold start, when every request arrives at once.
         var asking = _asking.GetOrAdd(adapterId, id =>
             new Lazy<Task<IDictionary<string, StartupValue>>>(() => Ask(id),
                 LazyThreadSafetyMode.ExecutionAndPublication));
@@ -114,7 +114,7 @@ public class ServerlessAdapterDescriber(
             IDictionary<string, StartupValue> shared =
                 new ReadOnlyDictionary<string, StartupValue>(startupValues);
 
-            // Only a successful answer is cached — a boot that failed because, say, the adapter's
+            // Only a successful answer is cached - a boot that failed because, say, the adapter's
             // runtime is missing locally must not stick around as "this adapter has no properties".
             //
             // Held for as long as ServerlessService already serves a stale Hash from its own

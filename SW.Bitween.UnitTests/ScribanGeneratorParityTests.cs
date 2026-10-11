@@ -9,7 +9,7 @@ namespace SW.Bitween.UnitTests;
 /// for the corresponding mapping config (frozen in scribanGeneratorOutput.test.ts snapshots).
 ///
 /// If a test here fails it means ScribanJsonHelper.Render cannot execute a template
-/// that the UI generator produces — a production bug.
+/// that the UI generator produces - a production bug.
 /// If the TypeScript snapshot changes, the template constant here must be updated to match.
 /// </summary>
 [TestClass]
@@ -152,7 +152,7 @@ public class ScribanGeneratorParityTests
     // ── Global set id with characters invalid in a bare identifier ─────────────
     // Config: { target: 'gval', source: '', globalSetId: 'global-value-name', globalKey: 'baseUrl' }
     // Regression: the old `__globals__?.global-value-name["baseUrl"]` shape tokenized the
-    // hyphens as subtraction and threw "Object `name` is null" — this is the exact bug report.
+    // hyphens as subtraction and threw "Object `name` is null" - this is the exact bug report.
 
     [TestMethod]
     public void Parity_GlobalSetKey_HyphenatedSetId_RendersCorrectly()
@@ -167,7 +167,7 @@ public class ScribanGeneratorParityTests
         Assert.AreEqual("https://example.test", result["gval"]?.ToString());
     }
 
-    // ── Lookup — null fallback ─────────────────────────────────────────────────
+    // ── Lookup - null fallback ─────────────────────────────────────────────────
     // Config: { target: 'category', source: 'Cat', lookupDictionary: { entries:[{A→Alpha}], fallback:'null' } }
 
     [TestMethod]
@@ -194,7 +194,7 @@ public class ScribanGeneratorParityTests
         Assert.AreEqual(JTokenType.Null, result["category"]?.Type);
     }
 
-    // ── Lookup — custom fallback ───────────────────────────────────────────────
+    // ── Lookup - custom fallback ───────────────────────────────────────────────
     // Config: { fallback:'custom', fallbackValue:'Unknown' }
 
     [TestMethod]
@@ -386,7 +386,7 @@ public class ScribanGeneratorParityTests
     public void Parity_IsRootSource_FieldInsideArrayLoopReadsFromRoot()
     {
         // generateScriban: ArrayMapping with one item field (item.Sku) and one
-        // isRootSource field (OrderId — no alias prefix, reads from root object)
+        // isRootSource field (OrderId - no alias prefix, reads from root object)
         const string template = """
             {
               "lines": [

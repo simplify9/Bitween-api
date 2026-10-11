@@ -18,7 +18,7 @@ public class RetentionStatusRequest
     public bool Refresh { get; set; }
 }
 
-/// <summary>How long exchanges and their files are kept, and what the settings will do — now or as proposed.</summary>
+/// <summary>How long exchanges and their files are kept, and what the settings will do - now or as proposed.</summary>
 public class RetentionStatus
 {
     public StorageRulesInfo Storage { get; set; } = null!;

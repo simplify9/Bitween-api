@@ -31,7 +31,7 @@ import { CommandPalette } from "./CommandPalette";
 import { recordVisit } from "../../lib/recentPages";
 
 /**
- * Shown on every page while unsaved setting changes exist — the whole app
+ * Shown on every page while unsaved setting changes exist - the whole app
  * renders with the draft applied, so this is the "you're previewing" strip
  * that routes back to Settings to keep editing or save.
  */
@@ -52,7 +52,7 @@ function SettingsPreviewBanner() {
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-crimson-200 bg-crimson-50/60 px-4 py-2.5">
       <p className="min-w-0 text-sm text-ink-700">
         Previewing <strong className="font-medium text-ink-900">{count} unsaved setting change{count === 1 ? "" : "s"}</strong>{" "}
-        — this is how the app will look once saved.
+        - this is how the app will look once saved.
       </p>
       <span className="flex shrink-0 gap-2">
         <Button size="sm" onClick={() => settingsDraft.discardAll()}>
@@ -130,7 +130,7 @@ function SidebarContent({
   logoUrl: string | null;
   /** The square mark the rail shows in place of the logo: the instance's header icon, when set. */
   iconUrl?: string | null;
-  /** Icon-only rail. Desktop only — the mobile drawer is always full width. */
+  /** Icon-only rail. Desktop only - the mobile drawer is always full width. */
   railed?: boolean;
   onToggleRail?: () => void;
 }) {
@@ -140,7 +140,7 @@ function SidebarContent({
   // Navigation is the one place that still collapses: "show all the data"
   // is about data, and a nav group is a shelf, not a row of records.
   const [collapsed, setCollapsed] = useState<string[]>(loadCollapsed);
-  // In the rail an icon is all there is, so its name shows beside it on hover and on focus —
+  // In the rail an icon is all there is, so its name shows beside it on hover and on focus -
   // the browser's own title tooltip came late, never on keyboard focus, and not to everyone.
   const [tip, setTip] = useState<{ label: string; top: number } | null>(null);
   const showTip = (el: HTMLElement, label: string) => {
@@ -194,7 +194,7 @@ function SidebarContent({
             <div key={group.label}>
               {railed ? (
                 // The group label has nowhere to go in a 4rem rail, but the
-                // grouping still carries meaning — keep it as a rule.
+                // grouping still carries meaning - keep it as a rule.
                 <div className="mx-2 mb-1.5 border-t border-ink-900" aria-hidden />
               ) : (
                 <button
@@ -360,7 +360,7 @@ export function AppShell() {
     });
 
   // `[` toggles the rail. No modifier, so it has to stand down while the user is
-  // typing — an operator editing a handler URL types brackets constantly.
+  // typing - an operator editing a handler URL types brackets constantly.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "[" || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -379,8 +379,8 @@ export function AppShell() {
 
   return (
     <div
-      // Published as a variable so anything pinned across the content column —
-      // the unsaved-changes bars — tracks the sidebar instead of hard-coding it.
+      // Published as a variable so anything pinned across the content column -
+      // the unsaved-changes bars - tracks the sidebar instead of hard-coding it.
       style={{ "--sidebar-w": railed ? "4rem" : "15.5rem" } as React.CSSProperties}
       className="min-h-screen lg:grid lg:grid-cols-[var(--sidebar-w)_1fr]"
     >
@@ -449,14 +449,14 @@ export function AppShell() {
       {/* `lg:h-screen` + `overflow-hidden` on a full-bleed page: the workspace
           scrolls in its own regions, and a page-level scrollbar on top of that is
           how you end up scrolling the canvas out from under its own toolbar.
-          Below `lg` it stays a normal stacking page — a three-pane studio on a
+          Below `lg` it stays a normal stacking page - a three-pane studio on a
           phone is not a thing worth building. */}
       <main className={`flex min-w-0 flex-col ${fullBleed ? "lg:h-screen lg:overflow-hidden" : ""}`}>
         <TopBar page={current} title={title} branding={branding} onSearch={() => setPaletteOpen(true)} />
         <PageTitleContext.Provider value={setNamed}>
         {fullBleed ? (
           <>
-            {/* Empty when there is no settings draft, and hidden with it —
+            {/* Empty when there is no settings draft, and hidden with it -
                 otherwise its padding steals a strip off the canvas. */}
             <div className="px-4 pt-4 empty:hidden sm:px-6">
               <SettingsPreviewBanner />

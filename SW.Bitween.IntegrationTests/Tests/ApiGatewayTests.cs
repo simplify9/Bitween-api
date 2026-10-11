@@ -151,7 +151,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
             "bearer-wrong-key" => $"Bearer {Guid.NewGuid():N}",
             "bearer-empty" => "Bearer ",
             // The password alone would find the partner, but a username naming some other key
-            // means the client is set up wrong — better refused now than accepted by accident.
+            // means the client is set up wrong - better refused now than accepted by accident.
             "basic-wrong-username" => Basic("orders-test", key),
             "basic-key-as-username" => Basic(key, ""),
             "basic-not-base64" => "Basic not*base64",
@@ -233,7 +233,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// A gateway that trusts the test login server, with one partner attached whose identity
-    /// there is returned — plus a second partner with an identity of its own, not attached.
+    /// there is returned - plus a second partner with an identity of its own, not attached.
     /// </summary>
     private async Task<(string urlName, string identity, string strangerIdentity)> JwtGateway()
     {
@@ -296,7 +296,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
         var token = how switch
         {
             "expired" => login.Token(identity, expires: DateTime.UtcNow.AddMinutes(-10)),
-            // Signed by the right login server, but issued for some other system — the audience
+            // Signed by the right login server, but issued for some other system - the audience
             // is the only thing that keeps it out.
             "for-another-system" => login.Token(identity, audience: "payroll"),
             "from-another-login-server" => login.Token(identity, issuer: "https://login.elsewhere.test"),
@@ -433,7 +433,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
     }
 
     [Theory]
-    [InlineData("order sync")]      // the one that actually happens — a space
+    [InlineData("order sync")]      // the one that actually happens - a space
     [InlineData("Order-Sync")]      // upper case, which the route match is not
     [InlineData("-orders")]
     [InlineData("/orders")]         // an empty part, front or back or middle
@@ -445,7 +445,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
     public async Task A_url_name_that_cannot_appear_in_a_path_is_refused(string urlName)
     {
         // Partners call /api/gateway/{urlName}/sync. Anything needing escaping there produces a
-        // gateway that reads as configured on every screen and cannot be reached — and the URL
+        // gateway that reads as configured on every screen and cannot be reached - and the URL
         // the partner is given to copy is the broken one.
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => CreateGateway(urlName));
         Assert.StartsWith("GATEWAY_URL_NAME_INVALID", ex.Message);
@@ -470,7 +470,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
     public async Task A_url_name_matching_an_older_mixed_case_one_is_taken()
     {
         // Rows saved before names had to be lowercase can still hold capitals, and partner calls
-        // match without regard to case — so the lowercase twin would answer on the same address.
+        // match without regard to case - so the lowercase twin would answer on the same address.
         var legacy = Unique("Legacy-Orders");
         await using (var scope = fixture.CreateScope())
         {
@@ -493,7 +493,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
         await using (var scope = fixture.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-            // A perfectly good integration — of a kind that is started by its own schedule, not
+            // A perfectly good integration - of a kind that is started by its own schedule, not
             // by a partner calling in.
             var receiving = new Subscription(Unique("Scheduled"), documentId);
             db.Set<Subscription>().Add(receiving);
@@ -515,7 +515,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
         var attachment = new ApiGatewayPartnerCreate { PartnerId = partnerId, SubscriptionId = subscriptionId };
         await AddPartner(gatewayId, attachment);
 
-        // Without this the second attachment wins silently and the first is unreachable — two
+        // Without this the second attachment wins silently and the first is unreachable - two
         // rows on screen where only one can ever run.
         await Assert.ThrowsAsync<SWException>(() => AddPartner(gatewayId, attachment));
     }
@@ -540,7 +540,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
         Assert.False(await db.Set<ApiGateway>().AnyAsync(g => g.Id == gatewayId));
         Assert.False(await db.Set<ApiGatewayPartner>().AnyAsync(p => p.ApiGatewayId == gatewayId));
 
-        // The integration itself is configuration in its own right and outlives the gateway —
+        // The integration itself is configuration in its own right and outlives the gateway -
         // cascading into it would delete work the attachment merely referenced.
         Assert.True(await db.Set<Subscription>().AnyAsync(s => s.Id == subscriptionId));
     }
@@ -628,7 +628,7 @@ public class ApiGatewayTests(BitweenFixture fixture)
         var (partnerId, documentId, _) = await Groundwork();
         var gatewayId = await CreateGateway(Unique("gw").ToLowerInvariant());
 
-        // The partner reaches a gateway integration through the attachment — which is the very
+        // The partner reaches a gateway integration through the attachment - which is the very
         // thing being made here. One on the integration too is a second, disagreeing answer to
         // the same question.
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => AddPartner(gatewayId,

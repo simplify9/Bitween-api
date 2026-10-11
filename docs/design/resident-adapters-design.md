@@ -1,7 +1,7 @@
 # Serverless Runtimes: Resident Adapters, Containers, and Observability
 
 > **Status:** design evaluation. If adopted, this **supersedes §4 (Plugin architecture) of
-> `external-brokers-architecture.md`** — the provider *contract* and *capability* design there
+> `external-brokers-architecture.md`** - the provider *contract* and *capability* design there
 > stays intact, but providers are hosted as serverless adapters instead of in-process
 > `AssemblyLoadContext` plugins.
 
@@ -9,23 +9,23 @@
 
 ## 1. Verdict
 
-### Document map — read this first
+### Document map - read this first
 
 This document was written in three passes. Later sections **revise** earlier ones; where they
 conflict, the later section wins.
 
 ```mermaid
 flowchart LR
-    subgraph P1["Pass 1 — sections 1 to 12"]
+    subgraph P1["Pass 1 - sections 1 to 12"]
         A["Sec 2<br/>3 types = 2 dimensions"]
         B["Sec 3<br/>hand-built framed stdio"]
         C["Sec 8<br/>docker run on the host"]
     end
-    subgraph P2["Pass 2 — section 13<br/>Kubernetes reframe"]
+    subgraph P2["Pass 2 - section 13<br/>Kubernetes reframe"]
         D["3 modes<br/>Ephemeral / Resident / Orchestrated"]
         E["one gRPC contract<br/>adapter dials out"]
     end
-    subgraph P3["Pass 3 — section 14<br/>shared-library reality"]
+    subgraph P3["Pass 3 - section 14<br/>shared-library reality"]
         F["Ephemeral is the<br/>PRIMARY product<br/>~190 binaries"]
         G["Pooled resident<br/>+ Phase 0 bug fixes"]
     end
@@ -36,27 +36,27 @@ flowchart LR
     E --> G
 ```
 
-**Diagram key** — a node outlined in **green** is the recommended path, in **red** a trap or
+**Diagram key** - a node outlined in **green** is the recommended path, in **red** a trap or
 rejected option, in **amber** something to watch. Everything else is neutral.
 
-*Sections 11 and 12 (resource limits, stdio performance) survive intact — but section 13 makes
+*Sections 11 and 12 (resource limits, stdio performance) survive intact - but section 13 makes
 most of section 11 unnecessary in Orchestrated mode, and section 13.3 removes the need for the
 custom framing that section 12 was optimising.*
 
 ---
 
-### Where the connections live — the core of the verdict
+### Where the connections live - the core of the verdict
 
 ```mermaid
 flowchart TB
-    subgraph OPT1["Option A — in-process plugin"]
+    subgraph OPT1["Option A - in-process plugin"]
         direction TB
         H1["Bitween host process<br/>(one heap, one fate)"]
         H1 --- K1["Kafka client<br/>native buffers<br/>64 MiB per partition"]
         H1 --- R1["RabbitMQ client"]
         H1 --- APP["Xchange pipeline<br/>mappers, handlers, API"]
     end
-    subgraph OPT2["Option B — adapter processes"]
+    subgraph OPT2["Option B - adapter processes"]
         direction TB
         H2["Bitween host process<br/>pipeline only"]
         H2 <-.duplex stream.-> P1["kafka-adapter<br/>memory-capped<br/>restartable"]
@@ -75,12 +75,12 @@ runtime" requirement. But be clear about what is actually being bought and what 
 
 | | In-proc plugin (§4 as written) | Resident serverless adapter |
 |---|---|---|
-| Install without redeploy | No — assembly loaded at startup | **Yes** — already the whole point of `Install()` |
-| A provider whose only good client is not .NET | Impossible | Yes, via container launcher — but see 1.1: rarer than it sounds |
+| Install without redeploy | No - assembly loaded at startup | **Yes** - already the whole point of `Install()` |
+| A provider whose only good client is not .NET | Impossible | Yes, via container launcher - but see 1.1: rarer than it sounds |
 | Native deps (librdkafka) | Loads into the host process | **Isolated**, and cappable |
 | Memory pressure from live connections | Lands on the Bitween node's heap | **Lands on a process you can `--memory` cap** |
 | A provider that crashes | Can take the node down | Kills one adapter, supervisor restarts it |
-| Provider versions side by side | ALC hell | Free — separate processes, separate dirs |
+| Provider versions side by side | ALC hell | Free - separate processes, separate dirs |
 
 ### 1.1 Correction: "non-.NET" is the weakest argument for containers
 
@@ -92,16 +92,16 @@ a usable .NET client:
 |---|---|---|
 | RabbitMQ | `RabbitMQ.Client` (official) | Pure managed. No container needed. |
 | MQTT | **MQTTnet** | Mature and widely used. No container needed. |
-| Pulsar | **DotPulsar** (official, under the Apache Pulsar project) | Covers the mainstream produce/consume path. The **Java** client is the reference implementation and leads on some features — check DotPulsar against what the Tuya pipeline actually needs before assuming either way. |
-| Kafka | `Confluent.Kafka` | The standard choice — but it wraps **librdkafka**, a native library. That is a *native dependency* argument, not a language one. |
+| Pulsar | **DotPulsar** (official, under the Apache Pulsar project) | Covers the mainstream produce/consume path. The **Java** client is the reference implementation and leads on some features - check DotPulsar against what the Tuya pipeline actually needs before assuming either way. |
+| Kafka | `Confluent.Kafka` | The standard choice - but it wraps **librdkafka**, a native library. That is a *native dependency* argument, not a language one. |
 | Azure Event Hubs / Service Bus, Amazon SQS | first-party Azure and AWS SDKs | Pure managed. No container needed. |
 
 So the honest case for the container launcher is **not** language. It is:
 
-1. **Native dependencies** — librdkafka is `malloc`, invisible to `GCHeapHardLimit`, and platform-specific. This is the strongest reason and §11.1 depends on it.
-2. **Runtime and target-framework independence** — the strongest reason of all, and it is entirely a .NET problem: Gateway's image already ships two runtimes (`COPY --from=aspnet:6.0`) because the adapter fleet multi-targets. See §14.2.
+1. **Native dependencies** - librdkafka is `malloc`, invisible to `GCHeapHardLimit`, and platform-specific. This is the strongest reason and §11.1 depends on it.
+2. **Runtime and target-framework independence** - the strongest reason of all, and it is entirely a .NET problem: Gateway's image already ships two runtimes (`COPY --from=aspnet:6.0`) because the adapter fleet multi-targets. See §14.2.
 3. **Blast radius and resource limits for third-party provider code.**
-4. **A specific .NET client falling short of what a client needs** — real, but narrow, and it should be established per case rather than assumed.
+4. **A specific .NET client falling short of what a client needs** - real, but narrow, and it should be established per case rather than assumed.
 
 Language is the fallback, not the premise. This also reinforces §11.3: `systemd-run` should ship
 before `ContainerLauncher`, because most providers will never need a container at all.
@@ -114,10 +114,10 @@ librdkafka's default `queued.max.messages.kbytes` is 64 MiB **per partition**. I
 with a memory limit and a restart policy.
 
 **What it costs:** the current stdio protocol cannot carry this workload. That is the real
-project — not the process model, not Docker. See §3.
+project - not the process model, not Docker. See §3.
 
 **Recommendation:** do it, and *replace* the in-proc plugin model rather than supporting both.
-Two provider hosting models is the worst outcome — double the surface, double the bugs, and
+Two provider hosting models is the worst outcome - double the surface, double the bugs, and
 every provider author has to pick.
 
 ---
@@ -128,11 +128,11 @@ every provider author has to pick.
 flowchart TB
     subgraph AX["Two independent axes, not three types"]
         direction LR
-        subgraph L["Lifecycle — a PROTOCOL concern"]
+        subgraph L["Lifecycle - a PROTOCOL concern"]
             L1["Invocation<br/>start, N calls, exit"]
             L2["Resident<br/>lives on, pushes events"]
         end
-        subgraph W["Launcher — a PACKAGING concern"]
+        subgraph W["Launcher - a PACKAGING concern"]
             W1["LocalProcess<br/>dotnet x.dll"]
             W2["Container<br/>docker run -i"]
         end
@@ -156,9 +156,9 @@ AdapterRuntime
   └─ Launcher  : LocalProcess | Container   ( | InProcess, for native.* )
 ```
 
-* **Lifecycle** is a *protocol* concern — who initiates, how many calls are in flight, does the
+* **Lifecycle** is a *protocol* concern - who initiates, how many calls are in flight, does the
   adapter push.
-* **Launcher** is a *packaging* concern — how the process is spawned and constrained.
+* **Launcher** is a *packaging* concern - how the process is spawned and constrained.
 
 Docker is not a third adapter type; it is a second launcher for the same protocol
 (`docker run -i` gives you exactly the same stdin/stdout pipes). Keeping these orthogonal means
@@ -176,7 +176,7 @@ and a container-packaged mapper works for free.
 | `Launcher` | `process` (default) \| `container` | |
 | `Image` | e.g. `ghcr.io/…/kafka-adapter:1.4.0` | container launcher only |
 | `MaxInFlight` | int | protocol credit window |
-| `Capabilities` | csv | `subscribe,publish,topology,browse,query` — §3.8 of the arch doc |
+| `Capabilities` | csv | `subscribe,publish,topology,browse,query` - §3.8 of the arch doc |
 
 Backward compatibility is then trivial and *provable*: an adapter with no `Protocol` key takes
 the existing code path byte for byte. Old adapters are already-published binaries against a
@@ -184,11 +184,11 @@ pinned SDK version; they never see the new code.
 
 ---
 
-## 3. Challenge 1 — the protocol is the whole project
+## 3. Challenge 1 - the protocol is the whole project
 
 ### The single-completion-source hazard, drawn
 
-This is the defect behind items 1 and 2 below. It is **live in Traxis production today** — see
+This is the defect behind items 1 and 2 below. It is **live in Traxis production today** - see
 section 14.3.
 
 ```mermaid
@@ -247,7 +247,7 @@ Verified against `SW.Serverless/Services/ServerlessService.cs` and `SW.Serverles
 2. **stdout is assumed to be responses only.** `OutputDataReceived` disposes
    `invocationTimeoutTimer` on *any* line and resolves the pending TCS with it. An adapter that
    spontaneously emits "I received a Kafka message" will cancel and corrupt an unrelated
-   in-flight invoke. Push is not merely unsupported — it is actively unsafe.
+   in-flight invoke. Push is not merely unsupported - it is actively unsafe.
 3. **The adapter suicides when idle.** `Runner.Run` arms `idleTimer` before every read and
    throws `TimeoutException` from the timer callback (i.e. crashes the process) after
    `ServerlessOptions.IdleTimeout`. A resident adapter that is quietly listening is, by
@@ -258,22 +258,22 @@ Verified against `SW.Serverless/Services/ServerlessService.cs` and `SW.Serverles
    escaping and `#!#` delimiters. Kafka and MQTT payloads are `byte[]`. Base64 in a JSON string
    would work but costs +33% and forces the whole payload through one console line. This is a
    hard blocker, not a nice-to-have.
-6. **Startup values are passed on `argv`, base64-encoded** — visible in `ps aux` to any local
+6. **Startup values are passed on `argv`, base64-encoded** - visible in `ps aux` to any local
    user. That is already true today and already carries adapter secret properties; for broker
    credentials it is not acceptable. Config must move to a first stdin frame.
 7. **EOF spins hot.** In `Runner.Run`, `ReadLineAsync` returning `null` (parent process gone)
-   hits `if (input == null) continue;` — an infinite loop that re-arms and disposes a `Timer` on
+   hits `if (input == null) continue;` - an infinite loop that re-arms and disposes a `Timer` on
    every iteration. Today the idle timer eventually kills it; a resident adapter with no idle
    timeout would spin a core forever as an orphan. **Null read must mean "parent died, exit".**
 
 ### 3.1 Protocol v2
 
 > **Amended by section 15.** The judgement below is about gRPC over **localhost TCP**, and it
-> stands. Section 13.3 proposes gRPC over a **Unix domain socket / named pipe** — an IPC object,
-> not a network socket — which keeps every property defended here. See section 15.1.
+> stands. Section 13.3 proposes gRPC over a **Unix domain socket / named pipe** - an IPC object,
+> not a network socket - which keeps every property defended here. See section 15.1.
 
 Keep stdio. It is the design's quiet superpower: no ports, no port allocation, no bind
-addresses, no auth token, no firewall rule, no container network config — and it works
+addresses, no auth token, no firewall rule, no container network config - and it works
 identically for `dotnet x.dll` and `docker run -i`. gRPC-over-localhost buys better tooling and
 costs all of that back.
 
@@ -283,16 +283,16 @@ What changes is framing:
 [ u32 length ][ u8 frameType ][ u32 headerLen ][ header: UTF-8 JSON ][ body: raw bytes ]
 ```
 
-* **Length-prefixed** — no escaping, no line limits, binary-safe.
-* **`header.id`** — a monotonic id per direction. Responses echo it. Enables multiplexing.
-* **`body`** — untouched bytes. A Kafka payload passes through with zero transformation.
+* **Length-prefixed** - no escaping, no line limits, binary-safe.
+* **`header.id`** - a monotonic id per direction. Responses echo it. Enables multiplexing.
+* **`body`** - untouched bytes. A Kafka payload passes through with zero transformation.
 * **Symmetric.** Both sides can be caller and callee. Frame types:
   `request`, `response`, `error`, `log`, `metric`, `event`, `ack`, `ping`, `pong`, `control`.
 * **Credit-based flow control.** The host grants `MaxInFlight`; the adapter must not exceed it.
   Without this, an adapter reading Kafka faster than the host persists Xchanges just buffers
   until OOM.
 
-Host side becomes a `ConcurrentDictionary<long, TaskCompletionSource>` plus a read loop — which
+Host side becomes a `ConcurrentDictionary<long, TaskCompletionSource>` plus a read loop - which
 also removes the reflection-over-`TaskCompletionSource<T>` hack in `ServerlessService`.
 
 **Do not multiplex over stdout while also using stderr for logs.** In v2, logs are `log` frames
@@ -301,18 +301,18 @@ ring buffer for forensics (§6.7).
 
 ---
 
-## 4. Challenge 2 — lifetime and DI
+## 4. Challenge 2 - lifetime and DI
 
 ```mermaid
 flowchart TB
-    subgraph SCOPED["Invocation adapters — unchanged"]
+    subgraph SCOPED["Invocation adapters - unchanged"]
         S1["HTTP request / Quartz job<br/>opens a DI scope"]
         S2["IServerlessService<br/>TRANSIENT + IDisposable"]
         S3["child process"]
         S1 --> S2 --> S3
         S1 -.scope disposed.-> S4["process killed<br/>correct behaviour"]
     end
-    subgraph RESIDENT["Resident adapters — new"]
+    subgraph RESIDENT["Resident adapters - new"]
         R1["ResidentAdapterSupervisor<br/>IHostedService"]
         R2["IResidentAdapterHost<br/>SINGLETON"]
         R3["long-lived processes<br/>keyed by DataSourceId"]
@@ -323,7 +323,7 @@ flowchart TB
 ```
 
 *The existing transient registration is right for invocation adapters and fatal for resident
-ones — a DI scope ending must never kill a broker connection.*
+ones - a DI scope ending must never kill a broker connection.*
 
 ---
 
@@ -348,21 +348,21 @@ ones.
 
 So:
 
-* `IServerlessService` — **unchanged**, transient, invocation lifecycle. No consumer changes.
-* `IResidentAdapterHost` — **singleton**, owns a `ConcurrentDictionary<AdapterInstanceKey, ResidentAdapterInstance>`
+* `IServerlessService` - **unchanged**, transient, invocation lifecycle. No consumer changes.
+* `IResidentAdapterHost` - **singleton**, owns a `ConcurrentDictionary<AdapterInstanceKey, ResidentAdapterInstance>`
   keyed by `(adapterId, instanceKey)` where `instanceKey` is the `DataSourceId`. Callers get a
   *handle*, never ownership.
-* `ResidentAdapterSupervisor` — `IHostedService`, the reconciliation loop.
+* `ResidentAdapterSupervisor` - `IHostedService`, the reconciliation loop.
 
 **The supervisor is the loop already designed in §5 of the architecture doc.** Desired state =
 `DataSource` rows whose placement resolves to this node; actual state = running instances;
 reconcile every N seconds and on `RefreshConsumers`-style broadcast. Nothing about the cluster,
-placement, or leader-election design changes — only *what a provider is* changes, from a loaded
+placement, or leader-election design changes - only *what a provider is* changes, from a loaded
 type to a supervised process.
 
 ---
 
-## 5. Challenge 3 — the push direction (the crux for bus)
+## 5. Challenge 3 - the push direction (the crux for bus)
 
 ```mermaid
 sequenceDiagram
@@ -384,7 +384,7 @@ sequenceDiagram
 ```
 
 *The adapter must not acknowledge the broker until Bitween has durably persisted. That makes the
-transport bidirectional — the adapter is a caller too — and makes at-least-once delivery, hence
+transport bidirectional - the adapter is a caller too - and makes at-least-once delivery, hence
 deduplication, a hard requirement rather than an open question.*
 
 ---
@@ -393,13 +393,13 @@ deduplication, a hard requirement rather than an open question.*
 
 ```mermaid
 flowchart LR
-    subgraph BAD["Rejected — adapter writes directly"]
+    subgraph BAD["Rejected - adapter writes directly"]
         A1["adapter"] --> DB1["Bitween database"]
         A1 --> S1["cloud storage"]
         A1 --> BUS1["internal RabbitMQ"]
         X["adapter needs DB creds,<br/>storage creds, and a COPY<br/>of XchangeService logic"]
     end
-    subgraph GOOD["Adopted — adapter calls the host"]
+    subgraph GOOD["Adopted - adapter calls the host"]
         A2["adapter<br/>knows only the broker"] -->|Event frame| H2["host owns persistence,<br/>credentials and pipeline"]
     end
     style X stroke:#d24b3c,stroke-width:3px
@@ -461,7 +461,7 @@ flowchart TB
 ```
 
 *The green box matters most: host-observed metrics need no adapter cooperation, so they still
-work **when the adapter is wedged** — which is exactly when you need them.*
+work **when the adapter is wedged** - which is exactly when you need them.*
 
 ---
 
@@ -496,7 +496,7 @@ Seven things, in priority order:
 Replace prefix-parsing with a `log` frame:
 `{ level, message, exception, timestamp, template, properties, correlationId, traceId }`.
 Host calls `ILogger.Log` inside a scope carrying `adapterId`, `instanceKey`, `dataSourceId`,
-`nodeId`. No new sink infrastructure — it lands wherever Bitween's logs already land, but now
+`nodeId`. No new sink infrastructure - it lands wherever Bitween's logs already land, but now
 queryable by data source instead of grep-able by string.
 
 Add a `control` command `setLogLevel` so verbosity is changeable at runtime, per adapter
@@ -508,12 +508,12 @@ and you want debug on for *one* misbehaving data source, not all of them.
 
 * Host → adapter: current activity id, so an adapter's work nests under the caller.
 * Adapter → host push: the adapter starts the activity, and **links it to the broker message's
-  own `traceparent` header** when present — Kafka, RabbitMQ, MQTT5 and Pulsar all carry headers,
+  own `traceparent` header** when present - Kafka, RabbitMQ, MQTT5 and Pulsar all carry headers,
   and upstream producers instrumented with OpenTelemetry set it.
 
 The payoff is one trace spanning *producer → broker → adapter → Xchange → mapper → handler*.
 This is the single feature that makes cross-process debugging bearable, and it is the thing
-in-proc plugins would have given you for free — so it has to be built deliberately.
+in-proc plugins would have given you for free - so it has to be built deliberately.
 
 ### 6.3 Metrics
 Two independent sources, deliberately:
@@ -523,7 +523,7 @@ Two independent sources, deliberately:
   republishes on `System.Diagnostics.Metrics` so they export through whatever Bitween already
   uses.
 * **Host-observed**, requiring no adapter cooperation: `Process.WorkingSet64`,
-  `TotalProcessorTime` delta, thread count, handle count, restart count, uptime — sampled by the
+  `TotalProcessorTime` delta, thread count, handle count, restart count, uptime - sampled by the
   supervisor. For containers, `docker stats` / cgroup files.
 
 The second source is the important one, because **it still works when the adapter is wedged**.
@@ -533,8 +533,8 @@ instead of estimates.
 ### 6.4 Heartbeat that means something
 A `ping` frame with a deadline; the adapter answers `pong` with a **status object**, not just
 liveness: connected yes/no, subscribed partitions/queues, lag, timestamp of last received
-message, last exception. This distinguishes the three states operators actually care about —
-*process dead*, *process alive but disconnected*, *connected but receiving nothing* — which a
+message, last exception. This distinguishes the three states operators actually care about -
+*process dead*, *process alive but disconnected*, *connected but receiving nothing* - which a
 plain liveness check conflates.
 
 Note this must be answerable **while messages are in flight**, which is another reason the
@@ -550,7 +550,7 @@ The current per-process `CorrelationId` cannot express this at all.
 
 ### 6.6 Reuse the existing test-connection path
 The "test connection" and "discover cluster" commands from the RabbitMQ provider plan become
-ordinary `request` frames against a **transient** instance of the same adapter — same code,
+ordinary `request` frames against a **transient** instance of the same adapter - same code,
 same protocol, no second implementation. That is a real simplification the in-proc design did
 not offer.
 
@@ -558,12 +558,12 @@ not offer.
 A resident adapter that dies at 03:00 must leave evidence. On abnormal exit, persist a
 `data_source_incident` row: exit code, signal, last N stderr lines (ring buffer, per instance),
 last frames exchanged, restart count in window. Surface the ring buffer in the UI as
-"last 200 lines" so the diagnose loop does not require access to the central log store —
+"last 200 lines" so the diagnose loop does not require access to the central log store -
 disproportionately useful for the configure-and-test UX.
 
 ---
 
-## 7. Challenge 4 — failure, restart, split-brain
+## 7. Challenge 4 - failure, restart, split-brain
 
 ```mermaid
 flowchart TB
@@ -576,7 +576,7 @@ flowchart TB
     style STOP stroke:#d24b3c,stroke-width:3px
 ```
 
-*A silent restart loop is worse than a hard stop — it burns broker connections and hides the
+*A silent restart loop is worse than a hard stop - it burns broker connections and hides the
 fault.*
 
 ---
@@ -593,28 +593,28 @@ flowchart LR
     style R3 stroke:#cf9a2e,stroke-width:3px
 ```
 
-* **Invocation adapter dies** — one Xchange fails, the auto-retry policy already covers it.
-* **Resident adapter dies** — an entire ingress goes silent. Needs: supervisor detects exit,
+* **Invocation adapter dies** - one Xchange fails, the auto-retry policy already covers it.
+* **Resident adapter dies** - an entire ingress goes silent. Needs: supervisor detects exit,
   exponential backoff restart, **crash-loop detection** (N restarts in M minutes ⇒ stop, mark the
   `DataSource` unhealthy, surface in UI, fire a notifier). A silent restart loop is worse than a
   hard stop.
-* **Host dies, adapter survives** — must not happen. Fix the EOF spin (§3, item 7) so a null read
+* **Host dies, adapter survives** - must not happen. Fix the EOF spin (§3, item 7) so a null read
   means exit, and additionally have the adapter poll its parent PID.
-* **Node loses leadership while the adapter runs** — the process must be killed *before* another
+* **Node loses leadership while the adapter runs** - the process must be killed *before* another
   node starts its own, or you get duplicate consumption. This is where the DB fencing token from
   §6.1 of the architecture doc earns its keep: the supervisor checks the term before every
   reconcile, and a stale term means "stop everything immediately".
 
 ---
 
-## 8. Challenge 5 — the container launcher
+## 8. Challenge 5 - the container launcher
 
-**Why it is worth having** — in the order the reasons actually carry weight (see §1.1):
+**Why it is worth having** - in the order the reasons actually carry weight (see §1.1):
 runtime and target-framework independence, so an adapter's TFM stops being the host image's
 problem; native dependencies like librdkafka, which escape `GCHeapHardLimit` and are
 platform-specific; hard resource limits (`--memory`, `--cpus`, `--pids-limit`); and a real
 security boundary for third-party provider code. A provider needing a non-.NET client is a
-genuine but uncommon fourth reason — every broker on the current roadmap has a usable .NET
+genuine but uncommon fourth reason - every broker on the current roadmap has a usable .NET
 client.
 
 **What it costs, honestly:**
@@ -624,13 +624,13 @@ client.
   genuine security conversation, not a config flag.
 * Image pull credentials, per-node image cache, cold-start on first pull (seconds to minutes).
 * Not available everywhere: App Service, hardened k8s without socket access, some managed hosts.
-* In Kubernetes the idiomatic answer is not `docker run` — it is a sidecar or a Job. So the
+* In Kubernetes the idiomatic answer is not `docker run` - it is a sidecar or a Job. So the
   launcher must stay pluggable and you should not over-invest in the Docker one.
 
 **Therefore:** define `IAdapterLauncher { StartAsync, StopAsync, GetResourceUsageAsync }`, ship
 `ProcessLauncher` first, and gate `ContainerLauncher` behind a node capability probe. A
 `DataSource` whose adapter requires `Launcher=container` simply will not be placed on a node
-that reports no container runtime — which is exactly what the §6.2 placement layer is for.
+that reports no container runtime - which is exactly what the §6.2 placement layer is for.
 
 Protocol-wise the container launcher is free: `docker run -i --rm` gives the same three pipes.
 
@@ -641,18 +641,18 @@ Protocol-wise the container launcher is free: `docker run -i --rm` gives the sam
 * **Debuggability of provider code.** In-proc, you attach a debugger and step through. Out-of-proc,
   you debug IPC. Mitigation: `Runner.MockRun` already exists for in-test adapter hosting; extend
   it to the resident lifecycle so provider logic is unit-testable without a process.
-* **Integration test complexity.** A test now needs a *published* adapter. Precedent exists —
-  `AdapterInstaller` in `BitweenFixture` already publishes and uploads sample adapters — but
+* **Integration test complexity.** A test now needs a *published* adapter. Precedent exists -
+  `AdapterInstaller` in `BitweenFixture` already publishes and uploads sample adapters - but
   every provider test inherits that cost, on top of the Testcontainers broker.
 * **Latency on enrichment.** `IQueryCapable` (a mapper querying a data source, §3.8) becomes an
-  IPC round trip: roughly 0.1–1 ms instead of ~0. Against the measured Traxis baseline — 32.67 s
-  p50 handler time versus 0.33 s of total plumbing — this is noise. It would matter only if
+  IPC round trip: roughly 0.1-1 ms instead of ~0. Against the measured Traxis baseline - 32.67 s
+  p50 handler time versus 0.33 s of total plumbing - this is noise. It would matter only if
   a mapper did thousands of lookups per message.
 * **Two moving parts to version.** Protocol version negotiation must be explicit and checked at
   startup, with a clear error, or you get mysterious hangs.
 
 None of these outweigh runtime installability and connection isolation for the bus use case.
-All of them would outweigh it for, say, a JSON mapper — which is precisely why the invocation
+All of them would outweigh it for, say, a JSON mapper - which is precisely why the invocation
 lifecycle stays exactly as it is.
 
 ---
@@ -664,11 +664,11 @@ lifecycle stays exactly as it is.
 | **0** | Fix `argv` secret exposure; fix EOF hot-spin; keep v1 behaviour otherwise | Both are live bugs today, independent of this design |
 | **1** | Protocol v2: framed, multiplexed, binary body, symmetric, credit-based. v1 fallback keyed on absent `Protocol` metadata | Everything else depends on it |
 | **2** | `IResidentAdapterHost` + `ResidentAdapterSupervisor` + log/metric/ping/trace frames; prove with a trivial "tick" resident adapter | Runtime and observability before any real provider |
-| **3** | RabbitMQ resident bus adapter | The provider design in `provider-plan-rabbitmq-kafka.md` is unchanged — only where it runs changes |
+| **3** | RabbitMQ resident bus adapter | The provider design in `provider-plan-rabbitmq-kafka.md` is unchanged - only where it runs changes |
 | **4** | `ContainerLauncher` + node capability probe | Needed before Kafka if librdkafka is containerized |
 | **5** | Kafka resident bus adapter | Highest client demand, hardest resource profile |
 
-Phases 0–2 are the real investment and buy nothing visible to a customer. Worth saying out loud
+Phases 0-2 are the real investment and buy nothing visible to a customer. Worth saying out loud
 before committing, because it is the part that gets cut under pressure and it is the part that
 cannot be retrofitted.
 
@@ -678,18 +678,18 @@ cannot be retrofitted.
 
 ```mermaid
 flowchart TB
-    subgraph L1["Layer 1 — portable, cooperative"]
+    subgraph L1["Layer 1 - portable, cooperative"]
         A1["child env vars<br/>DOTNET_gcServer=0<br/>GCHeapHardLimit<br/>GCConserveMemory"]
         A2["parent samples<br/>WorkingSet64, TotalProcessorTime"]
         A3["supervisor watchdog<br/>soft threshold = ask to DRAIN<br/>hard threshold = kill"]
     end
-    subgraph L2["Layer 2 — Linux, nearly free"]
+    subgraph L2["Layer 2 - Linux, nearly free"]
         B1["oom_score_adj = 500<br/>kernel kills the ADAPTER,<br/>not Bitween"]
         B2["RLIMIT_NOFILE, RLIMIT_NPROC"]
         B3["nice, ProcessorAffinity"]
         B4["NEVER RLIMIT_AS<br/>the GC reserves huge virtual space"]
     end
-    subgraph L3["Layer 3 — real enforcement"]
+    subgraph L3["Layer 3 - real enforcement"]
         C1["Linux cgroup v2<br/>memory.high < memory.max<br/>or systemd-run --scope"]
         C2["Windows Job Object<br/>+ KILL_ON_JOB_CLOSE"]
     end
@@ -709,24 +709,24 @@ about 75% of it automatically.*
 ```mermaid
 flowchart LR
     M["RSS climbing"] --> S{"which threshold"}
-    S -->|"soft — watchdog"| D1["ask adapter to DRAIN<br/>stop fetching, nack in-flight,<br/>then stop cleanly"]
-    S -->|"hard — cgroup memory.max"| D2["SIGKILL<br/>no chance to nack<br/>in-flight messages redelivered"]
+    S -->|"soft - watchdog"| D1["ask adapter to DRAIN<br/>stop fetching, nack in-flight,<br/>then stop cleanly"]
+    S -->|"hard - cgroup memory.max"| D2["SIGKILL<br/>no chance to nack<br/>in-flight messages redelivered"]
     style D1 stroke:#1f9d63,stroke-width:3px
     style D2 stroke:#d24b3c,stroke-width:3px
 ```
 
-*And note native allocations — librdkafka's fetch buffers are `malloc`, invisible to
+*And note native allocations - librdkafka's fetch buffers are `malloc`, invisible to
 `GCHeapHardLimit`. RSS, not GC heap, is the number to watch.*
 
 In §1 and §8 I attributed memory capping to containers. That is imprecise and worth correcting:
 **Docker's limits *are* cgroups.** You can have the same enforcement natively. What Docker
-uniquely buys is *packaging* — a self-contained runtime per adapter, native deps, and image
-distribution — not limits.
+uniquely buys is *packaging* - a self-contained runtime per adapter, native deps, and image
+distribution - not limits.
 That materially lowers the priority of the container launcher.
 
 Three layers, from portable to enforcing.
 
-### 11.1 Layer 1 — portable: tune the child runtime, watch from the parent
+### 11.1 Layer 1 - portable: tune the child runtime, watch from the parent
 
 Injected as environment variables at spawn (the host already builds `ProcessStartInfo`):
 
@@ -742,52 +742,52 @@ Injected as environment variables at spawn (the host already builds `ProcessStar
 **The critical caveat: `GCHeapHardLimit` does not bound native allocations.** librdkafka's fetch
 buffers are `malloc`, entirely outside GC accounting. For Kafka the only real control is
 librdkafka's own `queued.max.messages.kbytes` / `queued.min.messages` / `fetch.max.bytes`. So
-the provider descriptor must expose those, and the supervisor must treat RSS — not GC heap — as
+the provider descriptor must expose those, and the supervisor must treat RSS - not GC heap - as
 the number it watches.
 
 Parent-side monitoring is what you already need for §6.3: `Process.WorkingSet64` and
 `TotalProcessorTime` are accurate on both Linux and Windows. Note `Process.MaxWorkingSet` is not
-a useful lever — Windows-only, and even there a soft trimming hint rather than a limit.
+a useful lever - Windows-only, and even there a soft trimming hint rather than a limit.
 
 Pair that with a **supervisor watchdog**: sample RSS every few seconds, and on crossing a soft
 threshold ask the adapter to drain (stop fetching, finish in-flight, `nack` the rest), then stop
 it; on crossing a hard threshold, kill. Operationally this is close to as good as a kernel limit,
 because the failure you actually face is a slow leak degrading a node over hours, not an
-instantaneous spike — **and it is strictly better than a cgroup OOM kill, which is `SIGKILL`
+instantaneous spike - **and it is strictly better than a cgroup OOM kill, which is `SIGKILL`
 with no chance to nack in-flight messages.** Build the watchdog even when Layer 3 exists.
 
 Also: `Launcher=process` should read an `Executable` metadata key rather than hardcoding
-`dotnet`. That one change lets a provider ship as ReadyToRun or NativeAOT — much lower baseline
-RSS and startup — or as a Go/Rust binary, without needing containers at all.
+`dotnet`. That one change lets a provider ship as ReadyToRun or NativeAOT - much lower baseline
+RSS and startup - or as a Go/Rust binary, without needing containers at all.
 
-### 11.2 Layer 2 — Linux, nearly free
+### 11.2 Layer 2 - Linux, nearly free
 
 Two file writes and a spawn flag, high value:
 
-* **`/proc/<pid>/oom_score_adj`** — write a positive value (say `500`) for every adapter. Under
+* **`/proc/<pid>/oom_score_adj`** - write a positive value (say `500`) for every adapter. Under
   memory pressure the kernel then kills an *adapter*, not the Bitween host. This is a handful of
   lines and it converts your worst outage mode into a supervised restart.
-* **`RLIMIT_NOFILE` / `RLIMIT_NPROC`** — safe, bounds fd and thread storms.
-* **`nice` / `ProcessorAffinity`** — `Process.PriorityClass` maps to `nice` on Unix, and
+* **`RLIMIT_NOFILE` / `RLIMIT_NPROC`** - safe, bounds fd and thread storms.
+* **`nice` / `ProcessorAffinity`** - `Process.PriorityClass` maps to `nice` on Unix, and
   `ProcessorAffinity` works on Linux. Crude CPU containment that costs nothing.
 
 **Do not use `RLIMIT_AS`.** The .NET GC reserves very large virtual address ranges up front;
 an address-space limit kills healthy processes. `ulimit -v` and .NET do not mix.
 
-### 11.3 Layer 3 — real enforcement, per platform
+### 11.3 Layer 3 - real enforcement, per platform
 
 This is what `IAdapterLauncher` exists for.
 
-**Linux — cgroup v2.** Create `/sys/fs/cgroup/<slice>/adapter-<id>/`, write `memory.high`,
+**Linux - cgroup v2.** Create `/sys/fs/cgroup/<slice>/adapter-<id>/`, write `memory.high`,
 `memory.max`, `cpu.max`, `pids.max`, then write the child PID into `cgroup.procs`. Plain file
-writes; no P/Invoke, no Docker socket. Set **`memory.high` below `memory.max`** — `high` throttles
+writes; no P/Invoke, no Docker socket. Set **`memory.high` below `memory.max`** - `high` throttles
 and reclaims (backpressure), `max` OOM-kills. That gives the watchdog a window to drain
 gracefully before the kernel intervenes.
 
 Bonus synergy: **.NET detects cgroup memory limits automatically** and sizes the GC heap against
 them (default heap hard limit ≈75% of the cgroup limit). So Layer 3 makes Layer 1 self-tuning.
 
-The catch is delegation — you need write access to a cgroup subtree, which you do not always
+The catch is delegation - you need write access to a cgroup subtree, which you do not always
 have inside a container or under a restrictive systemd config. Where systemd is present, the
 easiest correct launcher is not raw cgroup writes at all:
 
@@ -800,19 +800,19 @@ Declarative limits, no Docker socket, no privilege escalation, stdin/stdout pass
 unchanged. For most on-prem Linux deployments this is the answer, and it should probably ship
 *before* `ContainerLauncher`.
 
-**Windows — Job Objects.** The genuine equivalent, and there is no BCL wrapper, so ~100 lines of
+**Windows - Job Objects.** The genuine equivalent, and there is no BCL wrapper, so ~100 lines of
 P/Invoke: `CreateJobObject` + `SetInformationJobObject` with
 `JOBOBJECT_EXTENDED_LIMIT_INFORMATION` (`ProcessMemoryLimit`, `JobMemoryLimit`) and
 `JOBOBJECT_CPU_RATE_CONTROL_INFORMATION` (CPU rate cap). Worth it for one flag alone:
-**`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`** — when the Bitween process dies, the OS kills every
+**`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`** - when the Bitween process dies, the OS kills every
 adapter it spawned. That is the orphan problem solved by the kernel rather than by the
 parent-PID-polling hack in §7.
 
-**macOS** — effectively nothing beyond `setrlimit`. Dev-only; do not design for it.
+**macOS** - effectively nothing beyond `setrlimit`. Dev-only; do not design for it.
 
 ### 11.4 The per-process baseline is itself a budget item
 
-Every resident adapter carries a fixed cost before it does any work — a .NET console process
+Every resident adapter carries a fixed cost before it does any work - a .NET console process
 with workstation GC is on the order of tens of MB RSS, plus threads and fds. Fifteen data
 sources is a real, permanent slice of the node. Consequences:
 
@@ -821,7 +821,7 @@ sources is a real, permanent slice of the node. Consequences:
 * Consider **one process per provider *type* per node**, multiplexing several data sources of the
   same kind, once the count grows. The protocol already needs an instance key, so leave room for
   it in the addressing even if you start one-per-`DataSource`.
-* Measure the baseline for real before committing to placement density — do not take the number
+* Measure the baseline for real before committing to placement density - do not take the number
   above as given.
 
 ---
@@ -832,21 +832,21 @@ sources is a real, permanent slice of the node. Consequences:
 
 ```mermaid
 flowchart LR
-    subgraph SLOW["Today — per log line"]
+    subgraph SLOW["Today - per log line"]
         S1["Console.Error.WriteLine<br/>SYNCHRONIZED writer, a lock"]
         S2["2-3 string allocs<br/>newline escaping"]
         S3["autoflush = one syscall"]
         S4["host BeginErrorReadLine<br/>event + fresh string per line"]
         S1 --> S2 --> S3 --> S4
     end
-    subgraph FAST["Fixed — per batch"]
+    subgraph FAST["Fixed - per batch"]
         F1["bounded Channel of frames<br/>DropOldest + dropped counter"]
         F2["single writer task"]
         F3["PipeWriter over the RAW stream<br/>many frames per flush"]
         F4["host PipeReader loop<br/>no intermediate strings"]
         F1 --> F2 --> F3 --> F4
     end
-    SLOW -->|"the pipe was never the bottleneck —<br/>the syscall and alloc pattern was"| FAST
+    SLOW -->|"the pipe was never the bottleneck -<br/>the syscall and alloc pattern was"| FAST
 ```
 
 ---
@@ -879,7 +879,7 @@ Anonymous pipes move data at GB/s. What costs you is per-message overhead, and t
 implementation maximizes it:
 
 * **`Console.Error.WriteLine` per log line.** `Console.Out`/`Console.Error` are *synchronized*
-  writers — a global lock per write — and autoflush, so every log line is a lock plus a syscall.
+  writers - a global lock per write - and autoflush, so every log line is a lock plus a syscall.
 * **`.Replace("\n", "{{newline}}").Replace("\r", "")` on every line, on both sides.** Two to
   three string allocations per log, doubled because the host re-parses with `StartsWith` +
   `Replace`.
@@ -903,7 +903,7 @@ All three are fixable without changing transport:
 
 **Logging must never apply backpressure to the data path.** The adapter's log channel must be
 *bounded* with `DropOldest` and a `logs_dropped` counter. An adapter in an exception storm that
-blocks on a full pipe — because the host is busy — has just deadlocked its own message
+blocks on a full pipe - because the host is busy - has just deadlocked its own message
 processing. This is the failure mode to design against, not raw MB/s.
 
 **A log storm must not delay a heartbeat.** If logs and RPC share one stream, a burst of log
@@ -911,8 +911,8 @@ frames sits ahead of a `pong` in the pipe buffer, the supervisor sees a missed h
 restarts a perfectly healthy adapter. You already have two independent pipes with independent
 kernel buffers, so use them for what they are good at:
 
-* **stdout — data plane:** RPC requests/responses, pushed `event` frames, acks. High volume.
-* **stderr — control plane:** heartbeat, status, metric snapshots, lifecycle and error events.
+* **stdout - data plane:** RPC requests/responses, pushed `event` frames, acks. High volume.
+* **stderr - control plane:** heartbeat, status, metric snapshots, lifecycle and error events.
   Low, bounded rate, never starved by the data plane.
 
 That also happens to preserve the existing convention, where stderr was already the log channel.
@@ -942,28 +942,28 @@ requirements.
 | Carries | heartbeat/status, metric snapshots (one frame every few seconds), errors, lifecycle, stderr ring buffer | per-message spans, debug logs, detailed metrics |
 | Volume | bounded by construction | unbounded, bursty |
 | Transport | **stdio (stderr), always on** | **OTLP to a collector, when configured** |
-| Why | drives restart and placement decisions — must never be lossy, must never depend on external infrastructure being up | must never cost the host CPU, and needs batching/sampling/retry that is already solved |
+| Why | drives restart and placement decisions - must never be lossy, must never depend on external infrastructure being up | must never cost the host CPU, and needs batching/sampling/retry that is already solved |
 
 The host already injects configuration at adapter startup, so it can inject
 `OTEL_EXPORTER_OTLP_ENDPOINT` and the resource attributes (`service.name`, `adapter.id`,
 `datasource.id`, `node.id`) with zero work from the adapter author. When no endpoint is
-configured — a customer with no collector — the adapter falls back to stdio `log` frames at
+configured - a customer with no collector - the adapter falls back to stdio `log` frames at
 reduced verbosity, and the `setLogLevel` control command turns detail on for one data source
 when someone is actually debugging.
 
 It also keeps the door open cheaply: if some provider ever does need a non-.NET client, that
-adapter uses its own OTel SDK and lands in the same traces — which would be very awkward if all
+adapter uses its own OTel SDK and lands in the same traces - which would be very awkward if all
 telemetry had to be tunnelled through a bespoke stdio frame format. That is a cheap option to
 hold, not a reason to build the container launcher.
 
 ### 12.4 The data path, and the copy worth eliminating
 
-For message payloads, stdio is not a bottleneck at Bitween's measured throughput — a pipe copy
+For message payloads, stdio is not a bottleneck at Bitween's measured throughput - a pipe copy
 is trivial next to the cloud-storage write that follows it. But note the payload is copied
 adapter → host → cloud storage. For large payloads it is worth letting the adapter write
 directly to cloud storage and send only a reference in the `event` frame, above a size
 threshold. That removes the largest copy and the host CPU with it, at the cost of giving the
-adapter storage credentials — or, better, having the host hand out pre-issued upload URLs. Treat
+adapter storage credentials - or, better, having the host hand out pre-issued upload URLs. Treat
 this as an optimization to enable later, not a day-one requirement.
 
 ### 12.5 Measure before committing
@@ -978,7 +978,7 @@ above is sufficient or whether the data plane needs a different transport.
 ## 13. Revision: orchestrated adapters, and why this changes the protocol choice
 
 > **This section revises §2, §3, §8 and parts of §11.** The third mode is not
-> "`docker run` on the Bitween host" — it is Bitween driving the **Kubernetes API** to deploy a
+> "`docker run` on the Bitween host" - it is Bitween driving the **Kubernetes API** to deploy a
 > separate application that Bitween talks to over the network. That is a materially better idea,
 > and it removes the reason for the bespoke stdio framing proposed in §3.
 
@@ -986,17 +986,17 @@ above is sufficient or whether the data plane needs a different transport.
 
 ```mermaid
 flowchart TB
-    subgraph M1["EPHEMERAL — today, unchanged"]
+    subgraph M1["EPHEMERAL - today, unchanged"]
         E1["Bitween / Gateway"] -->|"spawn per invocation"| E2["child process"]
         E3["v1 line stdio"]
         E4["mappers, validators, handlers<br/>~190 binaries"]
     end
-    subgraph M2["RESIDENT — new"]
+    subgraph M2["RESIDENT - new"]
         R1["Bitween supervisor"] -->|"owns lifetime"| R2["long-lived child"]
         R3["gRPC over UDS / named pipe<br/>child dials the host"]
         R4["broker ingress where there<br/>is no orchestrator"]
     end
-    subgraph M3["ORCHESTRATED — new"]
+    subgraph M3["ORCHESTRATED - new"]
         O1["Bitween"] -->|"Kubernetes API"| O2["Deployment"]
         O2 --> O3["adapter pod"]
         O3 -.->|"dials OUT, gRPC over TLS"| O1
@@ -1006,12 +1006,12 @@ flowchart TB
 ```
 
 *Resident and Orchestrated are one adapter with two bindings. Ephemeral keeps its own path
-because a per-invocation spawn cannot afford gRPC startup — and because ~190 binaries depend on
+because a per-invocation spawn cannot afford gRPC startup - and because ~190 binaries depend on
 it being frozen.*
 
 | Mode | Lifetime owned by | Transport | Fits |
 |---|---|---|---|
-| **Ephemeral** (today) | Bitween, per invocation | v1 line stdio, **unchanged** | mappers, validators, handlers — short, CPU-bound, thousands of spawns |
+| **Ephemeral** (today) | Bitween, per invocation | v1 line stdio, **unchanged** | mappers, validators, handlers - short, CPU-bound, thousands of spawns |
 | **Resident** | Bitween supervisor | gRPC over UDS / named pipe | broker connections where there is no orchestrator |
 | **Orchestrated** | Kubernetes | gRPC over TCP+TLS | broker connections and anything needing independent scale |
 
@@ -1039,7 +1039,7 @@ flowchart TB
     style BW stroke:#1f9d63,stroke-width:3px
 ```
 
-*Dial-**out** is the decision that makes everything else fall into place — no Service, no
+*Dial-**out** is the decision that makes everything else fall into place - no Service, no
 Ingress, no TLS cert or DNS name for the adapter, no service discovery, works through NAT and
 egress-only NetworkPolicy, one auth direction instead of two. And the stream is symmetric,
 exactly like the pipe was.*
@@ -1070,16 +1070,16 @@ flowchart LR
 The orchestrated mode splits into two independent directions, and conflating them is the main
 way this design goes wrong:
 
-* **Orchestration plane — Bitween → Kubernetes API.** Create / update / scale / delete the
+* **Orchestration plane - Bitween → Kubernetes API.** Create / update / scale / delete the
   adapter's `Deployment`, read pod status, events, and metrics. This replaces "spawn a process."
-* **Data plane — adapter pod → Bitween.** The adapter **dials out** to Bitween and opens one
+* **Data plane - adapter pod → Bitween.** The adapter **dials out** to Bitween and opens one
   long-lived bidirectional gRPC stream. This replaces "the pipes."
 
 Making the adapter dial *out* rather than Bitween dial *in* is the decision that makes everything
 else fall into place:
 
 * No `Service`, no `Ingress`, no TLS certificate, no DNS name for the adapter.
-* No service discovery — Bitween never needs to find the adapter.
+* No service discovery - Bitween never needs to find the adapter.
 * Works through NAT and restrictive `NetworkPolicy` egress-only setups.
 * One authentication direction instead of two (the adapter presents a token; the pod got it from
   a mounted secret Bitween wrote when it created the Deployment).
@@ -1094,7 +1094,7 @@ real deployment constraint and belongs in the prerequisites.
 
 ```mermaid
 flowchart LR
-    subgraph HAND["Hand-built framing — sec 3"]
+    subgraph HAND["Hand-built framing - sec 3"]
         H1["custom length prefix"]
         H2["custom message ids"]
         H3["custom credit protocol"]
@@ -1103,7 +1103,7 @@ flowchart LR
         H6["a codec per language"]
         H7["custom log/metric frames"]
     end
-    subgraph GRPC["gRPC — free"]
+    subgraph GRPC["gRPC - free"]
         G1["bytes"]
         G2["HTTP/2 streams"]
         G3["HTTP/2 flow control"]
@@ -1153,19 +1153,19 @@ supplies, for free, every property §3 was hand-rolling:
 **Two things gRPC does not give you, and the contract still has to.** HTTP/2 flow control governs
 bytes on the wire, not application semantics: it will happily let an adapter push a thousand
 events the host has not persisted. So `AdapterFrame.id` correlation, the `Ack`/`Nack` reply on an
-event, and the `MaxInFlight` credit window remain **application-level requirements** — defined in
-the proto and enforced on both sides — rather than anything the transport supplies.
+event, and the `MaxInFlight` credit window remain **application-level requirements** - defined in
+the proto and enforced on both sides - rather than anything the transport supplies.
 
-That is a large amount of design, test, benchmark and version work removed — and §12.5's
+That is a large amount of design, test, benchmark and version work removed - and §12.5's
 "benchmark the framing first" becomes unnecessary.
 
 For **Resident** (no orchestrator), use the same gRPC contract over a **Unix domain socket** on
-Linux/macOS and a **named pipe** on Windows — both are supported transports for Kestrel and
+Linux/macOS and a **named pipe** on Windows - both are supported transports for Kestrel and
 `Grpc.Net.Client` on .NET 8. The host creates the endpoint, passes its path plus a one-time
 token to the child, and the child dials in. **Identical dial-out shape to the orchestrated mode,
 so resident and orchestrated share the entire code path above the transport.**
 
-The one thing to keep from §12: **stdio still carries early-life diagnostics** — everything the
+The one thing to keep from §12: **stdio still carries early-life diagnostics** - everything the
 adapter logs before it manages to dial, and its crash output. Keep the stderr ring buffer.
 
 Ephemeral adapters keep the v1 line protocol verbatim. The §3 bugs still need fixing (secrets on
@@ -1174,31 +1174,31 @@ Ephemeral adapters keep the v1 line protocol verbatim. The §3 bugs still need f
 ### 13.4 What orchestrated mode genuinely buys, beyond packaging
 
 * **Independent scale-out.** A Kafka adapter for a 60-partition topic can run six replicas in one
-  consumer group. Neither the resident nor the in-proc plugin model can do that at all — they are
+  consumer group. Neither the resident nor the in-proc plugin model can do that at all - they are
   capped at one connection owner per data source. This is the largest single win and it did not
   exist in the earlier design.
 * **The node-pressure problem disappears.** Broker connections and librdkafka's native buffers
-  never live on a Bitween node. All of §11 collapses to `resources.limits.memory` — a declarative
+  never live on a Bitween node. All of §11 collapses to `resources.limits.memory` - a declarative
   field, kernel-enforced, zero code.
 * **Better health data than a child process gives you.** Pod status, `OOMKilled` as an explicit
   reason rather than an inference, `CrashLoopBackOff`, restart counts, pod events, and
   CPU/memory from `metrics.k8s.io`.
 * **Independent rollout.** Upgrade one provider without touching the Bitween deployment.
 * **Each adapter carries its own runtime**, so a target framework stops being the host image's
-  problem — the concrete pain behind Gateway's `COPY --from=aspnet:6.0` (§14.2). A non-.NET
+  problem - the concrete pain behind Gateway's `COPY --from=aspnet:6.0` (§14.2). A non-.NET
   client, in the uncommon case one is needed, is then just another image.
 
-### 13.5 What it costs — stated plainly
+### 13.5 What it costs - stated plainly
 
 * **A second operational model, permanently.** Non-k8s customers get Resident; k8s customers get
   Orchestrated. Two health models, two log paths, two failure taxonomies, two sets of UI states.
   This is the biggest cost and it does not go away. It is only tolerable because both modes share
   one contract and one data plane.
 * **RBAC.** Bitween needs a ServiceAccount with create/update/delete on Deployments. Many
-  enterprises will push back. Mitigate with a namespace-scoped `Role` in a dedicated namespace —
-  never cluster-wide — and make the whole thing opt-in.
+  enterprises will push back. Mitigate with a namespace-scoped `Role` in a dedicated namespace -
+  never cluster-wide - and make the whole thing opt-in.
 * **Runtime install gets weaker, not stronger.** This is the important counterpoint. Resident
-  adapters install from a zip in cloud storage — Bitween fully controls it. Orchestrated adapters
+  adapters install from a zip in cloud storage - Bitween fully controls it. Orchestrated adapters
   are **images in a registry**, so runtime install now depends on the *customer's* registry,
   pull secrets, air-gap policy, image scanning, and admission controllers that may reject
   unsigned images. The "install a provider without a redeploy" property survives, but it stops
@@ -1215,8 +1215,8 @@ Ephemeral adapters keep the v1 line protocol verbatim. The §3 bugs still need f
 * **Local dev and integration testing get harder.** Testcontainers cannot hand you a cluster; you
   need k3s or kind in CI. Given that the integration suite does not run in CI at all today, this
   is a real concern rather than a theoretical one. Mitigation: make the Kubernetes orchestrator a
-  thin, mockable `IAdapterOrchestrator`, and test adapter *behaviour* in Resident mode — which is
-  the same code — so only the orchestrator itself needs a cluster.
+  thin, mockable `IAdapterOrchestrator`, and test adapter *behaviour* in Resident mode - which is
+  the same code - so only the orchestrator itself needs a cluster.
 
 ### 13.6 Exclusivity is *not* free, and this is a trap
 
@@ -1239,14 +1239,14 @@ sequenceDiagram
 
 *Fix: `strategy: Recreate` for exclusive consumers, or a StatefulSet where at-most-one really
 matters. Better still, where the broker coordinates (Kafka consumer groups, RabbitMQ competing
-consumers), run `replicas: N` and drop the exclusivity requirement — that is the whole point of
+consumers), run `replicas: N` and drop the exclusivity requirement - that is the whole point of
 the mode.*
 
 ```mermaid
 flowchart LR
     Q{"does the provider<br/>coordinate consumers?"}
-    Q -->|"yes — Kafka groups,<br/>RabbitMQ competing consumers"| A["replicas: N<br/>no exclusivity needed<br/>SCALE OUT"]
-    Q -->|"no — exclusive consumer"| B{"how strict?"}
+    Q -->|"yes - Kafka groups,<br/>RabbitMQ competing consumers"| A["replicas: N<br/>no exclusivity needed<br/>SCALE OUT"]
+    Q -->|"no - exclusive consumer"| B{"how strict?"}
     B -->|"tolerable overlap"| C["Deployment<br/>strategy: Recreate"]
     B -->|"must be at-most-one"| D["StatefulSet"]
     style A stroke:#1f9d63,stroke-width:3px
@@ -1261,10 +1261,10 @@ source. It is tempting to assume `replicas: 1` replaces that. It does not:
 * During a node partition, a Deployment can transiently exceed its replica count.
 
 So: use `strategy: Recreate` for exclusive consumers, and prefer a **StatefulSet** where
-at-most-one really matters — its at-most-one-per-ordinal guarantee is far stronger than a
+at-most-one really matters - its at-most-one-per-ordinal guarantee is far stronger than a
 Deployment's. Where the provider supports it (Kafka consumer groups, RabbitMQ competing
 consumers), prefer `replicas: N` with broker-side coordination and drop the exclusivity
-requirement entirely — that is the whole point of §13.4.
+requirement entirely - that is the whole point of §13.4.
 
 And Bitween's own leader election still matters, for a different reason: **exactly one Bitween
 replica may drive the Kubernetes API**, or concurrent replicas will fight over the same
@@ -1275,10 +1275,10 @@ Deployments.
 | Phase | Work | Note |
 |---|---|---|
 | **0** | Fix `argv` secret exposure and the EOF hot-spin in the v1 path | Live bugs, independent of everything else |
-| **1** | Define the adapter contract as `.proto` — one service, bidi stream, host and adapter commands | The single most important artifact; everything binds to it |
+| **1** | Define the adapter contract as `.proto` - one service, bidi stream, host and adapter commands | The single most important artifact; everything binds to it |
 | **2** | Resident mode: gRPC over UDS / named pipe, adapter dials host, `IResidentAdapterHost` + supervisor + §11 limits | Ships value without any orchestrator |
 | **3** | RabbitMQ resident adapter | First real provider; §11 limits and §12 telemetry get exercised |
-| **4** | `IAdapterOrchestrator` + `SW.Serverless.Kubernetes` — optional package, namespace-scoped RBAC, labelled Deployments, warm pod for describe/test | Same contract, second binding. Non-k8s customers never load it |
+| **4** | `IAdapterOrchestrator` + `SW.Serverless.Kubernetes` - optional package, namespace-scoped RBAC, labelled Deployments, warm pod for describe/test | Same contract, second binding. Non-k8s customers never load it |
 | **5** | Kafka adapter, running orchestrated with `replicas: N` in a consumer group | The case that justifies the whole orchestrated mode |
 
 Phase 1 is the hinge. If the contract is defined properly once, phases 2 and 4 are two bindings
@@ -1318,7 +1318,7 @@ flowchart LR
     IMG --> COPY
     COPY --> WHY["because the adapter fleet<br/>multi-targets net6 AND net8"]
     WHY --> PROB["every adapter's target framework<br/>is the HOST IMAGE's problem,<br/>forever and cumulatively"]
-    PROB --> FIX["Orchestrated mode dissolves this —<br/>each adapter image carries<br/>its own runtime"]
+    PROB --> FIX["Orchestrated mode dissolves this -<br/>each adapter image carries<br/>its own runtime"]
     style PROB stroke:#d24b3c,stroke-width:3px
     style FIX stroke:#1f9d63,stroke-width:3px
 ```
@@ -1333,7 +1333,7 @@ flowchart LR
 **Rule that follows: every change to SW-Serverless must be additive and opt-in, selected
 per-adapter, never per-host.** The "absent `Protocol` metadata ⇒ v1 verbatim" rule from §2 is not
 a courtesy; it is the only thing that keeps ~190 binaries alive. And "ephemeral is the legacy
-path" was wrong — **ephemeral is the primary product**, with the bulk of the installed base and
+path" was wrong - **ephemeral is the primary product**, with the bulk of the installed base and
 the highest invocation rate. It must be treated as first-class and frozen, not tolerated.
 
 ### 14.2 The multi-runtime problem is a genuine, existing win for orchestrated mode
@@ -1343,7 +1343,7 @@ model is straining. A single host process can only offer the runtimes baked into
 every adapter's target framework becomes the host image's problem, forever, cumulatively.
 
 **Orchestrated mode dissolves this**: each adapter image carries its own runtime. So does the
-container launcher. This is a concrete, present-day pain — not a speculative future benefit —
+container launcher. This is a concrete, present-day pain - not a speculative future benefit -
 and it raises the value of §13 beyond what I credited it with.
 
 It is also an argument for the `Executable` metadata key from §11.1 even in the local process
@@ -1356,34 +1356,34 @@ Three defects are live in Traxis production today, all fixable **host-side only,
 adapter changes**, benefiting ~190 existing binaries:
 
 1. **The un-correlated `TaskCompletionSource`.** §3 listed this as a blocker for resident
-   adapters. It is not theoretical — it is a documented production hazard: `CommandTimeout`
+   adapters. It is not theoretical - it is a documented production hazard: `CommandTimeout`
    fires `TrySetException` but **does not kill the child**, so the timed-out command's late
    result line resolves the *next* invocation's TCS. Because Gateway calls `GetLogs` immediately
    after every command, that stray result normally lands on and corrupts the log fetch.
    Fix: a FIFO queue of pending completions instead of one field, **and kill the child on
-   `CommandTimeout`** — after a timeout the process state is unknown and reusing it is unsafe.
+   `CommandTimeout`** - after a timeout the process state is unknown and reusing it is unsafe.
 2. **`IdleTimeout` kills the whole process, not the pending command** (300s default, adapter-side,
-   thrown from a timer callback). Fine for ephemeral, fatal for resident — it must become opt-out
+   thrown from a timer callback). Fine for ephemeral, fatal for resident - it must become opt-out
    via metadata.
-3. **`Install` never deletes superseded `{ETag}` directories** — roughly 7 MB per version per
+3. **`Install` never deletes superseded `{ETag}` directories** - roughly 7 MB per version per
    pod, accumulating forever. Harmless-ish with short-lived pods; a real leak once adapters are
    resident or pods are long-lived.
 
 Plus the two from §3 that this evidence confirms are not hypothetical: **`agent.Settings` is
-carrier credentials, and it rides to every adapter as base64 on `argv`**, readable via `ps` — and
+carrier credentials, and it rides to every adapter as base64 on `argv`**, readable via `ps` - and
 the same settings are written unredacted into the S3 audit JSON, masked only at read time by a
 substring heuristic.
 
 This reorders the business case. I framed protocol work as a cost to be paid for the bus feature.
 Item 1 alone is a Traxis production bug fix that happens to also unblock Bitween.
 
-### 14.4 Process reuse already exists — resident is a smaller step than stated
+### 14.4 Process reuse already exists - resident is a smaller step than stated
 
 §4 described the jump from "one process per invocation" to "long-lived process" as the big
 change. It is smaller than that, because the current model is already **one process per
 *session*, not per *command***:
 
-* Gateway issues **two** `InvokeAsync` calls per logical operation — the command, then `GetLogs`
+* Gateway issues **two** `InvokeAsync` calls per logical operation - the command, then `GetLogs`
   in a `finally`.
 * Multipiece shipments call `CreateShipment` **once per piece, sequentially, against the same
   already-started child**.
@@ -1396,14 +1396,14 @@ does not introduce process reuse.
 
 ```mermaid
 flowchart TB
-    subgraph EX["EXCLUSIVE resident — brokers"]
+    subgraph EX["EXCLUSIVE resident - brokers"]
         E1["exactly 1 instance"]
         E2["owns a connection, holds state"]
         E3["PUSHES events to the host"]
         E4["keyed by DataSourceId"]
         E5["guarded by leader election"]
     end
-    subgraph PO["POOLED resident — stateless workers"]
+    subgraph PO["POOLED resident - stateless workers"]
         P1["N warm instances"]
         P2["no connection state"]
         P3["host always initiates"]
@@ -1412,7 +1412,7 @@ flowchart TB
     end
 ```
 
-*Pooled resident has nothing to do with brokers — it is a latency win for Traxis and Bitween
+*Pooled resident has nothing to do with brokers - it is a latency win for Traxis and Bitween
 alike, removing process spawn + JIT + an S3 metadata check from every request.*
 
 ---
@@ -1429,7 +1429,7 @@ sequenceDiagram
     Note over P: HttpClientWithLog appends to<br/>the PROCESS-STATIC LogStore
     R1->>P: GetLogs
     P-->>R1: logs for A
-    Note over P: LogStore is NEVER cleared —<br/>multipiece relies on accumulation
+    Note over P: LogStore is NEVER cleared -<br/>multipiece relies on accumulation
     R2->>P: CreateShipment (checked out again)
     R2->>P: GetLogs
     P-->>R2: logs for A **and** B
@@ -1437,7 +1437,7 @@ sequenceDiagram
 ```
 
 *So pooling needs `Poolable=true` opt-in, an explicit session boundary (a `Reset` command, or
-scoping `LogStore` to a session id), and the FIFO plus kill-on-timeout fix first — otherwise one
+scoping `LogStore` to a session id), and the FIFO plus kill-on-timeout fix first - otherwise one
 timeout poisons every subsequent checkout rather than one call.*
 
 §4 assumed one resident instance per `DataSource`. Traxis reveals a second, equally valuable
@@ -1459,7 +1459,7 @@ started, and multipiece relies on that accumulation across calls. Pool the proce
 one request's HTTP audit trail into the next one's S3 log. So pooling requires:
 
 * opt-in via metadata (`Poolable=true`), never a default;
-* an explicit session boundary — a `Reset` command, or scoping `LogStore` to a session id — so
+* an explicit session boundary - a `Reset` command, or scoping `LogStore` to a session id - so
   "per process" stops being the unit of accumulation;
 * the FIFO/kill-on-timeout fix from §14.3 first, because a pooled process that survives a timeout
   in unknown state would poison every subsequent checkout rather than one.
@@ -1491,7 +1491,7 @@ would land in one file, and every host would be coupled to every other host's do
 *which* contract. Traxis Gateway's command names (`Track`, `CreateShipment`, `DeleteShipment`,
 `GetPudoCode`, `GetPod`, `GetLogs`) and its payload types (`TrackableShipment`,
 `StandardShipmentTrace`, `ShipmentCreationResult`) live in **Gateway's own SDK NuGet**
-(`SimplyWorks.TraxisGateway.Sdk`) — not in SW-Serverless. Bitween's mapper/handler/receiver/
+(`SimplyWorks.TraxisGateway.Sdk`) - not in SW-Serverless. Bitween's mapper/handler/receiver/
 validator contracts live in Bitween's SDK. That separation is correct and must survive.
 
 So the proto defines the **envelope only**:
@@ -1503,7 +1503,7 @@ Log / Metric / Ping / Pong / SetLogLevel / Describe / Reset
 ```
 
 Opaque `bytes`, with serialization owned by the host SDK. SW-Serverless stays what it already
-is — **transport, lifecycle and installation** — and never learns a domain type. If the proto
+is - **transport, lifecycle and installation** - and never learns a domain type. If the proto
 grew `rpc Track(...)`, Traxis's five commands and Bitween's four adapter roles would end up in
 one file, and every host would be coupled to every other host's domain.
 
@@ -1515,12 +1515,12 @@ not part of the invocation contract. `Describe` is its successor and belongs in 
 
 ```mermaid
 flowchart TB
-    P0["PHASE 0 — bug fixes, host-side only<br/>FIFO completions + kill-on-timeout<br/>IdleTimeout opt-out<br/>ETag directory cleanup<br/>secrets off argv, EOF spin"]
-    P1["PHASE 1 — .proto envelope<br/>per-adapter opt-in via metadata<br/>v1 path untouched"]
-    P2["PHASE 2 — resident host<br/>BOTH shapes: pooled + exclusive<br/>gRPC over UDS / named pipe"]
-    P3["PHASE 3 — RabbitMQ<br/>exclusive-resident adapter"]
-    P4["PHASE 4 — IAdapterOrchestrator<br/>SW.Serverless.Kubernetes<br/>per-adapter runtime images"]
-    P5["PHASE 5 — Kafka adapter<br/>orchestrated, replicas N<br/>in a consumer group"]
+    P0["PHASE 0 - bug fixes, host-side only<br/>FIFO completions + kill-on-timeout<br/>IdleTimeout opt-out<br/>ETag directory cleanup<br/>secrets off argv, EOF spin"]
+    P1["PHASE 1 - .proto envelope<br/>per-adapter opt-in via metadata<br/>v1 path untouched"]
+    P2["PHASE 2 - resident host<br/>BOTH shapes: pooled + exclusive<br/>gRPC over UDS / named pipe"]
+    P3["PHASE 3 - RabbitMQ<br/>exclusive-resident adapter"]
+    P4["PHASE 4 - IAdapterOrchestrator<br/>SW.Serverless.Kubernetes<br/>per-adapter runtime images"]
+    P5["PHASE 5 - Kafka adapter<br/>orchestrated, replicas N<br/>in a consumer group"]
     P0 --> P1 --> P2 --> P3
     P2 --> P4 --> P5
     P0 -.->|"ships value ALONE<br/>to ~190 adapters<br/>with no adapter changes"| V0["TRAXIS TODAY"]
@@ -1532,14 +1532,14 @@ flowchart TB
 ```
 
 *Phase 0 ships value on its own, to the product with the larger installed base, before any
-architectural commitment. Phase 1 is the hinge — get the envelope right once and phases 2 and 4
+architectural commitment. Phase 1 is the hinge - get the envelope right once and phases 2 and 4
 are two bindings of one thing rather than two subsystems.*
 
 | Phase | Work | Who benefits |
 |---|---|---|
 | **0** | FIFO pending-completions + kill-on-`CommandTimeout`; `IdleTimeout` opt-out; `{ETag}` directory cleanup; secrets off `argv`; EOF hot-spin | **Traxis today**, ~190 adapters, no adapter changes |
 | **1** | `.proto` envelope + per-adapter opt-in via metadata; v1 path untouched | Foundation |
-| **2** | Resident host with **both** shapes — pooled and exclusive — over gRPC on UDS / named pipe | Traxis latency **and** Bitween brokers |
+| **2** | Resident host with **both** shapes - pooled and exclusive - over gRPC on UDS / named pipe | Traxis latency **and** Bitween brokers |
 | **3** | RabbitMQ exclusive-resident adapter | Bitween |
 | **4** | `IAdapterOrchestrator` + `SW.Serverless.Kubernetes`; per-adapter runtime images | Bitween brokers **and** retires Gateway's dual-runtime image hack |
 | **5** | Kafka adapter, orchestrated, `replicas: N` in a consumer group | Bitween |
@@ -1552,7 +1552,7 @@ protocol, then a supervisor, then finally something a customer notices."
 
 Per the existing note that `SimplyWorks.*` are public Simplify9 repositories with CI/CD
 auto-publish: changes land as PRs and publish automatically. With two products pinned to
-different versions, the operating rule is **version the behaviour, not the library** — new
+different versions, the operating rule is **version the behaviour, not the library** - new
 capability behind metadata flags and new APIs, so Gateway can take a NuGet bump with zero
 behavioural change and adopt features on its own schedule. A breaking protocol change would
 require a coordinated upgrade across ~190 binaries and is effectively off the table.
@@ -1561,10 +1561,10 @@ require a coordinated upgrade across ~190 binaries and is effectively off the ta
 
 An adapter must not be the system of record for its own progress, and until now nothing in the
 contract let it avoid being one. The supervisor restarts it, the next instance may come up on a
-different node, and a pooled one is not the same process twice — so a polling receiver that keeps
+different node, and a pooled one is not the same process twice - so a polling receiver that keeps
 its cursor in a field replays from the beginning at the least convenient moment.
 
-So `IAdapterContext` gains two calls, sitting beside `PublishAsync` and answered the same way — an
+So `IAdapterContext` gains two calls, sitting beside `PublishAsync` and answered the same way - an
 adapter-initiated frame, correlated by id, awaited before the adapter carries on:
 
 ```csharp
@@ -1591,19 +1591,19 @@ Three properties are deliberate:
 It is a bookmark, not a data store, and a host is entitled to refuse a large value.
 
 This is the same role Airbyte's `state` argument plays for its connectors, and it is what makes a
-polling database receiver possible at all — see Bitween's `docs/provider-plan-databases.md`.
+polling database receiver possible at all - see Bitween's `docs/provider-plan-databases.md`.
 
 ### 14.10 A pool keyed by adapter id is a configuration leak
 
 `RentAsync` keyed its pools on `spec.AdapterId`, and `GetOrAdd` captures the spec of whichever
-caller created the pool first — **including its startup values, which is where the connection
+caller created the pool first - **including its startup values, which is where the connection
 string and the credentials live**. One adapter serving two data sources therefore handed the second
 one a process connected as the first, with no error anywhere: every later renter silently ran
 against the wrong system.
 
 Masked until now because bus providers run as *exclusive* instances keyed by data source and never
-go through the pool. Anything that rents — Bitween's Xchange pipeline does, through
-`ResidentAdapterRuntime` — was exposed, and a pooled database adapter would be exposed by design.
+go through the pool. Anything that rents - Bitween's Xchange pipeline does, through
+`ResidentAdapterRuntime` - was exposed, and a pooled database adapter would be exposed by design.
 
 Fixed by keying on `AdapterSpec.PoolKey` when set, and otherwise on the adapter id plus a hash of
 the startup values, so identical configuration shares warm processes and differing configuration
@@ -1613,11 +1613,11 @@ cannot. Hashed rather than concatenated because the key reaches logs and diagnos
 
 §14.5 gave the exclusive resident one instance per key, and §4 assumed that instance had one
 caller. It does not. In Bitween a relational data source is one process holding one connection
-pool, and *every* subscription bound to that data source runs through it — each with its own
+pool, and *every* subscription bound to that data source runs through it - each with its own
 settings: which statement to run, which operation it is, which tenant this is.
 
 Startup values cannot carry any of that. They are handed over once, in `Ready`, and they belong to
-the process — which belongs to all of those callers at once. So the invocation grows a
+the process - which belongs to all of those callers at once. So the invocation grows a
 `map<string, string> properties`, alongside the `session_id` that exists for the same underlying
 reason: a shared instance has to be told whose call this is.
 
@@ -1629,13 +1629,13 @@ string ValueOf(string name);                                   // invocation fir
 ```
 
 `ValueOf` is the one to reach for. A per-call setting overrides the process default, and an adapter
-whose callers send no properties behaves exactly as it did before any of this existed — which is
+whose callers send no properties behaves exactly as it did before any of this existed - which is
 what keeps the existing fleet working.
 
 **It is an `AsyncLocal`, and that is the whole subtlety.** Several commands run on one instance at
 the same time; multiplexing is the point of the stream. A field would have the last caller in
 overwrite everyone else's configuration mid-flight, and the failure would be intermittent,
-load-dependent and near-impossible to reproduce — one subscription silently running another's
+load-dependent and near-impossible to reproduce - one subscription silently running another's
 statement. It is set on the invoking flow before the handler is called, so it survives the
 handler's own awaits and cannot leak sideways.
 
@@ -1646,19 +1646,19 @@ which for a database connection is nobody.
 
 ## 15. What "gRPC over UDS / named pipe" actually means
 
-> **Clarifies §3.1 and §13.3.** Those two sections look contradictory — §3.1 rejects gRPC to keep
+> **Clarifies §3.1 and §13.3.** Those two sections look contradictory - §3.1 rejects gRPC to keep
 > stdio's simplicity, §13.3 adopts gRPC. They are talking about different transports. This
 > section closes the gap and walks through what changes inside an S3-zipped adapter.
 
 ### 15.1 The apparent contradiction, resolved
 
 §3.1 said gRPC "buys better tooling and costs all of that back." That judgement was about
-**gRPC over localhost TCP** — and it still stands. A UDS is not a network socket.
+**gRPC over localhost TCP** - and it still stands. A UDS is not a network socket.
 
 A **Unix domain socket (UDS)** uses the socket *API* but is a **filesystem path**, not an address:
 `/run/bitween/adapters/a1b2c3.sock`. There is no IP, no port, no network stack, no routing. The
 kernel moves the bytes between two processes on the same machine, and access is controlled by
-ordinary filesystem permissions. It is the same *category* of object as a pipe — it just happens
+ordinary filesystem permissions. It is the same *category* of object as a pipe - it just happens
 to be full-duplex and to carry many concurrent streams.
 
 On Windows the equivalent is a **named pipe**: `\\.\pipe\bitween-adapter-a1b2c3`, a kernel IPC
@@ -1669,14 +1669,14 @@ supported transport, not a hack.
 |---|---|---|---|
 | Port allocation / collisions | none | **none** | yes |
 | Bind address, firewall rule | none | **none** | yes |
-| Reachable from another machine | no | **no** | possible — one `0.0.0.0` mistake away |
+| Reachable from another machine | no | **no** | possible - one `0.0.0.0` mistake away |
 | Access control | inherited handles | **filesystem perms / ACL** | needs an auth token |
-| Many concurrent streams | **no** — 2 half-duplex pipes | **yes** | yes |
+| Many concurrent streams | **no** - 2 half-duplex pipes | **yes** | yes |
 | Binary-safe | needs custom framing | **yes** | yes |
 | Crosses a container boundary | yes, `docker run -i` | **only via a mounted volume** | yes |
 
 So "gRPC over UDS" means: keep protobuf messages, bidirectional streams, HTTP/2 flow control,
-interceptors and codegen — and run the whole thing over an IPC object with **no port, no bind
+interceptors and codegen - and run the whole thing over an IPC object with **no port, no bind
 address, no firewall rule and no network exposure**. Every property §3.1 was protecting survives.
 
 The one genuine loss is the last row: stdio crosses a container boundary for free, a UDS needs a
@@ -1685,17 +1685,17 @@ the reason it is called out here rather than glossed over.
 
 ```mermaid
 flowchart TB
-    subgraph A["stdio pipes — today"]
+    subgraph A["stdio pipes - today"]
         A1["2 half-duplex byte streams"]
         A2["no ports, no firewall"]
         A3["ONE call in flight<br/>framing is yours to build"]
     end
-    subgraph B["UDS / named pipe — proposed"]
+    subgraph B["UDS / named pipe - proposed"]
         B1["full-duplex kernel IPC<br/>a filesystem path, not an address"]
         B2["no ports, no firewall"]
-        B3["HTTP/2 multiplexing, flow control,<br/>binary, codegen — all free"]
+        B3["HTTP/2 multiplexing, flow control,<br/>binary, codegen - all free"]
     end
-    subgraph C["localhost TCP — rejected in sec 3.1"]
+    subgraph C["localhost TCP - rejected in sec 3.1"]
         C1["real network socket"]
         C2["port allocation, bind address,<br/>firewall, auth token"]
         C3["same gRPC benefits"]
@@ -1706,7 +1706,7 @@ flowchart TB
     style C stroke:#d24b3c,stroke-width:3px
 ```
 
-### 15.2 What changes inside an S3-zipped adapter — nothing about the zip
+### 15.2 What changes inside an S3-zipped adapter - nothing about the zip
 
 This is the practical question, and the answer is reassuring: **installation, packaging and
 distribution are untouched.**
@@ -1717,15 +1717,15 @@ The zip is still the published output of a .NET console app. `GetAdapterMetadata
 difference is what the SDK does once `Main` runs:
 
 ```csharp
-// Ephemeral adapter — today, unchanged, still the v1 stdin line loop
+// Ephemeral adapter - today, unchanged, still the v1 stdin line loop
 static Task Main() => Runner.Run(new Handler());
 
-// Resident adapter — same zip, same spawn, different SDK entry point
+// Resident adapter - same zip, same spawn, different SDK entry point
 static Task Main() => Runner.RunResident(new Handler());
 ```
 
 Packaging cost: `Grpc.Net.Client` + `Google.Protobuf` become transitive dependencies of the SDK,
-adding roughly 2–3 MB to that adapter's published output. It is **opt-in per adapter** — an
+adding roughly 2-3 MB to that adapter's published output. It is **opt-in per adapter** - an
 adapter that is never rebuilt against the new SDK never gains the dependency and never leaves the
 v1 path. That is what protects the ~190 existing binaries (§14.1).
 
@@ -1754,12 +1754,12 @@ Three details worth noticing:
 
 * **The child dials the host, not the reverse.** The host is already running and already
   listening; the child is transient. It also means the child never picks a path, never handles a
-  bind failure, and — critically — this is the **identical shape as the Kubernetes case**, where a
+  bind failure, and - critically - this is the **identical shape as the Kubernetes case**, where a
   pod dials out (§13.2). One code path above the transport.
 * **The handshake goes over stdin, not `argv`.** The socket path is not secret but the token is,
   and this is the same mechanism that fixes the `argv` credential leak in §14.3. No new
   machinery: the child already has a stdin pipe.
-* **stdio does not disappear.** It keeps carrying what it is genuinely good at — anything the
+* **stdio does not disappear.** It keeps carrying what it is genuinely good at - anything the
   adapter logs *before* it manages to attach, and its crash output. That is the ring buffer in
   §6.7.
 
@@ -1767,7 +1767,7 @@ Three details worth noticing:
 
 Nothing exotic; both sides are supported .NET APIs.
 
-**Host — listen on the socket** (`SW.Serverless`, once at startup, one listener for all adapters):
+**Host - listen on the socket** (`SW.Serverless`, once at startup, one listener for all adapters):
 
 ```csharp
 // Linux / macOS
@@ -1779,7 +1779,7 @@ webBuilder.ConfigureKestrel(o => o.ListenNamedPipe("bitween-adapters",
     l => l.Protocols = HttpProtocols.Http2));
 ```
 
-**Adapter — dial it** (inside `Runner.RunResident`, so no adapter author ever writes this):
+**Adapter - dial it** (inside `Runner.RunResident`, so no adapter author ever writes this):
 
 ```csharp
 var handler = new SocketsHttpHandler
@@ -1792,7 +1792,7 @@ var handler = new SocketsHttpHandler
     }
 };
 
-// the address is a placeholder — ConnectCallback decides where the bytes actually go
+// the address is a placeholder - ConnectCallback decides where the bytes actually go
 var channel = GrpcChannel.ForAddress("http://localhost",
     new GrpcChannelOptions { HttpHandler = handler });
 
@@ -1801,7 +1801,7 @@ await call.RequestStream.WriteAsync(new Frame { Hello = new Hello { Token = toke
 ```
 
 On Windows the `ConnectCallback` returns a `NamedPipeClientStream` instead; everything above it is
-the same. The `http://localhost` address is never resolved — `ConnectCallback` intercepts before
+the same. The `http://localhost` address is never resolved - `ConnectCallback` intercepts before
 any DNS or TCP happens. **That is the whole trick: HTTP/2 does not care what byte stream it runs
 on.**
 
@@ -1819,18 +1819,18 @@ flowchart TB
 
 If Kubernetes-orchestrated adapters were off the table, framed stdio would be the right call for
 local resident adapters and §3.1 would stand unamended. The decisive argument is not about the
-local transport at all — it is **"do not build and maintain two protocols."** Orchestrated mode
+local transport at all - it is **"do not build and maintain two protocols."** Orchestrated mode
 forces gRPC into the design; once it is there, using it locally too is free, and hand-rolling a
 second framing format alongside it is not.
 
 ### 15.6 The option not taken: gRPC directly over the stdio pipes
 
 Worth naming because it looks like the obvious best of both worlds. HTTP/2 runs over any duplex
-byte stream, so in principle you can run gRPC over the child's existing stdin/stdout — no socket,
+byte stream, so in principle you can run gRPC over the child's existing stdin/stdout - no socket,
 no mount, no path, and container boundaries stay free.
 
 The client half is easy: `ConnectCallback` returns a `Stream` wrapping the two pipes. The server
-half is not — Kestrel has no "listen on this `Stream`" transport, so one side needs a custom
+half is not - Kestrel has no "listen on this `Stream`" transport, so one side needs a custom
 `IConnectionListenerFactory`. It is genuinely possible, and it is more work than it looks, with
 worse diagnostics when it misbehaves.
 
@@ -1839,7 +1839,7 @@ launcher, where the shared-mount requirement is the one real wrinkle UDS introdu
 
 ### 15.7 Both resident shapes use the identical transport
 
-Finally, to close the phrase in §14.7 — pooled and exclusive residents differ only in lifecycle
+Finally, to close the phrase in §14.7 - pooled and exclusive residents differ only in lifecycle
 and keying, never in wire protocol:
 
 | | Exclusive resident | Pooled resident |
@@ -1847,7 +1847,7 @@ and keying, never in wire protocol:
 | Transport | gRPC over UDS / named pipe | **the same** |
 | Instances | exactly 1 | N warm |
 | Keyed by | `DataSourceId` | `adapterId` |
-| Who initiates | **both** — host invokes, adapter pushes `Event` | host only |
+| Who initiates | **both** - host invokes, adapter pushes `Event` | host only |
 | Placement | guarded by leader election | any node |
 
 The pooled shape simply never uses the `Event` direction of the stream.

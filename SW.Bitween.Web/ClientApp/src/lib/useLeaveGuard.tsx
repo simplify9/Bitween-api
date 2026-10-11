@@ -10,8 +10,8 @@ import { Dialog } from "../components/ui/overlays";
  * Only leaving the page counts. A change of query string (a tab, a selected route) stays on it,
  * and the editor's state with it.
  *
- * The page's own navigations after it has dealt with the changes — saved them, deleted the thing,
- * or confirmed in a dialog of its own — go through `leave`, so nobody is asked twice. A
+ * The page's own navigations after it has dealt with the changes - saved them, deleted the thing,
+ * or confirmed in a dialog of its own - go through `leave`, so nobody is asked twice. A
  * destination that takes the changes along with it is let through by `carriedTo`.
  */
 export function useLeaveGuard(dirty: boolean, { carriedTo }: { carriedTo?: (pathname: string) => boolean } = {}) {

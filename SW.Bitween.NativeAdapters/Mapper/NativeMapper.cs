@@ -8,7 +8,7 @@ namespace SW.Bitween.NativeAdapters.Mapper;
 /// <summary>Settings the mapper is configured with.</summary>
 /// <remarks>
 /// <see cref="MappingRules"/> is the whole mapping. There is no template setting, because nothing is
-/// generated — the rules are read and applied directly.
+/// generated - the rules are read and applied directly.
 /// </remarks>
 public class NativeMapperInput
 {
@@ -115,7 +115,7 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
     /// Reads the context the pipeline passed, or an empty one.
     /// </summary>
     /// <remarks>
-    /// Absent context is not an error — a mapping with no partner rules and no global rules needs
+    /// Absent context is not an error - a mapping with no partner rules and no global rules needs
     /// none, and a preview may run without one. A rule that then asks for a partner value gets null,
     /// which is the same answer it would get for a partner with no such property.
     /// </remarks>

@@ -69,7 +69,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
         <Field
           label="Password"
           htmlFor="member-password"
-          hint={`${PASSWORD_HINT} Pass it on to them yourself — Bitween doesn't send mail. They can change it from their profile.`}
+          hint={`${PASSWORD_HINT} Pass it on to them yourself - Bitween doesn't send mail. They can change it from their profile.`}
         >
           <PasswordInput
             id="member-password"

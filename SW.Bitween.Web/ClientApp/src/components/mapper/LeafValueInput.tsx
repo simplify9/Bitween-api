@@ -62,7 +62,7 @@ export const LeafValueInput: React.FC<LeafValueInputProps> = ({
           onChange={(e) => onFixedChange(e.target.value)}
           onClick={(e) => e.stopPropagation()}
         >
-          <option value="">— pick —</option>
+          <option value="">- pick -</option>
           <option value="true">true</option>
           <option value="false">false</option>
         </select>
@@ -82,7 +82,7 @@ export const LeafValueInput: React.FC<LeafValueInputProps> = ({
       );
     }
 
-    // string (or unknown) target — allow embedding {{ field }} variables
+    // string (or unknown) target - allow embedding {{ field }} variables
     return (
       <FixedStringInput
         value={fixedValue}
@@ -135,7 +135,7 @@ export const LeafValueInput: React.FC<LeafValueInputProps> = ({
       onChange={(e) => onSourceChange(e.target.value)}
       onClick={(e) => e.stopPropagation()}
     >
-      <option value="">— unassigned —</option>
+      <option value="">- unassigned -</option>
       {isOrphanSource && (
         <option value={sourceValue}>⚠ {sourceValue} (not found in input)</option>
       )}

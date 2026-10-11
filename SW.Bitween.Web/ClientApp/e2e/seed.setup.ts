@@ -6,14 +6,14 @@ import { SEED } from "./seed-data";
  * Puts the database into the state the suite expects, before any spec runs.
  *
  * Two jobs, in this order. First it removes what earlier runs left behind: a test that fails
- * part-way skips its own cleanup, and the leftovers aren't harmless — a stray account still
+ * part-way skips its own cleanup, and the leftovers aren't harmless - a stray account still
  * holding Administrator is enough to make the last-administrator guard pass, which strips the
  * seeded admin's role and fails everything after it. Then it makes sure the rows the specs build
  * on exist (see seed-data.ts), finding each by name and creating only what is missing, so it is
  * as happy on a database created a minute ago as on a team database that has had them for months.
  *
  * It is a setup project rather than a globalSetup so that a failure here is reported like any
- * other test — with a trace and a step that says which prerequisite is missing — rather than as
+ * other test - with a trace and a step that says which prerequisite is missing - rather than as
  * a stack trace before the run starts. Everything goes through the same HTTP API the UI uses.
  */
 
@@ -23,7 +23,7 @@ const TEST_EMAIL = /^pw-.*@example\.test$/;
 const TEST_ROLE = /^PW /;
 /** Everything the suite creates is named this way, so it can be found again and removed. */
 const TEST_NAME = /^Playwright /;
-/** The only settings the suite writes to — see the reset below for why this is a list, not "all". */
+/** The only settings the suite writes to - see the reset below for why this is a list, not "all". */
 const TEST_SETTINGS = ["Theme.PrimaryColor", "Theme.TabTitle", "Theme.CompanyName"];
 
 interface Account {
@@ -89,8 +89,8 @@ async function findByName(list: string, name: string): Promise<Named | undefined
 }
 
 /**
- * The information type with this name, created if missing. One that exists already — on a team
- * database, say — keeps everything it has; only what the specs rely on and it lacks is added:
+ * The information type with this name, created if missing. One that exists already - on a team
+ * database, say - keeps everything it has; only what the specs rely on and it lacks is added:
  * a code where it has none, and any of the wanted promoted properties. The update replaces the
  * whole row, so it is sent back with every field as read.
  */
@@ -163,8 +163,8 @@ setup("the backend is up and the administrator can sign in", async () => {
   const health = await api.get(`${BASE_URL}health`).catch((e: Error) => e);
   if (health instanceof Error || !health.ok())
     throw new Error(
-      `Nothing is answering at ${BASE_URL}health. Start Bitween there first — tools/e2e.sh starts a ` +
-        "throwaway instance with everything it needs — or point E2E_BASE_URL at one that is running.",
+      `Nothing is answering at ${BASE_URL}health. Start Bitween there first - tools/e2e.sh starts a ` +
+        "throwaway instance with everything it needs - or point E2E_BASE_URL at one that is running.",
     );
 
   await signIn();
@@ -177,7 +177,7 @@ setup("the backend is up and the administrator can sign in", async () => {
   // changes nothing.
   //
   // Deliberately loud about what it is. Re-setting a known password is exactly the thing the flag
-  // exists to prevent — it is defensible here only because this database exists to be tested on.
+  // exists to prevent - it is defensible here only because this database exists to be tested on.
   await api.post(`${API}/accounts/changePassword`, {
     headers: auth(),
     data: { OldPassword: ADMIN_PASSWORD, NewPassword: ADMIN_PASSWORD },
@@ -190,7 +190,7 @@ setup("leftovers from earlier runs are removed", async () => {
   if (!accounts.ok()) {
     // There used to be a fallback here: a second sign-in against credentials held in
     // configuration, which worked even for an admin holding no roles. That endpoint shipped with a
-    // published default password and has been removed, so this is now the only way in — and if the
+    // published default password and has been removed, so this is now the only way in - and if the
     // seeded admin has lost Administrator, no request can put it back.
     throw new Error(
       `Signed in as ${ADMIN_EMAIL} but can't list accounts (${accounts.status()}). The admin has ` +
@@ -220,8 +220,8 @@ setup("leftovers from earlier runs are removed", async () => {
 
   // Settings tests assert against product defaults, so a value left behind by a failed run would
   // make them fail for the wrong reason. Only the keys the tests actually touch are reset: the
-  // Settings table is now the only home for values like the MSAL ids and the Rebex license key —
-  // configuration is read once at first boot and ignored after that — so a blanket reset here
+  // Settings table is now the only home for values like the MSAL ids and the Rebex license key -
+  // configuration is read once at first boot and ignored after that - so a blanket reset here
   // would destroy real configuration with no way to get it back.
   for (const key of TEST_SETTINGS)
     await api.delete(`${API}/settings/${encodeURIComponent(key)}`, { headers: auth() });
@@ -393,7 +393,7 @@ setup("the seeded rows exist", async () => {
 
   // Every exchange it gets fails, so failures that nobody has retried are a matter of sending
   // enough of them. The specs retry some on every run, and each retry fails in turn and leaves a
-  // new un-retried attempt at the end of its chain — so after the first run this usually sends
+  // new un-retried attempt at the end of its chain - so after the first run this usually sends
   // nothing at all.
   const unretried = async () => {
     const filter = ["StatusFilter:1:3", "LatestOnly:1:true", `SubscriptionId:1:${subscriptionId}`]
@@ -423,7 +423,7 @@ setup("the seeded rows exist", async () => {
   await expect
     .poll(unretried, {
       message:
-        `the exchanges sent to "${SEED.failingSubscription}" were never processed — are Bitween's ` +
+        `the exchanges sent to "${SEED.failingSubscription}" were never processed - are Bitween's ` +
         "RabbitMQ consumers running?",
       timeout: 90_000,
     })

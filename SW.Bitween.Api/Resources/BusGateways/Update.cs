@@ -24,7 +24,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
 
             await EnsureEndpointFreeAsync(_dbContext, key, model);
 
-            // The bound document is still fixed at creation — routes' subscriptions belong to it —
+            // The bound document is still fixed at creation - routes' subscriptions belong to it -
             // but where the messages COME from is exactly the thing an operator needs to change
             // without rebuilding the gateway and all of its routes.
             entity.Name = model.Name;
@@ -51,8 +51,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             if (dataSource == null)
                 throw new SWNotFoundException($"DataSource with Id {model.DataSourceId} not found");
 
-            // A data source is not only a broker connection — a resident adapter holding a database
-            // session is one too — and only a broker has queues to consume. Reading this from the
+            // A data source is not only a broker connection - a resident adapter holding a database
+            // session is one too - and only a broker has queues to consume. Reading this from the
             // kind rather than from the adapter id keeps the rule true for providers nobody has
             // written yet.
             if (dataSource.Kind != Domain.DataSources.DataSourceKind.Broker)
@@ -62,7 +62,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
 
             if (string.IsNullOrWhiteSpace(model.Endpoint))
                 throw new SWException(
-                    "An external bus gateway needs an endpoint — the queue, topic or subscription "
+                    "An external bus gateway needs an endpoint - the queue, topic or subscription "
                     + "on that data source it reads from.");
 
             var endpointTaken = await dbContext.Set<BusGateway>()

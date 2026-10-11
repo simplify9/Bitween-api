@@ -1,8 +1,8 @@
 /**
  * Root-array mapping tests.
  * Covers:
- *  A) Generator output — verify generated Scriban template strings
- *  B) Parser round-trip — generate → parse → re-generate produces equivalent output
+ *  A) Generator output - verify generated Scriban template strings
+ *  B) Parser round-trip - generate → parse → re-generate produces equivalent output
  *  C) All 4 modes (source / fixed / partner / global) + lookup + transform
  *  D) Primitive root arrays
  *  E) Filter support
@@ -117,7 +117,7 @@ describe('generator: root-array output', () => {
     expect(t).toContain('"region": {{ ((__globals__ ?? {})["mySet"] ?? {})["region"] | json }}');
   });
 
-  it('lookup — null fallback', () => {
+  it('lookup - null fallback', () => {
     const t = generateScriban([], [am({
       source: 'items', alias: 'item',
       mappings: [field({
@@ -130,7 +130,7 @@ describe('generator: root-array output', () => {
     expect(t).toContain('$__e[item.Status]');
   });
 
-  it('lookup — custom fallback', () => {
+  it('lookup - custom fallback', () => {
     const t = generateScriban([], [am({
       source: 'items', alias: 'item',
       mappings: [field({
@@ -143,7 +143,7 @@ describe('generator: root-array output', () => {
     expect(t).toContain('??');
   });
 
-  it('filter — emits if block inside loop', () => {
+  it('filter - emits if block inside loop', () => {
     const t = generateScriban([], [am({
       source: 'orders', alias: 'order',
       filter: { field: 'Active', operator: '==', value: 'true' },

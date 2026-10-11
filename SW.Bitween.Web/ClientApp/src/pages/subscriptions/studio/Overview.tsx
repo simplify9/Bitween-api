@@ -49,7 +49,7 @@ export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: s
                 {e.partnerName}
               </Link>
             ) : (
-              <span className="text-ink-500">—</span>
+              <span className="text-ink-500">-</span>
             ),
         },
         {
@@ -113,7 +113,7 @@ function RunsTable({ runs, pending }: { runs: SubscriptionRun[]; pending: boolea
           header: "Took",
           cell: (r) => (
             <span className="text-ink-600">
-              {r.durationMs === null ? "—" : formatDurationMs(r.durationMs)}
+              {r.durationMs === null ? "-" : formatDurationMs(r.durationMs)}
             </span>
           ),
         },
@@ -130,7 +130,7 @@ function RunsTable({ runs, pending }: { runs: SubscriptionRun[]; pending: boolea
                 {r.error}
               </span>
             ) : (
-              <span className="text-ink-500">—</span>
+              <span className="text-ink-500">-</span>
             ),
         },
       ]}
@@ -143,7 +143,7 @@ function RunsTable({ runs, pending }: { runs: SubscriptionRun[]; pending: boolea
  * a step in its pipeline, compressed so it and the pipeline share one screen.
  *
  * The facts an operator triages on are a single strip; the two histories sit
- * below it. Entry points are not repeated here — they are the Trigger node.
+ * below it. Entry points are not repeated here - they are the Trigger node.
  */
 export function Overview({
   s,
@@ -164,8 +164,8 @@ export function Overview({
   // Both scheduled types keep their own attempt history and show it in one table
   // (ReceiveAttemptsPanel) instead of the scheduler's run history beside a separate exchange
   // list. The scheduler's history is Quartz vocabulary an operator has no reason to know, it
-  // always reports success even when the job's own step failed, and — the reason two tables
-  // were worse than one — nothing joins a run to the exchange it produced.
+  // always reports success even when the job's own step failed, and - the reason two tables
+  // were worse than one - nothing joins a run to the exchange it produced.
   const receiving = s.type === "Receiving";
   const aggregation = s.type === "Aggregation";
   const attemptKind: AttemptKind | null = receiving ? "receiving" : aggregation ? "aggregation" : null;
@@ -174,7 +174,7 @@ export function Overview({
     queryFn: () => api.listSubscriptionRuns(s.id, 20),
     enabled: scheduled && attemptKind === null,
   });
-  // Just for the "Last run" fact above — ReceiveAttemptsPanel fetches its own page.
+  // Just for the "Last run" fact above - ReceiveAttemptsPanel fetches its own page.
   const latestAttempt = useQuery({
     queryKey: keys.subscriptions.receiveAttempts(s.id, { outcome: null, offset: 0, limit: 1 }),
     queryFn: () => api.searchReceiveAttempts(s.id, { outcome: null, offset: 0, limit: 1 }),
@@ -206,7 +206,7 @@ export function Overview({
         </Fact>
         {scheduled && (
           <>
-            <Fact label="Next run">{s.nextReceiveOn ? timeUntil(s.nextReceiveOn) : "—"}</Fact>
+            <Fact label="Next run">{s.nextReceiveOn ? timeUntil(s.nextReceiveOn) : "-"}</Fact>
             <Fact label="Last run">
               <LastRunFact run={attemptKind !== null ? lastReceiveRun : runs.data?.[0]} />
             </Fact>
@@ -219,7 +219,7 @@ export function Overview({
             // A response subscription's entry points are the subscriptions feeding it.
             `${entryPoints.length} ${s.type === "Response" ? "subscription" : "entry point"}${entryPoints.length === 1 ? "" : "s"}`
           ) : (
-            <span className="text-danger-700">Nothing — it never runs</span>
+            <span className="text-danger-700">Nothing - it never runs</span>
           )}
         </Fact>
         <LaneAndRetry
@@ -254,10 +254,10 @@ export function Overview({
           {s.pausedAutomatically
             ? `Paused automatically on ${formatDate(s.pausedOn!)} after ${s.consecutiveFailures} failed deliveries in a row`
             : `Paused since ${formatDate(s.pausedOn!)}`}{" "}
-          — incoming work is being held and will be released on resume.
+          - incoming work is being held and will be released on resume.
         </p>
       )}
-      {/* The scheduled types get this per-attempt instead, in ReceiveAttemptsPanel below —
+      {/* The scheduled types get this per-attempt instead, in ReceiveAttemptsPanel below -
           showing it again here duplicated the same error twice on one page. */}
       {s.lastException && attemptKind === null && (
         <ExceptionBlock text={s.lastException} title="Last error" />
@@ -319,7 +319,7 @@ export function Overview({
 }
 
 /**
- * After how many failed deliveries in a row the subscription pauses itself. Empty never pauses —
+ * After how many failed deliveries in a row the subscription pauses itself. Empty never pauses -
  * the default, and what every subscription saved before this had.
  */
 function AutoPauseField({

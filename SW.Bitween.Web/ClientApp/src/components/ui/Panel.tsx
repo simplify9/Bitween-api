@@ -58,7 +58,7 @@ export function EditableTitle({
   );
 }
 
-/** UPPER_SNAKE identity chip, e.g. PURCHASE_ORDER. Code is optional — falls back to `name` when unset. */
+/** UPPER_SNAKE identity chip, e.g. PURCHASE_ORDER. Code is optional - falls back to `name` when unset. */
 export function CodeBadge({
   code,
   name,

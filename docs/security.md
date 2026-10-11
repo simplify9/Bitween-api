@@ -33,8 +33,8 @@ Bitween does not check the token's issuer or audience. See [Known limitations](c
 ### Break-glass login (removed)
 
 `POST /api/login` signed in against `Bitween:AdminCredentials` and returned a token with every
-permission, without touching the database and with no lockout. It shipped with a working default —
-`admin:1234512345`, published in this repository — and neither the current nor the legacy UI ever
+permission, without touching the database and with no lockout. It shipped with a working default -
+`admin:1234512345`, published in this repository - and neither the current nor the legacy UI ever
 called it. A penetration test signed in with it. The endpoint and the setting are gone.
 
 There is now no sign-in that bypasses the database. If the last account holding Administrator loses

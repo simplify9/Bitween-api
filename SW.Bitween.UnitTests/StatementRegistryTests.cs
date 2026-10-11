@@ -60,7 +60,7 @@ public class StatementRegistryTests
     }
 
     /// <summary>
-    /// A name always wins over sql, even with ad-hoc allowed — otherwise a request carrying both
+    /// A name always wins over sql, even with ad-hoc allowed - otherwise a request carrying both
     /// would run whichever the implementation happened to check first.
     /// </summary>
     [TestMethod]
@@ -98,7 +98,7 @@ public class StatementRegistryTests
     }
 
     /// <summary>
-    /// Bad JSON fails at startup, where the message can point at the Statements setting — not on
+    /// Bad JSON fails at startup, where the message can point at the Statements setting - not on
     /// the first message, as "unknown statement", which sends whoever is debugging it looking at
     /// the subscription instead of the data source.
     /// </summary>

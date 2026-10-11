@@ -63,7 +63,7 @@ public class OracleFixture : IAsyncLifetime
     /// <summary>
     /// Built here rather than taken from <c>GetConnectionString()</c>. Testcontainers spells the
     /// service name for the XE image it defaults to (XEPDB1); this image is Free, which serves
-    /// FREEPDB1, and the mismatch surfaces as ORA-50201 "failed to parse connect string" — which
+    /// FREEPDB1, and the mismatch surfaces as ORA-50201 "failed to parse connect string" - which
     /// says nothing about the actual cause.
     /// </summary>
     public string AdminConnectionString =>

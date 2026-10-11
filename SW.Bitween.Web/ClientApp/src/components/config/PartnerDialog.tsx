@@ -15,8 +15,8 @@ import { partnerChanges, partnerDirty, partnerDraftOf } from "./partnerDraft";
  * partner's own page does, so there is one definition of what a partner is.
  *
  * Creating does not close it. A key cannot be issued to a partner that doesn't
- * exist yet, so instead of refusing — or sending you to the partner's page, which
- * is the jump this replaces — it saves, hands the id back to the caller so the
+ * exist yet, so instead of refusing - or sending you to the partner's page, which
+ * is the jump this replaces - it saves, hands the id back to the caller so the
  * picker updates behind it, and reopens itself as an editor with API keys live.
  */
 export function PartnerDialog({
@@ -31,7 +31,7 @@ export function PartnerDialog({
   onSaved?: (id: number) => void;
 }) {
   const queryClient = useQueryClient();
-  /** Set once the partner exists — from the prop, or from the create that just ran. */
+  /** Set once the partner exists - from the prop, or from the create that just ran. */
   const [id, setId] = useState(partnerId);
   // Filling in a new partner is creating it, which partners.create allows on its own: the server
   // asks for nothing more. Keyed to edit alone, a role that may create partners opened this to
@@ -102,7 +102,7 @@ export function PartnerDialog({
         <div className="space-y-4">
           {justCreated && (
             <p className="rounded-lg bg-ok-100 px-3 py-2 text-[13px] text-ok-600">
-              Created and selected. Add its API keys below, or close — nothing else is waiting on you.
+              Created and selected. Add its API keys below, or close - nothing else is waiting on you.
             </p>
           )}
 

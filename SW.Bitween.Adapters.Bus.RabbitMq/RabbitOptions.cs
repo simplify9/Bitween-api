@@ -3,7 +3,7 @@ namespace SW.Bitween.Adapters.Bus.RabbitMq;
 /// <summary>
 /// Every one of these arrives as a DataSource property, bound by name. Nothing here is opinionated
 /// about how the broker should be laid out: the queue may already exist and be owned by someone
-/// else, or Bitween may declare it — <see cref="DeclareMode"/> decides which.
+/// else, or Bitween may declare it - <see cref="DeclareMode"/> decides which.
 ///
 /// The attributes are not documentation: Bitween reads them out of this assembly to build the form
 /// an operator fills in, so a field added here appears there without anyone editing the UI.
@@ -15,7 +15,7 @@ namespace SW.Bitween.Adapters.Bus.RabbitMq;
 public class RabbitOptions
 {
     [AdapterSetting(Required = true,
-        Hint = "Host name only — no amqp:// or amqps:// prefix, and no credentials.")]
+        Hint = "Host name only - no amqp:// or amqps:// prefix, and no credentials.")]
     public string Host { get; set; } = "localhost";
 
     [AdapterSetting(Default = "5672",
@@ -33,7 +33,7 @@ public class RabbitOptions
     public string VirtualHost { get; set; } = "/";
 
     [AdapterSetting(Default = "false", AllowedValues = new[] {"true", "false"},
-        Hint = "Set for anything that is not localhost — AMQP authenticates in the clear otherwise. "
+        Hint = "Set for anything that is not localhost - AMQP authenticates in the clear otherwise. "
                + "Pair it with port 5671.")]
     public bool UseSsl { get; set; }
 
@@ -42,13 +42,13 @@ public class RabbitOptions
     public string Endpoints { get; set; }
 
     /// <summary>
-    /// none   — assume everything exists; never touch the topology.
-    /// assert — verify it exists and fail loudly if not (passive declare).
-    /// create — declare queues, and an exchange and binding when Exchange is set.
+    /// none   - assume everything exists; never touch the topology.
+    /// assert - verify it exists and fail loudly if not (passive declare).
+    /// create - declare queues, and an exchange and binding when Exchange is set.
     /// </summary>
     [AdapterSetting(Default = "assert", AllowedValues = new[] {"none", "assert", "create"},
-        Hint = "none — assume everything exists. assert — check and fail loudly if not. "
-               + "create — declare the queues.")]
+        Hint = "none - assume everything exists. assert - check and fail loudly if not. "
+               + "create - declare the queues.")]
     public string DeclareMode { get; set; } = "assert";
 
     /// <summary>Optional. When set, each endpoint queue is bound to it.</summary>
@@ -93,10 +93,10 @@ public class RabbitOptions
     public int MaxDeliveryAttempts { get; set; }
 
     /// <summary>
-    /// requeue — put it back and keep trying, however often it fails.
-    /// reject  — reject it without requeue, so the broker dead-letters it if the queue has a
+    /// requeue - put it back and keep trying, however often it fails.
+    /// reject  - reject it without requeue, so the broker dead-letters it if the queue has a
     ///           dead-letter exchange, and drops it if it does not.
-    /// park    — copy it to <see cref="ParkingQueue"/> with the error in its headers, then ack it.
+    /// park    - copy it to <see cref="ParkingQueue"/> with the error in its headers, then ack it.
     /// </summary>
     [AdapterSetting(Default = "requeue", AllowedValues = new[] {"requeue", "reject", "park"},
         Hint = "What to do with a message after MaxDeliveryAttempts failures. reject relies on the "
@@ -108,7 +108,7 @@ public class RabbitOptions
 
     /// <summary>
     /// Wait for the broker to confirm each message Bitween publishes, so a delivery that the broker
-    /// did not take is a failed delivery — retried by the subscription's retry policy — rather
+    /// did not take is a failed delivery - retried by the subscription's retry policy - rather
     /// than one reported as sent.
     /// </summary>
     [AdapterSetting(Default = "true", AllowedValues = new[] {"true", "false"},

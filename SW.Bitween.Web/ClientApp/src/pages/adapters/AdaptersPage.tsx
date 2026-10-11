@@ -94,7 +94,7 @@ export function AdaptersPage() {
     <div>
       <PageHeader
         title="Adapters"
-        description="What Bitween can receive with, check, transform and deliver with — built in, or installed on this instance."
+        description="What Bitween can receive with, check, transform and deliver with - built in, or installed on this instance."
         actions={
           <div className="flex gap-2">
             <Can permission="adapter-source.operate">
@@ -388,7 +388,7 @@ function AdapterDetails({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                     )}
                   </td>
                   <td className="py-1.5 pr-3 text-ink-600">{p.optional ? "No" : "Yes"}</td>
-                  <td className="py-1.5 pr-3 font-mono text-ink-600">{p.default ?? "—"}</td>
+                  <td className="py-1.5 pr-3 font-mono text-ink-600">{p.default ?? "-"}</td>
                   <td className="py-1.5 text-ink-600">{p.description ?? ""}</td>
                 </tr>
               ))}
@@ -488,12 +488,12 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                         </Badge>
                       )}
                     </td>
-                    <td className="py-1.5 pr-3 whitespace-nowrap">{runtimeLabel(v.runtime) ?? "—"}</td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">{runtimeLabel(v.runtime) ?? "-"}</td>
                     <td className="py-1.5 pr-3 whitespace-nowrap">
-                      {v.publishedOn ? formatDate(v.publishedOn) : "—"}
+                      {v.publishedOn ? formatDate(v.publishedOn) : "-"}
                       {v.publishedBy && <span className="block text-[11.5px] text-ink-500">{v.publishedBy}</span>}
                     </td>
-                    <td className="py-1.5 pr-3">{pinned === 0 ? "—" : pinned}</td>
+                    <td className="py-1.5 pr-3">{pinned === 0 ? "-" : pinned}</td>
                     <td className="py-1.5 whitespace-pre-line">{v.releaseNotes ?? ""}</td>
                     {sourceColumn && (
                       <td className="py-1.5 pl-3 whitespace-nowrap">
@@ -509,7 +509,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                           </button>
                         ) : (
                           <span className="text-ink-500" title="Published without its source">
-                            —
+                            -
                           </span>
                         )}
                       </td>

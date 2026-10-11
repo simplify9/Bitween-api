@@ -13,7 +13,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Information types — the kinds of document that flow through Bitween, and the shape every
+/// Information types - the kinds of document that flow through Bitween, and the shape every
 /// integration is configured against.
 /// </summary>
 /// <remarks>
@@ -21,7 +21,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// a machine. Two types called "Invoice" and "invoice" are indistinguishable in every list that
 /// shows them; two publishing as "OrderPlaced" and "orderplaced" are one message on the wire,
 /// because the routing key is lower-cased at both ends. Neither produces an error at the moment it
-/// is created — the damage shows up later as messages arriving somewhere nobody meant them to.
+/// is created - the damage shows up later as messages arriving somewhere nobody meant them to.
 /// </remarks>
 [Collection("Bitween")]
 public class InformationTypeTests(BitweenFixture fixture)
@@ -111,7 +111,7 @@ public class InformationTypeTests(BitweenFixture fixture)
 
         await Update(id, new DocumentUpdate { Name = newName, Code = newCode });
 
-        // Name and Code have private setters, and the bulk property copy only writes public ones —
+        // Name and Code have private setters, and the bulk property copy only writes public ones -
         // so the rename used to be accepted, reported as saved, and silently discarded. The handler
         // now sets both explicitly; this is here so that cannot come back.
         var stored = await Stored(id);
@@ -142,7 +142,7 @@ public class InformationTypeTests(BitweenFixture fixture)
         });
         Assert.Single((await Stored(id)).PromotedProperties);
 
-        // An absent list means none. Left implicit this threw ArgumentNullException — a 500 for a
+        // An absent list means none. Left implicit this threw ArgumentNullException - a 500 for a
         // request whose meaning the API had simply never decided.
         await Update(id, new DocumentUpdate { Name = Unique("Now has none") });
 
@@ -169,7 +169,7 @@ public class InformationTypeTests(BitweenFixture fixture)
     public async Task A_promoted_property_that_could_never_match_is_refused()
     {
         // These are read against every payload that arrives. A path that cannot resolve does not
-        // fail loudly — the property is simply blank on every exchange, and on every screen.
+        // fail loudly - the property is simply blank on every exchange, and on every screen.
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => Create(new DocumentCreate
         {
             Name = Unique("Bad path"),

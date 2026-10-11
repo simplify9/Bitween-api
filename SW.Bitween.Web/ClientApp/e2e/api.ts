@@ -54,7 +54,7 @@ export class AdminApi {
       `/${list}?filter=${filter}&page=0&size=100`,
     );
     const row = res.result.find((r) => r.name === name);
-    if (!row) throw new Error(`no ${list} row named "${name}" — did the seed project run?`);
+    if (!row) throw new Error(`no ${list} row named "${name}" - did the seed project run?`);
     return row.id;
   }
 
@@ -85,7 +85,7 @@ export class AdminApi {
     return res.result;
   }
 
-  /** Whether an adapter is published to this instance — some specs need one tools/e2e.sh publishes. */
+  /** Whether an adapter is published to this instance - some specs need one tools/e2e.sh publishes. */
   async hasAdapter(kind: "handlers" | "receivers" | "mappers" | "validators", id: string) {
     const catalog = await this.get<{ key: string }[]>(`/adapters/Catalog?prefix=${kind}`);
     return catalog.some((a) => a.key.toLowerCase() === id.toLowerCase());

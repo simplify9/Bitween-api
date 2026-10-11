@@ -107,7 +107,7 @@ describe("the tree for a delimited sample", () => {
     expect(columns.find((c) => c.key === "5")?.sample).toBe("0.100");
 
     // And a field the first row does fill keeps that row's value, because the first row is
-    // as real as any other — this file has no header to skip.
+    // as real as any other - this file has no header to skip.
     expect(columns.find((c) => c.key === "2")?.sample).toBe("FFSTAT");
   });
 
@@ -194,7 +194,7 @@ describe("the tree for a delimited sample", () => {
 
   it("says so rather than guessing at a delimiter it cannot show", () => {
     // The wire format allows a longer delimiter because the server's parser does, so such a
-    // mapping still runs — it just cannot be drawn here, and a wrong tree would be worse.
+    // mapping still runs - it just cannot be drawn here, and a wrong tree would be worse.
     const { root, error } = tree(MOVEMENTS, { delimiter: "||" });
 
     expect(root).toBeNull();

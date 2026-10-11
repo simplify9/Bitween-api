@@ -115,8 +115,8 @@ export function toWire(rules: EditorRules): MappingRules {
  * Stored delimited-text options, with anything missing or unusable filled in.
  *
  * Rules can be written by hand or saved by an older build, so `{}` and a delimiter that is not a
- * string both reach here. Neither is worth refusing the whole mapping over — an absent option
- * already means the default — but neither can be passed on either: the editor reads the delimiter
+ * string both reach here. Neither is worth refusing the whole mapping over - an absent option
+ * already means the default - but neither can be passed on either: the editor reads the delimiter
  * while it is drawing, and would throw rather than show a mapping.
  */
 function csvOptionsFrom(stored: CsvOptions | undefined, format: DocumentFormatId) {
@@ -140,7 +140,7 @@ export function fromWire(rules: MappingRules): EditorRules {
     sourceFormat: (rules.sourceFormat ?? "json") as DocumentFormatId,
     targetFormat: (rules.targetFormat ?? "json") as DocumentFormatId,
     // Kept as they were stored. A mapping whose format is delimited text but whose options
-    // are missing — hand-written, or saved before these existed — falls back to the same
+    // are missing - hand-written, or saved before these existed - falls back to the same
     // defaults the server would apply, rather than to nothing.
     sourceCsv: csvOptionsFrom(rules.sourceCsv, rules.sourceFormat),
     targetCsv: csvOptionsFrom(rules.targetCsv, rules.targetFormat),
@@ -201,7 +201,7 @@ export function loadMapping(properties: Record<string, string> | undefined): Loa
 
   // `loops` was renamed to `lists` before release, when a list stopped being only a
   // loop. Reading such a mapping would find no lists and quietly drop every one of
-  // them, and saving from there would destroy it — so refuse instead.
+  // them, and saving from there would destroy it - so refuse instead.
   if (Object.prototype.hasOwnProperty.call(parsed ?? {}, "loops")) {
     return {
       rules: emptyRules(),
@@ -213,7 +213,7 @@ export function loadMapping(properties: Record<string, string> | undefined): Loa
     };
   }
 
-  // Valid JSON of the wrong shape — `"fields": {}`, a list where a field belongs —
+  // Valid JSON of the wrong shape - `"fields": {}`, a list where a field belongs -
   // reaches this line, and `fromWire` maps over what it is given. A thrown TypeError
   // here would escape into the route as a blank screen rather than the refusal above.
   try {

@@ -2,8 +2,8 @@
  * Turning an exchange's payload into something readable.
  *
  * Integrations send minified JSON and single-line XML, and the drawer used to
- * print that verbatim: one 4KB line, which is both unreadable and — because the
- * drawer lives in a table cell that sizes to its content — wide enough to
+ * print that verbatim: one 4KB line, which is both unreadable and - because the
+ * drawer lives in a table cell that sizes to its content - wide enough to
  * stretch every other row on the page.
  */
 
@@ -12,7 +12,7 @@ const INDENT = "  ";
 
 /**
  * `text` laid out over multiple lines, or `null` when it isn't a format we can
- * lay out — in which case the caller shows it as it came.
+ * lay out - in which case the caller shows it as it came.
  *
  * Never throws and never guesses: anything that doesn't parse cleanly comes
  * back as `null` rather than as a mangled approximation of itself, because a
@@ -50,8 +50,8 @@ function formatXml(text: string): string | null {
   if (/\bxml:space\s*=\s*["']preserve["']/.test(text)) return null;
 
   // Split only where one tag butts *literally* against the next, with nothing
-  // between them. Whitespace sitting between two tags is a text node — in mixed
-  // content it is character data the reader came here to see — so it is left
+  // between them. Whitespace sitting between two tags is a text node - in mixed
+  // content it is character data the reader came here to see - so it is left
   // exactly where it is, even though that means those tags don't get reflowed.
   // Indenting still inserts whitespace, but only at boundaries that held none.
   const lines = text.replace(/></g, ">\n<").split("\n");

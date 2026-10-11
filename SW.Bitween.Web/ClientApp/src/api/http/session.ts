@@ -2,7 +2,7 @@ import { ApiRequestError, type Session, type User } from "../types";
 import { getAppConfig } from "./appConfig";
 import { clearToken, get, getToken, mayHaveSession, post, request, setToken, silentRefresh } from "./request";
 
-/** GET /accounts/profile — camelCase ProfileModel. */
+/** GET /accounts/profile - camelCase ProfileModel. */
 interface Profile {
   id: number;
   email: string;
@@ -48,13 +48,13 @@ const loadSession = async (): Promise<Session> => buildSession(await get<Profile
  * The sign-out request that may still be in flight, so a sign-in can cancel it.
  *
  * Its response carries `Clear-Site-Data: "cookies", "storage"`, which the browser
- * applies to the whole origin the moment it arrives — so landing *after* a fresh
+ * applies to the whole origin the moment it arrives - so landing *after* a fresh
  * sign-in, it wipes that sign-in's Jwt and refresh cookie and throws the user back
  * to the page they just left. The two genuinely can overlap now that signing out
  * no longer blocks the UI: the login page appears at once, and a password manager
  * can fill and submit it before the logout lands.
  *
- * Waiting for the logout first was the obvious guard and the wrong one — a request
+ * Waiting for the logout first was the obvious guard and the wrong one - a request
  * that hangs rather than fails would block sign-in for as long as it hung. Nothing
  * in the response is worth waiting for: it was already sent, so the server deletes
  * the refresh token either way, and only the header we don't want is discarded.
@@ -70,7 +70,7 @@ export const sessionMethods = {
    *
    * Only an answer from the server counts as "signed out". This used to swallow every
    * failure and return null, which reads as "no session" and sends the caller to the
-   * sign-in page — so a rate-limited or momentarily unreachable server signed people
+   * sign-in page - so a rate-limited or momentarily unreachable server signed people
    * out mid-task while their token sat in localStorage, still perfectly good. Anything
    * that is not an answer about *this* token is rethrown for the caller to show as the
    * outage it is.
@@ -78,7 +78,7 @@ export const sessionMethods = {
   async getSession(): Promise<Session | null> {
     // The Jwt lives in memory, so a reload or a new tab starts without one. When this
     // browser held a session, the refresh cookie gets a new one; when it never did,
-    // don't probe the backend — that would spend the sign-in rate limit on page loads.
+    // don't probe the backend - that would spend the sign-in rate limit on page loads.
     if (!getToken()) {
       if (!mayHaveSession()) return null;
       if (!(await silentRefresh())) return null;
@@ -135,7 +135,7 @@ export const sessionMethods = {
 
   async logout(): Promise<void> {
     // Cleared first and unconditionally. This used to run in a `finally`, which
-    // deleted the Jwt and then let the error through — the worst pairing, because
+    // deleted the Jwt and then let the error through - the worst pairing, because
     // the caller aborted before it could end the session and the app carried on
     // rendering as if signed in. Clearing it here is also what tells the other
     // tabs (see `onSignedOutElsewhere` in SessionContext).
@@ -147,8 +147,8 @@ export const sessionMethods = {
     } catch {
       // Swallowed on purpose: signing out must not depend on the server answering,
       // and a sign-in aborting this is a normal outcome rather than a fault. Only
-      // the server can invalidate the refresh cookie — it is HttpOnly, so JS cannot
-      // touch it — so if this never lands the cookie outlives the sign-out. This
+      // the server can invalidate the refresh cookie - it is HttpOnly, so JS cannot
+      // touch it - so if this never lands the cookie outlives the sign-out. This
       // browser has no Jwt to pair with it, and the next sign-in replaces it.
     } finally {
       if (logoutInFlight === controller) logoutInFlight = null;

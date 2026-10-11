@@ -126,8 +126,8 @@ public class RunOptions
 }
 
 /// <summary>
-/// Where publish, promote, versions and withdraw act: the signed-in Bitween, or — given -p or the
-/// SWSL_PROVIDER variable — the storage Bitween reads adapters from, as sw-serverless does it.
+/// Where publish, promote, versions and withdraw act: the signed-in Bitween, or - given -p or the
+/// SWSL_PROVIDER variable - the storage Bitween reads adapters from, as sw-serverless does it.
 /// </summary>
 public class TargetOptions
 {
@@ -354,7 +354,7 @@ public static class Commands
                 Log = Console.WriteLine,
             });
             foreach (var check in report.Checks)
-                Console.WriteLine($"{Mark(check.Outcome)} {check.Name}{(string.IsNullOrEmpty(check.Detail) ? "" : " — " + check.Detail)}");
+                Console.WriteLine($"{Mark(check.Outcome)} {check.Name}{(string.IsNullOrEmpty(check.Detail) ? "" : " - " + check.Detail)}");
             var failed = report.Checks.Count(c => c.Outcome == CheckOutcome.Failed);
             Console.WriteLine(failed == 0 ? "Conforms." : $"{failed} check{(failed == 1 ? "" : "s")} failed.");
             return report.Passed ? Success : Failure;

@@ -16,7 +16,7 @@ public class RetryPolicy : BaseEntity, IAudited, IRetryPolicy
     /// </summary>
     public string AlertHandlerId { get; set; }
 
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
+    /// <summary>That adapter's own settings - api key, recipients, subject.</summary>
     public IReadOnlyDictionary<string, string> AlertHandlerProperties { get; set; }
     public DateTime CreatedOn { get; set; }
     public string CreatedBy { get; set; }

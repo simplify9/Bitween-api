@@ -11,7 +11,7 @@ namespace SW.Bitween
     {
         /// <summary>
         /// Claims the subscription for one run. A single conditional UPDATE, so of two runners only
-        /// one changes the row, on every provider — the raw SQL this replaced read the flag with
+        /// one changes the row, on every provider - the raw SQL this replaced read the flag with
         /// SELECT ... FOR UPDATE outside a transaction on MySQL, which released the lock before the
         /// UPDATE and let both through.
         /// </summary>

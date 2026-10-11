@@ -26,7 +26,7 @@ const STATUS_OPTIONS = [
 const PAGE_SIZE = 25;
 
 /**
- * Response subscriptions — pipelines that run on what another subscription's delivery
+ * Response subscriptions - pipelines that run on what another subscription's delivery
  * hands back. They also appear on the Subscriptions page; this page exists for the one
  * column only they have: which subscriptions feed them.
  */
@@ -70,7 +70,7 @@ export function ResponseSubscriptionsPage() {
     <div>
       <PageHeader
         title="Response subscriptions"
-        description="Pipelines that run on what another subscription's delivery hands back — an order id, an acknowledgement, a label."
+        description="Pipelines that run on what another subscription's delivery hands back - an order id, an acknowledgement, a label."
         actions={createAction}
       />
 
@@ -169,7 +169,7 @@ export function ResponseSubscriptionsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-500">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -189,7 +189,7 @@ export function ResponseSubscriptionsPage() {
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-500">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -214,7 +214,7 @@ export function ResponseSubscriptionsPage() {
                     {r.lastException}
                   </span>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
           ]}

@@ -11,19 +11,19 @@ namespace SW.Bitween.Services.DataSources;
 /// <summary>
 /// Asks the database whether a statement is valid, at the moment it is saved.
 ///
-/// The alternative is what we had: store anything, and find out at the connection test — or, if
+/// The alternative is what we had: store anything, and find out at the connection test - or, if
 /// nobody ran one, on the first message, as a failed Xchange pointing at a syntax error made days
 /// earlier by someone else. A typo belongs to whoever typed it, and the only time that is true is
 /// while they are still looking at the form.
 ///
 /// It PREPARES the SQL: parsed and planned by the engine, never executed, nothing stored. That is
-/// the same check the connection test runs, deliberately — two checks that could disagree about
+/// the same check the connection test runs, deliberately - two checks that could disagree about
 /// what is acceptable would be worse than one.
 ///
 /// It is best-effort by construction. The adapter has to be running on THIS node to answer, and
 /// for a relational source it is (a pool is held per node), but a source that is stopped, broken
 /// or still starting cannot be asked. In that case the save proceeds unchecked rather than being
-/// blocked by an unrelated fault — refusing to let someone fix a statement because the connection
+/// blocked by an unrelated fault - refusing to let someone fix a statement because the connection
 /// they are fixing it for is down would be exactly backwards.
 /// </summary>
 public class StatementValidator(
@@ -70,7 +70,7 @@ public class StatementValidator(
         }
         catch (Exception)
         {
-            // The adapter could not be reached, or does not know the command — an older package,
+            // The adapter could not be reached, or does not know the command - an older package,
             // or a provider that never implemented it. Either way this is a fact about the
             // adapter, not about the SQL, and it must not stop someone saving.
             return Result.NotChecked;

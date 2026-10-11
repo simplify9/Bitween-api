@@ -19,7 +19,7 @@ interface RawWorkGroup {
   busMessageName: string;
   options: { rabbitMqOptions: { prefetch: number | null; priority: number | null } | null } | null;
   processorNodeCount: number | null;
-  /** Counted by the backend — see WorkGroupModel.UsedByCount. */
+  /** Counted by the backend - see WorkGroupModel.UsedByCount. */
   usedByCount: number;
 }
 interface RawSubscriptionRef {
@@ -77,7 +77,7 @@ const toWorkGroup = (w: RawWorkGroup): WorkGroup => ({
 
 // The backend's own default kicks in only when the caller omits the param
 // entirely (`request.Limit ??= 20`), so passing an explicit, generously large
-// one is how "everything" is asked for — there is no separate "unbounded"
+// one is how "everything" is asked for - there is no separate "unbounded"
 // value the way the shared Searchy endpoints have with size=0.
 const EVERYTHING = 1_000_000;
 

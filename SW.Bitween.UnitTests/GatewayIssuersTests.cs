@@ -13,7 +13,7 @@ public class GatewayIssuersTests
     [TestMethod]
     public void A_key_the_login_server_stops_publishing_stops_being_accepted()
     {
-        // Left to the library's default, it would be accepted for another hour — and a key
+        // Left to the library's default, it would be accepted for another hour - and a key
         // dropped that suddenly is usually one that leaked.
         Assert.IsFalse(new OpenIdGatewayIssuers().For("https://login.example.com").UseLastKnownGoodConfiguration);
     }

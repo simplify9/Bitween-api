@@ -7,7 +7,7 @@ using SW.Bitween.Services.Adapters;
 namespace SW.Bitween;
 
 /// <summary>
-/// What startup properties an adapter expects — its key names, which are optional, which are
+/// What startup properties an adapter expects - its key names, which are optional, which are
 /// secret, and their defaults.
 /// </summary>
 /// <remarks>
@@ -33,7 +33,7 @@ public class AdapterStartupValues(
     public void Forget(string adapterId) => serverlessDescriber.Forget(adapterId);
 
     /// <param name="adapterId">
-    /// Native (<c>native</c> prefix) or published — or a published adapter pinned to a version,
+    /// Native (<c>native</c> prefix) or published - or a published adapter pinned to a version,
     /// <c>{id}/{version}</c>, whose properties may differ from the current one's.
     /// </param>
     /// <returns>Key name to description. Empty when the adapter reports nothing.</returns>
@@ -58,7 +58,7 @@ public class AdapterStartupValues(
         if (string.IsNullOrWhiteSpace(adapterId))
             return new Dictionary<string, StartupValue>();
 
-        // A published package that lists its properties in its manifest is described from that —
+        // A published package that lists its properties in its manifest is described from that -
         // no process to start, and the same answer for a resident adapter as a classic one. A
         // package without one, or one that lists none, is asked as it always was.
         if (catalog != null && !NativeAdapterDiscoveryService.IsNative(adapterId))
@@ -69,7 +69,7 @@ public class AdapterStartupValues(
 
             // An adapter in another runtime than .NET cannot be asked: it speaks only gRPC, and
             // asking means the stdio exchange of .NET adapters, which it would leave waiting for a
-            // reply until the describer timed out — holding one of its few slots all the while.
+            // reply until the describer timed out - holding one of its few slots all the while.
             // Nor does it need asking. Its manifest was written from what it said when it was
             // built, so a manifest that lists nothing means it expects nothing.
             if (manifest != null && !string.IsNullOrWhiteSpace(manifest.Runtime) &&
@@ -89,12 +89,12 @@ public class AdapterStartupValues(
         //
         // Every caller of this then failed in its own way and none named a cause: saving a
         // subscription that used one was refused outright, and the two that mask secrets failed
-        // closed and returned every property as "__private__" — so a screen showed a masked value
+        // closed and returned every property as "__private__" - so a screen showed a masked value
         // where the chosen statement should be, and its dropdown could not match it.
         //
         // Nothing is the right answer rather than a shrug. A resident adapter's settings live on
         // its DATA SOURCE, which describes and masks its own; what a subscription holds for one
-        // is which statement to run and what to do with it — routing, not secrets.
+        // is which statement to run and what to do with it - routing, not secrets.
         if (await ResidentAdapters.IsResidentAsync(serviceProvider, adapterId))
             return new Dictionary<string, StartupValue>();
 
@@ -119,7 +119,7 @@ public class AdapterStartupValues(
     }
 
     /// <summary>
-    /// The same description with the default withheld from every secret property — the shape to
+    /// The same description with the default withheld from every secret property - the shape to
     /// hand to a client.
     /// </summary>
     /// <remarks>

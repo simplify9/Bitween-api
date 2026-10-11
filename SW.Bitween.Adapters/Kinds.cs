@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Adapters;
 
 // The .NET form of the Bitween adapter contract (Contract/bitween-adapter-contract.v1.json). Bitween
-// calls an adapter by method name, so these names — Handle, Validate, Initialize, ListFiles,
-// GetFile, DeleteFile, Finalize — are the contract, and must never change. Adapters written against
+// calls an adapter by method name, so these names - Handle, Validate, Initialize, ListFiles,
+// GetFile, DeleteFile, Finalize - are the contract, and must never change. Adapters written against
 // SW.PrimitiveTypes' IInfolinkHandler, IInfolinkValidator and IInfolinkReceiver use the same names
 // and are called the same way.
 
@@ -33,7 +33,7 @@ public interface IBitweenValidator
 /// <summary>
 /// Fetches files from a source on a schedule. Bitween calls, on one session and in this order:
 /// <see cref="Initialize"/>, <see cref="ListFiles"/>, then for each file <see cref="GetFile"/> and,
-/// once it is safely taken in, <see cref="DeleteFile"/>, and finally <see cref="Finalize"/> —
+/// once it is safely taken in, <see cref="DeleteFile"/>, and finally <see cref="Finalize"/> -
 /// also after a failure.
 /// </summary>
 public interface IBitweenReceiver

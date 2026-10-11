@@ -15,7 +15,7 @@ namespace SW.Bitween.Resources.DataSourceStatements;
 /// Every statement, with the count that matters: how many subscriptions name it.
 ///
 /// Zero is the whole point. Without it, SQL nobody uses accumulates forever because nobody can
-/// prove it is safe to remove — which is exactly what happened while these lived in one JSON blob.
+/// prove it is safe to remove - which is exactly what happened while these lived in one JSON blob.
 /// </summary>
 public class Search(BitweenDbContext dbContext, RequestContext requestContext,
     StatementUsageReader usage) : ISearchyHandler

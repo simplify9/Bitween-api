@@ -10,7 +10,7 @@ namespace SW.Bitween;
 /// Which of an adapter's required startup properties a caller failed to supply.
 /// <para>
 /// The answer was written out four times across the subscription validators before this
-/// existed — three in Update alone. Create needs the same answer, and six copies of it would
+/// existed - three in Update alone. Create needs the same answer, and six copies of it would
 /// be six places for the rule to drift. Whether the adapter runs in-process or in a serverless
 /// container is <see cref="AdapterStartupValues"/>'s problem, not this one's.
 /// </para>
@@ -23,7 +23,7 @@ public class AdapterRequirements(
     /// <summary>
     /// Refuses a version pin that cannot run: on a native adapter, which has no versions; on a
     /// slot with no adapter; on a version that was never published or has been withdrawn. And
-    /// refuses an adapter — pinned or current — whose manifest asks for a newer Bitween than this
+    /// refuses an adapter - pinned or current - whose manifest asks for a newer Bitween than this
     /// one, when the slot is being changed to it. Nothing is checked for a slot left as it was, so
     /// saving an unrelated field never fails over a choice made before.
     /// </summary>
@@ -56,7 +56,7 @@ public class AdapterRequirements(
         if (string.IsNullOrEmpty(adapterId)) return Array.Empty<string>();
 
         // A version that can't be pinned has nothing to describe. Asking for it started the
-        // package to read its settings, which threw — a 500 from the request validator, which runs
+        // package to read its settings, which threw - a 500 from the request validator, which runs
         // before EnsureRunnable can refuse the version with a reason.
         var (id, version) = SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Split(adapterId);
         if (version != null && catalog != null && !await catalog.HasVersionAsync(id, version))

@@ -192,7 +192,7 @@ export function ProfilePage() {
                 <p className="text-sm font-medium text-ink-800">Microsoft account</p>
                 <p className="text-[13px] text-ink-500">
                   {user.microsoftLinked
-                    ? "Linked — you can sign in with Microsoft."
+                    ? "Linked - you can sign in with Microsoft."
                     : "Not linked. Signing in with a Microsoft account that matches your email links it automatically."}
                 </p>
               </div>

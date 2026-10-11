@@ -91,7 +91,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
             value={m.target}
             onChange={(e) => onPatch({ target: e.target.value })}
           >
-            <option value="">— target —</option>
+            <option value="">- target -</option>
             {[...new Set([...targetItemProps, m.target].filter(Boolean))]
               .filter((prop) => !usedTargets.has(prop) || prop === m.target)
               .map((prop) => <option key={prop} value={prop}>{prop}</option>)}
@@ -111,7 +111,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
           <ModeToggleButtons current={rowMode} onChange={handleModeChange} />
         </div>
 
-        {/* Lookup button — source mode only */}
+        {/* Lookup button - source mode only */}
         {rowMode === 'source' && (
           <button
             disabled={!m.source}
@@ -136,7 +136,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
               value={m.fixedValue ?? ''}
               onChange={(e) => onPatch({ fixedValue: e.target.value, source: '' })}
             >
-              <option value="">— pick —</option>
+              <option value="">- pick -</option>
               <option value="true">true</option>
               <option value="false">false</option>
             </select>
@@ -187,7 +187,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
               onPatch({ source: val, fixedValue: undefined, lookupDictionary: undefined, isRootSource: isRoot || undefined });
             }}
           >
-            <option value="">— unassigned —</option>
+            <option value="">- unassigned -</option>
             {sourceItemProps.length > 0 && (
               <optgroup label={`${alias} fields`}>
                 {sourceItemProps.map((prop) => <option key={prop} value={prop}>{prop}</option>)}
@@ -201,7 +201,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
           </select>
         )}
 
-        {/* Transform toggle — source mode, has source, no lookup */}
+        {/* Transform toggle - source mode, has source, no lookup */}
         {rowMode === 'source' && Boolean(m.source) && !hasLookup && (
           <button
             title={hasTransform ? `Transform: ${m.transform}` : 'Add a transform expression to modify the value'}
@@ -231,7 +231,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
           <span className="text-[10px] font-medium text-crimson-600 select-none">
             Transform{' '}
             <span className="font-normal text-ink-500">
-              (optional — modify the value before output. Use <code className="font-mono">value</code> to refer to the source field.)
+              (optional - modify the value before output. Use <code className="font-mono">value</code> to refer to the source field.)
             </span>
           </span>
           <input

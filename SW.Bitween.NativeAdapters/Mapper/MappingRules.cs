@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 namespace SW.Bitween.NativeAdapters.Mapper;
 
 /// <summary>
-/// What the user configured, written down. The source of truth for a mapping — nothing is derived
+/// What the user configured, written down. The source of truth for a mapping - nothing is derived
 /// from a generated artefact, and nothing is inferred from a sample document.
 /// </summary>
 /// <remarks>
@@ -24,7 +24,7 @@ public class MappingRules
 
     public int Version { get; set; } = CurrentVersion;
 
-    /// <summary>Format id of the incoming document — see <c>IDocumentFormat.Id</c>.</summary>
+    /// <summary>Format id of the incoming document - see <c>IDocumentFormat.Id</c>.</summary>
     public string SourceFormat { get; set; } = "json";
 
     /// <summary>Format id of the document to produce.</summary>
@@ -36,7 +36,7 @@ public class MappingRules
     /// <remarks>
     /// <para>
     /// On the mapping rather than on each rule, because a partner writes dates one way
-    /// throughout a document — asking per field would be the same answer typed many times,
+    /// throughout a document - asking per field would be the same answer typed many times,
     /// and one row set wrongly would be invisible.
     /// </para>
     /// <para>
@@ -66,13 +66,13 @@ public class MappingRules
     /// When set, the whole output document is this list rather than an object.
     /// </summary>
     /// <remarks>
-    /// Some partners expect a bare array — <c>[ {...}, {...} ]</c> — rather than an object with a
+    /// Some partners expect a bare array - <c>[ {...}, {...} ]</c> - rather than an object with a
     /// list inside it. <see cref="Fields"/> and <see cref="Lists"/> are ignored when this is set,
     /// because a document is one thing or the other.
     /// </remarks>
     public ListRule? Root { get; set; }
 
-    /// <summary>Every field rule, wherever it sits — at the top, in a list, or in a written-in entry.</summary>
+    /// <summary>Every field rule, wherever it sits - at the top, in a list, or in a written-in entry.</summary>
     public IEnumerable<FieldRule> EveryField()
     {
         var lists = new Stack<ListRule>(Lists);
@@ -103,7 +103,7 @@ public class FieldRule
     /// </summary>
     /// <remarks>
     /// Segments rather than a dotted string, because a dotted string has to be split and then a key
-    /// that genuinely contains a dot becomes unreachable — the old mapper turned a target of
+    /// that genuinely contains a dot becomes unreachable - the old mapper turned a target of
     /// <c>file.txt</c> into a nested <c>{ "file": { "txt": … } }</c> with no way to ask for the
     /// literal key.
     /// </remarks>
@@ -111,7 +111,7 @@ public class FieldRule
 
     public ValueSource From { get; set; } = new();
 
-    /// <summary>Optional named function applied to the value — see <see cref="Transforms"/>.</summary>
+    /// <summary>Optional named function applied to the value - see <see cref="Transforms"/>.</summary>
     public TransformRule? Transform { get; set; }
 
     /// <summary>Optional value substitution applied after <see cref="Transform"/>.</summary>
@@ -122,7 +122,7 @@ public class FieldRule
     /// </summary>
     /// <remarks>
     /// On the rule, not inferred from a target sample document. The old mapper read types out of
-    /// whatever JSON was pasted into the editor, which meant the sample changed the output — so the
+    /// whatever JSON was pasted into the editor, which meant the sample changed the output - so the
     /// same rules produced different documents depending on what someone had pasted.
     /// </remarks>
     public ValueType? Type { get; set; }
@@ -171,7 +171,7 @@ public enum ValueSourceKind
     /// </summary>
     /// <remarks>
     /// Only different from <see cref="Path"/> inside a list: it is how one value from the
-    /// document — an order reference, say — gets written onto every line of that order.
+    /// document - an order reference, say - gets written onto every line of that order.
     /// </remarks>
     RootPath,
 
@@ -190,7 +190,7 @@ public enum ValueSourceKind
     /// above it, and nothing else in a mapping knows that number.
     /// </para>
     /// <para>
-    /// Entries written by hand are not counted, which is the whole point of the distinction — a
+    /// Entries written by hand are not counted, which is the whole point of the distinction - a
     /// trailer says how many <em>records</em> there are, and the header line above it is not one.
     /// Counting them would also mean adding a header later quietly changed the trailer, with
     /// nothing on screen to say the number had moved.
@@ -204,7 +204,7 @@ public enum ValueSourceKind
 
     /// <summary>
     /// A path into the original document: the input of the exchange whose delivery got the response
-    /// being mapped — the order, when the response is the carrier's reply to it. Shown as "Original".
+    /// being mapped - the order, when the response is the carrier's reply to it. Shown as "Original".
     /// </summary>
     /// <remarks>
     /// Only a response or bus gateway subscription is handed these, read when its exchange was
@@ -264,7 +264,7 @@ public class LookupRule
 
 /// <summary>A list in the output, whose entries come from walking a list in the source.</summary>
 /// <remarks>
-/// Named for what it produces rather than for how — a list, not a loop. Walking a source list is
+/// Named for what it produces rather than for how - a list, not a loop. Walking a source list is
 /// one way to fill one, and the name leaves room for the others without becoming a lie.
 /// </remarks>
 public class ListRule
@@ -291,7 +291,7 @@ public class ListRule
     public FilterRule? Where { get; set; }
 
     /// <summary>
-    /// When set, each entry produces a single value instead of an object — a list of strings or
+    /// When set, each entry produces a single value instead of an object - a list of strings or
     /// numbers rather than a list of records.
     /// </summary>
     /// <remarks>
@@ -308,7 +308,7 @@ public class ListRule
     /// </summary>
     /// <remarks>
     /// Nesting is structural rather than a flat list joined by parent ids, which is how the old
-    /// model did it — that needed three separate recursive helpers to rebuild the full source and
+    /// model did it - that needed three separate recursive helpers to rebuild the full source and
     /// target paths, and a rule whose parent had been deleted became unreachable rather than
     /// invalid.
     /// </remarks>
@@ -324,7 +324,7 @@ public class ListRule
     /// </para>
     /// <para>
     /// Each entry is built from its own rules, so a constant entry may still read the document,
-    /// the partner or a values set, and may contain lists of its own — where the old mapper had
+    /// the partner or a values set, and may contain lists of its own - where the old mapper had
     /// two separate features holding literal JSON and a flat array of value slots.
     /// </para>
     /// </remarks>
@@ -336,7 +336,7 @@ public class ListRule
     /// <remarks>
     /// The other end of <see cref="Fixed"/>, and the reason it exists: a delimited file from a
     /// carrier ends with a trailer record carrying the number of records above it. Built exactly
-    /// the same way, reading against the same scope — the only difference is where they land, and
+    /// the same way, reading against the same scope - the only difference is where they land, and
     /// that <see cref="ValueSourceKind.Count"/> can see the whole list by the time they run.
     /// </remarks>
     public List<ListEntry> After { get; set; } = new();
@@ -346,7 +346,7 @@ public class ListRule
 public class ListEntry
 {
     /// <summary>
-    /// When set, the entry is a single value rather than an object — the same choice
+    /// When set, the entry is a single value rather than an object - the same choice
     /// <see cref="ListRule.Item"/> makes for a walked entry.
     /// </summary>
     public FieldRule? Item { get; set; }

@@ -14,7 +14,7 @@ namespace SW.Bitween.Model;
 /// JSON payload and vice-versa.
 /// </para>
 /// <para>
-/// <strong>Matcher logic</strong>: OR — the group fires as soon as any single matcher returns
+/// <strong>Matcher logic</strong>: OR - the group fires as soon as any single matcher returns
 /// <c>true</c>. Matchers incompatible with the current result type are silently skipped.
 /// </para>
 /// <para>
@@ -73,7 +73,7 @@ public class RetryGroup
     /// </summary>
     public string? AlertHandlerId { get; init; }
 
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
+    /// <summary>That adapter's own settings - api key, recipients, subject.</summary>
     public Dictionary<string, string>? AlertHandlerProperties { get; init; }
 }
 
@@ -92,8 +92,8 @@ public class RetryBudget
     /// Hard ceiling on the total number of group-level retries across all messages, counted per
     /// subscription so one shared policy does not let a single noisy subscription spend everyone's
     /// allowance. Prevents a burst of failures from hammering the downstream. It is not a rate over a
-    /// rolling window: the count only falls once it has been reached — the subscription's next success
-    /// then lifts it — or when somebody resets it by hand.
+    /// rolling window: the count only falls once it has been reached - the subscription's next success
+    /// then lifts it - or when somebody resets it by hand.
     /// </summary>
     /// <remarks>
     /// Null means no group-wide ceiling: only <see cref="MaxAttemptsPerError"/> applies, nothing is

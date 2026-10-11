@@ -21,12 +21,12 @@ import { formatDateTime, timeAgo } from "../../lib/dates";
  * Used by the partner's own page and by the dialog that pickers open, so the two
  * cannot drift: a field added here appears in both, and a rule about what a
  * property means is written once. What is deliberately not here is the partner's
- * read-only context — used-by, recent exchanges — which only the page has room
+ * read-only context - used-by, recent exchanges - which only the page has room
  * for and which nobody edits.
  *
  * Controlled: the draft and its changes belong to the host, because the two hosts
  * save differently (a page-wide unsaved bar versus a dialog's own button). API
- * keys are the exception and act immediately — issuing a key is not a draft, and
+ * keys are the exception and act immediately - issuing a key is not a draft, and
  * the secret is shown exactly once.
  */
 export interface PartnerDraft {
@@ -42,7 +42,7 @@ export function PartnerFields({
   onChange,
   canEdit,
   isSystem = false,
-  /** null until the partner exists — a key can only be issued against a real one. */
+  /** null until the partner exists - a key can only be issued against a real one. */
   partnerId,
   credentials,
   /** The page edits the name in its own title; a dialog has to ask for it. */
@@ -88,7 +88,7 @@ export function PartnerFields({
 
       <Panel
         title="Properties"
-        description="Key-value settings adapters can reference — use the reference token inside any adapter field. Lock one to keep its value out of the API and off this page."
+        description="Key-value settings adapters can reference - use the reference token inside any adapter field. Lock one to keep its value out of the API and off this page."
       >
         <KeyValueEditor
           rows={draft.properties}
@@ -109,7 +109,7 @@ export function PartnerFields({
             return (
               <SubscriptionMiniList
                 items={users.filter((s) => referencesPartnerProp(s, row.key.trim()))}
-                emptyText="Not referenced by any subscription — safe to change or remove."
+                emptyText="Not referenced by any subscription - safe to change or remove."
               />
             );
           }}
@@ -154,7 +154,7 @@ export function PartnerFields({
         {partnerId === null ? (
           <p className="text-[13px] text-ink-500">
             A key can only be issued to a partner that exists. Create this one and its keys section
-            opens right here — you won't be sent anywhere.
+            opens right here - you won't be sent anywhere.
           </p>
         ) : (
           <>
@@ -253,7 +253,7 @@ function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () =
         <div className="space-y-4">
           <CopyField value={issuedKey} label={`Key "${name}"`} />
           <p className="text-[13px] text-ink-500">
-            Copy it now and share it with the partner — for security, the full key is never shown
+            Copy it now and share it with the partner - for security, the full key is never shown
             again. Each gateway's page shows the ways a partner can send it.
           </p>
           <div className="flex justify-end">
@@ -268,7 +268,7 @@ function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () =
   return (
     <Dialog title="New API key" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Key name" htmlFor="ak-name" hint="What this key is for — the partner may hold several.">
+        <Field label="Key name" htmlFor="ak-name" hint="What this key is for - the partner may hold several.">
           <TextInput
             id="ak-name"
             required

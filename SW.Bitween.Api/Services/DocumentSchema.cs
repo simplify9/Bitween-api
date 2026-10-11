@@ -25,7 +25,7 @@ public class DocumentSchemaException(string documentName, IReadOnlyList<string> 
 }
 
 /// <summary>
-/// The schema an information type can carry — JSON Schema for a JSON type, XSD for an XML one —
+/// The schema an information type can carry - JSON Schema for a JSON type, XSD for an XML one -
 /// and checking a document against it.
 /// </summary>
 /// <remarks>

@@ -14,7 +14,7 @@
 #                                    e.g. tools/e2e.sh -- e2e/exchanges.spec.ts
 #
 # The suite needs nothing from the database it runs against: its `seed` project creates what it
-# uses. That is the point of this script — a run proves the suite works from nothing, rather than
+# uses. That is the point of this script - a run proves the suite works from nothing, rather than
 # from whatever the last person's dev database happened to hold.
 #
 # Environment:
@@ -116,7 +116,7 @@ start_container() {
 app_up() { curl -skf -o /dev/null "$APP_URL/health"; }
 
 # Adapters are published by writing a package into the storage bucket, which with local storage is
-# a directory: the object at its key and its metadata beside it as <key>.meta.json — the layout
+# a directory: the object at its key and its metadata beside it as <key>.meta.json - the layout
 # AdapterInstaller reads back (see SW.Bitween.IntegrationTests/Fixtures/AdapterInstaller.cs, which
 # publishes the same way through ICloudFilesService).
 ADAPTERS="$STATE/adapters"
@@ -162,7 +162,7 @@ publish_catalog() {
 }
 
 # A Python adapter as bitween adapter build packages one: the source under source/, each file's
-# SHA-256 in the manifest, and — as for every adapter not on .NET — published to its versions and
+# SHA-256 in the manifest, and - as for every adapter not on .NET - published to its versions and
 # the catalog only, never to adapters/<id>. Two versions, so the source can be compared.
 # publish_source_adapter <adapter id>
 publish_source_adapter() {
@@ -206,13 +206,13 @@ PY
 }
 
 if $reuse; then
-  app_up || die "no e2e environment is running at $APP_URL — start one with tools/e2e.sh --keep or --up"
+  app_up || die "no e2e environment is running at $APP_URL - start one with tools/e2e.sh --keep or --up"
   [[ -f "$PASSWORD_FILE" ]] && E2E_ADMIN_PASSWORD="${E2E_ADMIN_PASSWORD:-$(cat "$PASSWORD_FILE")}"
 else
   # Fresh means fresh: whatever an earlier --keep left behind goes first.
   teardown
   if lsof -nP -iTCP:"$APP_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-    die "something else is already listening on port $APP_PORT — stop it first (a local Bitween?)"
+    die "something else is already listening on port $APP_PORT - stop it first (a local Bitween?)"
   fi
 
   if [[ -z "${E2E_ADMIN_PASSWORD:-}" ]]; then
@@ -273,7 +273,7 @@ if ! $reuse; then
 
   log "Waiting for RabbitMQ"
   # The app fails at startup if the broker isn't accepting connections, and the management API
-  # comes up last — waiting on it covers both.
+  # comes up last - waiting on it covers both.
   for i in $(seq 1 90); do
     curl -sf -u guest:guest -o /dev/null "http://localhost:$MQ_MGMT_PORT/api/overview" &&
       docker exec "$MQ_CONTAINER" rabbitmq-diagnostics -q check_port_listener 5672 >/dev/null 2>&1 && break
@@ -284,7 +284,7 @@ if ! $reuse; then
   rm -rf "$BUCKET_DIR"
   log "Publishing adapters to the e2e bucket"
   # A custom handler with two published versions, for the version picker and the Custom section
-  # of the Adapters page, and the PostgreSQL provider, for data sources — run against the e2e
+  # of the Adapters page, and the PostgreSQL provider, for data sources - run against the e2e
   # database itself. Bitween's own (bitween.) prefix is what makes the latter a provider.
   for version in "" 1.0.0 2.0.0; do
     publish_adapter "$SAMPLE_HANDLER" e2e.samplehandler SW.Bitween.SampleHandler.dll "$version" '"Kind":"handler",'
@@ -309,7 +309,7 @@ if ! $reuse; then
     export Bitween__RabbitMqManagementUsername=guest Bitween__RabbitMqManagementPassword=guest
     # The suite signs in dozens of times a minute, which the production limits are there to stop.
     export Bitween__RateLimits__SignInPerMinute=100000 Bitween__RateLimits__RequestsPerMinute=1000000
-    # Lets this node run resident data source providers — the PostgreSQL one published above.
+    # Lets this node run resident data source providers - the PostgreSQL one published above.
     export Bitween__BusProvidersEnabled=true
     export Bitween__InitialAdminPassword="$E2E_ADMIN_PASSWORD"
     exec nohup dotnet run --no-build --no-launch-profile >"$APP_LOG" 2>&1

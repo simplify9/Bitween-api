@@ -36,7 +36,7 @@ class ExchangeFile:
     """A file as Bitween passes it to and from adapters.
 
     ``data`` is the content: text, or base64 for binary content. ``bad_data`` marks a bad response,
-    a delivery the partner rejected — returned, not raised.
+    a delivery the partner rejected - returned, not raised.
     """
 
     data: str = ""
@@ -75,7 +75,7 @@ class ExchangeFile:
 
 @dataclass
 class ValidationResult:
-    """What a validator found: each failure as a key — often the field it concerns — and a message.
+    """What a validator found: each failure as a key - often the field it concerns - and a message.
     No failures means valid."""
 
     validations: list[tuple[str, str]] = field(default_factory=list)
@@ -187,7 +187,7 @@ class Validator(_Kind):
 
 class Receiver(_Kind):
     """Fetches files from a source on a schedule. One session per run: ``initialize``, ``list_files``,
-    then for each file ``get_file`` and — once it is safely taken in — ``delete_file``, and finally
+    then for each file ``get_file`` and - once it is safely taken in - ``delete_file``, and finally
     ``finalize``, which is also called after a failure."""
 
     __sw_kinds__ = ["receiver"]

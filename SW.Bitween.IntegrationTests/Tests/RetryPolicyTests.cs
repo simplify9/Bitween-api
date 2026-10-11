@@ -369,7 +369,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         var policy = new CustomRetryPolicy { Groups = [group] };
 
         // Reproduces the reported bug: four failing messages, each retried up to its own
-        // per-message cap of 3, under a shared total of 10 — 12 retries before the fix.
+        // per-message cap of 3, under a shared total of 10 - 12 retries before the fix.
         var allowed = 0;
         for (var message = 0; message < 4; message++)
         for (var attempt = 0; attempt < 3; attempt++)
@@ -513,8 +513,8 @@ public class RetryPolicyTests(BitweenFixture fixture)
             GroupId = groupId
         });
 
-        // The pair keeps its row — every subscription-and-group pair gets one so an alert override
-        // stays configurable before the first failure — but with nothing spent against the ceiling.
+        // The pair keeps its row - every subscription-and-group pair gets one so an alert override
+        // stays configurable before the first failure - but with nothing spent against the ceiling.
         var afterReset = Assert.Single(
             (List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope)).Handle(policyId, new RetryPolicyUsageRequest()));
         Assert.Equal(0, afterReset.AttemptsUsed);
@@ -562,8 +562,8 @@ public class RetryPolicyTests(BitweenFixture fixture)
         var rows = (List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope))
             .Handle(policyId, new RetryPolicyUsageRequest());
 
-        // One row, not two: the pair is reported even though nothing has ever failed — otherwise its
-        // alert override would be unreachable until after the first failure — while the Block group
+        // One row, not two: the pair is reported even though nothing has ever failed - otherwise its
+        // alert override would be unreachable until after the first failure - while the Block group
         // is left out entirely.
         var row = Assert.Single(rows);
         Assert.Equal("Timeout", row.GroupName);
@@ -604,7 +604,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         await new ResetUsage(db, ctx).Handle(mineId, new RetryPolicyResetUsage());
 
         // A row now exists for every pair whether or not it has failed, so assert the spent counter
-        // itself survived — row count alone would pass even if the reset had wrongly cleared it.
+        // itself survived - row count alone would pass even if the reset had wrongly cleared it.
         var otherRow = Assert.Single(
             (List<RetryGroupUsageRow>)await new Usage(db, ctx, Report(scope)).Handle(otherId, new RetryPolicyUsageRequest()));
         Assert.Equal(1, otherRow.AttemptsUsed);
@@ -687,7 +687,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         var unstamped = new Xchange(sub, new XchangeFile("{}"));
         var unstampedResult = new XchangeResult(unstamped.Id, null, null, exception: "older timeout");
 
-        // Same policy and same group, different subscription — a row of its own, not this one's.
+        // Same policy and same group, different subscription - a row of its own, not this one's.
         var otherPair = new Xchange(otherSub, new XchangeFile("{}"));
         var otherPairResult = new XchangeResult(otherPair.Id, null, null, exception: "someone else's timeout");
         otherPairResult.SetRetryEvaluation(groupId, 0);
@@ -839,7 +839,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         var groupId = Guid.NewGuid();
         var budget = new RetryGroupBudget(db, scope.ServiceProvider, sub.Id);
 
-        // Spending the budget never alerts — nothing has been refused yet.
+        // Spending the budget never alerts - nothing has been refused yet.
         for (var i = 0; i < 3; i++)
         {
             var spending = await budget.TryConsume(groupId, 3);
@@ -996,7 +996,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         Assert.Equal(10, row.AttemptsUsed);
         Assert.True(row.Exhausted);
 
-        // An inline policy has no row to hold a policy-level alert, so nothing resolves from there —
+        // An inline policy has no row to hold a policy-level alert, so nothing resolves from there -
         // and that has to read as "nothing configured" rather than as a level being consulted.
         Assert.Null(row.ResolvedHandlerId);
         Assert.Null(row.ResolvedFrom);
@@ -1041,7 +1041,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
             ]
         };
 
-        // Nothing to work from — no caps, no delay — so the evaluator could only ever refuse it, and
+        // Nothing to work from - no caps, no delay - so the evaluator could only ever refuse it, and
         // refusing quietly reads as retries being broken. Rejected where it is configured instead.
         await Assert.ThrowsAsync<SWValidationException>(
             () => new Create(db, ctx).Handle(PolicyWithBudgetlessGroup("Budgetless Allow", RetryAction.Allow)));
@@ -1135,7 +1135,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         Assert.Equal(Sentinel, row.ResolvedHandlerProperties["Password"]);
 
         // The page offers "start from what this currently sends", so the masked value is what comes
-        // back — and there is no override row yet to restore it from. It has to be recovered from the
+        // back - and there is no override row yet to restore it from. It has to be recovered from the
         // level the caller was shown it at, or the new override would send with no password at all.
         await new SaveAlertOverride(db, ctx).Handle(policyId, new RetryAlertOverrideSave
         {
@@ -1163,7 +1163,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         model.AlertHandlerId = "NativeSmtpHandler";
         model.AlertHandlerProperties = SmtpProperties("hunter2", useTls: false);
 
-        // Caught on save, where the person configuring it is looking — the handler refuses this at
+        // Caught on save, where the person configuring it is looking - the handler refuses this at
         // send time too, but by then the only trace is a missing alert.
         await Assert.ThrowsAsync<SWValidationException>(() => new Create(db, ctx).Handle(model));
 
@@ -1365,7 +1365,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
         // on its own before any handler runs.
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
 
-        // The subscription has no handler, so this exchange simply succeeds — an ordinary message
+        // The subscription has no handler, so this exchange simply succeeds - an ordinary message
         // getting through after the outage, which is the only evidence of recovery there is.
         var recovered = await xs.CreateXchange(sub, new XchangeFile("{}"));
         await db.SaveChangesAsync();
@@ -1452,7 +1452,7 @@ public class RetryPolicyTests(BitweenFixture fixture)
     /// Bitween runs several instances, so a failure can claim a slot while a success is still being
     /// processed. Releasing that row would give back a slot already spent and let the group retry past
     /// its total. The row's last attempt is compared against the successful exchange's start, which is
-    /// what this drives directly — the timing is otherwise a race no test could pin down.
+    /// what this drives directly - the timing is otherwise a race no test could pin down.
     /// </remarks>
     [Fact]
     public async Task A_slot_charged_after_the_success_began_is_not_handed_back()

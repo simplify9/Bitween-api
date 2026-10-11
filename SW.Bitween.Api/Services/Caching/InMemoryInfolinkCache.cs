@@ -35,7 +35,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
     /// <remarks>
     /// The six reads take time, and <see cref="Revoke"/> runs on the bus consumer thread against
     /// this same singleton. A revoke landing between the reads and the writes is revoking the
-    /// snapshot those reads just took — the write it announces happened after they began — so
+    /// snapshot those reads just took - the write it announces happened after they began - so
     /// publishing it anyway would reinstate the staleness the revoke existed to clear, for the
     /// full ten minutes. Hence the generation check: read again rather than publish a snapshot
     /// that is already known to be behind.
@@ -158,7 +158,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
     public async Task BroadcastRevoke()
     {
         // This is a best-effort cache-refresh signal, not part of the write
-        // itself — a dozen command handlers across Subscriptions/WorkGroups/
+        // itself - a dozen command handlers across Subscriptions/WorkGroups/
         // BusGateways/Documents call this right after SaveChangesAsync, and an
         // unhandled failure here (e.g. the RabbitMQ connection being down)
         // must not turn an already-successful write into a 500 response.

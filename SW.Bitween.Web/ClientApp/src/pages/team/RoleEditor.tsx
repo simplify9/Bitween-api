@@ -38,7 +38,7 @@ function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>
       {groups.length === 0 ? (
         <div className="flex items-center gap-2 rounded-lg bg-ink-50 px-3 py-2.5 text-[13px] text-ink-500">
           <EyeOff className="size-4 shrink-0" />
-          No pages yet — grant a View permission.
+          No pages yet - grant a View permission.
         </div>
       ) : (
         <div className="space-y-3 rounded-lg bg-ink-950 p-3">
@@ -91,8 +91,8 @@ export function RoleEditor() {
   const [granted, setGranted] = useState<Set<PermissionKey> | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Which role this form is currently filled from. React Router reuses this component when the
-  // route changes between /new and /:id, so tracking identity — not a plain "have we loaded"
-  // flag — is what makes Duplicate refill instead of keeping the role it came from.
+  // route changes between /new and /:id, so tracking identity - not a plain "have we loaded"
+  // flag - is what makes Duplicate refill instead of keeping the role it came from.
   const identity = isNew ? `new:${sourceId ?? ""}` : `edit:${id}`;
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const loaded = loadedFor === identity;
@@ -279,7 +279,7 @@ export function RoleEditor() {
                             if (!def)
                               return (
                                 <td key={action} className="px-2 py-3 text-center text-ink-200">
-                                  —
+                                  -
                                 </td>
                               );
                             const key = permissionKey(area.id, action);
@@ -288,7 +288,7 @@ export function RoleEditor() {
                                 <input
                                   type="checkbox"
                                   aria-label={`${area.label}: ${ACTION_LABELS[action]}`}
-                                  title={`${key} — ${def.description}`}
+                                  title={`${key} - ${def.description}`}
                                   checked={granted.has(key)}
                                   disabled={!editable}
                                   onChange={() => toggle(area.id, action)}

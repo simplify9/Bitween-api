@@ -14,7 +14,7 @@ namespace SW.Bitween.Resources.Dashboard;
 /// anything at all.
 /// </summary>
 /// <remarks>
-/// Both in one handler because both belong to the same panel — a repeat offender means little
+/// Both in one handler because both belong to the same panel - a repeat offender means little
 /// without knowing whether retries generally work here. Nine attempts against the same connection
 /// error is a configuration problem someone has to fix; nine attempts where most retries do
 /// eventually succeed is bad luck.
@@ -65,8 +65,8 @@ public class RetrySummary : IQueryHandler<object>
         var succeeded = retries.Where(r => r.Worked).Sum(r => r.Count);
         var finished = retries.Sum(r => r.Count);
 
-        // Chains that keep failing: a failure nothing has been retried from — so it is where that
-        // chain has got to — which is itself a retry, so the chain is at least two attempts long.
+        // Chains that keep failing: a failure nothing has been retried from - so it is where that
+        // chain has got to - which is itself a retry, so the chain is at least two attempts long.
         var candidates = await (
             from xchange in _dbContext.Set<Xchange>()
             join result in _dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
@@ -125,7 +125,7 @@ public class RetrySummary : IQueryHandler<object>
     /// How many attempts each chain has taken, counting the original as one.
     /// </summary>
     /// <remarks>
-    /// A level of every chain per query rather than a walk per chain — five hundred chains four
+    /// A level of every chain per query rather than a walk per chain - five hundred chains four
     /// attempts deep is four queries, not two thousand. <c>XchangeResult.AttemptNumber</c> holds
     /// this already, but only for failures a retry policy's group matched, so a chain retried by
     /// hand has none and it cannot be read from there.

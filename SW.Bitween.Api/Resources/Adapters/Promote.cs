@@ -12,7 +12,7 @@ public class AdapterPromoteRequest
 }
 
 /// <summary>
-/// Makes a published version the one that runs wherever nothing is pinned — rolling back is
+/// Makes a published version the one that runs wherever nothing is pinned - rolling back is
 /// promoting an older one. What serverless promote does, from Bitween, and in the audit trail.
 /// </summary>
 [HandlerName("promote")]

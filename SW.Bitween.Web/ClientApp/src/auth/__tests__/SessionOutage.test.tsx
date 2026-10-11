@@ -8,7 +8,7 @@ import { apiPath, renderApp } from "../../__tests__/support/renderApp";
  * A server that cannot answer is not a server saying "signed out".
  *
  * `getSession` used to swallow every failure and return null, which the guard reads as
- * "not signed in" — so a rate-limited or briefly unreachable backend threw people to
+ * "not signed in" - so a rate-limited or briefly unreachable backend threw people to
  * the sign-in page mid-task, with a perfectly good token still in localStorage. That is
  * also what made a whole afternoon of rate-limited test runs look like an auth problem.
  */
@@ -35,7 +35,7 @@ describe("a session read the server could not answer", () => {
 
   it("still signs you out on a 401, because that one is the server's answer", async () => {
     // Both the profile read and the silent refresh behind it, so there is nothing left
-    // to restore the session with — which is a real, unrecoverable sign-out.
+    // to restore the session with - which is a real, unrecoverable sign-out.
     const { router } = renderApp("/subscriptions", {
       handlers: [
         http.get(apiPath("/accounts/profile"), () => new HttpResponse(null, { status: 401 })),

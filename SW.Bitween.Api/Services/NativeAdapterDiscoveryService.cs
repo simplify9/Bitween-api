@@ -72,7 +72,7 @@ namespace SW.Bitween
                 else
                 {
                     // A secret's default is withheld here as it is everywhere else an adapter is
-                    // described to a client — see AdapterStartupValues.WithoutSecretDefaults.
+                    // described to a client - see AdapterStartupValues.WithoutSecretDefaults.
                     var shown = prop.GetCustomAttribute<SecureAttribute>() != null ? null : defaultValue;
                     result[prop.Name] = $"{prop.Name} ({shown ?? "null"})";
                 }
@@ -108,7 +108,7 @@ namespace SW.Bitween
 
         /// <summary>
         /// Whether the mapper with this id takes its partner and global values as context instead of
-        /// out of the payload — see <see cref="IReceivesMappingContext"/>.
+        /// out of the payload - see <see cref="IReceivesMappingContext"/>.
         /// </summary>
         /// <remarks>
         /// Deliberately does not go through <see cref="GetNativeMapper"/>: that initializes the

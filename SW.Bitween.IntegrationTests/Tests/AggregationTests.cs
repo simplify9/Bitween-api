@@ -86,7 +86,7 @@ public class AggregationTests(BitweenFixture fixture)
         db.Set<Subscription>().Add(sourceSub);
         await db.SaveChangesAsync();
 
-        // Create 2 source Xchanges — one will be pre-aggregated, one will not
+        // Create 2 source Xchanges - one will be pre-aggregated, one will not
         var x1 = new Xchange(sourceSub, new XchangeFile("{\"seq\":1}"));
         var x2 = new Xchange(sourceSub, new XchangeFile("{\"seq\":2}"));
         db.Set<Xchange>().Add(x1);
@@ -182,7 +182,7 @@ public class AggregationTests(BitweenFixture fixture)
 
         var aggSub = new Subscription("Agg Attempt", sourceSub.Id, Partner.SystemId);
         aggSub.Inactive = false;
-        // A real aggregation always has one — SetSchedules throws without it, and the run would
+        // A real aggregation always has one - SetSchedules throws without it, and the run would
         // then report a failure it did not have.
         aggSub.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(2))]);
         db.Set<Subscription>().Add(aggSub);
@@ -211,7 +211,7 @@ public class AggregationTests(BitweenFixture fixture)
         var sourceDoc = new Document(null, "Agg Empty Attempt Doc", DocumentFormat.Json);
         db.Set<Document>().Add(sourceDoc);
         await db.SaveChangesAsync();
-        // A source with no exchanges at all — the run has nothing to collect.
+        // A source with no exchanges at all - the run has nothing to collect.
         var sourceSub = new Subscription("Agg Empty Attempt Source", sourceDoc.Id);
         sourceSub.Inactive = false;
         db.Set<Subscription>().Add(sourceSub);
@@ -219,7 +219,7 @@ public class AggregationTests(BitweenFixture fixture)
 
         var aggSub = new Subscription("Agg Empty Attempt", sourceSub.Id, Partner.SystemId);
         aggSub.Inactive = false;
-        // A real aggregation always has one — SetSchedules throws without it, and the run would
+        // A real aggregation always has one - SetSchedules throws without it, and the run would
         // then report a failure it did not have.
         aggSub.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(2))]);
         db.Set<Subscription>().Add(aggSub);
@@ -232,7 +232,7 @@ public class AggregationTests(BitweenFixture fixture)
         var attempt = await db.Set<ReceiveAttempt>().SingleAsync(a => a.SubscriptionId == aggSub.Id);
         Assert.Equal(ReceiveOutcome.NoNewData, attempt.Outcome);
         Assert.Empty(attempt.ExchangeIds);
-        // The quiet outcome still creates no exchange — that part has not changed.
+        // The quiet outcome still creates no exchange - that part has not changed.
         Assert.Equal(0, await db.Set<Xchange>().CountAsync(x => x.SubscriptionId == aggSub.Id));
     }
 
@@ -250,7 +250,7 @@ public class AggregationTests(BitweenFixture fixture)
         db.Set<Subscription>().Add(sourceSub);
         await db.SaveChangesAsync();
 
-        // Inactive by default — the job returns before it does anything, and a run that never
+        // Inactive by default - the job returns before it does anything, and a run that never
         // happened must not appear in the history as a quiet success.
         var aggSub = new Subscription("Agg Skipped Attempt", sourceSub.Id, Partner.SystemId);
         db.Set<Subscription>().Add(aggSub);
@@ -382,7 +382,7 @@ public class AggregationTests(BitweenFixture fixture)
         var row = response.Result.Single(r => r.Id == id);
 
         // ReceiveOn is only ever set for Receiving, and the list page reads one next-run field
-        // for both scheduled types — so without AggregateOn in the projection every aggregation
+        // for both scheduled types - so without AggregateOn in the projection every aggregation
         // row showed no next run at all, for a job that plainly has one.
         Assert.NotNull(row.AggregateOn);
         Assert.Null(row.ReceiveOn);

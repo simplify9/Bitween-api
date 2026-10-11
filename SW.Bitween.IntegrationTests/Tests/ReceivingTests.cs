@@ -58,7 +58,7 @@ public class ReceivingTests(BitweenFixture fixture)
         var subscription = new Subscription("Receive Attempt Test", document.Id);
         subscription.ReceiverId = nameof(NativeTestReceiver);
         subscription.Inactive = false;
-        // SetSchedules() throws "Invalid schedule" with none configured — a real Receiving
+        // SetSchedules() throws "Invalid schedule" with none configured - a real Receiving
         // subscription always has one, so give this test one too.
         subscription.SetSchedules(new[] { new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(30)) });
         db.Set<Subscription>().Add(subscription);
@@ -110,7 +110,7 @@ public class ReceivingTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// One file that can't be read used to end the run — and, left at the source, every run after
+    /// One file that can't be read used to end the run - and, left at the source, every run after
     /// it, so nothing behind it was ever received. Now it is left and reported, and the rest go through.
     /// </summary>
     [Fact]
@@ -188,7 +188,7 @@ public class ReceivingTests(BitweenFixture fixture)
 
         var subscription = new Subscription("Inactive Receiver", document.Id);
         subscription.ReceiverId = nameof(NativeTestReceiver);
-        // Inactive = true by default — job should skip it
+        // Inactive = true by default - job should skip it
         db.Set<Subscription>().Add(subscription);
         await db.SaveChangesAsync();
 

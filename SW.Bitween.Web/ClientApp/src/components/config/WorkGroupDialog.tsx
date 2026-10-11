@@ -159,7 +159,7 @@ export function BusRenameConfirm({
 
 const EMPTY: WorkGroupDraft = { name: "", busMessageName: "", prefetch: 10, priority: 5 };
 
-/** A work group, created or edited in place — reached from a subscription's lane picker. */
+/** A work group, created or edited in place - reached from a subscription's lane picker. */
 export function WorkGroupDialog({
   groupId,
   onClose,

@@ -12,7 +12,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Notifiers — the alerts sent when an exchange succeeds or fails.
+/// Notifiers - the alerts sent when an exchange succeeds or fails.
 /// </summary>
 /// <remarks>
 /// A notifier points at the integrations it watches rather than the other way round, so nothing
@@ -72,7 +72,7 @@ public class NotifierTests(BitweenFixture fixture)
         Assert.Single((await Stored(id)).HandlerProperties);
 
         // An absent list means none, as it does for a document's promoted properties. Left
-        // implicit this threw ArgumentNullException — a 500 for a well-formed request.
+        // implicit this threw ArgumentNullException - a 500 for a well-formed request.
         await Update(id, new NotifierUpdate { Name = Unique("No settings"), HandlerId = "native:smtp" });
 
         Assert.Empty((await Stored(id)).HandlerProperties);
@@ -126,7 +126,7 @@ public class NotifierTests(BitweenFixture fixture)
             RunOnSubscriptions = [new NotifierSubscription { Id = second }],
         });
 
-        // The list is a replacement, not an addition — otherwise an integration can never be
+        // The list is a replacement, not an addition - otherwise an integration can never be
         // taken off a notifier once added.
         Assert.Equal([second], (await Stored(id)).RunOnSubscriptions);
     }
@@ -167,7 +167,7 @@ public class NotifierTests(BitweenFixture fixture)
         var checkDb = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
         Assert.False(await checkDb.Set<Notifier>().AnyAsync(n => n.Id == id));
 
-        // The watch list is the notifier's own column, so it goes with it — but the integration
+        // The watch list is the notifier's own column, so it goes with it - but the integration
         // it named is configuration in its own right and must survive.
         Assert.True(await checkDb.Set<Subscription>().AnyAsync(s => s.Id == subscriptionId));
     }

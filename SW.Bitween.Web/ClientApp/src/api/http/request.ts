@@ -13,7 +13,7 @@ export const API_BASE = "/api";
 export const TOKEN_KEY = "access_token";
 
 /**
- * Set while this browser holds a session, cleared when it ends. Not a credential — it only tells
+ * Set while this browser holds a session, cleared when it ends. Not a credential - it only tells
  * a new tab or a reload that a refresh cookie is worth trying, so the sign-in page doesn't spend
  * the sign-in rate limit probing for a session that was never there.
  */
@@ -65,7 +65,7 @@ const safeStorage = (action: () => void): void => {
 safeStorage(() => localStorage.removeItem(TOKEN_KEY));
 
 /**
- * Told when a request proves the session is over — the Jwt was refused and no
+ * Told when a request proves the session is over - the Jwt was refused and no
  * refresh cookie was left to replace it.
  *
  * A callback rather than a hook because this is plain module code that cannot
@@ -93,7 +93,7 @@ export const clearToken = (): void => {
   channel?.postMessage({ type: "signed-out" } satisfies SessionMessage);
 };
 
-/** Whether this browser held a session when it last looked — worth a silent refresh to find out. */
+/** Whether this browser held a session when it last looked - worth a silent refresh to find out. */
 export const mayHaveSession = (): boolean => {
   try {
     return localStorage.getItem(SIGNED_IN_KEY) === "1";
@@ -109,14 +109,14 @@ const readJwt = (data: unknown): string | null =>
 let refreshInFlight: Promise<string | null> | null = null;
 
 /**
- * Silent refresh: POST /accounts/login with an empty body — the HttpOnly
+ * Silent refresh: POST /accounts/login with an empty body - the HttpOnly
  * refresh_token cookie alone re-issues a Jwt. Returns the new token, or null
  * when the cookie is missing/expired. Bypasses `request()` to avoid recursion,
  * and dedupes concurrent callers behind one in-flight promise.
  *
  * Serialised across tabs with a Web Lock. Each refresh replaces the cookie and
  * deletes the token it was sent with, so two tabs refreshing at once would send
- * the same cookie and the second would be refused — signing that tab out. Behind
+ * the same cookie and the second would be refused - signing that tab out. Behind
  * the lock the second tab sends the cookie the first one just got, or, when the
  * first tab's new Jwt has already arrived over the channel, does not refresh at all.
  */
@@ -196,7 +196,7 @@ export interface RequestOptions {
   _retried?: boolean;
   /** A file sent as the body itself rather than as JSON: an adapter package. */
   file?: Blob;
-  /** Lets a caller cancel the request — only `logout` needs this, and says why. */
+  /** Lets a caller cancel the request - only `logout` needs this, and says why. */
   signal?: AbortSignal;
 }
 
@@ -212,7 +212,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   const text = await res.text();
   if (!text) return undefined as T;
   // Some endpoints return a bare string as text/plain (e.g. /partners/generatekey),
-  // which isn't valid JSON — only parse when the response actually is JSON.
+  // which isn't valid JSON - only parse when the response actually is JSON.
   const isJson = res.headers.get("content-type")?.includes("application/json") ?? false;
   return (isJson ? JSON.parse(text) : text) as T;
 }
@@ -232,7 +232,7 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   const token = getToken();
   const method = opts.method ?? "GET";
   // Backend command handlers (POST) bind a JSON body, so they always need
-  // `Content-Type: application/json` — even a body-less command like logout.
+  // `Content-Type: application/json` - even a body-less command like logout.
   // Without it the framework rejects the call with 415 before the handler runs;
   // an empty `{}` satisfies it.
   const sendJson = method === "POST" && !opts.file;
@@ -267,7 +267,7 @@ export const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: "POST", body });
 
 /**
- * For a secondary read that only enriches a page — the "used by" counts, which come from another
+ * For a secondary read that only enriches a page - the "used by" counts, which come from another
  * area's list. Those are permission-guarded in their own right, so a role that can see this page
  * but not that area would otherwise take the whole page down with it. The enrichment is worth
  * losing; the page isn't. Only refusals are swallowed, so a real outage still surfaces.
@@ -276,7 +276,7 @@ export function getEnrichment<T>(path: string, fallback: T): Promise<T> {
   return enrichment(get<T>(path), fallback);
 }
 
-/** `getEnrichment` for a read that is more than one GET — another area's whole list, say. */
+/** `getEnrichment` for a read that is more than one GET - another area's whole list, say. */
 export async function enrichment<T>(read: Promise<T>, fallback: T): Promise<T> {
   try {
     return await read;

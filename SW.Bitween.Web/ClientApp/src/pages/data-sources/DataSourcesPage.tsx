@@ -64,13 +64,13 @@ export function DataSourcesPage() {
               <p>
                 A data source holds a <strong>connection</strong> and nothing else. What Bitween
                 does with the messages belongs to the bus gateway pointing at it, which is why one
-                data source can feed many gateways — the same way one broker connection serves many
+                data source can feed many gateways - the same way one broker connection serves many
                 queues.
               </p>
               <p>
                 A resident adapter holds the connection open and hands each message over. Nothing is
                 acknowledged to the broker until Bitween has persisted it, so a crash means
-                redelivery rather than a lost message — and every message carries a deduplication
+                redelivery rather than a lost message - and every message carries a deduplication
                 key so the redelivery does not become a second exchange.
               </p>
               <p>
@@ -145,11 +145,11 @@ export function DataSourcesPage() {
               ),
             },
             {
-              // A broker connection is exclusive, so which node holds it is not a detail —
+              // A broker connection is exclusive, so which node holds it is not a detail -
               // it is the answer to "why is this one quiet?".
               header: "Held by",
               cell: (d: DataSourceRow) => (
-                <span className="text-xs text-ink-600">{d.ownedByNode ?? "—"}</span>
+                <span className="text-xs text-ink-600">{d.ownedByNode ?? "-"}</span>
               ),
             },
             {

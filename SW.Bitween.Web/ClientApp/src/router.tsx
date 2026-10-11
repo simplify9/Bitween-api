@@ -154,7 +154,7 @@ export const routes: RouteObject[] = [
     errorElement: <RouteError />,
     children: [
       // Inside the auth guard because it needs a session, outside the shell because the session
-      // it serves grants nothing — a sidebar built from those permissions would be empty.
+      // it serves grants nothing - a sidebar built from those permissions would be empty.
       { path: "change-password", element: <ChangePasswordPage /> },
       // Where bitween login sends the browser; a session is all it needs, whatever it may do.
       { path: "cli-login", element: <CliLoginPage /> },
@@ -163,7 +163,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <HomeRedirect /> },
           // Members and Roles are two sidebar entries, not tabs inside a "Team" page, so "/team"
-          // itself is no longer a page — only a bookmark people may still hold.
+          // itself is no longer a page - only a bookmark people may still hold.
           { path: "team", element: <TeamRedirect /> },
           ...pageRoutes,
           { path: "*", element: <NotFoundPage /> },

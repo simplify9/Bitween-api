@@ -31,7 +31,7 @@ public abstract class FilePickup<TSettings> : INativeInfolinkReceiver, IDisposab
         _transfer = null;
     }
 
-    /// <summary>Closes a connection a run left open — one that failed before Finalize.</summary>
+    /// <summary>Closes a connection a run left open - one that failed before Finalize.</summary>
     public void Dispose()
     {
         try { _transfer?.DisposeAsync().AsTask().GetAwaiter().GetResult(); } catch { /* closing only */ }

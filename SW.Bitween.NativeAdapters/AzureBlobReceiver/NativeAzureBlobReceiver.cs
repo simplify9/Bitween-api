@@ -62,7 +62,7 @@ public class NativeAzureBlobReceiver : INativeInfolinkReceiver
         var sourceBlob = _container.GetBlobClient(fileId);
 
         // Retry-safe: if a prior attempt already moved/deleted this file, there's
-        // nothing left to do — treat it as already completed, not an error.
+        // nothing left to do - treat it as already completed, not an error.
         if (!await sourceBlob.ExistsAsync())
             return;
 

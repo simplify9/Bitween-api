@@ -14,7 +14,7 @@ public class FtpProtocolTests
         Assert.AreEqual(FtpProtocol.NormalizeFingerprint(configured), FtpProtocol.NormalizeFingerprint(presented));
 
     /// <summary>
-    /// The upload name comes from the exchange — from an email subject, for a POP3 receiver — so
+    /// The upload name comes from the exchange - from an email subject, for a POP3 receiver - so
     /// it is cut to one name and can't climb out of the target directory.
     /// </summary>
     [DataTestMethod]

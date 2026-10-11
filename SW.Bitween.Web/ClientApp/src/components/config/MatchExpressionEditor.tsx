@@ -113,7 +113,7 @@ function GroupCard({
       </div>
 
       {group.children.length === 0 && (
-        <p className="text-[13px] text-ink-500">Empty group — matches every message.</p>
+        <p className="text-[13px] text-ink-500">Empty group - matches every message.</p>
       )}
       {group.children.map((child, i) =>
         "path" in child ? (
@@ -180,7 +180,7 @@ export function MatchExpressionEditor({
   properties: { key: string; path: string }[];
   disabled: boolean;
   /**
-   * The type those properties come from. Only used to point at it when it has none —
+   * The type those properties come from. Only used to point at it when it has none -
    * without it the empty state names the fix without offering it.
    */
   informationTypeId?: number | null;
@@ -196,18 +196,18 @@ export function MatchExpressionEditor({
       <div className="space-y-2.5">
         {value === null ? (
           <p className="text-sm text-ink-600">
-            No filter — <strong className="font-medium">every message</strong> is picked up.
+            No filter - <strong className="font-medium">every message</strong> is picked up.
           </p>
         ) : (
           // Left over from before the type was switched: the server skips it on every message.
           <>
             <p role="alert" className="text-sm text-danger-700">
-              This filter never passes — nothing reads {formatLabel(format)} content, so no message is picked up.
+              This filter never passes - nothing reads {formatLabel(format)} content, so no message is picked up.
             </p>
             <p className="rounded-lg bg-ink-50 px-3 py-2 font-mono text-xs text-ink-600">{matchSummary(value)}</p>
             {!disabled && (
               <Button size="sm" onClick={() => onChange(null)}>
-                Clear filter — match every message
+                Clear filter - match every message
               </Button>
             )}
           </>
@@ -223,7 +223,7 @@ export function MatchExpressionEditor({
     return (
       <div className="space-y-2.5">
         <p className="text-sm text-ink-600">
-          No filter — <strong className="font-medium">every message</strong> is picked up.
+          No filter - <strong className="font-medium">every message</strong> is picked up.
         </p>
         {!disabled && (
           <Button
@@ -238,7 +238,7 @@ export function MatchExpressionEditor({
         )}
         {properties.length === 0 && (
           <p className="text-[13px] text-ink-500">
-            Filters match on promoted properties — this information type has none yet.{" "}
+            Filters match on promoted properties - this information type has none yet.{" "}
             {informationTypeId != null && canEditTypes && (
               <Link
                 to={`/information-types/${informationTypeId}`}
@@ -259,7 +259,7 @@ export function MatchExpressionEditor({
       <GroupCard group={value} properties={properties} disabled={disabled} depth={0} onChange={onChange} />
       {!disabled && (
         <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
-          Clear filter — match every message
+          Clear filter - match every message
         </Button>
       )}
     </div>

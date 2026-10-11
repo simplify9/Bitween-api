@@ -15,7 +15,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// Getting a user back in when they can't sign in themselves.
 /// </summary>
 /// <remarks>
-/// Bitween sends no mail, so there is no self-service reset link — an administrator acting on
+/// Bitween sends no mail, so there is no self-service reset link - an administrator acting on
 /// someone's behalf is the only route back in, which makes it worth proving it actually works
 /// end to end rather than assuming. These tests also pin down that resetting a password and
 /// clearing a lockout are two separate actions, because that is genuinely surprising: an admin who
@@ -93,7 +93,7 @@ public class AccountRecoveryTests(BitweenFixture fixture)
         scope.As(admin.Id);
         var handler = ActivatorUtilities.CreateInstance<Resources.Accounts.SetPassword>(scope.ServiceProvider);
 
-        // Changing your own goes through ChangePassword, which demands the current one — otherwise
+        // Changing your own goes through ChangePassword, which demands the current one - otherwise
         // an unattended signed-in session is enough to take the account over permanently.
         var ex = await Assert.ThrowsAsync<SWValidationException>(() =>
             handler.Handle(admin.Id, new SetAccountPasswordModel { Password = NewPassword }));

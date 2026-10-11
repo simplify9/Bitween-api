@@ -3,7 +3,7 @@ import type { DashboardData, ExchangeStatus } from "../types";
 import { subscriptionMethods } from "./subscriptions";
 import { get } from "./request";
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -47,7 +47,7 @@ export const dashboardMethods = {
     const windowStart = startOfTodayUtc - 13 * dayMs;
 
     // One bulk fetch covers every stat that's derived from exchange rows
-    // (today/yesterday/successRate7d/trafficByDay/busiest/latestFailures) —
+    // (today/yesterday/successRate7d/trafficByDay/busiest/latestFailures) -
     // far fewer round trips than counting each bucket with its own filtered
     // request, and exact rather than approximated. Bounded to a generous page
     // size for what's a modest-scale ops tool; a very high-volume deployment
@@ -59,12 +59,12 @@ export const dashboardMethods = {
       get<SearchyResponse<unknown>>("/delayedretries?size=1"),
       // Counted by the search rather than from the rows above, for two reasons: those are capped
       // at a page of 1000 and at 14 days, and this number has to agree with the list the tile
-      // opens — which carries no date bound. Only the total is wanted, so no rows are fetched.
+      // opens - which carries no date bound. Only the total is wanted, so no rows are fetched.
       get<SearchyResponse<unknown>>(
         `/xchanges?filter=${encodeURIComponent("StatusFilter:1:3")}&filter=${encodeURIComponent("LatestOnly:1:true")}&size=1`,
       ),
       get<RawRetrySummary>("/dashboard/retrysummary"),
-      // Depends on RabbitMQ management being configured on the backend — don't let it take the
+      // Depends on RabbitMQ management being configured on the backend - don't let it take the
       // rest of the dashboard down when it isn't; the "Queue alerts" tile flags it instead.
       get<RawAlert[]>("/ops/alerts").catch(() => null),
       subscriptionMethods.listSubscriptionRows(),
@@ -79,7 +79,7 @@ export const dashboardMethods = {
       const t = startedAt(r);
       return t >= startOfTodayUtc - dayMs && t < startOfTodayUtc;
     });
-    // The last 7 calendar days including today — the same boundary as the
+    // The last 7 calendar days including today - the same boundary as the
     // final 7 entries of trafficByDay below.
     const sevenDaysAgo = startOfTodayUtc - 6 * dayMs;
     const week = rows.filter((r) => startedAt(r) >= sevenDaysAgo);

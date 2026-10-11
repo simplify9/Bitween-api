@@ -36,7 +36,7 @@ export function retentionProposal(rows: SettingRow[], draft: SettingsDraft): Ret
 }
 
 /**
- * The saved retention status, or — while retention settings are staged — what they would do. Only
+ * The saved retention status, or - while retention settings are staged - what they would do. Only
  * asked for while `wanted`: the counts behind it touch the exchange table, so pages that aren't
  * showing it shouldn't pay for it.
  */
@@ -60,8 +60,8 @@ export function useRetention(rows: SettingRow[], draft: SettingsDraft, wanted = 
     placeholderData: (previous) => previous,
   });
 
-  // Until the preview answers for exactly what's staged — during the pause above, or while the last
-  // preview stands in for the next — what's showing is about other settings.
+  // Until the preview answers for exactly what's staged - during the pause above, or while the last
+  // preview stands in for the next - what's showing is about other settings.
   const current = JSON.stringify(settled) === proposalKey && !preview.isFetching && !preview.isPlaceholderData;
 
   return {

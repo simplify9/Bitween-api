@@ -30,7 +30,7 @@ public enum SettingAccess
     ReadOnly,
 
     /// <summary>
-    /// Environment-owned and private: only whether a value is set is reported, never the value —
+    /// Environment-owned and private: only whether a value is set is reported, never the value -
     /// for credentials and keys that would be pointless to leak into the browser.
     /// </summary>
     Presence
@@ -53,12 +53,12 @@ public sealed record SettingDefinition(
     Func<SettingsTarget, string> Read,
     Action<SettingsTarget, string> Write)
 {
-    /// <summary>Editable unless a definition says otherwise — see <see cref="SettingAccess"/>.</summary>
+    /// <summary>Editable unless a definition says otherwise - see <see cref="SettingAccess"/>.</summary>
     public SettingAccess Access { get; init; } = SettingAccess.Editable;
 
     /// <summary>
     /// Extra work needed to make a new value take effect, where assigning the property isn't
-    /// enough — rescheduling a job, re-declaring queues. Runs on the instance that saved it,
+    /// enough - rescheduling a job, re-declaring queues. Runs on the instance that saved it,
     /// after the value has been applied.
     /// </summary>
     public Func<IServiceProvider, Task> OnChange { get; init; }
@@ -68,13 +68,13 @@ public sealed record SettingDefinition(
 }
 
 /// <summary>
-/// Every setting the settings page shows, and — for the editable ones — the only keys the
+/// Every setting the settings page shows, and - for the editable ones - the only keys the
 /// <c>Settings</c> table ever holds.
 /// <para>
 /// The membership rule is about <see cref="SettingAccess"/>, not about being listed here. A
 /// setting is <b>editable</b> only if every consumer reads it from the options singleton per call,
 /// so a change takes effect immediately. Anything captured once during
-/// <c>Startup.ConfigureServices</c> — the bus, CORS, storage, JWT signing, the DB provider — is
+/// <c>Startup.ConfigureServices</c> - the bus, CORS, storage, JWT signing, the DB provider - is
 /// environment-owned and appears as <see cref="SettingAccess.ReadOnly"/> (its value shown) or
 /// <see cref="SettingAccess.Presence"/> (only whether it's set), so an administrator can see what
 /// the instance is running on without being offered an edit that couldn't work.
@@ -88,12 +88,12 @@ public static class SettingsCatalog
 {
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
-        // ——— Documents & storage ———
+        // --- Documents & storage ---
         // Exchange files are always private now; there's no switch for it. Readers without a login
         // get sealed links (see FileLinks).
         new("Bitween.DocumentPrefix", "Documents & storage",
             "Exchange files prefix",
-            "Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix decides how long they're kept — temp30/… keeps them 30 days. Each exchange keeps the prefix it was written under, so a change only applies to exchanges created after it.",
+            "Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix decides how long they're kept - temp30/… keeps them 30 days. Each exchange keeps the prefix it was written under, so a change only applies to exchanges created after it.",
             SettingKind.String, false,
             t => t.Bitween.DocumentPrefix,
             (t, v) => t.Bitween.DocumentPrefix = StoragePrefix(v)),
@@ -107,7 +107,7 @@ public static class SettingsCatalog
 
         new("Bitween.ArchiveExchanges", "Documents & storage",
             "Archive before deleting",
-            "Copies each exchange — its details, and its files while storage still has them — to the archive before the retention job deletes it.",
+            "Copies each exchange - its details, and its files while storage still has them - to the archive before the retention job deletes it.",
             SettingKind.Boolean, false,
             t => Str(t.Bitween.ArchiveExchanges),
             (t, v) => t.Bitween.ArchiveExchanges = Bool(v)),
@@ -123,7 +123,7 @@ public static class SettingsCatalog
                 .Schedule<ExchangeRetentionJob>(sp.GetRequiredService<BitweenOptions>().ExchangeRetentionCron)
         },
 
-        // ——— API behavior ———
+        // --- API behavior ---
         new("Bitween.ApiCallSubscriptionResponseAcceptedStatusCode", "API behavior",
             "Accepted response status code",
             "Change this if a partner's API expects a different HTTP status code (instead of 202 Accepted) when their request has been queued for async processing.",
@@ -149,12 +149,12 @@ public static class SettingsCatalog
             "The origins allowed to call this API with cookies attached. Read once when the CORS policy is built at startup.",
             SettingKind.String, t => Join(t.Bitween.CorsOrigins)),
 
-        // ——— Single sign-on (Microsoft) ———
+        // --- Single sign-on (Microsoft) ---
         // Not secrets: these are public client identifiers, and the [Unprotect] Config endpoint
         // already serves them to anonymous visitors so the login page can offer the MS button.
         new("Bitween.MsalClientId", "Single sign-on (Microsoft)",
             "Azure AD client ID",
-            "Add this — together with the tenant ID and redirect URI below — if you want to let teammates sign in with a Microsoft account. All three are required for Microsoft sign-in to turn on.",
+            "Add this - together with the tenant ID and redirect URI below - if you want to let teammates sign in with a Microsoft account. All three are required for Microsoft sign-in to turn on.",
             SettingKind.String, false,
             t => t.Bitween.MsalClientId,
             (t, v) => t.Bitween.MsalClientId = v),
@@ -168,22 +168,22 @@ public static class SettingsCatalog
 
         new("Bitween.MsalRedirectUri", "Single sign-on (Microsoft)",
             "Azure AD redirect URI",
-            "The URL Azure AD sends users back to after signing in — must match the redirect URI registered on the Azure AD app. Point it at this app's /blank.html (for example https://your-host/blank.html), not the app root: the root boots the admin UI, which navigates away and loses the sign-in code before the popup can hand it over. Required alongside the client ID and tenant ID.",
+            "The URL Azure AD sends users back to after signing in - must match the redirect URI registered on the Azure AD app. Point it at this app's /blank.html (for example https://your-host/blank.html), not the app root: the root boots the admin UI, which navigates away and loses the sign-in code before the popup can hand it over. Required alongside the client ID and tenant ID.",
             SettingKind.String, false,
             t => t.Bitween.MsalRedirectUri,
             (t, v) => t.Bitween.MsalRedirectUri = v),
 
         new("Bitween.DisableEmailPasswordLogin", "Single sign-on (Microsoft)",
             "Microsoft sign-in only",
-            "Turn this on to stop anyone signing in with an email and password — the sign-in page then offers Microsoft alone, and new teammates are added without a password. Only do this once Microsoft sign-in above is working, or nobody will be able to get in.",
+            "Turn this on to stop anyone signing in with an email and password - the sign-in page then offers Microsoft alone, and new teammates are added without a password. Only do this once Microsoft sign-in above is working, or nobody will be able to get in.",
             SettingKind.Boolean, false,
             t => Str(t.Bitween.DisableEmailPasswordLogin),
             (t, v) => t.Bitween.DisableEmailPasswordLogin = Bool(v)),
 
-        // ——— Adapters ———
+        // --- Adapters ---
         new("Bitween.RebexLicenseKey", "Adapters",
             "Rebex license key",
-            "Add this if you want the native POP3 and FTP adapters, which are built on the Rebex library — without a key they aren't offered when picking a receiver or handler.",
+            "Add this if you want the native POP3 and FTP adapters, which are built on the Rebex library - without a key they aren't offered when picking a receiver or handler.",
             SettingKind.String, true,
             t => t.Bitween.RebexLicenseKey,
             (t, v) => t.Bitween.RebexLicenseKey = v),
@@ -196,7 +196,7 @@ public static class SettingsCatalog
             "How long a custom adapter may run before the serverless runner gives up on it.",
             SettingKind.Number, t => t.Bitween.ServerlessCommandTimeout.ToString(CultureInfo.InvariantCulture)),
 
-        // ——— Reliability & jobs ———
+        // --- Reliability & jobs ---
         new("Bitween.RetryJobCron", "Reliability & jobs",
             "Retry poll schedule",
             "How often Bitween looks for exchanges whose scheduled retry has come due, as a cron expression: second minute hour day-of-month month day-of-week. Saving re-schedules the job straight away.",
@@ -210,7 +210,7 @@ public static class SettingsCatalog
                 .Schedule<RetryJob>(sp.GetRequiredService<BitweenOptions>().RetryJobCron)
         },
 
-        // ——— Messaging ———
+        // --- Messaging ---
         // All environment-owned: the bus connection and its queue topology are built once, during
         // startup, so nothing here could take effect on a running instance.
         View("Bitween.QueuePrefix", "Messaging", "Queue name prefix",
@@ -237,7 +237,7 @@ public static class SettingsCatalog
             "The password for the management account. Required alongside the URL and username.",
             t => t.Bitween.RabbitMqManagementPassword),
 
-        // ——— Database ———
+        // --- Database ---
         View("Bitween.UseAzureManagedIdentity", "Database", "Use Azure managed identity",
             "Whether database connections authenticate with an Azure managed identity instead of a password in the connection string.",
             SettingKind.Boolean, t => Str(t.Bitween.UseAzureManagedIdentity)),
@@ -246,15 +246,15 @@ public static class SettingsCatalog
             "Set only when a user-assigned identity is used; left unset, the system-assigned identity is.",
             t => t.Bitween.AzureManagedIdentityClientId),
 
-        // ——— Security ———
+        // --- Security ---
         Presence("Bitween.SettingsEncryptionKey", "Security", "Settings encryption key",
             "Encrypts secret settings before they're stored. Without it, a secret can't be saved here at all and stays environment-only.",
             t => t.Bitween.SettingsEncryptionKey),
 
-        // ——— Brand & theme ———
+        // --- Brand & theme ---
         new("Theme.PrimaryColor", "Brand & theme",
             "Primary color",
-            "Re-brands the whole app's accent color — buttons, links, active nav, focus rings — instantly, without waiting on a deploy.",
+            "Re-brands the whole app's accent color - buttons, links, active nav, focus rings - instantly, without waiting on a deploy.",
             SettingKind.Color, false,
             t => t.Theme.PrimaryColor,
             (t, v) => t.Theme.PrimaryColor = v),
@@ -275,7 +275,7 @@ public static class SettingsCatalog
 
         new("Theme.EnvironmentName", "Brand & theme",
             "Environment name",
-            "Shown in a badge at the top of every page — \"Production\", \"Staging\" — so nobody mistakes one instance for another. Leave empty for no badge.",
+            "Shown in a badge at the top of every page - \"Production\", \"Staging\" - so nobody mistakes one instance for another. Leave empty for no badge.",
             SettingKind.String, false,
             t => t.Theme.EnvironmentName,
             (t, v) => t.Theme.EnvironmentName = v),
@@ -329,28 +329,28 @@ public static class SettingsCatalog
 
         new("Theme.ShowFooter", "Brand & theme",
             "Show the footer",
-            "Turn this off to hide the footer everywhere — the copyright line and the website / LinkedIn / GitHub links below every page.",
+            "Turn this off to hide the footer everywhere - the copyright line and the website / LinkedIn / GitHub links below every page.",
             SettingKind.Boolean, false,
             t => Str(t.Theme.ShowFooter),
             (t, v) => t.Theme.ShowFooter = Bool(v)),
 
         new("Theme.LinkedinLink", "Brand & theme",
             "LinkedIn link",
-            "Add this if you want a LinkedIn link in the footer — leave blank to hide it.",
+            "Add this if you want a LinkedIn link in the footer - leave blank to hide it.",
             SettingKind.String, false,
             t => t.Theme.LinkedinLink,
             (t, v) => t.Theme.LinkedinLink = v),
 
         new("Theme.GithubLink", "Brand & theme",
             "GitHub link",
-            "Add this if you want a GitHub link in the footer — leave blank to hide it.",
+            "Add this if you want a GitHub link in the footer - leave blank to hide it.",
             SettingKind.String, false,
             t => t.Theme.GithubLink,
             (t, v) => t.Theme.GithubLink = v),
 
         new("Theme.WebsiteLink", "Brand & theme",
             "Website link",
-            "Add this if you want a company website link in the footer — leave blank to hide it.",
+            "Add this if you want a company website link in the footer - leave blank to hide it.",
             SettingKind.String, false,
             t => t.Theme.WebsiteLink,
             (t, v) => t.Theme.WebsiteLink = v),
@@ -397,7 +397,7 @@ public static class SettingsCatalog
 
     /// <summary>
     /// Rejected here rather than by the scheduler, because a bad expression that reached the table
-    /// would throw on the next boot — inside the background service that seeds every subscription's
+    /// would throw on the next boot - inside the background service that seeds every subscription's
     /// schedule, taking all of them down with it.
     /// </summary>
     private static string Cron(string value) =>
@@ -405,7 +405,7 @@ public static class SettingsCatalog
             ? value
             : throw new FormatException($"'{value}' is not a valid cron expression.");
 
-    /// <summary>Anything but an explicit "true" is off — matches how the UI posts checkboxes.</summary>
+    /// <summary>Anything but an explicit "true" is off - matches how the UI posts checkboxes.</summary>
     private static string HeaderName(string value) =>
         PartnerKeyHeaders.Problem(value) is { } problem ? throw new FormatException(problem) : value.Trim();
 
@@ -431,8 +431,8 @@ public static class SettingsCatalog
         if (!System.Text.RegularExpressions.Regex.IsMatch(prefix, "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$"))
             throw new FormatException(
                 "Use folder names of letters, digits, dots, dashes and underscores, separated by slashes.");
-        // "." and ".." are steps to anything that resolves the key as a path — a file link opened in a
-        // browser, say — and would put the archive outside archive/.
+        // "." and ".." are steps to anything that resolves the key as a path - a file link opened in a
+        // browser, say - and would put the archive outside archive/.
         return prefix.Split('/').Any(folder => folder.Trim('.').Length == 0)
             ? throw new FormatException("A folder name can't be only dots.")
             : prefix;

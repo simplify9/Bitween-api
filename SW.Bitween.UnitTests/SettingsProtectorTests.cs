@@ -9,7 +9,7 @@ namespace SW.Bitween.UnitTests;
 public class SettingsProtectorTests
 {
     /// <summary>
-    /// Shaped like a Rebex license key — the longest secret the catalog holds — but deliberately
+    /// Shaped like a Rebex license key - the longest secret the catalog holds - but deliberately
     /// not one. Nothing here depends on the contents, only on the round trip.
     /// </summary>
     private const string Secret = "==NOT-A-REAL-KEY-0123456789abcdefghijklmnop==";
@@ -68,7 +68,7 @@ public class SettingsProtectorTests
 
         // Flip a bit in the payload rather than in a base64 character. Base64 packs three
         // bytes into four characters, so the last character of a value carries spare bits
-        // that decode to nothing — changing it left the bytes identical about one run in
+        // that decode to nothing - changing it left the bytes identical about one run in
         // six, and the test then failed for having tampered with nothing.
         //
         // The middle byte, so this holds whatever the layout is: salt, nonce, ciphertext

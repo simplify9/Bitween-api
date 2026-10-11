@@ -13,7 +13,7 @@ namespace SW.Bitween.Services.DataSources;
 /// Which subscriptions name which statements.
 ///
 /// Answering it needs a scan rather than a join, because a subscription names a statement inside
-/// its adapter properties — a JSON column — and those are not queryable in a way that is the same
+/// its adapter properties - a JSON column - and those are not queryable in a way that is the same
 /// on PostgreSQL, MySQL and SQL Server. The scan is bounded by the subscriptions bound to ONE data
 /// source, which is a small number by construction, and it happens on a screen rather than in the
 /// message path.
@@ -28,7 +28,7 @@ public class StatementUsageReader(BitweenDbContext dbContext)
     /// Must match what the adapter reads: a handler runs <c>Statement</c>, a receiver polls with
     /// <c>ReceiveStatement</c> and marks rows with <c>MarkProcessedStatement</c>.
     ///
-    /// Missing one here does not fail loudly — it reports a statement that is in daily use as
+    /// Missing one here does not fail loudly - it reports a statement that is in daily use as
     /// unused, which is exactly the licence to delete it that the usage count exists to withhold.
     /// </summary>
     static readonly (string Key, string Usage)[] StatementKeys =
@@ -43,7 +43,7 @@ public class StatementUsageReader(BitweenDbContext dbContext)
     public const string OperationKey = "Operation";
 
     /// <summary>
-    /// Usage for every statement of one data source, keyed by statement name, case-insensitively —
+    /// Usage for every statement of one data source, keyed by statement name, case-insensitively -
     /// the adapter resolves names that way, so counting them any other way would report a statement
     /// as unused while a subscription happily runs it.
     /// </summary>
@@ -73,8 +73,8 @@ public class StatementUsageReader(BitweenDbContext dbContext)
     {
         if (properties == null) return;
 
-        // One slot can name two statements — a receiver polls with one and marks rows with
-        // another — so each is recorded separately, and the operation says which job it does.
+        // One slot can name two statements - a receiver polls with one and marks rows with
+        // another - so each is recorded separately, and the operation says which job it does.
         foreach (var (key, usageVerb) in StatementKeys)
         {
             var name = Value(properties, key);

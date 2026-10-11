@@ -8,7 +8,7 @@
  *
  * None of them may match the purge patterns in seed.setup.ts ("Playwright …", "PW …"): those
  * rows are deleted at the start of every run, and a seeded row caught by them would be deleted
- * and recreated each time — or, worse, deleted after something had been built on top of it.
+ * and recreated each time - or, worse, deleted after something had been built on top of it.
  */
 export const SEED = {
   /** A partner to attach to gateways. Has no adapters or keys of its own. */
@@ -18,7 +18,7 @@ export const SEED = {
   informationType: "Shipment order",
   /**
    * Its code. Optional in the product, but real types carry one, and list pages show the code
-   * where there is one — table-layout.spec relies on that column holding a short code.
+   * where there is one - table-layout.spec relies on that column holding a short code.
    */
   informationTypeCode: "SHIPMENT_ORDER",
 

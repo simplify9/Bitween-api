@@ -18,8 +18,8 @@ import {
 } from "./helpers";
 
 /**
- * What an administrator does to a member after adding them — change their roles, disable them,
- * unlock them — and the guards around it: the last administrator can't be demoted, and a member
+ * What an administrator does to a member after adding them - change their roles, disable them,
+ * unlock them - and the guards around it: the last administrator can't be demoted, and a member
  * who manages members can't hand out more than they hold. Every change is followed to its effect:
  * the member signing in (or not), and the server's own record of their roles.
  */
@@ -166,7 +166,7 @@ test("changing a member's roles in the drawer replaces them: the new role's page
   const email = await addMember(page, { name: "Role Swap", roles: ["Viewer"] });
 
   // Viewer reads configuration but has no Team pages; Member runs integrations but no Team
-  // either — so the difference to look for is write access, e.g. "New partner".
+  // either - so the difference to look for is write access, e.g. "New partner".
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);
   await page.goto("partners");
@@ -251,7 +251,7 @@ test("a member locked by wrong passwords from many addresses shows as Locked, is
 
   // The account-wide lock comes after 20 wrong passwords (Login.MaxFailedLoginAttempts). From a
   // single address the per-address throttle stops counting after 5, so this is guessing spread
-  // over twenty addresses — what the account-wide lock is there for. The app trusts the nearest
+  // over twenty addresses - what the account-wide lock is there for. The app trusts the nearest
   // proxy's X-Forwarded-For, which is how each attempt arrives from its own address.
   for (let i = 0; i < 20; i++) {
     const res = await request.post(`${API}/accounts/login`, {

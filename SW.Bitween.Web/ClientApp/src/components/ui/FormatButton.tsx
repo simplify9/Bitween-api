@@ -10,11 +10,11 @@ import { formatDocument } from "../../lib/documentPreview";
  * reflowing it is something they do rather than a way of looking at it. Integrations
  * hand out samples as one long line, and XML arrives that way almost every time.
  *
- * It cannot be undone — a programmatic change is not on the textarea's own undo stack,
+ * It cannot be undone - a programmatic change is not on the textarea's own undo stack,
  * and a sample is deliberately not on the editor's. What makes that tolerable is how
  * little `formatDocument` does: it adds whitespace, only between two tags that had
  * nothing at all between them, and it refuses outright any document whose whitespace
- * might be content — CDATA, comments, `xml:space="preserve"`. It cannot make that
+ * might be content - CDATA, comments, `xml:space="preserve"`. It cannot make that
  * promise for mixed content, which XML gives it no way to recognise: two inline
  * elements written flush against each other read differently with a newline between
  * them. Data-interchange documents do not do that, and this button is for samples and

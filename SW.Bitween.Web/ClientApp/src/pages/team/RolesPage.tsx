@@ -16,7 +16,7 @@ export function RolesPage() {
   const header = (
     <PageHeader
       title="Roles"
-      description="A role is a reusable set of permissions. Open one to see — and shape — exactly what its members can do."
+      description="A role is a reusable set of permissions. Open one to see - and shape - exactly what its members can do."
       actions={
         <Can permission="roles.create">
           <Button variant="primary" onClick={() => navigate("/team/roles/new")}>

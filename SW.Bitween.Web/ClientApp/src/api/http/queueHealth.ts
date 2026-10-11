@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { get, post } from "./request";
 
-// ——— backend shapes (camelCase over the wire; severities are PascalCase strings) ———
+// --- backend shapes (camelCase over the wire; severities are PascalCase strings) ---
 type RawSeverity = "Info" | "Warning" | "Critical";
 interface RawSummary {
   totalConsumers: number;
@@ -145,7 +145,7 @@ export const queueHealthMethods = {
       })),
       unattended,
       // The frontend's alert severity is narrower ("warning"|"critical") than
-      // the backend's ("Info"|"Warning"|"Critical") — informational alerts
+      // the backend's ("Info"|"Warning"|"Critical") - informational alerts
       // aren't alerts from the UI's point of view, so drop them.
       alerts: alerts
         .filter((a) => a.severity !== "Info")

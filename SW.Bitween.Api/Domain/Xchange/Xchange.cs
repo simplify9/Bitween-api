@@ -136,8 +136,8 @@ namespace SW.Bitween.Domain
         public string SourceXchangeId { get; private set; }
 
         /// <summary>
-        /// What the subscription reads from the input of <see cref="SourceXchangeId"/> — the original
-        /// document — by path, as it was when this exchange was created. A path the document had no
+        /// What the subscription reads from the input of <see cref="SourceXchangeId"/> - the original
+        /// document - by path, as it was when this exchange was created. A path the document had no
         /// value at is left out.
         /// </summary>
         /// <remarks>

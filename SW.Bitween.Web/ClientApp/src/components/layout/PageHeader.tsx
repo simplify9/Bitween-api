@@ -3,7 +3,7 @@ import { CircleHelp, X } from "lucide-react";
 
 /**
  * Every page opens with the same frame: what this page is, one line of
- * plain-words help, and the page's primary actions — so clients can
+ * plain-words help, and the page's primary actions - so clients can
  * find their feet without a demo.
  */
 export function PageHeader({

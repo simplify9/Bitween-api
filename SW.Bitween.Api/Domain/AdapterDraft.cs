@@ -10,7 +10,7 @@ namespace SW.Bitween.Domain;
 
 /// <summary>
 /// An adapter being written in Bitween's code editor: its files, until they are published as a
-/// version. Python and JavaScript/TypeScript only — they build from their source with nothing but
+/// version. Python and JavaScript/TypeScript only - they build from their source with nothing but
 /// their runtime, which the image has; .NET and Go adapters are built with the CLI.
 /// </summary>
 public class AdapterDraft : BaseEntity, IAudited

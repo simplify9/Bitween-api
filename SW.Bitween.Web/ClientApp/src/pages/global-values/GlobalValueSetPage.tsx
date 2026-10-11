@@ -141,7 +141,7 @@ export function GlobalValueSetPage() {
                 return (
                   <SubscriptionMiniList
                     items={users}
-                    emptyText="Not referenced by any subscription — safe to change or remove."
+                    emptyText="Not referenced by any subscription - safe to change or remove."
                   />
                 );
               }}
@@ -158,7 +158,7 @@ export function GlobalValueSetPage() {
               rows={s.usedBy}
               rowKey={(u) => u.subscriptionSetup.id}
               search={{ text: (u) => u.subscriptionSetup.name, noun: "subscriptions" }}
-              empty="Not referenced anywhere yet — safe to delete."
+              empty="Not referenced anywhere yet - safe to delete."
               columns={[
                 {
                   header: "Subscription",

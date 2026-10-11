@@ -5,7 +5,7 @@ import { TRANSFORMS } from "../types";
 /**
  * The editor names each transform's arguments, and the engine reads them back by those
  * names. Nothing else ties the two together: a rename on either side still type-checks,
- * saves, and previews — the argument simply goes unread and the transform does nothing.
+ * saves, and previews - the argument simply goes unread and the transform does nothing.
  *
  * So this reads the engine's source rather than a copy of its names, and fails the day
  * the two disagree.
@@ -19,7 +19,7 @@ const ENGINE = readFileSync(
 function engineArgs(fn: string): string[] {
   const special = ENGINE.match(new RegExp(`if \\(rule\\.Fn == "${fn}"\\)\\s*\\{([\\s\\S]*?)\\n\\s*\\}`));
   // Each case ends by reporting success, and labels that share a body (`case "multiply":
-  // case "add":`) run on into it — so a case is everything up to its `return true`.
+  // case "add":`) run on into it - so a case is everything up to its `return true`.
   const cased = ENGINE.match(new RegExp(`case "${fn}":([\\s\\S]*?)\\breturn true;`));
   const body = special?.[1] ?? cased?.[1];
   if (!body) return [];

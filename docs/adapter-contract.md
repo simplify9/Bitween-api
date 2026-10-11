@@ -19,11 +19,11 @@ Bitween calls an adapter's methods **by name**, over the SW-Serverless protocol.
 | `handler`: delivers a message | `Handle` | ExchangeFile | ExchangeFile, the partner's response |
 | `mapper`: transforms a message | `Handle` | ExchangeFile | ExchangeFile, mapped |
 | `validator`: checks a message before it is accepted | `Validate` | ExchangeFile | ValidationResult |
-| `receiver`: fetches files on a schedule | `Initialize` | — | — |
-| | `ListFiles` | — | a JSON array of file ids |
+| `receiver`: fetches files on a schedule | `Initialize` | - | - |
+| | `ListFiles` | - | a JSON array of file ids |
 | | `GetFile` | a file id | ExchangeFile |
-| | `DeleteFile` | a file id | — |
-| | `Finalize` | — | — |
+| | `DeleteFile` | a file id | - |
+| | `Finalize` | - | - |
 
 A receiver gets one session per run, with calls in this order:
 1. `Initialize`

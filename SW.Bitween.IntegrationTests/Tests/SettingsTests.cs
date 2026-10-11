@@ -13,11 +13,11 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Instance settings — the values an administrator can change without a redeploy.
+/// Instance settings - the values an administrator can change without a redeploy.
 /// </summary>
 /// <remarks>
 /// Two things make this worth covering. Secrets are encrypted before they are written, so a
-/// database dump never carries a license key in the clear — and an encryption bug is invisible
+/// database dump never carries a license key in the clear - and an encryption bug is invisible
 /// from the UI, which shows the value correctly either way. And only some settings are editable at
 /// all: the page also lists environment-owned ones, and accepting a write to those would report
 /// success for a change that can never take effect.
@@ -35,7 +35,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
     /// <summary>
     /// Applying a setting mutates a process-wide options singleton that every test in this
     /// collection shares, so anything written here has to be put back. Nothing depends on these
-    /// two today — but the Rebex key decides which adapters are offered at all, and a future test
+    /// two today - but the Rebex key decides which adapters are offered at all, and a future test
     /// of that would pass or fail purely on whether this class happened to run first.
     /// </summary>
     public async Task InitializeAsync()
@@ -117,7 +117,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
         await Store(EditableKey, "45");
 
         // Applied to the live options singleton as well as stored, so the very next request
-        // already sees it — there is no restart-required concept in this product.
+        // already sees it - there is no restart-required concept in this product.
         Assert.Equal("45", await LiveValue(EditableKey));
         Assert.Equal("45", await RawStored(EditableKey));
     }
@@ -151,7 +151,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
     {
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => Store(EditableKey, "not-a-number"));
 
-        // Stored unchecked, this fails much later — when something reads the session length and
+        // Stored unchecked, this fails much later - when something reads the session length and
         // cannot parse it, far from the screen where it was typed.
         Assert.StartsWith("SETTING_INVALID_VALUE", ex.Message);
     }

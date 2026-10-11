@@ -48,7 +48,7 @@ export function RetryPoliciesPage() {
     <div>
       <PageHeader
         title="Retry policies"
-        description="Rules for what happens after an exchange fails — retry with a delay, or stop and alert."
+        description="Rules for what happens after an exchange fails - retry with a delay, or stop and alert."
         help={{
           title: "How retry policies work",
           body: (
@@ -101,7 +101,7 @@ export function RetryPoliciesPage() {
               {
                 header: "Groups",
                 align: "right",
-                cell: (p) => <span className="tabular-nums text-ink-600">{p.groupCount || "—"}</span>,
+                cell: (p) => <span className="tabular-nums text-ink-600">{p.groupCount || "-"}</span>,
               },
               {
                 header: "Used by",

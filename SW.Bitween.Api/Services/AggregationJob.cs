@@ -29,7 +29,7 @@ public class AggregationJob(
         var startedOn = DateTime.UtcNow;
         // Decided as the run goes and written once at the end. Recording inside both the try
         // and the catch wrote two rows for a single run whenever something threw after the
-        // roll-up was already built — SetSchedules does exactly that on an aggregation that
+        // roll-up was already built - SetSchedules does exactly that on an aggregation that
         // somehow has no schedule.
         var outcome = ReceiveOutcome.NoNewData;
         string errorMessage = null;

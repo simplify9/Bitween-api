@@ -9,7 +9,7 @@ using SW.Serverless.Contract.Catalog;
 namespace SW.Bitween.Services.Adapters;
 
 /// <summary>
-/// The published adapters' catalog — current version, every version with its manifest, the icon —
+/// The published adapters' catalog - current version, every version with its manifest, the icon -
 /// and the manifests of the native ones, behind one lookup.
 /// </summary>
 /// <remarks>
@@ -24,8 +24,8 @@ public class AdapterCatalog(
     IMemoryCache cache)
 {
     /// <summary>
-    /// What adapters call Bitween in their manifest's compatibility.applications — the minimum
-    /// Bitween they need — and what manifests before that field called minBitweenVersion.
+    /// What adapters call Bitween in their manifest's compatibility.applications - the minimum
+    /// Bitween they need - and what manifests before that field called minBitweenVersion.
     /// </summary>
     public const string Application = "bitween";
 
@@ -37,7 +37,7 @@ public class AdapterCatalog(
 
     static string CacheKey(string adapterId) => $"bitween.adapter-catalog.{adapterId.ToLowerInvariant()}";
 
-    /// <summary>The adapter's catalog entry, or null when it has none — native, or published before catalogs.</summary>
+    /// <summary>The adapter's catalog entry, or null when it has none - native, or published before catalogs.</summary>
     public async Task<AdapterCatalogEntry> GetAsync(string adapterId)
     {
         if (string.IsNullOrWhiteSpace(adapterId) || NativeAdapterDiscoveryService.IsNative(adapterId)) return null;

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
  * One labelled cell of the facts strip.
  *
  * Its own file so `LaneAndRetry` and `Overview` can both use it without either importing
- * the other — `Overview` pulls in the whole run history, which a create page has no use for.
+ * the other - `Overview` pulls in the whole run history, which a create page has no use for.
  */
 export function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (

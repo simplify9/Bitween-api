@@ -28,11 +28,11 @@ internal static class XchangeFilters
     /// Separate from <see cref="ApplySpecialFilters"/>, and async, because the run has to be read
     /// before the query can be built. <c>ReceiveAttempt.ExchangeIds</c> is persisted as a single
     /// separator-delimited string rather than an array (see <c>BitweenDbContext</c>), so no
-    /// subquery can reach inside it — and with three database providers in the solution there is
+    /// subquery can reach inside it - and with three database providers in the solution there is
     /// no one translation that would.
     ///
     /// It rewrites rather than filters here so the result stays identical to the long
-    /// <c>?ids=a,b,c</c> URL this replaces, relatives and all — the only thing that changes is that
+    /// <c>?ids=a,b,c</c> URL this replaces, relatives and all - the only thing that changes is that
     /// the ids no longer have to fit in a web address.
     /// </remarks>
     internal static async Task ResolveReceiveAttemptFilterAsync(SearchyRequest searchyRequest,
@@ -59,7 +59,7 @@ internal static class XchangeFilters
                     $"Run {attemptId} no longer exists. Its history may have been cleaned up.");
 
             // A run that created nothing leaves an empty array, and the Contains branch below reads
-            // that as "matches no row" — which is the honest answer. Dropping the filter instead
+            // that as "matches no row" - which is the honest answer. Dropping the filter instead
             // would widen the selection to every exchange, and bulk retry acts on whatever this
             // selects.
             condition.Filters.Add(new SearchyFilter
@@ -124,7 +124,7 @@ internal static class XchangeFilters
                     // above it for one row, and picks per-row sequential scans of the small
                     // side tables. Measured on 1M exchanges that was 22.8s for 25 rows.
                     // NOT EXISTS asks the same question as an anti-join, which it can
-                    // estimate — 34ms. Equivalent because success is NOT NULL, so a result
+                    // estimate - 34ms. Equivalent because success is NOT NULL, so a result
                     // row can never itself carry a null status.
                     query = query.Where(i =>
                         !dbContext.Set<XchangeResult>().Any(r => r.Id == i.Id));
@@ -154,7 +154,7 @@ internal static class XchangeFilters
         }
 
         // "Only the newest attempt of each chain." An exchange that has been retried is superseded
-        // by that retry, so a list of failures otherwise counts one piece of work as many rows —
+        // by that retry, so a list of failures otherwise counts one piece of work as many rows -
         // a chain retried nine times fills nine of them, none of which is the current state.
         //
         // NOT EXISTS rather than a left join for the same reason the still-running status uses it:

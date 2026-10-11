@@ -4,7 +4,7 @@ import { pathOf, type PageId } from "../pages";
 /**
  * Where a subscription of each type is opened. Scheduled jobs, aggregations and response
  * subscriptions have a section of their own in the sidebar, and a subscription opened from one
- * of those lists used to land on /subscriptions/:id — highlighting "All subscriptions" and
+ * of those lists used to land on /subscriptions/:id - highlighting "All subscriptions" and
  * offering a way back to a list it never came from.
  */
 export const SUBSCRIPTION_PAGE: Record<SubscriptionType, PageId> = {

@@ -26,7 +26,7 @@ interface RawRetryPolicyRow {
   id: number;
   name: string;
   groupCount: number;
-  /** Counted by the backend — see RetryPolicyRow.UsedByCount. */
+  /** Counted by the backend - see RetryPolicyRow.UsedByCount. */
   usedByCount: number;
 }
 interface RawRetryPolicy {
@@ -282,7 +282,7 @@ export const retryPolicyMethods = {
     },
   ): Promise<RetryPolicy> {
     // Update replaces the whole policy, so every field it accepts has to be sent back. Omitting
-    // the alert cleared it on the server on every save — the settings were still on screen, and
+    // the alert cleared it on the server on every save - the settings were still on screen, and
     // gone from the database.
     await post(`/retrypolicies/${id}`, {
       name: changes.name,

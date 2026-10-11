@@ -30,6 +30,6 @@ public class RetryAlertOverride
     /// <summary>Adapter that delivers the alert. Required when <see cref="AlertMode"/> is Send.</summary>
     public string AlertHandlerId { get; set; }
 
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
+    /// <summary>That adapter's own settings - api key, recipients, subject.</summary>
     public IReadOnlyDictionary<string, string> AlertHandlerProperties { get; set; }
 }

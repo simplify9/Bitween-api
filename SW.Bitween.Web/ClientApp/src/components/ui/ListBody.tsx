@@ -4,7 +4,7 @@ import { EmptyState, LoadError, LoadingBlock } from "./basics";
 
 /**
  * The part of a list page under its toolbar: loading, a failure with a way to retry, an empty
- * list — told apart from a search that found nothing — or the rows.
+ * list - told apart from a search that found nothing - or the rows.
  *
  * Every list page wrote this four-way choice out itself. A new one gets it right by using this.
  */

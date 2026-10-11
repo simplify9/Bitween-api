@@ -35,7 +35,7 @@ public class MappingPreviewResponse
     /// </summary>
     public List<MappingPreviewError> RuleErrors { get; set; } = new();
 
-    /// <summary>Set when the mapping could not be attempted at all — unreadable document or rules.</summary>
+    /// <summary>Set when the mapping could not be attempted at all - unreadable document or rules.</summary>
     public string? Error { get; set; }
 }
 
@@ -50,7 +50,7 @@ public class MappingPreviewError
 /// </summary>
 /// <remarks>
 /// <para>
-/// Runs the same three steps the exchange pipeline runs — read, map, write — against the same
+/// Runs the same three steps the exchange pipeline runs - read, map, write - against the same
 /// context factory. That is deliberate and it is the point: the old preview generated its own
 /// template and assembled its own partner values, and the two drifted, so a mapping that previewed
 /// correctly could fail in production.

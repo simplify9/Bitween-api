@@ -40,7 +40,7 @@ public class ReceivingJob(
 
         // Advances regardless of outcome: the Quartz trigger fires on its own cron no
         // matter what happens below, so "next run" has to track that, not the receive
-        // step's success — otherwise a receiver that keeps failing freezes ReceiveOn
+        // step's success - otherwise a receiver that keeps failing freezes ReceiveOn
         // in the past forever while the job keeps firing on schedule underneath it.
         // Isolated in its own try: a schedule problem is unrelated to receiving and
         // must not stop the step below from running.

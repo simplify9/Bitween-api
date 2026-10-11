@@ -11,7 +11,7 @@ public interface INativeAdapter
 
 /// <summary>
 /// Marks an adapter that only works with a Rebex license key configured. Such adapters are
-/// always registered — the key is a setting that can change at runtime — but they're kept out
+/// always registered - the key is a setting that can change at runtime - but they're kept out
 /// of the adapter pickers while no key is set.
 /// </summary>
 public interface IRequiresRebexLicense { }
@@ -31,7 +31,7 @@ public interface IRequiresRebexLicense { }
 /// </para>
 /// <para>
 /// A mapper marked this way is handed the values separately and the payload is left exactly as it
-/// arrived — which is the only way a format other than JSON can be mapped at all.
+/// arrived - which is the only way a format other than JSON can be mapped at all.
 /// </para>
 /// </remarks>
 public interface IReceivesMappingContext { }

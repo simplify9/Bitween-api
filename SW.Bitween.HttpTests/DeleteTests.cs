@@ -13,8 +13,8 @@ namespace SW.Bitween.HttpTests;
 
 /// <summary>
 /// The deletes that reach furthest, over HTTP: refused plainly while configuration still depends on
-/// the thing, and once allowed, taking with them what belongs to it — exchanges, scheduled retries,
-/// the broker queue — and nothing else.
+/// the thing, and once allowed, taking with them what belongs to it - exchanges, scheduled retries,
+/// the broker queue - and nothing else.
 /// </summary>
 [Collection("Http")]
 public class DeleteTests(HttpFixture fixture)

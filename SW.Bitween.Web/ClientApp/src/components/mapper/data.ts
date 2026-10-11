@@ -16,7 +16,7 @@ export const kvpsToRecord = (kvps: KeyValuePair[]): Record<string, string> =>
 /**
  * Prototype-native replacements for the legacy RTK data hooks the mapping editor
  * used (`useGlobalAdapterValuesSetsQuery`, `useValuesSetMap`). The legacy
- * `GlobalAdapterValuesSetModel` was `{ id, name, values }` — a structural subset
+ * `GlobalAdapterValuesSetModel` was `{ id, name, values }` - a structural subset
  * of the prototype's `GlobalValuesSetRow`, so consumers are unchanged apart from
  * the source of the data.
  */

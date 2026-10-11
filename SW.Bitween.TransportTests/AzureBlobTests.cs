@@ -20,7 +20,7 @@ public sealed class AzuriteFixture : IAsyncLifetime
 
     public Task InitializeAsync() => container.StartAsync();
 
-    /// <summary>A private container — no public access — as customers' containers are.</summary>
+    /// <summary>A private container - no public access - as customers' containers are.</summary>
     public async Task<BlobContainerClient> ContainerAsync()
     {
         var container = new BlobContainerClient(ConnectionString, $"c{Guid.NewGuid():N}"[..20]);
@@ -95,7 +95,7 @@ public class AzureBlobTests(AzuriteFixture azurite) : IClassFixture<AzuriteFixtu
             Assert.StartsWith("{\"n\":", (await receiver.GetFile(name)).Data);
             await receiver.DeleteFile(name);
         }
-        // Received twice — a retried run — is not an error.
+        // Received twice - a retried run - is not an error.
         await receiver.DeleteFile(names[0]);
 
         Assert.Equal(["incoming-archive/old.json", "processed/a.json", "processed/sub/b.json"], await NamesAsync(container));

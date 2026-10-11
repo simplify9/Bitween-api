@@ -78,7 +78,7 @@ public class DocumentMapperTests
     }
 
     /// <summary>
-    /// Partner values come from the context, never from the payload — that is the whole point of the
+    /// Partner values come from the context, never from the payload - that is the whole point of the
     /// new mapper being handed its context instead of having it written into the document.
     /// </summary>
     [TestMethod]
@@ -97,7 +97,7 @@ public class DocumentMapperTests
     }
 
     /// <summary>
-    /// Source values come from the context, by the path the rule reads — read out of the delivered
+    /// Source values come from the context, by the path the rule reads - read out of the delivered
     /// document when the exchange was created, not out of the document being mapped.
     /// </summary>
     [TestMethod]
@@ -239,7 +239,7 @@ public class DocumentMapperTests
     }
 
     /// <summary>
-    /// Output order is the order of the rules, not of the source document and not of any sample —
+    /// Output order is the order of the rules, not of the source document and not of any sample -
     /// which is what makes it deterministic and what XML sequences require.
     /// </summary>
     [TestMethod]
@@ -339,7 +339,7 @@ public class DocumentMapperTests
     }
 
     /// <summary>
-    /// How an ambiguous date is read is a setting on the mapping, not on the rule — a partner writes
+    /// How an ambiguous date is read is a setting on the mapping, not on the rule - a partner writes
     /// dates one way throughout. The transforms have their own tests; this pins that the mapping's
     /// setting is what reaches them.
     /// </summary>
@@ -789,7 +789,7 @@ public class DocumentMapperTests
     }
 
     /// <summary>
-    /// A fixed entry has no entry of its own, so its paths read the scope the list sits in —
+    /// A fixed entry has no entry of its own, so its paths read the scope the list sits in -
     /// which is what lets one carry a value from the document.
     /// </summary>
     [TestMethod]
@@ -845,7 +845,7 @@ public class DocumentMapperTests
 
     /// <summary>
     /// No source list to walk: the list is exactly its fixed entries. This is what the previous
-    /// mapper called a primitive array — one slot per rule rather than one per source entry.
+    /// mapper called a primitive array - one slot per rule rather than one per source entry.
     /// </summary>
     [TestMethod]
     public void NoSourceList_GivesExactlyTheFixedEntries()
@@ -1021,7 +1021,7 @@ public class DocumentMapperTests
         var ex = Assert.ThrowsException<MappingFailedException>(() => Map(rules, Order, context));
 
         // The message is stored on the exchange and returned by the preview API, and an adapter
-        // password is configuration rather than payload — so its length is said, not its value.
+        // password is configuration rather than payload - so its length is said, not its value.
         Assert.IsFalse(ex.Message.Contains("s3cr3t-value"), ex.Message);
         Assert.IsFalse(ex.Message.Contains("also-secret"), ex.Message);
         StringAssert.Contains(ex.Message, "12 characters");

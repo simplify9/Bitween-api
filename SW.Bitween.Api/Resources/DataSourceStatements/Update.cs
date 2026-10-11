@@ -23,7 +23,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext,
         await Create.EnsureNameIsFree(dbContext, entity.DataSourceId, model.Name, existingId: key);
 
         // A rename breaks every subscription naming the old one, and there is no way to fix that
-        // from here — the subscription's properties are its own. So it is refused while anything
+        // from here - the subscription's properties are its own. So it is refused while anything
         // still points at it, and the message says what to change first.
         var renaming = !string.Equals(entity.Name, model.Name?.Trim(),
             System.StringComparison.OrdinalIgnoreCase);
@@ -41,7 +41,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext,
         }
 
         // Only when it actually changed: re-checking untouched SQL would refuse a rename, or a
-        // change of owner, because of a table someone dropped last week — a fault worth surfacing
+        // change of owner, because of a table someone dropped last week - a fault worth surfacing
         // but not here, and not as a block on an unrelated edit.
         // True when the SQL did not change: there was nothing to check, which is not the same as
         // "could not check" and should not warn as though it were.

@@ -58,8 +58,8 @@ public static class FtpProtocol
     }
 
     /// <summary>
-    /// One file name, with no directory in it. The name comes from the exchange — a POP3 receiver
-    /// sets it from the email's subject — so "../../etc/x" would otherwise climb out of the
+    /// One file name, with no directory in it. The name comes from the exchange - a POP3 receiver
+    /// sets it from the email's subject - so "../../etc/x" would otherwise climb out of the
     /// configured target directory on the partner's server.
     /// </summary>
     internal static string SafeFileName(string filename)

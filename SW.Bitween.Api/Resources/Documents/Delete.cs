@@ -21,11 +21,11 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Documents.Delete);
 
             // Seeded by the model and referenced by every aggregation, so it is not the user's
-            // to remove — the same footing as the system partner.
+            // to remove - the same footing as the system partner.
             if (key == Document.AggregationDocumentId)
                 throw new SWException("The built-in Aggregation Document can't be deleted.");
 
-            // Configuration pointing at this type is a real block — a subscription or a bus
+            // Configuration pointing at this type is a real block - a subscription or a bus
             // gateway left behind would name a type that no longer exists. Said plainly, because
             // the database says it as a foreign-key violation, which reached the screen as a bare
             // 500 naming a constraint.
@@ -42,13 +42,13 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
 
             // Exchanges are the deliberate exception. They are this type's history rather than
             // configuration depending on it, and history should not be able to strand a type
-            // nobody uses any more — so they go with it.
+            // nobody uses any more - so they go with it.
             await using var transaction = await dbContext.Database.BeginTransactionAsync();
 
             var xchangeIds = dbContext.Set<Xchange>().Where(x => x.DocumentId == key).Select(x => x.Id);
 
             // Scheduled retries are keyed by exchange id but have no relationship configured, so
-            // nothing clears them on their own — they would be left pointing at exchanges that no
+            // nothing clears them on their own - they would be left pointing at exchanges that no
             // longer exist. Results, aggregations and promoted properties all cascade from the
             // exchange itself and need no help here.
             await dbContext.Set<DelayedRetry>().Where(d => xchangeIds.Contains(d.Id)).ExecuteDeleteAsync();

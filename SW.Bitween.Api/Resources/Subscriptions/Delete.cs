@@ -27,7 +27,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
         /// Says what still points at the integration, before the database says it less politely.
         /// </summary>
         /// <remarks>
-        /// All four references are <c>RESTRICT</c>, so the delete was already refused — but as a
+        /// All four references are <c>RESTRICT</c>, so the delete was already refused - but as a
         /// foreign key violation surfacing as a 500, which tells the operator nothing about which
         /// route or gateway is holding it, and reads like a broken screen rather than a decision.
         /// Exchanges are deliberately not checked: their reference is nullable and history is not

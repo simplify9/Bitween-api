@@ -26,7 +26,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// <remarks>
 /// Clients build custom adapters that send whatever format they like, and Bitween has no path
 /// syntax for most of them. These types say so: no promoted properties, and no filter that could
-/// pass — but everything that asked for the type without a filter still gets every message.
+/// pass - but everything that asked for the type without a filter still gets every message.
 /// JSON types are deliberately left as they were, where a payload the reader can't open reaches
 /// nobody; clients run live setups on that, and switching the type is how they opt in.
 /// </remarks>
@@ -44,7 +44,7 @@ public class CarriedFormatTests(BitweenFixture fixture)
     /// <summary>
     /// A type promoting nothing, with one of each kind of listener: Internal subscriptions and bus
     /// routes, with and without a filter. The filters would pass on a JSON payload of
-    /// <c>{"country":"JO"}</c>, so a skip means the payload wasn't read — not that it didn't match.
+    /// <c>{"country":"JO"}</c>, so a skip means the payload wasn't read - not that it didn't match.
     /// </summary>
     private async Task<Wiring> Arrange(DocumentFormat format)
     {

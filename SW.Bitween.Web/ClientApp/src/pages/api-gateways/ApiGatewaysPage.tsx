@@ -15,7 +15,7 @@ import { useListParams } from "../../lib/listParams";
 import { SearchBox } from "../../components/ui/SearchBox";
 
 /**
- * API gateways — the entry point partners push documents into. One row per
+ * API gateways - the entry point partners push documents into. One row per
  * gateway entity, not per pipeline: the pipelines behind it are reached through
  * the attachment that names them.
  */
@@ -144,7 +144,7 @@ export function ApiGatewaysPage() {
             {
               // No Subscriptions or Handles column. Both vary per attachment, and
               // a second list beside Partners can't say which entry pairs with
-              // which — that belongs in the gateway's own attachments table,
+              // which - that belongs in the gateway's own attachments table,
               // where a row is exactly one partner and one subscription.
               // An aggregate has no such problem, so health stays.
               header: "Health",

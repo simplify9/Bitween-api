@@ -12,7 +12,7 @@ import { keys } from "../../api/queryKeys";
 import { payloadProblem } from "../../lib/payloadCheck";
 
 /**
- * Manually inject a payload — useful for testing a pipeline without waiting
+ * Manually inject a payload - useful for testing a pipeline without waiting
  * for real traffic. Addressed either at one subscription, or at an
  * information type (every matching subscription picks it up).
  */
@@ -70,7 +70,7 @@ export function ExchangeNewPage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader
         title="New exchange"
-        description="Inject a payload by hand — it runs through the pipeline exactly like real traffic."
+        description="Inject a payload by hand - it runs through the pipeline exactly like real traffic."
       />
 
       <div className="space-y-5 rounded-xl border border-ink-200 bg-white p-5">
@@ -132,7 +132,7 @@ export function ExchangeNewPage() {
               ? "JSON, as the information type says. It is checked as you type."
               : expectedFormat === "Xml"
                 ? "XML, as the information type says. It is checked as you type."
-                : "JSON or XML — whatever the pipeline expects as its input document."
+                : "JSON or XML - whatever the pipeline expects as its input document."
           }
         >
           <textarea

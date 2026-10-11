@@ -9,8 +9,8 @@ namespace SW.Bitween.UnitTests.NativeMapper;
 /// Reading XML into the neutral tree.
 /// </summary>
 /// <remarks>
-/// The shapes here are taken from documents real partners send — SOAP requests and responses from
-/// two carriers — with the credentials replaced. Every one of them was in the samples: the same URI
+/// The shapes here are taken from documents real partners send - SOAP requests and responses from
+/// two carriers - with the credentials replaced. Every one of them was in the samples: the same URI
 /// bound to a prefix and to the default at once, <c>xmlns=""</c> putting a subtree back into no
 /// namespace, empty elements by the dozen, and a postcode with a leading space.
 /// </remarks>
@@ -132,7 +132,7 @@ public class XmlFormatReadTests
         var tree = Format.Read("<v><a/><b></b><c>x</c></v>");
 
         // `<a/>` and `<b></b>` are the same document, so they must read the same. Empty rather than
-        // missing, because the element is there — and a rule can tell the two apart.
+        // missing, because the element is there - and a rule can tell the two apart.
         Assert.AreEqual("", At(tree, "v.a"));
         Assert.AreEqual("", At(tree, "v.b"));
         Assert.IsNull(NodeAt(tree, "v.missing"), "an element that is not there reads as nothing");
@@ -343,7 +343,7 @@ public class XmlSingleEntryListTests
     public void One_element_is_one_entry_not_none()
     {
         // The whole reason the trait exists. `<line>` used once reads as an object, so without it
-        // the list rule finds no list and produces nothing — losing the only line in silence.
+        // the list rule finds no list and produces nothing - losing the only line in silence.
         var lines = Lines(Xml, "<order><line><sku>A1</sku></line></order>", "order.line");
 
         CollectionAssert.AreEqual(new[] { "A1" }, Codes(lines));
@@ -361,7 +361,7 @@ public class XmlSingleEntryListTests
     public void The_document_itself_is_not_a_list_of_one()
     {
         // `over: ""` says the whole document is the list, which is a claim about a root array
-        // and never true of XML — a document has exactly one root, and it is not a repeated
+        // and never true of XML - a document has exactly one root, and it is not a repeated
         // element. It is also what a list rule holds before a source list has been chosen, so
         // forgiving it here made an unconfigured list quietly produce one entry: the document,
         // with every field inside it resolving to nothing.
@@ -385,7 +385,7 @@ public class XmlSingleEntryListTests
 /// <remarks>
 /// The conventions are the reader's, in reverse: <c>@name</c> becomes an attribute, <c>#text</c>
 /// becomes the element's own text, and a list becomes the same element repeated. Namespaces are
-/// ordinary <c>@xmlns</c> fields, which is what they are in XML — so declaring one needs no
+/// ordinary <c>@xmlns</c> fields, which is what they are in XML - so declaring one needs no
 /// machinery of its own, and the prefixes in the output are the ones the mapping asked for.
 /// </remarks>
 [TestClass]
@@ -483,7 +483,7 @@ public class XmlFormatWriteTests
     public void An_empty_or_null_value_is_an_empty_element()
     {
         // The two are the same document. XML has no null, and an element with no text is all it can
-        // say — which is also what the partner's own documents are full of.
+        // say - which is also what the partner's own documents are full of.
         var xml = Written(Obj(("v", Obj(
             ("a", ValueNode.Value(null)),
             ("b", V(""))))));

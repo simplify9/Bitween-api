@@ -37,7 +37,7 @@ const environment = (
   ...row,
 });
 
-/** A few rows from each section, in catalog order — which is the order the page lists them in. */
+/** A few rows from each section, in catalog order - which is the order the page lists them in. */
 const ROWS: SettingRow[] = [
   editable({
     key: "Bitween.DocumentPrefix",
@@ -176,10 +176,10 @@ const openSettings = (section?: string) =>
     handlers: pageHandlers,
   });
 
-/** Sections are real links — a section is a URL you can paste into a ticket — not buttons. */
+/** Sections are real links - a section is a URL you can paste into a ticket - not buttons. */
 const sectionNav = async () => within(await screen.findByRole("navigation", { name: "Settings sections" }));
 
-// The draft is module state mirrored to sessionStorage, which setup.ts doesn't clear — so a test
+// The draft is module state mirrored to sessionStorage, which setup.ts doesn't clear - so a test
 // that fails with an edit staged would otherwise hand it to the next one. Unmounted first, so
 // clearing it doesn't re-render a page nobody is looking at any more.
 afterEach(() => {
@@ -215,7 +215,7 @@ describe("the settings page", () => {
     const { user } = openSettings();
     await user.click((await sectionNav()).getByRole("link", { name: "Database" }));
 
-    // A read-only row renders its value as text — there's no control carrying its label…
+    // A read-only row renders its value as text - there's no control carrying its label…
     expect(await screen.findByText("Use Azure managed identity")).toBeVisible();
     expect(screen.getByText("Off", { exact: true })).toBeVisible();
     expect(screen.queryByRole("textbox", { name: "Use Azure managed identity" })).not.toBeInTheDocument();
@@ -233,7 +233,7 @@ describe("the settings page", () => {
   it("offers Microsoft-only sign-in as a toggle, not an environment value", async () => {
     openSettings("Single sign-on (Microsoft)");
 
-    // It applies per request — the Login handler and the config endpoint both read it live — so it
+    // It applies per request - the Login handler and the config endpoint both read it live - so it
     // belongs in the catalog as an edit rather than a read-only environment row.
     const toggle = await screen.findByRole("checkbox", { name: "Off" });
     expect(toggle).toBeEnabled();
@@ -340,7 +340,7 @@ describe("the settings page", () => {
     expect(cron).toHaveValue(DEFAULT_CRON);
 
     // The backend validates the expression before storing it, because a bad one would break the
-    // startup job seeding — so a rejected save leaves the draft dirty rather than silently passing.
+    // startup job seeding - so a rejected save leaves the draft dirty rather than silently passing.
     await user.clear(cron);
     await user.type(cron, "not a cron");
     await user.tab();

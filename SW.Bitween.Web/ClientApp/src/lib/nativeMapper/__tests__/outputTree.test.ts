@@ -90,7 +90,7 @@ describe("order", () => {
     ]);
   });
 
-  /** MapInto writes every field, then every list — so that is what is shown. */
+  /** MapInto writes every field, then every list - so that is what is shown. */
   it("shows fields before lists, because that is the order they are written in", () => {
     const rules = emptyRules();
     rules.lists.push(emptyListRule(["lines"]));
@@ -154,7 +154,7 @@ describe("lists", () => {
     rules.lists.push(list);
 
     // The value row has no name of its own, so it can only be reached through its
-    // list — and a search that finds the list has to keep what is in it.
+    // list - and a search that finds the list has to keep what is in it.
     const [found] = filterTree(outputTreeOf(rules), "codes");
     expect(found.kind === "list" && found.children).toHaveLength(1);
 
@@ -191,7 +191,7 @@ describe("the keys rule errors arrive under", () => {
   };
 
   it("names a list of plain values twice, because both report under the list", () => {
-    // The list's own troubles — no target, a filter that will not read — and the
+    // The list's own troubles - no target, a filter that will not read - and the
     // value's arrive under one key, so the editor lights up both rows. Worth pinning:
     // it is why a failing value shows a reason at all, having no key of its own.
     const rules = emptyRules();
@@ -229,7 +229,7 @@ describe("the keys rule errors arrive under", () => {
   /**
    * The case the old per-component version got wrong. A root list has no target,
    * so the mapper describes it as "(no target)" and its fields come back as
-   * "(no target)[].qty" — measured against the preview endpoint. Looking those up
+   * "(no target)[].qty" - measured against the preview endpoint. Looking those up
    * as a bare "qty" meant a broken rule inside a root list never lit up.
    */
   it("names a rule inside a root list the way the mapper reports it", () => {

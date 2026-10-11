@@ -17,12 +17,12 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// SQL statements as their own entity.
 ///
 /// They have to live on the connection rather than on a subscription, because a subscription's
-/// adapter properties have partner values templated into them before the adapter sees them — SQL
+/// adapter properties have partner values templated into them before the adapter sees them - SQL
 /// there would be an injection surface fed by ordinary partner data. But keeping them in a field on
 /// the data source meant that writing a query needed the same right as changing the credentials.
 ///
 /// So: their own entity, their own permission, their own audit trail, and a usage count. These
-/// tests cover the four things that separation is supposed to buy — namespacing, safe deletion,
+/// tests cover the four things that separation is supposed to buy - namespacing, safe deletion,
 /// knowing what uses what, and the adapter contract staying exactly as it was.
 /// </summary>
 [Collection("Bitween")]
@@ -32,7 +32,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
 
     /// <summary>
     /// A collision is an error at save time, not a silent overwrite. Case-insensitively, because
-    /// the adapter resolves names that way — allowing getOrder and GetOrder to coexist would make
+    /// the adapter resolves names that way - allowing getOrder and GetOrder to coexist would make
     /// which one runs a matter of dictionary ordering.
     /// </summary>
     [Fact]
@@ -104,7 +104,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// Zero usage is the interesting number — the only way to tell dead SQL from SQL that is
+    /// Zero usage is the interesting number - the only way to tell dead SQL from SQL that is
     /// merely quiet, which is what stopped anyone cleaning up the JSON blob this replaced.
     /// </summary>
     [Fact]
@@ -120,7 +120,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
 
     /// <summary>
     /// A subscription bound to ANOTHER data source that happens to use the same statement name is
-    /// not a user of this one — statements are scoped to their connection.
+    /// not a user of this one - statements are scoped to their connection.
     /// </summary>
     [Fact]
     public async Task Usage_does_not_count_a_subscription_on_a_different_data_source()
@@ -140,7 +140,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
     // ---------------------------------------------------------------- safe change
 
     /// <summary>
-    /// Deleting out from under a live subscription does not fail at delete time — it fails on the
+    /// Deleting out from under a live subscription does not fail at delete time - it fails on the
     /// next message, as "not a statement this data source defines", somewhere nobody is watching.
     /// So it is refused here, and the refusal names what is still using it.
     /// </summary>
@@ -174,7 +174,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// A rename breaks every subscription naming the old one, and nothing here can fix that — the
+    /// A rename breaks every subscription naming the old one, and nothing here can fix that - the
     /// subscription's properties are its own. Changing the SQL is fine; changing the name is not.
     /// </summary>
     [Fact]
@@ -195,7 +195,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
 
         Assert.Contains("cannot be renamed while", error.Message);
 
-        // The SQL itself is editable, which is the common case — a column was added, a join fixed.
+        // The SQL itself is editable, which is the common case - a column was added, a join fixed.
         await UpdateAsync(statementId, new DataSourceStatementUpdate
         {
             Name = "keepThisName",
@@ -259,7 +259,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
         var handler = ActivatorUtilities.CreateInstance<Resources.DataSourceStatements.Create>(
             scope.ServiceProvider);
 
-        // The handler answers with { Id, Checked } — the id, and whether the database actually
+        // The handler answers with { Id, Checked } - the id, and whether the database actually
         // looked at the SQL. Read through the property rather than cast, because the shape is an
         // anonymous type and a cast to int is what this used to do.
         var created = await handler.Handle(
@@ -304,7 +304,7 @@ public class DataSourceStatementTests(BitweenFixture fixture)
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
 
-        // Document names are capped at 100 and subscription names at 100, so a raw guid fits —
+        // Document names are capped at 100 and subscription names at 100, so a raw guid fits -
         // the earlier attempt to trim to 40 was slicing a 36-character string.
         var document = new Document(null, $"doc-{Guid.NewGuid():N}", DocumentFormat.Json);
         db.Add(document);

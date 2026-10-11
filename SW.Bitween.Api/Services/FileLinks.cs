@@ -19,7 +19,7 @@ namespace SW.Bitween;
 /// <para>
 /// Exchange files are private in storage, so a storage URL no longer opens. A link here carries a seal
 /// made from the file's storage key with a server secret: it opens that one file, and changing any
-/// character of it — to reach another exchange — breaks the seal. Nothing is stored per link.
+/// character of it - to reach another exchange - breaks the seal. Nothing is stored per link.
 /// </para>
 /// <para>
 /// A link lives as long as its file, like the public storage URL it replaces. The secret is derived
@@ -46,7 +46,7 @@ public class FileLinks(BitweenOptions options, IConfiguration configuration, IHt
 
     /// <summary>
     /// The address readers reach Bitween on: the public address the chart sets, or else the address the
-    /// current request came in on, or else — a scheduled job — <see cref="InstanceUrl"/>.
+    /// current request came in on, or else - a scheduled job - <see cref="InstanceUrl"/>.
     /// </summary>
     public string BaseUrl
     {
@@ -64,7 +64,7 @@ public class FileLinks(BitweenOptions options, IConfiguration configuration, IHt
     /// <summary>
     /// The address this instance listens on, as the adapters it runs reach it: they run beside it, in
     /// the same container, so a wildcard binding (<c>http://+:8080</c>) is <c>localhost</c>, and plain
-    /// HTTP is preferred — no certificate for them to trust. Nothing outside the instance can open a
+    /// HTTP is preferred - no certificate for them to trust. Nothing outside the instance can open a
     /// link on it. <c>null</c> with no server.
     /// </summary>
     public string InstanceUrl
@@ -85,7 +85,7 @@ public class FileLinks(BitweenOptions options, IConfiguration configuration, IHt
 
     /// <summary>
     /// The address a roll-up's links are built on: the public address the chart sets, since its handler may
-    /// pass them to a partner, or else <see cref="InstanceUrl"/> — never a request's, which is wherever the
+    /// pass them to a partner, or else <see cref="InstanceUrl"/> - never a request's, which is wherever the
     /// person who clicked happened to be.
     /// </summary>
     public string AdapterBaseUrl =>

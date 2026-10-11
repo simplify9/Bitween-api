@@ -8,7 +8,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Retention;
 
 /// <summary>
-/// Whether retention would remove exchanges before an aggregation with these schedules collects them —
+/// Whether retention would remove exchanges before an aggregation with these schedules collects them -
 /// shown on the aggregation as its schedule is edited, before it's saved. Changes nothing.
 /// </summary>
 [HandlerName("aggregation")]

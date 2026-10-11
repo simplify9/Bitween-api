@@ -43,8 +43,8 @@ public class WorkshopRun
 
 /// <summary>
 /// The adapter editor's server side: drafts started from a template or a published version, then
-/// built, checked, tried and published with SW.Serverless.Tooling — the same code bitween adapter build,
-/// test, run and publish are — so a version published here is the one the CLI would have published.
+/// built, checked, tried and published with SW.Serverless.Tooling - the same code bitween adapter build,
+/// test, run and publish are - so a version published here is the one the CLI would have published.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -259,7 +259,7 @@ public class AdapterWorkshop(
     // ------------------------------------------------------------------ packages built elsewhere
 
     /// <summary>
-    /// Publishes a package the bitween CLI built — any language, .NET included — as it would publish
+    /// Publishes a package the bitween CLI built - any language, .NET included - as it would publish
     /// straight to storage, only through Bitween: its manifest is checked, its version settled, and it
     /// is made current only when asked.
     /// </summary>

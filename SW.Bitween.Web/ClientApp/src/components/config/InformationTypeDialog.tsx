@@ -22,7 +22,7 @@ import { INFORMATION_TYPE_ERRORS } from "./informationTypeErrors";
  *
  * Creating is one save: `POST /documents` carries the whole definition, promoted
  * properties included, so the dialog asks for everything once and closes. (It used
- * to stay open as an editor, because create could not carry them — unlike
+ * to stay open as an editor, because create could not carry them - unlike
  * `PartnerDialog`, which still must, since a key can only be issued to a partner
  * that already exists.)
  */
@@ -34,7 +34,7 @@ export function InformationTypeDialog({
 }: {
   /** null opens it empty, to create. */
   typeId: number | null;
-  /** Force "available on the message bus" — the caller reaches this type over the bus. */
+  /** Force "available on the message bus" - the caller reaches this type over the bus. */
   busRequired?: boolean;
   onClose: () => void;
   /** Fires as soon as the type exists, so a picker can select it immediately. */

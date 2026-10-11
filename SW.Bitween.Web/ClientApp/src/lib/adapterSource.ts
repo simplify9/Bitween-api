@@ -60,7 +60,7 @@ export function languageFor(path: string): Extension | null {
 
 export type FileChange = "added" | "removed" | "changed" | "unchanged";
 
-/** Every path in either version, with how it differs — told apart by hash, without reading a file. */
+/** Every path in either version, with how it differs - told apart by hash, without reading a file. */
 export function compareListings(
   shown: AdapterSourceListing,
   base: AdapterSourceListing | null,

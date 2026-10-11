@@ -9,7 +9,7 @@ namespace SW.Bitween.Domain
     /// database no longer lets anyone call Bitween as every partner.
     /// </summary>
     /// <remarks>
-    /// Unsalted on purpose. Keys are random — 128 bits from a GUID — so there is nothing to look up
+    /// Unsalted on purpose. Keys are random - 128 bits from a GUID - so there is nothing to look up
     /// in a table, and an unsalted hash keeps the lookup a single indexed equality.
     /// </remarks>
     public static class PartnerKeyHash

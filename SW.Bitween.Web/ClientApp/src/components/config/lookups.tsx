@@ -10,13 +10,13 @@ import { SubscriptionStatusBadges, HealthBadge } from "./shared";
 import { NONE } from "../../lib/none";
 
 /**
- * All subscriptions, cached hard — pages use it to answer "who uses this
+ * All subscriptions, cached hard - pages use it to answer "who uses this
  * property/value/policy?" without extra requests.
  */
 /**
  * Work group and retry policy are the two columns that sit between "Runs" and
  * "Status" and, rendered as plain links like it, gave the row three stretches of
- * identical 13px text with nothing but padding between them — which is what made
+ * identical 13px text with nothing but padding between them - which is what made
  * the table hard to read across. They are both *an assignment to a named thing*,
  * so they take a shared chip: it groups the pair, and separates them from the
  * subscription link on one side and the status badges on the other.
@@ -36,8 +36,8 @@ export function useSubscriptionsCache() {
  * Which subscriptions each partner is reached through, keyed by partner id.
  *
  * A subscription's own `partnerId` only covers the legacy types. Everything
- * modern links a partner through a **gateway** — an API-gateway attachment or a
- * bus route — so those have to be folded in or a partner that is plainly in use
+ * modern links a partner through a **gateway** - an API-gateway attachment or a
+ * bus route - so those have to be folded in or a partner that is plainly in use
  * shows up as unused. Both gateway lists are the same cache entries the
  * Subscriptions page fills, and each is gated on its own view permission.
  */
@@ -86,7 +86,7 @@ export function usePartnerSubscriptions(): Map<number, SubscriptionInfo[]> {
  * reached through a gateway, keyed by *subscription* id.
  *
  * `SubscriptionRow.partners` only carries a subscription's own `partnerId`, which
- * the modern types never have — without this, every gateway-fed subscription
+ * the modern types never have - without this, every gateway-fed subscription
  * shows a dash where its partner should be.
  */
 export function useGatewayPartners(): Map<
@@ -132,7 +132,7 @@ export function useGatewayPartners(): Map<
   }, [apiGateways, busGateways]);
 }
 
-/** Live status for every subscription, keyed by id — shared by the gateway pages. */
+/** Live status for every subscription, keyed by id - shared by the gateway pages. */
 export function useSubscriptionRowsById(): Map<number, SubscriptionRow> {
   const rows =
     useQuery({
@@ -171,7 +171,7 @@ export function useRetryPolicyNames(): Map<number, string> {
 
 export function useWiredSubscriptionColumns<T>(
   subscriptionIdOf: (row: T) => number,
-  /** Off where the parent already fixes it — a bus gateway listens for one type. */
+  /** Off where the parent already fixes it - a bus gateway listens for one type. */
   { informationType = true }: { informationType?: boolean } = {},
 ): Column<T>[] {
   const rowsById = useSubscriptionRowsById();
@@ -191,7 +191,7 @@ export function useWiredSubscriptionColumns<T>(
       header: "Information type",
       cell: (row) => {
         const r = rowsById.get(subscriptionIdOf(row));
-        if (!r) return <span className="text-ink-500">—</span>;
+        if (!r) return <span className="text-ink-500">-</span>;
         return canSeeInfoTypes ? (
           <Link
             to={`/information-types/${r.informationTypeId}`}
@@ -213,7 +213,7 @@ export function useWiredSubscriptionColumns<T>(
       cell: (row) => {
         const id = setupById.get(subscriptionIdOf(row))?.workGroupId ?? null;
         // "Ungrouped", not "Default": a null WorkGroupId isn't the absence of a
-        // lane, it's `WorkGroup.None` — a real shared queue (`0Ungrouped`) that
+        // lane, it's `WorkGroup.None` - a real shared queue (`0Ungrouped`) that
         // every ungrouped subscription competes in. Matches the wording the
         // subscription page's work-group picker already uses.
         if (id === null)
@@ -224,7 +224,7 @@ export function useWiredSubscriptionColumns<T>(
             {name}
           </Link>
         ) : (
-          <span className="text-[13px] text-ink-500">—</span>
+          <span className="text-[13px] text-ink-500">-</span>
         );
       },
     },
@@ -240,7 +240,7 @@ export function useWiredSubscriptionColumns<T>(
             {name}
           </Link>
         ) : (
-          <span className="text-[13px] text-ink-500">—</span>
+          <span className="text-[13px] text-ink-500">-</span>
         );
       },
     },
@@ -248,7 +248,7 @@ export function useWiredSubscriptionColumns<T>(
       header: "Status",
       cell: (row) => {
         const r = rowsById.get(subscriptionIdOf(row));
-        if (!r) return <span className="text-ink-500">—</span>;
+        if (!r) return <span className="text-ink-500">-</span>;
         return (
           <span className="inline-flex items-center gap-1">
             <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
@@ -268,7 +268,7 @@ export function useWiredSubscriptionColumns<T>(
         return message ? (
           <ExceptionLine text={message} className="text-[12px] text-danger-700" />
         ) : (
-          <span className="text-ink-500">—</span>
+          <span className="text-ink-500">-</span>
         );
       },
     },

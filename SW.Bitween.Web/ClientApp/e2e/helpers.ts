@@ -5,7 +5,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./env";
 export const startsWith = (text: string) =>
   new RegExp("^" + text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
-/** Who the suite signs in as and where — read from the environment, see env.ts. */
+/** Who the suite signs in as and where - read from the environment, see env.ts. */
 export { ADMIN_EMAIL, ADMIN_PASSWORD, API } from "./env";
 
 /** Passwords the members these tests create are given. Both clear the 8-character minimum. */
@@ -22,14 +22,14 @@ export const ROTATED_PASSWORD = "R0tated!Pass2";
  * Choose an option from a SearchSelect, and leave the page interactive.
  *
  * SearchSelect is a Headless UI `Combobox` with `immediate`, so it opens its
- * listbox whenever the input takes focus — and Headless UI restores focus to
+ * listbox whenever the input takes focus - and Headless UI restores focus to
  * that input a few milliseconds after the list unmounts. So every close
  * schedules a reopen, and a test that moves on inside that window gets its
  * focus stolen and then wedged: an open listbox marks the rest of the page
  * `inert`, and an inert page can never be clicked to dismiss the listbox. The
  * failure reads as "<section> intercepts pointer events" and never recovers.
  *
- * A person never sees this — their next action is far slower than the restore,
+ * A person never sees this - their next action is far slower than the restore,
  * which is why the app behaves correctly by hand. This is the test catching up
  * with the UI, so it dismisses the list until it stays shut rather than
  * assuming one Escape is enough.
@@ -137,7 +137,7 @@ export async function deleteRole(page: Page, name: string) {
 /**
  * A Jwt for the signed-in page's own session, for specs that call the API directly. The app keeps
  * its Jwt in memory where a spec cannot reach it, so this asks the server for one with the refresh
- * cookie the page holds — the same thing a reload does.
+ * cookie the page holds - the same thing a reload does.
  */
 export async function sessionToken(page: Page): Promise<string> {
   return page.evaluate(async () => {

@@ -3,7 +3,7 @@ import { api } from "../../api";
 /**
  * The database catalog, as the adapter reports it.
  *
- * `Inspect` returns the adapter's own JSON as *text* — deliberately, because Bitween does not
+ * `Inspect` returns the adapter's own JSON as *text* - deliberately, because Bitween does not
  * model any provider's topology and a broker must be free to describe its own. That is right for
  * the raw panel and wrong for a browser, which has to group, count and drill into the answer. So
  * the parsing lives here, in one place, and everything above it works with real objects.
@@ -20,7 +20,7 @@ export interface DbColumn {
   clrType: string;
   nullable: boolean;
   primaryKey: boolean;
-  /** Identity, sequence-defaulted, GENERATED ALWAYS — anything the database fills in. */
+  /** Identity, sequence-defaulted, GENERATED ALWAYS - anything the database fills in. */
   generated: boolean;
   ordinal: number;
 }
@@ -57,7 +57,7 @@ export interface SchemaPage {
 export interface DbCapabilities {
   engine: string;
   serverVersion: string;
-  /** Which object types are worth offering as tabs — the engine decides, not the UI. */
+  /** Which object types are worth offering as tabs - the engine decides, not the UI. */
   supportedObjects: string[];
   schemaDiscovery: boolean;
   rowCountEstimates: boolean;
@@ -112,8 +112,8 @@ const parse = <T>(command: string, text: string | null): T => {
 };
 
 /**
- * `ran: false` is not an exception on the wire — it is the ordinary answer from a node that does
- * not hold the connection — but for a caller it is indistinguishable from a failure, and the
+ * `ran: false` is not an exception on the wire - it is the ordinary answer from a node that does
+ * not hold the connection - but for a caller it is indistinguishable from a failure, and the
  * adapter's own sentence explains it better than anything this layer could invent.
  */
 const ranOrThrow = (result: { ran: boolean; result: string | null; error: string | null }) => {
@@ -163,7 +163,7 @@ export async function fetchSchemaPage(
 
 /**
  * One object's detail. Asked for by exact name, because columns for every table at once is not a
- * menu — it is a download, and the adapter refuses to make it the default for that reason.
+ * menu - it is a download, and the adapter refuses to make it the default for that reason.
  *
  * `nameLike` is a contains match, so the answer can hold near-misses (`order` also finds
  * `order_line`); the exact name is picked out here rather than trusting the first row.
@@ -209,14 +209,14 @@ const QUOTED = /^[a-z_][a-z0-9_]*$/;
  * How to write this object's name in SQL.
  *
  * Anything that is not a plain lowercase identifier is quoted, because an unquoted mixed-case or
- * hyphenated name resolves to something else or to nothing — and a browser that generates SQL a
+ * hyphenated name resolves to something else or to nothing - and a browser that generates SQL a
  * user cannot run is worse than one that generates none.
  */
 export const qualify = (schema: string, name: string): string =>
   [schema, name].map((part) => (QUOTED.test(part) ? part : `"${part}"`)).join(".");
 
 /**
- * A starting statement for an object — the point of the browser, rather than a nicer way to read
+ * A starting statement for an object - the point of the browser, rather than a nicer way to read
  * the catalog.
  *
  * It is a starting point and not a finished query: no WHERE, because what to filter on is the one
@@ -232,7 +232,7 @@ export const draftStatementFor = (
 
   if (object.type === "procedure" || object.type === "function") {
     // Only what the caller supplies. An out parameter, a return value and a REF CURSOR are the
-    // routine's answer — binding them as inputs is how a generated call fails on first run.
+    // routine's answer - binding them as inputs is how a generated call fails on first run.
     const args = object.parameters
       .filter((p) => SUPPLIED.has(p.direction?.toLowerCase()))
       .map((p) => bind(p.name))
@@ -256,7 +256,7 @@ export const draftStatementFor = (
     ? [...object.columns].sort((a, b) => a.ordinal - b.ordinal).map((c) => c.name).join(", ")
     : "*";
 
-  // Three shapes, and they are not interchangeable — TOP goes before the columns, the other two
+  // Three shapes, and they are not interchangeable - TOP goes before the columns, the other two
   // after the query.
   if (dialect.limitStyle === "top")
     return `select top 100 ${columns}\n  from ${target}`;

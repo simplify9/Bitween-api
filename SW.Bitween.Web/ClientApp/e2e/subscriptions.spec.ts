@@ -21,11 +21,11 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await page.fill("#nj-name", name);
 
   // The information type is a searchable picker, and the stages below it are cards that open
-  // in place — there is no wizard to "Continue" through any more.
+  // in place - there is no wizard to "Continue" through any more.
   await pickOption(page, "Information type", new RegExp(SEED.informationType));
   await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(new RegExp(SEED.informationType));
 
-  // Source — open by default. Receiver adapter plus its one required prop.
+  // Source - open by default. Receiver adapter plus its one required prop.
   await pickOption(page, "receiver adapter", "NativeHttpReceiver");
   await expect(page.getByRole("combobox", { name: "receiver adapter" })).toHaveValue(RECEIVER_LABEL);
   await page.locator("#prop-Url").fill("https://example.com/feed");
@@ -35,7 +35,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // keeps #prop-Url unambiguous below.
   await page.getByRole("button", { name: "Close this step" }).click();
 
-  // Delivery — handler adapter and its required prop (transformation stays "Passes through").
+  // Delivery - handler adapter and its required prop (transformation stays "Passes through").
   // Only one stage is open at a time, so #prop-Url is unambiguous here.
   await page.getByRole("button", { name: /^Delivery/ }).click();
   await pickOption(page, "handler adapter", "NativeHttpHandler");
@@ -48,7 +48,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
 
   await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
   await expect(page.getByRole("heading", { name })).toBeVisible();
-  // A badge now, not a button — the switch that turns it off lives with Pause on the right.
+  // A badge now, not a button - the switch that turns it off lives with Pause on the right.
   await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
 
   // Disable / enable. Distinct from pause below: this one drops the work rather than holding it,
@@ -97,7 +97,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await expect(delivery).toContainText(HANDLER_LABEL);
   await expect(delivery).toContainText("https://example.com/sink");
 
-  // Narrow by type — the supported filter — so the row can't be paged out of sight. Deliberately
+  // Narrow by type - the supported filter - so the row can't be paged out of sight. Deliberately
   // not the search box: a multi-word term is encoded with "+" and the backend never decodes it,
   // so searching any name containing a space returns nothing (pre-existing, see notes).
   await page.goto("subscriptions?type=Receiving");
@@ -106,7 +106,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await expect(row.getByText("undefined")).toHaveCount(0);
 
   // The name, not the row's centre. The whole row opens the subscription, but it also
-  // carries links of its own — information type, partner — and which one sits under the
+  // carries links of its own - information type, partner - and which one sits under the
   // centre depends on how wide the columns happen to be.
   await row.getByText(name).click();
   await expect(page).toHaveURL(SUBSCRIPTION_PAGE);

@@ -33,7 +33,7 @@ public readonly record struct RetryBudgetClaim(bool Granted, bool JustExhausted)
 /// </summary>
 /// <remarks>
 /// The total is a ceiling shared by every message that hits the group, so the count cannot
-/// live on the message being evaluated — it needs a store that outlives a single xchange.
+/// live on the message being evaluated - it needs a store that outlives a single xchange.
 /// The implementation decides the scope: the production one keys by integration + group and
 /// persists, while <see cref="InMemoryRetryGroupBudget"/> counts only for one dry-run.
 /// </remarks>

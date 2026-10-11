@@ -279,7 +279,7 @@ public class RetryPolicyEvaluatorTests
     {
         var policy = PolicyWith(BadResultGroup("bad", new JsonPathMatcher { Path = "$.retryable", Op = JsonPathOp.Exists }));
         var ev = Evaluator(policy);
-        // Group is for BadResult only — must be skipped for Error
+        // Group is for BadResult only - must be skipped for Error
         var decision = await ev.Evaluate(XchangeResultType.Error, "some exception", 0);
         Assert.IsFalse(decision.ShouldRetry);
     }
@@ -297,7 +297,7 @@ public class RetryPolicyEvaluatorTests
     [TestMethod]
     public async Task Evaluator_ContainsMatcher_MatchesNonJsonBadResultBody()
     {
-        // A 4xx body need not be JSON — text matchers are the only way to reach these.
+        // A 4xx body need not be JSON - text matchers are the only way to reach these.
         var policy = PolicyWith(BadResultGroup("bad", new ContainsMatcher { Value = "rate limit" }));
         var ev = Evaluator(policy);
         var decision = await ev.Evaluate(XchangeResultType.BadResult, "<html><body>Rate limit exceeded</body></html>", 0);
@@ -316,7 +316,7 @@ public class RetryPolicyEvaluatorTests
     [TestMethod]
     public async Task Evaluator_ExceptionTypeMatcher_SkippedForBadResult()
     {
-        // Exception type names are meaningless against a response body — stays Error-only.
+        // Exception type names are meaningless against a response body - stays Error-only.
         var policy = PolicyWith(BadResultGroup("bad", new ExceptionTypeMatcher { Value = "System.TimeoutException" }));
         var ev = Evaluator(policy);
         var decision = await ev.Evaluate(XchangeResultType.BadResult, "System.TimeoutException in body", 0);
@@ -372,7 +372,7 @@ public class RetryPolicyEvaluatorTests
         Assert.AreEqual("disk", decision.MatchedGroupName);
     }
 
-    // ─── Evaluator: budget — MaxAttemptsPerError ─────────────────────────────────
+    // ─── Evaluator: budget - MaxAttemptsPerError ─────────────────────────────────
 
     [TestMethod]
     public async Task Evaluator_MaxAttemptsPerError_BlocksAfterCap()
@@ -385,7 +385,7 @@ public class RetryPolicyEvaluatorTests
         Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 2)).ShouldRetry); // cap = 2
     }
 
-    // ─── Evaluator: budget — MaxAttemptsTotal ────────────────────────────────────
+    // ─── Evaluator: budget - MaxAttemptsTotal ────────────────────────────────────
 
     [TestMethod]
     public async Task Evaluator_MaxAttemptsTotal_BlocksAfterGroupCap()

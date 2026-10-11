@@ -35,7 +35,7 @@ internal static class AdapterInstaller
                 await fileStream.CopyToAsync(entryStream);
             }
 
-            // Files a test adds to the package — an adapter.json, typically.
+            // Files a test adds to the package - an adapter.json, typically.
             foreach (var (name, content) in extraFiles ?? new Dictionary<string, string>())
             {
                 var entry = archive.CreateEntry(name);

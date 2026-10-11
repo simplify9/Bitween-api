@@ -31,25 +31,25 @@ import type { PermissionKey } from "./api";
  * Every page of the app, declared once.
  *
  * The router, the sidebar, the breadcrumbs, the tab title, the role editor's access preview and
- * the command palette all read this. A page used to be described in three places — its route and
+ * the command palette all read this. A page used to be described in three places - its route and
  * guard in the router, its sidebar entry in nav.ts with the same permission again, and its
- * full-bleed layout in a list in the shell — and nothing kept them in step.
+ * full-bleed layout in a list in the shell - and nothing kept them in step.
  *
  * No components here, so anything can import it without pulling in a page: the router pairs each
  * id with its component (src/router.tsx), and a page without one doesn't compile.
  *
  * Adding a page:
- * 1. Declare it below — `nav` for a sidebar entry, `parent` for where its breadcrumb leads.
+ * 1. Declare it below - `nav` for a sidebar entry, `parent` for where its breadcrumb leads.
  * 2. Give it its component in `PAGE_ELEMENTS` (src/router.tsx); lazy-load it in routePages.tsx.
  * 3. A page about one thing names it: `usePageTitle(thing.name)`.
- * 4. A list page builds on useListParams (lib/listParams), SearchBox and ListBody — see
+ * 4. A list page builds on useListParams (lib/listParams), SearchBox and ListBody - see
  *    RetryPoliciesPage for the whole of one.
  */
 
 export type NavGroupId = "operate" | "subscriptions" | "configuration" | "administration";
 
 export interface PageDef<Id extends string = string> {
-  /** "subscriptions/:id" — relative to the app root, as the router takes it. */
+  /** "subscriptions/:id" - relative to the app root, as the router takes it. */
   path: string;
   /** What the page is called: its tab title, its breadcrumb, its sidebar label. */
   title: string;
@@ -112,7 +112,7 @@ export const PAGES = definePages({
   },
 
   // ── Subscriptions ──
-  // Entry points — how a document gets in — then the pipelines it runs through, then the whole
+  // Entry points - how a document gets in - then the pipelines it runs through, then the whole
   // list, then who it's with. The heading names the area, not the entity: a gateway is not itself
   // a subscription.
   apiGateways: {
@@ -259,7 +259,7 @@ export const PAGES = definePages({
   partner: { path: "partners/:id", title: "Partner", permission: "partners.view", parent: "partners" },
 
   // ── Configuration ──
-  // First in Configuration: a data source is a connection to something outside Bitween — a broker
+  // First in Configuration: a data source is a connection to something outside Bitween - a broker
   // feeding a gateway, or a database a subscription runs statements against.
   dataSources: {
     path: "data-sources",
@@ -293,8 +293,8 @@ export const PAGES = definePages({
     permission: "documents.view",
     parent: "informationTypes",
   },
-  // What subscriptions are built from — receivers, validators, mappers and handlers, built in or
-  // published — with their versions and who uses them.
+  // What subscriptions are built from - receivers, validators, mappers and handlers, built in or
+  // published - with their versions and who uses them.
   adapters: {
     path: "adapters",
     title: "Adapters",

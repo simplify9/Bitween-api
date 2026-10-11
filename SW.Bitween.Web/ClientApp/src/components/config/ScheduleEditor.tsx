@@ -63,7 +63,7 @@ function ScheduleDialog({
             </Field>
           )}
           {draft.recurrence === "Monthly" && (
-            <Field label="On day" htmlFor="sc-dom" hint="1–27, so it exists in every month.">
+            <Field label="On day" htmlFor="sc-dom" hint="1-27, so it exists in every month.">
               <TextInput
                 id="sc-dom"
                 type="number"
@@ -137,7 +137,7 @@ export function ScheduleEditor({
     <div>
       {schedules.length === 0 ? (
         <p className="pb-2 text-sm text-ink-500">
-          No schedule yet — this never runs on its own.
+          No schedule yet - this never runs on its own.
         </p>
       ) : (
         <ul className="space-y-1.5">

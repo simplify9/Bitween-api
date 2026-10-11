@@ -14,12 +14,12 @@ test("information type Code is optional end to end", async ({ page }) => {
 
   const dialog = page.getByRole("dialog", { name: "New information type" });
   await dialog.getByRole("textbox", { name: "Name" }).fill(name);
-  // Code starts empty and stays optional — nothing to clear, and it doesn't block creating.
+  // Code starts empty and stays optional - nothing to clear, and it doesn't block creating.
   await expect(dialog.getByRole("textbox", { name: "Code" })).toHaveValue("");
 
   await dialog.getByRole("button", { name: "Create information type" }).click();
 
-  // Should navigate straight to the detail page — no validation block on empty code.
+  // Should navigate straight to the detail page - no validation block on empty code.
   await expect(page).toHaveURL(/\/information-types\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
   await expect(page.locator("#it-code")).toHaveValue("");

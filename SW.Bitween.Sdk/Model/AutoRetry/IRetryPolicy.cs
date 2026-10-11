@@ -50,6 +50,6 @@ public enum RetryAction
     /// <summary>Schedule a retry according to the group's <see cref="RetryBudget"/>.</summary>
     Allow,
 
-    /// <summary>Hard-block this error — no retry even if a budget would otherwise allow it.</summary>
+    /// <summary>Hard-block this error - no retry even if a budget would otherwise allow it.</summary>
     Block,
 }

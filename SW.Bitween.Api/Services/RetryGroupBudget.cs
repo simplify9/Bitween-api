@@ -29,7 +29,7 @@ public class RetryGroupBudget(
     /// Because it commits on its own rather than with the caller's <c>SaveChangesAsync</c>, a slot
     /// can be charged for a retry that is never scheduled if that later save fails. That errs
     /// toward retrying less than the cap allows, and <c>RetryPolicies/resetusage</c> can return it.
-    /// The alternative — an explicit transaction spanning the caller's save — would publish this
+    /// The alternative - an explicit transaction spanning the caller's save - would publish this
     /// xchange's bus events before the commit, since BitweenDbContext dispatches domain events
     /// inside SaveChangesAsync.
     /// </para>
@@ -37,7 +37,7 @@ public class RetryGroupBudget(
     public async Task<RetryBudgetClaim> TryConsume(Guid groupId, int maxAttemptsTotal)
     {
         // A group configured to allow no retries at all has no budget to exhaust, so it never
-        // alerts — otherwise every single failure under it would raise one.
+        // alerts - otherwise every single failure under it would raise one.
         if (maxAttemptsTotal <= 0) return RetryBudgetClaim.Denied;
 
         if (await TryIncrement(dbContext, groupId, maxAttemptsTotal)) return RetryBudgetClaim.Allowed;
@@ -70,7 +70,7 @@ public class RetryGroupBudget(
         catch (DbUpdateException)
         {
             // The winner of the insert race already holds a row, so this is the ordinary
-            // increment path again — including the case where their row is already full.
+            // increment path again - including the case where their row is already full.
             return await TryIncrement(dbContext, groupId, maxAttemptsTotal)
                 ? RetryBudgetClaim.Allowed
                 : await ClaimExhaustionAlert(groupId, maxAttemptsTotal);
@@ -84,14 +84,14 @@ public class RetryGroupBudget(
     /// <para>
     /// An exhausted total is a statement about a downstream that was failing, and one success says
     /// that is no longer true. Nothing else can say it: an exhausted group schedules no further
-    /// retries, so no retry will ever succeed to report the recovery — only ordinary traffic getting
+    /// retries, so no retry will ever succeed to report the recovery - only ordinary traffic getting
     /// through can. Without this, one bad afternoon stops retrying for good until somebody notices
     /// and resets it by hand.
     /// </para>
     /// <para>
     /// <strong>Only budgets that are actually used up.</strong> A partly-spent total is left alone.
     /// The cap exists to stop a flaky downstream being hammered, and that is precisely a downstream
-    /// where some messages succeed and others fail — crediting the total back on every ordinary
+    /// where some messages succeed and others fail - crediting the total back on every ordinary
     /// success would mean such a subscription never reaches its cap at all.
     /// </para>
     /// <para>
@@ -125,7 +125,7 @@ public class RetryGroupBudget(
         if (policy?.Groups == null) return 0;
 
         // A group whose total is gone from the policy is left to Update and Delete to clean up, which
-        // they already do — releasing it here would be guessing at a cap that no longer exists.
+        // they already do - releasing it here would be guessing at a cap that no longer exists.
         var exhausted = spent
             .Where(u => policy.Groups.Any(g => g.Id == u.GroupId
                                                && g.Budget is { MaxAttemptsTotal: > 0 }
@@ -147,7 +147,7 @@ public class RetryGroupBudget(
     /// <remarks>
     /// One conditional UPDATE for the same reason the increment is one: several instances can
     /// discover the empty budget at the same moment, and a read-then-write would let each of them
-    /// decide it was the first. Exactly one caller updates a row, so exactly one alert is raised —
+    /// decide it was the first. Exactly one caller updates a row, so exactly one alert is raised -
     /// and because Reset deletes the row outright, clearing a budget re-arms the alert with it.
     /// </remarks>
     private async Task<RetryBudgetClaim> ClaimExhaustionAlert(Guid groupId, int maxAttemptsTotal)

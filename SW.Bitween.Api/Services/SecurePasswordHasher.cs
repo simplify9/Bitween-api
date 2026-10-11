@@ -43,7 +43,7 @@ namespace SW.Bitween
             var hash = Rfc2898DeriveBytes.Pbkdf2(
                 password, salt, iterations, HashAlgorithmName.SHA256, V2HashSize);
 
-            // Salt first, then hash — Verify reads them back by the same offsets.
+            // Salt first, then hash - Verify reads them back by the same offsets.
             var hashBytes = new byte[SaltSize + V2HashSize];
             salt.CopyTo(hashBytes, 0);
             hash.CopyTo(hashBytes, SaltSize);

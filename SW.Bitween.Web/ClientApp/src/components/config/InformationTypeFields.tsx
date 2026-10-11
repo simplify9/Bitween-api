@@ -19,7 +19,7 @@ import { hasPromotedRows } from "./informationTypeDraft";
  * Everything about an information type that can be edited, as one component.
  *
  * Shared by the type's own page and by the dialog any picker opens, so the two
- * cannot drift. Read-only context — used-by, exchanges, history — stays on the
+ * cannot drift. Read-only context - used-by, exchanges, history - stays on the
  * page, which is the only place with room for it.
  */
 export interface InformationTypeDraft {
@@ -170,7 +170,7 @@ export function InformationTypeFields({
               label="Available on the message bus"
               description={
                 busRequired ? (
-                  "Required here — what you are configuring reaches this type over the bus."
+                  "Required here - what you are configuring reaches this type over the bus."
                 ) : !storedName ? (
                   "Lets bus gateways listen for this type."
                 ) : draft.busEnabled ? (
@@ -209,7 +209,7 @@ export function InformationTypeFields({
                     value={draft.busMessageTypeName}
                     disabled={!canEdit}
                     // Kept as typed. It used to strip whitespace on the way in, so a
-                    // pasted "my message" turned into "mymessage" with nothing said —
+                    // pasted "my message" turned into "mymessage" with nothing said -
                     // the same rule the response field states out loud.
                     onChange={(e) => set("busMessageTypeName", e.target.value)}
                     className="font-mono"
@@ -239,7 +239,7 @@ export function InformationTypeFields({
           title="Promoted properties"
           description={`Values pulled out of each payload by ${
             draft.format === "Json" ? "JSON path" : "XML path"
-          } — routes and filters match on them. They're shown in this order on the Exchanges page; drag to change it. Point them at short values, such as an order number: a value longer than 500 characters is stored cut.`}
+          } - routes and filters match on them. They're shown in this order on the Exchanges page; drag to change it. Point them at short values, such as an order number: a value longer than 500 characters is stored cut.`}
         >
           <KeyValueEditor
             rows={draft.promotedProperties}
@@ -257,20 +257,20 @@ export function InformationTypeFields({
             keyPlaceholder="OrderNumber"
             valuePlaceholder={draft.format === "Xml" ? "//Order/Number" : "$.order.id"}
             editable={canEdit}
-            emptyText="No promoted properties — routes can only match on the whole payload."
+            emptyText="No promoted properties - routes can only match on the whole payload."
           />
         </Panel>
       ) : (
         <Panel
           title="Promoted properties"
-          description={`None — ${formatLabel(draft.format)} content isn't read, so there is nothing to pull values from.`}
+          description={`None - ${formatLabel(draft.format)} content isn't read, so there is nothing to pull values from.`}
         >
           {/* Only reachable by switching a type that still promotes something, which the server
               refuses to save. */}
           {hasPromotedRows(draft) && (
             <div className="flex flex-wrap items-center gap-3">
               <p role="alert" className="text-[13px] text-danger-700">
-                Still promotes {draft.promotedProperties.map((r) => r.key.trim() || r.value.trim()).join(", ")} —{" "}
+                Still promotes {draft.promotedProperties.map((r) => r.key.trim() || r.value.trim()).join(", ")} -{" "}
                 {formatLabel(draft.format)} types can't have promoted properties.
               </p>
               {canEdit && (
@@ -310,7 +310,7 @@ export function InformationTypeFields({
           <Panel title="Schema" description={`${formatLabel(draft.format)} content isn't read, so it can't be checked.`}>
             <div className="flex flex-wrap items-center gap-3">
               <p role="alert" className="text-[13px] text-danger-700">
-                Still has a schema — {formatLabel(draft.format)} types can't have one.
+                Still has a schema - {formatLabel(draft.format)} types can't have one.
               </p>
               {canEdit && (
                 <Button size="sm" onClick={() => set("validationSchema", "")}>

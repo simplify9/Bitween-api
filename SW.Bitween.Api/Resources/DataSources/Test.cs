@@ -34,13 +34,13 @@ public class Test(BitweenDbContext dbContext, RequestContext requestContext, Bit
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.DataSources.Operate);
 
-        // The host is registered on every node — Python and Node adapters run on it — but data
+        // The host is registered on every node - Python and Node adapters run on it - but data
         // sources connect only where BusProvidersEnabled turns them on, so say which switch is off.
         // It is named for brokers because it predates database sources, so the message says what
         // it now gates rather than repeating a name that means nothing to someone configuring PostgreSQL.
         if (adapters == null || !bitweenOptions.BusProvidersEnabled)
             return Failed("Resident data source providers are turned off on this node, so nothing "
-                          + "can connect from here. Turn on Bitween:BusProvidersEnabled — the "
+                          + "can connect from here. Turn on Bitween:BusProvidersEnabled - the "
                           + "switch is older than database sources and still carries the bus name.");
 
         var dataSource = await dbContext.Set<DataSource>().AsNoTracking()
@@ -65,7 +65,7 @@ public class Test(BitweenDbContext dbContext, RequestContext requestContext, Bit
         startupValues["Consume"] = "false";
 
         // Composed here as well as in the supervisor, because statements are rows rather than a
-        // property on the data source — and without this the test quietly stopped covering them.
+        // property on the data source - and without this the test quietly stopped covering them.
         // Preparing every statement against the live schema is most of what the button is FOR: it
         // is where a typo or a dropped column is caught, and a test that silently checks nothing
         // still reports success.
@@ -100,7 +100,7 @@ public class Test(BitweenDbContext dbContext, RequestContext requestContext, Bit
             // A broker that cannot be reached throws on start, before any stage runs. That is a
             // result, not a server error: the operator asked whether it works, and it does not.
             //
-            // What Bitween observes in that case is only "Adapter stream closed" — true, and no
+            // What Bitween observes in that case is only "Adapter stream closed" - true, and no
             // use at all. The adapter printed the actual reason before it died, so that is what
             // this answers with; without it, the one control meant to save reading a log is the
             // control that sends you to read one.

@@ -15,7 +15,7 @@ namespace SW.Bitween.Resources.Ops;
 
 /// <summary>
 /// Bitween's queues as the broker has them, through the RabbitMQ management API: the ones
-/// nothing reads any more, and deleting a lane — a main queue with its retry and bad queues.
+/// nothing reads any more, and deleting a lane - a main queue with its retry and bad queues.
 /// </summary>
 public class BrokerQueues(IBusDashboardDataService dashboardDataService,
     BusOptions busOptions,

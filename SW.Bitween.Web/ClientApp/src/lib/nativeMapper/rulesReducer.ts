@@ -111,7 +111,7 @@ export type RulesEditorAction =
 // ─── Finding a rule ───────────────────────────────────────────────────────────
 //
 // Rules are addressed by id rather than by a path of indices. Lists nest, so an
-// index path would have to be rebuilt every time a row moved — which is the kind
+// index path would have to be rebuilt every time a row moved - which is the kind
 // of bookkeeping the old model needed three recursive helpers for.
 
 /**
@@ -155,7 +155,7 @@ function allEntries(
 /**
  * The container with this id, or the mapping itself for null.
  *
- * Undefined means the id names nothing — a container removed while something still
+ * Undefined means the id names nothing - a container removed while something still
  * referred to it, which is a miss rather than a reason to write into the wrong place.
  */
 function findContainer(rules: EditorRules, id: RuleId | null): RuleContainer | undefined {
@@ -295,7 +295,7 @@ export function rulesEditorReducer(
         else draft.rules.targetCsv = action.options;
         break;
 
-      // Samples are an editor convenience — runtime never reads them — so changing
+      // Samples are an editor convenience - runtime never reads them - so changing
       // one is not a change to the mapping and does not go on the undo stack.
       case "SET_SOURCE_SAMPLE":
         draft.sourceSample = action.text;
@@ -417,7 +417,7 @@ export function rulesEditorReducer(
         if (found.where === "after") owner.after = owner.after.filter((e) => e.id !== action.id);
         else owner.fixed = owner.fixed.filter((e) => e.id !== action.id);
         // A list that walks nothing is exactly the entries written into it, so with the
-        // last one gone there is nothing left to say it holds values — and leaving the
+        // last one gone there is nothing left to say it holds values - and leaving the
         // mark on would mean the list could never be built out of records instead.
         if (owner.over === undefined && owner.fixed.length === 0 && owner.after.length === 0)
           owner.item = undefined;
@@ -452,7 +452,7 @@ export function rulesEditorReducer(
 
       // A document is either an object with fields in it or a bare array, so turning
       // the root into a list puts the field and list rules aside rather than trying to
-      // keep both — and turning it off brings them back.
+      // keep both - and turning it off brings them back.
       case "SET_ROOT_LIST":
         if (action.enabled && !draft.rules.root) draft.rules.root = emptyListRule();
         else if (!action.enabled) draft.rules.root = undefined;

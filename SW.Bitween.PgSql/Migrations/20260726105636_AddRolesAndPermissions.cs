@@ -88,7 +88,7 @@ namespace SW.Bitween.PgSql.Migrations
 
             // Every existing account keeps exactly the access it had: its coarse AccountRole
             // (Admin=0, Viewer=10, Member=20) becomes the matching built-in role. Anything
-            // unrecognised lands on Viewer — least privilege. Idempotent, so re-running or
+            // unrecognised lands on Viewer - least privilege. Idempotent, so re-running or
             // ordering against the seeded admin account can't produce duplicates.
             migrationBuilder.Sql("""
                 INSERT INTO infolink."AccountRoles" (account_id, role_id)

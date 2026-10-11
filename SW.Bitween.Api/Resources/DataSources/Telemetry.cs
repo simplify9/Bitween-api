@@ -14,7 +14,7 @@ namespace SW.Bitween.Resources.DataSources;
 ///
 /// The data source row carries a summary written back on the reconcile loop, which is up to thirty
 /// seconds old and deliberately small. This reads the heartbeat directly, so an operator watching a
-/// queue drain sees it drain — and gets the two things the row has never carried: the per-queue
+/// queue drain sees it drain - and gets the two things the row has never carried: the per-queue
 /// depths the adapter can see, and the host-observed process figures that keep working when the
 /// adapter is wedged and reporting nothing at all.
 ///

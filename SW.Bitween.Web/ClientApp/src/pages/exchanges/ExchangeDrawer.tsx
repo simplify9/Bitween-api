@@ -53,14 +53,14 @@ const MAX_PREVIEW_CHARS = 256 * 1024;
  * Worth its own component because getting it wrong took the whole page with it:
  * the drawer sits in a `<td colSpan>` of an auto-layout table, so the cell sizes
  * to its content and one 4KB line of minified JSON set the width of every row on
- * the page. `overflow-auto` never stood a chance — there was no width for it to
+ * the page. `overflow-auto` never stood a chance - there was no width for it to
  * overflow. Wrapping is the fix, and laying the payload out is what makes the
  * wrapped result worth reading; `wrap-anywhere` rather than `break-words`
  * because only the former shrinks the cell's intrinsic width, which is the
  * number the table was sizing itself from.
  *
  * Copy and download always carry the payload exactly as it arrived, never the
- * laid-out version — what people paste into a ticket has to be the bytes.
+ * laid-out version - what people paste into a ticket has to be the bytes.
  */
 function DocumentPreview({
   name,
@@ -76,7 +76,7 @@ function DocumentPreview({
   loading: boolean;
   errored: boolean;
   /**
-   * The server's reason, when it gave one — above all a file the bucket's retention rule has
+   * The server's reason, when it gave one - above all a file the bucket's retention rule has
    * already deleted, which is expected rather than a fault and says so.
    */
   errorMessage?: string | null;
@@ -137,7 +137,7 @@ function DocumentPreview({
           </div>
         )}
       </div>
-      {/* Coloured only where the document is known to be the format it looks like —
+      {/* Coloured only where the document is known to be the format it looks like -
           `formatted` exists because it parsed. Raw is the bytes as they arrived and
           gets no colour, which is the point of asking for it; so does a payload that
           would not parse, where colouring the parts a grammar still recognises would
@@ -150,7 +150,7 @@ function DocumentPreview({
       />
       {clipped && (
         <p className="border-t border-white/10 px-3 py-1.5 text-[11px] text-ink-400">
-          Showing the first 256 KB — download the document to read the rest.
+          Showing the first 256 KB - download the document to read the rest.
         </p>
       )}
     </div>
@@ -170,7 +170,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   const stages = journeyStages(x);
   const canOperate = useSessionCan("exchanges.operate");
   const queryClient = useQueryClient();
-  // An aggregation's exchange is the roll-up — its payload is the list of links to
+  // An aggregation's exchange is the roll-up - its payload is the list of links to
   // everything it collected, so it is the one exchange worth offering that drill from.
   const isRollUp =
     useSubscriptionsCache().data?.find((i) => i.id === x.subscriptionId)?.type === "Aggregation";
@@ -200,7 +200,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       !(error instanceof ApiRequestError && GONE_FOR_GOOD.has(error.code)) && failures < 3,
   });
 
-  // The same query the chain below reads, so asking here costs nothing extra — and only asked
+  // The same query the chain below reads, so asking here costs nothing extra - and only asked
   // for at all when the row says there is a chain to read.
   const { data: chain } = useQuery({ ...retryTreeQuery(x.id), enabled: hasRetryChain(x) });
   const newest = chain ? newestAttempt(chain, x.id) : null;
@@ -236,7 +236,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
 
   return (
     <div className="space-y-4 border-l-2 border-ink-100 py-1 pl-4">
-      {/* — journey — */}
+      {/* - journey - */}
       <div className="flex flex-wrap items-stretch gap-1.5">
         {stages.map((s, i) => {
           const tone = STAGE_TONES[s.state];
@@ -274,7 +274,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         })}
       </div>
 
-      {/* — active stage document — */}
+      {/* - active stage document - */}
       {activeKey && (
         <DocumentPreview
           name={files[stage]?.name ?? "document"}
@@ -286,13 +286,13 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         />
       )}
 
-      {/* — failure — */}
+      {/* - failure - */}
       {x.exception && <ExceptionBlock text={x.exception} />}
 
-      {/* — the attempts this exchange belongs to, when it belongs to any — */}
+      {/* - the attempts this exchange belongs to, when it belongs to any - */}
       {hasRetryChain(x) && <RetryChain id={x.id} />}
 
-      {/* — metadata — */}
+      {/* - metadata - */}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
         {/* The id lives here rather than in the row: it identifies a record you
             have already found, so it earns its place next to the other
@@ -331,7 +331,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               <CopyButton value={x.correlationId} label="correlation id" />
             </span>
           ) : (
-            <span className="text-ink-500">—</span>
+            <span className="text-ink-500">-</span>
           )}
         </MetaItem>
         <MetaItem label="Related">
@@ -345,7 +345,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         {isRollUp && (
           <MetaItem label="Rolled up">
             {/* The Id filter matches AggregationXchangeId as well as Id, so this one
-                link is already the list of everything collected into this exchange —
+                link is already the list of everything collected into this exchange -
                 what was missing was anything saying so from the roll-up's own side. */}
             <Link
               to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
@@ -392,11 +392,11 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           <MetaItem label="Source values">
             <span
               className="flex flex-wrap gap-1"
-              title="Read from the original document (the input of the exchange above), by path, when this exchange was created — what {{source.…}} and Original mapping rules use"
+              title="Read from the original document (the input of the exchange above), by path, when this exchange was created - what {{source.…}} and Original mapping rules use"
             >
               {Object.entries(x.sourceValues).map(([k, v]) => (
                 <code key={k} className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
-                  {k}={v ?? "—"}
+                  {k}={v ?? "-"}
                 </code>
               ))}
             </span>
@@ -404,12 +404,12 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         )}
       </dl>
 
-      {/* — actions — */}
+      {/* - actions - */}
       {canOperate && (
         <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
           {startedId ? (
             <p className="text-[13px] text-ok-600">
-              ✓ Retry started{startedId !== "scheduled" && <> — new exchange is at the top of the list</>}
+              ✓ Retry started{startedId !== "scheduled" && <> - new exchange is at the top of the list</>}
             </p>
           ) : x.scheduledRetryOn ? (
             <>

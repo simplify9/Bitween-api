@@ -16,8 +16,8 @@ namespace SW.Bitween.NativeAdapters.SmtpHandler;
 /// Sends the payload as an email, with the subject and body written as templates over it.
 /// </summary>
 /// <remarks>
-/// Built for cases where the recipient is a person rather than a system — a retry budget running
-/// out, a notifier on a failed exchange — which is why the subject and body are templated instead
+/// Built for cases where the recipient is a person rather than a system - a retry budget running
+/// out, a notifier on a failed exchange - which is why the subject and body are templated instead
 /// of the payload being emailed raw. A JSON blob in an inbox tells nobody anything.
 /// </remarks>
 public class NativeSmtpHandler : INativeInfolinkHandler
@@ -56,7 +56,7 @@ public class NativeSmtpHandler : INativeInfolinkHandler
         // What the callback softens is the other outcome: the lookup needs the CA's OCSP or CRL server
         // to be reachable, which the corporate networks Bitween runs inside routinely block, and
         // MailKit's default treats "could not find out" exactly like "revoked". That rejected a
-        // perfectly good Gmail certificate — one OpenSSL accepts on the same machine — and the alert
+        // perfectly good Gmail certificate - one OpenSSL accepts on the same machine - and the alert
         // never went out. Soft-failing an undeterminable status is what browsers and mail clients do;
         // every other defect, revocation included, still fails.
         client.CheckCertificateRevocation = true;
@@ -65,7 +65,7 @@ public class NativeSmtpHandler : INativeInfolinkHandler
                 chain?.ChainStatus.Select(s => s.Status) ?? Enumerable.Empty<X509ChainStatusFlags>());
 
         // Named rather than left to Auto: on any port but 465, Auto means "encrypt if the server
-        // offers it", so a server that does not offer STARTTLS — or an offer stripped in transit —
+        // offers it", so a server that does not offer STARTTLS - or an offer stripped in transit -
         // silently continues in the clear. StartTls demands it and fails if it is not there. 465 is
         // the implicit-TLS port, where the handshake happens before any of that is negotiable.
         var security = _options.UseTls
@@ -108,7 +108,7 @@ public class NativeSmtpHandler : INativeInfolinkHandler
     /// Renders a template against the payload, or returns it unchanged when the payload is not JSON.
     /// </summary>
     /// <remarks>
-    /// Non-JSON payloads are normal for a pipeline handler — a CSV or a flat file on its way out —
+    /// Non-JSON payloads are normal for a pipeline handler - a CSV or a flat file on its way out -
     /// and those have no fields to substitute. A broken template still throws, so a typo in a
     /// placeholder is not quietly emailed as literal text.
     /// </remarks>
@@ -125,7 +125,7 @@ public class NativeSmtpHandler : INativeInfolinkHandler
     /// <remarks>
     /// Only one defect is tolerated: a revocation status that could not be established, because the
     /// CA's OCSP or CRL server was unreachable. A certificate the CA has revoked, an untrusted root,
-    /// a wrong hostname and an expired certificate are all still refused — as is any chain flag not
+    /// a wrong hostname and an expired certificate are all still refused - as is any chain flag not
     /// named here, so a defect nobody thought about fails closed rather than slipping through.
     /// </remarks>
     internal static bool IsCertificateAcceptable(SslPolicyErrors errors,

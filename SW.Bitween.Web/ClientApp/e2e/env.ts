@@ -20,7 +20,7 @@ export const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "Mtm@dmin!2";
 
 /**
  * The broker's management API, which the queue health specs use to put messages where only a
- * failure in production would — a dead letter, a queue nothing reads. tools/e2e.sh sets the URL.
+ * failure in production would - a dead letter, a queue nothing reads. tools/e2e.sh sets the URL.
  */
 export const E2E_RABBITMQ_MANAGEMENT = {
   url: (process.env.E2E_MQ_MGMT_URL ?? "http://localhost:55673").replace(/\/$/, ""),

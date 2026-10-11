@@ -12,11 +12,11 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// A resident adapter used where a CLASSIC one is expected — as a subscription's handler, mapper,
+/// A resident adapter used where a CLASSIC one is expected - as a subscription's handler, mapper,
 /// receiver or validator.
 ///
 /// The two lifecycles are installed identically: same zip, same cloud key, same metadata bag. What
-/// differs is the entry point — Runner.Run speaks the classic stdin/stdout protocol, while
+/// differs is the entry point - Runner.Run speaks the classic stdin/stdout protocol, while
 /// Runner.RunResident dials back over a socket and waits for the resident host. Nothing in the
 /// adapter catalog or the invoke path looks at which one an adapter uses, so the question these
 /// tests answer is what an operator actually gets when they pick one from the dropdown.
@@ -24,7 +24,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 [Collection("Bitween")]
 public class ResidentAsPipelineAdapterTests(BitweenFixture fixture)
 {
-    // The catalog lists by key prefix — infolink6.{handlers|mappers|receivers|validators} — so an
+    // The catalog lists by key prefix - infolink6.{handlers|mappers|receivers|validators} - so an
     // adapter has to be installed under one of those to be selectable at all.
     private const string ResidentHandlerId = "infolink6.handlers.residenttest";
     private const string ClassicHandlerId = "infolink6.handlers.classictest";
@@ -61,13 +61,13 @@ public class ResidentAsPipelineAdapterTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// And here is the problem. The dropdown offers it, and asking for its startup values — which
-    /// is how the UI builds the properties form — goes down the classic path: spawn the process,
+    /// And here is the problem. The dropdown offers it, and asking for its startup values - which
+    /// is how the UI builds the properties form - goes down the classic path: spawn the process,
     /// talk stdin/stdout, wait. A resident adapter is not listening on stdin; it dialled out and is
     /// waiting for a host that, on this path, never calls.
     ///
     /// The UI swallows this and shows an adapter with no properties, so what an operator sees is a
-    /// selectable adapter that simply has nothing to configure — not a broken one.
+    /// selectable adapter that simply has nothing to configure - not a broken one.
     /// </summary>
     [Fact]
     public async Task Asking_a_resident_adapter_for_its_startup_values_does_not_work()
@@ -78,7 +78,7 @@ public class ResidentAsPipelineAdapterTests(BitweenFixture fixture)
         var classic = await StartupValuesAsync(ClassicHandlerId);
         Assert.NotNull(classic);
 
-        // The resident one does not — it either fails outright or hands back nothing, and either
+        // The resident one does not - it either fails outright or hands back nothing, and either
         // way the properties form is empty.
         var resident = await Record.ExceptionAsync(() => StartupValuesAsync(ResidentHandlerId));
 
@@ -95,7 +95,7 @@ public class ResidentAsPipelineAdapterTests(BitweenFixture fixture)
     /// An adapter named nothing like the convention still appears, because it SAID what it is.
     ///
     /// This is the point of stamping the kind at publish time: the id stops having to carry the
-    /// classification, so an adapter can be reclassified without being renamed — and a rename is
+    /// classification, so an adapter can be reclassified without being renamed - and a rename is
     /// not free, because every subscription stores the id it was configured with.
     /// </summary>
     [Fact]
@@ -130,7 +130,7 @@ public class ResidentAsPipelineAdapterTests(BitweenFixture fixture)
 
         var listed = await ListAsync("handlers");
 
-        // Installed with no Kind at all — found purely by the infolink6.handlers. prefix.
+        // Installed with no Kind at all - found purely by the infolink6.handlers. prefix.
         Assert.Contains(ClassicHandlerId, listed);
     }
 

@@ -54,7 +54,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
 
   // Sync local dropdown state when selectedPartnerId changes (including reset to null)
   const { data: partners } = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
-  // listPartners() is a light row (no adapterProperties) — fetch the selected partner's
+  // listPartners() is a light row (no adapterProperties) - fetch the selected partner's
   // properties separately so the "Partner" mode datalist actually has options to suggest.
   const { data: adapterProperties, isFetching: isPartnerFetching } = useQuery({
     queryKey: keys.partners.adapterProperties(selectedPartnerId),
@@ -176,7 +176,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
         Validate
       </button>
 
-      {/* Partner selector — visual mode only — for testing partner-scoped mappings */}
+      {/* Partner selector - visual mode only - for testing partner-scoped mappings */}
       {isVisualMode && (
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] text-ink-500 font-medium uppercase tracking-wide flex-shrink-0">Test partner</span>
@@ -185,7 +185,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
             value={selectedPartnerId ?? ''}
             onChange={(e) => handlePartnerChange(e.target.value)}
           >
-            <option value="">— none —</option>
+            <option value="">- none -</option>
             {(partners ?? []).map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}

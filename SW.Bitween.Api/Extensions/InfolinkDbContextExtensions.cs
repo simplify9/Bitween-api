@@ -30,7 +30,7 @@ namespace SW.Bitween
                 return (false, null, null);
 
             // Stored hashed. The plain form still matches a row the startup pass has not converted
-            // yet, so an upgrade does not lock anyone out for the moment between the two — but never
+            // yet, so an upgrade does not lock anyone out for the moment between the two - but never
             // for a value in the stored form itself, or the hash out of a copied database would be
             // a working key. Real keys never look like one.
             var hashedKey = PartnerKeyHash.Of(partnerKey);
@@ -95,7 +95,7 @@ namespace SW.Bitween
                 return (null, null);
             }
 
-            // The username is everything before the first colon — Basic has no way to escape one.
+            // The username is everything before the first colon - Basic has no way to escape one.
             var colon = decoded.IndexOf(':');
             return colon < 0 ? (null, null) : (decoded[(colon + 1)..], decoded[..colon]);
         }

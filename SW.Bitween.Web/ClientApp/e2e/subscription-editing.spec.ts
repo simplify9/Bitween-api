@@ -4,7 +4,7 @@ import { pickOption, signInAsAdmin } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
- * Editing a subscription that already exists — the path every change after the first goes down,
+ * Editing a subscription that already exists - the path every change after the first goes down,
  * and the one the create specs never reach. Each test saves through the page, reloads it, and
  * then asks the API what was stored, so a value the page only appeared to keep is caught.
  */
@@ -45,7 +45,7 @@ async function deliverySubscription(api: AdminApi, name: string, { live = false 
   });
 }
 
-/** Opens the Delivery step, unless it is already open — a reload keeps the open step (?stage=). */
+/** Opens the Delivery step, unless it is already open - a reload keeps the open step (?stage=). */
 async function openDelivery(page: Page) {
   const card = page.getByRole("button", { name: /^Delivery/ });
   if ((await card.getAttribute("aria-current")) !== "true") await card.click();
@@ -151,7 +151,7 @@ test("pinning a subscription's custom handler to v1.0.0: the picker offers the p
   const api = await AdminApi.signIn(request);
   test.skip(
     !(await api.hasAdapter("handlers", CUSTOM_HANDLER)),
-    `${CUSTOM_HANDLER} is not published here — tools/e2e.sh publishes it; another instance needs it published to test pinning`,
+    `${CUSTOM_HANDLER} is not published here - tools/e2e.sh publishes it; another instance needs it published to test pinning`,
   );
   const name = `Playwright Pinned ${stamp()}`;
   const id = await deliverySubscription(api, name, { live: true });

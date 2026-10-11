@@ -89,7 +89,7 @@ public class PartnerAndSessionTests(HttpFixture fixture)
         admin.Dispose();
     }
 
-    /// <summary>The refresh token a response set, from its HttpOnly cookie — never the body.</summary>
+    /// <summary>The refresh token a response set, from its HttpOnly cookie - never the body.</summary>
     static string RefreshCookie(HttpResponseMessage response) =>
         response.Headers.TryGetValues("Set-Cookie", out var cookies)
             ? cookies.Select(c => c.Split(';')[0]).Where(c => c.StartsWith("refresh_token="))
@@ -125,11 +125,11 @@ public class PartnerAndSessionTests(HttpFixture fixture)
         var current = RefreshCookie(refreshed);
         Assert.False(string.IsNullOrEmpty(current));
         Assert.NotEqual(token, current);
-        // Superseded, but within its 30-second grace — another tab refreshing at the same moment
+        // Superseded, but within its 30-second grace - another tab refreshing at the same moment
         // still gets through.
         Assert.True((await RefreshAsync(token)).IsSuccessStatusCode, "a just-superseded token is honoured in its grace");
 
-        // Signed out from a client holding only the current token — as the browser does: its cookie
+        // Signed out from a client holding only the current token - as the browser does: its cookie
         // jar has just the one, the latest the server set.
         using var browser = fixture.Client();
         using (var logout = new HttpRequestMessage(HttpMethod.Post, "/api/accounts/logout")

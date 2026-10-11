@@ -6,7 +6,7 @@ import { toRawSchedules } from "./subscriptionBody";
 export const settingsMethods = {
   /**
    * The backend owns the catalog (label, section, kind, default, secret), so rows arrive
-   * ready to render — including which section each belongs to and, for secrets, only
+   * ready to render - including which section each belongs to and, for secrets, only
    * whether a value is set.
    */
   listSettings(): Promise<SettingRow[]> {

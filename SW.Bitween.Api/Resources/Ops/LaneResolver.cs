@@ -9,7 +9,7 @@ namespace SW.Bitween.Resources.Ops;
 
 /// <summary>
 /// What a consumed queue is for. The bus names queues after the consumer class and the
-/// bus message type — <c>xchangeservice.48low-result</c> — and only Bitween knows that
+/// bus message type - <c>xchangeservice.48low-result</c> - and only Bitween knows that
 /// <c>48low</c> is work group 48. Resolving it here keeps the answer next to
 /// <see cref="WorkGroup.GetBusMessageName"/>, which is the formula's owner; the UI used
 /// to rebuild that formula in TypeScript and match on the string.
@@ -79,7 +79,7 @@ public class LaneResolver(BitweenDbContext dbContext)
                 string.Equals(d.BusMessageTypeName, messageName, System.StringComparison.OrdinalIgnoreCase));
 
             // A bus message only gets a queue while its information type is bus-enabled, so a
-            // name that resolves to nothing means the queue outlived it — and queues are never
+            // name that resolves to nothing means the queue outlived it - and queues are never
             // deleted. Reported as-is rather than hidden.
             return new LaneIdentity(QueueLane.FrontDoor, document?.Name ?? messageName, null, document?.Id);
         }
@@ -100,7 +100,7 @@ public class LaneResolver(BitweenDbContext dbContext)
             ? messageName[..^XchangeService.ResultQueueSuffix.Length]
             : messageName;
 
-        // WorkGroup.None — id 0, so it can never collide with a real group. This is the lane
+        // WorkGroup.None - id 0, so it can never collide with a real group. This is the lane
         // everything without a work group shares.
         if (string.Equals(groupName, WorkGroup.None.GetBusMessageName(), System.StringComparison.OrdinalIgnoreCase))
             return new LaneIdentity(lane, "Ungrouped", null, null);

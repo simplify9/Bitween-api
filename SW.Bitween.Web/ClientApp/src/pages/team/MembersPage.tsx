@@ -74,12 +74,12 @@ export function MembersPage() {
             <>
               <p>
                 Every member holds one or more <strong>roles</strong>, and every role is a list of{" "}
-                <strong>permissions</strong> — page by page, action by action. A member can do
+                <strong>permissions</strong> - page by page, action by action. A member can do
                 something if any of their roles allows it; everything else is hidden from them.
               </p>
               <p>
                 To bring someone in: create or pick a role under <strong>Roles</strong>, then add
-                them here. You set their first password and pass it on — Bitween doesn't send mail.
+                them here. You set their first password and pass it on - Bitween doesn't send mail.
               </p>
             </>
           ),
@@ -174,7 +174,7 @@ export function MembersPage() {
                   </td>
                   <td className="px-4 py-2.5">{statusBadge(user.status, user.lockedUntil)}</td>
                   <td className="px-4 py-2.5 text-ink-500">
-                    {user.lastActiveOn ? timeAgo(user.lastActiveOn) : "—"}
+                    {user.lastActiveOn ? timeAgo(user.lastActiveOn) : "-"}
                   </td>
                 </tr>
               ))}

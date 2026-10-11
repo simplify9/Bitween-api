@@ -26,7 +26,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// broker becomes an Xchange in Bitween through a resident adapter.
 ///
 /// The external broker is a second container, deliberately. Reusing the internal one would let a
-/// test pass while the message actually travelled Bitween's own bus — the precise confusion this
+/// test pass while the message actually travelled Bitween's own bus - the precise confusion this
 /// feature has to avoid.
 /// </summary>
 [Collection("Bitween")]
@@ -52,7 +52,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// The ordering the whole design turns on. Until Bitween has persisted, the message must still
-    /// be the broker's — so a Bitween failure stops draining the customer's queue rather than
+    /// be the broker's - so a Bitween failure stops draining the customer's queue rather than
     /// losing their messages.
     /// </summary>
     [Fact]
@@ -79,7 +79,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     ///
     /// This replaces a test that published malformed content and expected a nack. That premise was
     /// wrong: Bitween persists first and validates afterwards, so bad content becomes an Xchange
-    /// carrying a bad result — a pipeline outcome, not an ingest failure. Exercising the rejection
+    /// carrying a bad result - a pipeline outcome, not an ingest failure. Exercising the rejection
     /// path means making the SINK fail, which is what an unattributable event does.
     ///
     /// That the adapter then nacks and the broker redelivers is proven against a real broker in
@@ -105,7 +105,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// The opposite case, and it must NOT reject. An endpoint no gateway claims is a
-    /// misconfiguration, not a Bitween failure — rejecting would requeue it for ever and the
+    /// misconfiguration, not a Bitween failure - rejecting would requeue it for ever and the
     /// customer's queue would never drain.
     /// </summary>
     [Fact]
@@ -132,7 +132,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         var invoices = Unique("invoices");
         var shipments = Unique("shipments");
 
-        // Both, because the adapter consumes what the DATA SOURCE lists — a gateway naming an
+        // Both, because the adapter consumes what the DATA SOURCE lists - a gateway naming an
         // endpoint nobody is consuming would simply never see a message.
         var dataSourceId = await CreateDataSourceAsync($"{invoices},{shipments}", withGateway: false);
         var invoiceDoc = await AddGatewayAsync(dataSourceId, invoices);
@@ -155,7 +155,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     /// <summary>
     /// A gateway with no endpoint is the catch-all: it claims whatever no other gateway does. The
     /// exact match has to win, or a data source that gains a catch-all silently starts routing
-    /// every specific endpoint's messages to the wrong Document — running the wrong subscriptions,
+    /// every specific endpoint's messages to the wrong Document - running the wrong subscriptions,
     /// against the wrong mapping, with nothing in the audit trail saying so.
     ///
     /// Driven through the sink rather than the broker: this is a routing decision, and the queue
@@ -191,7 +191,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// And the catch-all still catches what nothing else claims — otherwise the fix above would
+    /// And the catch-all still catches what nothing else claims - otherwise the fix above would
     /// just be a way of disabling it.
     /// </summary>
     [Fact]
@@ -244,7 +244,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         db.Remove(await db.Set<DataSource>().FirstAsync(d => d.Id == dataSourceId));
         await Assert.ThrowsAnyAsync<DbUpdateException>(() => db.SaveChangesAsync());
 
-        // And the gateway is untouched — still external, still on its data source.
+        // And the gateway is untouched - still external, still on its data source.
         await using var check = fixture.App.Services.CreateAsyncScope();
         var fresh = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var gateway = await fresh.Set<BusGateway>().AsNoTracking()
@@ -283,8 +283,8 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// A DELIVERY publishes, which is the half that was missing. Publish had existed since this
-    /// adapter did and nothing in the pipeline ever called it — the handler contract is Handle,
-    /// and this class had none — so an integration could drain a customer's queue and had no way
+    /// adapter did and nothing in the pipeline ever called it - the handler contract is Handle,
+    /// and this class had none - so an integration could drain a customer's queue and had no way
     /// to answer on one.
     ///
     /// Driven the way the pipeline drives it: Handle, with the endpoint arriving as a
@@ -339,11 +339,11 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     ///
     /// A broker data source is EXCLUSIVE: one node holds the connection so the customer's queue is
     /// drained once. A subscription's delivery, though, runs on whichever node picked the message
-    /// up — so a publish would fail on every node but the owner, which is to say almost always.
+    /// up - so a publish would fail on every node but the owner, which is to say almost always.
     ///
     /// Exclusivity is about CONSUMING, not about connecting. When the owned instance is not here,
-    /// the runtime opens a send-only connection of its own — Consume=false, no endpoints, its own
-    /// pool key — and publishes through that. Nothing is consumed twice, and a delivery works
+    /// the runtime opens a send-only connection of its own - Consume=false, no endpoints, its own
+    /// pool key - and publishes through that. Nothing is consumed twice, and a delivery works
     /// wherever it lands.
     ///
     /// Here nothing is running under the data source's instance key at all, which is exactly what
@@ -499,7 +499,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
         // The infolink cache is a singleton holding a ten-minute snapshot. Without revoking it,
         // XchangeService resolves this brand-new Document to null and builds an Xchange that no
-        // DocumentId query can find — which acks the message and silently drops it.
+        // DocumentId query can find - which acks the message and silently drops it.
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
 
         return document.Id;
@@ -517,7 +517,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         var instance = await host.StartExclusiveAsync(new AdapterSpec
         {
             AdapterId = dataSource.AdapterId,
-            // The instance key IS the data source id — that is how the sink resolves the gateway.
+            // The instance key IS the data source id - that is how the sink resolves the gateway.
             InstanceKey = dataSourceId.ToString(),
             StartupValues = new Dictionary<string, string>(dataSource.Properties)
         });

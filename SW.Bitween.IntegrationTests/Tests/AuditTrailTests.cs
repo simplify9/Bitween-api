@@ -12,7 +12,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
 /// The audit trail, end to end against a real database: that configuration changes are recorded,
-/// that runtime traffic isn't, and — the part worth being sure of — that no credential ever
+/// that runtime traffic isn't, and - the part worth being sure of - that no credential ever
 /// reaches the table.
 /// </summary>
 [Collection("Bitween")]
@@ -150,7 +150,7 @@ public class AuditTrailTests(BitweenFixture fixture)
 
     /// <summary>
     /// Settings are the one place a value's secrecy is known without asking an adapter, so unlike
-    /// the adapter property bags they are recorded — except where the catalog says otherwise.
+    /// the adapter property bags they are recorded - except where the catalog says otherwise.
     /// </summary>
     [Fact]
     public async Task A_secret_settings_value_is_redacted_while_a_plain_one_is_kept()
@@ -184,8 +184,8 @@ public class AuditTrailTests(BitweenFixture fixture)
             p => new Diff { Old = Text(p.Value["Old"]), New = Text(p.Value["New"]) });
 
     /// <summary>
-    /// A value as the test compares it. Most columns are recorded as text, but a collection — the
-    /// names of a partner's secret properties, say — is recorded as the list it is.
+    /// A value as the test compares it. Most columns are recorded as text, but a collection - the
+    /// names of a partner's secret properties, say - is recorded as the list it is.
     /// </summary>
     static string? Text(Newtonsoft.Json.Linq.JToken? value) => value?.Type switch
     {

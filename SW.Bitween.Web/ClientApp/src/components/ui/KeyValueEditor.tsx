@@ -53,7 +53,7 @@ function GrowingValueInput({
 /**
  * A stored secret's value: dots, with a Replace button, exactly as adapter config
  * shows one. Used whenever the value is the sentinel, which covers both a row that
- * is still marked secret and one just unmarked — unmarking cannot reveal the value
+ * is still marked secret and one just unmarked - unmarking cannot reveal the value
  * on its own, because the browser was never sent it.
  */
 function SecretValueCell({
@@ -72,7 +72,7 @@ function SecretValueCell({
   onChange: (value: string) => void;
 }) {
   // Keyed off "is the operator part-way through typing", not off whether the box
-  // holds text — the latter re-masks on the first keystroke and hides what they typed.
+  // holds text - the latter re-masks on the first keystroke and hides what they typed.
   const [entering, setEntering] = useState(false);
   const lastEmitted = useRef<string | null>(null);
 
@@ -95,7 +95,7 @@ function SecretValueCell({
         title={
           stillSecret
             ? "Stored and hidden. Replace it to set a new value."
-            : "Still hidden — save to reveal this value."
+            : "Still hidden - save to reveal this value."
         }
       >
         <span className="font-mono text-sm tracking-widest text-ink-500" aria-label={ariaLabel}>
@@ -122,7 +122,7 @@ function SecretValueCell({
 }
 
 /**
- * The runtime reference token, click-to-copy. Wraps instead of truncating —
+ * The runtime reference token, click-to-copy. Wraps instead of truncating -
  * a cut-off token is useless since it can't be pasted correctly.
  */
 function ReferenceToken({ token }: { token: string }) {
@@ -160,8 +160,8 @@ function ReferenceToken({ token }: { token: string }) {
  * row (e.g. {{partner.KEY}}); `rowDetails` renders a per-row note under it
  * (e.g. "where is this used?"), always visible. `secrets` adds a lock column:
  * a locked value never leaves the server, so it reads back as the sentinel and
- * shows as dots until someone replaces it. `reorderable` adds a drag handle to each row — also
- * moved with the arrow keys — for editors whose order means something.
+ * shows as dots until someone replaces it. `reorderable` adds a drag handle to each row - also
+ * moved with the arrow keys - for editors whose order means something.
  */
 export function KeyValueEditor({
   rows,
@@ -191,7 +191,7 @@ export function KeyValueEditor({
   editable: boolean;
   token?: (row: KvRow) => string;
   emptyText: string;
-  /** Fixed (not percentage) column widths — comfortable at rest, shrinks at narrower breakpoints. */
+  /** Fixed (not percentage) column widths - comfortable at rest, shrinks at narrower breakpoints. */
   keyWidthClass?: string;
   valueWidthClass?: string;
   rowDetails?: (row: KvRow) => ReactNode | null;

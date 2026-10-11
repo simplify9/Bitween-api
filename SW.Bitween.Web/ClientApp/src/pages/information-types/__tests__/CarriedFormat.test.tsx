@@ -46,7 +46,7 @@ describe("an information type switched to a carried format", () => {
   it("has no promoted properties to edit, and says why", async () => {
     openType(typeOf("Csv"));
 
-    expect(await screen.findByText(/None — CSV content isn't read/)).toBeVisible();
+    expect(await screen.findByText(/None - CSV content isn't read/)).toBeVisible();
     expect(screen.getByText(/Bitween doesn't read the content of this format/)).toBeVisible();
     expect(screen.queryByText("JSON path")).not.toBeInTheDocument();
   });
@@ -56,7 +56,7 @@ describe("an information type switched to a carried format", () => {
 
     await user.selectOptions(await screen.findByLabelText("Payload format"), "Other");
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Still promotes orderId — Other types can't have promoted properties.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Still promotes orderId - Other types can't have promoted properties.");
     await user.click(screen.getByRole("button", { name: "Remove them" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });

@@ -3,7 +3,7 @@ import { namesSomething } from "../subscriptionLabels";
 
 /**
  * Whether promoted properties can stand in for an exchange's identity. An information type can
- * promote paths a payload never filled, and those name every exchange of that type equally — so
+ * promote paths a payload never filled, and those name every exchange of that type equally - so
  * the callers fall back to the id, which is at least this exchange's own.
  */
 describe("namesSomething", () => {

@@ -12,7 +12,7 @@ import { AddRuleButtons, OutputTreeView } from "./OutputTreeView";
  *
  * A tree because that is the shape of the thing being built, and because at one
  * line a row a real document fits on a screen. The tree itself is derived from the
- * rules on every render — there is no second copy of the structure to keep in step.
+ * rules on every render - there is no second copy of the structure to keep in step.
  */
 export function OutputPanel({ sourceRoot }: { sourceRoot: DocumentNode | null }) {
   const { rules, searchTarget } = useRules();

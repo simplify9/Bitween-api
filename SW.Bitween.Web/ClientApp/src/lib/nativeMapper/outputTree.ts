@@ -3,7 +3,7 @@
 // The rules stay one flat list of targets like ["billing", "city"]. This turns
 // them into the tree the editor draws, and that direction matters: the tree is a
 // view of the rules, never a second copy of them. The old editor had it the other
-// way round — its tree was rebuilt from pasted JSON and *was* the truth — which is
+// way round - its tree was rebuilt from pasted JSON and *was* the truth - which is
 // why deleting the sample there could change what the mapping produced.
 //
 // Nothing here decides what the output contains. It only decides how it is shown.
@@ -21,7 +21,7 @@ export interface OutputFieldNode {
   kind: "field";
   /** Stable across renders: the rule's own id. */
   key: string;
-  /** The last segment only — the indentation carries the rest of the path. */
+  /** The last segment only - the indentation carries the rest of the path. */
   name: string;
   /** The dotted target within its container, which is what search matches on. */
   path: string;
@@ -36,7 +36,7 @@ export interface OutputListNode {
   name: string;
   path: string;
   /**
-   * Whether this is the mapping's root list — the whole output being a list.
+   * Whether this is the mapping's root list - the whole output being a list.
    *
    * It has to be said rather than inferred from an empty target, because a list
    * the user has only just added has no name yet either, and calling that the
@@ -49,7 +49,7 @@ export interface OutputListNode {
   children: OutputNode[];
   /** Entries written into the list, before whatever walking a source produces. */
   fixed: OutputEntryNode[];
-  /** Entries written after them — where a trailer carrying a record count goes. */
+  /** Entries written after them - where a trailer carrying a record count goes. */
   after: OutputEntryNode[];
 }
 
@@ -77,7 +77,7 @@ export interface OutputEntryNode {
  *
  * A node rather than a setting on the list, because that is what it is: one rule,
  * with a source, a transform and a type, exactly like a field. The only thing it
- * lacks is a name — the entries of `["A1","B7"]` have nowhere to be named — so it
+ * lacks is a name - the entries of `["A1","B7"]` have nowhere to be named - so it
  * is the one row whose name is fixed text rather than a box.
  */
 export interface OutputItemNode {
@@ -153,7 +153,7 @@ function listNode(list: EditorListRule, prefix: string, isRoot = false): OutputL
         ]
       : grouped(entriesOf(list.fields, list.lists, errorKey)),
     // A fixed entry's rules are reported under the list, exactly as a walked
-    // entry's are — the mapper hands both the same target.
+    // entry's are - the mapper hands both the same target.
     fixed: list.fixed.map((entry, at) => entryNode(entry, at, errorKey, "fixed")),
     after: (list.after ?? []).map((entry, at) => entryNode(entry, at, errorKey, "after")),
   };
@@ -178,7 +178,7 @@ function entryNode(
 
 /**
  * One container's rules, in the order the mapper writes them: every field, then
- * every list. That is what MapInto does, so it is the key order the partner sees —
+ * every list. That is what MapInto does, so it is the key order the partner sees -
  * and the tree has to show that rather than an order of its own.
  */
 function entriesOf(
@@ -205,7 +205,7 @@ function entriesOf(
 /**
  * Folds multi-segment targets into branches.
  *
- * A branch appears where its first member sits, and members keep their order — so
+ * A branch appears where its first member sits, and members keep their order - so
  * the tree reads in the same order as the document the mapper writes. Sorting the
  * names would look tidier and would be a lie.
  */

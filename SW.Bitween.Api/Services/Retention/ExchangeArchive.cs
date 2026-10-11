@@ -23,8 +23,8 @@ namespace SW.Bitween;
 /// <para>
 /// Files go to <c>{archive prefix}/{subscription id}/yyyy/MM/dd/{first promoted value}_{exchange id}.json</c>,
 /// dated by when the exchange started. The first promoted property of the exchange's information type
-/// leads the name so an exchange can be found by it; the id keeps two with the same value — the
-/// attempts of one retry chain — from overwriting each other. Rewriting the same exchange produces the
+/// leads the name so an exchange can be found by it; the id keeps two with the same value - the
+/// attempts of one retry chain - from overwriting each other. Rewriting the same exchange produces the
 /// same key, so a run that stopped part-way can simply run again.
 /// </para>
 /// <para>
@@ -54,7 +54,7 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
     public string Prefix => PrefixFor(options.DocumentPrefix);
 
     /// <summary>
-    /// Out of the temp folders on purpose — the bucket's rule for <c>temp30/</c> would otherwise delete
+    /// Out of the temp folders on purpose - the bucket's rule for <c>temp30/</c> would otherwise delete
     /// the archive along with the files it keeps. The rest of the prefix stays, so deployments that share
     /// a bucket under different prefixes keep separate archives.
     /// </summary>

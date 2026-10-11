@@ -14,7 +14,7 @@ public class ValuesCoerceTests
 {
     /// <summary>
     /// Commas count only as thousands separators in groups of three ahead of the decimal point.
-    /// "1,5" — one and a half, written the European way — used to become fifteen with no error.
+    /// "1,5" - one and a half, written the European way - used to become fifteen with no error.
     /// </summary>
     [DataTestMethod]
     [DataRow("1,5")]
@@ -52,7 +52,7 @@ public class ValuesCoerceTests
     // ── null ────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// A missing source field is an absent value, not a failure — optional fields are ordinary, and
+    /// A missing source field is an absent value, not a failure - optional fields are ordinary, and
     /// the writer decides how to represent absence.
     /// </summary>
     [TestMethod]

@@ -103,8 +103,8 @@ public static class Permissions
 
     /// <summary>
     /// Separate from <see cref="DataSources"/> on purpose. Statements have to live on the
-    /// connection — SQL in a subscription's adapter properties would have partner values templated
-    /// into it — but that must not mean editing SQL requires the right that also changes the
+    /// connection - SQL in a subscription's adapter properties would have partner values templated
+    /// into it - but that must not mean editing SQL requires the right that also changes the
     /// credentials. Someone configuring their own integration gets these; only whoever owns the
     /// connection gets DataSources.Edit.
     /// </summary>
@@ -159,7 +159,7 @@ public static class Permissions
     }
 
     /// <summary>
-    /// Read-only by design. Nothing edits or deletes an audit entry — a trail that could be
+    /// Read-only by design. Nothing edits or deletes an audit entry - a trail that could be
     /// rewritten by the people it records would not be worth keeping.
     /// </summary>
     public static class Audit
@@ -220,7 +220,7 @@ public static class PermissionCatalog
 
     public static readonly List<PermissionAreaModel> Areas =
     [
-        // ——— Operate ———
+        // --- Operate ---
         Area("exchanges", "Exchanges", "Operate", "Every message that flows through Bitween.",
             (View, "Browse exchanges, payloads and traces."),
             (Operate, "Retry or resubmit failed exchanges.")),
@@ -232,7 +232,7 @@ public static class PermissionCatalog
         Area("dashboard", "Dashboard", "Operate", "Traffic and health overview (reached from the logo).",
             (View, "See the dashboard.")),
 
-        // ——— Subscriptions ———
+        // --- Subscriptions ---
         Area("subscriptions", "Subscriptions", "Subscriptions", "The configured pipelines that process exchanges.",
             (View, "Browse subscriptions and their configuration."),
             (Create, "Create subscriptions."),
@@ -277,7 +277,7 @@ public static class PermissionCatalog
             (Edit, "Change gateways and routes."),
             (Delete, "Delete bus gateways.")),
 
-        // ——— Configuration ———
+        // --- Configuration ---
         Area("data-sources", "Data sources", "Configuration",
             "Connections to external brokers that bus gateways can read from.",
             (View, "Browse data sources and their connection health."),
@@ -307,7 +307,7 @@ public static class PermissionCatalog
             (Edit, "Change retry policies."),
             (Delete, "Delete retry policies.")),
 
-        // ——— Administration ———
+        // --- Administration ---
         Area("users", "Members", "Administration", "The people who can sign in to this Bitween instance.",
             (View, "See the member list."),
             (Create, "Invite new members."),
@@ -343,7 +343,7 @@ public static class PermissionCatalog
     public static readonly HashSet<string> AllKeys =
         Areas.SelectMany(a => a.Actions.Select(x => $"{a.Id}.{x.Id}")).ToHashSet();
 
-    /// <summary>Drops anything not in the catalog — stale keys left over from a removed area.</summary>
+    /// <summary>Drops anything not in the catalog - stale keys left over from a removed area.</summary>
     public static List<string> Sanitize(IEnumerable<string> keys) =>
         (keys ?? []).Where(AllKeys.Contains).Distinct().ToList();
 

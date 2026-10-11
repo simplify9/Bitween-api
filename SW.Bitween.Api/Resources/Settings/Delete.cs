@@ -7,7 +7,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Settings;
 
 /// <summary>
-/// Resets one setting to the product default — the value the options class ships with.
+/// Resets one setting to the product default - the value the options class ships with.
 /// <para>
 /// The row is rewritten rather than deleted: a missing row is how startup recognises a key it has
 /// never imported, so dropping it would let configuration seep back in on the next boot. Reset
@@ -47,11 +47,11 @@ public class Delete(
 
         await dbContext.SaveChangesAsync();
 
-        // Resetting an already-default setting is a no-op, not an error — the UI can fire this for
+        // Resetting an already-default setting is a no-op, not an error - the UI can fire this for
         // a staged reset it never saved a value for.
         settings.Apply(definition, productDefault);
 
-        // A reset has to take effect the same way a write does — see Update.
+        // A reset has to take effect the same way a write does - see Update.
         if (definition.OnChange is not null) await definition.OnChange(serviceProvider);
 
         await cache.BroadcastRevoke();

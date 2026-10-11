@@ -36,7 +36,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   const [confirming, setConfirming] = useState<"remove" | null>(null);
   const [newPassword, setNewPassword] = useState("");
   // The password that was just set, kept on screen deliberately. Bitween sends no
-  // mail, so the admin has to pass it on themselves — clearing the field on success
+  // mail, so the admin has to pass it on themselves - clearing the field on success
   // threw away the one thing they still needed, with nothing to say it had worked.
   const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
 
@@ -176,14 +176,14 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   </p>
                   <CopyField value={issuedPassword} label="New password" />
                   <p className="text-[13px] text-ink-600">
-                    Bitween sends no email, so copy it and pass it on yourself — it won't be shown
+                    Bitween sends no email, so copy it and pass it on yourself - it won't be shown
                     again once you dismiss this.
                   </p>
                   {u.lockedUntil ? (
                     <div className="space-y-2 rounded-md border border-warn-400 bg-warn-100 p-2.5">
                       <p className="text-[13px] text-warn-700">
                         They still can't sign in. The account is locked after repeated failed
-                        sign-ins, and a new password doesn't clear that — this is the other half.
+                        sign-ins, and a new password doesn't clear that - this is the other half.
                       </p>
                       <Button size="sm" busy={unlock.isPending} onClick={() => unlock.mutate()}>
                         <LockOpen className="size-3.5" /> Unlock account
@@ -194,7 +194,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                     <div className="space-y-2 rounded-md border border-warn-400 bg-warn-100 p-2.5">
                       <p className="text-[13px] text-warn-700">
                         They still can't sign in. The account is disabled, and a new password
-                        doesn't change that — re-enable it below to let them back in.
+                        doesn't change that - re-enable it below to let them back in.
                       </p>
                     </div>
                   ) : (
@@ -241,7 +241,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   </Button>
                   <p className="mt-1 text-[13px] text-ink-500">
                     Locked after repeated failed sign-ins; it clears on its own{" "}
-                    {timeUntil(u.lockedUntil)}. Unlocking clears it now — setting a password does
+                    {timeUntil(u.lockedUntil)}. Unlocking clears it now - setting a password does
                     not.
                   </p>
                   <FormError>{unlock.error?.message}</FormError>

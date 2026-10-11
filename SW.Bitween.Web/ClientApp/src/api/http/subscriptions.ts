@@ -36,7 +36,7 @@ import {
   type RawSchedule,
 } from "./subscriptionBody";
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -135,7 +135,7 @@ const toSubscriptionType = (t: number | string): SubscriptionType =>
 
 // Empty-valued properties are dropped: an adapter property with no value means
 // "not set", and keeping it would make a freshly-cleared field compare unequal to
-// stored data that never had the key — leaving the Save bar up after an undo.
+// stored data that never had the key - leaving the Save bar up after an undo.
 const toRecord = (kvs: RawKeyAndValue[] | null): Record<string, string> =>
   Object.fromEntries((kvs ?? []).filter((kv) => kv.value !== "").map((kv) => [kv.key, kv.value]));
 
@@ -149,8 +149,8 @@ const toSchedules = (raw: RawSchedule[] | null): Schedule[] =>
   }));
 
 /**
- * When the schedule fires next. The two scheduled types keep it in different columns —
- * `ReceiveOn` for Receiving, `AggregateOn` for Aggregation — and only ever one of them is
+ * When the schedule fires next. The two scheduled types keep it in different columns -
+ * `ReceiveOn` for Receiving, `AggregateOn` for Aggregation - and only ever one of them is
  * set, so taking whichever exists lets every screen read one field.
  */
 const nextRunOf = (raw: RawSubscription): string | null => raw.receiveOn ?? raw.aggregateOn ?? null;
@@ -247,13 +247,13 @@ type UpdatableFields = Partial<
 /**
  * POST /subscriptions/{id} replaces the whole record, and Update.cs's model
  * (SubscriptionUpdate) carries several fields this UI never shows (categoryId,
- * temporary, …) — omitting them would silently reset them to their type
+ * temporary, …) - omitting them would silently reset them to their type
  * default. So every write reads the current full record first
  * and splices `changes` on top of it, mirroring writePartner()'s pattern.
  *
  * Secret adapter property values arrive masked as the literal string
  * "__private__" (Get.cs's PrivateSentinel); passed straight through unedited,
- * Update.cs's own merge logic restores the real stored value — this file
+ * Update.cs's own merge logic restores the real stored value - this file
  * never needs to know about the sentinel itself.
  */
 /** How many rule groups an inline retry policy has; null when there is none. */
@@ -486,11 +486,11 @@ export const subscriptionMethods = {
     type: SubscriptionType;
     name: string;
     /**
-     * Ignored for Aggregation — the backend constructor forces the built-in
+     * Ignored for Aggregation - the backend constructor forces the built-in
      * "Aggregation Document" whatever the caller sends, so there is nothing to pick.
      */
     informationTypeId: number;
-    /** Required by the types that carry their own partner — Internal, ApiCall and Aggregation. */
+    /** Required by the types that carry their own partner - Internal, ApiCall and Aggregation. */
     partnerId?: number | null;
     /** Aggregation only: whose exchanges get rolled up. Required, and fixed once created. */
     aggregationForId?: number | null;
@@ -516,7 +516,7 @@ export const subscriptionMethods = {
     enabled?: boolean;
   }): Promise<Subscription> {
     // One call, one transaction. This used to be a POST followed by a PATCH,
-    // because create accepted only the name/type/document — and since the POST
+    // because create accepted only the name/type/document - and since the POST
     // committed on its own, a rejected PATCH left an empty subscription behind.
     const id = await post<number>("/subscriptions", {
       name: input.name,

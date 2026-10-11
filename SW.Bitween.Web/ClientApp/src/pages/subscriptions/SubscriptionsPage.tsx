@@ -42,7 +42,7 @@ const TYPE_ORDER: SubscriptionType[] = [
 ];
 
 /**
- * Every subscription, of every type — the pipelines that move a document from
+ * Every subscription, of every type - the pipelines that move a document from
  * one place to another.
  *
  * Gateways are NOT rows here. A gateway is an entry point, not a pipeline, and
@@ -111,7 +111,7 @@ export function SubscriptionsPage() {
     <div>
       <PageHeader
         title="All subscriptions"
-        description="Every pipeline that moves a document — what comes in, how it's transformed, where it goes."
+        description="Every pipeline that moves a document - what comes in, how it's transformed, where it goes."
         actions={
           <div className="flex gap-2">
             <Button onClick={() => setManagingCategories(true)}>Categories</Button>
@@ -131,7 +131,7 @@ export function SubscriptionsPage() {
                 maps it, and hands it on. Every type is listed here, including legacy ones.
               </p>
               <p>
-                The <strong>entry points</strong> live on their own pages — API gateways (partners
+                The <strong>entry points</strong> live on their own pages - API gateways (partners
                 push in), bus gateways (messages off the bus) and scheduled jobs (pulled in on a
                 schedule). A scheduled job is also a subscription, so it appears in both places.
               </p>
@@ -305,7 +305,7 @@ export function SubscriptionsPage() {
                 r.lastException ? (
                   <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
           ]}

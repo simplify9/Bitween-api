@@ -95,7 +95,7 @@ public class StatementComposerTests
     /// <summary>
     /// Stable ordering. The supervisor fingerprints startup values to decide whether an adapter
     /// needs restarting, so an order that varied between reconciles would recycle a healthy
-    /// database connection every thirty seconds — and nothing would say why.
+    /// database connection every thirty seconds - and nothing would say why.
     /// </summary>
     [TestMethod]
     public void Composition_is_stable_whatever_order_the_rows_arrive_in()
@@ -122,7 +122,7 @@ public class StatementComposerTests
     ///
     /// This is what makes the richer shape safe to introduce: upgrading the host ahead of the
     /// adapters cannot change the value handed to an adapter for any statement it already runs,
-    /// and the supervisor's fingerprint of that value does not move either — so no healthy
+    /// and the supervisor's fingerprint of that value does not move either - so no healthy
     /// connection is recycled by the deployment.
     /// </summary>
     [TestMethod]

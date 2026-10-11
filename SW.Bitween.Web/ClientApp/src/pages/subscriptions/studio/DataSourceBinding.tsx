@@ -15,7 +15,7 @@ import { useSessionCan } from "../../../auth/useSessionCan";
  * else there is nothing here to choose. It writes two things, in two places, and the split is the
  * point:
  *
- * - The CONNECTION is the subscription's (`dataSourceId`). One per subscription — several slots
+ * - The CONNECTION is the subscription's (`dataSourceId`). One per subscription - several slots
  *   pointed at the same database share one warm pool, which is the whole reason the pool is held
  *   by a long-lived process.
  * - The STATEMENT and OPERATION are this SLOT's adapter properties, so a subscription's handler
@@ -43,7 +43,7 @@ export function DataSourceBinding({
   slot: "handler" | "mapper" | "receiver";
   /**
    * What the OTHER stages are set to. The connection belongs to the subscription, not to a stage,
-   * so choosing one here chooses it for all of them — and a stage whose adapter cannot use the
+   * so choosing one here chooses it for all of them - and a stage whose adapter cannot use the
    * kind that was picked is a subscription that saves cleanly and fails on its first message.
    */
   siblings?: { slot: string; adapterId: string | null }[];
@@ -56,7 +56,7 @@ export function DataSourceBinding({
 
   // The chosen connection's own settings, for one question: does it actually define a default
   // receive mode? The dropdown used to offer "the connection's default" whether or not one
-  // existed, and a subscription that took it failed at poll time with "no ReceiveMode" — a fault
+  // existed, and a subscription that took it failed at poll time with "no ReceiveMode" - a fault
   // reported nowhere near the screen that caused it.
   const chosenDetail = useQuery({
     queryKey: keys.dataSources.detail(dataSourceId ?? 0),
@@ -76,7 +76,7 @@ export function DataSourceBinding({
   // you are looking at decides the whole lower half of this panel.
   //
   // A broker is offered in a DELIVERY only. Ingress from a customer's broker comes through a bus
-  // gateway, not through a subscription's receiver — offering it there would be offering
+  // gateway, not through a subscription's receiver - offering it there would be offering
   // something that cannot work.
   const usable = (sources.data ?? []).filter(
     (s) => s.kind === "Relational" || (s.kind === "Broker" && slot !== "receiver"),
@@ -123,20 +123,20 @@ export function DataSourceBinding({
   const mode = properties.ReceiveMode ?? "";
   const needsCursor = ["incrementing", "timestamp", "timestamp+incrementing"].includes(mode);
   // Without a cursor, the mark statement is the only thing that stops a poll re-reading the same
-  // rows for ever — so it is asked for rather than left to be discovered.
+  // rows for ever - so it is asked for rather than left to be discovered.
   const needsMark = mode === "bulk" || mode === "marker";
 
   return (
     <div className="space-y-3 rounded-lg border border-ink-200 bg-ink-50/50 p-3">
       <Field
         label="Connection"
-        hint="The data source every stage of this subscription runs through — one per subscription, so choosing here chooses for the others too. Shared deliberately: the stages then use one pooled connection rather than opening their own."
+        hint="The data source every stage of this subscription runs through - one per subscription, so choosing here chooses for the others too. Shared deliberately: the stages then use one pooled connection rather than opening their own."
       >
         <Select
           value={dataSourceId == null ? "" : String(dataSourceId)}
           disabled={disabled || sources.isLoading}
           options={[
-            { value: "", label: "None — this adapter carries its own settings" },
+            { value: "", label: "None - this adapter carries its own settings" },
             ...usable.map((s) => ({
               value: String(s.id),
               label: s.kind === "Broker" ? `${s.name} (broker)` : s.name,
@@ -163,7 +163,7 @@ export function DataSourceBinding({
         <p className="text-[12px] text-warn-700">
           This subscription&apos;s {conflicting.map((c) => c.slot).join(" and ")} also runs through
           its connection, and {chosen.name} is a {chosen.kind === "Broker" ? "broker" : "database"}
-          {" "}— so {conflicting.length === 1 ? "that stage" : "those stages"} cannot use it. Chain
+          {" "}- so {conflicting.length === 1 ? "that stage" : "those stages"} cannot use it. Chain
           a second subscription instead, with this one&apos;s response feeding it.
         </p>
       )}
@@ -187,20 +187,20 @@ export function DataSourceBinding({
             hint={
               slot === "receiver"
                 ? `Which of ${chosen.name}'s statements this receiver polls with. It also carries the columns that say which is the cursor and which identifies a row.`
-                : `Which of ${chosen.name}'s statements this ${slot} runs. The SQL itself lives on the connection — a message supplies parameter values, never SQL.`
+                : `Which of ${chosen.name}'s statements this ${slot} runs. The SQL itself lives on the connection - a message supplies parameter values, never SQL.`
             }
           >
             <Select
               value={current}
               disabled={disabled || statements.isLoading}
               options={[
-                { value: "", label: "None — the message must name one itself" },
+                { value: "", label: "None - the message must name one itself" },
                 ...available.map((s) => ({
                   value: s.name,
-                  label: s.description ? `${s.name} — ${s.description}` : s.name,
+                  label: s.description ? `${s.name} - ${s.description}` : s.name,
                 })),
                 // Kept selectable so choosing something else is a decision, not an accident.
-                ...(missing ? [{ value: current, label: `${current} — no longer on this connection` }] : []),
+                ...(missing ? [{ value: current, label: `${current} - no longer on this connection` }] : []),
               ]}
               onChange={(e) => setProperty(statementKey, e.target.value)}
             />
@@ -232,7 +232,7 @@ export function DataSourceBinding({
           )}
 
           {/*
-            A receiver has no operation to pick — polling is the operation. What it has instead is
+            A receiver has no operation to pick - polling is the operation. What it has instead is
             a reading policy, and that is this subscription's, not the connection's: the same
             statement is legitimately read in bulk once for a backfill and incrementally after.
 
@@ -244,7 +244,7 @@ export function DataSourceBinding({
             <>
               <Field
                 label="Receive mode"
-                hint="How this subscription finds new rows. None of these can see a DELETE — that is a property of polling, not of this adapter."
+                hint="How this subscription finds new rows. None of these can see a DELETE - that is a property of polling, not of this adapter."
               >
                 <Select
                   value={properties.ReceiveMode ?? ""}
@@ -253,17 +253,17 @@ export function DataSourceBinding({
                     {
                       value: "",
                       label: connectionMode
-                        ? `The connection's default — ${connectionMode}`
-                        : "None — and this connection sets no default",
+                        ? `The connection's default - ${connectionMode}`
+                        : "None - and this connection sets no default",
                     },
-                    { value: "incrementing", label: "incrementing — follow an always-growing column" },
-                    { value: "timestamp", label: "timestamp — follow a modified-at column" },
+                    { value: "incrementing", label: "incrementing - follow an always-growing column" },
+                    { value: "timestamp", label: "timestamp - follow a modified-at column" },
                     {
                       value: "timestamp+incrementing",
-                      label: "timestamp+incrementing — both, for rows sharing a timestamp",
+                      label: "timestamp+incrementing - both, for rows sharing a timestamp",
                     },
-                    { value: "bulk", label: "bulk — re-read everything each poll" },
-                    { value: "marker", label: "marker — rows a flag says are unprocessed" },
+                    { value: "bulk", label: "bulk - re-read everything each poll" },
+                    { value: "marker", label: "marker - rows a flag says are unprocessed" },
                   ]}
                   onChange={(e) => setProperty("ReceiveMode", e.target.value)}
                 />
@@ -285,7 +285,7 @@ export function DataSourceBinding({
                     value={properties.MarkProcessedStatement ?? ""}
                     disabled={disabled || statements.isLoading}
                     options={[
-                      { value: "", label: "None — the connection's own, if it has one" },
+                      { value: "", label: "None - the connection's own, if it has one" },
                       ...available.map((s) => ({ value: s.name, label: s.name })),
                     ]}
                     onChange={(e) => setProperty("MarkProcessedStatement", e.target.value)}
@@ -339,7 +339,7 @@ export function DataSourceBinding({
  *
  * Only three things are asked for, and the rest is deliberately left to the broker. Exchange and
  * routing key are RabbitMQ's vocabulary and are simply ignored by a queue-only broker such as SQS
- * — shown rather than hidden behind provider sniffing, because a form that quietly changes shape
+ * - shown rather than hidden behind provider sniffing, because a form that quietly changes shape
  * is harder to explain than two fields that do not apply.
  *
  * The endpoint is NOT restricted to the queues this connection consumes. The common case for
@@ -363,7 +363,7 @@ function BrokerDelivery({
     <>
       <Field
         label="Publish to"
-        hint={`A queue on ${connection}. For SQS this is the full queue URL; for RabbitMQ, the queue name. It does not have to be a queue this connection consumes — usually it is not.`}
+        hint={`A queue on ${connection}. For SQS this is the full queue URL; for RabbitMQ, the queue name. It does not have to be a queue this connection consumes - usually it is not.`}
       >
         <TextInput
           value={endpoint}
@@ -408,7 +408,7 @@ function BrokerDelivery({
           decision is made rather than in a document nobody reads at the time. */}
       <p className="text-[12px] text-ink-500">
         A broker connection is held by one node so its queues are drained once, but a delivery runs
-        wherever the message was picked up — so publishing opens a short send-only connection on
+        wherever the message was picked up - so publishing opens a short send-only connection on
         that node. It never subscribes, so nothing is consumed twice.
       </p>
     </>
@@ -420,12 +420,12 @@ function BrokerDelivery({
  *
  * They belong to the STATEMENT, not to this subscription, and that is not an accident: the SQL
  * already decided them. A statement reading `where id > @cursor order by id` has `id` as its
- * cursor whoever polls it — a subscription nominating anything else would have the adapter save a
+ * cursor whoever polls it - a subscription nominating anything else would have the adapter save a
  * value of one type and bind it into a comparison against another. The key column is welded the
  * same way, to the mark-processed statement that binds it as `@key`.
  *
  * But storing them there does not mean making someone go there. The version of this that only
- * warned — "set its key column on the connection" — sent the reader to a second screen to finish
+ * warned - "set its key column on the connection" - sent the reader to a second screen to finish
  * a job they had started here. So the fields are here, and the write goes there.
  *
  * Which makes this the one control on this panel that does NOT edit the subscription: it saves
@@ -449,7 +449,7 @@ function StatementColumns({
   const [cursorColumn, setCursorColumn] = useState(statement.cursorColumn ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  // Saving here leaves the fields exactly as they were — the values are already on screen, which
+  // Saving here leaves the fields exactly as they were - the values are already on screen, which
   // is precisely why it needs saying. Two seconds in place of the button, the same way the
   // mapping editor says it.
   const [justSaved, setJustSaved] = useState(false);
@@ -462,7 +462,7 @@ function StatementColumns({
     setError(null);
   }, [statement.id, statement.keyColumn, statement.cursorColumn]);
 
-  // True when the database never looked at the SQL — see the statements panel, which says the
+  // True when the database never looked at the SQL - see the statements panel, which says the
   // same thing for the same reason.
   const [unchecked, setUnchecked] = useState(false);
 
@@ -532,7 +532,7 @@ function StatementColumns({
 
       {unchecked && !error && (
         <p className="text-[12px] text-warn-700">
-          Saved, but not checked — this connection is not running here, so the database never saw
+          Saved, but not checked - this connection is not running here, so the database never saw
           the change.
         </p>
       )}

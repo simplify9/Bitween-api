@@ -79,7 +79,7 @@ describe("the rows and the panels", { timeout: 20000 }, () => {
     await addListField(user, lines, "lines", "qty", "qty");
     await user.click(screen.getByRole("button", { name: "Settings for the list lines" }));
 
-    // Clicking the words, not the box — which is what anyone does, and what a test that checks
+    // Clicking the words, not the box - which is what anyone does, and what a test that checks
     // the input directly never exercises. The row click that opens these settings used to swallow
     // it: the box ticked and the panel folded away in the same tick, so it looked like the click
     // did nothing.

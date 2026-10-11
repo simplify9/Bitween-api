@@ -10,7 +10,7 @@ import type { SettingsDraft } from "../../lib/settingsDraft";
 const days = (n: number) => `${n} day${n === 1 ? "" : "s"}`;
 
 const formatWhen = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—";
+  iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "-";
 
 export function NoticeList({ notices }: { notices: RetentionNotice[] }) {
   return (
@@ -46,7 +46,7 @@ function Figure({ label, value, title }: { label: string; value: string; title: 
 
 /**
  * Sits above the Documents & storage rows: what the bucket's own rules delete, and what the
- * retention settings do with them — for the saved values, or for staged ones before they're saved.
+ * retention settings do with them - for the saved values, or for staged ones before they're saved.
  */
 export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: SettingsDraft }) {
   const queryClient = useQueryClient();
@@ -73,7 +73,7 @@ export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: Set
 
   const filesRulePrefix = status.files.rulePrefix;
   const ex = status.exchanges;
-  const count = (n: number | null) => (n === null ? "—" : n >= ex.countCap ? `${ex.countCap.toLocaleString()}+` : n.toLocaleString());
+  const count = (n: number | null) => (n === null ? "-" : n >= ex.countCap ? `${ex.countCap.toLocaleString()}+` : n.toLocaleString());
 
   return (
     <div className="mb-5 space-y-4 border-b border-ink-100 pb-5">
@@ -81,7 +81,7 @@ export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: Set
         <Figure
           label="Files kept"
           value={status.files.days === null ? (status.storage.problem ? "Unknown" : "For ever") : days(status.files.days)}
-          title={`How long the bucket keeps files written under ${status.files.prefix}/ — decided by the bucket's own rule, not by Bitween.`}
+          title={`How long the bucket keeps files written under ${status.files.prefix}/ - decided by the bucket's own rule, not by Bitween.`}
         />
         <Figure
           label="Exchanges kept"
@@ -125,7 +125,7 @@ export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: Set
             variant="ghost"
             busy={refreshing}
             onClick={() => void refresh()}
-            title="Ask the storage service for its rules again — they're otherwise read at most every few minutes"
+            title="Ask the storage service for its rules again - they're otherwise read at most every few minutes"
           >
             <RefreshCw className="size-3.5" aria-hidden />
             Refresh

@@ -7,8 +7,8 @@ const FOCUSABLE =
  * What a modal owes a keyboard: focus moves into it when it opens, Tab can't wander out to the
  * page behind it, and when it closes focus goes back to whatever opened it.
  *
- * A field that asked for autoFocus keeps it. Otherwise the panel itself takes focus — not its
- * first button, which is usually Close — so a screen reader announces the dialog by its label.
+ * A field that asked for autoFocus keeps it. Otherwise the panel itself takes focus - not its
+ * first button, which is usually Close - so a screen reader announces the dialog by its label.
  * The panel needs tabIndex={-1} for that.
  */
 export function useModalFocus(ref: RefObject<HTMLElement | null>) {

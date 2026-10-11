@@ -12,7 +12,7 @@ namespace SW.Bitween.HttpTests;
 /// <summary>
 /// Bitween installed on each metadata database it supports besides PostgreSQL, which every other
 /// test runs on: migrated from nothing, started as Program.Main starts it, then configured and
-/// used over HTTP — an information type, a partner with a key, a gateway, a call through the queue
+/// used over HTTP - an information type, a partner with a key, a gateway, a call through the queue
 /// answered with its result, and the pages that list them. These databases were only ever checked
 /// for model drift before.
 /// </summary>
@@ -24,7 +24,7 @@ public class MetadataDatabaseTests
         RunAsync("MySql", new MySqlBuilder().WithImage("mysql:8.0").WithDatabase("bitween").Build(),
             mustStart: true);
 
-    /// <summary>Skipped where SQL Server's image can't run — it is x64 only, and an Apple-silicon Docker can't start it.</summary>
+    /// <summary>Skipped where SQL Server's image can't run - it is x64 only, and an Apple-silicon Docker can't start it.</summary>
     [SkippableFact]
     public Task A_fresh_install_on_MsSql_migrates_starts_and_carries_a_gateway_call_end_to_end() =>
         RunAsync("MsSql", new MsSqlBuilder().Build(), mustStart: false);

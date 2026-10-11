@@ -5,7 +5,7 @@ import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/
 
 /**
  * Writing an adapter in Bitween: starting one, the editor's save, check, try and publish, and the
- * Edit and Make current actions on published versions — against the API's real routes and shapes.
+ * Edit and Make current actions on published versions - against the API's real routes and shapes.
  */
 
 const DRAFT = {

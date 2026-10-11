@@ -20,7 +20,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// The whole pipeline, from where a message arrives to the XchangeResult it produces — with
+/// The whole pipeline, from where a message arrives to the XchangeResult it produces - with
 /// subscriptions that actually run serverless adapters rather than stopping at the Xchange row.
 ///
 /// The claim under test is the one the external-broker design rests on: past the point of
@@ -97,7 +97,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
             ExternalResult = await DriveToResultAsync(externalParent!, external.SubscriptionId);
         }
 
-        // Internal: no data source, no adapter, no broker — the gateway alone.
+        // Internal: no data source, no adapter, no broker - the gateway alone.
         var internalSetup = await ArrangeAsync(endpoint: null, EchoHandler);
         await SubmitInternallyAsync(internalSetup.DocumentId, payload);
 
@@ -119,7 +119,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
     /// <summary>
     /// One gateway, two routes, different filters. The message must run the subscription whose
-    /// filter matches and only that one — routing is the gateway's job whatever fed it.
+    /// filter matches and only that one - routing is the gateway's job whatever fed it.
     /// </summary>
     [Fact]
     public async Task A_filter_on_a_route_selects_which_subscription_runs()
@@ -191,7 +191,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
     /// <summary>
     /// A handler that fails must NOT unwind the ingest. The message was persisted and acknowledged
     /// long before the handler ran, so the failure belongs to the XchangeResult and the retry
-    /// policy — not to the broker, which has already been told the message was taken.
+    /// policy - not to the broker, which has already been told the message was taken.
     /// </summary>
     [Fact]
     public async Task A_failing_handler_is_recorded_as_a_result_not_as_an_ingest_failure()
@@ -230,7 +230,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
     /// <summary>
     /// Document, subscription with adapters, gateway, and one route. When <paramref name="endpoint"/>
-    /// is null the gateway is an INTERNAL one — no data source, which is what null has always meant.
+    /// is null the gateway is an INTERNAL one - no data source, which is what null has always meant.
     /// </summary>
     private async Task<Setup> ArrangeAsync(string? endpoint, string handlerId,
         IDictionary<string, string>? handlerProperties = null,
@@ -297,7 +297,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         await db.SaveChangesAsync();
 
         // Ten-minute singleton snapshot: without this the pipeline reads configuration from
-        // before this test's own setup — see GatewayRoutingTests.
+        // before this test's own setup - see GatewayRoutingTests.
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
 
         return new Setup(document.Id, subscription.Id, gateway.Id, dataSourceId);
@@ -363,7 +363,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
     /// <summary>
     /// A gateway hit produces an Xchange carrying a SubscriptionId; there is no explicit parent
-    /// link on the entity, so these are found by Document — unique per test, so unambiguous.
+    /// link on the entity, so these are found by Document - unique per test, so unambiguous.
     /// </summary>
     private async Task<List<Xchange>> ChildXchangesAsync(int documentId)
     {

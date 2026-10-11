@@ -104,15 +104,15 @@ export function NotifiersPage() {
     <div>
       <PageHeader
         title="Notifiers"
-        description="Alerts sent to your team when watched subscriptions fail — or succeed."
+        description="Alerts sent to your team when watched subscriptions fail - or succeed."
         help={{
           title: "How notifiers work",
           body: (
             <>
               <p>
                 A notifier <strong>watches</strong> a set of subscriptions. Whenever one of them
-                finishes an exchange with an outcome the notifier cares about — failed, bad result
-                or success — a notification goes out through its channel (email, Teams, …).
+                finishes an exchange with an outcome the notifier cares about - failed, bad result
+                or success - a notification goes out through its channel (email, Teams, …).
               </p>
               <p>
                 A notifier that watches no subscriptions never sends anything. Every delivery
@@ -154,7 +154,7 @@ export function NotifiersPage() {
               cell: (n) => (
                 <span
                   className="flex flex-wrap gap-1"
-                  title="Any combination of outcomes can be set — these are all the ones this notifier sends on, not a single state."
+                  title="Any combination of outcomes can be set - these are all the ones this notifier sends on, not a single state."
                 >
                   {n.onFailed && <Badge tone="danger">Failed</Badge>}
                   {n.onBadResult && <Badge tone="warn">Bad result</Badge>}
@@ -171,7 +171,7 @@ export function NotifiersPage() {
               wrap: true,
               cell: (n) =>
                 n.subscriptionIds.length === 0 ? (
-                  <span className="text-warn-700">Nothing — never fires</span>
+                  <span className="text-warn-700">Nothing - never fires</span>
                 ) : (
                   <UsedByCell
                     items={(subscriptions.data ?? []).filter((s) => n.subscriptionIds.includes(s.id))}

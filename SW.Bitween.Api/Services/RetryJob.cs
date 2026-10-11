@@ -18,7 +18,7 @@ namespace SW.Bitween;
 /// Works through every retry that is already due rather than a hundred a minute, and commits one row
 /// at a time. Committing the batch in one go meant a single row that could not be carried out
 /// discarded the work of all the others and left their schedules in place, so the same batch came
-/// back a minute later and failed the same way — no retry would ever have run again.
+/// back a minute later and failed the same way - no retry would ever have run again.
 /// </remarks>
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
 public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService, ILogger<RetryJob> logger)
@@ -52,7 +52,7 @@ public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService,
                 }
                 catch (Exception ex)
                 {
-                    // Whatever the failed run left staged goes first — saving it would commit the very
+                    // Whatever the failed run left staged goes first - saving it would commit the very
                     // changes that failing was meant to prevent.
                     dbContext.ChangeTracker.Clear();
 
@@ -65,7 +65,7 @@ public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService,
     /// <summary>
     /// What happens to a retry whose run threw. Every row leaves the pass one way or another, which
     /// is what stops the loop from meeting the same row again and turning the drain into a spin:
-    /// moved later, so a passing failure — the database for a moment — doesn't lose the retry, or
+    /// moved later, so a passing failure - the database for a moment - doesn't lose the retry, or
     /// dropped once it has kept failing. A run whose save did commit has already removed its row,
     /// so neither statement touches it.
     /// </summary>

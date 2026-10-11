@@ -18,7 +18,7 @@ public class StatementRegistry
 {
     /// <summary>
     /// One configured statement. Most are just SQL; a statement a receiver polls with also carries
-    /// the shape of its rows — which column is the cursor, which identifies the row.
+    /// the shape of its rows - which column is the cursor, which identifies the row.
     ///
     /// Those two live with the statement rather than with the subscription reading it because they
     /// describe what the QUERY returns. A poll statement returns the same cursor column whoever
@@ -47,7 +47,7 @@ public class StatementRegistry
         catch (JsonException ex)
         {
             // Named rather than swallowed: an adapter that silently starts with no statements
-            // fails later, on a message, as "unknown statement" — which sends whoever is debugging
+            // fails later, on a message, as "unknown statement" - which sends whoever is debugging
             // it looking in the wrong place entirely.
             throw new ArgumentException(
                 $"The Statements setting is not valid JSON: {ex.Message}. It should be an object "
@@ -84,7 +84,7 @@ public class StatementRegistry
 
             throw new ArgumentException(
                 $"Statement '{property.Name}' has to be a string of SQL, or an object with a "
-                + $"'sql' property — not a {property.Value.Type}.");
+                + $"'sql' property - not a {property.Value.Type}.");
         }
     }
 
@@ -112,7 +112,7 @@ public class StatementRegistry
             throw new InvalidOperationException(
                 $"'{name}' is not a statement this data source defines. Configured: "
                 + (statements.Count == 0
-                    ? "none — set the Statements property on the data source."
+                    ? "none - set the Statements property on the data source."
                     : string.Join(", ", statements.Keys.OrderBy(k => k))));
         }
 

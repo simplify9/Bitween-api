@@ -23,7 +23,7 @@ test("global value set create, edit values, list, delete", async ({ page }) => {
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 
-  // Reload forces a fresh GET — proves the write actually persisted server-side.
+  // Reload forces a fresh GET - proves the write actually persisted server-side.
   await page.reload();
   await expect(page.getByLabel("Key 1")).toHaveValue("baseUrl");
   await expect(page.getByLabel("Value 1")).toHaveValue("https://example.com");

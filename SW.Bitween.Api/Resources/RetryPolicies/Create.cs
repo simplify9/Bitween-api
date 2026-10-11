@@ -15,8 +15,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
         RetryGroupValidation.EnsureAlertTransportIsSecure(
             model.AlertHandlerId, model.AlertHandlerProperties);
 
-        // A new policy has nothing stored behind a sentinel, so any that arrives — from a policy
-        // copied out of Get, say — is dropped rather than saved as the literal password.
+        // A new policy has nothing stored behind a sentinel, so any that arrives - from a policy
+        // copied out of Get, say - is dropped rather than saved as the literal password.
         foreach (var group in model.Groups ?? [])
             AdapterSecretProperties.MergeInPlace(null, group.AlertHandlerProperties);
 

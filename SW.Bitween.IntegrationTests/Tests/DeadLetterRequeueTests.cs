@@ -38,7 +38,7 @@ public class DeadLetterRequeueTests(BitweenFixture fixture)
         new(DashboardStub.With(known), null!, fixture.CreateScope().ServiceProvider.GetRequiredService<IConfiguration>(),
             NullLogger<DeadLetterQueues>.Instance);
 
-    /// <summary>A lane — main and bad queue — with <paramref name="dead"/> messages dead-lettered.</summary>
+    /// <summary>A lane - main and bad queue - with <paramref name="dead"/> messages dead-lettered.</summary>
     private async Task<string> Lane(int dead, bool withMain = true)
     {
         var main = $"test.deadletters.lane{Interlocked.Increment(ref _seq)}.{Guid.NewGuid():N}";

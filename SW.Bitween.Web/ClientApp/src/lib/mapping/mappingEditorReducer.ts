@@ -275,7 +275,7 @@ export function mappingEditorReducer(
       case 'SET_SELECTED_PARTNER': {
         draft.selectedPartnerId = action.payload.partnerId;
         draft.partnerAdapterProperties = action.payload.adapterProperties;
-        // Do not clear any partnerPropKey mappings — user manages their own mappings.
+        // Do not clear any partnerPropKey mappings - user manages their own mappings.
         break;
       }
       case 'UNDO': {

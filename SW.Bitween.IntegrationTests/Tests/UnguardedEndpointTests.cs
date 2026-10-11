@@ -13,7 +13,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///
 /// Injecting the thing that checks permissions and then not calling it looks exactly like a
 /// handler that does check: the dependency is declared, the reader's eye stops there. The
-/// compiler could not see it either, because an assigned-but-unread field is not a warning — it
+/// compiler could not see it either, because an assigned-but-unread field is not a warning - it
 /// only surfaced once these became primary constructor parameters and the unused ones got named.
 ///
 /// So a viewer could rename the subscription categories everyone else files by, delete them, and

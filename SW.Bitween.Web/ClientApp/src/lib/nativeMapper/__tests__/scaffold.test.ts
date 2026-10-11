@@ -50,7 +50,7 @@ describe("the structure it builds", () => {
 
   /**
    * The old generator produced a flat string `lines[*].sku`, which this model cannot
-   * express — a list is a list, and its fields are written against one entry.
+   * express - a list is a list, and its fields are written against one entry.
    */
   it("makes a list for a list, with the entry's fields inside it", () => {
     const { rules } = build('{ "lines": [{ "code": "", "qty": 0 }] }');
@@ -131,7 +131,7 @@ describe("matching source fields", () => {
 
   /**
    * The important negative. Two source fields both reduce to `id`, so `id` names
-   * neither of them — and a coin flip between the two would be wrong half the time.
+   * neither of them - and a coin flip between the two would be wrong half the time.
    * An empty field the editor counts is worth more than a mapping that looks done.
    */
   it("leaves a field empty when two source fields answer to the same name", () => {
@@ -167,7 +167,7 @@ describe("matching source fields", () => {
    * Where "the same name" stops. `lines` and `line` are not the same name, and
    * nothing here stems words: a rule that made them equal would also have to rule
    * on `status`/`statuses` and `company`/`companies`, where stripping an "s" is
-   * simply wrong. The list is still created — only its source is left to pick.
+   * simply wrong. The list is still created - only its source is left to pick.
    */
   it("leaves the source list empty for a name that is merely close", () => {
     const { rules } = build(
@@ -181,7 +181,7 @@ describe("matching source fields", () => {
 
   /**
    * A rule inside a list is written against one entry, so `code` there must find the
-   * entry's `code` — not a `code` sitting at the top of the document.
+   * entry's `code` - not a `code` sitting at the top of the document.
    */
   it("matches a list's fields against one entry, not the whole document", () => {
     const { rules } = build(
@@ -196,7 +196,7 @@ describe("matching source fields", () => {
 
   /**
    * The scope narrows on the way down. `MapInto` hands a list's nested lists the current
-   * item, so a nested list names its list relative to the entry around it — `tags`,
+   * item, so a nested list names its list relative to the entry around it - `tags`,
    * never `order.line.tags`, which resolves to nothing.
    */
   it("names a nested list's list relative to the entry around it", () => {

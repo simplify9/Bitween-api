@@ -41,7 +41,7 @@ namespace SW.Bitween.IntegrationTests.Fixtures;
 /// Every test in the collection shares this one database, so entities must not be given hand-picked
 /// primary keys. Documents used to be created with literal ids chosen to be "high enough" to miss
 /// the seeded rows, which worked only for as long as no two test files happened to pick the same
-/// number — and when they eventually did, the pair passed in isolation and failed together, which
+/// number - and when they eventually did, the pair passed in isolation and failed together, which
 /// reads as a broken test rather than a collision. Let the database assign ids: for a document that
 /// is <c>new Document(null, name, format)</c>, the constructor that exists for exactly this.
 /// </remarks>
@@ -131,7 +131,7 @@ public sealed class BitweenFixture : IAsyncLifetime
     /// Creates a queue and returns a URL that actually resolves from the test host.
     ///
     /// ElasticMQ builds QueueUrl from its own node address, which is the port INSIDE the
-    /// container, not the mapped one — so the URL it hands back is unreachable. Only the path is
+    /// container, not the mapped one - so the URL it hands back is unreachable. Only the path is
     /// trustworthy; the authority has to come from the mapped endpoint.
     /// </summary>
     public async Task<string> CreateSqsQueueAsync(string name)
@@ -171,7 +171,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                 .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:RabbitMQ"] = _rabbitMq.GetConnectionString(),
-                    // Signing material for the tokens the login handler issues. Test-only values —
+                    // Signing material for the tokens the login handler issues. Test-only values -
                     // the key just has to be long enough for the algorithm to accept it.
                     ["Token:Key"] = "integration-test-signing-key-not-used-anywhere-else-0123456789",
                     ["Token:Issuer"] = "bitween-tests",
@@ -227,7 +227,7 @@ public sealed class BitweenFixture : IAsyncLifetime
 
                     // Real local filesystem cloud files provider
                     // Its OWN bucket. The default one is shared with whatever else uses the local
-                    // store on this machine — including a developer's running Bitween — and the
+                    // store on this machine - including a developer's running Bitween - and the
                     // teardown below calls Cleanup(), which deletes the bucket outright. Sharing it
                     // meant running this suite silently unpublished the dev environment's adapters,
                     // and the next thing anyone did there failed as "metadata is missing
@@ -263,7 +263,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<INativeInfolinkHandler, NativeTestResponder>();
                     services.AddScoped<INativeAdapter, NativeTestResponder>();
 
-                    // The mapper step had no end-to-end coverage at all — every mapper test was a
+                    // The mapper step had no end-to-end coverage at all - every mapper test was a
                     // unit test against ScribanJsonHelper, so what XchangeService does to a payload
                     // on the way in was never exercised. See MapperEnrichmentBaselineTests.
                     services.AddScoped<INativeInfolinkMapper, NativeJSONMapper>();

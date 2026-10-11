@@ -18,7 +18,7 @@ import {
  * path out of the tree and then asserts on a preview the server produced, so the two
  * cannot drift apart without one of them failing.
  *
- * The documents are the shapes real carriers send — SOAP requests and responses — with
+ * The documents are the shapes real carriers send - SOAP requests and responses - with
  * the credentials replaced.
  */
 
@@ -75,6 +75,6 @@ test("the paths the source tree offers are the ones the server can read", async 
 
   await field.fill("Envelope.Body.shipping.headerValue.accountNumber");
 
-  // Read by the server, not by the editor — which is what makes this a real check.
+  // Read by the server, not by the editor - which is what makes this a real check.
   await expectPreview(page, '"account": "55480501"');
 });

@@ -28,7 +28,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
-    <!-- Testcontainers — Docker-based infrastructure -->
+    <!-- Testcontainers - Docker-based infrastructure -->
     <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
     <PackageReference Include="Testcontainers.RabbitMq" Version="3.10.0" />
     <PackageReference Include="Testcontainers.Oracle" Version="3.10.0" />

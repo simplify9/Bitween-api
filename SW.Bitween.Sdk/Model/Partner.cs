@@ -11,7 +11,7 @@ namespace SW.Bitween.Model
 
         /// <summary>
         /// Referenced from adapter fields as {{partner.KEY}}. Accepted at creation so a
-        /// partner can be made complete in one call — the UI creates partners from
+        /// partner can be made complete in one call - the UI creates partners from
         /// inside other flows, where a follow-up update that fails would leave a
         /// partner whose adapters resolve nothing.
         /// </summary>
@@ -37,7 +37,7 @@ namespace SW.Bitween.Model
         public int? SubscriptionsCount { get; set; }
         public int? Keys { get; set; }
         /// <summary>
-        /// The names of the partner's adapter properties — never their values, which
+        /// The names of the partner's adapter properties - never their values, which
         /// can be secrets. Names alone are enough to count them in a list and to offer
         /// them as {{partner.x}} reference tokens when configuring an adapter.
         /// </summary>

@@ -11,8 +11,8 @@ namespace SW.Bitween.Resources.Settings;
 
 /// <summary>
 /// Every editable setting, in catalog order: the definition from <see cref="SettingsCatalog"/>
-/// joined with the stored value. Rows normally exist for all of them — startup imports whatever
-/// configuration had — so a missing row means the key couldn't be stored yet.
+/// joined with the stored value. Rows normally exist for all of them - startup imports whatever
+/// configuration had - so a missing row means the key couldn't be stored yet.
 /// </summary>
 public class Get(BitweenDbContext dbContext, RequestContext requestContext, SettingsService settings)
     : IQueryHandler<object>
@@ -35,7 +35,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Sett
             // A secret's value is withheld either way round: only whether one is set is public.
             var value = definition.Secret ? null : hasRow ? stored : productDefault;
             // A secret has no product default, and its ciphertext couldn't be compared with one
-            // anyway — so for a secret both "is set" and "is overridden" mean the same thing:
+            // anyway - so for a secret both "is set" and "is overridden" mean the same thing:
             // a non-empty value is stored.
             var secretIsSet = hasRow && !string.IsNullOrEmpty(stored);
 

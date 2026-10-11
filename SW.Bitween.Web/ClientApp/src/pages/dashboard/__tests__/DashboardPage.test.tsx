@@ -69,13 +69,13 @@ describe("the dashboard", () => {
     const heading = await screen.findByRole("heading", { name: "Subscription health" });
     const panel = within(heading.closest("section")!);
 
-    expect(await panel.findByText("1–10 of 14")).toBeVisible();
+    expect(await panel.findByText("1-10 of 14")).toBeVisible();
     expect(panel.getAllByRole("listitem")).toHaveLength(10);
     expect(panel.getByText("Health page 1", { exact: true })).toBeVisible();
 
     await user.click(panel.getByRole("button", { name: "Next →" }));
 
-    expect(panel.getByText("11–14 of 14")).toBeVisible();
+    expect(panel.getByText("11-14 of 14")).toBeVisible();
     expect(panel.getAllByRole("listitem")).toHaveLength(4);
     expect(panel.getByText("Health page 11", { exact: true })).toBeVisible();
     expect(panel.getAllByText("Paused")).toHaveLength(3);
@@ -92,7 +92,7 @@ describe("the dashboard", () => {
     expect(card.getByText("1. Describe a document")).toBeVisible();
 
     const rate = screen.getByText("Success rate (7 days)").closest("a")!;
-    expect(within(rate).getByText("—")).toBeVisible();
+    expect(within(rate).getByText("-")).toBeVisible();
   });
 
   it("can be dismissed for good", async () => {

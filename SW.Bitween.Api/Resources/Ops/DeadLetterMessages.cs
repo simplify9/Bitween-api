@@ -12,8 +12,8 @@ public class DeadLetterMessagesQuery
 }
 
 /// <summary>
-/// What is sitting in one dead-letter queue. The bodies are the messages themselves — a partner's
-/// payload, often — so seeing them takes the right to see exchanges too.
+/// What is sitting in one dead-letter queue. The bodies are the messages themselves - a partner's
+/// payload, often - so seeing them takes the right to see exchanges too.
 /// </summary>
 [HandlerName("DeadLetterMessages")]
 public class DeadLetterMessages(DeadLetterQueues deadLetters, BitweenDbContext dbContext, RequestContext requestContext)

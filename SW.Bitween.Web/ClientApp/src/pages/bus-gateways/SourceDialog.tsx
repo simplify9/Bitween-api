@@ -15,7 +15,7 @@ import { providerOf, useDataSourceProviders } from "../data-sources/providers";
  *
  * A dialog rather than a node on the canvas: the canvas draws what happens to a message once it
  * has arrived, and it draws that per route. Where the messages come from is a property of the
- * gateway, so putting it on every route's diagram would say otherwise — the same reason the
+ * gateway, so putting it on every route's diagram would say otherwise - the same reason the
  * information type was moved out of the canvas and into the toolbar.
  */
 export function SourceDialog({
@@ -38,7 +38,7 @@ export function SourceDialog({
   });
 
   // Brokers only. A data source can also be a database or an object store held open by a resident
-  // adapter, and none of those has a queue for a gateway to read — the API refuses them too, so
+  // adapter, and none of those has a queue for a gateway to read - the API refuses them too, so
   // this is the same rule stated where the operator can see it rather than a second one.
   const available = (sources.data ?? []).filter(
     (s) => (s.kind ?? "Broker").toLowerCase() === "broker",
@@ -124,7 +124,7 @@ export function SourceDialog({
                 onChange={(e) => setDataSourceId(Number(e.target.value))}
                 options={available.map((s) => ({
                   value: String(s.id),
-                  label: `${s.name} — ${providerOf(providers.data, s.adapterId)?.label ?? s.adapterId}${s.inactive ? " (inactive)" : ""}`,
+                  label: `${s.name} - ${providerOf(providers.data, s.adapterId)?.label ?? s.adapterId}${s.inactive ? " (inactive)" : ""}`,
                 }))}
               />
             </Field>

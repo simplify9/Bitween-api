@@ -23,7 +23,7 @@ export interface CheckFinding {
  *   src/index.ts(12,5): error TS2322: …     (tsc, MSBuild)
  *   File "/build/adapter/main.py", line 12  (a Python traceback)
  *
- * A path only counts if it is one of the draft's files — matched by its end, since the build ran
+ * A path only counts if it is one of the draft's files - matched by its end, since the build ran
  * in a directory of its own and reports absolute or prefixed paths.
  */
 export function locate(message: string, paths: string[]): CheckFinding["at"] {

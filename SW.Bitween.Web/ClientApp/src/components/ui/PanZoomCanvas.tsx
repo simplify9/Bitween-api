@@ -4,7 +4,7 @@ import { Maximize2, Minus, Plus } from "lucide-react";
 /**
  * A scrollable diagram surface: drag the background to pan, fixed steps to zoom.
  *
- * Pannable but never free-form — nodes are not dragged in either diagram that uses
+ * Pannable but never free-form - nodes are not dragged in either diagram that uses
  * this, because both layouts are derived from the configuration and rearranging them
  * could only produce pictures that disagree with it. What panning buys is real: a
  * response chain, or a topology of a dozen gateways, is wider than any screen.
@@ -19,7 +19,7 @@ const ZOOM_STEPS = [0.55, 0.7, 0.85, 1];
 
 export function PanZoomCanvas({
   children,
-  /** Changes when the subject changes — the view returns to the start of it. */
+  /** Changes when the subject changes - the view returns to the start of it. */
   resetKey,
   /** What the fit control offers, e.g. "Fit the whole path". Shown in its tooltip. */
   fitLabel,
@@ -85,7 +85,7 @@ export function PanZoomCanvas({
     drag.current = null;
   };
 
-  // Keyboard zoom, stood down while typing — an operator editing a handler URL
+  // Keyboard zoom, stood down while typing - an operator editing a handler URL
   // types "+" and "-" constantly.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

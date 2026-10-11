@@ -13,7 +13,7 @@ export const workGroupDraftOf = (g: WorkGroup): WorkGroupDraft => ({
 });
 
 /**
- * Messages still in a group's queues — both of its lanes, retries and dead letters included —
+ * Messages still in a group's queues - both of its lanes, retries and dead letters included -
  * from the same live snapshot Queue health polls. `null` when it can't be known: no right to see
  * queue health, RabbitMQ management not configured, or not loaded yet.
  */

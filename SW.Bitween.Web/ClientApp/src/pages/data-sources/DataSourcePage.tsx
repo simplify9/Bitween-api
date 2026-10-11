@@ -44,7 +44,7 @@ import { usePageTitle } from "../../lib/pageTitle";
  *
  * The Test button carries more weight than it looks. Without it the only way to discover a wrong
  * password is to save, wait up to thirty seconds for the supervisor to reconcile, and then read the
- * health row — so a typo costs a minute and a guess at which of six fields caused it.
+ * health row - so a typo costs a minute and a guess at which of six fields caused it.
  */
 export function DataSourcePage() {
   const { id = "" } = useParams();
@@ -80,7 +80,7 @@ export function DataSourcePage() {
   const canCreateStatements = useSessionCan("data-source-statements.create");
   const [removing, setRemoving] = useState(false);
 
-  // Re-seed when the server's copy of the SETTINGS changes — saving re-masks the secrets, so the
+  // Re-seed when the server's copy of the SETTINGS changes - saving re-masks the secrets, so the
   // form has to go back to showing "stored" rather than a value the server will never return
   // again. Not on every response: this query is polled for the connection panel, and re-seeding on
   // each poll silently threw away anything typed but not yet saved.
@@ -115,7 +115,7 @@ export function DataSourcePage() {
       setError(null);
       await queryClient.invalidateQueries({ queryKey: keys.dataSources.all });
       // Re-seeded here rather than left to the fingerprint check. A save that only replaced a
-      // stored secret comes back identical — the secret is masked again — so that check saw no
+      // stored secret comes back identical - the secret is masked again - so that check saw no
       // change, and the form kept the typed password: "Unsaved changes" stayed up after a save
       // that had worked, and pressing Save again sent the password a second time.
       const saved = queryClient.getQueryData<DataSourceDetail>(keys.dataSources.detail(dataSourceId));
@@ -139,7 +139,7 @@ export function DataSourcePage() {
   });
 
   // Discover and GetStats go to the adapter actually serving traffic, not to a throwaway instance
-  // the way Test does — they are questions about the live connection.
+  // the way Test does - they are questions about the live connection.
   const ask = useMutation({
     mutationFn: (command: string) => api.inspectDataSource(dataSourceId, command),
     onSuccess: setInspect,
@@ -183,7 +183,7 @@ export function DataSourcePage() {
   // parts of this page are left off it rather than shown empty.
   const relational = d.kind === "Relational";
   // Resolved the way the supervisor resolves it: Auto is exclusive for a broker only, and either
-  // kind can be set explicitly — a database can be pinned to one node too.
+  // kind can be set explicitly - a database can be pinned to one node too.
   const exclusive = d.placement === "Exclusive" || (d.placement !== "PerNode" && !relational);
 
   const setProperty = (key: string, value: string) =>
@@ -195,7 +195,7 @@ export function DataSourcePage() {
     setDraft({ ...draft, properties });
   };
 
-  // Declared by the adapter but not on this data source yet — offered rather than imposed, so a
+  // Declared by the adapter but not on this data source yet - offered rather than imposed, so a
   // form does not open with twenty empty boxes.
   const unused = (provider?.settings ?? [])
     .map((setting) => setting.name)
@@ -244,7 +244,7 @@ export function DataSourcePage() {
               </Button>
             </Can>
             {/* A relational source has the schema browser below, which is this answer made
-                usable — two ways to ask the same question, one of them 1,800 lines of JSON, is
+                usable - two ways to ask the same question, one of them 1,800 lines of JSON, is
                 one too many. A broker has no browser, so Discover is still how its topology is
                 seen. */}
             {source.data?.kind !== "Relational" && (
@@ -264,7 +264,7 @@ export function DataSourcePage() {
         }
       />
 
-      {/* ——— the test's answer ——— */}
+      {/* --- the test's answer --- */}
       {result && (
         <section
           className={`mb-4 rounded-xl border p-4 ${
@@ -276,7 +276,7 @@ export function DataSourcePage() {
               {result.succeeded ? "The connection works" : "The connection failed"}
             </h2>
             <Badge tone={result.succeeded ? "ok" : "danger"}>{result.succeeded ? "OK" : "Failed"}</Badge>
-            {/* Which statements, out of how many — the number that says whether this is one typo
+            {/* Which statements, out of how many - the number that says whether this is one typo
                 or the same mistake copied across a set. */}
             {failedStatements.length > 0 && (
               <Badge tone="danger">
@@ -305,7 +305,7 @@ export function DataSourcePage() {
                 >
                   {stage.name}
                 </span>
-                {/* pre-wrap because a driver's message carries its own line breaks — PostgreSQL
+                {/* pre-wrap because a driver's message carries its own line breaks - PostgreSQL
                     puts the character offset on a line of its own, and collapsed into a paragraph
                     it reads as part of the sentence before it. min-w-0 so a long one wraps inside
                     the row instead of widening the card. */}
@@ -329,7 +329,7 @@ export function DataSourcePage() {
 
           {failedStatements.length > 0 && (
             <p className="mt-2 text-[12px] text-danger-800">
-              Statements are prepared against the live schema, never run. Fix them on this page —
+              Statements are prepared against the live schema, never run. Fix them on this page -
               a statement is refused when it is saved now, so these predate that check or the
               schema moved underneath them.
             </p>
@@ -338,7 +338,7 @@ export function DataSourcePage() {
           <p className="mt-2 text-[12px] text-ink-500">
             {source.data?.kind === "Relational"
               ? "The test runs the real adapter against these settings on its own throwaway connection, "
-                + "and prepares every statement against the live schema — so a typo or a dropped column "
+                + "and prepares every statement against the live schema - so a typo or a dropped column "
                 + "fails here rather than on the first message."
               : "The test runs the real adapter against these settings but never consumes: the queues "
                 + "its gateways read are inspected, not drained."}
@@ -350,7 +350,7 @@ export function DataSourcePage() {
           column comes first in the markup so a narrow screen still opens on whether it works. */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <div className="min-w-0">
-          {/* ——— what the last heartbeat said, and what it is doing right now ——— */}
+          {/* --- what the last heartbeat said, and what it is doing right now --- */}
           <section className="mb-4 rounded-xl border border-ink-200 bg-white p-4">
             <div className="mb-3 flex items-center gap-3">
               <h2 className="text-sm font-semibold text-ink-900">Connection</h2>
@@ -360,7 +360,7 @@ export function DataSourcePage() {
             <dl className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
               <Row label="Held by">{d.ownedByNode ?? "Not running on any node"}</Row>
               <Row label="Last heartbeat">
-                {d.lastHeartbeatOn ? new Date(d.lastHeartbeatOn).toLocaleString() : "—"}
+                {d.lastHeartbeatOn ? new Date(d.lastHeartbeatOn).toLocaleString() : "-"}
               </Row>
               <Row label="Consecutive restarts">{String(d.consecutiveFailures)}</Row>
               {relational ? (
@@ -383,7 +383,7 @@ export function DataSourcePage() {
             </dl>
 
             {/* The two placements are opposites, and the wrong explanation directly contradicts the
-                "Held by" value right above it — which is how someone concludes the page is broken. */}
+                "Held by" value right above it - which is how someone concludes the page is broken. */}
             <p className="mt-3 text-[12px] text-ink-500">
               {!exclusive ? (
                 <>
@@ -394,7 +394,7 @@ export function DataSourcePage() {
               ) : (
                 <>
                   This connection is exclusive, so exactly one node holds it. The term after the
-                  node name is the fencing token — it increases every time ownership moves, and a node
+                  node name is the fencing token - it increases every time ownership moves, and a node
                   whose term is no longer current stops immediately rather than carrying on consuming.
                 </>
               )}
@@ -403,7 +403,7 @@ export function DataSourcePage() {
             <LiveConnection dataSourceId={dataSourceId} knownError={d.lastException} />
           </section>
 
-          {/* Only a relational source runs SQL, and the server refuses a statement on anything else —
+          {/* Only a relational source runs SQL, and the server refuses a statement on anything else -
               so offering the panel on a broker would be offering a thing that cannot work. */}
           {source.data?.kind === "Relational" && (
             <>
@@ -440,7 +440,7 @@ export function DataSourcePage() {
             </>
           )}
 
-          {/* ——— what the live adapter says it can see ——— */}
+          {/* --- what the live adapter says it can see --- */}
           {inspect && (
             <section className="mb-4 rounded-xl border border-ink-200 bg-white p-4">
               <div className="mb-2 flex items-center gap-2">
@@ -472,7 +472,7 @@ export function DataSourcePage() {
               )}
 
               <p className="mt-2 text-[12px] text-ink-500">
-                Asked of the connection that is actually serving traffic, not a throwaway one — and
+                Asked of the connection that is actually serving traffic, not a throwaway one - and
                 read-only:{" "}
                 {source.data?.kind === "Relational"
                   ? "it reads the catalog, and writes nothing."
@@ -482,7 +482,7 @@ export function DataSourcePage() {
           )}
         </div>
 
-        {/* ——— settings ——— */}
+        {/* --- settings --- */}
         <section className="min-w-0 rounded-xl border border-ink-200 bg-white p-5 lg:order-first">
           <h2 className="mb-4 text-sm font-semibold text-ink-900">Settings</h2>
 
@@ -532,7 +532,7 @@ export function DataSourcePage() {
               <Field
                 label="Remember deduplication keys for (days)"
                 htmlFor="ds-dedupe"
-                hint="Has to exceed the widest redelivery window this broker can produce — its message TTL, a dead-letter replay, someone re-driving a queue by hand. A key forgotten too early lets a redelivery through as a fresh message. Zero turns deduplication off."
+                hint="Has to exceed the widest redelivery window this broker can produce - its message TTL, a dead-letter replay, someone re-driving a queue by hand. A key forgotten too early lets a redelivery through as a fresh message. Zero turns deduplication off."
               >
                 <TextInput
                   id="ds-dedupe"
@@ -579,7 +579,7 @@ export function DataSourcePage() {
                               // An empty option only where empty is legal: a setting the adapter did
                               // not mark required can be left for the broker to decide.
                               options={[
-                                ...(declared.required ? [] : [{ value: "", label: "—" }]),
+                                ...(declared.required ? [] : [{ value: "", label: "-" }]),
                                 ...declared.allowedValues.map((v) => ({ value: v, label: v })),
                               ]}
                             />
@@ -696,7 +696,7 @@ export function DataSourcePage() {
                 <CeilingInput
                   id="ds-cpu-samples"
                   label="CPU heartbeats"
-                  help="How many heartbeats in a row it must stay above the CPU line before it trips. Higher lets a bigger burst of real work pass — an adapter draining a backlog is supposed to work hard."
+                  help="How many heartbeats in a row it must stay above the CPU line before it trips. Higher lets a bigger burst of real work pass - an adapter draining a backlog is supposed to work hard."
                   value={draft.cpuLimitSamples}
                   disabled={!canEdit}
                   onChange={(v) => setDraft({ ...draft, cpuLimitSamples: v })}
@@ -707,21 +707,21 @@ export function DataSourcePage() {
                 draft.hardMemoryLimitMb > 0 &&
                 draft.softMemoryLimitMb > draft.hardMemoryLimitMb && (
                   <p className="mt-2 text-[12px] text-danger-700">
-                    A soft limit above the hard one can never be reached — the runtime fails the
+                    A soft limit above the hard one can never be reached - the runtime fails the
                     allocation first, so the recycle never happens.
                   </p>
                 )}
 
               {draft.cpuPercentLimit > 100 ? (
                 <p className="mt-2 text-[12px] text-danger-700">
-                  Above 100% can never be reached — the figure is a share of the whole node, so 100%
+                  Above 100% can never be reached - the figure is a share of the whole node, so 100%
                   is every core at once.
                 </p>
               ) : (
                 draft.cpuPercentLimit > 0 && (
                   <p className="mt-2 text-[12px] text-ink-500">
                     For scale: {((draft.cpuPercentLimit / 100) * cores).toFixed(1)} core(s) on a{" "}
-                    {cores}-core machine — this browser's core count, not the node's.
+                    {cores}-core machine - this browser's core count, not the node's.
                   </p>
                 )
               )}

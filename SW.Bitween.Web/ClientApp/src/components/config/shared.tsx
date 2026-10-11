@@ -26,7 +26,7 @@ export function TypeBadge({ type }: { type: SubscriptionType }) {
   );
 }
 
-/** Enabled/paused pair — a subscription can be both enabled and paused. */
+/** Enabled/paused pair - a subscription can be both enabled and paused. */
 export function SubscriptionStatusBadges({
   enabled,
   paused,
@@ -39,12 +39,12 @@ export function SubscriptionStatusBadges({
       {enabled ? (
         <Badge tone="ok" title="Runs when its trigger fires.">Active</Badge>
       ) : (
-        <Badge title="Turned off — nothing will run it, even if a trigger fires.">Disabled</Badge>
+        <Badge title="Turned off - nothing will run it, even if a trigger fires.">Disabled</Badge>
       )}
       {paused && (
         <Badge
           tone="warn"
-          title="Held without being disabled — its trigger still fires, but nothing runs until unpaused."
+          title="Held without being disabled - its trigger still fires, but nothing runs until unpaused."
         >
           Paused
         </Badge>
@@ -64,13 +64,13 @@ export function HealthBadge({
     return (
       <Badge
         tone="danger"
-        title="Runs in a row that ended in an error since the last success — check its retry policy and last exception."
+        title="Runs in a row that ended in an error since the last success - check its retry policy and last exception."
       >
         {consecutiveFailures} failure{consecutiveFailures === 1 ? "" : "s"}
       </Badge>
     );
   if (isRunning) return <Badge tone="ok" title="Executing right now.">Running</Badge>;
-  return <Badge title="Not executing right now — normal between runs.">Idle</Badge>;
+  return <Badge title="Not executing right now - normal between runs.">Idle</Badge>;
 }
 
 export function ExchangeStatusBadge({
@@ -106,7 +106,7 @@ export function PromotedProps({
   max?: number;
   /**
    * Shown when the information type promotes nothing, or promotes nothing this
-   * payload carried. A bare em dash left the row with no identity at all — the id
+   * payload carried. A bare em dash left the row with no identity at all - the id
    * is a poor name but it is the only one left, and it makes the row addressable.
    * Shown whole: an id cut to its first eight characters is not something you can
    * match against a log line or quote to anyone, which is the only thing it is for.
@@ -120,7 +120,7 @@ export function PromotedProps({
 
   // Keys whose values are all empty are treated like no promoted properties at all. An
   // information type can promote three paths that a payload never filled, and
-  // "merchant= orderRef= destination=" then names every exchange of that type equally — three
+  // "merchant= orderRef= destination=" then names every exchange of that type equally - three
   // chips that say which fields exist and nothing about which record this is.
   // break-all: the id is one unbroken run of hex with nowhere natural to wrap, and
   // these lists also sit in ~360px side panels, where nowrap pushed the last column
@@ -129,7 +129,7 @@ export function PromotedProps({
     return fallbackId ? (
       <span className="font-mono text-xs break-all text-ink-500">{fallbackId}</span>
     ) : (
-      <span className="text-[13px] text-ink-500">—</span>
+      <span className="text-[13px] text-ink-500">-</span>
     );
 
   const shown = entries.slice(0, max);
@@ -181,7 +181,7 @@ const VALUE_CHIP_CAP = 28;
  * Every promoted property, in full.
  *
  * The row can only afford three chips and a cut value, and these are the fields
- * people actually search on — "which of these is Northwind's order" is answered
+ * people actually search on - "which of these is Northwind's order" is answered
  * here, so it can't be a `title` attribute: a tooltip can't be selected, copied,
  * or scrolled, and ten properties don't fit in one. Keys and values line up in
  * two columns and long values wrap, because a value cut twice is no better than
@@ -228,7 +228,7 @@ function PromotedPropsPanel({ entries }: { entries: [string, string][] }) {
  *
  * Leads with the promoted properties, because they are the only column that says
  * what the exchange *was*. The id led before and answered the question nobody
- * asks — it's a 32-character guid, so all you could fit was the first eight
+ * asks - it's a 32-character guid, so all you could fit was the first eight
  * characters of something meaningless even in full. "Northwind says three orders
  * are missing" is answered by reading order numbers off these rows; it used to
  * take eight clicks.
@@ -238,11 +238,11 @@ function PromotedPropsPanel({ entries }: { entries: [string, string][] }) {
  * opens it in Exchanges, where the full id is shown and copyable.
  *
  * When an exchange has no promoted properties there is nothing to lead with, so
- * the short id stands in — a row still needs a handle, and admitting "no
+ * the short id stands in - a row still needs a handle, and admitting "no
  * properties, here's the id" beats an empty cell.
  *
- * `hide` drops a column that is constant for the host page — Partner on a
- * partner's page, Type on an information type's — which is where the width for
+ * `hide` drops a column that is constant for the host page - Partner on a
+ * partner's page, Type on an information type's - which is where the width for
  * the properties comes from.
  */
 export function ExchangesList({
@@ -297,7 +297,7 @@ export function ExchangesList({
             truncate: true,
             cell: (x: ExchangeRef) => (
               <span className="block truncate text-[13px] text-ink-600" title={x.partnerName}>
-                {x.partnerName ?? "—"}
+                {x.partnerName ?? "-"}
               </span>
             ),
           },
@@ -359,7 +359,7 @@ export function SetupList({ items }: { items: SubscriptionSetupRef[] }) {
 
 /**
  * Roll-up health for what a gateway feeds. A gateway itself has no state worth
- * reporting — it is only as healthy as the pipelines behind it, and "3 partners
+ * reporting - it is only as healthy as the pipelines behind it, and "3 partners
  * attached" says nothing about whether any of them currently works.
  */
 export function WiredHealthBadge({
@@ -399,8 +399,8 @@ export function WiredHealthBadge({
 /**
  * The columns describing the pipeline behind one gateway attachment or route.
  *
- * These tables are the only 1:1 place in the gateway story — one row is exactly
- * one partner and one subscription — so this is where its configuration can be
+ * These tables are the only 1:1 place in the gateway story - one row is exactly
+ * one partner and one subscription - so this is where its configuration can be
  * stated in separate columns without the reader having to guess which value
  * pairs with which. The parent list can't do it: two parallel lists in a row
  * lose their pairing, which is why the gateway tables carry only aggregates.
@@ -420,7 +420,7 @@ export interface CellLink {
  * A cell listing the records something is wired to: the first couple inline,
  * the rest behind a popover.
  *
- * "3 places" tells you a thing is in use but nothing you can act on — you still
+ * "3 places" tells you a thing is in use but nothing you can act on - you still
  * have to open the row to learn whether it's safe to touch. Names answer that in
  * the table. The overflow goes into a popover rather than wrapping, so row
  * height stays fixed and the table keeps its rhythm, and nothing ends up
@@ -434,7 +434,7 @@ export function LinkListCell({
   /** Plural noun for the popover heading, e.g. "subscriptions". */
   label: string;
 }) {
-  if (items.length === 0) return <span className="text-ink-500">—</span>;
+  if (items.length === 0) return <span className="text-ink-500">-</span>;
 
   // One of something is just that thing. A chip reading "1" would cost the name and
   // buy a popover with a single row in it.
@@ -459,7 +459,7 @@ export function LinkListCell({
         width="w-80"
         button={
           // The noun rides along with the count because the column header often can't
-          // supply it — "Used by" alone never says used by *what*. A bare digit also
+          // supply it - "Used by" alone never says used by *what*. A bare digit also
           // reads as data you can't act on, so the list behind it would never be found.
           <span
             className="rounded bg-ink-100 px-1.5 py-0.5 text-[12px] font-medium text-ink-700"
@@ -515,14 +515,14 @@ const showValue = (v: unknown) =>
  * The property names, with the before/after values behind a popover.
  *
  * A created row is recorded as a full snapshot rather than a diff, so its list runs to every
- * column the entity has — unreadable as a cell. The values used to live in a `title`, which
+ * column the entity has - unreadable as a cell. The values used to live in a `title`, which
  * only a mouse can reach; this is a real control, so it works from the keyboard and on touch.
  */
 export function ChangedCell({ changes: all, entity }: { changes: AuditChange[]; entity?: string }) {
   // Ids and timestamps the database keeps for itself are not what anyone changed: a new row used
   // to read "Id, CreatedBy, CreatedOn +3 more".
   const changes = all.filter((c) => !isBookkeeping(c.property));
-  if (changes.length === 0) return <span className="text-ink-500">—</span>;
+  if (changes.length === 0) return <span className="text-ink-500">-</span>;
 
   const label = (c: AuditChange) => propertyLabel(entity, c.property);
   const shown = changes.slice(0, 3).map(label);
@@ -572,7 +572,7 @@ const ACTION_TITLE: Record<TrailEntry["action"], string> = {
  * Audit trail for an entity, newest first. Shared by every hub page that has one.
  *
  * Every column is derived from the change tracker rather than written by hand at each
- * call site, which is why deletions appear here at all — the trails this replaced only
+ * call site, which is why deletions appear here at all - the trails this replaced only
  * ever recorded creates and updates.
  */
 export function TrailTable({ entries }: { entries: TrailEntry[] }) {
@@ -612,7 +612,7 @@ export function TrailTable({ entries }: { entries: TrailEntry[] }) {
                 {e.by}
               </Link>
             ) : (
-              <span className="block text-ink-600" title="No signed-in user — a scheduled job or a bus consumer.">
+              <span className="block text-ink-600" title="No signed-in user - a scheduled job or a bus consumer.">
                 {e.by}
               </span>
             ),

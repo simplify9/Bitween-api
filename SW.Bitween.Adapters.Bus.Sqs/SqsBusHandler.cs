@@ -22,7 +22,7 @@ namespace SW.Bitween.Adapters.Bus.Sqs;
 ///
 /// SQS is a poll-based queue, not a push broker, so the shape differs from RabbitMQ in one way
 /// that matters: there is no ack, only DELETE. A message stays invisible for the visibility
-/// timeout and reappears if it is not deleted — which is the same at-least-once contract by a
+/// timeout and reappears if it is not deleted - which is the same at-least-once contract by a
 /// different mechanism, and maps cleanly onto persist-then-acknowledge:
 ///
 ///     receive -> PublishAsync to the host -> host persists -> ONLY THEN DeleteMessage
@@ -34,8 +34,8 @@ namespace SW.Bitween.Adapters.Bus.Sqs;
 /// WHY THIS ONE MATTERS BEYOND SQS ITSELF: the Amazon Selling Partner API delivers notifications
 /// by publishing to an SQS queue that you own. You create the queue, grant SP-API permission to
 /// send to it, then subscribe notification types to that destination. So this adapter is the
-/// transport for SP-API notifications — ORDER_CHANGE, LISTINGS_ITEM_STATUS_CHANGE, REPORT_PROCESSING_FINISHED
-/// and the rest — and <see cref="SqsOptions.UnwrapSellingPartnerNotification"/> handles the
+/// transport for SP-API notifications - ORDER_CHANGE, LISTINGS_ITEM_STATUS_CHANGE, REPORT_PROCESSING_FINISHED
+/// and the rest - and <see cref="SqsOptions.UnwrapSellingPartnerNotification"/> handles the
 /// envelope they arrive in. The SP-API request/response calls themselves are ordinary HTTPS and
 /// belong in a mapper or handler, not here.
 /// </summary>
@@ -98,7 +98,7 @@ public class SqsBusHandler(IOptions<SqsOptions> options, ILogger<SqsBusHandler> 
             config.AuthenticationRegion = options.Region;
         }
 
-        // No keys means the ambient chain — instance profile, IRSA, environment. That is the
+        // No keys means the ambient chain - instance profile, IRSA, environment. That is the
         // correct production answer on AWS, and explicit keys are the exception.
         return string.IsNullOrWhiteSpace(options.AccessKeyId)
             ? new AmazonSQSClient(config)
@@ -270,7 +270,7 @@ public class SqsBusHandler(IOptions<SqsOptions> options, ILogger<SqsBusHandler> 
     /// <summary>
     /// Puts the message back after a wait that grows with each receive: five seconds a time, up to
     /// five minutes. It used to be made visible again at once, so a message that always fails was
-    /// received again straight away, over and over, until the queue's redrive policy moved it — or
+    /// received again straight away, over and over, until the queue's redrive policy moved it - or
     /// for good, on a queue without one.
     /// </summary>
     private Task ReturnToQueueAsync(string queueUrl, Message message, CancellationToken ct)
@@ -345,13 +345,13 @@ public class SqsBusHandler(IOptions<SqsOptions> options, ILogger<SqsBusHandler> 
     /// Egress through the PIPELINE: a subscription's delivery stage, sending the message it was
     /// given to a queue these credentials can reach.
     ///
-    /// <see cref="Publish"/> has existed since this adapter did, and nothing could reach it —
+    /// <see cref="Publish"/> has existed since this adapter did, and nothing could reach it -
     /// Bitween's pipeline calls <c>Handle</c> on a handler, and this class had none. This is the
     /// two joined up; the sending itself is unchanged.
     ///
     /// The queue URL is the SUBSCRIPTION's, not the connection's: one instance serves every
     /// gateway on these credentials, so it travels with the call. Deliberately not restricted to
-    /// the queues this data source consumes — the common case for egress is one it does not.
+    /// the queues this data source consumes - the common case for egress is one it does not.
     /// </summary>
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
@@ -360,7 +360,7 @@ public class SqsBusHandler(IOptions<SqsOptions> options, ILogger<SqsBusHandler> 
         if (string.IsNullOrWhiteSpace(endpoint))
             throw new InvalidOperationException(
                 "This delivery has no Endpoint, so there is nowhere to send. Set it to the queue "
-                + "URL — the full https://sqs.<region>.amazonaws.com/<account>/<name>, which is "
+                + "URL - the full https://sqs.<region>.amazonaws.com/<account>/<name>, which is "
                 + "what the SDK addresses a queue by.");
 
         var receipt = await Publish(new PublishRequest

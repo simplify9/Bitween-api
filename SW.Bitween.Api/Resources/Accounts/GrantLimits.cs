@@ -8,8 +8,8 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Accounts;
 
 /// <summary>
-/// Nobody hands out more than they hold. Managing members and roles is delegable — a custom role
-/// can carry users.edit or roles.edit without being Administrator — and without this a holder of
+/// Nobody hands out more than they hold. Managing members and roles is delegable - a custom role
+/// can carry users.edit or roles.edit without being Administrator - and without this a holder of
 /// either could grant themselves everything: put themselves in Administrator, add every permission
 /// to a role they hold, or set an administrator's password and sign in as them.
 /// </summary>
@@ -44,7 +44,7 @@ internal static class GrantLimits
     }
 
     /// <summary>
-    /// Refuses unless the caller holds everything the account holds — so a member can't reset,
+    /// Refuses unless the caller holds everything the account holds - so a member can't reset,
     /// re-role, disable or remove someone with more access than they have.
     /// </summary>
     public static async Task EnsureCallerOutranks(BitweenDbContext dbContext, RequestContext requestContext,

@@ -14,8 +14,8 @@ import { useSourceValues } from "./sourceValuesContext";
  * One rule, on one line.
  *
  * Two kinds of rule are drawn this way. A field has a name, shown as its last
- * segment only — the indentation carries the rest, the way the source side already
- * did — and typing dots into it still nests, because the rule stores segments. The
+ * segment only - the indentation carries the rest, the way the source side already
+ * did - and typing dots into it still nests, because the rule stores segments. The
  * single value each entry of a list of plain values produces has no name to show,
  * because `["A1","B7"]` has nowhere to put one; everything else about the row is
  * the same, which is the point of it being a row at all.
@@ -67,7 +67,7 @@ export function OutputRow({
         })
       : dispatch({ type: "UPDATE_FIELD", id: rule.id, changes });
 
-  // Removing a list's value does not remove a row from the list — it puts the list
+  // Removing a list's value does not remove a row from the list - it puts the list
   // back to having decided nothing, so it can be built out of fields instead.
   const remove = () =>
     node.kind === "item"
@@ -94,7 +94,7 @@ export function OutputRow({
         dispatch({ type: "SELECT", id: rule.id });
         // `label` matters as much as `input`: a checkbox's text is a label that
         // forwards the click to its box, so treating it as the row's own click
-        // toggled the box and folded the panel away in the same tick — which read
+        // toggled the box and folded the panel away in the same tick - which read
         // as the box refusing to tick at all.
         if (
           (e.target as HTMLElement).closest(

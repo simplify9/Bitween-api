@@ -41,7 +41,7 @@ const LANES: Record<QueueLane, { label: string; blurb: string; role: string }> =
   },
   Work: {
     label: "Work",
-    blurb: "One per work group. This is where subscriptions actually run — filter, mapping, delivery.",
+    blurb: "One per work group. This is where subscriptions actually run - filter, mapping, delivery.",
     role: "runs the subscriptions in this group",
   },
   Notifications: {
@@ -62,8 +62,8 @@ const LANES: Record<QueueLane, { label: string; blurb: string; role: string }> =
 };
 
 /**
- * Ungrouped is a lane, not a group — the one every subscription without a work group
- * shares — so it doesn't get the group wording.
+ * Ungrouped is a lane, not a group - the one every subscription without a work group
+ * shares - so it doesn't get the group wording.
  */
 const roleOf = (c: ConsumerHealth): string => {
   if (c.title === "Ungrouped") {
@@ -131,7 +131,7 @@ export function QueueHealthPage() {
     return (
       <EmptyState title="Couldn't load queue statistics">
         Something went wrong reaching the RabbitMQ management API. It'll keep retrying in the
-        background — try refreshing the page.
+        background - try refreshing the page.
       </EmptyState>
     );
 
@@ -141,7 +141,7 @@ export function QueueHealthPage() {
 
   // Same order inside every lane, so Work and Notifications line up row for row and
   // you can read one group's pair across the two sections. Anything that resolved to
-  // nothing sinks to the bottom of its lane — Ungrouped, and any unresolved name.
+  // nothing sinks to the bottom of its lane - Ungrouped, and any unresolved name.
   const sortsLast = (c: ConsumerHealth) => (c.workGroupId === null && c.informationTypeId === null ? 1 : 0);
   const byLane = new Map<QueueLane, ConsumerHealth[]>(
     LANE_ORDER.map((lane) => [
@@ -165,7 +165,7 @@ export function QueueHealthPage() {
         }
       />
 
-      {/* — summary — */}
+      {/* - summary - */}
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile
           label="Lanes"
@@ -199,7 +199,7 @@ export function QueueHealthPage() {
         <StatTile label="Acknowledged" value={`${summary.totalAckRate}/s`} sub="across all queues" />
       </div>
 
-      {/* — active alerts — */}
+      {/* - active alerts - */}
       {alerts.length > 0 && (
         <div className="mb-4 space-y-1.5">
           {alerts.map((a) => (
@@ -224,7 +224,7 @@ export function QueueHealthPage() {
         </div>
       )}
 
-      {/* — lanes — */}
+      {/* - lanes - */}
       <Panel
         title="Lanes"
         description="Every queue this instance consumes, grouped by what it is for."
@@ -295,7 +295,7 @@ export function QueueHealthPage() {
                         {c.isBackpressured && (
                           <Badge
                             tone="warn"
-                            title="Queue depth has passed its configured threshold — messages are arriving faster than they're being consumed."
+                            title="Queue depth has passed its configured threshold - messages are arriving faster than they're being consumed."
                           >
                             Backpressure
                           </Badge>
@@ -310,10 +310,10 @@ export function QueueHealthPage() {
         </div>
       </Panel>
 
-      {/* — queues nothing declares — */}
+      {/* - queues nothing declares - */}
       {unattended.length > 0 && <UnattendedPanel unattended={unattended} />}
 
-      {/* — backlogs — */}
+      {/* - backlogs - */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Retry backlog" description="Messages queued for another attempt.">
           {retryBacklog.length === 0 ? (
@@ -431,7 +431,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
               <ul className="mt-1 space-y-0.5">
                 {outcome.skipped.map((s) => (
                   <li key={s.queueName}>
-                    <code className="font-mono text-xs">{s.queueName}</code> — {s.reason}
+                    <code className="font-mono text-xs">{s.queueName}</code> - {s.reason}
                   </li>
                 ))}
               </ul>
@@ -450,7 +450,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
             {selectedMessages > 0 && (
               <span className="text-warn-700">
                 {" "}
-                — holding {selectedMessages} {selectedMessages === 1 ? "message" : "messages"}
+                - holding {selectedMessages} {selectedMessages === 1 ? "message" : "messages"}
               </span>
             )}
           </span>
@@ -666,7 +666,7 @@ function DeadLetterMessages({ row, onClose }: { row: DeadLetterRow; onClose: () 
   });
 
   return (
-    <Dialog title={`Dead letters — ${row.title}`} onClose={onClose} wide>
+    <Dialog title={`Dead letters - ${row.title}`} onClose={onClose} wide>
       {messages.isPending ? (
         <LoadingBlock label="Reading the queue…" />
       ) : messages.isError ? (

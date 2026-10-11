@@ -29,7 +29,7 @@ internal interface IFileTransfer : IAsyncDisposable
 internal sealed class SftpTransfer(SftpClient client) : IFileTransfer
 {
     /// <summary>
-    /// Signs in with the private key when one is given — its passphrase, if any, is the password —
+    /// Signs in with the private key when one is given - its passphrase, if any, is the password -
     /// and with the password otherwise. A pinned host key is checked during the key exchange,
     /// before authentication: a server presenting any other key is turned away before a password
     /// or key signature is sent to it.
@@ -121,9 +121,9 @@ internal sealed class SftpTransfer(SftpClient client) : IFileTransfer
 internal sealed class FtpTransfer(AsyncFtpClient client) : IFileTransfer
 {
     /// <summary>
-    /// Connects in the given encryption mode — <c>none</c>, <c>explicit</c> (AUTH TLS, port 21) or
+    /// Connects in the given encryption mode - <c>none</c>, <c>explicit</c> (AUTH TLS, port 21) or
     /// <c>implicit</c> (TLS from the first byte, port 990). With TLS, the server's certificate must
-    /// be valid, or, when a thumbprint is pinned, be exactly that certificate — which is how a
+    /// be valid, or, when a thumbprint is pinned, be exactly that certificate - which is how a
     /// partner's self-signed certificate is trusted. Either way the check is made during the TLS
     /// handshake, before the credentials are sent.
     /// </summary>

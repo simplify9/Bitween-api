@@ -8,7 +8,7 @@ namespace SW.Bitween.IntegrationTests.Adapters;
 
 /// <summary>
 /// A delivery that answers with whatever its <c>Body</c> property says, marked bad when <c>Bad</c>
-/// is true — a bad response otherwise needs an HTTP endpoint that answers 4xx.
+/// is true - a bad response otherwise needs an HTTP endpoint that answers 4xx.
 /// </summary>
 public class NativeTestResponder : INativeInfolinkHandler
 {

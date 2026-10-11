@@ -15,7 +15,7 @@ export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean 
   draft.name !== saved.name ||
   JSON.stringify(toRecord(draft.properties)) !== JSON.stringify(toRecord(saved.properties)) ||
   // Locking a property changes nothing about its value, so the value comparison above
-  // cannot see it — without this the save bar never appears for a lock on its own.
+  // cannot see it - without this the save bar never appears for a lock on its own.
   JSON.stringify([...draft.secretProperties].sort()) !==
     JSON.stringify([...saved.secretProperties].sort()) ||
   draft.loginIdentity.trim() !== saved.loginIdentity.trim();

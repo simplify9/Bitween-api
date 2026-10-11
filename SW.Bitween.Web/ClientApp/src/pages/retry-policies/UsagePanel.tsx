@@ -16,8 +16,8 @@ import { keys } from "../../api/queryKeys";
  *
  * One row per subscription-and-group pair, because that is how a budget is counted: a shared
  * policy gives every subscription its own separate total. There is no such thing as "this
- * policy's usage" — any single figure here would be an aggregate matching nothing anyone can
- * act on — and it is also why resetting and overriding both address one pair.
+ * policy's usage" - any single figure here would be an aggregate matching nothing anyone can
+ * act on - and it is also why resetting and overriding both address one pair.
  *
  * Everything in this panel happens immediately. The groups above it stage into the save bar;
  * a reset here does not, and the panel says so rather than leaving the reader to find out.
@@ -60,7 +60,7 @@ const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boo
     key: "silent",
     label: "No alert",
     match: (r) => r.resolvedHandlerId === null,
-    blurb: "Nothing is sent when these run out — whether that was chosen or simply never set.",
+    blurb: "Nothing is sent when these run out - whether that was chosen or simply never set.",
   },
   {
     key: "overridden",
@@ -103,7 +103,7 @@ function AlertCell({ row }: { row: RetryUsageRow }) {
  */
 function AlertedCell({ row }: { row: RetryUsageRow }) {
   const { alert } = row;
-  if (!alert) return <span className="text-ink-500">—</span>;
+  if (!alert) return <span className="text-ink-500">-</span>;
   if (alert.delivered === false) return <Badge tone="danger">Not delivered</Badge>;
   if (alert.delivered === null)
     return (
@@ -159,9 +159,9 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
               {timeAgo(a.failedOn)}
             </span>
             {a.retryPending ? (
-              <Badge tone="ok" title="Within budget — this will be retried automatically.">Retry due</Badge>
+              <Badge tone="ok" title="Within budget - this will be retried automatically.">Retry due</Badge>
             ) : a.blockedReason ? (
-              <Badge tone="warn" title="Won't retry again — see the reason to the right.">Stopped</Badge>
+              <Badge tone="warn" title="Won't retry again - see the reason to the right.">Stopped</Badge>
             ) : null}
             <span className="min-w-0 flex-1 truncate text-ink-600" title={a.error}>
               {a.blockedReason ?? a.error}
@@ -216,11 +216,11 @@ function OverrideDialog({
   });
 
   return (
-    <Dialog title={`${row.subscriptionName} — ${row.groupName}`} onClose={onClose} wide>
+    <Dialog title={`${row.subscriptionName} - ${row.groupName}`} onClose={onClose} wide>
       <div className="space-y-4">
         <p className="text-[13px] text-ink-500">
           Where this one subscription's alert goes when this group's budget runs out. The most
-          specific of the three levels — it wins over both the group and the policy.
+          specific of the three levels - it wins over both the group and the policy.
         </p>
         <AlertRouting
           value={value}
@@ -261,7 +261,7 @@ export function UsagePanel({
   canEdit,
 }: {
   policyId: number;
-  /** Used to explain an empty report — the subscriptions are still following the policy. */
+  /** Used to explain an empty report - the subscriptions are still following the policy. */
   subscriptions: SubscriptionSetupRef[];
   canEdit: boolean;
 }) {
@@ -309,7 +309,7 @@ export function UsagePanel({
   return (
     <Panel
       title="Budget usage"
-      description="What each budget has spent, and whether anyone was told when one ran out. Changes here take effect immediately — they are not part of the save bar."
+      description="What each budget has spent, and whether anyone was told when one ran out. Changes here take effect immediately - they are not part of the save bar."
       action={
         canEdit && spent.length > 0 ? (
           <Button size="sm" onClick={() => setResetting("all")}>
@@ -339,7 +339,7 @@ export function UsagePanel({
       <p className="mb-2 text-[13px] text-ink-500">{active.blurb}</p>
 
       {shown.length === 0 ? (
-        <p className="text-sm text-ink-500">Nothing here — which is the good outcome.</p>
+        <p className="text-sm text-ink-500">Nothing here - which is the good outcome.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-200 text-left text-sm">
@@ -390,7 +390,7 @@ export function UsagePanel({
                         {r.exhausted && (
                           <Badge
                             tone="danger"
-                            title="The retry budget ran out — this won't retry again until it resets."
+                            title="The retry budget ran out - this won't retry again until it resets."
                           >
                             Exhausted
                           </Badge>
@@ -430,7 +430,7 @@ export function UsagePanel({
                       {/*
                         max-w-0 stops this cell reporting an intrinsic width, the same trick the
                         shared Table uses. Without it a single unwrapped stack trace widened the
-                        whole table, and every column after Subscription was pushed out of view —
+                        whole table, and every column after Subscription was pushed out of view -
                         opening one row hid the data in all the others.
                       */}
                       <td colSpan={8} className="max-w-0 px-4 py-3">
@@ -469,7 +469,7 @@ export function UsagePanel({
           }
           confirmLabel={resetting === "all" ? "Reset them all" : "Reset budget"}
           onConfirm={async () => {
-            // No pair means every pair — which is why the sweep is scoped to what has actually
+            // No pair means every pair - which is why the sweep is scoped to what has actually
             // run out rather than sent as one policy-wide reset: a budget partway through is
             // spending it for a reason, and handing that back is not what was asked for.
             if (resetting === "all")

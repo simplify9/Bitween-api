@@ -27,7 +27,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
 /// Adapters written in Python and JavaScript, built and published as serverless build and publish
-/// do it — so only to their versions and the catalog, never to adapters/{id} — then listed,
+/// do it - so only to their versions and the catalog, never to adapters/{id} - then listed,
 /// described from their manifests, and run through subscriptions with their settings, exactly as
 /// .NET ones are.
 /// </summary>

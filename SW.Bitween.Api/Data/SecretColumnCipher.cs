@@ -10,9 +10,9 @@ using Newtonsoft.Json;
 namespace SW.Bitween;
 
 /// <summary>
-/// Encrypts the columns that hold credentials — partner and global values, data source settings,
+/// Encrypts the columns that hold credentials - partner and global values, data source settings,
 /// the adapter properties of subscriptions, notifiers and alerts, and the copies of them each
-/// exchange keeps — so a copy of the database, or a backup, is not a copy of every password.
+/// exchange keeps - so a copy of the database, or a backup, is not a copy of every password.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -23,7 +23,7 @@ namespace SW.Bitween;
 /// <para>
 /// Keyed by <c>Bitween:SettingsEncryptionKey</c>, the passphrase the settings secrets already use.
 /// Without it nothing is encrypted and nothing changes. A stored value carries the <c>enc:v1:</c>
-/// prefix, so plaintext written before this — or by a deployment with no key — still reads. To
+/// prefix, so plaintext written before this - or by a deployment with no key - still reads. To
 /// change the key, move the old one to <c>Bitween:PreviousSettingsEncryptionKey</c>: values are read
 /// with either and written with the new one.
 /// </para>
@@ -105,7 +105,7 @@ public static class SecretColumnCipher
         Rfc2898DeriveBytes.Pbkdf2(passphrase, Salt, 210_000, HashAlgorithmName.SHA256, 32);
 
     /// <summary>
-    /// Wraps the converter already on the property — <c>StoreAsJson</c>, typically — so the JSON it
+    /// Wraps the converter already on the property - <c>StoreAsJson</c>, typically - so the JSON it
     /// produces is encrypted on the way to the database and decrypted on the way back.
     /// </summary>
     public static PropertyBuilder<T> Encrypted<T>(this PropertyBuilder<T> builder)
@@ -124,7 +124,7 @@ public static class SecretColumnCipher
     /// <summary>
     /// The same for a PostgreSQL <c>jsonb</c> column, which must always hold valid JSON. The
     /// encrypted payload is stored as a JSON string, so the column stays valid; a column written
-    /// before encryption — a plain JSON object — still reads.
+    /// before encryption - a plain JSON object - still reads.
     /// </summary>
     public static PropertyBuilder<T> EncryptedJsonb<T>(this PropertyBuilder<T> builder) where T : class
     {

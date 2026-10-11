@@ -14,14 +14,14 @@ namespace SW.Bitween.Resources.Xchanges;
 /// </summary>
 /// <remarks>
 /// Shared by the preview and the retry itself so that what someone confirms is what runs. Built by
-/// hand rather than injected, like <c>RetryGroupBudget</c> — it is a piece of one request's work,
+/// hand rather than injected, like <c>RetryGroupBudget</c> - it is a piece of one request's work,
 /// not a service.
 /// </remarks>
 internal sealed class BulkRetryPlanner
 {
     /// <summary>
     /// The largest selection one request will carry out. Every exchange retried means reading its
-    /// input back out of storage and writing a new exchange, in sequence, inside the one request —
+    /// input back out of storage and writing a new exchange, in sequence, inside the one request -
     /// so the ceiling is about what can finish before something upstream gives up waiting, not
     /// about the database. Past it the caller is asked to narrow the filter.
     /// </summary>
@@ -56,7 +56,7 @@ internal sealed class BulkRetryPlanner
                 {
                     // A hand-picked list is already counted. A filter's selection was cut off at
                     // Limit + 1 to notice it was too long without reading it all, so that one is
-                    // counted properly now — the caller is told how far past the line it is rather
+                    // counted properly now - the caller is told how far past the line it is rather
                     // than just "501", and never a count of rows it did not ask about.
                     Selected = string.IsNullOrWhiteSpace(request.Filter)
                         ? selected.Count
@@ -91,7 +91,7 @@ internal sealed class BulkRetryPlanner
                 continue;
             }
 
-            // Two selections in the same chain — an exchange and its own retry, say — come to the
+            // Two selections in the same chain - an exchange and its own retry, say - come to the
             // same attempt, which is retried once.
             if (!targets.Contains(targetId))
                 targets.Add(targetId);
@@ -117,7 +117,7 @@ internal sealed class BulkRetryPlanner
         // Only when the caller asked for the subscription's current configuration, which there is
         // no way to read once the subscription is gone. Checked here as well as at the moment of
         // retrying, because a plan that promises to retry something the retry then skips makes the
-        // confirmation worthless — the whole point of showing it is that it is what will happen.
+        // confirmation worthless - the whole point of showing it is that it is what will happen.
         if (reset && state.SubscriptionMissing)
             return $"{subject} cannot have its properties re-resolved: the subscription no longer exists.";
 
@@ -125,8 +125,8 @@ internal sealed class BulkRetryPlanner
             return $"{subject} already has an auto-retry scheduled. Run that now instead.";
 
         // An exchange with no result is deliberately not skipped as "still running". That is what
-        // a broker outage leaves behind — hundreds of exchanges that were never processed and never
-        // will be — and retrying those in bulk is the main thing a wide selection is for. Refusing
+        // a broker outage leaves behind - hundreds of exchanges that were never processed and never
+        // will be - and retrying those in bulk is the main thing a wide selection is for. Refusing
         // them would take the recovery path away to protect against double-running work that, in
         // the case anyone actually selects in bulk, is not running at all.
 
@@ -141,7 +141,7 @@ internal sealed class BulkRetryPlanner
     /// would actually run, since the selected one is refused a second retry.
     /// </summary>
     /// <remarks>
-    /// One query per round for the whole selection at once, rather than a walk per exchange —
+    /// One query per round for the whole selection at once, rather than a walk per exchange -
     /// five hundred selections down a chain of four is four queries, not two thousand.
     /// </remarks>
     private async Task<Dictionary<string, string>> FindNewestAttempts(List<string> selected)
@@ -150,8 +150,8 @@ internal sealed class BulkRetryPlanner
 
         for (var depth = 0; depth < MaxDepth; depth++)
         {
-            // Where each selection has got to so far. Asking about that frontier — rather than
-            // about one level of the tree, tracking which nodes the walk had already seen — is what
+            // Where each selection has got to so far. Asking about that frontier - rather than
+            // about one level of the tree, tracking which nodes the walk had already seen - is what
             // keeps selections that sit in the same chain consistent with each other. With a seen
             // set, a selection lagging behind another stopped dead on a node the leader had already
             // stepped over, and was reported as "already retried, its newest attempt runs instead"
@@ -168,7 +168,7 @@ internal sealed class BulkRetryPlanner
 
             // One retry per exchange is the rule, but exchanges retried before it was enforced can
             // have more than one. Follow the newest, and let the retry tree in the drawer be where
-            // the fork is shown — a bulk retry has to choose something, and the newest attempt is
+            // the fork is shown - a bulk retry has to choose something, and the newest attempt is
             // the one that reflects where the work actually got to.
             var step = children
                 .GroupBy(c => c.RetryFor)
@@ -192,7 +192,7 @@ internal sealed class BulkRetryPlanner
 
     /// <summary>
     /// What the payload promoted, for each exchange the plan names on either side of a
-    /// substitution or in a skip — so the caller can describe them the way the exchange list does
+    /// substitution or in a skip - so the caller can describe them the way the exchange list does
     /// rather than by id alone.
     /// </summary>
     private async Task<Dictionary<string, IDictionary<string, string>>> ReadPromotedProperties(
@@ -227,7 +227,7 @@ internal sealed class BulkRetryPlanner
         public System.DateTime? ScheduledRetryOn { get; set; }
 
         /// <summary>
-        /// Covers an exchange that never had a subscription — a document-only one — as well as one
+        /// Covers an exchange that never had a subscription - a document-only one - as well as one
         /// whose subscription has since been deleted. Both leave a reset with nothing to read.
         /// </summary>
         public bool SubscriptionMissing { get; set; }

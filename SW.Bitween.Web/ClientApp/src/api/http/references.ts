@@ -10,7 +10,7 @@
  * The resolver splits the globals token on the **first** "." only and puts no
  * character-class restriction on either half, so these patterns are equally
  * permissive rather than assuming a slug charset. It also matches the prefix
- * and looks up ids and keys with `OrdinalIgnoreCase` — hence the `i` flag, and
+ * and looks up ids and keys with `OrdinalIgnoreCase` - hence the `i` flag, and
  * why callers must compare what comes back case-insensitively.
  */
 const GLOBAL_TOKEN_RE = /\{\{globals\.([^.]+)\.([^}]+)\}\}/gi;

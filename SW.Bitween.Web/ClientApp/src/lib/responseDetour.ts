@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 
 /**
- * Leaving a page for a response subscription — to create one, or to open the one it hands
- * its response to — and coming back to it.
+ * Leaving a page for a response subscription - to create one, or to open the one it hands
+ * its response to - and coming back to it.
  *
  * The page being left usually holds a draft nothing has saved: a subscription that doesn't
  * exist yet, or unsaved edits to one that does. It is kept in sessionStorage under the page's
- * path, and the page's own URL is marked so the way back — Create, Cancel, or the browser's
- * Back — restores it. A draft left behind by a trip that never came back is never restored,
+ * path, and the page's own URL is marked so the way back - Create, Cancel, or the browser's
+ * Back - restores it. A draft left behind by a trip that never came back is never restored,
  * because nothing arrives at the page carrying the mark.
  *
  * The new response subscription comes back as `?pickedResponse=`.
@@ -42,7 +42,7 @@ export function returnPath(returnTo: string, picked: number | null): string {
 }
 
 /**
- * Only a path inside the app counts — `?return=` is a link anyone could hand you. Browsers read
+ * Only a path inside the app counts - `?return=` is a link anyone could hand you. Browsers read
  * a backslash as a slash, so `/\evil.example` leaves the app just as `//evil.example` does.
  */
 export function safeReturn(value: string | null): string | null {

@@ -5,7 +5,7 @@ import { signInAsAdmin } from "./helpers";
 
 /**
  * The two Queue health actions that change the broker: sending dead letters back, and deleting
- * queues nothing reads. Their inputs — a message in a bad queue, a queue no consumer declares —
+ * queues nothing reads. Their inputs - a message in a bad queue, a queue no consumer declares -
  * only arise in production from a failure or a leftover, so the test puts them there through
  * RabbitMQ's management API, and reads the broker's answer back the same way.
  */
@@ -44,7 +44,7 @@ test.beforeEach(async ({ page, request }) => {
   await signInAsAdmin(page);
 });
 
-/** This instance's queue prefix, as its own consumers are named — "v3.development.bitween", say. */
+/** This instance's queue prefix, as its own consumers are named - "v3.development.bitween", say. */
 async function queuePrefix(api: AdminApi) {
   const consumers = await api.get<{ queueName: string }[]>("/ops/consumers");
   const sample = consumers.map((c) => c.queueName).find((q) => q.includes(".bitween."));
@@ -86,7 +86,7 @@ test("a dead letter in a consumer's bad queue is listed on Queue health with its
   });
 
   await item.getByRole("button", { name: "Show messages" }).click();
-  const shown = page.getByRole("dialog", { name: /^Dead letters — / });
+  const shown = page.getByRole("dialog", { name: /^Dead letters - / });
   await expect(shown.getByText(marker)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(shown).toHaveCount(0);
@@ -125,7 +125,7 @@ test("a queue under this instance's prefix that nothing consumes is listed as un
     await expect(row).toContainText("+1");
 
     await row.getByRole("checkbox", { name: `Select ${lane}` }).check();
-    await expect(page.getByText("— holding 3 messages")).toBeVisible();
+    await expect(page.getByText("- holding 3 messages")).toBeVisible();
     await page.getByRole("button", { name: "Delete selected…" }).click();
     const confirm = page.getByRole("dialog", { name: "Delete these queues?" });
     await expect(confirm).toContainText("They still hold 3 messages");

@@ -7,7 +7,7 @@ import { signInAsAdmin } from "./helpers";
  * These are all data-shape problems: a customer with 60-character subscription
  * names, a 4KB minified payload and 45 subscriptions on one information type.
  * None of that exists in a dev database, so every test here rewrites the API
- * response on the way past rather than seeding rows — nothing is written, and
+ * response on the way past rather than seeding rows - nothing is written, and
  * the assertions don't drift with whatever the local data happens to be.
  */
 
@@ -59,7 +59,7 @@ const overflowing = (page: Page) =>
       .filter((r) => r.over > 1),
   );
 
-/** Leaf elements whose text is cut off — an ellipsis the reader can't get past. */
+/** Leaf elements whose text is cut off - an ellipsis the reader can't get past. */
 const clipped = (page: Page) =>
   page.evaluate(() =>
     [...document.querySelectorAll("td")]
@@ -93,7 +93,7 @@ test("long names wrap rather than collapsing into a row of ellipses", async ({ p
   for (const slug of ["subscriptions", "aggregations", "scheduled-jobs"]) {
     await page.goto(slug);
     await page.waitForTimeout(1500);
-    // Exceptions and joined key lists are allowed to clip — they carry a title.
+    // Exceptions and joined key lists are allowed to clip - they carry a title.
     // A name never is.
     const cut = (await clipped(page)).filter((t) => LONG_NAMES.some((n) => n.startsWith(t.replace(/…$/, ""))));
     expect(cut, `${slug} clipped a name`).toEqual([]);
@@ -150,7 +150,7 @@ test("a long panel list keeps its Type column inside the card", async ({ page })
 
   await page.goto("information-types");
   // The route above can only multiply a subscription that exists, so open a type something
-  // uses — the first row is just whichever type was made last.
+  // uses - the first row is just whichever type was made last.
   const usedBy = page
     .locator('a[href*="/subscriptions/"]')
     .or(page.getByRole("button", { name: /^Show all \d+ subscriptions$/ }));

@@ -18,7 +18,7 @@ namespace SW.Bitween.Model
         Csv = 2,
 
         /// <summary>
-        /// Anything Bitween has no format for — custom adapters send whatever they like. Treated
+        /// Anything Bitween has no format for - custom adapters send whatever they like. Treated
         /// exactly as <see cref="Csv"/>.
         /// </summary>
         Other = 3
@@ -61,7 +61,7 @@ namespace SW.Bitween.Model
         public int Id { get; set; }
     }
 
-    /// <summary>Empty on purpose — retiring toggles, so there is nothing to send.</summary>
+    /// <summary>Empty on purpose - retiring toggles, so there is nothing to send.</summary>
     public class DocumentRetire
     {
     }

@@ -29,7 +29,7 @@ namespace SW.Bitween.Resources.Notifiers
                     .ToListAsync();
             }
 
-            // The handler's [Secure] values — an SMTP password, an API key — go out as the
+            // The handler's [Secure] values - an SMTP password, an API key - go out as the
             // sentinel, as they do for a subscription's handler. Update puts them back.
             var handlerProperties = notifier.HandlerProperties is null
                 ? null

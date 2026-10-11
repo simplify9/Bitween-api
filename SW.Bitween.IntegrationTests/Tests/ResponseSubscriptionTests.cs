@@ -128,7 +128,7 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
 
         var result = await Deliver(chain);
 
-        // It used to throw here — the lookup returns null for a disabled subscription — which
+        // It used to throw here - the lookup returns null for a disabled subscription - which
         // recorded a delivery that had succeeded as failed, and its retry delivered it again.
         Assert.True(result.Success, result.Exception);
         Assert.Null(result.Exception);

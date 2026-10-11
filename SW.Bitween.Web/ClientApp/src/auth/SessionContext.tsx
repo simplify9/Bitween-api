@@ -20,7 +20,7 @@ export interface SessionContextValue {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /**
    * Set when the server could not be asked whether this browser's token is still good
-   * — rate limited, down, or unreachable. Distinct from `session === null`, which
+   * - rate limited, down, or unreachable. Distinct from `session === null`, which
    * means it answered and the answer was no.
    */
   unreachable: boolean;
@@ -36,7 +36,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * Bumped whenever the session is authoritatively replaced or ended.
    *
    * `getSession()` cannot be cancelled, so a slow one can resolve *after* a
-   * sign-out and hand `setSession` the very session that was just discarded —
+   * sign-out and hand `setSession` the very session that was just discarded -
    * signing the user back in. Each caller notes the generation it started under
    * and drops its own result if that is no longer current.
    */
@@ -62,7 +62,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // Not "signed out": `getSession` only resolves to null when the server said so.
         // Reaching here means it could not be asked, and the token this browser holds
-        // may well still be good — so keep it and say the server is unreachable rather
+        // may well still be good - so keep it and say the server is unreachable rather
         // than sending someone to sign in again for a blip.
         if (generation.current === startedAt) setUnreachable(true);
       })
@@ -109,7 +109,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     // The session ends here, whatever the server says. `await api.logout()` used to
-    // come first, so any failure — a backend restart, a blip, an unreachable host —
+    // come first, so any failure - a backend restart, a blip, an unreachable host -
     // threw before the two lines below ran: signed out everywhere except the one
     // place that decides what you see, which then needed a manual refresh. Ending it
     // first also means the login page appears immediately rather than after the
@@ -122,7 +122,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * Changing a password ends every session the account holds, this one included: the server
    * deletes its refresh tokens, and a token issued while the password still had to change grants
    * nothing even after it has. Signing straight back in with the new password is what lets this
-   * tab carry on — otherwise the forced change left a working-looking app with no permissions,
+   * tab carry on - otherwise the forced change left a working-looking app with no permissions,
    * and an ordinary change signed you out whenever the current token expired.
    */
   const changePassword = useCallback(
@@ -158,7 +158,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    *
    * Covers what no `storage` event can: a Jwt and refresh cookie that both expired
    * while a tab sat open, or an administrator disabling the account. `request()`
-   * already knew — it writes "Your session has ended" — but it could only throw that
+   * already knew - it writes "Your session has ended" - but it could only throw that
    * at whichever page happened to be asking, and a page's error state cannot sign
    * anyone out.
    */

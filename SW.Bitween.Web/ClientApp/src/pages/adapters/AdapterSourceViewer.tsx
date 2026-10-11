@@ -19,7 +19,7 @@ const editorTheme = EditorView.theme({
 const CHANGE_TONE = { added: "ok", removed: "danger", changed: "warn" } as const;
 
 /**
- * The source a published version carries — any language — and, compared with another version,
+ * The source a published version carries - any language - and, compared with another version,
  * what changed between them. Read-only: a published version never changes. Every file read is
  * recorded in the audit trail by the server.
  */

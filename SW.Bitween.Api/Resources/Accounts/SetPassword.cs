@@ -11,7 +11,7 @@ namespace SW.Bitween.Resources.Accounts;
 
 /// <summary>
 /// Sets a member's password on their behalf. Bitween has no outbound mail, so there's no
-/// self-service reset — without this, anyone who forgets their password is locked out for good.
+/// self-service reset - without this, anyone who forgets their password is locked out for good.
 /// Changing your own password goes through ChangePassword, which asks for the current one.
 /// </summary>
 [HandlerName("setPassword")]
@@ -36,7 +36,7 @@ public class SetPassword(BitweenDbContext dbContext, RequestContext requestConte
         account.SetPassword(request.Password);
         await dbContext.SaveChangesAsync();
 
-        // Signing in with a refresh token skips password verification entirely — it looks the
+        // Signing in with a refresh token skips password verification entirely - it looks the
         // account up by id and issues a fresh token from whatever state it is now in. So a session
         // opened with the old password outlives the change unless the tokens go with it, and
         // "change the password" would not actually remove whoever you changed it because of.

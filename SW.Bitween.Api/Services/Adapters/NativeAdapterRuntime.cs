@@ -8,7 +8,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Services.Adapters;
 
 /// <summary>
-/// Adapters that ship inside Bitween and run in-process. No packaging, no process, no protocol —
+/// Adapters that ship inside Bitween and run in-process. No packaging, no process, no protocol -
 /// the only runtime where "invoke" is a method call.
 /// </summary>
 public class NativeAdapterRuntime(NativeAdapterDiscoveryService discovery) : IAdapterRuntime

@@ -22,7 +22,7 @@ public record DeadLetterMessageView(
     IReadOnlyList<string> ExceptionHistory);
 
 /// <summary>
-/// The messages the bus gave up on — each consumer's <c>.bad</c> queue — read without taking them
+/// The messages the bus gave up on - each consumer's <c>.bad</c> queue - read without taking them
 /// off, and moved back onto the consumer's own queue to be tried again.
 /// </summary>
 /// <remarks>

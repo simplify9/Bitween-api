@@ -13,7 +13,7 @@ export interface LookupDictionaryPanelProps {
 
 // ─── LookupDictionaryPanel ────────────────────────────────────────────────────
 // Renders the crimson lookup panel: entry rows (from → to), fallback, remove.
-// Fully controlled — callers own the LookupDictionary value.
+// Fully controlled - callers own the LookupDictionary value.
 
 export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
   dictionary,
@@ -73,7 +73,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
                 value={entry.to}
                 onChange={(e) => patchEntry(idx, { to: e.target.value })}
               >
-                <option value="">— pick —</option>
+                <option value="">- pick -</option>
                 <option value="true">true</option>
                 <option value="false">false</option>
               </select>
@@ -104,7 +104,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
         <PlusCircle size={11} /> Add entry
       </button>
 
-      {/* Fallback — only when at least one entry exists */}
+      {/* Fallback - only when at least one entry exists */}
       {entries.length > 0 && (
         <div className="flex items-center gap-2 pt-1 border-t border-crimson-200">
           <span className="text-[10px] text-ink-500 flex-shrink-0 select-none">If not found:</span>
@@ -123,7 +123,7 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
                 value={dictionary.fallbackValue ?? ''}
                 onChange={(e) => patchFallbackValue(e.target.value)}
               >
-                <option value="">— pick —</option>
+                <option value="">- pick -</option>
                 <option value="true">true</option>
                 <option value="false">false</option>
               </select>

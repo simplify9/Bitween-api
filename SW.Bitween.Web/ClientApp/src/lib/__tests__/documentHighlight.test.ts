@@ -62,7 +62,7 @@ describe("colouring a document", () => {
 
   it("escapes everything that came from the document", () => {
     // The whole safety argument in one test. A payload carrying markup has to come
-    // back as characters — the only real tags in the output are the spans we added.
+    // back as characters - the only real tags in the output are the spans we added.
     const html = colourDocument("<x><script>alert(1)</script></x>", "xml")!;
 
     expect(html).not.toContain("<script");

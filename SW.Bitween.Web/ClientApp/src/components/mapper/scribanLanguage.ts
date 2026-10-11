@@ -55,7 +55,7 @@ const scribanParser = StreamLanguage.define(scribanStreamParser);
 
 // Colors come from the design tokens rather than literals so a re-branded tenant
 // (Theme.PrimaryColor rewrites every --color-crimson-*) keeps the editor and the
-// cheat-sheet under it in step — they are a matched pair, the sheet is what tells
+// cheat-sheet under it in step - they are a matched pair, the sheet is what tells
 // the user what each color means.
 const scribanHighlight = HighlightStyle.define([
   { tag: t.brace, color: 'var(--color-crimson-600)', fontWeight: 'bold' }, // {{ }}

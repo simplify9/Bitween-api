@@ -14,13 +14,13 @@ namespace SW.Bitween.Services.Cluster;
 /// <summary>
 /// Leader election over the internal RabbitMQ, using the one primitive it already gives us:
 /// an EXCLUSIVE QUEUE IS TIED TO A SINGLE CONNECTION. Declaring it succeeds for exactly one node
-/// and fails for every other, and the broker releases it the moment that connection goes — which
+/// and fails for every other, and the broker releases it the moment that connection goes - which
 /// is liveness for free, with no lease renewal to get wrong and no clock to trust.
 ///
 /// The database supplies what the broker cannot: a monotonic term. See <see cref="IResourceLease.Term"/>.
 ///
 /// The connection here is DEDICATED and separate from SW.Bus's. Sharing it would tie every lease
-/// in the process to the same fate as ordinary message traffic — one connection blip would drop
+/// in the process to the same fate as ordinary message traffic - one connection blip would drop
 /// every broker connection this node owns, all at once.
 /// </summary>
 public class RabbitMqLeaderElection : ILeaderElection, IDisposable
@@ -55,7 +55,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             Uri = new Uri(connectionString),
             // Recovery must stay OFF. A recovered connection silently re-declares the exclusive
             // queue, so a node that lost ownership during an outage would quietly take it back
-            // without ever bumping the term — two owners, neither aware.
+            // without ever bumping the term - two owners, neither aware.
             AutomaticRecoveryEnabled = false,
             RequestedConnectionTimeout = TimeSpan.FromSeconds(15)
         };
@@ -80,7 +80,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
         }
         catch (OperationInterruptedException)
         {
-            // RESOURCE_LOCKED — someone else owns it. Ordinary, and not worth logging above debug.
+            // RESOURCE_LOCKED - someone else owns it. Ordinary, and not worth logging above debug.
             channel?.Dispose();
             _logger.LogDebug("Resource {Resource} is owned by another node.", resource);
             return null;
@@ -94,7 +94,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
 
         try
         {
-            // THE FENCE, and only after the lock is held — so exactly one node bumps the term.
+            // THE FENCE, and only after the lock is held - so exactly one node bumps the term.
             var term = await ClaimTermAsync(resource, cancellationToken);
 
             _logger.LogInformation("Node {Node} acquired {Resource} at term {Term}.",
@@ -181,7 +181,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
         public string Resource { get; } = resource;
         public long Term { get; } = term;
 
-        // The channel closing IS the loss of ownership — the broker has already released the queue.
+        // The channel closing IS the loss of ownership - the broker has already released the queue.
         public bool IsHeld => !_released && _channel.IsOpen;
 
         public async Task<bool> ValidateAsync(CancellationToken cancellationToken = default)
@@ -205,7 +205,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
 
             // DELETE the queue, do not merely close the channel.
             //
-            // An exclusive queue belongs to the CONNECTION, not the channel — AMQP deletes it when
+            // An exclusive queue belongs to the CONNECTION, not the channel - AMQP deletes it when
             // the connection closes. Closing the channel released nothing, so a node that gave up
             // a lease still held the lock until its whole election connection dropped, and the
             // next node could never take over. Deleting is allowed for the owning connection and

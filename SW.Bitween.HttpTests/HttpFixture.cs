@@ -23,7 +23,7 @@ namespace SW.Bitween.HttpTests;
 
 /// <summary>
 /// The whole application, hosted in-process and called over HTTP: routing, model binding, JSON,
-/// authentication, the rate limiter and the response headers all run as they do in production —
+/// authentication, the rate limiter and the response headers all run as they do in production -
 /// everything the integration suite skips by calling handlers directly. Started exactly as
 /// Program.Main starts it: migrations, then the seeded-administrator, system-key, key-hashing and
 /// stored-settings steps.

@@ -43,7 +43,7 @@ test("a notifier set on its page to post failures of one subscription to an HTTP
 
   // The seeded subscription whose every delivery fails: nothing listens where it sends. Used
   // rather than one of the test's own so the failure it adds stays retryable for the exchanges
-  // spec — a failure whose subscription was deleted can't be retried.
+  // spec - a failure whose subscription was deleted can't be retried.
   const subscriptionName = SEED.failingSubscription;
   const subscriptionId = await api.idOf("subscriptions", subscriptionName);
 
@@ -110,7 +110,7 @@ test("a notifier switched off on its page sends nothing when a watched subscript
 
   // The seeded subscription whose every delivery fails: nothing listens where it sends. Used
   // rather than one of the test's own so the failure it adds stays retryable for the exchanges
-  // spec — a failure whose subscription was deleted can't be retried.
+  // spec - a failure whose subscription was deleted can't be retried.
   const subscriptionName = SEED.failingSubscription;
   const subscriptionId = await api.idOf("subscriptions", subscriptionName);
 

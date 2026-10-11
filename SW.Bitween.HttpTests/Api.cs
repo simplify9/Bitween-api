@@ -53,7 +53,7 @@ static class Api
             name = Unique("Gateway sub"), documentId, type = "GatewayApiCall"
         });
         // Created switched off, as every new subscription is; switched on the way the page's
-        // Enable does it — the whole record saved back with inactive false.
+        // Enable does it - the whole record saved back with inactive false.
         var subscription = (await Json(await admin.GetAsync($"/api/subscriptions/{subscriptionId}"))).AsObject();
         subscription["inactive"] = false;
         await Json(await admin.PostAsJsonAsync($"/api/subscriptions/{subscriptionId}", subscription));

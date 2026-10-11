@@ -6,7 +6,7 @@ namespace SW.Bitween.Domain.Cluster;
 /// <summary>
 /// The fencing token for one exclusively-owned resource.
 ///
-/// This is not the lock — the lock lives on the bus. This is the monotonic counter the bus cannot
+/// This is not the lock - the lock lives on the bus. This is the monotonic counter the bus cannot
 /// provide, so that a node which was paused while ownership moved can discover it lost.
 /// </summary>
 public class ClusterLease : BaseEntity<string>

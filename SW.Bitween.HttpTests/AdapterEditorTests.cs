@@ -10,7 +10,7 @@ namespace SW.Bitween.HttpTests;
 
 /// <summary>
 /// The adapter editor over HTTP, as the UI calls it: start a Python adapter, check it with a setting,
-/// try it, publish it and make it current — and a Member refused all of it.
+/// try it, publish it and make it current - and a Member refused all of it.
 /// </summary>
 [Collection("Http")]
 public class AdapterEditorTests(HttpFixture fixture)

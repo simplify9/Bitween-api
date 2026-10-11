@@ -9,7 +9,7 @@ import { SEED } from "./seed-data";
 /**
  * Who can call an API gateway, decided on the pages where it is configured: keys issued and
  * revoked on the partner's page, and how the gateway asks callers to prove who they are on the
- * gateway's own. Each change is checked the only way that matters — by calling the gateway the
+ * gateway's own. Each change is checked the only way that matters - by calling the gateway the
  * way a partner would, from outside the browser.
  *
  * The gateways here attach their partner to a subscription that delivers nothing, so a call that
@@ -107,7 +107,7 @@ test("a custom key header set on the gateway page: the key works in it, in partn
   await page.goto(`api-gateways/${g.gatewayId}`);
   await page.fill("#ag-key-header", "X-Acme-Key");
   // The call preview follows the draft and says it isn't live yet.
-  await expect(page.getByText("— with your unsaved changes")).toBeVisible();
+  await expect(page.getByText("- with your unsaved changes")).toBeVisible();
   await expect(page.getByLabel("Ways to send the key")).toContainText("X-Acme-Key: <key>");
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);

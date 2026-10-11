@@ -101,7 +101,7 @@ export function useArrayMappingModal(): UseArrayMappingModalResult {
   const parentAm = newArrayParentId ? arrayMappings.find((m) => m.id === newArrayParentId) : undefined;
 
   const [source, setSource] = useState("");
-  // (legacy vestigial `const [target] = useState(...)` dropped — never read; the hook
+  // (legacy vestigial `const [target] = useState(...)` dropped - never read; the hook
   //  exposes `currentTarget` instead. Removing it is a no-op under the host's noUnusedLocals.)
   const [alias, setAlias] = useState("item");
   const [hasFilter, setHasFilter] = useState(false);
@@ -139,7 +139,7 @@ export function useArrayMappingModal(): UseArrayMappingModalResult {
   const inputScalarProps = React.useMemo(() => {
     try {
       const parsed = JSON.parse(inputJson);
-      // Root array — expose scalar props from the first element, prefixed with 'item.'
+      // Root array - expose scalar props from the first element, prefixed with 'item.'
       const root: Record<string, unknown> = Array.isArray(parsed)
         ? (parsed.length > 0 && typeof parsed[0] === "object" && parsed[0] !== null ? parsed[0] as Record<string, unknown> : {})
         : parsed as Record<string, unknown>;
@@ -158,7 +158,7 @@ export function useArrayMappingModal(): UseArrayMappingModalResult {
 
   const fullSourcePath = React.useMemo(() => {
     if (!source) return "";
-    // 'items' is a virtual C# alias for root-array input — not a real JSON key.
+    // 'items' is a virtual C# alias for root-array input - not a real JSON key.
     // When nested inside a root-array AM, use source directly so path navigation works.
     if (parentFullSource === "items") {
       try { if (Array.isArray(JSON.parse(inputJson))) return source; } catch { /* ignore */ }
@@ -173,7 +173,7 @@ export function useArrayMappingModal(): UseArrayMappingModalResult {
 
   const fullTargetBase = React.useMemo(() => {
     const t = am?.target ?? newArrayPresetTarget ?? "";
-    // isRootOutput AMs have an empty target — keep as '' (sentinel for root array)
+    // isRootOutput AMs have an empty target - keep as '' (sentinel for root array)
     if (!t) return newArrayIsRootOutput || am?.isRootOutput ? "__root__" : "";
     if (!newArrayParentId) return t;
     const parentBase = getFullTargetBase(newArrayParentId, arrayMappings);

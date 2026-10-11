@@ -14,7 +14,7 @@ namespace SW.Bitween.HttpTests;
 /// <summary>
 /// Queue health's clean-up against the real broker and its management API: a lane no consumer
 /// definition declares is listed with what it holds and can be deleted whole; a queue Bitween still
-/// consumes, or one something is reading, never is — whatever name the caller sends.
+/// consumes, or one something is reading, never is - whatever name the caller sends.
 /// </summary>
 [Collection("Http")]
 public class UnattendedQueueTests(HttpFixture fixture)

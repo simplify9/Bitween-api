@@ -85,7 +85,7 @@ function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 - no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -128,7 +128,7 @@ export function GlobalValueSetsPage() {
     <div>
       <PageHeader
         title="Global values"
-        description="Shared value sets any adapter can reference — change an endpoint here once instead of in every subscription."
+        description="Shared value sets any adapter can reference - change an endpoint here once instead of in every subscription."
         actions={createAction}
       />
 
@@ -169,7 +169,7 @@ export function GlobalValueSetsPage() {
             {
               header: "Values",
               align: "right",
-              cell: (s) => <span className="tabular-nums text-ink-600">{Object.keys(s.values).length || "—"}</span>,
+              cell: (s) => <span className="tabular-nums text-ink-600">{Object.keys(s.values).length || "-"}</span>,
             },
             {
               header: "Used by",

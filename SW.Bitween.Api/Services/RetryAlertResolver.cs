@@ -10,7 +10,7 @@ public class RetryAlertTarget
     public required string HandlerId { get; init; }
     public IReadOnlyDictionary<string, string> HandlerProperties { get; init; }
 
-    /// <summary>Which level won — shown in the UI so a surprising destination can be traced.</summary>
+    /// <summary>Which level won - shown in the UI so a surprising destination can be traced.</summary>
     public required RetryAlertLevel Level { get; init; }
 }
 
@@ -39,7 +39,7 @@ public static class RetryAlertResolver
     /// <param name="group">The matched group. <c>null</c> when the group no longer exists in the policy.</param>
     /// <param name="policy">
     /// The named policy, or <c>null</c> when the subscription uses an inline
-    /// <see cref="CustomRetryPolicy"/> — those have no policy row, so only the group and the
+    /// <see cref="CustomRetryPolicy"/> - those have no policy row, so only the group and the
     /// override levels can configure an alert.
     /// </param>
     public static RetryAlertTarget Resolve(RetryAlertOverride subscriptionOverride, RetryGroup group,

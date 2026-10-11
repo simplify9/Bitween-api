@@ -15,7 +15,7 @@ public class BitweenApiException(string message, HttpStatusCode? status = null) 
 
 /// <summary>
 /// Calls to one Bitween's API as the signed-in member: the access token goes with each call, and is
-/// renewed with the refresh token when it has expired, the way the browser renews it — the renewed
+/// renewed with the refresh token when it has expired, the way the browser renews it - the renewed
 /// tokens are saved back to the profile.
 /// </summary>
 public class BitweenApi : IDisposable

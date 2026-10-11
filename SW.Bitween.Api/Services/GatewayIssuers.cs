@@ -21,7 +21,7 @@ public interface IGatewayIssuers
 public class OpenIdGatewayIssuers : IGatewayIssuers
 {
     // Until a login server's keys have been read once, every call waits on reading them. The
-    // default timeout is 100 seconds — a partner call held that long by a firewall dropping the
+    // default timeout is 100 seconds - a partner call held that long by a firewall dropping the
     // connection, rather than refused in a few.
     static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
 
@@ -41,7 +41,7 @@ public class OpenIdGatewayIssuers : IGatewayIssuers
 
     /// <summary>
     /// A full https address. Plain http only on this machine, for trying a gateway out against a
-    /// login server running locally — anywhere else the keys could be swapped on the way.
+    /// login server running locally - anywhere else the keys could be swapped on the way.
     /// </summary>
     public static bool IsUsable(string issuer) =>
         Uri.TryCreate(issuer, UriKind.Absolute, out var uri)

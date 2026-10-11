@@ -6,19 +6,19 @@ import { ArrowLeft } from "lucide-react";
  *
  * These were all fixed `Link`s to a list page, which is only right when the list is
  * where you came from. `subscriptions/:id` is reached from Scheduled jobs, Exchanges,
- * an API gateway's page, the retry usage panel and three places on the dashboard — and
+ * an API gateway's page, the retry usage panel and three places on the dashboard - and
  * from every one of them "← Subscriptions" landed you somewhere you had never been.
  *
  * So it steps back when there is somewhere to step back to, and falls back to `to` when
  * there isn't: a pasted link, a new tab, a refresh. The label follows the behaviour
- * rather than the other way round — naming a destination it wasn't going to is exactly
+ * rather than the other way round - naming a destination it wasn't going to is exactly
  * how the old one misled people.
  *
  * Signing in can't be what's behind you: `Login` navigates with `replace`, so that entry
  * is already gone.
  *
  * On a desktop the top bar's breadcrumb already leads back up, so this shows on smaller screens
- * only — unless it is the way back out of a detour (`keep`), which returns to a kept draft or a
+ * only - unless it is the way back out of a detour (`keep`), which returns to a kept draft or a
  * pick in progress that a breadcrumb would drop.
  */
 export function BackLink({
@@ -29,7 +29,7 @@ export function BackLink({
 }: {
   to: string;
   label: string;
-  /** Layout only — one caller sits in a toolbar rather than above a page title. */
+  /** Layout only - one caller sits in a toolbar rather than above a page title. */
   className?: string;
   /** Shown on a desktop too: the way back out of a detour. */
   keep?: boolean;
@@ -39,7 +39,7 @@ export function BackLink({
   useLocation();
 
   // The history index, which React Router keeps in `history.state`: it counts pushes and
-  // is untouched by replaces. `location.key` looked like the same signal and isn't — a
+  // is untouched by replaces. `location.key` looked like the same signal and isn't - a
   // replace mints a fresh key, so a page that syncs a query param on mount (the bus
   // gateway selecting its first route) looked like it had somewhere to go back to on a
   // cold load. Reading it during render is fine because `location` above re-renders us

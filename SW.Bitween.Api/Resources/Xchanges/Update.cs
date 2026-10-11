@@ -22,7 +22,7 @@ namespace SW.Bitween.Resources.Xchanges
         {
             Document document;
 
-            // Inject external request context values into the object — minus the caller's
+            // Inject external request context values into the object - minus the caller's
             // credentials. This lands in the stored input file, where anyone who can view
             // exchanges reads it, and is handed to mappers and handlers, none of which need the
             // partner's key to do their job.
@@ -69,7 +69,7 @@ namespace SW.Bitween.Resources.Xchanges
                 .Where(item => item.Name.ToLower() == "waitresponse")
                 .Select(item => item.Value).FirstOrDefault();
 
-            // No header, no wait — as before. With one, the wait is capped; see ResultWait.
+            // No header, no wait - as before. With one, the wait is capped; see ResultWait.
             var waitResponse = 0;
             if (int.TryParse(waitResponseHeader, out var waitResponseValue))
             {

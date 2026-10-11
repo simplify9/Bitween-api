@@ -30,7 +30,7 @@ export const GlobalSetSelector: React.FC<GlobalSetSelectorProps> = ({
         value={setId}
         onChange={(e) => onSetChange(e.target.value)}
       >
-        <option value="">— pick set —</option>
+        <option value="">- pick set -</option>
         {allGlobalSets.map((s) => (
           <option key={s.id} value={s.id}>{s.name}</option>
         ))}
@@ -42,7 +42,7 @@ export const GlobalSetSelector: React.FC<GlobalSetSelectorProps> = ({
           value={keyValue}
           onChange={(e) => onKeyChange(e.target.value)}
         >
-          <option value="">— pick key —</option>
+          <option value="">- pick key -</option>
           {availableKeys.map((k) => (
             <option key={k} value={k}>{k}</option>
           ))}

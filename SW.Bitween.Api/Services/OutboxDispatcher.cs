@@ -11,8 +11,8 @@ using SW.Bitween.Domain;
 namespace SW.Bitween;
 
 /// <summary>
-/// Publishes the outbox rows that were not published straight after their commit — because the
-/// broker was down, or because they were saved inside a caller's transaction — and clears out old
+/// Publishes the outbox rows that were not published straight after their commit - because the
+/// broker was down, or because they were saved inside a caller's transaction - and clears out old
 /// published ones.
 /// </summary>
 /// <remarks>

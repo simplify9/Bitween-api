@@ -20,7 +20,7 @@ interface RawKeyAndValue {
   key: string;
   value: string;
 }
-/** Seeded by the model — mirrors Document.AggregationDocumentId on the backend. */
+/** Seeded by the model - mirrors Document.AggregationDocumentId on the backend. */
 const AGGREGATION_DOCUMENT_ID = 10001;
 
 interface RawDocument {
@@ -34,7 +34,7 @@ interface RawDocument {
   disregardsUnfilteredMessages: boolean;
   promotedProperties: RawKeyAndValue[] | null;
   validationSchema?: string | null;
-  /** Counted by the backend — see DocumentRow.UsedByCount. */
+  /** Counted by the backend - see DocumentRow.UsedByCount. */
   usedByCount: number;
   retiredOn: string | null;
 }

@@ -6,7 +6,7 @@ namespace SW.Bitween.Domain.DataSources;
 /// <summary>
 /// One inbound message we have already persisted, remembered by its dedupe key.
 ///
-/// At-least-once delivery is not an edge case here — it is what persist-then-acknowledge buys.
+/// At-least-once delivery is not an edge case here - it is what persist-then-acknowledge buys.
 /// A crash between committing the Xchange and acknowledging the broker redelivers by design, so
 /// duplicates are normal and something has to recognise them.
 ///

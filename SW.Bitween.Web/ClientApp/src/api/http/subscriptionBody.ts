@@ -6,7 +6,7 @@ import { toRawMatchExpression } from "./matchExpression";
  * the gateway endpoints can reach.
  *
  * It lives here rather than in `subscriptions.ts` because `gateways.ts` needs it too,
- * and `subscriptions.ts` already imports `gateways.ts` — putting it there would make
+ * and `subscriptions.ts` already imports `gateways.ts` - putting it there would make
  * that cycle mutual.
  */
 

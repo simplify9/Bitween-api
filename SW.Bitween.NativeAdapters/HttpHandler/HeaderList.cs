@@ -8,7 +8,7 @@ namespace SW.Bitween.NativeAdapters;
 /// </summary>
 /// <remarks>
 /// The setting's description promised <c>name=value</c> lines, and the way people naturally type
-/// a list — a space after each comma — made a header name with a leading space, which .NET refuses:
+/// a list - a space after each comma - made a header name with a leading space, which .NET refuses:
 /// every delivery failed with a FormatException. Both are read now, alongside the original form:
 /// names and values are trimmed, newlines separate as commas do, empty entries are skipped, and
 /// <c>=</c> separates an entry that has no colon. An entry that is neither says which it was.

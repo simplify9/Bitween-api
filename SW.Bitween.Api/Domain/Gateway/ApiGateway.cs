@@ -12,7 +12,7 @@ public class ApiGateway : BaseEntity,IAudited
 
     /// <summary>
     /// Turns the gateway off without deleting it. Deleting is the only alternative today,
-    /// and it takes the partner attachments with it — so a gateway that needs stopping for
+    /// and it takes the partner attachments with it - so a gateway that needs stopping for
     /// an afternoon gets rebuilt by hand afterwards, or left running.
     /// </summary>
     public bool Inactive { get; set; }

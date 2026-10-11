@@ -34,7 +34,7 @@ namespace SW.Bitween.Resources.Documents
             if (entity.RetiredOn == null)
             {
                 // Configuration still pointing at it would be left running against a type the UI
-                // no longer offers — which reads as the type having been removed when it has not.
+                // no longer offers - which reads as the type having been removed when it has not.
                 // Said before retiring rather than after, so nothing half-happens.
                 if (await dbContext.Set<Subscription>().AnyAsync(s => s.DocumentId == key))
                     throw new SWException(
@@ -53,7 +53,7 @@ namespace SW.Bitween.Resources.Documents
 
             await dbContext.SaveChangesAsync();
             // The receiving path resolves types through the cache, so a retired type would keep
-            // being offered — and keep accepting work — for the rest of the cache's window.
+            // being offered - and keep accepting work - for the rest of the cache's window.
             await cache.BroadcastRevoke();
 
             return new { entity.Id, entity.RetiredOn };

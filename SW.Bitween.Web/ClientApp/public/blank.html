@@ -13,7 +13,7 @@
 
       This must not be the app itself: index.html boots the SPA, RequireAuth finds
       no session and does `<Navigate to="/login" replace>`, and that navigation
-      drops the fragment before the opener can read it — leaving the popup sitting
+      drops the fragment before the opener can read it - leaving the popup sitting
       on a login page and the sign-in failing. Keep this page empty and
       script-free; nothing here has to run for the flow to complete.
     -->

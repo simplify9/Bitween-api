@@ -17,7 +17,7 @@ public static class ServiceCollectionExtensions
 {
     /// <param name="rebexLicenseKey">
     /// Reads the current Rebex license key. Called per adapter instance rather than once here,
-    /// because the key is a setting that can be changed while the app is running — pasting one in
+    /// because the key is a setting that can be changed while the app is running - pasting one in
     /// makes the Rebex adapters usable without a restart.
     /// </param>
     /// <param name="blockPrivateNetworks">

@@ -76,7 +76,7 @@ const rowCheckboxes = () => screen.getAllByRole("checkbox", { name: /^Select (?!
 describe("the exchanges list", () => {
   /**
    * A selection has to be able to mean "everything this filter matches", or a 200-exchange
-   * recovery is 8 pages of ticking boxes. Stops at the confirm — what it says is the point, and
+   * recovery is 8 pages of ticking boxes. Stops at the confirm - what it says is the point, and
    * running it would retry the whole filter.
    */
   describe("select all matching", () => {
@@ -123,7 +123,7 @@ describe("the exchanges list", () => {
       const dialog = await screen.findByRole("dialog");
       expect(within(dialog).getByText("Retry 59 exchanges?")).toBeVisible();
       expect(await within(dialog).findByText(/^59 exchanges will run again/)).toBeVisible();
-      // What it asked about is the filter itself, minus the row unticked — not 24 ids off one page.
+      // What it asked about is the filter itself, minus the row unticked - not 24 ids off one page.
       expect(previews).toEqual([
         { filter: "filter=StatusFilter%3A1%3A3", excludeIds: [exchange(0).id], reason: "Bulk retry", reset: false },
       ]);
@@ -169,7 +169,7 @@ describe("the exchanges list", () => {
 
   /**
    * A chain is one piece of work however many attempts it took, so the list needs to be able to
-   * show the newest attempt of each — otherwise a chain retried nine times fills nine rows, none
+   * show the newest attempt of each - otherwise a chain retried nine times fills nine rows, none
    * of which is the current state of anything.
    *
    * Which rows that leaves is the server's: Exchange_search_can_return_only_the_newest_attempt_of_each_chain
@@ -180,7 +180,7 @@ describe("the exchanges list", () => {
     const list = exchanges({ total: (q) => (latest(q) ? 30 : 40) });
     const { user, router } = renderApp("/exchanges?status=failed", { handlers: [list.handler, ...filterOptions] });
 
-    expect(await screen.findByText(/Showing 1–25 of 40/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 40/)).toBeVisible();
     const pill = screen.getByRole("button", { name: "Latest attempt only" });
     expect(pill).toHaveAttribute("aria-pressed", "false");
     expect(latest(list.asked.at(-1)!)).toBe(false);
@@ -188,7 +188,7 @@ describe("the exchanges list", () => {
     await user.click(pill);
     expect(router.state.location.search).toMatch(/latest=1/);
     expect(pill).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByText(/Showing 1–25 of 30/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 30/)).toBeVisible();
     // Narrowing whatever the status picked, not replacing it.
     expect(list.asked.at(-1)!.getAll("filter")).toEqual(["StatusFilter:1:3", "LatestOnly:1:true"]);
 
@@ -198,12 +198,12 @@ describe("the exchanges list", () => {
     list.asked.length = 0;
     renderApp(pathname + search, { handlers: [list.handler, ...filterOptions] });
     expect(await screen.findByRole("button", { name: "Latest attempt only" })).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByText(/Showing 1–25 of 30/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 30/)).toBeVisible();
     expect(latest(list.asked[0])).toBe(true);
   });
 
   it("opens promoted properties in a panel, not just a tooltip", async () => {
-    // Ten properties, one value too long for a chip, and a null — the value shape that used to
+    // Ten properties, one value too long for a chip, and a null - the value shape that used to
     // take the page down on paging.
     const properties = {
       "Trace Code": "SHOR020",
@@ -223,7 +223,7 @@ describe("the exchanges list", () => {
 
     await user.click((await screen.findAllByRole("button", { name: "Show all 10 promoted properties" }))[0]);
 
-    // Every property, in full — including the one too long to have fitted a chip.
+    // Every property, in full - including the one too long to have fitted a chip.
     expect(screen.getByText("10 promoted properties")).toBeVisible();
     expect(screen.getByText("SO-2026-0088341-RETURN-LINE-2")).toBeVisible();
 
@@ -242,10 +242,10 @@ describe("the exchanges list", () => {
     const list = exchanges({ total: 40, properties: { "Agent Code": null, "Trace Code": null, "First Time": "True" } });
     const { user } = renderApp("/exchanges", { handlers: [list.handler, ...filterOptions] });
 
-    expect(await screen.findByText(/Showing 1–25 of 40/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 40/)).toBeVisible();
     await user.click(screen.getAllByRole("button", { name: "Next" })[0]);
 
-    expect(await screen.findByText(/Showing 26–40 of 40/)).toBeVisible();
+    expect(await screen.findByText(/Showing 26-40 of 40/)).toBeVisible();
     expect(list.asked.at(-1)?.get("page")).toBe("1");
     expect(screen.getAllByText("True").length).toBeGreaterThan(0);
     expect(screen.queryByText("Unexpected Application Error")).not.toBeInTheDocument();

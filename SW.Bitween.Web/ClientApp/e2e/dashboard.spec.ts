@@ -12,7 +12,7 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
   await expect(page.getByText("NaN")).toHaveCount(0);
 
   // "Failures to act on" counts problems rather than attempts, and has to agree with the list it
-  // opens — a tile whose number changes when you click it is worse than no tile.
+  // opens - a tile whose number changes when you click it is worse than no tile.
   // Anchored: the "Chains that keep failing" panel ends with an "All failures to act on" link,
   // which an unanchored match picks up as well.
   const tile = page.getByRole("link").filter({ hasText: /^Failures to act on/ });
@@ -25,7 +25,7 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
   await expect(page.getByText(`of ${count}`)).toBeVisible({ timeout: 15000 });
 
   // The panel that says which of those failures are not getting better, however often they are
-  // retried — the number on each row is how many attempts that one piece of work has taken.
+  // retried - the number on each row is how many attempts that one piece of work has taken.
   await page.goBack();
   const chains = page.getByText("Chains that keep failing");
   await expect(chains).toBeVisible();

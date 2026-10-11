@@ -38,7 +38,7 @@ public static class SeededAdministrator
     /// Every installation is seeded with this administrator, and while it holds the published
     /// password whoever signs in first can choose a new one and own the instance. When no password
     /// is configured, an installation with other accounts keeps today's behaviour (the password
-    /// must be changed at sign-in); one where this is the only account — a new installation —
+    /// must be changed at sign-in); one where this is the only account - a new installation -
     /// refuses to start, since there is nobody else to set it up.
     /// </remarks>
     public static async Task Secure(BitweenDbContext dbContext, string initialPassword,

@@ -21,7 +21,7 @@ export interface SearchSelectOption {
 }
 
 /**
- * A searchable dropdown (Headless UI combobox) for entity pickers —
+ * A searchable dropdown (Headless UI combobox) for entity pickers -
  * anything whose option list grows with data. Typing filters in memory
  * across label + code; rows can carry hints or fully custom rendering.
  * Small fixed enums should keep using the native `Select`.
@@ -51,7 +51,7 @@ export function SearchSelect({
   "aria-label"?: string;
   /**
    * Accept a typed value the options don't carry, offered as the last row.
-   * For fields where the known list is a convenience rather than the rule —
+   * For fields where the known list is a convenience rather than the rule -
    * without it, typing a name nothing matches dead-ends on "Nothing matches",
    * and the way out is a link elsewhere on the page that reads as unrelated.
    *

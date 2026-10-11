@@ -20,7 +20,7 @@ namespace SW.Bitween.Resources.Documents
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Documents.Create);
 
             // Same check Update makes, and compared the same way. Without it two types
-            // could be created under one name, and then neither could be saved again —
+            // could be created under one name, and then neither could be saved again -
             // Update refuses the name it already has. Ignoring case, because a list
             // holding both "Invoice" and "invoice" reads as a mistake, not a choice.
             var wantedName = (model.Name ?? string.Empty).ToLower();

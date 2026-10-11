@@ -95,7 +95,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     /// <summary>
     /// A roll-up made before Bitween served its own file links lists storage URLs, which stop opening once
-    /// the bucket is private. Retrying one — with its old properties or reset ones — swaps each URL of an
+    /// the bucket is private. Retrying one - with its old properties or reset ones - swaps each URL of an
     /// exchange file in Bitween's bucket for a link Bitween serves, so the handler reading it still gets
     /// every file. Anything else is left as it was.
     /// </summary>
@@ -148,13 +148,13 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         // Callers that have no partner/globals context of their own (scheduled receivers,
         // aggregation, manual "create exchange", plain internal subscription fan-out) leave
-        // this null — resolve it here so {{globals.…}} always gets a chance to translate,
+        // this null - resolve it here so {{globals.…}} always gets a chance to translate,
         // instead of silently no-op'ing for whichever caller forgot to load it.
         globalAdapterValuesSets ??= await BitweenCache.ListGlobalAdapterValuesSetsAsync();
 
         // And the same for the partner, for the same reason. Only a caller that learned the
-        // partner from somewhere other than the subscription — a bus gateway route, a partner
-        // calling an API gateway — has one to hand in; everyone else left it null and the
+        // partner from somewhere other than the subscription - a bus gateway route, a partner
+        // calling an API gateway - has one to hand in; everyone else left it null and the
         // subscription's own partner went unused, so every {{partner.…}} in its adapters was
         // written out literally and the handler ran against the template. This is the value
         // the Xchange is attributed to either way (see PartnerId below), so filling from it
@@ -205,7 +205,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var alreadyRetried = await FindRetryOf(xchange.Id);
         if (alreadyRetried != null)
         {
-            // Reached only if a manual retry got in first — the endpoint refuses that while a
+            // Reached only if a manual retry got in first - the endpoint refuses that while a
             // retry is scheduled, so it takes a race to arrive here. Dropped like the cases below
             // rather than left to throw: an exception here would leave the schedule in place and
             // the job would pick the same impossible retry up again on every pass, forever.
@@ -221,7 +221,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (inputFile == null)
         {
             // The input is what a retry re-sends, so without it there is nothing to retry with. Handled
-            // like a missing subscription — drop the schedule and move on — but recorded on the result
+            // like a missing subscription - drop the schedule and move on - but recorded on the result
             // as well, because unlike a deleted subscription this needs someone to look into it.
             dbContext.Remove(delayedRetry);
 
@@ -236,7 +236,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     /// <summary>
-    /// The original input, or <c>null</c> when it cannot be read — deleted from storage, expired by a
+    /// The original input, or <c>null</c> when it cannot be read - deleted from storage, expired by a
     /// lifecycle rule, or storage itself unavailable.
     /// </summary>
     public async Task<XchangeFile> ReadInputFile(Xchange xchange)
@@ -317,7 +317,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// </remarks>
     /// <summary>
     /// Queues the response in the outbox, saved with the result. It used to be published before the
-    /// result was saved, so a save that then failed had already sent it — and the redelivery that
+    /// result was saved, so a save that then failed had already sent it - and the redelivery that
     /// followed sent it again.
     /// </summary>
     private Task PublishResponse(Xchange xchange, XchangeFile responseFile)
@@ -334,7 +334,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// <remarks>
     /// The tokens are filled when the exchange is created, so one left over means the value wasn't
     /// there, and running on would hand the partner the token's text instead. Other types are never
-    /// given source values and are left alone — a template there may be reading a document field
+    /// given source values and are left alone - a template there may be reading a document field
     /// that happens to be called "source".
     /// </remarks>
     private async Task EnsureSourceValuesFilled(Xchange xchange)
@@ -391,7 +391,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (xchange.MapperId == null) return xchangeFile;
 
         // A mapper that takes its context separately gets the payload exactly as it arrived. Anything
-        // else keeps the enrichment below, unchanged — every template already written reads
+        // else keeps the enrichment below, unchanged - every template already written reads
         // __partner__ out of the payload, so this is load-bearing behaviour, not an implementation
         // detail. Note the JToken.Parse: it runs before anything knows which mapper is configured,
         // and it throws on a payload that is not JSON, which is why a mapper that wants to handle
@@ -423,7 +423,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                     }
                 }
 
-                // Inject __globals__ — all global adapter values sets
+                // Inject __globals__ - all global adapter values sets
                 // so templates can use {{ __globals__?.setId?.key }}
                 // From the cache, which every change to a set revokes: this ran a query per exchange.
                 var globalSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
@@ -449,7 +449,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         // Check if it's a native adapter
         // No branching on the adapter's kind: the invoker decides which of the three runtimes
-        // owns this id — in-process, spawned, or a rented resident instance — and the pipeline
+        // owns this id - in-process, spawned, or a rented resident instance - and the pipeline
         // only says what it wants run.
         xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
             xchange.MapperId, AdapterRole.Mapper, nameof(IInfolinkHandler.Handle), xchangeFile,
@@ -613,7 +613,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         ?? throw new BitweenException("Bitween has no address to build links to exchange files on.");
 
     /// <summary>
-    /// The exchange a storage key belongs to, and which of its files it is — <c>null</c> when the key
+    /// The exchange a storage key belongs to, and which of its files it is - <c>null</c> when the key
     /// isn't exactly where one of an exchange's files lives. How a request naming a raw key is held to
     /// exchange files and nothing else in the bucket.
     /// </summary>
@@ -641,9 +641,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     /// <summary>
-    /// Opens one of an exchange's files to read. A file that isn't there any more is reported as such —
+    /// Opens one of an exchange's files to read. A file that isn't there any more is reported as such -
     /// deleted by the bucket's retention rule when one covers it and the exchange is old enough, or else
-    /// missing — rather than as the storage provider's own error.
+    /// missing - rather than as the storage provider's own error.
     /// </summary>
     public async Task<Stream> OpenFile(Xchange xchange, XchangeFileType type)
     {
@@ -688,7 +688,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         if (xchange == null) throw new BitweenException($"Xchange '{message.Id}' not found.");
 
-        // A message is delivered at least once — after a crash between commit and ack, or when the
+        // A message is delivered at least once - after a crash between commit and ack, or when the
         // outbox publishes one whose first publish did go through. An exchange that already has a
         // result has been processed; running it again would deliver it to the partner twice.
         if (await dbContext.Set<XchangeResult>().AsNoTracking().AnyAsync(r => r.Id == xchange.Id))
@@ -707,7 +707,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         try
         {
             var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
-            // Whatever way it arrived — bus, receiver, response — input that doesn't match its
+            // Whatever way it arrived - bus, receiver, response - input that doesn't match its
             // type's schema fails here, with what is wrong, before anything acts on it.
             await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile.Data);
             var result = await filterService.Filter(xchange.DocumentId, inputFile);
@@ -787,7 +787,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// <remarks>
     /// Counted and compared in the database, not on a loaded copy: exchanges for one subscription
     /// are processed side by side, and a read-then-write would lose counts and pause it twice.
-    /// Never throws — the exchange's own result is already saved and is what matters.
+    /// Never throws - the exchange's own result is already saved and is what matters.
     /// </remarks>
     private async Task TrackDeliveryHealth(Xchange xchange, string exception)
     {
@@ -845,7 +845,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// <summary>
     /// Clears what the failed attempt left tracked before its error result is added. A success
     /// result already added has the same key as the error one, so leaving it made the error save
-    /// throw too — the message went back on the queue and the handler ran again, delivering twice.
+    /// throw too - the message went back on the queue and the handler ran again, delivering twice.
     /// A response queued for a delivery that failed must not go out either. When it was the save
     /// itself that failed, nothing else it tried to write can be trusted to save the second time.
     /// </summary>
@@ -923,7 +923,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (xchange.SubscriptionId == null) return;
 
         // A person asked for this attempt, so the policy stays out of it. Otherwise pressing Retry
-        // spends a slot of the group's shared total — the budget meant for unattended retries — and
+        // spends a slot of the group's shared total - the budget meant for unattended retries - and
         // can be what finally exhausts it and raises the alert. Recorded rather than skipped
         // silently, so the absence of a follow-up attempt has a visible reason.
         if (xchange.ManualRetry)
@@ -1015,8 +1015,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// anything, and no way to say which one "the retry" of the original was.
     /// </summary>
     /// <remarks>
-    /// Enforced here rather than at each endpoint so that every way of asking for a retry — by
-    /// hand, in bulk, or by a retry policy coming due — is held to it. Not enforced by a unique
+    /// Enforced here rather than at each endpoint so that every way of asking for a retry - by
+    /// hand, in bulk, or by a retry policy coming due - is held to it. Not enforced by a unique
     /// index as well: exchanges retried before this rule existed can already have forked, and an
     /// index that will not create over the data it inherits is worse than no index. Two retries of
     /// the same exchange committed at the very same moment can therefore still both pass this
@@ -1028,7 +1028,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (existing != null)
             throw new SWValidationException("ALREADY_RETRIED",
                 $"This exchange has already been retried, as exchange {existing}. Retry that attempt " +
-                "instead — an exchange is only retried once, so that its attempts stay a single chain.");
+                "instead - an exchange is only retried once, so that its attempts stay a single chain.");
     }
 
     private async Task<int> CountRetryChainDepth(Xchange xchange)
@@ -1122,7 +1122,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     /// <summary>
     /// An exchange's input, for its source values, or null when it can't be read: the exchange isn't
-    /// in this Bitween — another instance on the same bus published the message — or its file is gone.
+    /// in this Bitween - another instance on the same bus published the message - or its file is gone.
     /// </summary>
     private async Task<string> ReadSourceDocument(string xchangeId)
     {
@@ -1281,7 +1281,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         if (subscription == null || subscription.Inactive || subscription.PausedOn != null) return;
 
-        // In batches, each committed on its own. Loading the whole backlog — payloads and all — and
+        // In batches, each committed on its own. Loading the whole backlog - payloads and all - and
         // committing it in one go could run a pod out of memory on a long pause, and a failure
         // part-way redid all of it on redelivery. Each batch removes what it released, so a
         // redelivery carries on from where this stopped.

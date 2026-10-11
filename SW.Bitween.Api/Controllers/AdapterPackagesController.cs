@@ -14,8 +14,8 @@ namespace SW.Bitween.Controllers;
 /// published is in the audit trail with who published it.
 /// </summary>
 /// <remarks>
-/// A controller rather than a CqApi handler because the package is the request body itself — the zip
-/// bytes, as built — not JSON. Refusals answer as CqApi's do: 403 without the permission, 400 with
+/// A controller rather than a CqApi handler because the package is the request body itself - the zip
+/// bytes, as built - not JSON. Refusals answer as CqApi's do: 403 without the permission, 400 with
 /// <c>{ field: [message] }</c>.
 /// </remarks>
 [ApiController]

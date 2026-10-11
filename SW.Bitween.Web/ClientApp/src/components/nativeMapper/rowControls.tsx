@@ -20,7 +20,7 @@ export function RowInput({ className = "", ...props }: InputHTMLAttributes<HTMLI
  *
  * Both halves matter. A plain box means remembering every path and getting one
  * wrong silently; a plain dropdown means a path the sample does not happen to
- * contain cannot be named at all — and a sample whose list is empty then has no
+ * contain cannot be named at all - and a sample whose list is empty then has no
  * fields to offer, so that list could not be mapped. The sample is an aid, not the
  * set of legal answers.
  */

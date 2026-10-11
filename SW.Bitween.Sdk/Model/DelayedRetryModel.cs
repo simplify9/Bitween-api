@@ -25,7 +25,7 @@ public class DelayedRetryRow
 
     /// <summary>
     /// The shared retry policy the subscription currently points at. Null when the
-    /// subscription carries an inline <c>CustomRetryPolicy</c> instead — a delayed retry
+    /// subscription carries an inline <c>CustomRetryPolicy</c> instead - a delayed retry
     /// can only be scheduled by one or the other, so null means "look on the subscription".
     /// Reflects the policy as it stands now, not necessarily the one that set <see cref="On"/>.
     /// </summary>

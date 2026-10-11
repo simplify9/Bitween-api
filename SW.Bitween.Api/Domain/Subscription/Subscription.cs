@@ -85,7 +85,7 @@ public class Subscription : BaseEntity
     /// <summary>Paused by <see cref="AutoPauseAfterFailures"/> rather than by a person.</summary>
     public bool PausedAutomatically { get; private set; }
     /// <summary>
-    /// Which external system this subscription's adapters connect through — a database, typically.
+    /// Which external system this subscription's adapters connect through - a database, typically.
     ///
     /// Null keeps every existing subscription exactly as it was: an adapter carries its own
     /// connection settings in its properties. Setting one moves that job to the data source, which
@@ -106,7 +106,7 @@ public class Subscription : BaseEntity
 
     /// <summary>
     /// Published versions this subscription is pinned to, one per adapter slot; null follows
-    /// whatever version is current — which is how every subscription behaved before versions.
+    /// whatever version is current - which is how every subscription behaved before versions.
     /// </summary>
     public string ReceiverVersion { get; set; }
     public string ValidatorVersion { get; set; }
@@ -129,7 +129,7 @@ public class Subscription : BaseEntity
 
     /// <summary>
     /// When the run that set <see cref="IsRunning"/> started. A process killed mid-run never clears
-    /// the flag, so without a time the subscription stayed "running" — and never ran — for good.
+    /// the flag, so without a time the subscription stayed "running" - and never ran - for good.
     /// </summary>
     public DateTime? RunningSince { get; private set; }
 
@@ -220,7 +220,7 @@ public class Subscription : BaseEntity
 
     /// <summary>
     /// Assigns the subscription's retry policy. An inline <paramref name="customRetryPolicy"/>
-    /// always takes precedence over a referenced <paramref name="retryPolicyId"/> — the two are
+    /// always takes precedence over a referenced <paramref name="retryPolicyId"/> - the two are
     /// mutually exclusive, matching the resolution order used at evaluation time
     /// (<c>CustomRetryPolicy ?? RetryPolicy</c>). Setting a custom policy clears any referenced
     /// one and vice versa, so the two fields can never disagree.

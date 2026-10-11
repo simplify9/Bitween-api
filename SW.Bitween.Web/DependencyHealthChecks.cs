@@ -10,7 +10,7 @@ namespace SW.Bitween.Web
 {
     /// <summary>
     /// What <c>/health/ready</c> asks: can this instance reach its database and its broker. Not
-    /// asked by <c>/health</c> or <c>/health/live</c> — a liveness probe that failed on a database
+    /// asked by <c>/health</c> or <c>/health/live</c> - a liveness probe that failed on a database
     /// blip would restart every pod at once, which turns a short outage into a long one.
     /// </summary>
     internal static class DependencyHealthChecks

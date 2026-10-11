@@ -17,7 +17,7 @@ export interface NormalLeafProps {
 }
 
 // ─── NormalLeaf ───────────────────────────────────────────────────────────────
-// Standard (non-array) output field — supports source, fixed, partner, global
+// Standard (non-array) output field - supports source, fixed, partner, global
 // modes plus optional lookup dictionary and transform expression.
 
 export const NormalLeaf: React.FC<NormalLeafProps> = ({
@@ -119,7 +119,7 @@ export const NormalLeaf: React.FC<NormalLeafProps> = ({
           onGlobalKeyChange={onGlobalKeyChange}
         />
 
-        {/* Transform badge — shown when NOT selected but transform exists */}
+        {/* Transform badge - shown when NOT selected but transform exists */}
         {!isSelected && mapping?.transform && currentMode === 'source' && (
           <span
             title={`Transform: ${mapping.transform}`}
@@ -151,16 +151,16 @@ export const NormalLeaf: React.FC<NormalLeafProps> = ({
         </div>
       )}
 
-      {/* ── Transform row — only when selected + source mode + source assigned + no lookup ── */}
+      {/* ── Transform row - only when selected + source mode + source assigned + no lookup ── */}
       {isSelected && currentMode === 'source' && mapping?.source && !hasLookup && (
         <div className="px-2 pb-1.5 space-y-0.5" onClick={(e) => e.stopPropagation()}>
           <span className="text-[10px] font-medium text-crimson-600 select-none">
             Transform{' '}
-            <span className="font-normal text-ink-500">(optional — modify the source value before output)</span>
+            <span className="font-normal text-ink-500">(optional - modify the source value before output)</span>
           </span>
           <input
             className="w-full border border-crimson-200 bg-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 placeholder-ink-300 text-crimson-700"
-            placeholder="e.g.  value * 1.2    or    value + ' USD'    — use 'value' to refer to the source field"
+            placeholder="e.g.  value * 1.2    or    value + ' USD'    - use 'value' to refer to the source field"
             value={mapping.transform ?? ''}
             onChange={(e) => updateTransform(e.target.value)}
           />

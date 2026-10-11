@@ -21,7 +21,7 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await expect(page.getByRole("heading", { name })).toBeVisible();
 
   // Attach a partner, detouring to create the required GatewayApiCall subscription. The
-  // detour is a nested route off the attach page, and both pickers are comboboxes now —
+  // detour is a nested route off the attach page, and both pickers are comboboxes now -
   // there is no wizard to "Continue" through.
   await page.getByRole("button", { name: "Attach partner" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach$/);
@@ -51,7 +51,7 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await expect(page.getByText(PARTNER).first()).toBeVisible();
   await expect(page.getByText(subscriptionName).first()).toBeVisible();
 
-  // Edit the attachment — exercises the remove-then-add path (backend's
+  // Edit the attachment - exercises the remove-then-add path (backend's
   // updatepartner can't mutate a composite-key column in place).
   await page.getByRole("button", { name: `Edit attachment for ${PARTNER}` }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attachments\/\d+$/);
@@ -68,7 +68,7 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("No partners attached")).toBeVisible();
 
-  // Delete (no attachments left — exercises the plain path; cascade-delete
+  // Delete (no attachments left - exercises the plain path; cascade-delete
   // path is covered separately since seed data already has an attached gateway).
   await page.getByRole("button", { name: "Delete" }).click();
   await page
@@ -91,7 +91,7 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
   await expect(page).toHaveURL(/\/bus-gateways\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
 
-  // Routes are built on the gateway's own canvas now — no separate add-route page, and no
+  // Routes are built on the gateway's own canvas now - no separate add-route page, and no
   // wizard: the route, its subscription and that subscription's delivery are all edited in
   // place, and "Create route" saves the lot.
   // An empty gateway offers both "Add a route" in the header and "Add the first route"
@@ -147,9 +147,9 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // The route list and the main panel both say this, so name the panel's heading: it shows only
-  // when no route is selected, which is the thing actually worth proving here — that removing
+  // when no route is selected, which is the thing actually worth proving here - that removing
   // the last route doesn't leave the page still pointing at it.
-  await expect(page.getByRole("heading", { name: /^No routes —/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^No routes -/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Delete" }).click();
   await page

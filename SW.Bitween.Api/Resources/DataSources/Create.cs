@@ -23,8 +23,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
         if (nameTaken)
             throw new SWException($"A data source named '{model.Name}' already exists.");
 
-        // Nothing is stored behind a sentinel on a create, so any that arrives — from a data source
-        // copied out of Get, say — is dropped rather than saved as the literal string.
+        // Nothing is stored behind a sentinel on a create, so any that arrives - from a data source
+        // copied out of Get, say - is dropped rather than saved as the literal string.
         var properties = Secrets.Merge(null, model.Properties);
 
         var entity = new DataSource
@@ -50,8 +50,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
 
     /// <summary>
     /// Enforced here rather than only in the validator, because the validator runs in the HTTP
-    /// pipeline and nothing else does: a caller reaching the handler another way — the supervisor's
-    /// own tests, a future internal caller — would otherwise save a combination that can never
+    /// pipeline and nothing else does: a caller reaching the handler another way - the supervisor's
+    /// own tests, a future internal caller - would otherwise save a combination that can never
     /// work. A soft ceiling above the hard one is unreachable: the runtime fails the allocation
     /// first, so the graceful recycle it was configured for never happens.
     /// </summary>
@@ -64,7 +64,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
         if (cpuPercent < 0 || cpuSamples < 0)
             throw new SWException("A CPU ceiling cannot be negative. Use 0 for the host default.");
 
-        // Above 100 is not a ceiling, because the figure is a share of the whole node — nothing can
+        // Above 100 is not a ceiling, because the figure is a share of the whole node - nothing can
         // ever exceed it, so the limit would silently never fire.
         if (cpuPercent > 100)
             throw new SWException(
@@ -99,7 +99,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
             RuleFor(i => i.Name).NotEmpty().MaximumLength(200);
             RuleFor(i => i.AdapterId).NotEmpty().MaximumLength(200);
 
-            // Zero is meaningful — it turns deduplication off — so only a negative is rejected.
+            // Zero is meaningful - it turns deduplication off - so only a negative is rejected.
             RuleFor(i => i.DeduplicationWindowDays).GreaterThanOrEqualTo(0);
 
             // Zero means "leave the host default alone" for both.

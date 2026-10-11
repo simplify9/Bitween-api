@@ -45,7 +45,7 @@ function MatcherRow({
     The free-text field in a condition row: an error fragment, an exception name, a
     comparison value. The controls beside it are fixed-width pickers whose longest
     option is known, so an equal share left this one the narrowest thing in the row
-    while being the only one holding arbitrary text — "INVALID_DECL" clipped mid-word.
+    while being the only one holding arbitrary text - "INVALID_DECL" clipped mid-word.
     Twice the share of what's left, and a floor wide enough for a real value; the row
     already wraps, so below that it takes a line of its own rather than shrinking.
   */
@@ -208,10 +208,10 @@ export function GroupDialog({
     if (appliesTo.length === 0) return setError("Pick at least one failure kind it applies to.");
     // The server refuses a group with no conditions, so catching it here saves a round trip
     // that would otherwise fail only once the whole page was saved. Groups stored without any
-    // — from before the rule existed — still match every failure, which is why the table can
+    // - from before the rule existed - still match every failure, which is why the table can
     // describe one that way while this refuses to make another.
     if (matchers.length === 0)
-      return setError("Add at least one condition — a group with none is rejected when you save.");
+      return setError("Add at least one condition - a group with none is rejected when you save.");
     if (action === "Allow" && !noTotal && alert.alertMode === "Send" && !alert.alertHandlerId)
       return setError("Pick how the budget-exhausted alert is delivered, or choose Inherit.");
     onSubmit({
@@ -269,7 +269,7 @@ export function GroupDialog({
 
         <fieldset>
           <legend className="mb-1.5 block text-[13px] font-medium text-ink-700">
-            Conditions <span className="font-normal text-ink-500">— any one may match; at least one is needed</span>
+            Conditions <span className="font-normal text-ink-500">- any one may match; at least one is needed</span>
           </legend>
           <div className="space-y-2">
             {matchers.map((m, i) => (
@@ -319,8 +319,8 @@ export function GroupDialog({
                 htmlFor="rg-total"
                 hint={
                   noTotal
-                    ? "No limit across messages — each message still stops after its own retries. With nothing to run out, there is no alert."
-                    : "Shared by every message this group catches, per subscription. When it runs out the group stops retrying until the budget is reset — or the subscription succeeds."
+                    ? "No limit across messages - each message still stops after its own retries. With nothing to run out, there is no alert."
+                    : "Shared by every message this group catches, per subscription. When it runs out the group stops retrying until the budget is reset - or the subscription succeeds."
                 }
               >
                 <div className="flex items-center gap-4">
@@ -398,14 +398,14 @@ export function GroupDialog({
                     Sends through the policy default, <code className="font-mono">{policyAlertHandlerId}</code>.
                   </>
                 ) : (
-                  "The policy sends no alert, so nothing is sent — unless a single subscription overrides it."
+                  "The policy sends no alert, so nothing is sent - unless a single subscription overrides it."
                 )
               }
             />
           </fieldset>
         )}
 
-        <Field label="Notes" htmlFor="rg-notes" hint="Optional — why this group exists.">
+        <Field label="Notes" htmlFor="rg-notes" hint="Optional - why this group exists.">
           <TextInput id="rg-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
 

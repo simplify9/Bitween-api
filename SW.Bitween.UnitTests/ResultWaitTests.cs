@@ -8,7 +8,7 @@ namespace SW.Bitween.UnitTests;
 
 /// <summary>
 /// The synchronous gateway wait used to compare its polling step, capped at eight seconds, with the
-/// requested wait — so a wait of eight seconds or more never ended.
+/// requested wait - so a wait of eight seconds or more never ended.
 /// </summary>
 [TestClass]
 public class ResultWaitTests

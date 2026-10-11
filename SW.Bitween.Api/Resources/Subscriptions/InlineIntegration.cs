@@ -8,7 +8,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Subscriptions
 {
     /// <summary>
-    /// Turns an integration defined inline — while a gateway route or attachment is being made —
+    /// Turns an integration defined inline - while a gateway route or attachment is being made -
     /// into a subscription, ready to be saved alongside whatever points at it.
     /// <para>
     /// Nothing here duplicates <see cref="Create"/>: the pipeline is applied by the very same
@@ -20,7 +20,7 @@ namespace SW.Bitween.Resources.Subscriptions
     {
         /// <summary>
         /// Which integration a gateway link points at. Exactly one of an existing id and an
-        /// inline definition has to be given — both, or neither, is a mistake worth naming.
+        /// inline definition has to be given - both, or neither, is a mistake worth naming.
         /// </summary>
         public static void EnsureExactlyOne(int? subscriptionId, InlineIntegrationCreate inline)
         {
@@ -56,7 +56,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 throw new SWValidationException(
                     ResponseRoutingValidation.Code, responseFailure);
 
-            // Neither gateway type carries its own partner — a partner reaches them through the
+            // Neither gateway type carries its own partner - a partner reaches them through the
             // attachment or the route, which is the very thing being made.
             if (model.PartnerId.HasValue)
                 throw new SWValidationException("PARTNER_NOT_ALLOWED",
@@ -110,8 +110,8 @@ namespace SW.Bitween.Resources.Subscriptions
             // and not the other.
             await SubscriptionConfigurationApplier.Apply(dbContext, adapterRequirements, entity, model);
 
-            // None of these types runs on its own — a GatewayApiCall waits for an attachment, a
-            // BusGateway for a route, a Response for a subscription to hand it a response — and the
+            // None of these types runs on its own - a GatewayApiCall waits for an attachment, a
+            // BusGateway for a route, a Response for a subscription to hand it a response - and the
             // one being made is in this same transaction.
             entity.Inactive = false;
 

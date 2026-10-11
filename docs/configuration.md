@@ -21,12 +21,12 @@ The service stops at startup with a clear error when the database connection str
 
 Whoever holds this key can mint a token for any identity, including one with no account behind
 it. The service **refuses to start** when it is missing, or when it is still the sample value
-`6547647654764764767657658658758765876532542` — which ships as the chart default and is published
+`6547647654764764767657658658758765876532542` - which ships as the chart default and is published
 in this repository, so a deployment that never overrode it was open to anyone who read it.
 
 The check runs in every environment, including Development, so **a local checkout needs its own
 key too**: put one in your gitignored `appsettings.Development.json` (or `appsettings.Local.json`).
-Any long random string will do — `openssl rand -base64 48`.
+Any long random string will do - `openssl rand -base64 48`.
 
 Changing the key invalidates every token already issued, so everyone signs in again. That is the
 intended response to a key you no longer trust.

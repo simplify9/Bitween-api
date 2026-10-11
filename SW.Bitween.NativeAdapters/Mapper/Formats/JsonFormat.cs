@@ -32,7 +32,7 @@ public class JsonFormat : IDocumentFormat
         try
         {
             // FloatParseHandling.Decimal so a price arrives exact. The default gives double, and
-            // 1.16 has no exact binary representation — the arithmetic downstream is money.
+            // 1.16 has no exact binary representation - the arithmetic downstream is money.
             using var reader = new JsonTextReader(new StringReader(text))
             {
                 FloatParseHandling = FloatParseHandling.Decimal,
@@ -42,7 +42,7 @@ public class JsonFormat : IDocumentFormat
 
             // ReadFrom stops at the end of the first value, so two documents concatenated would
             // read as the first one and the rest would be dropped without a word. Reading one more
-            // token settles it — the reader itself objects to trailing content, and a token that
+            // token settles it - the reader itself objects to trailing content, and a token that
             // does arrive means there is a second value.
             if (reader.Read())
                 throw new DocumentFormatException(
@@ -91,8 +91,8 @@ public class JsonFormat : IDocumentFormat
     /// <remarks>
     /// Newtonsoft hands back <c>long</c> for a whole number, so without this the same rule would
     /// behave differently for <c>1</c> and <c>1.5</c>. One numeric type through the mapper means one
-    /// set of conversion rules to test. A value too large for decimal — only reachable through
-    /// scientific notation — is kept as text rather than silently losing precision.
+    /// set of conversion rules to test. A value too large for decimal - only reachable through
+    /// scientific notation - is kept as text rather than silently losing precision.
     /// </remarks>
     private static object? Normalise(object? value) => value switch
     {
@@ -104,7 +104,7 @@ public class JsonFormat : IDocumentFormat
             ? (decimal)d
             : d.ToString("R", CultureInfo.InvariantCulture),
         float f => (decimal)f,
-        // An integer past long's range — a 20-digit reference, say — comes back as BigInteger.
+        // An integer past long's range - a 20-digit reference, say - comes back as BigInteger.
         System.Numerics.BigInteger big =>
             big >= new System.Numerics.BigInteger(decimal.MinValue) &&
             big <= new System.Numerics.BigInteger(decimal.MaxValue)

@@ -34,16 +34,16 @@ export interface FieldMapping {
   target: string;
   transform?: string;
   fixedValue?: string;
-  /** Legacy global values-set reference — still rendered for backward compat. */
+  /** Legacy global values-set reference - still rendered for backward compat. */
   valuesSetId?: string;
-  /** Inline dictionary lookup — takes precedence over valuesSetId. */
+  /** Inline dictionary lookup - takes precedence over valuesSetId. */
   lookupDictionary?: LookupDictionary;
   /** True when source points to a root-level field (not an item field of the loop array). */
   isRootSource?: boolean;
-  /** Partner adapter property key — mutually exclusive with source and fixedValue.
+  /** Partner adapter property key - mutually exclusive with source and fixedValue.
    *  Generates {{ __partner__.<key> | json }} in the Scriban template. */
   partnerPropKey?: string;
-  /** Global adapter values set reference — mutually exclusive with other modes.
+  /** Global adapter values set reference - mutually exclusive with other modes.
    *  Generates {{ __globals__?.SETID?.KEY | json }} in the Scriban template. */
   globalSetId?: string;
   globalKey?: string;

@@ -69,8 +69,8 @@ public class OutboxTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// A repeat delivery — after a crash between commit and ack, or the dispatcher publishing a
-    /// message whose first publish had gone through — used to run the handler again and deliver
+    /// A repeat delivery - after a crash between commit and ack, or the dispatcher publishing a
+    /// message whose first publish had gone through - used to run the handler again and deliver
     /// to the partner twice.
     /// </summary>
     [Fact]

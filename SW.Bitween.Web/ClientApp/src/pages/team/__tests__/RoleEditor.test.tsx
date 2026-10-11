@@ -73,7 +73,7 @@ describe("the role editor", () => {
     const view = box("Partners: View");
     const del = box("Partners: Delete");
 
-    // Only the count granted is asserted, not the catalog size — that changes whenever a
+    // Only the count granted is asserted, not the catalog size - that changes whenever a
     // permission is added or dropped, and it isn't what this test is about.
     const granted = (n: number) => new RegExp(`\\b${n}/\\d+ permissions granted`);
 
@@ -94,7 +94,7 @@ describe("the role editor", () => {
   it("previews what members with the role would see", async () => {
     const { user } = renderApp("/team/roles/new", { handlers: roles().handlers });
 
-    expect(await screen.findByText("No pages yet — grant a View permission.")).toBeVisible();
+    expect(await screen.findByText("No pages yet - grant a View permission.")).toBeVisible();
     // Scoped to the preview: the signed-in admin's own sidebar lists every page too.
     const preview = within(screen.getByText("What members with this role see").closest("div")!);
 
@@ -134,7 +134,7 @@ describe("the role editor", () => {
     await user.click(screen.getByRole("button", { name: "Create role" }));
     await waitFor(() => expect(router.state.location.pathname).toBe("/team/roles"));
 
-    // A new role in its own right, carrying the source's grants — not an edit of the source.
+    // A new role in its own right, carrying the source's grants - not an edit of the source.
     expect(created).toEqual([{ name: "Night operator", description: "", permissions: ["partners.view", "partners.edit"] }]);
     expect(await screen.findByRole("link", { name: /Night operator/ })).toBeVisible();
   });

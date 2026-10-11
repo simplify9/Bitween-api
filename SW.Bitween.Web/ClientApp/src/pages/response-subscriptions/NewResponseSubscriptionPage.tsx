@@ -71,7 +71,7 @@ const EMPTY: Draft = {
  * own, Create lands on its page, whose Trigger node lists the feeders once there are any.
  *
  * Keyed by where it goes back to: a new one started from this page is this same route, and
- * without a key the draft on screen would carry over into it — and back again.
+ * without a key the draft on screen would carry over into it - and back again.
  */
 export function NewResponseSubscriptionPage() {
   const [params] = useSearchParams();
@@ -88,7 +88,7 @@ function NewResponseSubscription() {
   const [stage, setStage] = useState<StageId | null>(
     detour.kept || detour.pickedResponse !== null ? "response" : "delivery",
   );
-  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
@@ -201,7 +201,7 @@ function NewResponseSubscription() {
               properties={draft.mapperProperties}
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
-              noneLabel="None — the response passes through unchanged"
+              noneLabel="None - the response passes through unchanged"
               onOpenMapperEditor={() => setMapping(true)}
             />
             {bindsToDataSource(draft.mapperId, "mapper") && (

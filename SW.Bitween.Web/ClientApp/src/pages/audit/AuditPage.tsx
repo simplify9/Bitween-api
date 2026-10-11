@@ -125,7 +125,7 @@ export function AuditPage() {
           title: "What is recorded here",
           body: (
             <>
-              Every create, edit and delete of a configuration entity — subscriptions, partners,
+              Every create, edit and delete of a configuration entity - subscriptions, partners,
               information types, gateways, work groups, retry policies, notifiers, settings,
               members and roles. Exchanges and other runtime traffic are deliberately excluded:
               there are far too many of them, and they are already visible on the Exchanges page.
@@ -139,7 +139,7 @@ export function AuditPage() {
         }}
       />
 
-      {/* — filters — */}
+      {/* - filters - */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-5">
         <SearchSelect
           aria-label="Filter by entity type"
@@ -287,7 +287,7 @@ export function AuditPage() {
                 ) : (
                   <span
                     className="text-[13px] text-ink-500"
-                    title="No signed-in user — a scheduled job or a bus consumer."
+                    title="No signed-in user - a scheduled job or a bus consumer."
                   >
                     {r.by}
                   </span>
@@ -311,7 +311,7 @@ export function AuditPage() {
           footer={
             <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
               <span>
-                Showing {query.offset + 1}–{Math.min(query.offset + PAGE_SIZE, total)} of {total}
+                Showing {query.offset + 1}-{Math.min(query.offset + PAGE_SIZE, total)} of {total}
               </span>
               <span className="flex gap-1.5">
                 <Button

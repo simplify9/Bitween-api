@@ -25,7 +25,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
         if (await dbContext.Set<Subscription>().AnyAsync(i => i.WorkGroupId.Value == category.Id))
             throw new SWValidationException("CANT_BE_DELETED", "Workgroup with Subscriptions cant be deleted");
 
-        // Data source statements run on a work group too, and that foreign key restricts as well —
+        // Data source statements run on a work group too, and that foreign key restricts as well -
         // left unchecked it refused the delete as a bare 500 naming the constraint.
         var statements = await dbContext.Set<DataSourceStatement>()
             .Where(s => s.WorkGroupId == key)

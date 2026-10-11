@@ -9,7 +9,7 @@ import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 // The built-in SYSTEM partner (Partner.SystemId) can't be renamed or deleted.
 const SYSTEM_PARTNER_ID = 1;
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -65,12 +65,12 @@ async function writePartner(
 ): Promise<Partner> {
   const name = patch.name ?? d.name;
   // Secrets read back as SECRET_SENTINEL, and sending the sentinel means "keep what is
-  // stored" — so a write that changes only the name carries the masks through untouched
+  // stored" - so a write that changes only the name carries the masks through untouched
   // and the stored values are never overwritten with dots.
   const adapterProperties = patch.adapterProperties ?? d.adapterProperties ?? {};
   const secretProperties = patch.secretProperties ?? d.secretProperties ?? [];
-  // Update copies every field it is sent, so leaving this out — as issuing or revoking a key
-  // does — would clear the identity and cut the partner off from every gateway taking tokens.
+  // Update copies every field it is sent, so leaving this out - as issuing or revoking a key
+  // does - would clear the identity and cut the partner off from every gateway taking tokens.
   const loginIdentity = patch.loginIdentity !== undefined ? patch.loginIdentity : (d.loginIdentity ?? null);
   const apiCredentials = mutate((d.apiCredentials ?? []).map((c) => ({ key: c.key, value: c.value })));
   await post(`/partners/${id}`, { name, adapterProperties, secretProperties, loginIdentity, apiCredentials });
@@ -91,7 +91,7 @@ export const partnerMethods = {
     return (res.result ?? []).map((p) => ({
       id: p.id,
       name: p.name,
-      // The list endpoint sends property names, never their values — they can be
+      // The list endpoint sends property names, never their values - they can be
       // secrets. Anything needing values must fetch the partner's detail.
       adapterProperties: {},
       secretProperties: [],
@@ -126,7 +126,7 @@ export const partnerMethods = {
     };
   },
 
-  /** Light single-field fetch for the mapper editor's test-partner selector — avoids getPartner's gateway/exchange lookups. */
+  /** Light single-field fetch for the mapper editor's test-partner selector - avoids getPartner's gateway/exchange lookups. */
   async getPartnerAdapterProperties(id: number): Promise<Record<string, string>> {
     const d = await requireDetail(id);
     return d.adapterProperties ?? {};

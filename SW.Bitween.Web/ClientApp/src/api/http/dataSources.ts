@@ -34,7 +34,7 @@ interface RawDataSource {
   lastException: string | null;
   consecutiveFailures: number;
   ownedByNode: string | null;
-  // Only the detail endpoint returns these — the list deliberately carries no connection
+  // Only the detail endpoint returns these - the list deliberately carries no connection
   // settings at all, because even masked they are exposure with no purpose in a table.
   properties?: Record<string, string> | null;
   secretProperties?: string[] | null;
@@ -79,7 +79,7 @@ const toDetail = (raw: RawDataSource): DataSourceDetail => ({
 });
 
 // The backend's own default only applies when the caller omits the parameter, so asking for
-// "everything" means naming a generously large number — same as the work groups module.
+// "everything" means naming a generously large number - same as the work groups module.
 const EVERYTHING = 1_000_000;
 
 export const dataSourceMethods = {
@@ -173,7 +173,7 @@ export const dataSourceMethods = {
     });
   },
 
-  /** Live, from the heartbeat. Scoped to the node that answers — see the backend handler. */
+  /** Live, from the heartbeat. Scoped to the node that answers - see the backend handler. */
   async getDataSourceTelemetry(id: number): Promise<DataSourceTelemetry> {
     const raw = await get<DataSourceTelemetry>(`/datasources/${id}/telemetry`);
     return { ...raw, details: raw.details ?? {}, commands: raw.commands ?? [] };

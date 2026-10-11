@@ -23,7 +23,7 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   await dialog.locator("#rg-name").fill(groupName);
   await dialog.getByRole("button", { name: "Add condition" }).click();
   await dialog.getByLabel("Text to find").fill("timeout");
-  // Fixed delay in seconds — the backend stores this in milliseconds, so this
+  // Fixed delay in seconds - the backend stores this in milliseconds, so this
   // exercises the ms <-> seconds conversion in both directions once reloaded.
   await dialog.locator("#rg-delay").selectOption("fixed");
   await dialog.locator("#rg-d1").fill("45");
@@ -33,7 +33,7 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 
-  // Reload forces a fresh GET — proves the group (incl. the delay unit
+  // Reload forces a fresh GET - proves the group (incl. the delay unit
   // conversion) actually round-tripped through the backend correctly.
   await page.reload();
   await expect(page.getByText(groupName)).toBeVisible();

@@ -14,7 +14,7 @@ namespace SW.Bitween.Domain;
 /// <remarks>
 /// <para>
 /// Rows are written by <see cref="BitweenDbContext.SaveChangesAsync"/> for the entities
-/// <see cref="AuditPolicy"/> admits, in the same transaction as the change itself — so an entry
+/// <see cref="AuditPolicy"/> admits, in the same transaction as the change itself - so an entry
 /// exists for every audited change that committed, and for no change that didn't.
 /// </para>
 /// <para>
@@ -53,7 +53,7 @@ public class AuditEntry : BaseEntity<string>
     public DateTime OccurredOn { get; private set; }
 
     /// <summary>
-    /// The account id behind the change, or null for a save with no signed-in user — a bus consumer
+    /// The account id behind the change, or null for a save with no signed-in user - a bus consumer
     /// or a scheduled job. Kept as the id rather than a name so that renaming an account doesn't
     /// rewrite history.
     /// </summary>

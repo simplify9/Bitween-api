@@ -11,11 +11,11 @@ import type { SourceDocument } from "../config/sourceValues";
  * Where the editor reads its mapping from and writes it back to.
  *
  * `subscription` is the editor's original home: a saved record, read by id and written
- * with its own request. `draft` is a subscription that does not exist yet — the create
+ * with its own request. `draft` is a subscription that does not exist yet - the create
  * pages hold it in memory, so there is no id to read and nothing to PATCH.
  *
- * Only these two hooks ever knew about the id. Everything else in the editor — the
- * rules, the samples, the preview — already worked on values alone, and the preview
+ * Only these two hooks ever knew about the id. Everything else in the editor - the
+ * rules, the samples, the preview - already worked on values alone, and the preview
  * endpoint is stateless (rules + sample + partner), so a mapping can be built and
  * checked against real output before anything is saved.
  */
@@ -64,7 +64,7 @@ export function useMappingLoader(target: MappingTarget) {
     });
   }, [data, subscriptionId, dispatch]);
 
-  // A draft has its rules already — nothing to wait for. Loaded once rather than on
+  // A draft has its rules already - nothing to wait for. Loaded once rather than on
   // every render: the page builds `mapperProperties` inline, so it is a new object each
   // time, and re-dispatching LOAD would throw away everything typed since.
   const draftProperties = target.kind === "draft" ? target.mapperProperties : null;
@@ -162,7 +162,7 @@ export function useMappingSave(target: MappingTarget) {
   const [justSaved, setJustSaved] = useState(false);
   const subscriptionId = target.kind === "subscription" ? target.subscriptionId : 0;
 
-  // Cached — the loader asked for this already.
+  // Cached - the loader asked for this already.
   const { data } = useQuery({
     queryKey: keys.subscriptions.detail(subscriptionId),
     queryFn: () => api.getSubscription(subscriptionId),
@@ -174,7 +174,7 @@ export function useMappingSave(target: MappingTarget) {
   // asking first: a template someone wrote by hand exists nowhere else once it is gone,
   // and reaching this editor no longer requires having saved the switch deliberately.
   //
-  // A draft is asked the same question about the same thing — its own mapper slot, which
+  // A draft is asked the same question about the same thing - its own mapper slot, which
   // a create page can point at the old mapper before opening this one.
   const current =
     target.kind === "draft"
@@ -216,7 +216,7 @@ export function useMappingSave(target: MappingTarget) {
   }, [onSaveDraft, rules, sourceSample, targetSample, dispatch]);
 
   // Resolves either way. The failure is shown from `saveError`, so a rejection here
-  // would only ever become an unhandled one — every caller fires this and moves on.
+  // would only ever become an unhandled one - every caller fires this and moves on.
   const saveSubscription = useCallback(
     () => mutation.mutateAsync().then(
       () => undefined,

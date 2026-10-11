@@ -6,7 +6,7 @@ namespace SW.Bitween.HttpTests;
 
 /// <summary>
 /// What a gateway's partners' calls did: the calls turned away and why, and when each key was last
-/// used — the two things "the partner says they get 401" needed and had nowhere to look.
+/// used - the two things "the partner says they get 401" needed and had nowhere to look.
 /// </summary>
 [Collection("Http")]
 public class GatewayActivityTests(HttpFixture fixture)

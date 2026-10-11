@@ -7,7 +7,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Fixtures;
 
 /// <summary>
-/// A PostgreSQL for the adapter tests to point at — deliberately its own container rather than the
+/// A PostgreSQL for the adapter tests to point at - deliberately its own container rather than the
 /// one <see cref="BitweenFixture"/> runs for the application database.
 ///
 /// Sharing that one would work and would be faster, but it would mean the adapter's test schema
@@ -83,7 +83,7 @@ public class PostgreSqlDbFixture : IAsyncLifetime
                 $"values ({i}, '{(i % 2 == 0 ? "acme" : "globex")}', {i * 10}.50)");
 
         // A set-returning function: PostgreSQL's answer to Oracle's REF CURSOR, and queried with
-        // SELECT rather than CALL — which is exactly the difference the capability list declares.
+        // SELECT rather than CALL - which is exactly the difference the capability list declares.
         await ExecuteAsync(connection, $@"
             create or replace function orders_by_customer(p_customer varchar)
             returns setof {Table}

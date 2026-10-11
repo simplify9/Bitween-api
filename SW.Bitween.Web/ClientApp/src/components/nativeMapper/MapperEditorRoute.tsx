@@ -13,9 +13,9 @@ const MAPPERS_WITH_AN_EDITOR: readonly string[] = [NATIVE_MAPPER_ID, "NativeJSON
 /**
  * Sends a subscription to the editor that matches its mapper.
  *
- * Two editors coexist on purpose. The old one speaks the old mapper's model — six
+ * Two editors coexist on purpose. The old one speaks the old mapper's model - six
  * optional fields per mapping, a flat list of arrays joined by parent ids, dotted
- * target strings — and those are the three things the new model replaced, so there
+ * target strings - and those are the three things the new model replaced, so there
  * is no useful middle ground between them. When the old mapper is retired its
  * editor is deleted rather than untangled.
  */
@@ -25,7 +25,7 @@ export default function MapperEditorRoute() {
   const subscriptionId = Number(id);
 
   // The mapper the config page had selected when it sent us here, which is not
-  // necessarily the one the subscription is saved with — picking a mapper and opening
+  // necessarily the one the subscription is saved with - picking a mapper and opening
   // its editor should not need a save in between. Both editors write `mapperId` when
   // they save, so arriving this way and saving completes the switch that was started.
   const picked = search.get("mapper");
@@ -62,7 +62,7 @@ export default function MapperEditorRoute() {
     );
   }
 
-  // A subscription with no mapper yet gets the new editor — that is what new
+  // A subscription with no mapper yet gets the new editor - that is what new
   // mappings should be built with. Existing ones keep whichever they were made in.
   //
   // Only a mapper that has an editor is honoured from the URL: anything else is a

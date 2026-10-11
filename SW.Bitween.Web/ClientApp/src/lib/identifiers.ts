@@ -48,7 +48,7 @@ export const finishUrlName = (typed: string) => toUrlName(typed).replace(/[-_/]+
 
 /**
  * The API's url-name rules that typing can't be stopped from breaking, as the message
- * to show under the box — or null when it would save.
+ * to show under the box - or null when it would save.
  *
  * "sync" can't be refused mid-typing, it may be on its way to "syncs"; so it's said
  * here instead, where the save button can wait on it.
@@ -58,6 +58,6 @@ export const urlNameProblem = (typed: string): string | null => {
   if (!name) return "A URL name is required.";
   const last = name.slice(name.lastIndexOf("/") + 1);
   if (last === "sync" || last === "async")
-    return `It can't end in "${last}" — partners add /sync or /async after it.`;
+    return `It can't end in "${last}" - partners add /sync or /async after it.`;
   return null;
 };

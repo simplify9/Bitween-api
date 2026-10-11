@@ -5,7 +5,7 @@ import { journeyStages } from "../journey";
 /**
  * A stage's name is a claim about what happened to the document. The cards used to be named
  * "Mapped" and "Handled" whatever state they were in, so a Processing exchange read as though
- * both stages were behind it — "Mapped" sitting beside a Running badge.
+ * both stages were behind it - "Mapped" sitting beside a Running badge.
  */
 const A_FILE = { name: "doc.json", size: 12 } as ExchangeFileRef;
 
@@ -55,7 +55,7 @@ describe("journeyStages labels", () => {
   });
 
   it("keeps the past tense for a delivery the response rejected", () => {
-    // badResponse means it was handled — the far end just did not like it.
+    // badResponse means it was handled - the far end just did not like it.
     expect(labels(row("badResponse", { mapped: true }))).toEqual([
       "Received:done",
       "Mapped:done",

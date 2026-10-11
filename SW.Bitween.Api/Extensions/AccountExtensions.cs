@@ -38,7 +38,7 @@ namespace SW.Bitween
         /// </summary>
         /// <remarks>
         /// The audience and issuer used to go unchecked, so a token Microsoft issued to any app, in
-        /// any tenant, signed in here — one a user handed to some unrelated site would do — and the
+        /// any tenant, signed in here - one a user handed to some unrelated site would do - and the
         /// account was chosen by preferred_username, which Microsoft says not to authorize on.
         /// </remarks>
         public static async Task<MicrosoftIdentity> ValidateMicrosoftTokenAsync(string jwt, string clientId,

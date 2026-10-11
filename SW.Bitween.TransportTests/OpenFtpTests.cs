@@ -58,7 +58,7 @@ public class OpenSftpTests(SftpFixture sftp) : IClassFixture<SftpFixture>
         Assert.Contains(name, await receiver.ListFiles());
         Assert.Equal("{\"n\":1}", (await receiver.GetFile(name)).Data);
         await receiver.DeleteFile(name);
-        // Already moved — a retried run — is skipped quietly.
+        // Already moved - a retried run - is skipped quietly.
         await receiver.DeleteFile(name);
         await receiver.Finalize();
 
@@ -296,7 +296,7 @@ public class OpenFtpTests(PlainFtpServer ftp) : IClassFixture<PlainFtpServer>
 
 /// <summary>
 /// FTPS with TLS negotiated on the FTP connection (AUTH TLS), against a real server that requires
-/// it and holds a self-signed certificate — as many partners' servers do.
+/// it and holds a self-signed certificate - as many partners' servers do.
 /// </summary>
 public class ExplicitFtpsTests(ExplicitFtpsServer ftps) : IClassFixture<ExplicitFtpsServer>
 {

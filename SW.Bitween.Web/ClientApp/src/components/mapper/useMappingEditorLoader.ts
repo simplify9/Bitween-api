@@ -7,7 +7,7 @@ import { recordToKvps } from "./data";
 import { keys } from "../../api/queryKeys";
 
 // Handles the two data-loading effects: clear-on-id-change and populate-on-data-arrive.
-// Fully self-contained — callers get no return value.
+// Fully self-contained - callers get no return value.
 export function useMappingEditorLoader(subscriptionId: number): void {
   const dispatch = useMappingEditorDispatch();
   const { data: subscriptionData } = useQuery({

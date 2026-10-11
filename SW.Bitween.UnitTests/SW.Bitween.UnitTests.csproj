@@ -30,11 +30,11 @@
     <ProjectReference Include="..\SW.Bitween.MsSql\SW.Bitween.MsSql.csproj" />
     <ProjectReference Include="..\SW.Bitween.MySql\SW.Bitween.MySql.csproj" />
 
-    <!-- The engine-independent half of the database adapters, referenced so the pure logic — the
-         statement allow-list, cursor formatting — is testable without a database. -->
+    <!-- The engine-independent half of the database adapters, referenced so the pure logic - the
+         statement allow-list, cursor formatting - is testable without a database. -->
     <ProjectReference Include="..\SW.Bitween.Adapters.Db.Core\SW.Bitween.Adapters.Db.Core.csproj" />
     <!-- For the capability-narrowing rule, which is a version comparison rather than anything the
-         database does — so it is provable without a container per PostgreSQL release. -->
+         database does - so it is provable without a container per PostgreSQL release. -->
     <ProjectReference Include="..\SW.Bitween.Adapters.Db.PostgreSql\SW.Bitween.Adapters.Db.PostgreSql.csproj" />
     <!-- For the DDL refusal: Oracle runs DDL as it parses it, so which statements are refused
          before the check is a property of the text, provable without a database. -->

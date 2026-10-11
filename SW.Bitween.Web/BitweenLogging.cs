@@ -241,8 +241,8 @@ namespace SW.Bitween.Web
         }
 
         /// <summary>
-        /// Rewrites one template with the retention setting added, leaving the rest of it — the ECS
-        /// mappings the sink depends on — exactly as the sink wrote it.
+        /// Rewrites one template with the retention setting added, leaving the rest of it - the ECS
+        /// mappings the sink depends on - exactly as the sink wrote it.
         /// </summary>
         private static void PointTemplateAtPolicy(IElasticClient client, string templateName, string policyName)
         {

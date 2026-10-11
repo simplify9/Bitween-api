@@ -14,7 +14,7 @@ public class RoleCreate
 
 public class RoleUpdate : RoleCreate;
 
-/// <summary>One shape for both the roles list and a single role — the UI shows the same fields.</summary>
+/// <summary>One shape for both the roles list and a single role - the UI shows the same fields.</summary>
 public class RoleRow
 {
     public int Id { get; set; }

@@ -143,7 +143,7 @@ export function NodesPage() {
                     ))}
                   </span>
                 ) : (
-                  <span className="text-ink-500">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
           ]}

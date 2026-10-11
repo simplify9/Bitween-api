@@ -41,7 +41,7 @@ import {
 
 /**
  * @param target What the editor reads and writes. Omitted, it takes the subscription in
- * the route — which is how the `/subscriptions/:id/mapper` page has always opened it.
+ * the route - which is how the `/subscriptions/:id/mapper` page has always opened it.
  * A create page passes a draft instead, so a mapping can be built before the
  * subscription it belongs to exists.
  * @param onClose Where "Back" goes. Omitted, it returns to the subscription's page; a
@@ -120,7 +120,7 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
    * One curve per rule that reads a field of the document.
    *
    * A rule inside a list reads a path relative to its entry, and the source panel
-   * only lists what is readable at the top level — so those have no source row to
+   * only lists what is readable at the top level - so those have no source row to
    * join and simply draw nothing, rather than joining the wrong one.
    */
   const connections = useMemo(() => {
@@ -298,7 +298,7 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
               ? "Paste a sample document to see the fields you can map."
               : selectedId
                 ? "Drag a source field onto a rule, or click one to fill the selected rule."
-                : "Drag a source field onto a rule — or select a rule first, then click a field."}
+                : "Drag a source field onto a rule - or select a rule first, then click a field."}
           </p>
         </div>
 
@@ -335,7 +335,7 @@ function ToolbarDivider() {
  *
  * In a panel rather than in the toolbar because it is configuration, not an action:
  * it is the densest part of the toolbar and the part changed least often, and its
- * CSV controls only exist while a side is CSV — so in the row it moved everything
+ * CSV controls only exist while a side is CSV - so in the row it moved everything
  * after it sideways each time a format changed.
  */
 function FormatSettings() {
@@ -349,7 +349,7 @@ function FormatSettings() {
     <Popover
       label="What this mapping reads and writes"
       width="w-80"
-      // The toolbar is fixed, so the chip never scrolls away from its panel — and the
+      // The toolbar is fixed, so the chip never scrolls away from its panel - and the
       // preview pane below re-renders on every server preview, which would otherwise
       // close this mid-edit.
       closeOnScroll={false}
@@ -491,7 +491,7 @@ function TestPartnerSelect({
  *
  * Asked rather than sniffed. A guessed delimiter is right until the first field that
  * legitimately contains a comma, and a guessed header is right until a file whose first
- * data row happens to look like labels — both of which are found in production rather
+ * data row happens to look like labels - both of which are found in production rather
  * than here. One client alone sends comma, semicolon and pipe, two of the three with no
  * header at all, so neither of these has a safe default to fall back on.
  */
@@ -559,7 +559,7 @@ function CsvControls({
   );
 }
 
-/** A label on the left, its control on the right — the shape every row in the panel takes. */
+/** A label on the left, its control on the right - the shape every row in the panel takes. */
 function SettingRow({
   label,
   title,

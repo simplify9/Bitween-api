@@ -14,7 +14,7 @@ namespace SW.Bitween.UnitTests.NativeMapper;
 /// <para>
 /// These are the tests that decide whether the design claim holds: that delimited text needs
 /// nothing from the engine, because a file <em>is</em> a list of rows and the mapper already walks
-/// lists. Nothing here configures a CSV feature — the rules are the same ones a JSON root array
+/// lists. Nothing here configures a CSV feature - the rules are the same ones a JSON root array
 /// uses, and the only thing that changed is which reader produced the tree.
 /// </para>
 /// <para>
@@ -72,7 +72,7 @@ public class CsvMappingTests
     [TestMethod]
     public void A_file_with_a_header_maps_by_column_name()
     {
-        // The whole output is the list, walking the document itself — the same two settings a JSON
+        // The whole output is the list, walking the document itself - the same two settings a JSON
         // bare array already uses, written before delimited text existed.
         var rules = new MappingRules
         {
@@ -166,7 +166,7 @@ public class CsvMappingTests
     [TestMethod]
     public void A_delimited_file_can_be_mapped_into_another_one()
     {
-        // The pipe file becoming the comma file, which is a mapping like any other — one format's
+        // The pipe file becoming the comma file, which is a mapping like any other - one format's
         // reader and another's writer, even when they are the same format configured differently.
         var rules = new MappingRules
         {
@@ -260,7 +260,7 @@ public class CsvMappingTests
     [TestMethod]
     public void The_whole_file_can_be_produced_header_rows_and_trailer()
     {
-        // The end of it: reading the carrier's file was never the hard half. This writes one —
+        // The end of it: reading the carrier's file was never the hard half. This writes one -
         // an H line, a D line per shipment, and a T line carrying how many there were.
         var rules = new MappingRules
         {
@@ -281,7 +281,7 @@ public class CsvMappingTests
                     },
                 ],
                 Fields = [Field("1", "1"), Field("2", "2"), Field("3", "3")],
-                // The trailer, written after them — and the only place the count is known.
+                // The trailer, written after them - and the only place the count is known.
                 After =
                 [
                     new ListEntry
@@ -317,7 +317,7 @@ public class CsvMappingTests
     {
         // The reason it counts rows rather than entries. Building the trailer first and adding
         // the header afterwards is the ordinary way round, and the number must not shift under
-        // it — nothing on screen would say that it had.
+        // it - nothing on screen would say that it had.
         var trailer = new ListEntry
         {
             Fields = [new FieldRule { Target = ["count"], From = Counted() }],

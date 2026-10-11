@@ -22,7 +22,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// conditions that demonstrate one.
 ///
 /// The gateway tests prove a message arrives. These ask the harder questions: what happens when two
-/// messages are byte-for-byte identical, and what happens when many arrive at once — the two cases
+/// messages are byte-for-byte identical, and what happens when many arrive at once - the two cases
 /// where a consumer quietly loses data instead of failing loudly.
 /// </summary>
 [Collection("Bitween")]
@@ -33,7 +33,7 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
     ///
     /// Deduplication needs a key, and a publisher that sets no MessageId gives us none. Hashing the
     /// body to manufacture one looks like a reasonable fallback and is not: a customer sending the
-    /// same instruction twice — reorder the same item, the same daily totals, a heartbeat — would
+    /// same instruction twice - reorder the same item, the same daily totals, a heartbeat - would
     /// have the second silently swallowed for the whole deduplication window, which is thirty days
     /// by default. No error, no Xchange, no way to notice.
     ///
@@ -53,7 +53,7 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
         PublishRaw(queue, body, messageId: null);
 
         await WaitAsync(async () => await CountAsync(documentId) >= 2, TimeSpan.FromSeconds(45),
-            "the second identical message was swallowed — a content hash is being used as identity");
+            "the second identical message was swallowed - a content hash is being used as identity");
 
         Assert.Equal(2, await CountAsync(documentId));
     }
@@ -90,12 +90,12 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
     /// Concurrent deliveries, which is the normal state of a consumer with prefetch above one.
     ///
     /// Every delivery is handled on the thread pool, so acknowledgements land on the shared channel
-    /// from several threads at once — and RabbitMQ.Client does not support concurrent application
+    /// from several threads at once - and RabbitMQ.Client does not support concurrent application
     /// operations on one model. A corrupted frame stream drops the channel and redelivers
     /// everything in flight, so what this asserts is the outcome that matters: every message
     /// arrives, exactly once, and the connection is still up afterwards.
     ///
-    /// This is an integrity test, not a race detector — a race that is not serialised may still
+    /// This is an integrity test, not a race detector - a race that is not serialised may still
     /// pass on a quiet machine. It fails loudly when the ordering breaks, which is what a test can
     /// honestly offer here.
     /// </summary>
@@ -114,7 +114,7 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
             $"only {await CountAsync(documentId)} of {count} messages became an Xchange");
 
         // Nothing extra either: a channel that dropped mid-flight would redeliver, and with a
-        // dedupe key per message that would show up as a shortfall rather than a surplus — so
+        // dedupe key per message that would show up as a shortfall rather than a surplus - so
         // check both ends.
         await Task.Delay(TimeSpan.FromSeconds(5));
         Assert.Equal(count, await CountAsync(documentId));

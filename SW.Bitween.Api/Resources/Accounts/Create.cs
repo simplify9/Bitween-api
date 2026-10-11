@@ -27,7 +27,7 @@ namespace SW.Bitween.Resources.Accounts
                 throw new SWValidationException("ACCOUNT_EXISTS", $"Account with email {request.Email} exists");
 
             // Prefer explicit role ids, and fall back to the legacy coarse role only when one was
-            // actually sent. It used to be a plain int, so omitting it meant 0 — which is Admin —
+            // actually sent. It used to be a plain int, so omitting it meant 0 - which is Admin -
             // and adding a member with no roles ticked handed them the run of the instance.
             var roleIds = request.RoleIds is { Count: > 0 }
                 ? request.RoleIds.Distinct().ToList()
@@ -37,7 +37,7 @@ namespace SW.Bitween.Resources.Accounts
 
             await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, roleIds);
 
-            // No password at all when this instance signs in through Microsoft only — the account
+            // No password at all when this instance signs in through Microsoft only - the account
             // exists purely to be matched by email.
             var password = _bitweenOptions.DisableEmailPasswordLogin
                 ? null
@@ -73,7 +73,7 @@ namespace SW.Bitween.Resources.Accounts
                 RuleFor(i => i.Password).Password().When(_ => !bitweenOptions.DisableEmailPasswordLogin);
                 // The handler prefers explicit role ids and only falls back to the legacy coarse
                 // Role, so demanding Role unconditionally rejected the payload the UI actually
-                // sends — adding a member failed outright. Still required when no ids were sent,
+                // sends - adding a member failed outright. Still required when no ids were sent,
                 // which is what keeps an account from being created with no roles at all.
                 RuleFor(i => i.Role).NotNull().When(i => i.RoleIds is not { Count: > 0 });
             }

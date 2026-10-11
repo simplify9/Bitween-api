@@ -82,7 +82,7 @@ public class ReadTests(HttpFixture fixture, ITestOutputHelper output)
             .Select(c => new object[] { c.Method, c.Path });
 
     /// <summary>
-    /// A record that isn't there — deleted in another tab, a stale link — is the caller's mistake to
+    /// A record that isn't there - deleted in another tab, a stale link - is the caller's mistake to
     /// be told about, not a server error.
     /// </summary>
     [Theory]
@@ -105,7 +105,7 @@ public class ReadTests(HttpFixture fixture, ITestOutputHelper output)
             .Distinct().OrderBy(p => p).Select(p => new object[] { p });
 
     /// <summary>
-    /// Reading a record that isn't there — a stale link, one deleted in another tab — is answered,
+    /// Reading a record that isn't there - a stale link, one deleted in another tab - is answered,
     /// not crashed: a subscription that didn't exist was a NullReferenceException and a 500, which
     /// the page could only show as a server error.
     /// </summary>

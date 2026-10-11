@@ -4,7 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace SW.Bitween.UnitTests;
 
 /// <summary>
-/// A masked secret sent back means "keep what is stored" — but not once the adapter, or where it
+/// A masked secret sent back means "keep what is stored" - but not once the adapter, or where it
 /// connects, has changed, or an editor who never saw the password could send it to their own server.
 /// </summary>
 [TestClass]

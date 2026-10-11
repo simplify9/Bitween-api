@@ -10,7 +10,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Xchanges;
 
 /// <summary>
-/// The exchanges a bulk action on the exchange list covers — a bulk retry, a files export: the rows
+/// The exchanges a bulk action on the exchange list covers - a bulk retry, a files export: the rows
 /// picked by hand, or everything a "select all matching" filter matches minus the rows unticked after.
 /// </summary>
 /// <remarks>
@@ -58,7 +58,7 @@ internal sealed class XchangeSelection(BitweenDbContext dbContext)
     /// <remarks>
     /// The projection carries the columns the exchange list can filter on (see
     /// <c>buildExchangeQuery</c> in the client) and nothing else, so this stays translatable and
-    /// composable — the search's own projection cannot be reused for that, as it builds file URLs
+    /// composable - the search's own projection cannot be reused for that, as it builds file URLs
     /// in C#. Filtering on a column that is not here would silently match nothing, so a new filter
     /// on the list needs a column here too.
     /// </remarks>

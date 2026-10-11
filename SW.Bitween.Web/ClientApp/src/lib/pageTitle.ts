@@ -10,7 +10,7 @@ export interface NamedPage {
 export const PageTitleContext = createContext<(named: NamedPage | null) => void>(() => {});
 
 /**
- * What the page on screen is about — "Orders inbound" rather than "API gateway" — for its
+ * What the page on screen is about - "Orders inbound" rather than "API gateway" - for its
  * breadcrumb and the browser tab. Pass nothing while it is loading; the page's generic title
  * stands in until then.
  */

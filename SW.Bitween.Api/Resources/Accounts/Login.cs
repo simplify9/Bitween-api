@@ -18,7 +18,7 @@ namespace SW.Bitween.Resources.Accounts
         SignInThrottle throttle) : ICommandHandler<UserLogin, object>
     {
         // Account-wide, across every address: the backstop for guessing spread over many of them.
-        // Five from any one address already locks that address out — see SignInThrottle.
+        // Five from any one address already locks that address out - see SignInThrottle.
         private const int MaxFailedLoginAttempts = 20;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
@@ -39,8 +39,8 @@ namespace SW.Bitween.Resources.Accounts
             AccountExtensions.MicrosoftIdentity microsoftIdentity = null;
 
             // Credentials sent with the request are what the caller is asking to sign in as. A refresh
-            // cookie can still be in the browser from the previous session — a sign-out whose request
-            // never completed leaves it there — and preferring it signed the next person in as the
+            // cookie can still be in the browser from the previous session - a sign-out whose request
+            // never completed leaves it there - and preferring it signed the next person in as the
             // previous one. So the cookie is only read when nothing else was sent.
             var signingInWithCredentials = !string.IsNullOrEmpty(request.MsToken) ||
                                            !string.IsNullOrEmpty(request.Username) ||
@@ -63,7 +63,7 @@ namespace SW.Bitween.Resources.Accounts
                 // with the same token can't both be the first. A token superseded moments ago still
                 // works, for the browser whose copy of the new one went missing; one superseded longer
                 // ago is refused. Deleting it outright used to make the loser of a race throw a
-                // concurrency error — a 500 from the sign-in endpoint — and a lost response sign out.
+                // concurrency error - a 500 from the sign-in endpoint - and a lost response sign out.
                 var spent = false;
                 if (refreshToken is not null)
                 {
@@ -179,8 +179,8 @@ namespace SW.Bitween.Resources.Accounts
                 throw new SWException("Invalid username or password.");
             }
 
-            // A password sign-in learns the account is disabled only once the password is right —
-            // see below — so the message can't be used to find out which addresses exist.
+            // A password sign-in learns the account is disabled only once the password is right -
+            // see below - so the message can't be used to find out which addresses exist.
             if (account.Disabled && !credentialLogin)
             {
                 if (!string.IsNullOrEmpty(request.MsToken))
@@ -220,7 +220,7 @@ namespace SW.Bitween.Resources.Accounts
                         $"Please try again in {minutes} minute{(minutes == 1 ? "" : "s")}.");
                 }
 
-                // An account can have no stored password at all — that is how one created while
+                // An account can have no stored password at all - that is how one created while
                 // Microsoft-only sign-in was on looks, and that setting can be turned back off.
                 // Verify dereferences the stored hash, so without this the attempt is a 500 from
                 // an unauthenticated endpoint instead of an ordinary failed sign-in.
@@ -256,7 +256,7 @@ namespace SW.Bitween.Resources.Accounts
             var newRefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword);
             await dbContext.SaveChangesAsync();
 
-            // Set refresh token as a secure, HttpOnly cookie — not accessible to JavaScript.
+            // Set refresh token as a secure, HttpOnly cookie - not accessible to JavaScript.
             // Secure is always on: the app is served over HTTPS, and TLS is terminated at the
             // reverse proxy, so Request.IsHttps would otherwise be false and drop the attribute.
             httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", newRefreshToken, new CookieOptions
@@ -267,7 +267,7 @@ namespace SW.Bitween.Resources.Accounts
                 Expires = DateTimeOffset.UtcNow.Add(RefreshTokenLifetime)
             });
 
-            // Return only the JWT — refresh token stays in the cookie, not in the response body.
+            // Return only the JWT - refresh token stays in the cookie, not in the response body.
             // MustChangePassword rides along so the client can send them straight to the change
             // form; the token grants nothing until they do, so this is a courtesy, not the control.
             return new

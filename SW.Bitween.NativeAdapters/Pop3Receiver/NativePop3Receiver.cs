@@ -47,7 +47,7 @@ public class NativePop3Receiver : INativeInfolinkReceiver, IDisposable
             return new XchangeFile(message.TextBody ?? message.HtmlBody ?? string.Empty, message.Subject);
 
         using var memoryStream = new MemoryStream();
-        // A part can carry no content at all — a malformed or truncated message. Treating that
+        // A part can carry no content at all - a malformed or truncated message. Treating that
         // as an empty attachment beats a NullReferenceException from inside the receive loop.
         if (attachment is MessagePart { Message: { } embedded })
             await embedded.WriteToAsync(memoryStream);
@@ -80,7 +80,7 @@ public class NativePop3Receiver : INativeInfolinkReceiver, IDisposable
     public Type StartupValuesType => typeof(Pop3ReceiverInput);
 
     /// <summary>
-    /// Closes a connection a run left open — one that failed before Finalize. Without the QUIT that
+    /// Closes a connection a run left open - one that failed before Finalize. Without the QUIT that
     /// Finalize sends, the server keeps the messages this run marked for deletion.
     /// </summary>
     public void Dispose()

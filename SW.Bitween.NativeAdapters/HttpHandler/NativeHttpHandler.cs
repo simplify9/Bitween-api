@@ -36,7 +36,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
 
         // Credentials go on this request, never on the client: the proxy shares one client per
         // origin across every subscription that calls it, so a default header set here was sent on
-        // the next subscription's call too — with its credentials, or with none of its own.
+        // the next subscription's call too - with its credentials, or with none of its own.
         string? apiKey = null;
         AuthenticationHeaderValue? authorization = null;
         if (_options.AuthType == "ApiKey")
@@ -159,11 +159,11 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
     /// <summary>
     /// Refuses a rendered URL that went somewhere the template does not allow. The values come
     /// from the message, so without this a payload such as <c>"path": ".attacker.example/x"</c>
-    /// could send the request — and its credentials — to a host of its choosing.
+    /// could send the request - and its credentials - to a host of its choosing.
     /// </summary>
     /// <remarks>
     /// The scheme must be the template's. A placeholder inside the host may fill in one DNS label
-    /// and no more — no dots, no slashes — so <c>https://{{tenant}}.api.example</c> still reaches
+    /// and no more - no dots, no slashes - so <c>https://{{tenant}}.api.example</c> still reaches
     /// any tenant of api.example and nothing else. The port must be the template's unless the
     /// template leaves it to a placeholder, and the message may not add a user name.
     /// </remarks>

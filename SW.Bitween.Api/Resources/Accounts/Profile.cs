@@ -9,7 +9,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Accounts;
 
 /// <summary>
-/// Who am I and what may I do. Deliberately ungated — every signed-in caller needs it, and the
+/// Who am I and what may I do. Deliberately ungated - every signed-in caller needs it, and the
 /// permissions it returns are what the UI uses to decide which pages and actions to show.
 /// </summary>
 [HandlerName("profile")]

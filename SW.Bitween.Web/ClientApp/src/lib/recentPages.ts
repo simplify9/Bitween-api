@@ -1,5 +1,5 @@
 /**
- * The last few things opened — a subscription, a partner — for the command palette to offer
+ * The last few things opened - a subscription, a partner - for the command palette to offer
  * before anything is typed. Kept in this browser only; losing it costs nothing.
  */
 export interface Visit {
