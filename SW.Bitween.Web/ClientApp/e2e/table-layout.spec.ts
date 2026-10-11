@@ -116,22 +116,29 @@ test("a long payload doesn't stretch the exchanges table", async ({ page }) => {
   // Waits for the rows rather than a fixed time: on a busy machine the list was still loading
   // after 1.2s, and there was no table to measure.
   await expect(page.locator("tbody tr").first()).toBeVisible({ timeout: 15000 });
-  const before = await page.evaluate(() => document.querySelector("table")!.scrollWidth);
 
-  // The expander, not the row: the row's cells carry links of their own.
+  // The last cell, not the first: the row's other cells carry links of their own.
   await page.locator("tbody tr").first().locator("td").last().click();
   await expect(page.getByRole("button", { name: "Download this document" })).toBeVisible();
+
+  // The document opens in the panel beside the list. However long its one line, it must not
+  // widen the panel past its own edge, nor the list beside it.
+  const panelOverflow = () =>
+    page.evaluate(() => {
+      const panel = document.querySelector<HTMLElement>("aside[aria-label^='Exchange ']")!;
+      return panel.scrollWidth - panel.clientWidth;
+    });
 
   // Laid out over lines, and the one line of minified JSON never sets the width.
   await expect(page.getByText('"Shipment": {')).toBeVisible();
   expect(await overflowing(page)).toEqual([]);
-  expect(await page.evaluate(() => document.querySelector("table")!.scrollWidth)).toBe(before);
+  expect(await panelOverflow()).toBeLessThanOrEqual(1);
 
   // Raw shows it exactly as it arrived, and still can't stretch anything.
   await page.getByRole("button", { name: "Raw" }).click();
   await expect(page.getByText('{"Shipment":{"Uid":"STF.365673"', { exact: false })).toBeVisible();
   expect(await overflowing(page)).toEqual([]);
-  expect(await page.evaluate(() => document.querySelector("table")!.scrollWidth)).toBe(before);
+  expect(await panelOverflow()).toBeLessThanOrEqual(1);
 });
 
 test("a long panel list keeps its Type column inside the card", async ({ page }) => {

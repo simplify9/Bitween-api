@@ -55,6 +55,7 @@ public class ReadGuardTests(BitweenFixture fixture)
         {
             ["partners"] = Search<Resources.Partners.Search>(scope),
             ["exchanges"] = Search<Resources.Xchanges.Search>(scope),
+            ["exchange summary"] = Search<Resources.Xchanges.Summary>(scope),
             ["subscriptions"] = Search<Resources.Subscriptions.Search>(scope),
             ["notifiers"] = Search<Resources.Notifiers.Search>(scope),
             ["API gateways"] = Search<Resources.ApiGateways.Search>(scope),

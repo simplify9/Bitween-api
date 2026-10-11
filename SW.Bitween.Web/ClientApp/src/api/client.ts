@@ -22,6 +22,7 @@ import type {
   DataSourceTelemetry,
   DataSourceTestResult,
   DashboardData,
+  ExchangeBreakdown,
   ExchangeQuery,
   ExchangeRow,
   ExportFilesCheck,
@@ -594,6 +595,7 @@ export interface ApiClient {
 
   // - exchanges -
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;
+  getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown>;
 
   // - audit trail -
   /** Who changed what, and when. Filters narrow it; with none set it is the whole trail. */

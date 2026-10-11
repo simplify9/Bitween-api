@@ -2,8 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using SW.EfCoreExtensions;
-using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 
@@ -56,47 +54,10 @@ internal sealed class XchangeSelection(BitweenDbContext dbContext)
     /// filtered them.
     /// </summary>
     /// <remarks>
-    /// The projection carries the columns the exchange list can filter on (see
-    /// <c>buildExchangeQuery</c> in the client) and nothing else, so this stays translatable and
-    /// composable - the search's own projection cannot be reused for that, as it builds file URLs
-    /// in C#. Filtering on a column that is not here would silently match nothing, so a new filter
-    /// on the list needs a column here too.
+    /// The query itself lives in <see cref="XchangeFilters.FilteredRowsAsync"/>, shared with the
+    /// summary so the counts above the list and the set a bulk action acts on are the same rows -
+    /// read its remarks before filtering on a new column.
     /// </remarks>
-    private async Task<IQueryable<XchangeRow>> Query(IXchangeSelection request)
-    {
-        var searchyRequest = new SearchyRequest(request.Filter);
-        searchyRequest.DatesToUtc();
-        // Async, and inside here rather than in the two callers, so a "select all matching" over a
-        // run selects exactly the rows the list showed for it.
-        await XchangeFilters.ResolveReceiveAttemptFilterAsync(searchyRequest, dbContext);
-
-        var query = from xchange in dbContext.Set<Xchange>()
-                    join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
-                    from result in xr.DefaultIfEmpty()
-                    join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
-                    from agg in xa.DefaultIfEmpty()
-                    join promoted in dbContext.Set<XchangePromotedProperties>() on xchange.Id equals promoted.Id into xp
-                    from promoted in xp.DefaultIfEmpty()
-                    join subscriber in dbContext.Set<Subscription>() on xchange.SubscriptionId equals subscriber.Id into xs
-                    from subscriber in xs.DefaultIfEmpty()
-                    select new XchangeRow
-                    {
-                        Id = xchange.Id,
-                        SubscriptionId = xchange.SubscriptionId,
-                        DocumentId = xchange.DocumentId,
-                        StartedOn = xchange.StartedOn,
-                        CorrelationId = xchange.CorrelationId,
-                        Status = result.Success,
-                        ResponseBad = result.ResponseBad,
-                        RetryFor = xchange.RetryFor,
-                        AggregationXchangeId = agg.AggregationXchangeId,
-                        PromotedPropertiesRaw = promoted.PropertiesRaw,
-                        // Same fallback the search makes for exchanges written before the column
-                        // existed, so a partner filter selects the same rows it listed.
-                        PartnerId = xchange.PartnerId ?? subscriber.PartnerId
-                    };
-
-        query = query.ApplySpecialFilters(searchyRequest, dbContext);
-        return query.AsNoTracking().Search(searchyRequest.Conditions);
-    }
+    private Task<IQueryable<XchangeRow>> Query(IXchangeSelection request) =>
+        XchangeFilters.FilteredRowsAsync(dbContext, new SearchyRequest(request.Filter));
 }

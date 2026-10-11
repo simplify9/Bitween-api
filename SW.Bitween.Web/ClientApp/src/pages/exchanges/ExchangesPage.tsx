@@ -1,41 +1,41 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Download, Layers, Plus, RotateCcw, X } from "lucide-react";
+import { ArrowUp, Download, Pause, Play, Plus, RotateCcw, X } from "lucide-react";
 import {
   api,
   type BulkRetrySelection,
-  type ExchangeQuery,
   type ExchangeStatus,
   type ExportFilesCheck,
 } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { Select, TextInput } from "../../components/ui/forms";
+import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { SearchSelect } from "../../components/ui/SearchSelect";
-import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
+import { openDialogs } from "../../components/ui/dialogStack";
 import { useSubscriptionsCache } from "../../components/config/lookups";
-import { timeAgo, timeUntil, duration } from "../../lib/dates";
-import { ExchangeDrawer } from "./ExchangeDrawer";
-import { hasRetryChain, retryTreeQuery } from "./retryTree";
-import { JourneyStrip, RetryDialog, StatusBadge } from "./shared";
-import { STATUS_LABELS } from "./journey";
-import { PromotedProps } from "../../components/config/shared";
+import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { NONE } from "../../lib/none";
-
-const PAGE_SIZE = 25;
-const STATUSES: ExchangeStatus[] = ["processing", "success", "badResponse", "failed"];
-
-/**
- * The backend stops counting matches past this and returns `COUNT_CAP + 1` instead, because an
- * exact total has to visit every matching row and was costing more than fetching the rows did.
- * So a total above the cap means "at least this many", shown as "10,000+".
- * Kept in step with `CountCap` in Xchanges/Search.cs.
- */
-const COUNT_CAP = 10_000;
+import { RetryDialog } from "./shared";
+import { ExchangeList } from "./ExchangeList";
+import { ExchangeDetailPanel } from "./ExchangeDetailPanel";
+import { QueryBar, type FilterOptions } from "./QueryBar";
+import { StatusTabs } from "./StatusTabs";
+import { VolumeChart } from "./VolumeChart";
+import {
+  COUNT_CAP,
+  PAGE_SIZE,
+  activeFilterCount,
+  filterSignature,
+  hasTimeFilter,
+  idsIn,
+  readQuery,
+  timeLabel,
+  toLocalInput,
+  viewSearch,
+  withParams,
+} from "./exchangeFilters";
 
 /** The most exchanges one files export takes: `XchangeExportController.Limit` on the server. */
 const EXPORT_LIMIT = 500;
@@ -55,37 +55,23 @@ function filesGoneText({ count, withoutFiles, keptDays }: ExportFilesCheck): str
 }
 
 const REFRESH_OPTIONS = [
-  { value: "0", label: "Refresh: off" },
-  { value: "5000", label: "Refresh: 5s" },
-  { value: "15000", label: "Refresh: 15s" },
-  { value: "60000", label: "Refresh: 1m" },
+  { value: "0", label: "Paused" },
+  { value: "5000", label: "every 5s" },
+  { value: "15000", label: "every 15s" },
+  { value: "60000", label: "every 1m" },
 ];
 
-/** Everything except paging counts as "a filter" for the Clear affordance. */
-const FILTER_KEYS = ["status", "subscriptionId", "partnerId", "informationTypeId", "ids", "receiveAttemptId", "correlationId", "propertyKey", "property", "from", "to", "latest"] as const;
-
-const readQuery = (sp: URLSearchParams): ExchangeQuery => ({
-  status: (sp.get("status") as ExchangeStatus | null) ?? undefined,
-  subscriptionId: sp.get("subscriptionId") ? Number(sp.get("subscriptionId")) : undefined,
-  partnerId: sp.get("partnerId") ? Number(sp.get("partnerId")) : undefined,
-  informationTypeId: sp.get("informationTypeId") ? Number(sp.get("informationTypeId")) : undefined,
-  ids: sp.get("ids") ?? undefined,
-  receiveAttemptId: sp.get("receiveAttemptId") ? Number(sp.get("receiveAttemptId")) : undefined,
-  correlationId: sp.get("correlationId") ?? undefined,
-  latest: sp.get("latest") === "1" || undefined,
-  propertyKey: sp.get("propertyKey") ?? undefined,
-  property: sp.get("property") ?? undefined,
-  from: sp.get("from") ? new Date(sp.get("from")! + "T00:00:00").toISOString() : undefined,
-  to: sp.get("to") ? new Date(sp.get("to")! + "T23:59:59").toISOString() : undefined,
-  offset: sp.get("offset") ? Number(sp.get("offset")) : 0,
-  limit: PAGE_SIZE,
-});
+/** Typing in a field, or a dialog on top: the page's single-key shortcuts stand aside. */
+const shortcutsBlocked = (e: KeyboardEvent) => {
+  if (e.metaKey || e.ctrlKey || e.altKey || openDialogs.length > 0) return true;
+  const t = e.target as HTMLElement | null;
+  return !!t?.closest?.("input, textarea, select, [contenteditable=true], [role=listbox], [role=menu]");
+};
 
 export function ExchangesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useMemo(() => readQuery(searchParams), [searchParams]);
   const [refreshMs, setRefreshMs] = useState(15_000);
-  const [open, setOpen] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   /**
    * "Select all matching" holds the filter rather than a list of ids, so a selection is not
@@ -100,12 +86,45 @@ export function ExchangesPage() {
   const [bulkResult, setBulkResult] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  const apply = useCallback(
+    (changes: Record<string, string | null>, opts?: { resetOffset?: boolean }) =>
+      setSearchParams((prev) => withParams(prev, changes, opts), { replace: true }),
+    [setSearchParams],
+  );
+
+  // A relative range ("last hour") is worked out each time the list is asked for, so a live list
+  // keeps showing the last hour rather than the hour before the page was opened.
   const { data, isLoading, dataUpdatedAt } = useQuery({
-    queryKey: keys.exchanges.search(searchParams.toString()),
-    queryFn: () => api.searchExchanges(query),
+    queryKey: keys.exchanges.search(viewSearch(searchParams) + `&offset=${query.offset}`),
+    queryFn: () => api.searchExchanges(readQuery(searchParams)),
     refetchInterval: refreshMs || false,
     placeholderData: keepPreviousData,
   });
+
+  // --- counts and volume ---
+  // With a time filter, one request answers both. Without one the list covers all time, which
+  // the counts follow, while the chart shows the last 24 hours and says so - a histogram of
+  // "all time" is one bar.
+  const timed = hasTimeFilter(searchParams);
+  const breakdownKey = viewSearch(withParams(searchParams, { status: null }));
+  const breakdown = useQuery({
+    queryKey: keys.exchanges.breakdown(breakdownKey),
+    queryFn: () => api.getExchangeBreakdown(readQuery(searchParams)),
+    refetchInterval: refreshMs || false,
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+  const chartParams = timed ? null : withParams(searchParams, { range: "24h", status: null });
+  const chartBreakdown = useQuery({
+    queryKey: keys.exchanges.breakdown(chartParams ? viewSearch(chartParams) : ""),
+    queryFn: () => api.getExchangeBreakdown(readQuery(chartParams!)),
+    enabled: !!chartParams,
+    refetchInterval: refreshMs || false,
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+  const volume = timed ? breakdown.data : chartBreakdown.data;
+  const rangeEndsNow = !searchParams.get("to") && searchParams.get("range") !== "yesterday";
 
   const subscriptions = useSubscriptionsCache().data ?? [];
   const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() }).data ?? [];
@@ -121,9 +140,7 @@ export function ExchangesPage() {
    * beats the whole catalogue with a disambiguating line on every row.
    */
   const propertyKeyOptions = useMemo(() => {
-    const scoped = query.informationTypeId
-      ? infoTypes.filter((t) => t.id === query.informationTypeId)
-      : infoTypes;
+    const scoped = query.informationTypeId ? infoTypes.filter((t) => t.id === query.informationTypeId) : infoTypes;
     const owners = new Map<string, { type: string; path: string }[]>();
     for (const t of scoped)
       for (const p of t.promotedProperties ?? []) {
@@ -147,64 +164,120 @@ export function ExchangesPage() {
       }));
   }, [infoTypes, query.informationTypeId]);
 
-  /** Set (or drop) one URL param; changing any filter resets paging. */
-  const setParam = (key: string, value: string | null, resetOffset = true) => {
-    const next = new URLSearchParams(searchParams);
-    if (value === null || value === "") next.delete(key);
-    else next.set(key, value);
-    if (resetOffset) next.delete("offset");
-    setSearchParams(next, { replace: true });
+  const filterOptions: FilterOptions = {
+    subscriptions: subscriptions.map((i) => ({ value: String(i.id), label: i.name })),
+    partners: partners.map((p) => ({ value: String(p.id), label: p.name })),
+    informationTypes: infoTypes.map((t) => ({ value: String(t.id), label: t.name, code: t.code })),
+    propertyKeys: propertyKeyOptions,
+  };
+  const lookups = {
+    subscriptionName: (id: number) => subscriptions.find((s) => s.id === id)?.name,
+    partnerName: (id: number) => partners.find((p) => p.id === id)?.name,
+    informationTypeName: (id: number) => infoTypes.find((t) => t.id === id)?.name,
   };
 
-  const activeFilterCount = FILTER_KEYS.filter((k) => searchParams.has(k)).length;
+  const filterCount = activeFilterCount(searchParams);
+  const rows = data?.result ?? [];
+  const total = data?.total ?? 0;
+  const totalIsCapped = total > COUNT_CAP;
 
-  const toggleOpen = (id: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // --- the open exchange ---
+  // In the URL, so a link can open one. A link to a single exchange (`?ids=<id>`, as the
+  // dashboard and the scheduled retries list make) opens it straight away: that is what it was
+  // followed for.
+  const singleId = (() => {
+    const ids = query.ids ? idsIn(query.ids) : null;
+    return ids?.length === 1 ? ids[0] : null;
+  })();
+  // "-" is a closed panel that stays closed: without it, closing an exchange that a single-id
+  // link opened would open it again on the next render.
+  const openParam = searchParams.get("open");
+  const openId =
+    openParam === "-" ? null : (openParam ?? (singleId && rows.some((r) => r.id === singleId) ? singleId : null));
+  const openOnPage = rows.find((r) => r.id === openId);
+  // Opened from a link, or kept open while the page moved on: fetched on its own.
+  const openElsewhere = useQuery({
+    queryKey: keys.exchanges.search(`open=${openId}`),
+    queryFn: () => api.searchExchanges({ ids: openId!, offset: 0, limit: 10 }),
+    enabled: !!openId && !openOnPage && !isLoading,
+  });
+  const openRow = openOnPage ?? openElsewhere.data?.result.find((r) => r.id === openId) ?? null;
+  const openIndex = openOnPage ? rows.indexOf(openOnPage) : -1;
+  const setOpen = useCallback(
+    (id: string | null) => apply({ open: id ?? (singleId ? "-" : null) }, { resetOffset: false }),
+    [apply, singleId],
+  );
+  const toggleOpen = (id: string) => setOpen(openId === id ? null : id);
 
+  // --- selection ---
   const toggle = (set: Set<string>, id: string) => {
     const next = new Set(set);
     if (next.has(id)) next.delete(id);
     else next.add(id);
     return next;
   };
-
   const toggleSelected = (id: string) =>
-    allMatching
-      ? setExcluded((prev) => toggle(prev, id))
-      : setSelected((prev) => toggle(prev, id));
-
+    allMatching ? setExcluded((prev) => toggle(prev, id)) : setSelected((prev) => toggle(prev, id));
   const clearSelection = () => {
     setSelected(new Set());
     setExcluded(new Set());
     setAllMatching(false);
   };
-
-  const rows = data?.result ?? [];
-  const total = data?.total ?? 0;
-  const totalIsCapped = total > COUNT_CAP;
-
   const isSelected = (id: string) => (allMatching ? !excluded.has(id) : selected.has(id));
   const allOnPageSelected = rows.length > 0 && rows.every((r) => isSelected(r.id));
   const selectedCount = allMatching ? Math.max(0, total - excluded.size) : selected.size;
 
   /** What the retry acts on: the ticked rows, or the filter itself minus the unticked ones. */
-  const selection: BulkRetrySelection = allMatching
-    ? { matching: query, excludeIds: [...excluded] }
-    : { ids: [...selected] };
+  const selection: BulkRetrySelection = allMatching ? { matching: query, excludeIds: [...excluded] } : { ids: [...selected] };
 
   /**
    * A selection means a set of exchanges, and changing the filters changes which set that is -
    * for "all matching" it would silently come to mean something else entirely. Paging is not a
    * filter, so ticking rows across pages still accumulates.
    */
-  const filterKey = FILTER_KEYS.map((k) => searchParams.get(k) ?? "").join("\u0000");
+  const filterKey = filterSignature(searchParams);
   useEffect(clearSelection, [filterKey]);
 
+  // --- keyboard ---
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (shortcutsBlocked(e)) return;
+      if (e.key === "Escape" && openId) {
+        setOpen(null);
+        return;
+      }
+      if (rows.length === 0) return;
+      if (e.key === "j" || e.key === "k") {
+        e.preventDefault();
+        const at = openIndex < 0 ? (e.key === "j" ? 0 : rows.length - 1) : openIndex + (e.key === "j" ? 1 : -1);
+        const next = rows[Math.max(0, Math.min(rows.length - 1, at))];
+        setOpen(next.id);
+        document.querySelector(`[data-row-id="${next.id}"]`)?.scrollIntoView?.({ block: "nearest" });
+      } else if (e.key === "x" && openId) {
+        e.preventDefault();
+        toggleSelected(openId);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  // --- while paused: how much has arrived since ---
+  const newest = rows[0]?.startedOn;
+  const watchNew = refreshMs === 0 && query.offset === 0 && !!newest;
+  const since = useQuery({
+    queryKey: keys.exchanges.newSince(viewSearch(searchParams) + newest),
+    queryFn: () => {
+      const after = new Date(new Date(newest!).getTime() + 1);
+      const from = query.from && new Date(query.from) > after ? query.from : after.toISOString();
+      return api.searchExchanges({ ...readQuery(searchParams), from, offset: 0, limit: 1 });
+    },
+    enabled: watchNew,
+    refetchInterval: watchNew ? 15_000 : false,
+  });
+  const newCount = watchNew ? (since.data?.total ?? 0) : 0;
+
+  // --- bulk retry ---
   /**
    * What the retry would do, asked for while the confirm is open. A selection is rarely just
    * itself - anything already retried hands over to its newest attempt - so this is shown
@@ -225,9 +298,7 @@ export function ExchangesPage() {
       clearSelection();
       setBulkResult(
         `${done.willRetry.toLocaleString()} retr${done.willRetry === 1 ? "y" : "ies"} started` +
-          (done.substituted.length > 0
-            ? `, ${done.substituted.length} continuing an existing chain`
-            : "") +
+          (done.substituted.length > 0 ? `, ${done.substituted.length} continuing an existing chain` : "") +
           (done.skipped.length > 0 ? `, ${done.skipped.length} skipped` : "") +
           ".",
       );
@@ -266,466 +337,254 @@ export function ExchangesPage() {
     },
   });
 
+  const pickStatus = (status: ExchangeStatus | null) => apply({ status });
+  const backAPage = () => apply({ offset: String(Math.max(0, query.offset - PAGE_SIZE)) }, { resetOffset: false });
+
   return (
     <div>
       <PageHeader
         title="Exchanges"
-        description="Every message that flows through Bitween - expand a row to follow its journey through the pipeline."
+        description="Every message that flows through Bitween. Open one to follow its journey and read its documents."
         actions={
-          <Can permission="exchanges.operate">
-            <Link to="/exchanges/new">
-              <Button variant="primary">
-                <Plus className="size-4" aria-hidden />
-                New exchange
-              </Button>
-            </Link>
-          </Can>
+          <>
+            <LiveControl refreshMs={refreshMs} onChange={setRefreshMs} updatedAt={dataUpdatedAt} />
+            <Can permission="exchanges.operate">
+              <Link to="/exchanges/new">
+                <Button variant="primary">
+                  <Plus className="size-4" aria-hidden />
+                  New exchange
+                </Button>
+              </Link>
+            </Can>
+          </>
         }
       />
 
-      {/* - status pills + live refresh - */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setParam("status", null)}
-          aria-pressed={!query.status}
-          className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-            !query.status
-              ? "bg-ink-900 text-white"
-              : "border border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:bg-ink-50"
-          }`}
-        >
-          All
-        </button>
-        {STATUSES.map((s) => {
-          const active = query.status === s;
-          return (
-            <button
-              key={s}
-              onClick={() => setParam("status", active ? null : s)}
-              aria-pressed={active}
-              className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                active
-                  ? "bg-ink-900 text-white"
-                  : "border border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:bg-ink-50"
-              }`}
-            >
-              {STATUS_LABELS[s]}
+      <div className="flex flex-col gap-3.5">
+        <StatusTabs
+          status={query.status}
+          counts={breakdown.data?.counts}
+          onPick={pickStatus}
+          latest={!!query.latest}
+          onToggleLatest={() => apply({ latest: query.latest ? null : "1" })}
+        />
+
+        <QueryBar searchParams={searchParams} apply={apply} options={filterOptions} lookups={lookups} />
+
+        {volume && volume.buckets.length > 0 && (
+          <VolumeChart
+            buckets={volume.buckets}
+            bucketMinutes={volume.bucketMinutes}
+            caption={timed ? timeLabel(searchParams).toLowerCase() : "in the last 24 hours"}
+            endsNow={timed ? rangeEndsNow : true}
+            onSelect={(from, to) => apply({ range: null, from: toLocalInput(from), to: toLocalInput(to) })}
+          />
+        )}
+
+        {bulkResult && (
+          <p role="status" className="flex items-center justify-between gap-2 rounded-lg bg-ok-100 px-3 py-2 text-sm text-ok-600">
+            {bulkResult}
+            <button type="button" onClick={() => setBulkResult(null)} aria-label="Dismiss" className="rounded p-0.5 hover:bg-ok-200">
+              <X className="size-3.5" aria-hidden />
             </button>
-          );
-        })}
+          </p>
+        )}
 
-        {/* Separated from the status pills, which pick one of a set - this one narrows whatever
-            they picked. A chain is one piece of work however many attempts it took, so this is
-            what turns a list of failures into a list of things still to deal with. */}
-        <span className="mx-1 h-5 w-px bg-ink-200" aria-hidden />
-        {/* Deliberately not shaped like the status pills beside it. Those pick one of a set; this
-            narrows whatever they picked, and as a sixth round pill it read as a seventh status. */}
-        <button
-          onClick={() => setParam("latest", query.latest ? null : "1")}
-          aria-pressed={!!query.latest}
-          title="Hide attempts that have since been retried, leaving the newest attempt of each chain - the one that is still the state of that work."
-          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors ${
-            query.latest
-              ? "border border-crimson-300 bg-crimson-50 text-crimson-700"
-              : "border border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:bg-ink-50"
-          }`}
-        >
-          <Layers className="size-3.5" aria-hidden />
-          Latest attempt only
-        </button>
-
-        <span className="ml-auto flex items-center gap-2">
-          {refreshMs > 0 && (
-            <span
-              className="inline-block size-1.5 animate-pulse rounded-full bg-ok-600"
-              title={`Live - refreshed ${timeAgo(new Date(dataUpdatedAt).toISOString())}`}
-            />
-          )}
-          <Select
-            aria-label="Refresh interval"
-            className="!h-8 !w-auto text-[13px]"
-            value={String(refreshMs)}
-            onChange={(e) => setRefreshMs(Number(e.target.value))}
-            options={REFRESH_OPTIONS}
-          />
-        </span>
-      </div>
-
-      {/* - filters - */}
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
-        <SearchSelect
-          aria-label="Filter by subscription"
-          size="sm"
-          clearLabel="Any subscription"
-          value={query.subscriptionId?.toString() ?? ""}
-          onChange={(v) => setParam("subscriptionId", v || null)}
-          options={subscriptions.map((i) => ({ value: String(i.id), label: i.name }))}
-        />
-        <SearchSelect
-          aria-label="Filter by partner"
-          size="sm"
-          clearLabel="Any partner"
-          value={query.partnerId?.toString() ?? ""}
-          onChange={(v) => setParam("partnerId", v || null)}
-          options={partners.map((p) => ({ value: String(p.id), label: p.name }))}
-        />
-        <SearchSelect
-          aria-label="Filter by information type"
-          size="sm"
-          clearLabel="Any information type"
-          value={query.informationTypeId?.toString() ?? ""}
-          onChange={(v) => setParam("informationTypeId", v || null)}
-          options={infoTypes.map((t) => ({ value: String(t.id), label: t.name, code: t.code }))}
-        />
-        <TextInput
-          aria-label="Filter by exchange ids"
-          className="!h-8 text-[13px]"
-          placeholder="Ids (comma separated)"
-          defaultValue={query.ids ?? ""}
-          key={`ids-${query.ids ?? ""}`}
-          onBlur={(e) => e.target.value !== (query.ids ?? "") && setParam("ids", e.target.value || null)}
-          onKeyDown={(e) => e.key === "Enter" && setParam("ids", e.currentTarget.value || null)}
-        />
-        <TextInput
-          aria-label="Filter by correlation id"
-          className="!h-8 text-[13px]"
-          placeholder="Correlation id"
-          defaultValue={query.correlationId ?? ""}
-          key={`cid-${query.correlationId ?? ""}`}
-          onBlur={(e) =>
-            e.target.value !== (query.correlationId ?? "") && setParam("correlationId", e.target.value || null)
-          }
-          onKeyDown={(e) => e.key === "Enter" && setParam("correlationId", e.currentTarget.value || null)}
-        />
-        <div className="w-44">
-          <SearchSelect
-            aria-label="Filter by promoted property key"
-            size="sm"
-            value={query.propertyKey ?? ""}
-            clearLabel="Any property"
-            options={propertyKeyOptions}
-            onChange={(v) => setParam("propertyKey", v || null)}
-          />
-        </div>
-        <TextInput
-          aria-label="Filter by promoted property"
-          className="!h-8 text-[13px]"
-          placeholder={query.propertyKey ? `${query.propertyKey} is…` : "Any property value"}
-          defaultValue={query.property ?? ""}
-          key={`prop-${query.property ?? ""}`}
-          onBlur={(e) => e.target.value !== (query.property ?? "") && setParam("property", e.target.value || null)}
-          onKeyDown={(e) => e.key === "Enter" && setParam("property", e.currentTarget.value || null)}
-        />
-        <label className="flex items-center gap-1.5 text-[13px] text-ink-500">
-          From
-          <TextInput
-            type="date"
-            aria-label="Started after"
-            className="!h-8 text-[13px]"
-            value={searchParams.get("from") ?? ""}
-            onChange={(e) => setParam("from", e.target.value || null)}
-          />
-        </label>
-        <label className="flex items-center gap-1.5 text-[13px] text-ink-500">
-          To
-          <TextInput
-            type="date"
-            aria-label="Started before"
-            className="!h-8 text-[13px]"
-            value={searchParams.get("to") ?? ""}
-            onChange={(e) => setParam("to", e.target.value || null)}
-          />
-        </label>
-        {activeFilterCount > 0 && (
+        {newCount > 0 && (
           <button
-            onClick={() => {
-              const next = new URLSearchParams();
-              setSearchParams(next, { replace: true });
-            }}
-            className="inline-flex h-8 items-center gap-1 justify-self-start rounded-lg px-2 text-[13px] font-medium text-crimson-700 hover:bg-crimson-50"
+            type="button"
+            onClick={() => void queryClient.invalidateQueries({ queryKey: keys.exchanges.all })}
+            className="inline-flex items-center gap-2 self-center rounded-full bg-ink-900 px-3.5 py-1.5 text-[13px] font-medium text-ink-50 hover:bg-ink-800"
           >
-            <X className="size-3.5" aria-hidden />
-            Clear filters ({activeFilterCount})
+            <ArrowUp className="size-3.5" aria-hidden />
+            {newCount > COUNT_CAP ? `${COUNT_CAP.toLocaleString()}+` : newCount.toLocaleString()} new exchange
+            {newCount === 1 ? "" : "s"} since you paused. Show them
           </button>
         )}
-      </div>
 
-      {bulkResult && (
-        <p className="mb-3 rounded-lg bg-ok-100 px-3 py-2 text-sm text-ok-600">{bulkResult}</p>
-      )}
-
-      {/* - list - */}
-      {isLoading ? (
-        <LoadingBlock />
-      ) : rows.length === 0 ? (
-        /* An empty page and an empty search are different problems. This branch replaces the
-           table, paging footer and all, so a page past the end of the list would otherwise
-           leave nothing to click back to. Reachable two ways: a hand-typed ?offset=, and Next
-           past the count cap, where a last page that happens to be full still enables it. */
-        <EmptyState
-          title={query.offset > 0 ? "Nothing on this page" : "No exchanges match"}
-          action={
-            query.offset > 0 ? (
-              <Button
-                onClick={() => setParam("offset", String(Math.max(0, query.offset - PAGE_SIZE)), false)}
-              >
-                Back a page
-              </Button>
-            ) : undefined
-          }
-        >
-          {query.offset > 0
-            ? "The list ends before this page."
-            : activeFilterCount > 0
-              ? "Try removing some filters - or widen the date range."
-              : "Traffic will show up here as soon as a subscription processes something."}
-        </EmptyState>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
-                <th className="w-10 py-2.5 pl-4">
-                  <Can permission="exchanges.view">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all on this page"
-                      className="size-3.5 cursor-pointer accent-crimson-600"
-                      checked={allOnPageSelected}
-                      onChange={() => {
-                        // In "all matching" mode the box stands for the whole filter, so
-                        // clearing it drops the whole selection rather than excluding 25 rows.
-                        if (allMatching) return clearSelection();
-                        setSelected((prev) => {
-                          const next = new Set(prev);
-                          if (allOnPageSelected) rows.forEach((r) => next.delete(r.id));
-                          else rows.forEach((r) => next.add(r.id));
-                          return next;
-                        });
-                      }}
-                    />
-                  </Can>
-                </th>
-                <th className="py-1.5 pr-3">Properties</th>
-                <th className="px-3 py-1.5">Status</th>
-                <th className="px-3 py-1.5">Journey</th>
-                <th className="px-3 py-1.5">Information type</th>
-                <th className="px-3 py-1.5">Partner</th>
-                <th className="px-3 py-1.5">Subscription</th>
-                <th className="px-3 py-1.5">Started</th>
-                <th className="w-8 px-2 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((x) => (
-                <Fragment key={x.id}>
-                  <tr
-                    {...clickableRow(() => toggleOpen(x.id))}
-                    aria-expanded={open.has(x.id)}
-                    /* Hovering a row is most of a second's head start on opening it, which is
-                       enough that its retry chain is already there when the drawer renders.
-                       Only for rows that have one - most exchanges do not. */
-                    onMouseEnter={() => {
-                      if (hasRetryChain(x)) void queryClient.prefetchQuery(retryTreeQuery(x.id));
-                    }}
-                    className={`cursor-pointer border-b border-ink-50 transition-colors last:border-0 hover:bg-ink-50/60 ${clickableRowClass}`}
-                  >
-                    <td className="py-1.5 pl-4" onClick={(e) => e.stopPropagation()}>
-                      <Can permission="exchanges.view">
-                        <input
-                          type="checkbox"
-                          aria-label={`Select ${x.id}`}
-                          className="size-3.5 cursor-pointer accent-crimson-600"
-                          checked={isSelected(x.id)}
-                          onChange={() => toggleSelected(x.id)}
-                        />
-                      </Can>
-                    </td>
-                    <td className="py-1.5 pr-3">
-                      <PromotedProps properties={x.promotedProperties} fallbackId={x.id} />
-                    </td>
-                    <td className="px-3 py-1.5">
-                      {/* Status and the relationship markers read as one thought:
-                          "failed, and a retry is already booked". */}
-                      <span className="flex flex-wrap items-center gap-1">
-                        <StatusBadge status={x.status} />
-                        {x.retryFor && <Badge tone="neutral">Retry</Badge>}
-                        {x.scheduledRetryOn && (
-                          <Badge tone="warn">Auto-retry {timeUntil(x.scheduledRetryOn)}</Badge>
-                        )}
-                        {x.aggregationXchangeId && <Badge tone="neutral">Aggregated</Badge>}
-                      </span>
-                    </td>
-                    <td className="px-3 py-1.5">
-                      <JourneyStrip x={x} />
-                    </td>
-                    {/* One column per thing, so values line up down the page -
-                        the old single "Flow" cell was a sentence you had to re-read
-                        on every row.
-
-                        Only the links swallow the click, never the cells: three
-                        opted-out cells would leave most of a cursor-pointer row
-                        doing nothing when clicked. */}
-                    <td className="px-3 py-1.5">
-                      <Link
-                        to={`/information-types/${x.informationTypeId}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
-                      >
-                        {x.informationTypeCode}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-1.5 text-[13px]">
-                      {x.partnerName ? (
-                        <Link
-                          to={`/partners/${x.partnerId}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-ink-700 hover:text-crimson-700 hover:underline"
-                        >
-                          {x.partnerName}
-                        </Link>
-                      ) : (
-                        <span className="text-ink-500">-</span>
+        <div className="flex items-start gap-4">
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            {isLoading ? (
+              <LoadingBlock />
+            ) : rows.length === 0 ? (
+              /* An empty page and an empty search are different problems. This branch replaces the
+                 table, paging footer and all, so a page past the end of the list would otherwise
+                 leave nothing to click back to. Reachable two ways: a hand-typed ?offset=, and Next
+                 past the count cap, where a last page that happens to be full still enables it. */
+              <EmptyState
+                title={query.offset > 0 ? "Nothing on this page" : "No exchanges match"}
+                action={
+                  query.offset > 0 ? (
+                    <Button onClick={backAPage}>Back a page</Button>
+                  ) : filterCount > 0 ? (
+                    <span className="flex flex-wrap justify-center gap-2">
+                      {timed && searchParams.get("range") !== "30d" && (
+                        <Button size="sm" onClick={() => apply({ range: "30d", from: null, to: null })}>
+                          Widen to the last 30 days
+                        </Button>
                       )}
-                    </td>
-                    <td className="px-3 py-1.5 text-[13px]">
-                      {x.subscriptionName ? (
-                        <Link
-                          to={`/subscriptions/${x.subscriptionId}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                        >
-                          {x.subscriptionName}
-                        </Link>
-                      ) : (
-                        <span className="text-ink-500">-</span>
+                      {query.status && (
+                        <Button size="sm" onClick={() => apply({ status: null })}>
+                          Any status
+                        </Button>
                       )}
-                    </td>
-                    <td className="px-3 py-1.5 whitespace-nowrap text-ink-500">
-                      {timeAgo(x.startedOn)}
-                      {x.finishedOn && (
-                        <span className="text-xs text-ink-500"> · {duration(x.startedOn, x.finishedOn)}</span>
-                      )}
-                    </td>
-                    <td className="px-2 py-1.5 text-ink-500">
-                      {open.has(x.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-                    </td>
-                  </tr>
-                  {open.has(x.id) && (
-                    <tr className="border-b border-ink-50 last:border-0">
-                      <td colSpan={9} className="bg-ink-50/40 px-4 py-3">
-                        <ExchangeDrawer x={x} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-
-          {/* - paging - */}
-          <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
-            <span>
-              Showing {query.offset + 1}-{query.offset + rows.length} of{" "}
-              {totalIsCapped ? (
-                <span title={`More than ${COUNT_CAP.toLocaleString()} match - narrow the filters for an exact count`}>
-                  {COUNT_CAP.toLocaleString()}+
-                </span>
-              ) : (
-                total.toLocaleString()
-              )}
-            </span>
-            <span className="flex gap-1.5">
-              <Button
-                size="sm"
-                disabled={query.offset === 0}
-                onClick={() => setParam("offset", String(Math.max(0, query.offset - PAGE_SIZE)), false)}
-              >
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                /* Past the cap the total no longer says where the end is, so fall back to "was this
-                   page full" - otherwise Next would dead-end at row 10,000. Below the cap the total
-                   is exact, so keep using it and Next stops on the true last page. */
-                disabled={totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
-                onClick={() => setParam("offset", String(query.offset + PAGE_SIZE), false)}
-              >
-                Next
-              </Button>
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* - bulk action bar - */}
-      {selectedCount > 0 && (
-        <div className="sticky bottom-4 mt-4 space-y-2 rounded-xl border border-ink-200 bg-white px-4 py-2.5 shadow-lg">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm text-ink-700">
-              <strong className="font-semibold">
-                {totalIsCapped && allMatching ? `${COUNT_CAP.toLocaleString()}+` : selectedCount.toLocaleString()}
-              </strong>{" "}
-              selected
-              {allMatching && <span className="text-ink-500"> - everything this filter matches</span>}
-              {allMatching && excluded.size > 0 && (
-                <span className="text-ink-500">, {excluded.size} unticked</span>
-              )}
-            </span>
-            <span className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={clearSelection}>
-                Clear
-              </Button>
-              <Button
-                size="sm"
-                busy={checkExport.isPending || exportFiles.isPending}
-                disabled={selectedCount > EXPORT_LIMIT}
-                onClick={() => checkExport.mutate()}
-                title={
-                  selectedCount > EXPORT_LIMIT
-                    ? `One export takes at most ${EXPORT_LIMIT} exchanges. Narrow the filter or tick fewer rows.`
-                    : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
+                      <Button size="sm" variant="ghost" onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}>
+                        Clear all filters
+                      </Button>
+                    </span>
+                  ) : undefined
                 }
               >
-                <Download className="size-3.5" aria-hidden />
-                Export files
-              </Button>
-              <Can permission="exchanges.operate">
-                <Button size="sm" variant="primary" onClick={() => setBulkConfirm(true)}>
-                  <RotateCcw className="size-3.5" aria-hidden />
-                  Retry selected…
-                </Button>
-              </Can>
-            </span>
+                {query.offset > 0
+                  ? "The list ends before this page."
+                  : filterCount > 0
+                    ? "Try removing some filters - or widen the time range."
+                    : "Traffic will show up here as soon as a subscription processes something."}
+              </EmptyState>
+            ) : (
+              <div className="rounded-xl border border-ink-200 bg-white">
+                <ExchangeList
+                  rows={rows}
+                  openId={openId}
+                  onOpen={toggleOpen}
+                  compact={!!openRow}
+                  selection={{
+                    isSelected,
+                    toggle: toggleSelected,
+                    allOnPage: allOnPageSelected,
+                    toggleAllOnPage: () => {
+                      // In "all matching" mode the box stands for the whole filter, so
+                      // clearing it drops the whole selection rather than excluding 25 rows.
+                      if (allMatching) return clearSelection();
+                      setSelected((prev) => {
+                        const next = new Set(prev);
+                        if (allOnPageSelected) rows.forEach((r) => next.delete(r.id));
+                        else rows.forEach((r) => next.add(r.id));
+                        return next;
+                      });
+                    },
+                  }}
+                />
+
+                {/* - paging - */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
+                  <span>
+                    Showing {query.offset + 1}-{query.offset + rows.length} of{" "}
+                    {totalIsCapped ? (
+                      <span title={`More than ${COUNT_CAP.toLocaleString()} match - narrow the filters for an exact count`}>
+                        {COUNT_CAP.toLocaleString()}+
+                      </span>
+                    ) : (
+                      total.toLocaleString()
+                    )}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    <span className="hidden text-xs text-ink-500 lg:inline">
+                      <Kbd>J</Kbd> <Kbd>K</Kbd> move · <Kbd>X</Kbd> select · <Kbd>Esc</Kbd> close
+                    </span>
+                    <span className="flex gap-1.5">
+                      <Button size="sm" disabled={query.offset === 0} onClick={backAPage}>
+                        Previous
+                      </Button>
+                      <Button
+                        size="sm"
+                        /* Past the cap the total no longer says where the end is, so fall back to "was this
+                           page full" - otherwise Next would dead-end at row 10,000. Below the cap the total
+                           is exact, so keep using it and Next stops on the true last page. */
+                        disabled={totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
+                        onClick={() => apply({ offset: String(query.offset + PAGE_SIZE) }, { resetOffset: false })}
+                      >
+                        Next
+                      </Button>
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* - bulk action bar - */}
+            {selectedCount > 0 && (
+              <div className="sticky bottom-4 z-20 space-y-2 rounded-xl bg-ink-950 px-4 py-2.5 text-ink-100 shadow-xl">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm">
+                    <strong className="font-semibold text-white">
+                      {totalIsCapped && allMatching ? `${COUNT_CAP.toLocaleString()}+` : selectedCount.toLocaleString()}
+                    </strong>{" "}
+                    selected
+                    {allMatching && <span className="text-ink-300"> - everything this filter matches</span>}
+                    {allMatching && excluded.size > 0 && <span className="text-ink-300">, {excluded.size} unticked</span>}
+                  </span>
+                  <span className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="h-8 rounded-lg px-3 text-[13px] text-ink-200 hover:bg-white/10"
+                    >
+                      Clear
+                    </button>
+                    <Button
+                      size="sm"
+                      className="!border-ink-700 !bg-ink-900 !text-ink-50 hover:!bg-ink-800 disabled:!text-ink-500"
+                      busy={checkExport.isPending || exportFiles.isPending}
+                      disabled={selectedCount > EXPORT_LIMIT}
+                      onClick={() => checkExport.mutate()}
+                      title={
+                        selectedCount > EXPORT_LIMIT
+                          ? `One export takes at most ${EXPORT_LIMIT} exchanges. Narrow the filter or tick fewer rows.`
+                          : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
+                      }
+                    >
+                      <Download className="size-3.5" aria-hidden />
+                      Export files
+                    </Button>
+                    <Can permission="exchanges.operate">
+                      <Button size="sm" variant="primary" onClick={() => setBulkConfirm(true)}>
+                        <RotateCcw className="size-3.5" aria-hidden />
+                        Retry selected…
+                      </Button>
+                    </Can>
+                  </span>
+                </div>
+
+                {(checkExport.error ?? exportFiles.error ?? nothingToExport) && (
+                  <p role="alert" className="text-[13px] text-danger-300">
+                    {(checkExport.error ?? exportFiles.error)?.message ?? nothingToExport}
+                  </p>
+                )}
+
+                {/* The whole page is ticked but there is more behind it - the one moment where
+                    "select all matching" is what someone actually wants, so it is offered there
+                    rather than living permanently in the toolbar. */}
+                {!allMatching && allOnPageSelected && total > rows.length && (
+                  <p className="text-[13px] text-ink-300">
+                    Only the {rows.length} rows on this page.{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAllMatching(true);
+                        setSelected(new Set());
+                        setExcluded(new Set());
+                      }}
+                      className="font-medium text-crimson-300 hover:underline"
+                    >
+                      Select all {totalIsCapped ? `${COUNT_CAP.toLocaleString()}+` : total.toLocaleString()} matching this filter
+                    </button>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
-          {(checkExport.error ?? exportFiles.error ?? nothingToExport) && (
-            <p role="alert" className="text-[13px] text-danger-700">
-              {(checkExport.error ?? exportFiles.error)?.message ?? nothingToExport}
-            </p>
-          )}
-
-          {/* The whole page is ticked but there is more behind it - the one moment where
-              "select all matching" is what someone actually wants, so it is offered there
-              rather than living permanently in the toolbar. */}
-          {!allMatching && allOnPageSelected && total > rows.length && (
-            <p className="text-[13px] text-ink-500">
-              Only the {rows.length} rows on this page.{" "}
-              <button
-                onClick={() => {
-                  setAllMatching(true);
-                  setSelected(new Set());
-                  setExcluded(new Set());
-                }}
-                className="font-medium text-crimson-700 hover:underline"
-              >
-                Select all {totalIsCapped ? `${COUNT_CAP.toLocaleString()}+` : total.toLocaleString()} matching
-                this filter
-              </button>
-            </p>
+          {openRow && (
+            <ExchangeDetailPanel
+              x={openRow}
+              onClose={() => setOpen(null)}
+              onPrevious={openIndex > 0 ? () => setOpen(rows[openIndex - 1].id) : undefined}
+              onNext={openIndex >= 0 && openIndex < rows.length - 1 ? () => setOpen(rows[openIndex + 1].id) : undefined}
+            />
           )}
         </div>
-      )}
+      </div>
 
       {exportCheck && (
         <ConfirmDialog
@@ -758,3 +617,61 @@ export function ExchangesPage() {
     </div>
   );
 }
+
+function Kbd({ children }: { children: string }) {
+  return <kbd className="rounded border border-ink-200 bg-ink-50 px-1 font-mono text-[11px] text-ink-600">{children}</kbd>;
+}
+
+/**
+ * How often the list refreshes itself, and the pause. Paused, the rows stay where they are while
+ * someone reads them, and the page counts what arrives instead of shifting it in underneath them.
+ */
+function LiveControl({
+  refreshMs,
+  onChange,
+  updatedAt,
+}: {
+  refreshMs: number;
+  onChange: (ms: number) => void;
+  updatedAt: number;
+}) {
+  const [lastLive, setLastLive] = useState(15_000);
+  const live = refreshMs > 0;
+  return (
+    <span className="inline-flex h-9.5 items-stretch overflow-hidden rounded-full border border-ink-200 bg-white">
+      <label
+        className="flex items-center gap-2 pr-1 pl-3 text-[13px] text-ink-700"
+        title={live && updatedAt ? `Refreshed ${timeAgo(new Date(updatedAt).toISOString())}` : undefined}
+      >
+        <span className={`size-2 rounded-full ${live ? "animate-pulse bg-ok-600" : "bg-ink-300"}`} aria-hidden />
+        {/* Paused, the picker itself says so; saying it twice read as a stutter. */}
+        {live && <span className="font-semibold">Live</span>}
+        <select
+          aria-label="Refresh interval"
+          value={String(refreshMs)}
+          onChange={(e) => {
+            const ms = Number(e.target.value);
+            if (ms > 0) setLastLive(ms);
+            onChange(ms);
+          }}
+          className="cursor-pointer border-0 bg-transparent py-0 pr-1 text-[13px] text-ink-500 focus:ring-0 focus:outline-none"
+        >
+          {REFRESH_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        onClick={() => onChange(live ? 0 : lastLive)}
+        aria-label={live ? "Pause live updates" : "Resume live updates"}
+        className="flex w-9 items-center justify-center border-l border-ink-100 text-ink-600 hover:bg-ink-50"
+      >
+        {live ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
+      </button>
+    </span>
+  );
+}
+

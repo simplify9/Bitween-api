@@ -1454,10 +1454,40 @@ export interface ExchangeQuery {
    * all", which is worth being able to ask.
    */
   propertyKey?: string;
+  /** Case-insensitive substring of the exception text. */
+  errorContains?: string;
+  /** Only exchanges that are a retry of another one. */
+  isRetry?: boolean;
+  /** Only exchanges with an automatic retry booked. */
+  scheduledRetry?: boolean;
+  /** Only exchanges rolled up into an aggregation. */
+  aggregated?: boolean;
   from?: string;
   to?: string;
   offset: number;
   limit: number;
+}
+
+/** One slice of the exchange volume histogram: how many started in it, by status. */
+export interface ExchangeVolumeBucket {
+  /** UTC start of the slice. */
+  start: string;
+  processing: number;
+  success: number;
+  badResponse: number;
+  failed: number;
+}
+
+/**
+ * How the exchanges a filter matches break down: a count per status, ignoring any status filter,
+ * and, when the filter has a start time, how they spread over that range.
+ */
+export interface ExchangeBreakdown {
+  /** Each capped like the list total: a value past the cap means "more than". */
+  counts: Record<ExchangeStatus, number>;
+  buckets: ExchangeVolumeBucket[];
+  /** The width of one bucket; 0 when there are none. */
+  bucketMinutes: number;
 }
 
 export interface Paged<T> {

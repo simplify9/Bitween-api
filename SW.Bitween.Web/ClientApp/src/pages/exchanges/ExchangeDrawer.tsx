@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Download, FileText, Play, RotateCcw } from "lucide-react";
+import { Download, FileText, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button } from "../../components/ui/basics";
@@ -235,23 +235,25 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   });
 
   return (
-    <div className="space-y-4 border-l-2 border-ink-100 py-1 pl-4">
-      {/* - journey - */}
-      <div className="flex flex-wrap items-stretch gap-1.5">
-        {stages.map((s, i) => {
+    <div className="space-y-4">
+      {/* - journey: one card per stage, each opening its document below - */}
+      <div>
+        <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-500 uppercase">Journey and documents</p>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+        {stages.map((s) => {
           const tone = STAGE_TONES[s.state];
           const file = files[s.key];
           const active = !!file?.key && s.key === stage;
           return (
-            <div key={s.key} className="flex items-stretch gap-1.5">
-              {i > 0 && <ArrowRight className="size-3.5 self-center text-ink-300" aria-hidden />}
+            <div key={s.key} className="flex min-w-0 items-stretch">
               <button
                 disabled={!file?.key}
+                aria-pressed={active}
                 onClick={() => file?.key && setStage(s.key)}
                 title={file?.key ? `Show the ${s.key} document` : (s.note ?? "No document")}
-                className={`w-44 rounded-xl border bg-white px-3 py-2 text-left transition-colors ${tone.ring} ${
-                  file?.key ? "cursor-pointer hover:bg-ink-50" : "cursor-default opacity-80"
-                } ${active ? "ring-2 ring-crimson-100" : ""}`}
+                className={`w-full min-w-0 rounded-xl border bg-white px-3 py-2 text-left transition-colors ${tone.ring} ${
+                  file?.key ? "cursor-pointer hover:bg-ink-50" : "cursor-default bg-ink-50/50 opacity-80"
+                } ${active ? "border-crimson-300 ring-2 ring-crimson-100" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[13px] font-semibold text-ink-800">{s.label}</span>
@@ -272,6 +274,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* - active stage document - */}
@@ -293,7 +296,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       {hasRetryChain(x) && <RetryChain id={x.id} />}
 
       {/* - metadata - */}
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
         {/* The id lives here rather than in the row: it identifies a record you
             have already found, so it earns its place next to the other
             copy-and-paste metadata, not in the scanning path. */}
