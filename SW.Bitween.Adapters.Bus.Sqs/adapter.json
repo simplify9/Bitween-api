@@ -1,0 +1,7 @@
+{
+  "id": "bitween.bus.sqs",
+  "version": "1.0.0",
+  "displayName": "Amazon SQS",
+  "summary": "An Amazon SQS queue, or one compatible with it, as a data source: bus gateways read from it, subscriptions send to it.",
+  "lifecycle": "resident"
+}

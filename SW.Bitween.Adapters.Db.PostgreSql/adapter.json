@@ -1,0 +1,7 @@
+{
+  "id": "bitween.db.postgresql",
+  "version": "1.0.0",
+  "displayName": "PostgreSQL",
+  "summary": "A PostgreSQL database as a data source: its named statements, read from and written to.",
+  "lifecycle": "resident"
+}

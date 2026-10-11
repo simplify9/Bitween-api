@@ -86,6 +86,7 @@ jobs:
         resources.requests.cpu=25m
         resources.requests.memory=704Mi
         resources.limits.memory=1408Mi
+        environmentVariables.Bitween__BusProvidersEnabled=true
     secrets:
       # Docker image push credentials (Docker Hub)
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}

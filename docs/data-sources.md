@@ -15,7 +15,7 @@ Data sources need three things on the nodes that run them.
 
 1. **`Bitween__BusProvidersEnabled=true`.** The name predates database sources, but the flag gates every data source. Nodes without it can still configure data sources in the UI, but cannot run them or any delivery that goes through one.
 2. **`ConnectionStrings:RabbitMQ`.** Bitween's own RabbitMQ decides which node holds each connection. See [Placement](#placement).
-3. **The adapter packages.** Each provider is a separate package, installed in storage under `{Bitween:AdapterPath}/{adapterId}` like a custom adapter, with the metadata that marks it as a resident adapter. The pipelines in this repository do not publish these packages.
+3. **The adapter packages.** Each provider is a separate resident adapter package. Every bitween CLI release carries them as assets beside its binaries, with the release's version and in its `SHA256SUMS`: `bitween.bus.rabbitmq-<version>.zip`, `bitween.bus.sqs-…`, `bitween.db.postgresql-…`, `bitween.db.mysql-…`, `bitween.db.sqlserver-…` and `bitween.db.oracle-…`. Install them like any adapter, with `bitween adapter publish <zip> --current` or an `adapters:` entry in a configuration that `bitween apply` publishes. To build one from source, run `bitween adapter build SW.Bitween.Adapters.Bus.RabbitMq`; each provider project has its `adapter.json`.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -23,7 +23,7 @@ Data sources need three things on the nodes that run them.
 | `Bitween:BusProviderMaxInFlight` | `16` | Unacknowledged messages one adapter may have in flight with Bitween |
 | `Bitween:InboundMessagePruneCron` | `0 30 3 * * ?` | When expired deduplication keys are deleted |
 
-The Helm chart has no dedicated values for these. Set them through `environmentVariables`.
+The Helm chart has no dedicated values for these. Set them through `environmentVariables`, for example `--set environmentVariables.Bitween__BusProvidersEnabled=true`: every key there becomes an environment variable.
 
 ## Resident adapters
 

@@ -1,0 +1,7 @@
+{
+  "id": "bitween.db.mysql",
+  "version": "1.0.0",
+  "displayName": "MySQL",
+  "summary": "A MySQL database as a data source: its named statements, read from and written to.",
+  "lifecycle": "resident"
+}

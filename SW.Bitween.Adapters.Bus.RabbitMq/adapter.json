@@ -1,0 +1,7 @@
+{
+  "id": "bitween.bus.rabbitmq",
+  "version": "1.0.0",
+  "displayName": "RabbitMQ",
+  "summary": "A customer's RabbitMQ broker as a data source: bus gateways read from its queues, subscriptions publish to it.",
+  "lifecycle": "resident"
+}

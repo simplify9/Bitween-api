@@ -1,0 +1,7 @@
+{
+  "id": "bitween.db.sqlserver",
+  "version": "1.0.0",
+  "displayName": "SQL Server",
+  "summary": "A SQL Server database as a data source: its named statements, read from and written to.",
+  "lifecycle": "resident"
+}

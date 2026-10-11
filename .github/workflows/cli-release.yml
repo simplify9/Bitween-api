@@ -85,8 +85,36 @@ jobs:
           name: bitween-${{ matrix.rid }}
           path: dist/*
 
+  # The data source providers (RabbitMQ, SQS and the database engines) as adapter packages, with the
+  # release's version: installed like any adapter, with bitween adapter publish or apply's adapters
+  # section. Nothing else publishes them, and a Bitween runs no data source without them.
+  providers:
+    needs: channel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build
+        env:
+          VERSION: ${{ needs.channel.outputs.version }}
+        run: |
+          dotnet build SW.Bitween.Cli -c Release -o cli
+          mkdir -p dist
+          for project in SW.Bitween.Adapters.Bus.RabbitMq SW.Bitween.Adapters.Bus.Sqs SW.Bitween.Adapters.Db.PostgreSql \
+                         SW.Bitween.Adapters.Db.MySql SW.Bitween.Adapters.Db.SqlServer SW.Bitween.Adapters.Db.Oracle; do
+            jq --arg v "$VERSION" '.version = $v' "$project/adapter.json" > adapter.json.tmp && mv adapter.json.tmp "$project/adapter.json"
+            dotnet cli/bitween.dll adapter build "$project" -o dist
+          done
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitween-providers
+          path: dist/*.zip
+
   release:
-    needs: [channel, build]
+    needs: [channel, build, providers]
     runs-on: ubuntu-latest
     steps:
       # Only the CLI builds' own artifacts. Without a pattern this fetched every artifact in the run,

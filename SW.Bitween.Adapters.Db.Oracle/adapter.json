@@ -1,0 +1,7 @@
+{
+  "id": "bitween.db.oracle",
+  "version": "1.0.0",
+  "displayName": "Oracle",
+  "summary": "An Oracle database as a data source: its named statements, read from and written to.",
+  "lifecycle": "resident"
+}
