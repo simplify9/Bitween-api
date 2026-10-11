@@ -149,12 +149,18 @@ public abstract class FileUpload<TSettings> : INativeInfolinkHandler
     public Type StartupValuesType => typeof(TSettings);
 }
 
+internal static class SftpTimeouts
+{
+    /// <summary>The setting, or 60 seconds when it is missing or not above 0: never without a limit.</summary>
+    public static TimeSpan Of(int seconds) => TimeSpan.FromSeconds(seconds > 0 ? seconds : 60);
+}
+
 /// <summary>Picks up files from an SFTP server, over SSH.NET. No license needed.</summary>
 public class NativeSftpReceiver : FilePickup<SftpPickupSettings>
 {
     private protected override Task<IFileTransfer> ConnectAsync() =>
         SftpTransfer.ConnectAsync(Options.Host, Options.Port, Options.Username, Options.Password,
-            Options.PrivateKey, Options.HostKeyFingerprint);
+            Options.PrivateKey, Options.HostKeyFingerprint, SftpTimeouts.Of(Options.TimeoutSeconds));
 
     public override string Name => "NativeSftpReceiver";
 }
@@ -164,7 +170,7 @@ public class NativeSftpUploadHandler : FileUpload<SftpUploadSettings>
 {
     private protected override Task<IFileTransfer> ConnectAsync() =>
         SftpTransfer.ConnectAsync(Options.Host, Options.Port, Options.Username, Options.Password,
-            Options.PrivateKey, Options.HostKeyFingerprint);
+            Options.PrivateKey, Options.HostKeyFingerprint, SftpTimeouts.Of(Options.TimeoutSeconds));
 
     public override string Name => "NativeSftpUploadHandler";
 }

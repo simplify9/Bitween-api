@@ -59,6 +59,12 @@
       "description": "SHA-256 fingerprint of the server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent."
     },
     {
+      "name": "TimeoutSeconds",
+      "type": "number",
+      "default": "60",
+      "description": "Seconds to wait for the server at each step - connecting, opening the SFTP session, each request - before the run fails. Default 60."
+    },
+    {
       "name": "TargetPath",
       "type": "text",
       "description": "Remote directory to read files from."

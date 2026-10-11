@@ -135,6 +135,7 @@ SFTP connection properties, shared with `NativeSftpReceiver`:
 | `Password` *(secret)* | | Signs in, or is the private key's passphrase when a key is set. |
 | `PrivateKey` *(secret)* | | Signs in with this key instead, PEM or OpenSSH format. A PEM key pasted onto one line is re-wrapped. |
 | `HostKeyFingerprint` | | The server's `SHA256:...` host-key fingerprint. When set, any other key is refused before credentials are sent. |
+| `TimeoutSeconds` | 60 | How long to wait for the server at each step: connecting, opening the SFTP session, each request. A server that never answers fails the run instead of holding it, and a place in the processing queue, indefinitely. |
 
 FTP connection properties, shared with `NativeFtpReceiver`:
 

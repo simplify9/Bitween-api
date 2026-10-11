@@ -47,6 +47,10 @@ public abstract class SftpConnectionSettings
 
     [Description("SHA-256 fingerprint of the server's host key, as 'ssh-keygen -lf' prints it (SHA256:...). When set, a server presenting any other key is refused before credentials are sent.")]
     public string? HostKeyFingerprint { get; set; }
+
+    [DefaultValue(60)]
+    [Description("Seconds to wait for the server at each step - connecting, opening the SFTP session, each request - before the run fails. Default 60.")]
+    public int TimeoutSeconds { get; set; } = 60;
 }
 
 /// <summary>Reaching an FTP or FTPS server.</summary>

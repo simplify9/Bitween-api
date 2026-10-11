@@ -32,10 +32,12 @@ internal sealed class SftpTransfer(SftpClient client) : IFileTransfer
     /// Signs in with the private key when one is given - its passphrase, if any, is the password -
     /// and with the password otherwise. A pinned host key is checked during the key exchange,
     /// before authentication: a server presenting any other key is turned away before a password
-    /// or key signature is sent to it.
+    /// or key signature is sent to it. Every step waits at most <paramref name="timeout"/>: SSH.NET
+    /// waits for ever by default, and a server that signs in but never opens the SFTP session held
+    /// the delivery, and with it a place in the processing queue, until the server went away.
     /// </summary>
     public static async Task<IFileTransfer> ConnectAsync(string host, int? port, string username,
-        string? password, string? privateKey, string? hostKeyFingerprint)
+        string? password, string? privateKey, string? hostKeyFingerprint, TimeSpan timeout)
     {
         AuthenticationMethod authentication;
         if (!string.IsNullOrWhiteSpace(privateKey))
@@ -51,7 +53,10 @@ internal sealed class SftpTransfer(SftpClient client) : IFileTransfer
         else
             throw new ArgumentException("SFTP needs a password or a private key to sign in with.");
 
-        var client = new SftpClient(new ConnectionInfo(host, port ?? 22, username, authentication));
+        var client = new SftpClient(new ConnectionInfo(host, port ?? 22, username, authentication) { Timeout = timeout })
+        {
+            OperationTimeout = timeout,
+        };
         string? refusedKey = null;
         client.HostKeyReceived += (_, e) =>
         {
@@ -63,7 +68,9 @@ internal sealed class SftpTransfer(SftpClient client) : IFileTransfer
 
         try
         {
-            await client.ConnectAsync(CancellationToken.None);
+            // ConnectAsync covers the connection and sign-in; OperationTimeout, the SFTP session it then opens.
+            using var connecting = new CancellationTokenSource(timeout * 2);
+            await client.ConnectAsync(connecting.Token);
         }
         catch (SshConnectionException) when (refusedKey is not null)
         {

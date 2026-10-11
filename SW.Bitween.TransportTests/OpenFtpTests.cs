@@ -123,6 +123,58 @@ public class OpenSftpTests(SftpFixture sftp) : IClassFixture<SftpFixture>
     }
 }
 
+/// <summary>
+/// An SFTP server that signs in and then never answers: sshd runs a command that sleeps in place of
+/// the SFTP server, so the session opens but the SFTP handshake gets no reply. What a broken partner
+/// server did in the lab, where each upload waited until the server went away.
+/// </summary>
+public sealed class StallingSftpServer : IAsyncLifetime
+{
+    public IContainer Container { get; private set; } = null!;
+
+    public async Task InitializeAsync()
+    {
+        Container = new ContainerBuilder()
+            .WithImage("atmoz/sftp:alpine")
+            .WithEntrypoint("sh", "-c",
+                "sed -i -e 's/^ForceCommand .*/ForceCommand sleep 3600/' -e '/^ChrootDirectory/d' /etc/ssh/sshd_config && " +
+                $"exec /entrypoint {SftpFixture.User}:{SftpFixture.Password}:1001:100:outbox")
+            .WithPortBinding(22, true)
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(22))
+            .Build();
+        await Container.StartAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        if (Container != null) await Container.DisposeAsync();
+    }
+}
+
+public class StallingSftpTests(StallingSftpServer server) : IClassFixture<StallingSftpServer>
+{
+    [Fact]
+    public async Task A_server_that_signs_in_but_never_opens_the_session_fails_the_upload_in_time()
+    {
+        var handler = Adapters.Create<NativeSftpUploadHandler>(new Dictionary<string, string>
+        {
+            ["Host"] = server.Container.Hostname,
+            ["Port"] = server.Container.GetMappedPublicPort(22).ToString(),
+            ["Username"] = SftpFixture.User,
+            ["Password"] = SftpFixture.Password,
+            ["TargetPath"] = "outbox",
+            ["TimeoutSeconds"] = "3",
+        });
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var upload = handler.Handle(new XchangeFile("{}", "order-1.json"));
+        // Without a limit this never finishes; the wait here only stops the test hanging with it.
+        Assert.Same(upload, await Task.WhenAny(upload, Task.Delay(TimeSpan.FromSeconds(60))));
+        await Assert.ThrowsAnyAsync<Exception>(() => upload);
+        Assert.InRange(clock.Elapsed, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(30));
+    }
+}
+
 /// <summary>A real FTP server: plain, explicit FTPS or implicit FTPS, with a self-signed certificate.</summary>
 public abstract class FtpServer : IAsyncLifetime
 {
