@@ -74,8 +74,12 @@ jobs:
     needs: [channel, build]
     runs-on: ubuntu-latest
     steps:
+      # Only the CLI builds' own artifacts. Without a pattern this fetched every artifact in the run,
+      # including the build record docker/build-push-action uploads in the deploy job, which can't be
+      # extracted and failed the release (and would have landed in SHA256SUMS if it could).
       - uses: actions/download-artifact@v4
         with:
+          pattern: bitween-*
           path: dist
           merge-multiple: true
       - name: Checksums
