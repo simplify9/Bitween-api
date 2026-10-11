@@ -156,6 +156,8 @@ export const keys = {
   exchanges: {
     all: ["exchanges"] as const,
     search: (params: string) => ["exchanges", "search", params] as const,
+    breakdown: (params: string) => ["exchanges", "breakdown", params] as const,
+    newSince: (params: string) => ["exchanges", "newSince", params] as const,
     document: (key: string | null) => ["exchanges", "document", key] as const,
     /**
      * A chain never changes above the exchange asked about, and only grows below it, so this is

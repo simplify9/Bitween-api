@@ -40,7 +40,9 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   await page.getByLabel("Refresh interval").selectOption("0");
 
   // Filter down to failed exchanges only.
-  await page.getByRole("button", { name: "Failed" }).click();
+  // By the start of its name: the button carries its count ("Failed 12"), and the volume chart's
+  // bars mention failures too.
+  await page.getByRole("button", { name: /^Failed\b/ }).click();
   await expect(page).toHaveURL(/status=failed/);
   // Pick by content, not position: the filter re-renders the table, and an index would race it
   // and land on whichever row was showing before.
@@ -53,10 +55,9 @@ test("exchanges list, filter, retry, bulk retry, create", async ({ page }) => {
   // nobody has retried yet; these are three of them.
   const [single, ...pair] = await unretriedFailures(page, 3);
 
-  // Expand the row (click the chevron cell - other cells stop propagation)
-  // and retry it from the drawer.
+  // A link to one exchange opens it beside the list; retry it from there.
   await page.goto(`exchanges?ids=${single}`);
-  await page.locator(`tr:has(input[aria-label="Select ${single}"])`).locator("td").last().click();
+  await expect(page.getByRole("complementary", { name: `Exchange ${single}` })).toBeVisible({ timeout: 15000 });
   await page.getByRole("button", { name: "Retry…" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Retry" }).click();
   await expect(page.getByText(/Retry started/)).toBeVisible({ timeout: 10000 });
@@ -156,7 +157,8 @@ test("a retried exchange shows its chain and sends you to the newest attempt", a
   await page.goto(`exchanges?ids=${retried}`);
   const row = page.locator(`tr:has(input[aria-label="Select ${retried}"])`);
   await expect(row).toBeVisible({ timeout: 15000 });
-  await row.locator("td").last().click();
+  // A link to one exchange opens it: nothing to click.
+  await expect(page.getByRole("complementary", { name: `Exchange ${retried}` })).toBeVisible();
 
   await expect(page.getByText("Already retried")).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole("button", { name: "Retry…" })).toHaveCount(0);

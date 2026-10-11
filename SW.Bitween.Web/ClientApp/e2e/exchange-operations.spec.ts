@@ -145,7 +145,8 @@ test("retrying a failure without re-resolving reuses the settings it first ran w
   const retry = async (exchangeId: string, reResolve: boolean) => {
     await page.goto(`exchanges?ids=${exchangeId}`);
     await page.getByLabel("Refresh interval").selectOption("0");
-    await page.locator(`tr:has(input[aria-label="Select ${exchangeId}"])`).locator("td").last().click();
+    // A link to one exchange opens it beside the list.
+    await expect(page.getByRole("complementary", { name: `Exchange ${exchangeId}` })).toBeVisible({ timeout: 15000 });
     await page.getByRole("button", { name: "Retry…" }).click();
     const dialog = page.getByRole("dialog", { name: "Retry this exchange?" });
     const box = dialog.getByRole("checkbox", { name: /^Re-resolve adapter properties/ });

@@ -66,10 +66,15 @@ function exchanges({
   return { handler, asked };
 }
 
-/** The pickers above the list. Nothing in them matters here. */
-const filterOptions = ["/partners", "/subscriptions", "/documents"].map((p) =>
-  http.get(apiPath(p), () => HttpResponse.json({ result: [], totalCount: 0 })),
-);
+/** The pickers above the list, and the counts and chart beside it. Nothing in them matters here. */
+const filterOptions = [
+  ...["/partners", "/subscriptions", "/documents"].map((p) =>
+    http.get(apiPath(p), () => HttpResponse.json({ result: [], totalCount: 0 })),
+  ),
+  http.get(apiPath("/xchanges/summary"), () =>
+    HttpResponse.json({ counts: { processing: 0, success: 0, badResponse: 0, failed: 0 }, buckets: [], bucketMinutes: 0 }),
+  ),
+];
 
 const rowCheckboxes = () => screen.getAllByRole("checkbox", { name: /^Select (?!all\b)/ });
 

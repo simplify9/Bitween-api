@@ -48,3 +48,14 @@ export function journeyStages(x: ExchangeRow): JourneyStage[] {
     (s) => ({ ...s, label: stageLabel(s.key, s.state) }),
   );
 }
+
+/** One phrase for where an exchange got to, under its three-segment strip. */
+export function journeySummary(x: ExchangeRow): string {
+  const [, mapped, handled] = journeyStages(x);
+  if (mapped.state === "failed") return "Failed while mapping";
+  if (handled.state === "failed") return "Failed while handling";
+  if (handled.state === "bad") return "Delivered, error reply";
+  if (mapped.state === "running") return "Mapping now";
+  if (handled.state === "running") return "Handling now";
+  return mapped.state === "skipped" ? "No mapper, handled" : "Mapped and handled";
+}

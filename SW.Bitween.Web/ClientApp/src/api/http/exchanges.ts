@@ -2,6 +2,7 @@ import type { ApiClient } from "../client";
 import type {
   BulkRetryPlan,
   BulkRetrySelection,
+  ExchangeBreakdown,
   ExchangeQuery,
   ExchangeRow,
   ExchangeStatus,
@@ -199,6 +200,10 @@ function buildExchangeFilters(query: ExchangeQuery): URLSearchParams {
   const propertyValue = query.property?.trim() ?? "";
   const propertyTerm = query.propertyKey ? `${query.propertyKey}:${propertyValue}` : propertyValue;
   if (propertyTerm) params.append("filter", `PromotedPropertiesRaw:4:${propertyTerm}`);
+  if (query.errorContains?.trim()) params.append("filter", `ErrorContains:4:${query.errorContains.trim()}`);
+  if (query.isRetry) params.append("filter", "IsRetry:1:true");
+  if (query.scheduledRetry) params.append("filter", "HasScheduledRetry:1:true");
+  if (query.aggregated) params.append("filter", "Aggregated:1:true");
   if (query.from) params.append("filter", `StartedOn:6:${query.from}`);
   if (query.to) params.append("filter", `StartedOn:8:${query.to}`);
   return params;
@@ -278,6 +283,26 @@ export const exchangeMethods = {
       partnerNameMap(),
     ]);
     return { result: res.result.map((r) => toExchangeRow(r, partnerNameById)), total: res.totalCount };
+  },
+
+  /**
+   * The status counts and volume over time behind the list's tabs and chart. The status is left
+   * out of the filter on purpose: the tabs are the choice between statuses, so each needs its
+   * count under every other filter.
+   */
+  async getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown> {
+    const params = buildExchangeFilters({ ...query, status: undefined });
+    const res = await get<ExchangeBreakdown>(`/xchanges/summary${params.toString() ? `?${searchyQueryString(params)}` : ""}`);
+    return {
+      counts: {
+        processing: res.counts?.processing ?? 0,
+        success: res.counts?.success ?? 0,
+        badResponse: res.counts?.badResponse ?? 0,
+        failed: res.counts?.failed ?? 0,
+      },
+      buckets: res.buckets ?? [],
+      bucketMinutes: res.bucketMinutes ?? 0,
+    };
   },
 
   async retryExchange(id: string, { reset }: { reset: boolean }): Promise<{ id: string }> {

@@ -295,4 +295,61 @@ namespace SW.Bitween.Model
         /// </remarks>
         public bool HasRetry { get; set; }
     }
+
+    /// <summary>
+    /// The exchange list's filter, summarised: how many exchanges are in each status, and when they
+    /// started. Returned by <c>GET /api/xchanges/summary</c>, which takes the same filters the search
+    /// does.
+    /// </summary>
+    /// <remarks>
+    /// Any status filter is ignored: this is the breakdown the status tabs show, each tab's count
+    /// under every other filter the list has, so narrowing to one status first would leave three of
+    /// them reading zero.
+    /// </remarks>
+    public class XchangeSummary
+    {
+        /// <summary>How many exchanges match, by status. Each is capped like the search's total.</summary>
+        public XchangeStatusCounts Counts { get; set; } = new XchangeStatusCounts();
+
+        /// <summary>
+        /// When the matching exchanges started, by status, in fixed buckets of
+        /// <see cref="BucketMinutes"/> each - contiguous and zero-filled from the start of the
+        /// filter's date range to its end. Empty when the filter has no start date: with no range
+        /// there is nothing to divide into buckets but the whole history.
+        /// </summary>
+        public List<XchangeSummaryBucket> Buckets { get; set; } = new List<XchangeSummaryBucket>();
+
+        /// <summary>How long each bucket is, in minutes; 0 when there are no buckets.</summary>
+        public int BucketMinutes { get; set; }
+    }
+
+    /// <summary>
+    /// Exchanges by status, defined exactly as the list's status filter defines them. A count of
+    /// <c>10001</c> means "more than 10,000": counting stops there, as the search's total does.
+    /// </summary>
+    public class XchangeStatusCounts
+    {
+        /// <summary>Still running: no result yet.</summary>
+        public int Processing { get; set; }
+
+        /// <summary>Finished, and the response (if any) was not marked bad.</summary>
+        public int Success { get; set; }
+
+        /// <summary>Finished, but the response was marked bad.</summary>
+        public int BadResponse { get; set; }
+
+        public int Failed { get; set; }
+    }
+
+    /// <summary>One bucket of <see cref="XchangeSummary.Buckets"/>: exchanges that started in it, by status.</summary>
+    public class XchangeSummaryBucket
+    {
+        /// <summary>When the bucket starts, in UTC. It ends where the next one starts.</summary>
+        public DateTime Start { get; set; }
+
+        public int Processing { get; set; }
+        public int Success { get; set; }
+        public int BadResponse { get; set; }
+        public int Failed { get; set; }
+    }
 }
