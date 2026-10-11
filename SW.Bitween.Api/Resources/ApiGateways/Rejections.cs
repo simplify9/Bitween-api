@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -23,11 +24,22 @@ public class Rejections(BitweenDbContext dbContext, RequestContext requestContex
             .Select(g => g.UrlName).SingleOrDefaultAsync() ?? throw new SWNotFoundException(key.ToString());
 
         var (counts, recent) = activity.RefusalsOf(urlName);
+
+        // Every node's, kept past restarts: the hourly metrics count each refusal under the reason.
+        var scopeKey = urlName.Trim('/').ToLowerInvariant();
+        var weekAgo = DateTime.UtcNow.AddDays(-7);
+        var lastSevenDays = await dbContext.Set<Domain.Metrics.ErrorStats>().AsNoTracking()
+            .Where(e => e.Scope == Domain.Metrics.ErrorStats.GatewayScope && e.ScopeKey == scopeKey && e.Hour >= weekAgo)
+            .GroupBy(e => e.Sample)
+            .Select(g => new { Reason = g.Key, Count = g.Sum(x => (long)x.Count) })
+            .ToDictionaryAsync(x => x.Reason ?? "", x => x.Count);
+
         return new
         {
             Node = Services.Cluster.NodeHeartbeat.NodeName,
             activity.Since,
             Counts = counts,
+            LastSevenDays = lastSevenDays,
             Recent = recent.Select(r => new { r.On, r.Reason, r.Status, r.Address }),
         };
     }

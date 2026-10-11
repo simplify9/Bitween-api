@@ -29,7 +29,8 @@ const REASON: Record<string, { label: string; meaning: string }> = {
 
 /**
  * Calls to this gateway turned away, and why - what "the partner says they get 401" needed and had
- * nowhere to look. Counted in memory on the node that answers, since it started.
+ * nowhere to look. The week across every node, from the hourly metrics; and live, the node that
+ * answered, since it started, with the most recent calls themselves.
  */
 export function GatewayRejections({ gatewayId }: { gatewayId: number }) {
   const rejections = useQuery({
@@ -40,12 +41,25 @@ export function GatewayRejections({ gatewayId }: { gatewayId: number }) {
   if (!rejections.data) return null;
   const r = rejections.data;
   const reasons = Object.entries(r.counts).sort((a, b) => b[1] - a[1]);
+  const week = Object.entries(r.lastSevenDays ?? {}).sort((a, b) => b[1] - a[1]);
 
   return (
     <Panel
       title="Calls turned away"
       description={`Counted by the node that answered (${r.node}) since it started ${timeAgo(r.since)}. Each node counts its own.`}
     >
+      {week.length > 0 && (
+        <div className="mb-4">
+          <h4 className="mb-1 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Last 7 days, every node</h4>
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-700">
+            {week.map(([reason, count]) => (
+              <span key={reason}>
+                <span className="font-semibold tabular-nums">{count.toLocaleString("en")}</span> {REASON[reason]?.label ?? reason}
+              </span>
+            ))}
+          </p>
+        </div>
+      )}
       {reasons.length === 0 ? (
         <p className="text-[13px] text-ink-500">None. Every call that reached this node got through.</p>
       ) : (

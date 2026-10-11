@@ -54,6 +54,18 @@ public class MetricsHttpTests(HttpFixture fixture)
     }
 
     [Fact]
+    public async Task A_refused_gateway_call_is_kept_in_the_week_across_nodes_and_restarts()
+    {
+        var (admin, urlName, gatewayId, _, _) = await Api.GatewayAsync(fixture);
+        using var _ = admin;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Api.CallSyncAsync(fixture, urlName, "not-a-real-key")).StatusCode);
+
+        await FlushAsync(fixture.App);
+        var rejections = await Api.Json(await admin.GetAsync($"/api/apigateways/{gatewayId}/rejections"));
+        Assert.Equal(1, (int)rejections["lastSevenDays"]!["not-authenticated"]!);
+    }
+
+    [Fact]
     public async Task A_partner_member_without_dashboard_access_is_refused_the_overview()
     {
         using var anonymous = fixture.Client();

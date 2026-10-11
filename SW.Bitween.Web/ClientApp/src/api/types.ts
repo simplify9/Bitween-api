@@ -1736,6 +1736,8 @@ export interface GatewayRejections {
   node: string;
   since: string;
   counts: Record<string, number>;
+  /** Every node's refusals over the last week, by reason. Absent from servers before metrics. */
+  lastSevenDays?: Record<string, number>;
   recent: { on: string; reason: string; status: number; address: string | null }[];
 }
 
