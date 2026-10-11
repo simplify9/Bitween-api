@@ -33,7 +33,7 @@ and automatically suppresses the `Ingress` — you do **not** need to also set
 ```sh
 helm install bitween ./charts/default \
   --set ingress.hosts[0]=api.example.com
-# paths default to /api and /swagger (ingress.paths)
+# paths default to /api, /swagger and / (ingress.paths)
 ```
 
 ### Gateway API
@@ -64,7 +64,8 @@ concerns.
 | `ingress.enabled` | `true` | Render an `Ingress` (only when `gateway.enabled` is `false`). |
 | `ingress.annotations` | `{}` | Annotations applied to the `Ingress`. |
 | `ingress.hosts` | _(unset)_ | List of hostnames; one rule per host. |
-| `ingress.paths` | `[/api, /swagger]` | Paths exposed per host (falls back to `ingress.path`). |
+| `ingress.paths` | `[/api, /swagger, /]` | Paths exposed per host. `/` serves the admin UI. |
+| `ingress.path` | `/` | Single path used only when `ingress.paths` is empty. |
 | `ingress.tls` | `[]` | List of `{ secretName, hosts }` TLS entries. |
 
 ### Gateway API (`HTTPRoute`)
@@ -74,7 +75,7 @@ concerns.
 | `gateway.enabled` | `false` | Render an `HTTPRoute` instead of the `Ingress`. |
 | `gateway.parentRefs` | see `values.yaml` | `Gateway`/listener references the route attaches to (`name`, `namespace`, `sectionName`). |
 | `gateway.hostnames` | see `values.yaml` | Hostnames the route matches. |
-| `gateway.routes` | `[{ path: "/", pathType: PathPrefix }]` | Path matches and backend refs. Each entry supports `path`, `pathType`, optional `timeout.{request,backendRequest}`, and `backendRef.{name,port,namespace,weight}`. `backendRef.name` defaults to the release fullname; `backendRef.port` defaults to `service.port`. To mirror the ingress, set routes for `/api` and `/swagger`. |
+| `gateway.routes` | `[{ path: "/", pathType: PathPrefix }]` | Path matches and backend refs. Each entry supports `path`, `pathType`, optional `timeout.{request,backendRequest}`, and `backendRef.{name,port,namespace,weight}`. `backendRef.name` defaults to the release fullname; `backendRef.port` defaults to `service.port`. The default `/` already matches the ingress paths. |
 
 > The shipped `gateway` defaults reference Simplify9 cluster infrastructure
 > (`public-gateway` / `s9-dev-edge` / `*.sf9.io`) and a single `/` route.
