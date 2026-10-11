@@ -150,7 +150,10 @@ public class HttpTests(PartnerServer partner) : IClassFixture<PartnerServer>
 
     [Theory]
     [InlineData("/busy", "Retry-After: 30s")]
+    [InlineData("/busy", "429: TooManyRequests: ")]
     [InlineData("/broken", "upstream exploded")]
+    // As the retry policy docs match it, and as it always read.
+    [InlineData("/broken", "502: BadGateway: ")]
     public async Task Not_now_and_a_server_failure_fail_the_delivery_so_it_can_be_retried(string path, string expected)
     {
         var failure = await Assert.ThrowsAsync<Exception>(() =>

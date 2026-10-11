@@ -60,7 +60,7 @@ For `Error`, matchers look at the full exception text. For `BadResult`, they loo
 | `exceptionType` | Error | `value`, `includeInner` (default true) | An exception type named in the text equals `value`, short or fully qualified. With `includeInner` off, only the outermost exception counts. |
 | `jsonPath` | BadResult | `path`, `op`, `value` | The JSON body meets the condition. `path` uses dots and `[index]`. `op` is `Eq`, `Neq`, `Contains`, `Regex`, `Exists` or `NotExists`, ignoring case. Invalid JSON never matches. |
 
-There is no status-code matcher. To match an HTTP status, use `contains` or `regex` on the exception text or body.
+There is no status-code matcher. To match an HTTP status, use `contains` or `regex` on the exception text or body. The HTTP handler fails a delivery with `{code}: {name}: {body}`, as in `503: ServiceUnavailable: ...`, so `"503:"` matches one status and `"^5\\d\\d:"` (as a regex) any server error. Older versions carried only the name (`ServiceUnavailable: ...`); that text is still there, so matchers written against it keep working.
 
 ### Delay strategies
 

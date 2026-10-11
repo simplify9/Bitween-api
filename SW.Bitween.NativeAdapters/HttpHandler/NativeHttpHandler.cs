@@ -147,7 +147,9 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
             var retryAfter = response.Headers.RetryAfter is { } after
                 ? $" Retry-After: {(after.Delta is { } delta ? $"{delta.TotalSeconds:0}s" : after.Date?.ToString("u"))}."
                 : "";
-            throw new Exception($"{response.StatusCode}: {resp}{retryAfter}");
+            // The number first, as retry policies match it ("503:"), then the name it always carried
+            // ("ServiceUnavailable:"), so matchers written against either keep working.
+            throw new Exception($"{(int)response.StatusCode}: {response.StatusCode}: {resp}{retryAfter}");
         }
         XchangeFile xchangeFile1 = response.StatusCode < HttpStatusCode.BadRequest
             ? new XchangeFile(resp)
