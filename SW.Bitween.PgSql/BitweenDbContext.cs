@@ -178,7 +178,45 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(i => i.Host).HasMaxLength(200);
                 b.Property(i => i.Version).HasMaxLength(50);
                 b.Property(i => i.Runtimes).HasMaxLength(100);
+                b.Property(i => i.ResidentHealth).HasMaxLength(4000);
                 b.HasIndex(i => i.LastSeenOn);
+            });
+
+            // Metrics: hourly rollups each node adds to once a minute, and broker snapshots. Keys lead
+            // with the hour, so reading a time range and pruning old hours both use the key itself.
+            modelBuilder.Entity<Domain.Metrics.ExchangeStats>(b =>
+            {
+                b.ToTable("exchange_stats");
+                b.HasKey(p => new { p.Hour, p.Node, p.SubscriptionId, p.PartnerId });
+                b.Property(p => p.Node).HasMaxLength(100);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.AdapterStats>(b =>
+            {
+                b.ToTable("adapter_stats");
+                b.HasKey(p => new { p.Hour, p.Node, p.AdapterId, p.Version, p.Role, p.Runtime });
+                b.Property(p => p.Node).HasMaxLength(100);
+                b.Property(p => p.AdapterId).HasMaxLength(200);
+                b.Property(p => p.Version).HasMaxLength(50);
+                b.Property(p => p.Role).HasMaxLength(20);
+                b.Property(p => p.Runtime).HasMaxLength(20);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.ErrorStats>(b =>
+            {
+                b.ToTable("error_stats");
+                b.HasKey(p => new { p.Hour, p.Node, p.Scope, p.ScopeKey, p.Fingerprint });
+                b.Property(p => p.Node).HasMaxLength(100);
+                b.Property(p => p.Scope).HasMaxLength(20);
+                b.Property(p => p.ScopeKey).HasMaxLength(200);
+                b.Property(p => p.Fingerprint).HasMaxLength(16);
+                b.Property(p => p.Sample).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.QueueSnapshot>(b =>
+            {
+                b.ToTable("queue_snapshot");
+                b.HasKey(p => p.At);
             });
 
             modelBuilder.Entity<DataSourceStatement>(st =>
@@ -373,6 +411,9 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.RetryGroupId);
                 b.Property(p => p.AttemptNumber);
                 b.HasIndex(p => p.RetryGroupId);
+                b.Property(p => p.NodeName).HasMaxLength(100);
+                b.Property(p => p.MapperVersion).HasMaxLength(50);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50);
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });

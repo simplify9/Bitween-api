@@ -26,6 +26,8 @@ public class Background(BitweenDbContext dbContext, RequestContext requestContex
         (typeof(ExchangeRetentionJob), "Exchange retention", "Deletes or archives exchanges older than they are kept."),
         (typeof(ReceiveAttemptCleanupJob), "Receive attempt clean-up", "Deletes old records of scheduled jobs' receive attempts."),
         (typeof(Services.DataSources.InboundMessagePruneJob), "Broker deduplication clean-up", "Forgets deduplication keys older than each data source keeps them."),
+        (typeof(Services.Metrics.QueueSnapshotJob), "Queue snapshots", "Records the broker's queue totals every few minutes, for the backlog trend."),
+        (typeof(Services.Metrics.MetricsPruneJob), "Metrics clean-up", "Deletes hourly metrics and queue snapshots past their keeping."),
     ];
 
     public async Task<object> Handle()

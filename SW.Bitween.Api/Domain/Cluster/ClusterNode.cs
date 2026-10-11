@@ -30,4 +30,11 @@ public class ClusterNode : BaseEntity<string>
 
     /// <summary>The adapter runtimes this node has, comma-separated: dotnet,python,node.</summary>
     public string Runtimes { get; set; }
+
+    /// <summary>
+    /// The resident adapter instances running on this node at its last beat - state, uptime,
+    /// restarts, quarantine - as JSON, so any node can show every node's. Null on a node without
+    /// resident adapters, and on beats from before this was recorded.
+    /// </summary>
+    public string ResidentHealth { get; set; }
 }

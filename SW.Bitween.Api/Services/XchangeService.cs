@@ -703,6 +703,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         activity?.SetTag("bitween.subscription.id", xchange.SubscriptionId);
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var outcome = "error";
+        // For the metrics: which adapter a failure came from, and the failure itself.
+        var failedAt = SW.Bitween.Services.Metrics.FailedAt.Elsewhere;
+        Exception failure = null;
 
         try
         {
@@ -726,12 +729,18 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 workGroup = await BitweenCache.WorkGroupBySubscriptionIdAsync(xchange.SubscriptionId.Value);
                 await EnsureSourceValuesFilled(xchange);
                 if (xchange.MapperId == null)
+                {
+                    failedAt = SW.Bitween.Services.Metrics.FailedAt.Handler;
                     responseFile = await RunHandler(xchange, inputFile);
+                }
                 else
                 {
+                    failedAt = SW.Bitween.Services.Metrics.FailedAt.Mapper;
                     outputFile = await RunMapper(xchange, inputFile);
+                    failedAt = SW.Bitween.Services.Metrics.FailedAt.Handler;
                     responseFile = await RunHandler(xchange, outputFile);
                 }
+                failedAt = SW.Bitween.Services.Metrics.FailedAt.Elsewhere;
 
                 if (xchange.ResponseSubscriptionId != null && responseFile != null)
                     responseXchange = await HandOnResponse(xchange, responseFile, inputFile);
@@ -749,6 +758,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id);
+            await StampAsync(xchangeResult, xchange);
             dbContext.Add(xchangeResult);
             if (responseFile?.BadData == true)
                 await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
@@ -764,8 +774,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         {
             activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, ex.GetType().Name);
             DiscardUnsavedOutcome(xchange.Id, saveFailed: ex is DbUpdateException);
+            failure = ex;
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id, ex.ToString());
+            await StampAsync(xchangeResult, xchange);
             dbContext.Add(xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await dbContext.SaveChangesAsync();
@@ -777,7 +789,50 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             BitweenTelemetry.ExchangesProcessed.Add(1, outcomeTag);
             BitweenTelemetry.ProcessingDuration.Record(clock.Elapsed.TotalSeconds, outcomeTag);
             activity?.SetTag("bitween.outcome", outcome);
+            serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>()?.Exchange(
+                xchange.StartedOn, xchange.SubscriptionId, xchange.PartnerId,
+                outcome switch
+                {
+                    "success" => SW.Bitween.Services.Metrics.ExchangeOutcome.Succeeded,
+                    "bad_response" => SW.Bitween.Services.Metrics.ExchangeOutcome.BadResponse,
+                    _ => SW.Bitween.Services.Metrics.ExchangeOutcome.Failed,
+                },
+                failedAt, xchange.RetryFor != null, xchange.ManualRetry,
+                (long)(DateTime.UtcNow - xchange.StartedOn).TotalMilliseconds,
+                xchange.InputSize, (outputFile?.Data.Length ?? 0) + (responseFile?.Data.Length ?? 0),
+                failure?.Message);
         }
+    }
+
+    /// <summary>
+    /// Writes on the result which node ran it, which adapter versions ran, and how long it took from
+    /// arriving. Never fails the exchange: a version that can't be read is left out.
+    /// </summary>
+    async Task StampAsync(XchangeResult result, Xchange xchange)
+    {
+        string mapperVersion = null, handlerVersion = null;
+        try
+        {
+            var catalog = serviceProvider.GetService<Services.Adapters.AdapterCatalog>();
+            if (catalog != null)
+            {
+                mapperVersion = await RunVersionAsync(catalog, xchange.MapperId);
+                handlerVersion = await RunVersionAsync(catalog, xchange.HandlerId);
+            }
+        }
+        catch
+        {
+            // The versions are a convenience on the result, not part of it.
+        }
+        result.Stamp(SW.Bitween.Services.Metrics.MetricsRecorder.Node, mapperVersion, handlerVersion,
+            (long)(DateTime.UtcNow - xchange.StartedOn).TotalMilliseconds);
+    }
+
+    static async Task<string> RunVersionAsync(Services.Adapters.AdapterCatalog catalog, string adapterRef)
+    {
+        if (string.IsNullOrWhiteSpace(adapterRef) || NativeAdapterDiscoveryService.IsNative(adapterRef)) return null;
+        var (id, version) = SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Split(adapterRef);
+        return version ?? (await catalog.GetAsync(id))?.Current;
     }
 
     /// <summary>

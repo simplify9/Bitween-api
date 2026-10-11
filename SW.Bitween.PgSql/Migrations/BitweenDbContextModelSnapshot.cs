@@ -577,6 +577,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_seen_on");
 
+                    b.Property<string>("ResidentHealth")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("resident_health");
+
                     b.Property<string>("Runtimes")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -1248,6 +1253,309 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasDatabaseName("ix_idempotency_key_scope_key");
 
                     b.ToTable("idempotency_key", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.AdapterStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hour");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("node");
+
+                    b.Property<string>("AdapterId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("adapter_id");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("version");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("role");
+
+                    b.Property<string>("Runtime")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("runtime");
+
+                    b.Property<int>("Calls")
+                        .HasColumnType("integer")
+                        .HasColumnName("calls");
+
+                    b.Property<int>("Crashes")
+                        .HasColumnType("integer")
+                        .HasColumnName("crashes");
+
+                    b.Property<int>("D0")
+                        .HasColumnType("integer")
+                        .HasColumnName("d0");
+
+                    b.Property<int>("D1")
+                        .HasColumnType("integer")
+                        .HasColumnName("d1");
+
+                    b.Property<int>("D2")
+                        .HasColumnType("integer")
+                        .HasColumnName("d2");
+
+                    b.Property<int>("D3")
+                        .HasColumnType("integer")
+                        .HasColumnName("d3");
+
+                    b.Property<int>("D4")
+                        .HasColumnType("integer")
+                        .HasColumnName("d4");
+
+                    b.Property<int>("D5")
+                        .HasColumnType("integer")
+                        .HasColumnName("d5");
+
+                    b.Property<int>("D6")
+                        .HasColumnType("integer")
+                        .HasColumnName("d6");
+
+                    b.Property<int>("D7")
+                        .HasColumnType("integer")
+                        .HasColumnName("d7");
+
+                    b.Property<int>("D8")
+                        .HasColumnType("integer")
+                        .HasColumnName("d8");
+
+                    b.Property<int>("D9")
+                        .HasColumnType("integer")
+                        .HasColumnName("d9");
+
+                    b.Property<long>("DurationMaxMs")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_max_ms");
+
+                    b.Property<long>("DurationSumMs")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_sum_ms");
+
+                    b.Property<int>("Failures")
+                        .HasColumnType("integer")
+                        .HasColumnName("failures");
+
+                    b.Property<int>("LimitStops")
+                        .HasColumnType("integer")
+                        .HasColumnName("limit_stops");
+
+                    b.Property<int>("Timeouts")
+                        .HasColumnType("integer")
+                        .HasColumnName("timeouts");
+
+                    b.HasKey("Hour", "Node", "AdapterId", "Version", "Role", "Runtime")
+                        .HasName("pk_adapter_stats");
+
+                    b.ToTable("adapter_stats", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.ErrorStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hour");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("node");
+
+                    b.Property<string>("Scope")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("scope");
+
+                    b.Property<string>("ScopeKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("scope_key");
+
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("fingerprint");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.Property<DateTime>("LastSeenOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_on");
+
+                    b.Property<string>("Sample")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("sample");
+
+                    b.HasKey("Hour", "Node", "Scope", "ScopeKey", "Fingerprint")
+                        .HasName("pk_error_stats");
+
+                    b.ToTable("error_stats", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.ExchangeStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hour");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("node");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
+                    b.Property<int>("BadResponse")
+                        .HasColumnType("integer")
+                        .HasColumnName("bad_response");
+
+                    b.Property<long>("BytesIn")
+                        .HasColumnType("bigint")
+                        .HasColumnName("bytes_in");
+
+                    b.Property<long>("BytesOut")
+                        .HasColumnType("bigint")
+                        .HasColumnName("bytes_out");
+
+                    b.Property<int>("D0")
+                        .HasColumnType("integer")
+                        .HasColumnName("d0");
+
+                    b.Property<int>("D1")
+                        .HasColumnType("integer")
+                        .HasColumnName("d1");
+
+                    b.Property<int>("D2")
+                        .HasColumnType("integer")
+                        .HasColumnName("d2");
+
+                    b.Property<int>("D3")
+                        .HasColumnType("integer")
+                        .HasColumnName("d3");
+
+                    b.Property<int>("D4")
+                        .HasColumnType("integer")
+                        .HasColumnName("d4");
+
+                    b.Property<int>("D5")
+                        .HasColumnType("integer")
+                        .HasColumnName("d5");
+
+                    b.Property<int>("D6")
+                        .HasColumnType("integer")
+                        .HasColumnName("d6");
+
+                    b.Property<int>("D7")
+                        .HasColumnType("integer")
+                        .HasColumnName("d7");
+
+                    b.Property<int>("D8")
+                        .HasColumnType("integer")
+                        .HasColumnName("d8");
+
+                    b.Property<int>("D9")
+                        .HasColumnType("integer")
+                        .HasColumnName("d9");
+
+                    b.Property<long>("DurationMaxMs")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_max_ms");
+
+                    b.Property<long>("DurationSumMs")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_sum_ms");
+
+                    b.Property<int>("Failed")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed");
+
+                    b.Property<int>("FailedAtHandler")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_at_handler");
+
+                    b.Property<int>("FailedAtMapper")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_at_mapper");
+
+                    b.Property<int>("ManualRetries")
+                        .HasColumnType("integer")
+                        .HasColumnName("manual_retries");
+
+                    b.Property<int>("Retries")
+                        .HasColumnType("integer")
+                        .HasColumnName("retries");
+
+                    b.Property<int>("Succeeded")
+                        .HasColumnType("integer")
+                        .HasColumnName("succeeded");
+
+                    b.Property<int>("Total")
+                        .HasColumnType("integer")
+                        .HasColumnName("total");
+
+                    b.HasKey("Hour", "Node", "SubscriptionId", "PartnerId")
+                        .HasName("pk_exchange_stats");
+
+                    b.ToTable("exchange_stats", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.QueueSnapshot", b =>
+                {
+                    b.Property<DateTime>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<double>("AckRate")
+                        .HasColumnType("double precision")
+                        .HasColumnName("ack_rate");
+
+                    b.Property<int>("Consumers")
+                        .HasColumnType("integer")
+                        .HasColumnName("consumers");
+
+                    b.Property<long>("DeadLetterBacklog")
+                        .HasColumnType("bigint")
+                        .HasColumnName("dead_letter_backlog");
+
+                    b.Property<double>("IncomingRate")
+                        .HasColumnType("double precision")
+                        .HasColumnName("incoming_rate");
+
+                    b.Property<long>("QueueDepth")
+                        .HasColumnType("bigint")
+                        .HasColumnName("queue_depth");
+
+                    b.Property<long>("RetryBacklog")
+                        .HasColumnType("bigint")
+                        .HasColumnName("retry_backlog");
+
+                    b.Property<int>("UnhealthyConsumers")
+                        .HasColumnType("integer")
+                        .HasColumnName("unhealthy_consumers");
+
+                    b.HasKey("At")
+                        .HasName("pk_queue_snapshot");
+
+                    b.ToTable("queue_snapshot", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
@@ -2215,6 +2523,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("attempt_number");
 
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_ms");
+
                     b.Property<string>("Exception")
                         .HasColumnType("text")
                         .HasColumnName("exception");
@@ -2222,6 +2534,21 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<DateTime>("FinishedOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished_on");
+
+                    b.Property<string>("HandlerVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("handler_version");
+
+                    b.Property<string>("MapperVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("mapper_version");
+
+                    b.Property<string>("NodeName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("node_name");
 
                     b.Property<bool>("OutputBad")
                         .HasColumnType("boolean")

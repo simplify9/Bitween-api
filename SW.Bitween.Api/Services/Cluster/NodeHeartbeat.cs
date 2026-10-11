@@ -63,10 +63,50 @@ public class NodeHeartbeat(IServiceScopeFactory scopes, BitweenOptions options, 
         node.Version = BitweenInfo.Version(options).ToString();
         node.DataSources = options.BusProvidersEnabled;
         node.Runtimes = runtimes;
+        node.ResidentHealth = ResidentHealthJson();
         await db.SaveChangesAsync(cancellation);
 
         var forgotten = now - ForgetAfter;
         await db.Set<ClusterNode>().Where(n => n.LastSeenOn < forgotten).ExecuteDeleteAsync(cancellation);
+    }
+
+    /// <summary>
+    /// The resident adapter instances on this node, as JSON for the Nodes page: what each is doing,
+    /// what it uses, how often it has been restarted. Null without any. Kept within the column by
+    /// listing at most <see cref="MaxInstances"/>, busiest first.
+    /// </summary>
+    internal const int MaxInstances = 25;
+
+    string ResidentHealthJson()
+    {
+        try
+        {
+            var host = services.GetService<SW.Serverless.Resident.IResidentAdapterHost>();
+            var instances = host?.Describe();
+            if (instances == null || instances.Count == 0) return null;
+            var rows = instances
+                .OrderByDescending(i => i.InFlight).ThenByDescending(i => i.WorkingSetBytes)
+                .Take(MaxInstances)
+                .Select(i => new
+                {
+                    a = i.AdapterId,
+                    s = i.State.ToString(),
+                    pid = i.ProcessId,
+                    mb = (int)(i.WorkingSetBytes / 1024 / 1024),
+                    cpu = Math.Round(i.CpuPercent, 1),
+                    up = (long)i.Uptime.TotalSeconds,
+                    r = i.RestartCount,
+                    q = i.Quarantined,
+                    f = i.InFlight,
+                    e = i.LastError?.Length > 120 ? i.LastError[..120] : i.LastError,
+                });
+            var json = System.Text.Json.JsonSerializer.Serialize(rows);
+            return json.Length <= 4000 ? json : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     async Task<string> RuntimesAsync()

@@ -89,6 +89,11 @@ namespace SW.Bitween.Web
             services.AddSingleton<SignInThrottle>();
             services.AddSingleton<CliSignInCodes>();
             services.AddSingleton<GatewayActivity>();
+            // Metrics: counted in memory as work happens, added to hourly rows once a minute per node.
+            services.AddSingleton<SW.Bitween.Services.Metrics.MetricsRecorder>();
+            services.AddSingleton<SW.Bitween.Services.Metrics.MetricsFlusher>();
+            services.AddHostedService(sp => sp.GetRequiredService<SW.Bitween.Services.Metrics.MetricsFlusher>());
+            services.AddHostedService<SW.Bitween.Services.Metrics.MetricsBackfill>();
             // Every node says it's here, so the Nodes view can list the cluster from any of them.
             services.AddHostedService<SW.Bitween.Services.Cluster.NodeHeartbeat>();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();

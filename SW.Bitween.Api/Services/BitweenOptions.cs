@@ -262,5 +262,20 @@ namespace SW.Bitween
         /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
         /// </summary>
         public string ReceiveAttemptCleanupCron { get; set; } = "0 0 3 * * ?";
+
+        /// <summary>How many days of hourly metrics to keep. A year and a bit, for "same week last year".</summary>
+        public int MetricsRetentionDays { get; set; } = 400;
+
+        /// <summary>
+        /// How many days of exchange history to fold into the metrics once, after the upgrade that adds
+        /// them, a few hours at a time. 0 skips it.
+        /// </summary>
+        public int MetricsBackfillDays { get; set; } = 30;
+
+        /// <summary>When to delete metrics and broker snapshots past their keeping. Nightly.</summary>
+        public string MetricsPruneCron { get; set; } = "0 15 3 * * ?";
+
+        /// <summary>How often to record the broker's queue totals for the backlog trend. Every five minutes.</summary>
+        public string QueueSnapshotCron { get; set; } = "0 0/5 * * * ?";
     }
 }

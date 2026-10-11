@@ -384,7 +384,45 @@ namespace SW.Bitween
                 b.Property(p => p.Host).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
                 b.Property(p => p.Runtimes).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.ResidentHealth).HasMaxLength(4000);
                 b.HasIndex(p => p.LastSeenOn);
+            });
+
+            // Metrics: hourly rollups each node adds to once a minute, and broker snapshots. Keys lead
+            // with the hour, so reading a time range and pruning old hours both use the key itself.
+            modelBuilder.Entity<Domain.Metrics.ExchangeStats>(b =>
+            {
+                b.ToTable("ExchangeStats");
+                b.HasKey(p => new { p.Hour, p.Node, p.SubscriptionId, p.PartnerId });
+                b.Property(p => p.Node).HasMaxLength(100).IsUnicode(false);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.AdapterStats>(b =>
+            {
+                b.ToTable("AdapterStats");
+                b.HasKey(p => new { p.Hour, p.Node, p.AdapterId, p.Version, p.Role, p.Runtime });
+                b.Property(p => p.Node).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.Role).HasMaxLength(20).IsUnicode(false);
+                b.Property(p => p.Runtime).HasMaxLength(20).IsUnicode(false);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.ErrorStats>(b =>
+            {
+                b.ToTable("ErrorStats");
+                b.HasKey(p => new { p.Hour, p.Node, p.Scope, p.ScopeKey, p.Fingerprint });
+                b.Property(p => p.Node).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.Scope).HasMaxLength(20).IsUnicode(false);
+                b.Property(p => p.ScopeKey).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Fingerprint).HasMaxLength(16).IsUnicode(false);
+                b.Property(p => p.Sample).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.QueueSnapshot>(b =>
+            {
+                b.ToTable("QueueSnapshots");
+                b.HasKey(p => p.At);
             });
 
             modelBuilder.Entity<AdapterDraft>(b =>
@@ -502,6 +540,9 @@ namespace SW.Bitween
                 b.Property(p => p.RetryGroupId);
                 b.Property(p => p.AttemptNumber);
                 b.HasIndex(p => p.RetryGroupId);
+                b.Property(p => p.NodeName).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.MapperVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50).IsUnicode(false);
 
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);

@@ -482,6 +482,10 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<DateTime>("LastSeenOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ResidentHealth")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<string>("Runtimes")
                         .HasMaxLength(100)
                         .IsUnicode(false)
@@ -1044,6 +1048,250 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnique();
 
                     b.ToTable("IdempotencyKeys", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.AdapterStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("AdapterId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Runtime")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("Calls")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Crashes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D0")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D1")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D2")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D3")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D4")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D5")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D6")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D7")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D8")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D9")
+                        .HasColumnType("int");
+
+                    b.Property<long>("DurationMaxMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DurationSumMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Failures")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LimitStops")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Timeouts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Hour", "Node", "AdapterId", "Version", "Role", "Runtime");
+
+                    b.ToTable("AdapterStats", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.ErrorStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Scope")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("ScopeKey")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(16)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastSeenOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Sample")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Hour", "Node", "Scope", "ScopeKey", "Fingerprint");
+
+                    b.ToTable("ErrorStats", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.ExchangeStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BadResponse")
+                        .HasColumnType("int");
+
+                    b.Property<long>("BytesIn")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BytesOut")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("D0")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D1")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D2")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D3")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D4")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D5")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D6")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D7")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D8")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D9")
+                        .HasColumnType("int");
+
+                    b.Property<long>("DurationMaxMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DurationSumMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Failed")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FailedAtHandler")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FailedAtMapper")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ManualRetries")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Retries")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Succeeded")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Total")
+                        .HasColumnType("int");
+
+                    b.HasKey("Hour", "Node", "SubscriptionId", "PartnerId");
+
+                    b.ToTable("ExchangeStats", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.QueueSnapshot", b =>
+                {
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<double>("AckRate")
+                        .HasColumnType("float");
+
+                    b.Property<int>("Consumers")
+                        .HasColumnType("int");
+
+                    b.Property<long>("DeadLetterBacklog")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("IncomingRate")
+                        .HasColumnType("float");
+
+                    b.Property<long>("QueueDepth")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RetryBacklog")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("UnhealthyConsumers")
+                        .HasColumnType("int");
+
+                    b.HasKey("At");
+
+                    b.ToTable("QueueSnapshots", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
@@ -1840,11 +2088,29 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int?>("AttemptNumber")
                         .HasColumnType("int");
 
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("FinishedOn")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("HandlerVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("MapperVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("NodeName")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<bool>("OutputBad")
                         .HasColumnType("bit");

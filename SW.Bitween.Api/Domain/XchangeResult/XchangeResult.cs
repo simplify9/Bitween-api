@@ -45,6 +45,27 @@ namespace SW.Bitween.Domain
             });
         }
 
+        /// <summary>
+        /// Which node processed it, which versions of the mapper and handler ran (the pinned one, or
+        /// the current one at the time), and how long it took from arriving to finishing. Null on
+        /// results from before these were recorded.
+        /// </summary>
+        public string NodeName { get; private set; }
+        public string MapperVersion { get; private set; }
+        public string HandlerVersion { get; private set; }
+        public int? DurationMs { get; private set; }
+
+        public void Stamp(string nodeName, string mapperVersion, string handlerVersion, long durationMs)
+        {
+            NodeName = Cut(nodeName, 100);
+            MapperVersion = Cut(mapperVersion, 50);
+            HandlerVersion = Cut(handlerVersion, 50);
+            DurationMs = (int)System.Math.Clamp(durationMs, 0, int.MaxValue);
+        }
+
+        static string Cut(string value, int length) =>
+            string.IsNullOrEmpty(value) ? null : value.Length <= length ? value : value[..length];
+
         public bool Success { get; private set; }
         public string Exception { get; private set; }
         public DateTime FinishedOn { get; private set; }

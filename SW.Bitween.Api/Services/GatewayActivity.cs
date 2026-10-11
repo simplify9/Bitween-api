@@ -20,7 +20,7 @@ namespace SW.Bitween;
 /// use is written to the database, but at most every <see cref="KeyUseResolution"/> per key and
 /// node, so a busy key costs one small write every few minutes.
 /// </remarks>
-public class GatewayActivity(IServiceScopeFactory scopes, ILogger<GatewayActivity> logger)
+public class GatewayActivity(IServiceScopeFactory scopes, ILogger<GatewayActivity> logger, SW.Bitween.Services.Metrics.MetricsRecorder metrics = null)
 {
     public static readonly TimeSpan KeyUseResolution = TimeSpan.FromMinutes(5);
     const int Kept = 500;
@@ -38,6 +38,9 @@ public class GatewayActivity(IServiceScopeFactory scopes, ILogger<GatewayActivit
     {
         gateway = (gateway ?? "").Trim('/').ToLowerInvariant();
         counts.AddOrUpdate((gateway, reason), 1, (_, n) => n + 1);
+        // Kept past a restart and across nodes too, in the hourly metrics; the counts above are this
+        // node's since it started, for the gateway page's live view.
+        metrics?.Refusal(gateway, reason);
         recent.Enqueue(new Refusal(DateTime.UtcNow, gateway, reason, status, address));
         while (recent.Count > Kept && recent.TryDequeue(out _)) { }
     }
