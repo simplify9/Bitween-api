@@ -1,4 +1,5 @@
 using System.Text;
+using SW.Bitween.NativeAdapters.JsonMapper;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.FileTransfers;
@@ -107,17 +108,7 @@ public abstract class FileUpload<TSettings> : INativeInfolinkHandler
             _ => throw new ArgumentException($"Unknown DataEncoding '{Options.DataEncoding}'")
         };
 
-        var filename = string.IsNullOrWhiteSpace(xchangeFile.Filename)
-            ? null
-            : FtpProtocol.SafeFileName(xchangeFile.Filename);
-        if (string.IsNullOrWhiteSpace(filename))
-        {
-            var now = DateTime.UtcNow;
-            filename = $"{now.Year:0000}{now.Month:00}{now.Day:00}{now.Hour:00}{now.Minute:00}{now.Second:00}{now.Millisecond:000}";
-        }
-
-        if (!string.IsNullOrWhiteSpace(Options.FileNamePrefix))
-            filename = $"{Options.FileNamePrefix}_{filename}";
+        var filename = NameFor(xchangeFile, Options, DateTime.UtcNow);
 
         await using var transfer = await ConnectAsync();
         await using var stream = new MemoryStream(bytes);
@@ -125,6 +116,29 @@ public abstract class FileUpload<TSettings> : INativeInfolinkHandler
         await transfer.UploadAsync(stream, $"{Options.TargetPath}/{filename}");
 
         return new XchangeFile(string.Empty);
+    }
+
+    /// <summary>
+    /// What the uploaded file is called: the FileName setting when there is one, filled from a JSON
+    /// message's fields (order-{{ orderId }}.json), else the message's own name, else the time; then
+    /// the prefix. Without a name of its own, every message through one gateway carries the same name
+    /// ({urlName}.json), and each upload replaced the one before it.
+    /// </summary>
+    internal static string NameFor(XchangeFile file, IUploadSettings options, DateTime now)
+    {
+        string? name = null;
+        if (!string.IsNullOrWhiteSpace(options.FileName))
+        {
+            // Base64 data isn't a message with fields; its template is used as written.
+            var data = options.DataEncoding.Equals("utf8", StringComparison.OrdinalIgnoreCase) ? file.Data : null;
+            name = FtpProtocol.SafeFileName(ScribanJsonHelper.FillIfJson(options.FileName, data).Trim());
+        }
+        if (string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(file.Filename))
+            name = FtpProtocol.SafeFileName(file.Filename);
+        if (string.IsNullOrWhiteSpace(name))
+            name = $"{now.Year:0000}{now.Month:00}{now.Day:00}{now.Hour:00}{now.Minute:00}{now.Second:00}{now.Millisecond:000}";
+
+        return string.IsNullOrWhiteSpace(options.FileNamePrefix) ? name : $"{options.FileNamePrefix}_{name}";
     }
 
     public abstract string Name { get; }

@@ -43,6 +43,28 @@ public static class ScribanJsonHelper
     /// <see cref="Render"/> builds on this and adds the JSON validation and dotted-key expansion
     /// that a mapper needs and a sentence does not.
     /// </remarks>
+    /// <summary>
+    /// The template filled from a JSON message, or as written when the message isn't JSON: a CSV or a
+    /// flat file has no fields to fill. A broken template still throws, so a typo isn't used literally.
+    /// </summary>
+    public static string FillIfJson(string template, string? payload) =>
+        string.IsNullOrEmpty(template) || !LooksLikeJson(payload) ? template : RenderText(template, payload!);
+
+    public static bool LooksLikeJson(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload)) return false;
+        if (payload.TrimStart()[0] is not ('{' or '[')) return false;
+        try
+        {
+            JToken.Parse(payload);
+            return true;
+        }
+        catch (Newtonsoft.Json.JsonReaderException)
+        {
+            return false;
+        }
+    }
+
     public static string RenderText(string scribanTemplate, string inputJson)
     {
         // 1. Parse input JSON - handle both root object and root array

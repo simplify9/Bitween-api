@@ -19,6 +19,7 @@ public interface IUploadSettings
 {
     string? TargetPath { get; }
     string? FileNamePrefix { get; }
+    string? FileName { get; }
     string DataEncoding { get; }
 }
 
@@ -135,6 +136,9 @@ public class SftpUploadSettings : SftpConnectionSettings, IUploadSettings
     [Description("Prefix added to the uploaded file's name.")]
     public string? FileNamePrefix { get; set; }
 
+    [Description("The uploaded file's name, in place of the message's own. For a JSON message it may use the message's fields, as order-{{ orderId }}.json, so each message gets its own file. Empty keeps the message's own name, or the time when it has none.")]
+    public string? FileName { get; set; }
+
     [DefaultValue("utf8")]
     [Description("Encoding used to write the file contents: utf8, or base64 to write the decoded bytes.")]
     public string DataEncoding { get; set; } = "utf8";
@@ -147,6 +151,9 @@ public class FtpUploadSettings : FtpConnectionSettings, IUploadSettings
 
     [Description("Prefix added to the uploaded file's name.")]
     public string? FileNamePrefix { get; set; }
+
+    [Description("The uploaded file's name, in place of the message's own. For a JSON message it may use the message's fields, as order-{{ orderId }}.json, so each message gets its own file. Empty keeps the message's own name, or the time when it has none.")]
+    public string? FileName { get; set; }
 
     [DefaultValue("utf8")]
     [Description("Encoding used to write the file contents: utf8, or base64 to write the decoded bytes.")]

@@ -119,12 +119,7 @@ public class NativeSmtpHandler : INativeInfolinkHandler
     /// and those have no fields to substitute. A broken template still throws, so a typo in a
     /// placeholder is not quietly emailed as literal text.
     /// </remarks>
-    internal static string Fill(string template, string payload)
-    {
-        if (string.IsNullOrEmpty(template) || !LooksLikeJson(payload)) return template;
-
-        return ScribanJsonHelper.RenderText(template, payload);
-    }
+    internal static string Fill(string template, string payload) => ScribanJsonHelper.FillIfJson(template, payload);
 
     /// <summary>
     /// Whether a server certificate should be accepted, given what validation found wrong with it.
@@ -150,23 +145,5 @@ public class NativeSmtpHandler : INativeInfolinkHandler
         // Masked rather than compared: one entry can carry several flags at once, and "revoked" set
         // alongside "could not check" has to fail.
         return chainStatus.All(status => (status & ~undeterminable) == X509ChainStatusFlags.NoError);
-    }
-
-    private static bool LooksLikeJson(string payload)
-    {
-        if (string.IsNullOrWhiteSpace(payload)) return false;
-
-        var trimmed = payload.TrimStart();
-        if (trimmed[0] is not ('{' or '[')) return false;
-
-        try
-        {
-            JToken.Parse(payload);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 }

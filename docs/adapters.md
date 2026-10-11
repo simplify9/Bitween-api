@@ -123,6 +123,7 @@ Upload the payload as a file, with open-source clients and no license: `NativeSf
 |---|---|---|
 | `Host` *(required)*, `Username` *(required)* | | |
 | `TargetPath` | | Remote directory. |
+| `FileName` | | The file's name, in place of the message's own. For a JSON message it can use the message's fields, as `order-{{ orderId }}.json`, so each message gets its own file. Only the last path segment is kept. Empty keeps the message's name, or the time when it has none. Messages through a gateway are all named `{urlName}.json`, so without this each upload replaces the one before. |
 | `FileNamePrefix` | | Prepended as `{prefix}_`. |
 | `DataEncoding` | `utf8` | `base64` decodes the payload into bytes before uploading. |
 
@@ -157,6 +158,7 @@ Uploads over SFTP or plain FTP with Rebex, shown as "(Rebex)". Needs a Rebex lic
 | `Password` *(secret)* | | Required for `sftp` and `ftp`. The key passphrase for `sftpssh`. |
 | `PrivateKey` *(secret)* | | Required for `sftpssh`. A PEM key pasted onto one line is re-wrapped. |
 | `TargetPath` | | Remote directory. |
+| `FileName` | | The file's name, in place of the message's own. For a JSON message it can use the message's fields, as `order-{{ orderId }}.json`, so each message gets its own file. Only the last path segment is kept. Empty keeps the message's name, or the time when it has none. Messages through a gateway are all named `{urlName}.json`, so without this each upload replaces the one before. |
 | `FileNamePrefix` | | Prepended as `{prefix}_`. |
 | `DataEncoding` | `utf8` | `base64` decodes the payload into bytes before uploading. |
 

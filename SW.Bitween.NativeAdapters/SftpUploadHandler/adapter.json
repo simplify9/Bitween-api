@@ -69,6 +69,11 @@
       "description": "Prefix added to the uploaded file's name."
     },
     {
+      "name": "FileName",
+      "type": "text",
+      "description": "The uploaded file's name, in place of the message's own. For a JSON message it may use the message's fields, as order-{{ orderId }}.json, so each message gets its own file. Empty keeps the message's own name, or the time when it has none."
+    },
+    {
       "name": "DataEncoding",
       "type": "text",
       "default": "utf8",
