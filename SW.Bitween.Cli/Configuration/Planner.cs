@@ -164,8 +164,9 @@ public class Planner(Context ctx, ConfigFile config)
             if (published == null) plan.Changes.Add(new Change(Op.Publish, Kinds.Adapters, key, item));
             else
             {
-                if ((string)published["sha256"] is { Length: > 0 } sha && !string.Equals(sha, InstallerLogic.Sha256Of(package), StringComparison.OrdinalIgnoreCase))
-                    plan.Warnings.Add($"{key} is already published from a different package. Versions don't change once published: build it as a new version.");
+                // Published already, and versions don't change. Whether this package is the same one can't be
+                // told from the listing: Bitween stamps the manifest and zips the package again when it takes
+                // it, so the hash it keeps is never the uploaded file's, and comparing them warned every time.
                 if ((bool?)want["current"] == true && (string)listing?["current"] != manifest.Version)
                     plan.Changes.Add(new Change(Op.Promote, Kinds.Adapters, key, item));
                 else plan.Unchanged++;

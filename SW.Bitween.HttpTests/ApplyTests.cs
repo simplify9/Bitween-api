@@ -383,6 +383,8 @@ public class ApplyTests(HttpFixture fixture) : IDisposable
 
             (exit, output) = await Bitween(profiles, null, "plan", "-f", file, "--detailed-exitcode");
             Assert.True(exit == 0, output);
+            // The same package again: Bitween re-zips what it takes, so its hash isn't this file's, and that isn't a difference.
+            Assert.DoesNotContain("different package", output);
 
             using var admin = await fixture.AdminAsync();
             var rows = (await Api.Json(await admin.GetAsync("/api/subscriptions?page=0&size=2000")))["result"]!.AsArray();
