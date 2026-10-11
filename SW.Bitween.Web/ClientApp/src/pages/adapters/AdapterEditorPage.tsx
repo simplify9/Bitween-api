@@ -1,28 +1,36 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import CodeMirror from "@uiw/react-codemirror";
-import { EditorView } from "@codemirror/view";
-import { type Extension } from "@codemirror/state";
-import { CheckCircle2, CircleSlash, FilePlus, Play, Rocket, Save, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, CircleSlash, PanelBottom, PanelRight, Play, Rocket, Save, Trash2, XCircle } from "lucide-react";
 import { api, ApiRequestError, type AdapterDraft, type DraftBuild, type DraftRun } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { BackLink } from "../../components/ui/BackLink";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
+import { checkFindings, type EditorProblem } from "../../components/code/problems";
+import { Explorer } from "./workspace/Explorer";
+import { EditorTabs, ProblemsPanel, QuickOpen, StatusBar } from "./workspace/WorkspaceParts";
+import { PALETTE, type WorkspaceTheme } from "./workspace/palette";
+import { useResizable } from "./workspace/useResizable";
+import { languageLabel } from "../../components/code/languages";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { languageFor } from "../../lib/adapterSource";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../lib/pageTitle";
 
 const LANGUAGE_LABEL = { python: "Python", node: "JavaScript", typescript: "TypeScript" } as const;
 
-const editorTheme = EditorView.theme({
-  "&": { height: "100%", minHeight: "28rem", backgroundColor: "#ffffff", fontSize: "12.5px" },
-  ".cm-scroller": { fontFamily: "var(--font-mono)", overflow: "auto" },
-  "&.cm-focused": { outline: "none" },
-});
+/** Monaco is the heaviest thing in the app: it loads with this page, and only this page. */
+const CodeEditor = lazy(() => import("../../components/code/CodeEditor"));
+
+const THEME_KEY = "bitween-editor-theme";
+const loadTheme = (): WorkspaceTheme => {
+  try {
+    return localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
+  } catch {
+    return "dark";
+  }
+};
 
 /** What a kind's first command is called with, for the try panel to start from. */
 const SAMPLE_INPUT: Record<string, string> = {
@@ -69,8 +77,20 @@ function Editor({ draft }: { draft: AdapterDraft }) {
   const [panel, setPanel] = useState<Panel>("check");
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [build, setBuild] = useState<DraftBuild | null>(null);
-  const [newFile, setNewFile] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // The workspace: open tabs, theme, panes, what the language services and the Check found.
+  const [tabs, setTabs] = useState<string[]>(() => (selected ? [selected] : []));
+  const [theme, setTheme] = useState<WorkspaceTheme>(loadTheme);
+  const [showProblems, setShowProblems] = useState(false);
+  const [showSide, setShowSide] = useState(true);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [cursor, setCursor] = useState<{ line: number; column: number } | null>(null);
+  const [live, setLive] = useState<EditorProblem[]>([]);
+  const [revealAt, setRevealAt] = useState<{ path: string; line: number; column: number; seq: number } | null>(null);
+  const explorer = useResizable("bitween-editor-explorer", 240, 160, 480, "left");
+  const side = useResizable("bitween-editor-side", 380, 300, 640, "right");
+  const c = PALETTE[theme];
 
   const save = async (overwrite = false) => {
     if (!dirty) return true;
@@ -109,44 +129,93 @@ function Editor({ draft }: { draft: AdapterDraft }) {
   // Ctrl/Cmd+S saves, as in any editor.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+      // The editor binds these itself; answering here too would save twice.
+      if (e.target instanceof Element && e.target.closest(".monaco-editor")) return;
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      if (e.key === "s") {
         e.preventDefault();
         void save();
+      } else if (e.key === "p" && !e.shiftKey) {
+        e.preventDefault();
+        setQuickOpen(true);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   });
 
-  const extensions = useMemo(() => {
-    const list: Extension[] = [editorTheme];
-    const language = selected ? languageFor(selected) : null;
-    if (language) list.push(language);
-    return list;
-  }, [selected]);
+  const findings = useMemo(() => checkFindings(build, paths), [build, paths]);
+  const checkProblems = useMemo<EditorProblem[]>(
+    () =>
+      findings.flatMap((f) =>
+        f.at ? [{ ...f.at, message: f.message, severity: f.severity, source: "Check" }] : [],
+      ),
+    [findings],
+  );
+  const errors = findings.filter((f) => f.severity === "error").length + live.filter((p) => p.severity === "error").length;
+  const warnings = findings.filter((f) => f.severity === "warning").length + live.filter((p) => p.severity === "warning").length;
+  const dirtyPaths = useMemo(
+    () => new Set(paths.filter((p) => files[p] !== savedFiles[p])),
+    [paths, files, savedFiles],
+  );
 
-  const addFile = () => {
-    const path = (newFile ?? "").trim();
-    if (!path || path in files) return;
-    setFiles({ ...files, [path]: "" });
+  // A Check that found something opens Problems, as a build in VS Code does.
+  useEffect(() => {
+    if (findings.length > 0) setShowProblems(true);
+  }, [findings]);
+
+  const open = (path: string) => {
+    setTabs((t) => (t.includes(path) ? t : [...t, path]));
     setSelected(path);
-    setNewFile(null);
   };
-
+  const closeTab = (path: string) => {
+    const at = tabs.indexOf(path);
+    const rest = tabs.filter((t) => t !== path);
+    setTabs(rest);
+    if (selected === path) setSelected(rest[Math.min(at, rest.length - 1)]);
+  };
+  const addFile = (path: string) => {
+    setFiles({ ...files, [path]: "" });
+    open(path);
+  };
+  const renameFile = (from: string, to: string) => {
+    const next: Record<string, string> = {};
+    for (const [p, text] of Object.entries(files)) next[p === from ? to : p] = text;
+    setFiles(next);
+    setTabs((t) => t.map((p) => (p === from ? to : p)));
+    if (selected === from) setSelected(to);
+  };
   const removeFile = (path: string) => {
     const { [path]: _, ...rest } = files;
     setFiles(rest);
-    if (selected === path) setSelected(Object.keys(rest).sort()[0]);
+    const remaining = tabs.filter((t) => t !== path);
+    setTabs(remaining);
+    if (selected === path) setSelected(remaining[0] ?? Object.keys(rest).sort()[0]);
   };
+  const reveal = (at: { path: string; line: number; column: number }) => {
+    open(at.path);
+    setRevealAt({ ...at, seq: (revealAt?.seq ?? 0) + 1 });
+  };
+  const toggleTheme = () =>
+    setTheme((t) => {
+      const next = t === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch {
+        // Kept for this visit only.
+      }
+      return next;
+    });
 
   const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
 
   return (
-    <div>
+    // A workspace, not a page: it fills the window below the top bar, and each pane scrolls itself.
+    <div className="flex min-h-0 flex-1 flex-col">
       {leaveDialog}
-      <BackLink to="/adapters?tab=installed" label="Installed adapters" />
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold text-ink-900">
+      <div className="flex flex-wrap items-center gap-3 border-b border-ink-200 bg-white px-4 py-2.5">
+        <BackLink to="/adapters?tab=installed" label="Installed adapters" className="" />
+        <h1 className="text-[15px] font-semibold text-ink-900">
           <code className="font-mono">{draft.adapterId}</code>
         </h1>
         <Badge tone="neutral">{LANGUAGE_LABEL[draft.language]}</Badge>
@@ -154,9 +223,9 @@ function Editor({ draft }: { draft: AdapterDraft }) {
         <span className="text-[12.5px] text-ink-500">
           {draft.baseVersion ? `Draft from v${draft.baseVersion}` : "New adapter, not yet published"}
         </span>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {dirty && <Badge tone="crimson">Unsaved</Badge>}
-          <Button size="sm" variant="primary" disabled={!dirty} busy={saving} onClick={() => void save()}>
+          <Button size="sm" variant="primary" disabled={!dirty} busy={saving} onClick={() => void save()} title="Save (Ctrl+S)">
             <Save className="size-4" aria-hidden />
             Save
           </Button>
@@ -164,132 +233,164 @@ function Editor({ draft }: { draft: AdapterDraft }) {
             <Trash2 className="size-4" aria-hidden />
             Delete draft
           </Button>
+          <span className="mx-1 h-5 w-px bg-ink-200" aria-hidden />
+          <button
+            type="button"
+            aria-pressed={showProblems}
+            aria-label="Problems"
+            title="Problems"
+            onClick={() => setShowProblems((v) => !v)}
+            className={`rounded-md p-1.5 ${showProblems ? "bg-ink-100 text-ink-900" : "text-ink-500 hover:bg-ink-100"}`}
+          >
+            <PanelBottom className="size-4" />
+          </button>
+          <button
+            type="button"
+            aria-pressed={showSide}
+            aria-label="Side panel"
+            title="Check, try and publish"
+            onClick={() => setShowSide((v) => !v)}
+            className={`rounded-md p-1.5 ${showSide ? "bg-ink-100 text-ink-900" : "text-ink-500 hover:bg-ink-100"}`}
+          >
+            <PanelRight className="size-4" />
+          </button>
         </div>
       </div>
-      <FormError>{saveError}</FormError>
-      {conflict && (
-        <div role="alert" className="mb-3 rounded-lg bg-warn-100 px-3 py-2 text-sm text-warn-700">
-          <p>{conflict}</p>
-          <div className="mt-2 flex gap-2">
-            <Button size="sm" onClick={() => void loadTheirs()}>
-              Load their version
-            </Button>
-            <Button size="sm" variant="danger" busy={saving} onClick={() => void save(true)}>
-              Save mine anyway
-            </Button>
-          </div>
+      {(saveError || conflict) && (
+        <div className="border-b border-ink-200 bg-white px-4 py-2">
+          <FormError>{saveError}</FormError>
+          {conflict && (
+            <div role="alert" className="rounded-lg bg-warn-100 px-3 py-2 text-sm text-warn-700">
+              <p>{conflict}</p>
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" onClick={() => void loadTheirs()}>
+                  Load their version
+                </Button>
+                <Button size="sm" variant="danger" busy={saving} onClick={() => void save(true)}>
+                  Save mine anyway
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[13rem_minmax(0,1fr)_24rem]">
-        <section aria-label="Files" className="rounded-xl border border-ink-200 bg-white py-1">
-          <ul>
-            {paths.map((path) => (
-              <li key={path} className="group flex items-center">
-                <button
-                  type="button"
-                  aria-current={path === selected ? "true" : undefined}
-                  onClick={() => setSelected(path)}
-                  className={`min-w-0 flex-1 truncate px-3 py-1 text-left font-mono text-[12px] ${
-                    path === selected ? "bg-crimson-50 text-ink-900" : "text-ink-700 hover:bg-ink-50"
-                  }`}
-                  title={path}
-                >
-                  {path}
-                  {files[path] !== savedFiles[path] && <span className="text-crimson-600"> •</span>}
-                </button>
-                {path !== "adapter.json" && (
-                  <button
-                    type="button"
-                    aria-label={`Remove ${path}`}
-                    onClick={() => removeFile(path)}
-                    className="px-2 text-ink-300 opacity-0 group-hover:opacity-100 hover:text-danger-600"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          {newFile === null ? (
-            <button
-              type="button"
-              onClick={() => setNewFile("")}
-              className="mt-1 flex w-full items-center gap-1.5 px-3 py-1.5 text-[12.5px] text-crimson-700 hover:bg-ink-50"
-            >
-              <FilePlus className="size-3.5" aria-hidden />
-              New file
-            </button>
-          ) : (
-            <form
-              className="px-2 py-1.5"
-              onSubmit={(e) => {
-                e.preventDefault();
-                addFile();
-              }}
-            >
-              <TextInput
-                aria-label="New file name"
-                autoFocus
-                placeholder="helpers.py"
-                value={newFile}
-                onChange={(e) => setNewFile(e.target.value)}
-                onBlur={() => !newFile && setNewFile(null)}
-              />
-            </form>
-          )}
-        </section>
+      <div className={`flex min-h-0 flex-1 flex-col lg:flex-row ${c.frame}`}>
+        <div
+          style={{ "--w": `${explorer.width}px` } as React.CSSProperties}
+          className={`max-h-56 shrink-0 overflow-hidden border-b lg:max-h-none lg:w-[var(--w)] lg:border-r lg:border-b-0 ${c.pane} ${c.divider}`}
+        >
+          <Explorer
+            theme={theme}
+            paths={paths}
+            active={selected ?? null}
+            dirty={dirtyPaths}
+            onOpen={open}
+            onCreate={addFile}
+            onRename={renameFile}
+            onRemove={removeFile}
+          />
+        </div>
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the explorer"
+          onPointerDown={explorer.startDrag}
+          className={`hidden w-1 shrink-0 cursor-col-resize lg:block ${c.handle}`}
+        />
 
-        <section aria-label="Code" className="min-w-0 overflow-hidden rounded-xl border border-ink-200 bg-white">
-          {selected ? (
-            <div data-testid="draft-editor" data-path={selected}>
-              <CodeMirror
-                value={files[selected] ?? ""}
-                extensions={extensions}
-                onChange={(value) => setFiles((f) => ({ ...f, [selected]: value }))}
-                basicSetup={{ foldGutter: false }}
-              />
+        <div className="flex min-h-[32rem] min-w-0 flex-1 flex-col lg:min-h-0">
+          <EditorTabs theme={theme} tabs={tabs} active={selected ?? null} dirty={dirtyPaths} onSelect={setSelected} onClose={closeTab} />
+          <div className="relative min-h-0 flex-1" data-testid="draft-editor" data-path={selected}>
+            {selected ? (
+              <Suspense fallback={<LoadingBlock label="Starting the editor…" />}>
+                <CodeEditor
+                  scope={`draft-${draft.id}`}
+                  files={files}
+                  active={selected}
+                  theme={theme}
+                  checkProblems={checkProblems}
+                  revealAt={revealAt}
+                  onChange={(path, text) => setFiles((f) => (f[path] === text || !(path in f) ? f : { ...f, [path]: text }))}
+                  onCursor={setCursor}
+                  onProblems={setLive}
+                  onSave={() => void save()}
+                  onQuickOpen={() => setQuickOpen(true)}
+                />
+              </Suspense>
+            ) : (
+              <p className={`p-6 text-sm ${c.muted}`}>Open a file from the explorer, or press Ctrl+P.</p>
+            )}
+          </div>
+          {showProblems && (
+            <div className="h-48 shrink-0">
+              <ProblemsPanel theme={theme} findings={findings} live={live} onReveal={reveal} onClose={() => setShowProblems(false)} />
             </div>
-          ) : (
-            <p className="p-4 text-sm text-ink-500">No file selected.</p>
           )}
-        </section>
+        </div>
 
-        <section aria-label="Check, try and publish" className="rounded-xl border border-ink-200 bg-white">
-          <div role="tablist" className="flex border-b border-ink-100">
-            {(
-              [
-                ["check", "Check"],
-                ["try", "Try"],
-                ...(canPublish ? ([["publish", "Publish"]] as const) : []),
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={panel === value}
-                onClick={() => setPanel(value)}
-                className={`-mb-px flex-1 border-b-2 px-3 py-2 text-[13px] font-medium ${
-                  panel === value ? "border-crimson-600 text-ink-900" : "border-transparent text-ink-500 hover:text-ink-800"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-4 p-4">
-            <SettingsForm build={build} settings={settings} onChange={setSettings} />
-            {panel === "check" && (
-              <CheckPanel draftId={draft.id} settings={settings} save={save} build={build} onBuilt={setBuild} />
-            )}
-            {panel === "try" && <TryPanel draftId={draft.id} kind={draft.kind} settings={settings} save={save} build={build} />}
-            {panel === "publish" && canPublish && (
-              <PublishPanel draft={draft} settings={settings} save={save} onBuilt={setBuild} />
-            )}
-          </div>
-        </section>
+        {showSide && (
+          <>
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize the side panel"
+              onPointerDown={side.startDrag}
+              className={`hidden w-1 shrink-0 cursor-col-resize lg:block ${c.handle}`}
+            />
+            <section
+              aria-label="Check, try and publish"
+              style={{ "--w": `${side.width}px` } as React.CSSProperties}
+              className="shrink-0 overflow-y-auto border-t border-ink-200 bg-white text-ink-900 lg:w-[var(--w)] lg:border-t-0 lg:border-l"
+            >
+              <div role="tablist" className="sticky top-0 z-10 flex border-b border-ink-100 bg-white">
+                {(
+                  [
+                    ["check", "Check"],
+                    ["try", "Try"],
+                    ...(canPublish ? ([["publish", "Publish"]] as const) : []),
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={panel === value}
+                    onClick={() => setPanel(value)}
+                    className={`-mb-px flex-1 border-b-2 px-3 py-2 text-[13px] font-medium ${
+                      panel === value ? "border-crimson-600 text-ink-900" : "border-transparent text-ink-500 hover:text-ink-800"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-4 p-4">
+                <SettingsForm build={build} settings={settings} onChange={setSettings} />
+                {panel === "check" && (
+                  <CheckPanel draftId={draft.id} settings={settings} save={save} build={build} onBuilt={setBuild} />
+                )}
+                {panel === "try" && <TryPanel draftId={draft.id} kind={draft.kind} settings={settings} save={save} build={build} />}
+                {panel === "publish" && canPublish && (
+                  <PublishPanel draft={draft} settings={settings} save={save} onBuilt={setBuild} />
+                )}
+              </div>
+            </section>
+          </>
+        )}
       </div>
+      <StatusBar
+        theme={theme}
+        errors={errors}
+        warnings={warnings}
+        dirty={dirty}
+        saving={saving}
+        cursor={selected ? cursor : null}
+        language={selected ? languageLabel(selected) : ""}
+        onProblems={() => setShowProblems((v) => !v)}
+        onTheme={toggleTheme}
+      />
+      {quickOpen && <QuickOpen paths={paths} onOpen={open} onClose={() => setQuickOpen(false)} />}
 
       {deleting && (
         <ConfirmDialog

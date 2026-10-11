@@ -209,13 +209,58 @@ describe("the adapter editor", () => {
     const { user } = renderApp("/adapters/drafts/7", {
       handlers: [
         http.post(apiPath("/adapterdrafts/7/build"), () =>
-          HttpResponse.json({ ...BUILT, succeeded: false, conforms: false, checks: [], settings: null, problems: ["--describe exited with 1: SyntaxError: invalid syntax"] }),
+          HttpResponse.json({
+            ...BUILT,
+            succeeded: false,
+            conforms: false,
+            checks: [],
+            settings: null,
+            problems: ["--describe exited with 1: SyntaxError: invalid syntax", 'File "/build/adapter/main.py", line 3'],
+          }),
         ),
         ...editorHandlers,
       ],
     });
     await user.click(await screen.findByRole("button", { name: "Save and check" }, LOADED));
-    expect(await screen.findByText(/SyntaxError: invalid syntax/, undefined, LOADED)).toBeVisible();
+
+    // In the Check panel, and in Problems, which opens for it.
+    const check = within(screen.getByRole("region", { name: "Check, try and publish" }));
+    expect(await check.findByText(/SyntaxError: invalid syntax/, undefined, LOADED)).toBeVisible();
+    const problems = within(await screen.findByRole("region", { name: "Problems" }));
+    expect(problems.getByText(/SyntaxError: invalid syntax/)).toBeVisible();
+    // One that names a line of the draft is a way to it.
+    expect(problems.getByRole("button", { name: /line 3.*main\.py:3/ })).toBeEnabled();
+  });
+
+  it("opens, renames and closes files like an editor", async () => {
+    const { user } = renderApp("/adapters/drafts/7", { handlers: editorHandlers });
+    const files = within(await screen.findByRole("region", { name: "Files" }, LOADED));
+    const tabs = within(screen.getByRole("tablist", { name: "Open files" }));
+    expect(tabs.getAllByRole("tab").map((t) => t.textContent)).toEqual(["main.py"]);
+
+    // Opening a file adds a tab and shows its text.
+    await user.click(files.getByRole("button", { name: "adapter.json" }));
+    expect(tabs.getAllByRole("tab").map((t) => t.textContent)).toEqual(["main.py", "adapter.json"]);
+    expect(screen.getByRole("textbox", { name: "Code of adapter.json" })).toBeVisible();
+
+    // A new file can go in a folder, and is opened.
+    await user.click(files.getByRole("button", { name: "New file" }));
+    await user.type(screen.getByLabelText("New file name"), "lib/helpers.py{Enter}");
+    expect(files.getByRole("button", { name: "lib", expanded: true })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Code of lib/helpers.py" })).toBeVisible();
+
+    // Renamed, its tab follows.
+    await user.click(files.getByRole("button", { name: "Rename lib/helpers.py" }));
+    const name = screen.getByLabelText("New name");
+    await user.clear(name);
+    await user.type(name, "lib/util.py{Enter}");
+    expect(tabs.getByRole("tab", { name: /util\.py/ })).toHaveAttribute("aria-selected", "true");
+
+    // Closing the shown tab shows its neighbour.
+    await user.click(tabs.getByRole("button", { name: "Close lib/util.py" }));
+    expect(tabs.getAllByRole("tab").map((t) => t.textContent)).toEqual(["main.py", "adapter.json"]);
+    expect(screen.getByRole("textbox", { name: "Code of adapter.json" })).toBeVisible();
+    expect(screen.getByText("Unsaved")).toBeVisible();
   });
 
   it("has no Publish tab without adapter-source.operate", async () => {

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -242,7 +242,7 @@ describe("the Adapters page", () => {
 
     expect(await within(dialog).findByText(/and made it current/)).toBeVisible();
     // Behind the dialog, the page has moved to where the package now is.
-    expect(screen.getByRole("tab", { name: /^Installed/ })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(screen.getByRole("tab", { name: /^Installed/ })).toHaveAttribute("aria-selected", "true"));
     // The bytes themselves aren't checked: jsdom's File isn't a Blob Node's fetch can send, which a
     // browser's is. The package goes as the body, typed as a zip, with the choices in the query.
     expect(received).toMatchObject({ query: "?version=minor&current=true", type: "application/zip" });

@@ -29,15 +29,16 @@ test("a Python handler written in the editor is checked, tried, published and ma
   const editor = page.getByTestId("draft-editor");
   await expect(editor).toHaveAttribute("data-path", "main.py");
 
-  // An edit, typed into the editor: the draft is unsaved until it is checked.
-  await editor.locator(".cm-content").click();
-  await page.keyboard.press("ControlOrMeta+End");
+  // An edit, typed into the editor (Monaco): the draft is unsaved until it is checked.
+  await editor.locator(".monaco-editor .view-lines").click();
+  // To the end of the file, as each platform's VS Code does it: Cmd+End means nothing on a Mac.
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+ArrowDown" : "Control+End");
   await page.keyboard.type("\n# Edited in the browser.\n");
-  await expect(page.getByText("Unsaved")).toBeVisible();
+  await expect(page.getByText("Unsaved", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Save and check" }).click();
   await expect(page.getByText("Builds and conforms.")).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText("Unsaved")).toHaveCount(0);
+  await expect(page.getByText("Unsaved", { exact: true })).toHaveCount(0);
   await page.getByLabel("ApiKey *").fill("e2e-key");
 
   await page.getByRole("tab", { name: "Try" }).click();
@@ -53,8 +54,8 @@ test("a Python handler written in the editor is checked, tried, published and ma
   await expect(published).toContainText("v1.0.0 is now current");
 
   // Listed with the published adapters, current at 1.0.0, its source readable.
-  await page.goto("adapters");
-  const row = page.getByRole("region", { name: /^Custom/ }).getByRole("button", { name: new RegExp(adapterId.replace(/\./g, "\\.")) });
+  await page.goto("adapters?tab=installed");
+  const row = page.getByRole("region", { name: /^Published/ }).getByRole("button", { name: new RegExp(adapterId.replace(/\./g, "\\.")) });
   await expect(row).toContainText("v1.0.0");
   await row.click();
   await page.getByRole("button", { name: "View source of v1.0.0" }).click();

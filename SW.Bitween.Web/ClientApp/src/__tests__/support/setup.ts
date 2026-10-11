@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { clearToken } from "../../api/http/request";
 import { cleanup, configure } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import { resetAppConfig } from "../../api/http/appConfig";
 import { server } from "./server";
 
@@ -17,6 +17,22 @@ globalThis.ResizeObserver ??= class {
 // under a full parallel run a page could take longer than that to answer, and the test failed
 // on a page that was right, only slow.
 configure({ asyncUtilTimeout: 4_000 });
+
+// Monaco needs a real browser: canvas measurement, web workers. In jsdom the adapter editor gets a
+// plain text area in its place, wired the same way, so a test can read and type a file's text.
+vi.mock("../../components/code/CodeEditor", async () => {
+  const { createElement } = await import("react");
+  return {
+    default: (props: { active: string | null; files: Record<string, string>; onChange: (path: string, text: string) => void }) =>
+      props.active
+        ? createElement("textarea", {
+            "aria-label": `Code of ${props.active}`,
+            value: props.files[props.active] ?? "",
+            onChange: (e: { target: { value: string } }) => props.onChange(props.active!, e.target.value),
+          })
+        : null,
+  };
+});
 
 /** Requests the page made that no handler answered, collected so the test can fail on them. */
 const unanswered: string[] = [];

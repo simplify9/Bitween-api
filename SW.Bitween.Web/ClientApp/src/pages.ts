@@ -307,6 +307,8 @@ export const PAGES = definePages({
     title: "Adapter draft",
     permission: "adapter-source.edit",
     parent: "adapters",
+    // An editor workspace: explorer, editor and panels each scroll on their own.
+    layout: "full",
   },
   globalValues: {
     path: "global-values",

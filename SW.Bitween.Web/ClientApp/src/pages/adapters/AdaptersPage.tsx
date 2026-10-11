@@ -658,9 +658,9 @@ function UploadPackageButton({ onPublished }: { onPublished: () => void }) {
     setError("");
     try {
       setDone(await api.uploadAdapterPackage(file, { version, current, releaseNotes: notes }));
-      await queryClient.invalidateQueries({ queryKey: ["adapters"] });
       // Where it now is.
       onPublished();
+      await queryClient.invalidateQueries({ queryKey: ["adapters"] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "The package couldn't be published.");
     } finally {
