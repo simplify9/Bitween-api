@@ -39,11 +39,14 @@ public static class Program
                     return args.Length == 0 ? Commands.Failure : Commands.Success;
             }
 
-            var parsed = Parser().ParseArguments<LoginOptions, LogoutOptions, WhoAmIOptions>(args);
+            var parsed = Parser().ParseArguments<LoginOptions, LogoutOptions, WhoAmIOptions, PlanOptions, ApplyOptions, ExportOptions>(args);
             return await parsed.MapResult(
                 (LoginOptions o) => Commands.Login(o, profiles, input, readSecret),
                 (LogoutOptions o) => Commands.Logout(o, profiles),
                 (WhoAmIOptions o) => Commands.WhoAmI(o, profiles),
+                (PlanOptions o) => Commands.Plan(o, profiles),
+                (ApplyOptions o) => Commands.Apply(o, profiles),
+                (ExportOptions o) => Commands.Export(o, profiles),
                 _ => Task.FromResult(Help(parsed, "bitween")));
         }
         catch (BitweenApiException ex)
@@ -105,6 +108,13 @@ public static class Program
                                            a code; --email and --password-stdin for a password)
           bitween logout                   Sign out of the Bitween signed in to
           bitween whoami                   Which Bitween, and as whom
+
+          bitween plan -f <file|folder>    What apply would change, changing nothing
+          bitween apply -f <file|folder>   Make the Bitween's configuration what the file says (--prune
+                                           also removes what an earlier apply made and the file dropped)
+          bitween export [-o file]         Write the Bitween's configuration as a file apply takes
+
+          Without a profile, BITWEEN_URL and BITWEEN_TOKEN sign in as a service account.
 
           bitween adapter init <Name>      Write a new adapter: --kind handler|mapper|validator|receiver
                                            --lang dotnet|python|node|typescript

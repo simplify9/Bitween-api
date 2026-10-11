@@ -32,6 +32,8 @@ public class PipelineTests(HttpFixture fixture)
         "SW.Bitween.Resources.Accounts.CliToken",
         "SW.Bitween.Resources.Accounts.Login",
         "SW.Bitween.Resources.Accounts.Logout",
+        // Trades a service account's token for a session: the token is the credential.
+        "SW.Bitween.Resources.Accounts.ServiceTokenSignIn",
         "SW.Bitween.Resources.Settings.Config",
         "SW.Bitween.Resources.Xchanges.Get",
         "SW.Bitween.Resources.Xchanges.Update",

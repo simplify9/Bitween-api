@@ -198,7 +198,7 @@ public class WithdrawOptions : TargetOptions
 }
 
 /// <summary>What each command does.</summary>
-public static class Commands
+public static partial class Commands
 {
     public const int Success = 0;
     public const int Failure = 1;
@@ -277,7 +277,9 @@ public static class Commands
         using var api = Api(profiles, opts.Profile);
         if (api == null) return Failure;
         var me = await api.GetAsync("api/accounts/profile");
-        Console.WriteLine($"{(string)me?["name"]} <{(string)me?["email"]}> on {api.Url}");
+        Console.WriteLine(api.AsService
+            ? $"{(string)me?["name"]} (service account, from BITWEEN_TOKEN) on {api.Url}"
+            : $"{(string)me?["name"]} <{(string)me?["email"]}> on {api.Url}");
         var permissions = me?["permissions"]?.AsArray().Select(p => (string)p).Where(p => p.StartsWith("adapter-source.")).ToList() ?? [];
         Console.WriteLine(permissions.Count == 0
             ? "No adapter permissions: you can build and test, not publish."
@@ -285,8 +287,34 @@ public static class Commands
         return Success;
     }
 
+    /// <summary>A service token to sign in with instead of a profile: BITWEEN_TOKEN, or the file BITWEEN_TOKEN_FILE names.</summary>
+    internal static string ServiceToken()
+    {
+        var token = Environment.GetEnvironmentVariable("BITWEEN_TOKEN");
+        var file = Environment.GetEnvironmentVariable("BITWEEN_TOKEN_FILE");
+        if (string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(file) && File.Exists(file)) token = File.ReadAllText(file);
+        return string.IsNullOrWhiteSpace(token) ? null : token.Trim();
+    }
+
+    /// <summary>
+    /// The Bitween to act on: the profile asked for; else, with a service token in the environment, as
+    /// that service account at BITWEEN_URL; else the current profile.
+    /// </summary>
     static BitweenApi Api(Profiles profiles, string profileName)
     {
+        if (profileName == null && ServiceToken() is { } token)
+        {
+            var url = Environment.GetEnvironmentVariable("BITWEEN_URL");
+            if (string.IsNullOrWhiteSpace(url) || !Uri.TryCreate(url, UriKind.Absolute, out _))
+            {
+                Console.WriteLine("BITWEEN_TOKEN is set but BITWEEN_URL isn't: set it to the Bitween's address.");
+                return null;
+            }
+            var insecure = Environment.GetEnvironmentVariable("BITWEEN_INSECURE") is "1" or "true";
+            if (insecure) Console.Error.WriteLine("Warning: not checking the Bitween's certificate (BITWEEN_INSECURE).");
+            return new BitweenApi(url, token, insecure);
+        }
+
         var (name, profile) = profiles.Find(profileName);
         if (profile == null)
         {

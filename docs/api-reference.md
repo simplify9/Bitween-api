@@ -49,6 +49,7 @@ See [Entry points](entry-points.md) for status codes.
 | `POST /api/accounts/logout` | none | Deletes the refresh token and clears site data. A client without cookies sends `{ refreshToken }`. |
 | `POST /api/accounts/cligrant` | signed in | Signs the bitween CLI in as the caller: `{ codeChallenge }`, the CLI's S256 PKCE challenge. Returns `{ code }`, good for two minutes. The admin UI's `/cli-login` page calls it after the member confirms. |
 | `POST /api/accounts/clitoken` | none | The CLI trades that code for a session: `{ code, codeVerifier }`. Returns `{ jwt, refreshToken, email }`. |
+| `POST /api/accounts/servicetoken` | none | A service account signs in: `{ token }`, one of its `bwt_` tokens. Returns `{ jwt, expiresIn, id, name }`, with no refresh token: trade the token again when the session ends. Shares the sign-in rate limit; unknown tokens count toward the address's lockout. |
 | `GET /api/accounts/profile` | signed in | The current member, roles and permissions |
 | `POST /api/accounts/changePassword` | signed in | Change your own password |
 | `GET /api/settings/config` | none | Sign-in options and theme |
@@ -258,6 +259,13 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/accounts/{id}/setPassword` | `users.edit` |
 | `POST /api/accounts/{id}/unlock` | `users.edit` |
 | `POST /api/accounts/{id}/remove` | `users.delete` |
+| `GET /api/serviceaccounts`, `GET /api/serviceaccounts/{id}` | `service-accounts.view`. Each with its roles and tokens (`shown` is the first 12 characters, never the token). Service accounts aren't in `GET /api/accounts`. |
+| `POST /api/serviceaccounts` | `service-accounts.create`. `{ name, roleIds }`; only roles you hold. |
+| `POST /api/serviceaccounts/{id}` | `service-accounts.edit`. `{ name, roleIds }` |
+| `POST /api/serviceaccounts/{id}/setDisabled` | `service-accounts.edit`. Stops every token, and sessions already open. |
+| `POST /api/serviceaccounts/{id}/issueToken` | `service-accounts.create`. `{ name, expiresInDays }` (1 to 365, 90 by default; two active at most). The answer's `token` is the only time it is shown. |
+| `POST /api/serviceaccounts/{id}/revokeToken` | `service-accounts.edit`. `{ tokenId }` |
+| `DELETE /api/serviceaccounts/{id}` | `service-accounts.delete`. Revokes its tokens. |
 | `GET /api/roles`, `GET /api/roles/{id}` | `roles.view` |
 | `POST /api/roles` | `roles.create` |
 | `POST /api/roles/{id}` | `roles.edit` |

@@ -16,13 +16,16 @@ public class BitweenApiException(string message, HttpStatusCode? status = null) 
 /// <summary>
 /// Calls to one Bitween's API as the signed-in member: the access token goes with each call, and is
 /// renewed with the refresh token when it has expired, the way the browser renews it - the renewed
-/// tokens are saved back to the profile.
+/// tokens are saved back to the profile. Or, for a job with no profile, as a service account: its
+/// token is traded for a session, and traded again whenever that runs out; nothing is saved.
 /// </summary>
 public class BitweenApi : IDisposable
 {
     readonly HttpClient http;
     readonly Profiles profiles;
     readonly string profileName;
+    readonly string serviceToken;
+    readonly SemaphoreSlim renewing = new(1, 1);
     Profile profile;
 
     public BitweenApi(Profiles profiles, string profileName, Profile profile, HttpMessageHandler handler = null)
@@ -38,7 +41,16 @@ public class BitweenApi : IDisposable
         http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("bitween-cli", typeof(BitweenApi).Assembly.GetName().Version?.ToString() ?? "0"));
     }
 
+    /// <summary>As a service account, from its token: BITWEEN_URL and BITWEEN_TOKEN.</summary>
+    public BitweenApi(string url, string serviceToken, bool insecure = false, HttpMessageHandler handler = null)
+        : this(null, null, new Profile { Url = url.TrimEnd('/'), Insecure = insecure }, handler)
+    {
+        this.serviceToken = serviceToken;
+    }
+
     public string Url => profile.Url;
+
+    public bool AsService => serviceToken != null;
 
     /// <summary>
     /// Cookies are handled by hand, so the refresh token is only ever where the profile keeps it.
@@ -127,6 +139,8 @@ public class BitweenApi : IDisposable
     public async Task<JsonNode> PostAsync(string path, object body) =>
         await SendAsync(() => new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) });
 
+    public async Task<JsonNode> DeleteAsync(string path) => await SendAsync(() => new HttpRequestMessage(HttpMethod.Delete, path));
+
     public async Task<JsonNode> PostFileAsync(string path, string file, string contentType)
     {
         return await SendAsync(() =>
@@ -139,13 +153,14 @@ public class BitweenApi : IDisposable
 
     async Task<JsonNode> SendAsync(Func<HttpRequestMessage> make)
     {
-        if (Expired(profile.AccessToken)) await RenewAsync();
+        var token = profile.AccessToken;
+        if (Expired(token)) await RenewAsync(token);
         var response = await SendOnceAsync(make());
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
             // Expired between the check and the call, or revoked: renew once and try again.
             response.Dispose();
-            await RenewAsync();
+            await RenewAsync(token);
             response = await SendOnceAsync(make());
         }
 
@@ -163,7 +178,35 @@ public class BitweenApi : IDisposable
         return http.SendAsync(request);
     }
 
-    async Task RenewAsync()
+    /// <summary>
+    /// A new session, unless another call renewed it since <paramref name="stale"/> was read: calls in
+    /// parallel that all find it expired renew it once between them.
+    /// </summary>
+    async Task RenewAsync(string stale)
+    {
+        await renewing.WaitAsync();
+        try
+        {
+            if (profile.AccessToken != stale && !Expired(profile.AccessToken)) return;
+            if (serviceToken != null) await TradeAsync();
+            else await RefreshAsync();
+        }
+        finally
+        {
+            renewing.Release();
+        }
+    }
+
+    async Task TradeAsync()
+    {
+        var response = await http.PostAsJsonAsync("api/accounts/servicetoken", new { Token = serviceToken });
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new BitweenApiException($"{profile.Url} refused the service token: {Refusal(response.StatusCode, body)}", response.StatusCode);
+        profile.AccessToken = (string)JsonNode.Parse(body)?["jwt"];
+    }
+
+    async Task RefreshAsync()
     {
         if (string.IsNullOrEmpty(profile.RefreshToken))
             throw new BitweenApiException($"The session with {profile.Url} has ended; sign in again with bitween login {profile.Url}.");
@@ -232,5 +275,9 @@ public class BitweenApi : IDisposable
         };
     }
 
-    public void Dispose() => http.Dispose();
+    public void Dispose()
+    {
+        http.Dispose();
+        renewing.Dispose();
+    }
 }

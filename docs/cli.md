@@ -1,8 +1,9 @@
 # The bitween CLI
 
-`bitween` works with a Bitween from a terminal. This release covers adapters - writing, building,
-checking and publishing them with the Bitween contract - and signing in to a Bitween, which the
-commands that change it use.
+`bitween` works with a Bitween from a terminal: signing in, as a person or as a service account;
+adapters - writing, building, checking and publishing them with the Bitween contract; and configuration
+as code - a Bitween's partners, information types, subscriptions, gateways and the rest, kept in YAML
+files and applied with `bitween apply`.
 
 It is built on [SW-Serverless](https://github.com/simplify9/SW-Serverless)'s tooling. `sw-serverless`
 does the same for adapters of any application; `bitween` adds what is Bitween's: its four kinds,
@@ -65,6 +66,23 @@ Signing in through the browser works for every account, however it signs in, and
 configured. An account that must change its password changes it in the browser first; the CLI can't be
 signed in as it until then.
 
+### As a service account
+
+A job with no one to sign in, such as a pipeline or a Kubernetes CronJob, signs in as a **service account**
+instead (Team > Service accounts in Bitween). Issue the account a token there, then give the job:
+
+```sh
+export BITWEEN_URL=https://bitween.example.com
+export BITWEEN_TOKEN=bwt_...           # or BITWEEN_TOKEN_FILE=/var/run/secrets/bitween/token
+bitween whoami
+```
+
+With no `--profile`, a token in the environment is used over any profile, nothing is written to disk, and the
+token is traded for a short session that is renewed by trading it again. `BITWEEN_INSECURE=1` skips the
+certificate check, like `--insecure`. A service account can do what its roles allow; give it only what the job
+needs. Tokens expire (90 days unless set, a year at most); an account holds two at a time so a new one can be
+put in place before the old one is revoked, and the dashboard lists tokens within two weeks of expiring.
+
 ## Adapters
 
 ```sh
@@ -96,10 +114,98 @@ bitween adapter promote acme.orders 0.1.0
 variables. The catalog then records the publisher from `SWSL_PUBLISHED_BY`, `GITHUB_ACTOR` or the local
 user name, and nothing reaches Bitween's audit trail.
 
+## Configuration as code
+
+```sh
+bitween export -o acme.yaml --name acme     # start from what a Bitween has
+bitween plan -f acme.yaml                   # what would change; changes nothing
+bitween apply -f acme.yaml                  # make it so
+bitween apply -f config/ --prune            # a folder of files; also remove what was dropped
+```
+
+A configuration is one YAML file or a folder of them, merged:
+
+```yaml
+apiVersion: bitween/v1
+kind: Configuration
+metadata:
+  name: acme
+informationTypes:
+  - name: Marketplace order
+    code: MKT_ORDER
+    format: Json
+    validationSchema: ${file:schemas/order.json}
+partners:
+  - name: Acme marketplace
+    properties: { region: eu }
+    keys:
+      main: ${secret:MARKETPLACE_KEY}
+subscriptions:
+  - name: Orders to warehouse
+    type: GatewayApiCall
+    informationType: Marketplace order
+    retryPolicy: Partner outage
+    handler:
+      adapter: NativeHttpHandler        # a published adapter's id, with version: 1.2.0 to pin it
+      properties:
+        Url: https://warehouse.example.com/orders
+        ApiKey: ${secret:WAREHOUSE_KEY}
+apiGateways:
+  - name: Orders inbound
+    urlName: orders
+    partners:
+      - partner: Acme marketplace
+        subscription: Orders to warehouse
+adapters:
+  - package: adapters/acme.orders-1.2.0.zip
+    current: true
+```
+
+| Section | Named by | Notes |
+|---|---|---|
+| `subscriptionCategories` | `code` | |
+| `workGroups` | `name` | |
+| `informationTypes` | `name` | `format`, `promotedProperties` as a mapping |
+| `partners` | `name` | `properties`, `secretProperties`, `loginIdentity`, `keys` as name: value |
+| `globalValues` | `id` | `values` as a mapping |
+| `retryPolicies` | `name` | `groups` as Bitween writes them; groups keep their ids by name |
+| `dataSources` | `name` | `adapter`, `kind`, `properties` |
+| `dataSourceStatements` | `dataSource` and `name` | `sql`, `workGroup` |
+| `adapters` | the package | published unless that version already is; `current: true` makes it the one that runs |
+| `subscriptions` | `name` | `type`, `informationType`, `partner`, `receiver`/`validator`/`mapper`/`handler` blocks, `paused` |
+| `apiGateways` | `urlName` | `partners` attached, each `{ partner, subscription }` |
+| `busGateways` | `name` | `routes`, each `{ subscription, partner, matchExpression }` |
+| `notifiers` | `name` | `handler`, `properties`, `subscriptions` |
+
+- **Names, not ids.** Items refer to each other by name, so one file works on any Bitween. A name Bitween has
+  twice can't be referred to; plan says which.
+- **Only what the file says.** A field left out is left as it is. A mapping that replaces everything, such as
+  an adapter's `properties` or a partner's `keys`, is compared and applied whole. A subscription's `type`,
+  `informationType`, `partner` and `aggregationFor` can't change once it exists; plan refuses rather than
+  guess.
+- **Secrets.** `${secret:NAME}` comes from the variable `NAME`, or the file `NAME` in `--secrets-dir`
+  (`BITWEEN_SECRETS_DIR`), such as a mounted Kubernetes secret. `${env:NAME}` and `${file:path}` (relative
+  to the file) work too. Secrets are never printed. Bitween doesn't show the secrets it holds, so an unchanged
+  secret can't be told from a changed one: it is sent again whenever anything else about that item changes.
+  A partner's key is compared by the five characters Bitween shows, and replaced when it no longer starts
+  with them.
+- **Order.** Apply works through the sections in the order above, and within subscriptions puts one that
+  another names first. It stops at the first refusal, with what was done before it kept; running it again
+  carries on.
+- **Prune.** Apply remembers what it has made, per `metadata.name`, in a global values set named
+  `bitween-apply.<name>`. `--prune` removes what that lists and the file no longer does, last and in reverse
+  order; nothing else, so configuration made by hand alongside is never touched.
+- **Export** writes every section (or `--only partners,subscriptions`), leaves out defaults and built-in
+  items, and names each secret it couldn't read as `${secret:...}`, listing them so they can be supplied.
+
+Apply needs the permissions of what it changes, and `global-values.create` and `global-values.edit` to
+remember what it made.
+
 ### Exit codes
 
 `0` when the command did what was asked, `1` otherwise - a failed check, a refused publish, a problem
-in the arguments - with the reason printed. `bitween adapter test` prints each check as `PASS`, `FAIL`
+in the arguments - with the reason printed. `bitween plan --detailed-exitcode` exits `2` when there are
+changes to apply. `bitween adapter test` prints each check as `PASS`, `FAIL`
 or `SKIP`.
 
 The CLI is `SW.Bitween.Cli`, built on `SW.Bitween.Adapters.Tooling`, which the adapter editor in Bitween
