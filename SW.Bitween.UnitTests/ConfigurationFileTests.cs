@@ -140,4 +140,18 @@ public class ConfigurationFileTests
         Assert.AreEqual("PARTNER_ACME_LTD_KEY_MAIN", Exporter.Name(["partner", "Acme Ltd.", "key", "main"]));
         Assert.AreEqual("SUBSCRIPTION_ORDERS_TO_WAREHOUSE_HANDLER_APIKEY", Exporter.Name(["subscription", "Orders to warehouse!", "handler", "ApiKey"]));
     }
+
+    [TestMethod]
+    public void An_aggregation_with_an_information_type_is_turned_away_before_anything_is_made()
+    {
+        var aggregation = new JsonObject { ["name"] = "Hourly manifest", ["type"] = "Aggregation", ["aggregationFor"] = "Returns", ["informationType"] = "Customer return" };
+        var problems = new Subscriptions().Unresolved(aggregation, (_, _) => true).ToList();
+        Assert.IsTrue(problems.Any(p => p.Contains("an aggregation has none of its own")), string.Join("; ", problems));
+
+        aggregation.Remove("informationType");
+        Assert.AreEqual(0, new Subscriptions().Unresolved(aggregation, (_, _) => true).Count());
+        // Any other kind keeps its information type.
+        var receiving = new JsonObject { ["name"] = "Pickup", ["type"] = "Receiving", ["informationType"] = "Customer return" };
+        Assert.AreEqual(0, new Subscriptions().Unresolved(receiving, (_, _) => true).Count());
+    }
 }

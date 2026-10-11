@@ -331,6 +331,15 @@ public class Subscriptions : Kind
         return file;
     }
 
+    public override IEnumerable<string> Unresolved(JsonObject want, Func<string, string, bool> known)
+    {
+        foreach (var problem in base.Unresolved(want, known)) yield return problem;
+        // Bitween keeps none for an aggregation, so one in the file was taken once and then read back as a
+        // change to a field that can't change, on every apply after.
+        if ((string)want["type"] == "Aggregation" && want.ContainsKey("informationType"))
+            yield return "informationType: an aggregation has none of its own (it rolls up the exchanges of what it aggregates); leave it out";
+    }
+
     public override List<string> Differences(Context ctx, JsonObject want, Existing have)
     {
         var differ = base.Differences(ctx, want, have);
