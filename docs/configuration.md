@@ -30,6 +30,20 @@ Any long random string will do — `openssl rand -base64 48`.
 Changing the key invalidates every token already issued, so everyone signs in again. That is the
 intended response to a key you no longer trust.
 
+### Bus messages from other applications
+
+A message another application publishes to Bitween's bus can carry its user's token. Bitween checks
+it with its own `Token` values, so a publisher signing with a different key fails every message it
+sends: it goes straight to the queue's `.bad` queue and no exchange is created. Give both
+applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
+(env: `Bus__OnInvalidUserToken`) can change what happens:
+
+| Value | Effect |
+|---|---|
+| `Fail` *(default)* | The message goes to the `.bad` queue without retrying. |
+| `ContinueAnonymous` | The message is processed without a user, and a warning is logged. |
+| `ContinueAnonymousSilently` | The same, without the warning. |
+
 ## `Bitween` section
 
 | Key | Default | Description |
