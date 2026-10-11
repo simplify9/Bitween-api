@@ -31,10 +31,13 @@ ingress:
   annotations: {}
     # nginx.ingress.kubernetes.io/rewrite-target: /$2
   # kubernetes.io/tls-acme: "true"
-  path: /api
+  # /api is the API, /swagger its UI, and / the admin SPA served from this image's wwwroot.
+  # `path` is only the fallback for an empty `paths`, so it is the root as well.
+  path: /
   paths:
     - /api
     - /swagger
+    - /
   hosts:
   tls: []
     # - secretName: chart-example-tls
@@ -45,7 +48,7 @@ ingress:
 # Gateway-API-related unless gateway.enabled is set to true at deploy time.
 # When enabled, the Ingress above is suppressed and routing works exactly like
 # the Gateway API chart. Override parentRefs/hostnames/routes for your cluster
-# (the routes below default to "/"; the ingress equivalents are /api and /swagger).
+# (the routes below default to "/", which covers /api, /swagger and the admin UI).
 gateway:
   enabled: false
   parentRefs:
