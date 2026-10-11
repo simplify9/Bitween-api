@@ -23,6 +23,13 @@ import { useListParams } from "../../lib/listParams";
 import { NONE } from "../../lib/none";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
 import { SearchBox } from "../../components/ui/SearchBox";
+import type { HealthStatus } from "../../api/metricsTypes";
+import { HEALTH } from "../../components/metrics/health";
+import { HealthStatusBadge } from "../../components/metrics/HealthStatus";
+import { Sparkline } from "../../components/charts/Sparkline";
+import { percent } from "../../lib/numbers";
+import { Panel } from "../../components/ui/Panel";
+import { timeAgo } from "../../lib/dates";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
@@ -104,6 +111,10 @@ export function SubscriptionsPage() {
   };
 
 
+  // Each subscription's last week, from the hourly metrics: one request for the whole list.
+  const health = useQuery({ queryKey: keys.metrics.subscriptions(7), queryFn: () => api.getSubscriptionHealth(7) });
+  const healthById = new Map((health.data?.subscriptions ?? []).map((h) => [h.subscriptionId, h]));
+  const healthFilter = searchParams.get("health") as HealthStatus | null;
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
 
@@ -144,6 +155,38 @@ export function SubscriptionsPage() {
           ),
         }}
       />
+
+      {healthFilter && HEALTH[healthFilter] && (
+        <Panel
+          title={`${HEALTH[healthFilter].label}, last 7 days`}
+          description={HEALTH[healthFilter].explain}
+          className="mb-4"
+          action={
+            <button type="button" onClick={() => setParam("health", null)} className="text-[13px] font-medium text-crimson-700 hover:underline">
+              Show all
+            </button>
+          }
+        >
+          {(health.data?.subscriptions ?? []).filter((h) => h.status === healthFilter).length === 0 ? (
+            <p className="text-[13px] text-ink-500">None right now.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {(health.data?.subscriptions ?? [])
+                .filter((h) => h.status === healthFilter)
+                .map((h) => (
+                  <li key={h.subscriptionId} className="flex items-center gap-2.5 text-sm">
+                    <Link to={subscriptionPath(h.subscriptionId)} className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline">
+                      {h.name}
+                    </Link>
+                    <span className="text-xs text-ink-500">
+                      {h.lastExchangeHour ? `latest exchange ${timeAgo(h.lastExchangeHour)}` : "no exchanges in 30 days"}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </Panel>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button
@@ -297,6 +340,21 @@ export function SubscriptionsPage() {
                   <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
                 </span>
               ),
+            },
+            {
+              header: "7 days",
+              headerTitle: "Health over the last week: its status, the share that succeeded, and exchanges per day.",
+              cell: (r) => {
+                const h = healthById.get(r.id);
+                if (!h) return <span className="text-ink-500">-</span>;
+                return (
+                  <span className="inline-flex items-center gap-2">
+                    <HealthStatusBadge status={h.status} />
+                    {h.total > 0 && <span className="text-[12px] text-ink-600 tabular-nums">{percent(h.successRate)}</span>}
+                    {h.total > 0 && <Sparkline values={h.daily} label={`${h.total} exchanges in 7 days, by day`} width={56} />}
+                  </span>
+                );
+              },
             },
             {
               header: "Last error",

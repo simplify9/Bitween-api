@@ -5,8 +5,10 @@ import { api, type ClusterNodes } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, EmptyState, InlineNotice, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Table } from "../../components/ui/Table";
-import { formatDateTime, timeAgo } from "../../lib/dates";
+import { MiniTable, Table } from "../../components/ui/Table";
+import { formatDateTime, timeAgo, formatDurationMs } from "../../lib/dates";
+import { compact } from "../../lib/numbers";
+import { Panel } from "../../components/ui/Panel";
 
 type Node = ClusterNodes["nodes"][number];
 
@@ -19,6 +21,8 @@ const RUNTIME_LABEL: Record<string, string> = { dotnet: ".NET", python: "Python"
  */
 export function NodesPage() {
   const nodes = useQuery({ queryKey: keys.settings.nodes, queryFn: () => api.getClusterNodes(), refetchInterval: 15_000 });
+  // What each node did in the last day, and its resident adapter instances, from the metrics.
+  const metrics = useQuery({ queryKey: keys.metrics.nodes, queryFn: () => api.getNodeMetrics(), refetchInterval: 60_000 });
 
   const header = (
     <PageHeader
@@ -39,6 +43,18 @@ export function NodesPage() {
   const online = all.filter((n) => n.online);
   const versions = [...new Set(online.map((n) => n.version))];
   const runsDataSources = online.some((n) => n.dataSources);
+  const byNode = new Map((metrics.data?.nodes ?? []).map((m) => [m.id, m]));
+  // A node that fails clearly more than the other nodes do is the one to look at first. Measured
+  // against the others, not the whole cluster: with two nodes, the bad one lifts the average.
+  const all24 = metrics.data?.nodes ?? [];
+  const standsOut = (m: { id: string; exchanges: number; failed: number } | undefined) => {
+    if (!m || all24.length < 2 || m.exchanges < 20) return false;
+    const others = all24.filter((o) => o.id !== m.id);
+    const total = others.reduce((n, o) => n + o.exchanges, 0);
+    const otherRate = total ? others.reduce((n, o) => n + o.failed, 0) / total : 0;
+    return m.failed / m.exchanges > Math.max(0.05, 2 * otherRate);
+  };
+  const resident = (metrics.data?.nodes ?? []).flatMap((m) => m.resident.map((r) => ({ node: m.id, ...r })));
 
   return (
     <div>
@@ -132,6 +148,30 @@ export function NodesPage() {
                 ),
             },
             {
+              header: "Last 24 hours",
+              headerTitle: "Exchanges this node finished, and the adapter calls it made, with how they failed.",
+              cell: (n) => {
+                const m = byNode.get(n.name);
+                if (!m || (m.exchanges === 0 && m.adapterCalls === 0)) return <span className="text-ink-500">-</span>;
+                return (
+                  <span className="block text-[12px] text-ink-700">
+                    <span className="block tabular-nums">
+                      {compact(m.exchanges)} exchanges
+                      {m.failed > 0 && <span className="text-danger-700"> · {compact(m.failed)} failed</span>}
+                      {m.p95Ms !== null && <span className="text-ink-500"> · p95 {formatDurationMs(m.p95Ms)}</span>}
+                    </span>
+                    <span className="block text-ink-500 tabular-nums">
+                      {compact(m.adapterCalls)} adapter calls
+                      {m.timeouts > 0 && ` · ${compact(m.timeouts)} timed out`}
+                      {m.limitStops > 0 && ` · ${compact(m.limitStops)} over a limit`}
+                      {m.crashes > 0 && ` · ${compact(m.crashes)} crashed`}
+                    </span>
+                    {standsOut(m) && <Badge tone="warn" className="mt-0.5">Fails more than the others</Badge>}
+                  </span>
+                );
+              },
+            },
+            {
               header: "Leases",
               cell: (n) =>
                 n.leases.length ? (
@@ -148,6 +188,42 @@ export function NodesPage() {
             },
           ]}
         />
+      )}
+
+      {resident.length > 0 && (
+        <Panel
+          title="Resident adapter instances"
+          description="Long-lived adapter processes, as each node last described them: what they do, what they use, and how often they have been restarted."
+          className="mt-4"
+        >
+          <MiniTable
+            rows={resident}
+            rowKey={(r) => `${r.node}-${r.a}-${r.pid ?? ""}`}
+            empty="None."
+            columns={[
+              { header: "Adapter", cell: (r) => <code className="font-mono text-[12px] text-ink-800">{r.a}</code> },
+              { header: "Node", cell: (r) => <code className="font-mono text-[11.5px] text-ink-500">{r.node}</code> },
+              {
+                header: "State",
+                cell: (r) => (
+                  <span className="flex flex-wrap items-center gap-1">
+                    <Badge tone={r.q ? "danger" : r.s === "Ready" || r.s === "Busy" ? "ok" : "neutral"}>{r.q ? "Quarantined" : r.s}</Badge>
+                    {r.e && <span className="max-w-60 truncate text-[11.5px] text-danger-700" title={r.e}>{r.e}</span>}
+                  </span>
+                ),
+              },
+              { header: "Memory", align: "right", cell: (r) => <span className="tabular-nums">{r.mb} MB</span> },
+              { header: "CPU", align: "right", cell: (r) => <span className="tabular-nums">{r.cpu}%</span> },
+              { header: "Up", align: "right", cell: (r) => <span className="tabular-nums">{formatDurationMs(r.up * 1000)}</span> },
+              {
+                header: "Restarts",
+                align: "right",
+                cell: (r) => <span className={`tabular-nums ${r.r > 0 ? "text-warn-700" : ""}`}>{r.r}</span>,
+              },
+              { header: "In flight", align: "right", cell: (r) => <span className="tabular-nums">{r.f}</span> },
+            ]}
+          />
+        </Panel>
       )}
     </div>
   );

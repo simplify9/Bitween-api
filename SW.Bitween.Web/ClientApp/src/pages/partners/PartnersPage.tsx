@@ -15,6 +15,8 @@ import { useSubscriptionsCache, usePartnerSubscriptions } from "../../components
 import { keys } from "../../api/queryKeys";
 import { useListParams } from "../../lib/listParams";
 import { SearchBox } from "../../components/ui/SearchBox";
+import { timeAgo } from "../../lib/dates";
+import { compact, percent } from "../../lib/numbers";
 
 const PAGE_SIZE = 25;
 
@@ -36,6 +38,9 @@ export function PartnersPage() {
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
 
+  // Traffic and last activity per partner, from the hourly metrics.
+  const partnerUsage = useQuery({ queryKey: keys.metrics.partners(7), queryFn: () => api.getPartnerUsage(7) });
+  const usage = new Map((partnerUsage.data?.partners ?? []).map((u) => [u.partnerId, u]));
   const partnerSubscriptions = usePartnerSubscriptions();
   const subscriptions = useSubscriptionsCache().data ?? [];
 
@@ -162,6 +167,33 @@ export function PartnersPage() {
               header: "API keys",
               align: "right",
               cell: (p) => <span className="tabular-nums text-ink-600">{p.credentialCount || "-"}</span>,
+            },
+            {
+              header: "7 days",
+              align: "right",
+              headerTitle: "Exchanges with this partner over the last week, and the share that succeeded.",
+              cell: (p) => {
+                const u = usage.get(p.id);
+                if (!u || u.exchanges === 0) return <span className="text-ink-500">-</span>;
+                return (
+                  <span className="tabular-nums text-ink-700">
+                    {compact(u.exchanges)}
+                    <span className={u.successRate !== null && u.successRate < 99 ? " text-danger-700" : " text-ink-500"}>
+                      {" "}
+                      · {percent(u.successRate)}
+                    </span>
+                  </span>
+                );
+              },
+            },
+            {
+              header: "Last activity",
+              headerTitle: "Its latest exchange, or the last time one of its API keys was used, whichever is later.",
+              cell: (p) => {
+                const u = usage.get(p.id);
+                const last = [u?.lastExchangeHour, u?.keyLastUsedOn].filter((d): d is string => !!d).sort().at(-1);
+                return last ? <span className="text-ink-600">{timeAgo(last)}</span> : <span className="text-ink-500">-</span>;
+              },
             },
             {
               header: "Used by",

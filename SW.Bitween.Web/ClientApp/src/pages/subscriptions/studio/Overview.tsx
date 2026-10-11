@@ -16,6 +16,7 @@ import type { Draft, EntryPoint } from "./model";
 import { keys } from "../../../api/queryKeys";
 import { ExceptionBlock } from "../../../components/ui/Exception";
 import { CategoryField } from "./CategoryField";
+import { HealthPanel } from "./HealthPanel";
 
 /** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
 export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
@@ -248,6 +249,10 @@ export function Overview({
       </div>
 
       <RetryBudget subscriptionId={s.id} canEdit={canEdit} />
+
+      <Can permission="exchanges.view">
+        <HealthPanel subscriptionId={s.id} />
+      </Can>
 
       {paused && (
         <p className="rounded-xl bg-warn-100 px-4 py-2.5 text-[13px] text-warn-700">
