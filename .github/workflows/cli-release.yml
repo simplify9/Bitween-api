@@ -2,10 +2,11 @@ name: bitween CLI release
 
 # Publishes the bitween command as self-contained binaries on a GitHub release: nothing needs .NET
 # installed to run them. Never run by hand or by a tag: the CI run that publishes this repository
-# calls it with the version it computed (determine-semver: the next patch from the git tags, the
-# run number for a prerelease), so the CLI carries the version of the release it ships with.
+# calls it with the version it computed (determine-semver: the next patch from the git tags), so the
+# CLI carries the version of the release it ships with. The computed version is the bare x.y.z on
+# staging too, so a staging build says so with prerelease and passes its run number.
 #   a release, 10.0.61                                  cli-v10.0.61          the latest release
-#   a prerelease, 10.0.61-releases-r10-0-staging.121    cli-v10.0.61-stg.121  a pre-release, to try out
+#   a prerelease, 10.0.61 with prerelease and run 121   cli-v10.0.61-stg.121  a pre-release, to try out
 # Called by bitween-api-cicd-gateway.yml: after the release from releases/r10.0, and after each staging build.
 on:
   workflow_call:
@@ -14,6 +15,14 @@ on:
         description: "The version the calling run computed"
         type: string
         required: true
+      prerelease:
+        description: "Release as a pre-release, named after the run"
+        type: boolean
+        default: false
+      run-number:
+        description: "The calling run's number, for a pre-release"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -29,10 +38,16 @@ jobs:
         id: channel
         env:
           VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          RUN_NUMBER: ${{ inputs.run-number }}
         run: |
           v="$VERSION"
-          if [[ "$v" == *-* ]]; then
-            # A prerelease names its branch and run: 10.0.61-releases-r10-0-staging.121 is 10.0.61-stg.121.
+          if [ "$PRERELEASE" = "true" ]; then
+            # A pre-release names its run: 10.0.61 from run 121 is 10.0.61-stg.121.
+            v="${v%%-*}-stg.${RUN_NUMBER:-${GITHUB_RUN_NUMBER}}"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$v" == *-* ]]; then
+            # A version that already carries its branch and run: 10.0.61-releases-r10-0-staging.121 is 10.0.61-stg.121.
             v="${v%%-*}-stg.${v##*.}"
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else

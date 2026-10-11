@@ -163,6 +163,8 @@ jobs:
     uses: ./.github/workflows/cli-release.yml
     with:
       version: ${{ needs.build-publish-deploy.outputs.version }}
+      prerelease: true
+      run-number: ${{ github.run_number }}
 
   cli-release:
     needs: publish-release
