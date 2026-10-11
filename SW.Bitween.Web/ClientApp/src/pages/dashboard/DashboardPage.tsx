@@ -206,7 +206,7 @@ export function DashboardPage() {
         <StatTile
           label="Failures to act on"
           // The search stops counting past its cap and reports the cap + 1.
-          value={data.failuresToActOn > 10_000 ? "10,000+" : compact(data.failuresToActOn)}
+          value={data.failuresToActOn > 10_000 ? "10,000+" : whole(data.failuresToActOn)}
           sub={data.failuresToActOn > 0 ? "newest attempt of each chain" : "every failure was retried"}
           to="/exchanges?status=failed&latest=1"
           accent={data.failuresToActOn > 0 ? "danger" : undefined}
@@ -214,7 +214,7 @@ export function DashboardPage() {
         />
         <StatTile
           label="Pending auto-retries"
-          value={compact(data.pendingRetries)}
+          value={whole(data.pendingRetries)}
           sub={data.pendingRetries > 0 ? "waiting for their slot" : "queue is clear"}
           to="/scheduled-retries"
           accent={data.pendingRetries > 0 ? "warn" : undefined}
@@ -441,8 +441,9 @@ export function DashboardPage() {
           <RankedBars
             rows={o.busiestSubscriptions.map((s) => ({
               key: s.subscriptionId,
-              name: s.name ?? `#${s.subscriptionId}`,
-              to: subscriptionPath(s.subscriptionId),
+              // Counted while it existed; deleted since, so there is nothing to open.
+              name: s.name ?? `Deleted subscription #${s.subscriptionId}`,
+              to: s.name ? subscriptionPath(s.subscriptionId) : null,
               ok: s.total - s.failed - s.badResponse,
               bad: s.failed + s.badResponse,
             }))}
@@ -453,8 +454,8 @@ export function DashboardPage() {
           <RankedBars
             rows={o.busiestPartners.map((p) => ({
               key: p.partnerId,
-              name: p.name ?? `#${p.partnerId}`,
-              to: `/partners/${p.partnerId}`,
+              name: p.name ?? `Deleted partner #${p.partnerId}`,
+              to: p.name ? `/partners/${p.partnerId}` : null,
               ok: p.total - p.failed,
               bad: p.failed,
             }))}
@@ -532,7 +533,8 @@ export function DashboardPage() {
                         {item.label}
                       </Link>
                     ))}
-                    {i.count > i.items.length && (
+                    {/* Lists are cut at ten; one that wasn't cut (or is a single link to its page) says nothing more. */}
+                    {i.items.length >= 10 && i.count > i.items.length && (
                       <span className="text-ink-500">and {i.count - i.items.length} more</span>
                     )}
                   </p>
@@ -551,7 +553,7 @@ function RankedBars({
   rows,
   empty,
 }: {
-  rows: { key: number; name: string; to: string; ok: number; bad: number }[];
+  rows: { key: number; name: string; to: string | null; ok: number; bad: number }[];
   empty: string;
 }) {
   if (rows.length === 0) return <EmptyState title="No traffic yet">{empty}</EmptyState>;
@@ -561,13 +563,17 @@ function RankedBars({
       {rows.map((r) => (
         <li key={r.key} className="text-sm">
           <div className="flex items-center gap-2">
-            <Link
-              to={r.to}
-              className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-              title={r.name}
-            >
-              {r.name}
-            </Link>
+            {r.to ? (
+              <Link
+                to={r.to}
+                className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                title={r.name}
+              >
+                {r.name}
+              </Link>
+            ) : (
+              <span className="min-w-0 flex-1 truncate text-ink-500">{r.name}</span>
+            )}
             <span className="text-xs text-ink-500 tabular-nums">
               {compact(r.ok + r.bad)}
               {r.bad > 0 && <span> · {compact(r.bad)} failed</span>}

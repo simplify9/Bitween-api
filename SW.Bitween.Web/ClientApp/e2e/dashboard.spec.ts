@@ -6,8 +6,10 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
 
   await page.goto("dashboard");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("Exchanges today")).toBeVisible();
-  await expect(page.getByText("Success rate (7 days)")).toBeVisible();
+  await expect(page.getByText("Exchanges, last 24 hours")).toBeVisible();
+  await expect(page.getByText("Success rate, 7 days")).toBeVisible();
+  await expect(page.getByText("Traffic, last 48 hours")).toBeVisible();
+  await expect(page.getByText("Housekeeping")).toBeVisible();
   await expect(page.getByText("undefined")).toHaveCount(0);
   await expect(page.getByText("NaN")).toHaveCount(0);
 
