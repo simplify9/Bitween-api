@@ -34,6 +34,8 @@ import {
   runtimeLabel,
   runtimeOf,
 } from "../../lib/adapterInventory";
+import { AdapterCallsContext, CALL_DAYS, type AdapterCallsByAdapter } from "./adapterCalls";
+import { AdapterCallsDetail, AdapterCallsLine } from "./AdapterCallsSummary";
 
 // CodeMirror, its diff view and the language packs load only when someone opens source.
 const AdapterSourceViewer = lazy(() => import("./AdapterSourceViewer"));
@@ -81,6 +83,22 @@ export function AdaptersPage() {
   });
   const subscriptions = useSubscriptionsCache();
   const usage = useMemo(() => usageByAdapter(subscriptions.data ?? []), [subscriptions.data]);
+  const callsQuery = useQuery({
+    queryKey: keys.metrics.adapters(CALL_DAYS),
+    queryFn: () => api.getAdapterUsage(CALL_DAYS),
+  });
+  const calls = useMemo<AdapterCallsByAdapter>(() => {
+    const list = callsQuery.data;
+    const lastCalled = new Map<string, string>();
+    for (const a of list?.adapters ?? []) if (a.lastCalledOn) lastCalled.set(a.id, a.lastCalledOn);
+    for (const q of list?.quiet ?? []) lastCalled.set(q.id, q.lastCalledOn);
+    return {
+      calls: new Map((list?.adapters ?? []).map((a) => [a.id, a])),
+      lastCalled,
+      since: list?.since ?? null,
+      loaded: list !== undefined,
+    };
+  }, [callsQuery.data]);
   const builtIn = catalogs.adapters.filter((a) => a.native);
   const installed = catalogs.adapters.filter((a) => !a.native);
 
@@ -136,7 +154,8 @@ export function AdaptersPage() {
         ))}
       </div>
 
-      <div role="tabpanel" id={`adapters-panel-${tab}`} aria-labelledby={`adapters-tab-${tab}`}>
+      <AdapterCallsContext.Provider value={calls}>
+        <div role="tabpanel" id={`adapters-panel-${tab}`} aria-labelledby={`adapters-tab-${tab}`}>
         {tab === "marketplace" ? (
           <EmptyState icon={<Store />} title="The marketplace is on its way">
             Browsing and installing adapters published by Simplify9 and others will live here.
@@ -168,7 +187,8 @@ export function AdaptersPage() {
             />
           </div>
         )}
-      </div>
+        </div>
+      </AdapterCallsContext.Provider>
     </div>
   );
 }
@@ -319,6 +339,7 @@ function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: 
         </span>
         <span className="shrink-0 text-right text-[12px] text-ink-500">
           <span className="block">{used === 0 ? "Not used" : `Used by ${used} subscription${used === 1 ? "" : "s"}`}</span>
+          <AdapterCallsLine adapterId={a.id} />
           {!a.native && (
             <span className="block text-ink-500">
               {pinnable === 0 ? "No versions" : `${pinnable} version${pinnable === 1 ? "" : "s"}`}
@@ -359,6 +380,8 @@ function AdapterDetails({ adapter: a, usage }: { adapter: InventoryAdapter; usag
           ))}
         </div>
       )}
+
+      <AdapterCallsDetail adapterId={a.id} />
 
       {!a.native && <VersionHistory adapter={a} usage={usage} />}
 

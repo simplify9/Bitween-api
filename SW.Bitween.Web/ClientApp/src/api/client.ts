@@ -96,6 +96,16 @@ import type {
   DraftRun,
 } from "./types";
 import type { SaveResult } from "./http/dataSourceStatements";
+import type {
+  AdapterUsageDetail,
+  AdapterUsageList,
+  Insights,
+  MetricsOverview,
+  NodeMetrics,
+  PartnerUsageList,
+  SubscriptionHealthList,
+  SubscriptionMetrics,
+} from "./metricsTypes";
 
 /**
  * The single data-access contract the UI is written against, implemented by
@@ -618,6 +628,16 @@ export interface ApiClient {
 
   // - dashboard -
   getDashboard(): Promise<DashboardData>;
+
+  // Metrics, read from the hourly rows the server keeps.
+  getMetricsOverview(): Promise<MetricsOverview>;
+  getAdapterUsage(days: number): Promise<AdapterUsageList>;
+  getAdapterUsageDetail(id: string, days: number): Promise<AdapterUsageDetail>;
+  getSubscriptionHealth(days: number): Promise<SubscriptionHealthList>;
+  getSubscriptionMetrics(id: number, days: number): Promise<SubscriptionMetrics>;
+  getPartnerUsage(days: number): Promise<PartnerUsageList>;
+  getNodeMetrics(): Promise<NodeMetrics>;
+  getInsights(): Promise<Insights>;
 
   // - mappers -
   /** Executes a Scriban template against sample input, injecting the partner's adapter properties and global value sets exactly as the runtime mapper does. */

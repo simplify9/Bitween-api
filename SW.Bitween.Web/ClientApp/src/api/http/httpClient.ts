@@ -4,6 +4,7 @@ import { adapterDraftMethods } from "./adapterDrafts";
 import { auditMethods } from "./audit";
 import { categoryMethods } from "./categories";
 import { dashboardMethods } from "./dashboard";
+import { metricsMethods } from "./metrics";
 import { dataSourceMethods } from "./dataSources";
 import { dataSourceStatementMethods } from "./dataSourceStatements";
 import { documentMethods } from "./documents";
@@ -42,6 +43,7 @@ export const httpClient: ApiClient = {
   ...queueHealthMethods,
   ...dataSourceStatementMethods,
   ...dashboardMethods,
+  ...metricsMethods,
   ...dataSourceMethods,
   ...mapperMethods,
   ...notifierMethods,

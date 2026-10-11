@@ -63,6 +63,14 @@ public class MetadataDatabaseTests
                 await Api.Json(await admin.GetAsync(page));
             Assert.Contains(subscriptionId.ToString(),
                 (await Api.Json(await admin.GetAsync("/api/subscriptions"))).ToJsonString());
+
+            // The metrics are written and read with grouped queries each database translates its own
+            // way: write this node's counts, then ask every metrics page.
+            await MetricsHttpTests.FlushAsync(app);
+            foreach (var page in MetricsHttpTests.Pages(subscriptionId))
+                await Api.Json(await admin.GetAsync(page));
+            var overview = await Api.Json(await admin.GetAsync("/api/metrics/overview"));
+            Assert.True((int)overview["last24h"]!["total"]! >= 1, overview.ToJsonString());
         }
         finally
         {

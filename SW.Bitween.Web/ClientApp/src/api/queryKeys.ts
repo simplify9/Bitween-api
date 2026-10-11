@@ -178,6 +178,17 @@ export const keys = {
   categories: ["subscription-categories"] as const,
   background: ["queue-health", "background"] as const,
   dashboard: ["dashboard"] as const,
+  metrics: {
+    all: ["metrics"] as const,
+    overview: ["metrics", "overview"] as const,
+    adapters: (days: number) => ["metrics", "adapters", days] as const,
+    adapter: (id: string, days: number) => ["metrics", "adapter", id, days] as const,
+    subscriptions: (days: number) => ["metrics", "subscriptions", days] as const,
+    subscription: (id: number, days: number) => ["metrics", "subscription", id, days] as const,
+    partners: (days: number) => ["metrics", "partners", days] as const,
+    nodes: ["metrics", "nodes"] as const,
+    insights: ["metrics", "insights"] as const,
+  },
 
   settings: {
     all: ["settings"] as const,

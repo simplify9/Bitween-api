@@ -32,8 +32,22 @@ const ORDERS = {
   tags: ["orders"],
   currentVersion: "1.1.0",
   versionHistory: [
-    { version: "1.0.0", publishedOn: "2026-09-01T00:00:00Z", publishedBy: "ci", releaseNotes: "First cut", withdrawn: true, runtime: "dotnet" },
-    { version: "1.1.0", publishedOn: "2026-10-01T00:00:00Z", publishedBy: "ci", releaseNotes: "Retries on 503", withdrawn: false, runtime: "python" },
+    {
+      version: "1.0.0",
+      publishedOn: "2026-09-01T00:00:00Z",
+      publishedBy: "ci",
+      releaseNotes: "First cut",
+      withdrawn: true,
+      runtime: "dotnet",
+    },
+    {
+      version: "1.1.0",
+      publishedOn: "2026-10-01T00:00:00Z",
+      publishedBy: "ci",
+      releaseNotes: "Retries on 503",
+      withdrawn: false,
+      runtime: "python",
+    },
   ],
 };
 /** Published by an older installer: no manifest, no catalog, only version files. */
@@ -189,7 +203,13 @@ describe("the Adapters page", () => {
       versions: ["1.1.0", "1.2.0"],
       versionHistory: [
         ...ORDERS.versionHistory,
-        { version: "1.2.0", publishedOn: "2026-10-05T00:00:00Z", publishedBy: "ci", releaseNotes: "Beta", withdrawn: false },
+        {
+          version: "1.2.0",
+          publishedOn: "2026-10-05T00:00:00Z",
+          publishedBy: "ci",
+          releaseNotes: "Beta",
+          withdrawn: false,
+        },
       ],
     };
     const { user } = renderApp("/adapters?tab=installed", {
@@ -215,7 +235,9 @@ describe("the Adapters page", () => {
     expect(within(dialog).getByText(/can't be pinned or made current again/)).toBeVisible();
     await user.click(within(dialog).getByRole("button", { name: "Withdraw v1.2.0" }));
 
-    await vi.waitFor(() => expect(posts).toEqual([{ path: "withdraw", body: { adapterId: "acme.handlers.orders", version: "1.2.0" } }]));
+    await vi.waitFor(() =>
+      expect(posts).toEqual([{ path: "withdraw", body: { adapterId: "acme.handlers.orders", version: "1.2.0" } }]),
+    );
   });
 
   it("publishes an uploaded package, current only when asked", async () => {
@@ -235,14 +257,19 @@ describe("the Adapters page", () => {
 
     await user.click(await screen.findByRole("button", { name: "Upload package" }, LOADED));
     const dialog = await screen.findByRole("dialog");
-    await user.upload(within(dialog).getByLabelText("Package"), new File(["PK-zip-bytes"], "acme.orders-0.2.0.zip", { type: "application/zip" }));
+    await user.upload(
+      within(dialog).getByLabelText("Package"),
+      new File(["PK-zip-bytes"], "acme.orders-0.2.0.zip", { type: "application/zip" }),
+    );
     await user.selectOptions(within(dialog).getByLabelText("Version"), "minor");
     await user.click(within(dialog).getByRole("checkbox"));
     await user.click(within(dialog).getByRole("button", { name: "Publish" }));
 
     expect(await within(dialog).findByText(/and made it current/)).toBeVisible();
     // Behind the dialog, the page has moved to where the package now is.
-    await waitFor(() => expect(screen.getByRole("tab", { name: /^Installed/ })).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: /^Installed/ })).toHaveAttribute("aria-selected", "true"),
+    );
     // The bytes themselves aren't checked: jsdom's File isn't a Blob Node's fetch can send, which a
     // browser's is. The package goes as the body, typed as a zip, with the choices in the query.
     expect(received).toMatchObject({ query: "?version=minor&current=true", type: "application/zip" });
@@ -270,5 +297,84 @@ describe("the Adapters page", () => {
     expect(await screen.findByRole("navigation", { name: "Main" })).toBeVisible();
     expect(screen.queryByRole("link", { name: "Adapters" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /^Built-in/ })).not.toBeInTheDocument();
+  });
+
+  it("shows each adapter's use, and its errors and versions when opened", async () => {
+    const totals = {
+      calls: 1200,
+      failures: 12,
+      failureRate: 1,
+      timeouts: 3,
+      limitStops: 0,
+      crashes: 1,
+      p50Ms: 90,
+      p95Ms: 450,
+      maxMs: 2_900,
+    };
+    const { user } = renderApp("/adapters?tab=installed", {
+      handlers: [
+        http.get(apiPath("/metrics/adapters"), () =>
+          HttpResponse.json({
+            since: "2026-10-01T00:00:00Z",
+            days: 7,
+            adapters: [
+              {
+                id: "acme.handlers.orders",
+                ...totals,
+                lastCalledOn: "2026-10-11T08:00:00Z",
+                daily: [100, 150, 200, 180, 170, 190, 210].map((calls, i) => ({
+                  day: `2026-10-0${i + 5}T00:00:00Z`,
+                  calls,
+                  failures: 1,
+                })),
+              },
+            ],
+            quiet: [],
+          }),
+        ),
+        http.get(apiPath("/metrics/adapter"), () =>
+          HttpResponse.json({
+            id: "acme.handlers.orders",
+            days: 7,
+            since: "2026-10-01T00:00:00Z",
+            total: totals,
+            versions: [{ version: "1.1.0", totals }],
+            nodes: [{ node: "web-1:42", totals }],
+            roles: [{ role: "handler", runtime: "process", totals }],
+            daily: [],
+            errors: [
+              {
+                fingerprint: "ab12",
+                count: 9,
+                lastSeenOn: "2026-10-11T07:00:00Z",
+                sample: "Acme answered 503 Service Unavailable",
+              },
+            ],
+            subscriptions: [
+              {
+                subscriptionId: 1,
+                name: "Pinned orders",
+                type: "BusGateway",
+                exchanges: 1100,
+                failed: 10,
+                bytes: 2_500_000,
+              },
+            ],
+          }),
+        ),
+        ...handlers,
+      ],
+    });
+
+    const row = await screen.findByRole("button", { name: /Acme orders/ }, LOADED);
+    expect(within(row).getByText(/1.2K calls/)).toBeVisible();
+    expect(within(row).getByText(/1% failed/)).toBeVisible();
+    expect(within(row).getByRole("img", { name: "Calls per day, last 7 days" })).toBeInTheDocument();
+
+    await user.click(row);
+    expect(await screen.findByText("Acme answered 503 Service Unavailable")).toBeVisible();
+    expect(screen.getByText(/3 timed out/)).toBeVisible();
+    expect(within(screen.getByRole("table", { name: "By version" })).getByText("v1.1.0")).toBeVisible();
+    expect(screen.getByText("2.4 MB")).toBeVisible();
   });
 });

@@ -10,6 +10,7 @@ import type { AppConfig } from "../../api/http/appConfig";
 import { SessionProvider } from "../../auth/SessionContext";
 import { routes } from "../../router";
 import { server } from "./server";
+import { defaultMetrics } from "./metricsFixtures";
 
 /**
  * Every permission key there is, read from the C# catalog rather than copied, so an administrator
@@ -76,6 +77,8 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     ...(as ? [profile(as)] : []),
     // A lookup most subscription screens make and few tests care about: none, unless a test says.
     http.get(apiPath("/subscriptioncategories"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+    // Metrics, which many pages show beside what they are about: none yet, unless a test says.
+    ...defaultMetrics(),
   );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

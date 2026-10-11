@@ -1625,17 +1625,11 @@ export interface DashboardData {
    * value above it means "at least this many".
    */
   failuresToActOn: number;
-  today: { total: number; failed: number; processing: number };
-  yesterdayTotal: number;
-  /** Percentage 0-100 across the last 7 days of finished exchanges. */
-  successRate7d: number;
+  /** Exchanges started in the last 24 hours and not finished yet. */
+  inFlight: number;
   pendingRetries: number;
   /** Null when the RabbitMQ management API is unavailable - never counts as zero. */
   queueAlerts: number | null;
-  /** Last 14 days, oldest first; today is the final entry. */
-  trafficByDay: { date: string; success: number; failed: number }[];
-  /** Top subscriptions by 7-day traffic, busiest first. */
-  busiest: { id: number; name: string; count: number; failed: number }[];
   latestFailures: {
     id: string;
     status: ExchangeStatus;
