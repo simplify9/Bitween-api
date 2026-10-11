@@ -60,9 +60,16 @@ public class NativeSmtpHandler : INativeInfolinkHandler
         // never went out. Soft-failing an undeterminable status is what browsers and mail clients do;
         // every other defect, revocation included, still fails.
         client.CheckCertificateRevocation = true;
-        client.ServerCertificateValidationCallback = (_, _, chain, errors) =>
-            IsCertificateAcceptable(errors,
-                chain?.ChainStatus.Select(s => s.Status) ?? Enumerable.Empty<X509ChainStatusFlags>());
+        // A pinned certificate is trusted for exactly what it is, a self-signed one included: how a
+        // relay with its own certificate is used without trusting every certificate.
+        var pinned = string.IsNullOrWhiteSpace(_options.CertificateThumbprint)
+            ? null
+            : FtpTransfer.NormalizeThumbprint(_options.CertificateThumbprint);
+        client.ServerCertificateValidationCallback = (_, certificate, chain, errors) =>
+            pinned != null
+                ? certificate != null && FtpTransfer.Thumbprint(certificate) == pinned
+                : IsCertificateAcceptable(errors,
+                    chain?.ChainStatus.Select(s => s.Status) ?? Enumerable.Empty<X509ChainStatusFlags>());
 
         // Named rather than left to Auto: on any port but 465, Auto means "encrypt if the server
         // offers it", so a server that does not offer STARTTLS - or an offer stripped in transit -

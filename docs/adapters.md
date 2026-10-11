@@ -85,8 +85,9 @@ Sends an email built from the payload.
 | `To` *(required)*, `Cc`, `Bcc` | | Comma-separated addresses. |
 | `Subject` *(required)*, `Body` *(required)* | | Scriban templates over the payload, with the same syntax as the legacy JSON mapper. They are rendered only when the payload is JSON, otherwise sent as written. |
 | `IsHtml` | `true` | |
+| `CertificateThumbprint` | | The relay certificate's SHA-256 thumbprint, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before anything is sent. |
 
-Server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
+Without a pinned thumbprint, server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
 
 ### NativeS3UploadHandler
 
@@ -206,11 +207,14 @@ Read files over SFTP (`NativeSftpReceiver`), FTP or FTPS (`NativeFtpReceiver`), 
 
 ### NativePop3Receiver and NativeRebexPop3Receiver
 
-Read email from a POP3 mailbox over implicit TLS on port 995. `NativePop3Receiver` uses MailKit. `NativeRebexPop3Receiver` uses Rebex and needs a license.
+Read email from a POP3 mailbox. `NativePop3Receiver` uses MailKit. `NativeRebexPop3Receiver` uses Rebex, needs a license, and connects over implicit TLS on port 995 only.
 
 | Property | Notes |
 |---|---|
 | `Host`, `Username`, `Password` *(secret)* | Required. |
+| `Encryption` | `NativePop3Receiver`: `implicit` (TLS from the first byte, the default) or `explicit` (STLS). The password is never sent unencrypted. |
+| `Port` | `NativePop3Receiver`: 995 with implicit TLS and 110 with explicit, unless set. |
+| `CertificateThumbprint` | `NativePop3Receiver`: the server certificate's SHA-256 thumbprint, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before the password is sent. When empty, the certificate must be valid. |
 | `BatchSize`, `ResponseEncoding` | |
 
 Each email becomes one item, named after its subject. When an email has attachments, only the first attachment is used. Otherwise its text body is used. Processed emails are deleted when the session closes.

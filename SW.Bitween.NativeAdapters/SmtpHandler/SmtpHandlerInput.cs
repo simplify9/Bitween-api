@@ -24,6 +24,9 @@ public class SmtpHandlerInput
     [Description("Encrypt the connection, choosing STARTTLS or SSL to match the port. Turn off only for an internal relay with no TLS.")]
     public bool UseTls { get; set; } = true;
 
+    [Description("The SHA-256 thumbprint of the server's certificate, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before anything is sent. When empty, the certificate must be valid.")]
+    public string? CertificateThumbprint { get; set; }
+
     [Required]
     [Description("Address the message is sent from.")]
     public string From { get; set; } = string.Empty;
