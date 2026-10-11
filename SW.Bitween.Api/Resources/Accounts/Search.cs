@@ -32,6 +32,10 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext)
                     .ToDictionaryAsync(i => i.Id, i => i.DisplayName);
             }
 
+            // The member list is people; service accounts have their own (lookup keeps them, so a
+            // change one made still shows who made it).
+            query = query.Where(a => a.Kind == AccountKind.Person);
+
             var count = await query.CountAsync();
 
             var accounts = await query.OrderBy(i => i.CreatedOn)

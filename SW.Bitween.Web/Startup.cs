@@ -787,8 +787,10 @@ namespace SW.Bitween.Web
             // well - otherwise one trailing character moves an attempt to the general budget.
             var value = path.Value!.TrimEnd('/');
 
+            // A service token traded for a session is a sign-in too, and gets the same budget.
             return value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
-                && value.EndsWith("/login", StringComparison.OrdinalIgnoreCase);
+                && (value.EndsWith("/login", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/servicetoken", StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

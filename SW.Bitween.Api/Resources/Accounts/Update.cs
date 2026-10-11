@@ -17,7 +17,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         if (key != loggedInUserId)
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Edit);
 
-        var account = await dbContext.Set<Account>().FindAsync(key);
+        var account = await Members.FindAsync(dbContext, key);
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {key}");
 

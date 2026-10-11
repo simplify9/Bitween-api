@@ -56,6 +56,9 @@ export const RetryPolicyPage = lazy(() => import("./pages/retry-policies/RetryPo
 export const MembersPage = lazy(() => import("./pages/team/MembersPage").then((m) => ({ default: m.MembersPage })));
 export const RoleEditor = lazy(() => import("./pages/team/RoleEditor").then((m) => ({ default: m.RoleEditor })));
 export const RolesPage = lazy(() => import("./pages/team/RolesPage").then((m) => ({ default: m.RolesPage })));
+export const ServiceAccountsPage = lazy(() =>
+  import("./pages/team/ServiceAccountsPage").then((m) => ({ default: m.ServiceAccountsPage })),
+);
 export const WorkGroupPage = lazy(() => import("./pages/work-groups/WorkGroupPage").then((m) => ({ default: m.WorkGroupPage })));
 export const WorkGroupsPage = lazy(() => import("./pages/work-groups/WorkGroupsPage").then((m) => ({ default: m.WorkGroupsPage })));
 export const MapperEditorRoute = lazy(() => import("./components/nativeMapper/MapperEditorRoute"));

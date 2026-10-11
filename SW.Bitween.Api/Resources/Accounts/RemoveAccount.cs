@@ -13,7 +13,7 @@ public class RemoveAccountModel(BitweenDbContext dbContext, RequestContext reque
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Delete);
 
-        var account = await dbContext.Set<Account>().FindAsync(key);
+        var account = await Members.FindAsync(dbContext, key);
 
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"Account with {key} was not found");

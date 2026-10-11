@@ -163,6 +163,10 @@ namespace SW.Bitween.Resources.Accounts
             var account = await accountQ
                 .SingleOrDefaultAsync();
 
+            // Service accounts sign in only with their tokens. They have no email or password to
+            // match, so this is the second lock on that door, not the first.
+            if (account is { IsService: true }) account = null;
+
             var credentialLogin = string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken);
 
             if (account is null)

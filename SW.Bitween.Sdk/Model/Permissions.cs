@@ -144,6 +144,14 @@ public static class Permissions
         public const string Delete = "users.delete";
     }
 
+    public static class ServiceAccounts
+    {
+        public const string View = "service-accounts.view";
+        public const string Create = "service-accounts.create";
+        public const string Edit = "service-accounts.edit";
+        public const string Delete = "service-accounts.delete";
+    }
+
     public static class Roles
     {
         public const string View = "roles.view";
@@ -313,6 +321,14 @@ public static class PermissionCatalog
             (Create, "Invite new members."),
             (Edit, "Change members' roles, disable accounts, reset passwords."),
             (Delete, "Remove members.")),
+
+        // Administration, like members: a token is a way in, and whoever issues one decides what it can do.
+        Area("service-accounts", "Service accounts", "Administration",
+            "Accounts for programs, such as a job applying configuration, that sign in with tokens instead of a password.",
+            (View, "See service accounts and their tokens (never a token's value)."),
+            (Create, "Create service accounts and issue their tokens."),
+            (Edit, "Change a service account's roles, disable it, revoke tokens."),
+            (Delete, "Remove service accounts.")),
 
         Area("roles", "Roles", "Administration", "What each kind of member is allowed to do.",
             (View, "See roles and their permissions."),

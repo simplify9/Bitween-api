@@ -60,6 +60,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("int");
 
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint");
+
                     b.Property<DateTime?>("LastSignInOn")
                         .HasColumnType("datetime2");
 
@@ -108,6 +111,7 @@ namespace SW.Bitween.MsSql.Migrations
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
                             FailedLoginCount = 0,
+                            Kind = (byte)0,
                             LoginMethods = (byte)2,
                             MustChangePassword = true,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
@@ -226,6 +230,74 @@ namespace SW.Bitween.MsSql.Migrations
                             Name = "Viewer",
                             Permissions = "[]"
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.ServiceToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("LastUsedFrom")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime?>("LastUsedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("RevokedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("RevokedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Shown")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("ServiceTokens", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.AdapterDraft", b =>
@@ -2717,6 +2789,15 @@ namespace SW.Bitween.MsSql.Migrations
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.ServiceToken", b =>
                 {
                     b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
                         .WithMany()

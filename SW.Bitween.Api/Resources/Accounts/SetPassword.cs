@@ -26,7 +26,7 @@ public class SetPassword(BitweenDbContext dbContext, RequestContext requestConte
             throw new SWValidationException("USE_CHANGE_PASSWORD",
                 "Use Change password to set your own, so the current one is still required.");
 
-        var account = await dbContext.Set<Account>().FindAsync(key);
+        var account = await Members.FindAsync(dbContext, key);
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {key}");
 

@@ -50,6 +50,39 @@ export interface User {
   lastActiveOn?: string;
 }
 
+export type ServiceTokenStatus = "active" | "expired" | "revoked";
+
+/** A service account's token as Bitween keeps it: never the value, only its first characters. */
+export interface ServiceToken {
+  id: number;
+  name: string;
+  /** "bwt_3fK9aB2x": enough to tell tokens apart. */
+  shown: string;
+  createdOn: string;
+  createdBy: string | null;
+  expiresOn: string;
+  revokedOn: string | null;
+  lastUsedOn: string | null;
+  lastUsedFrom: string | null;
+  status: ServiceTokenStatus;
+}
+
+/** The one answer that carries a token's value: the one that issued it. */
+export interface IssuedServiceToken extends ServiceToken {
+  token: string;
+}
+
+/** An account for a program: signs in with tokens, never with a password or into the UI. */
+export interface ServiceAccount {
+  id: number;
+  name: string;
+  disabled: boolean;
+  createdOn: string;
+  lastSignInOn: string | null;
+  roles: { id: number; name: string }[];
+  tokens: ServiceToken[];
+}
+
 /** Just enough to name a role. Full definitions need the roles.view permission. */
 export interface RoleSummary {
   id: string;

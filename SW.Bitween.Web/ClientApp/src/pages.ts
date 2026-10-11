@@ -12,6 +12,7 @@ import {
   Handshake,
   Layers,
   Network,
+  Bot,
   Puzzle,
   RefreshCw,
   RotateCcw,
@@ -365,6 +366,20 @@ export const PAGES = definePages({
     keywords: ["users", "people", "accounts"],
   },
   member: { path: "team/members/:id", title: "Member", permission: "users.view", parent: "members" },
+  // Third, not a tab under Members: programs aren't people, and managing them is its own grant.
+  serviceAccounts: {
+    path: "team/service-accounts",
+    title: "Service accounts",
+    permission: "service-accounts.view",
+    nav: { group: "administration", icon: Bot },
+    keywords: ["tokens", "api", "automation", "cli", "ci"],
+  },
+  serviceAccount: {
+    path: "team/service-accounts/:id",
+    title: "Service account",
+    permission: "service-accounts.view",
+    parent: "serviceAccounts",
+  },
   roles: {
     path: "team/roles",
     title: "Roles",

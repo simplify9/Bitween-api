@@ -71,6 +71,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("failed_login_count");
 
+                    b.Property<byte>("Kind")
+                        .HasColumnType("smallint")
+                        .HasColumnName("kind");
+
                     b.Property<DateTime?>("LastSignInOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_sign_in_on");
@@ -129,6 +133,7 @@ namespace SW.Bitween.PgSql.Migrations
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
                             FailedLoginCount = 0,
+                            Kind = (byte)0,
                             LoginMethods = (byte)2,
                             MustChangePassword = true,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
@@ -269,6 +274,91 @@ namespace SW.Bitween.PgSql.Migrations
                             Name = "Viewer",
                             Permissions = "[]"
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.ServiceToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_on");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("hash");
+
+                    b.Property<string>("LastUsedFrom")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("last_used_from");
+
+                    b.Property<DateTime?>("LastUsedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_on");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("RevokedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("revoked_by");
+
+                    b.Property<DateTime?>("RevokedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_on");
+
+                    b.Property<string>("Shown")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("shown");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_tokens");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_service_tokens_account_id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_service_tokens_hash");
+
+                    b.ToTable("ServiceTokens", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.AdapterDraft", b =>
@@ -3190,6 +3280,16 @@ namespace SW.Bitween.PgSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_refresh_tokens_accounts_account_id");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.ServiceToken", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_tokens_accounts_account_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.DataSources.DataSourceStatement", b =>

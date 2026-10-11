@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using SW.Bitween.Domain;
+using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Services.Adapters;
 using SW.Bitween.Services.Metrics;
@@ -103,6 +104,23 @@ public class Insights(BitweenDbContext db, RequestContext requestContext, IMemor
             insights.Add(new("unlinked-partners", "info", "Partners not connected to anything",
                 "Not attached to a gateway, a route or a subscription.", loose.Count,
                 loose.Take(Listed).Select(p => new Item(p.Name, $"/partners/{p.Id}"))));
+
+        // Whatever signs in with one of these stops working the day it runs out, so it's worth knowing
+        // two weeks ahead. Only a token still in use counts; one already replaced is expected to lapse.
+        var now = DateTime.UtcNow;
+        var soon = now.AddDays(14);
+        var expiring = await (from t in db.Set<ServiceToken>().AsNoTracking()
+                join a in db.Set<Account>().AsNoTracking() on t.AccountId equals a.Id
+                where t.RevokedOn == null && t.ExpiresOn > now && t.ExpiresOn <= soon && !a.Disabled
+                orderby t.ExpiresOn
+                select new { a.Id, Account = a.DisplayName, t.Name, t.ExpiresOn })
+            .ToListAsync();
+        if (expiring.Count > 0)
+            insights.Add(new("expiring-service-tokens", "warn", "Service tokens expiring within two weeks",
+                "Whatever uses them stops signing in when they do. Issue a replacement, then revoke the old one.",
+                expiring.Count,
+                expiring.Take(Listed).Select(t => new Item($"{t.Account}: {t.Name} ({t.ExpiresOn:yyyy-MM-dd})",
+                    $"/team/service-accounts/{t.Id}"))));
 
         var changedSettings = await db.Set<Setting>().AsNoTracking().CountAsync();
         if (changedSettings > 0)

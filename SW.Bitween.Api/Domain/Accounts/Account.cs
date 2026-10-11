@@ -17,6 +17,23 @@ namespace SW.Bitween.Domain.Accounts
             Role = role;
         }
 
+        /// <summary>
+        /// An account for a program rather than a person: no email, no password, nothing to sign
+        /// in to the admin UI with. It holds roles like anyone, and signs in with its tokens.
+        /// </summary>
+        public static Account ForService(string name, AccountRole role) => new()
+        {
+            DisplayName = name,
+            Role = role,
+            Kind = AccountKind.Service,
+            LoginMethods = LoginMethod.ApiKey,
+        };
+
+        /// <summary>A person unless created as a service account; every account before these existed is a person.</summary>
+        public AccountKind Kind { get; private set; }
+
+        public bool IsService => Kind == AccountKind.Service;
+
         public string Email { get; private set; }
         public string DisplayName { get; set; }
 

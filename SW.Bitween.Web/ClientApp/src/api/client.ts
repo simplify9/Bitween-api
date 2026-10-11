@@ -51,6 +51,8 @@ import type {
   PartnerRow,
   PermissionArea,
   PermissionKey,
+  IssuedServiceToken,
+  ServiceAccount,
   QueueHealthSnapshot,
   UnattendedDeleteResult,
   DeadLetterMessage,
@@ -124,6 +126,15 @@ export interface ApiClient {
   // outbound mail, which Bitween doesn't have. Hidden in the UI rather than faked.
   updateProfile(changes: { displayName: string }): Promise<Session>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
+
+  // - service accounts -
+  listServiceAccounts(): Promise<ServiceAccount[]>;
+  createServiceAccount(input: { name: string; roleIds: number[] }): Promise<number>;
+  updateServiceAccount(id: number, input: { name: string; roleIds: number[] }): Promise<void>;
+  setServiceAccountDisabled(id: number, disabled: boolean): Promise<void>;
+  deleteServiceAccount(id: number): Promise<void>;
+  issueServiceToken(id: number, input: { name: string; expiresInDays: number }): Promise<IssuedServiceToken>;
+  revokeServiceToken(id: number, tokenId: number): Promise<void>;
 
   // - members -
   listUsers(): Promise<User[]>;

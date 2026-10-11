@@ -27,7 +27,7 @@ public class CliToken(BitweenDbContext dbContext, JwtTokenParameters jwtTokenPar
     public async Task<object> Handle(CliTokenRequest request)
     {
         var accountId = codes.Redeem(request?.Code, request?.CodeVerifier, DateTimeOffset.UtcNow);
-        var account = accountId is null ? null : await dbContext.Set<Account>().FindAsync(accountId.Value);
+        var account = accountId is null ? null : await Members.FindAsync(dbContext, accountId.Value);
 
         // Disabled or told to change its password since the code was issued: no session either way.
         if (account is null || account.Disabled || account.MustChangePassword)

@@ -19,6 +19,7 @@ import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
 import { sessionMethods } from "./session";
 import { settingsMethods } from "./settings";
+import { serviceAccountMethods } from "./serviceAccounts";
 import { teamMethods } from "./team";
 import { workGroupMethods } from "./workGroups";
 
@@ -48,5 +49,6 @@ export const httpClient: ApiClient = {
   ...mapperMethods,
   ...notifierMethods,
   ...teamMethods,
+  ...serviceAccountMethods,
   ...settingsMethods,
 };

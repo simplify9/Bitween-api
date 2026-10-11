@@ -143,6 +143,10 @@ export const keys = {
     detail: (id: number | string | null | undefined) => ["roles", "detail", id] as const,
   },
 
+  serviceAccounts: {
+    all: ["service-accounts"] as const,
+  },
+
   users: {
     all: ["users"] as const,
     list: ["users", "list"] as const,
@@ -242,6 +246,7 @@ export function applyQueryDefaults(queryClient: QueryClient): void {
     keys.notifiers.all,
     keys.roles.all,
     keys.users.all,
+    keys.serviceAccounts.all,
     keys.apiGateways.all,
     keys.busGateways.all,
     keys.subscriptions.all,

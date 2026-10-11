@@ -622,6 +622,8 @@ namespace SW.Bitween
 
                 b.Property(p => p.EmailProvider).HasConversion<byte>();
                 b.Property(p => p.LoginMethods).HasConversion<byte>();
+                // Added with service accounts; every account before them is a person (0).
+                b.Property(p => p.Kind).HasConversion<byte>();
 
                 b.HasData(
                     new
@@ -636,6 +638,7 @@ namespace SW.Bitween
                         Password = defaultPasswordHash,
                         Deleted = false,
                         Role = AccountRole.Admin,
+                        Kind = AccountKind.Person,
                         FailedLoginCount = 0,
                         // True for a fresh installation, whose password is the published default.
                         // Installations that already exist are handled by the migration, which
@@ -653,6 +656,22 @@ namespace SW.Bitween
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
+            });
+
+            modelBuilder.Entity<ServiceToken>(b =>
+            {
+                b.ToTable("ServiceTokens");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(p => p.Name).IsRequired().HasMaxLength(100);
+                b.Property(p => p.Hash).IsRequired().IsUnicode(false).HasMaxLength(64);
+                b.Property(p => p.Shown).IsRequired().IsUnicode(false).HasMaxLength(20);
+                b.Property(p => p.RevokedBy).HasMaxLength(200);
+                b.Property(p => p.LastUsedFrom).IsUnicode(false).HasMaxLength(64);
+                // Every sign-in looks a token up by its hash.
+                b.HasIndex(p => p.Hash).IsUnique();
             });
 
             modelBuilder.Entity<Role>(b =>

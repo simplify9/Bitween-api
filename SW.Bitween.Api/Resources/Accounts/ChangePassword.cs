@@ -18,9 +18,11 @@ public class ChangePassword(BitweenDbContext dbContext, RequestContext requestCo
         // Self-service: this only ever changes the caller's own password, and the old one has to
         // be supplied. The guard it replaces listed every role, so it granted nothing.
         var accountId = Convert.ToInt32(requestContext.GetNameIdentifier());
-        var account = await dbContext.Set<Account>().FindAsync(accountId);
+        var account = await Members.FindAsync(dbContext, accountId);
 
-        if (!SecurePasswordHasher.Verify(request.OldPassword, account!.Password))
+        // A service account has no password to change, and isn't found here.
+        if (account is null || string.IsNullOrEmpty(account.Password) ||
+            !SecurePasswordHasher.Verify(request.OldPassword, account.Password))
         {
             throw new SWValidationException("AUTHENTICATION_ERROR",
                 "The Password entered does not match the user's password");

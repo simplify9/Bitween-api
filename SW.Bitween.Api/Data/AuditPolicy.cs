@@ -58,6 +58,8 @@ public static class AuditPolicy
         typeof(Account),
         typeof(Role),
         typeof(AccountRoleLink),
+        // Issued and revoked: who made a credential, and who ended it.
+        typeof(ServiceToken),
         // Not configuration, but reading an adapter's source is what the trail is for.
         typeof(AdapterSourceAccess),
         // Code written in Bitween, and what was published and made current from it.
@@ -98,6 +100,9 @@ public static class AuditPolicy
         [typeof(ApiCredential)] = [nameof(ApiCredential.Key)],
 
         [typeof(Account)] = [nameof(Account.Password)],
+
+        // A hash of a random token, so no use to anyone; kept out anyway, like a partner's key.
+        [typeof(ServiceToken)] = [nameof(ServiceToken.Hash)],
 
         // Not a secret, but the code would be in the trail twice on every save. FilesHash is
         // recorded instead: each save shows, and the code itself is in the published package.
