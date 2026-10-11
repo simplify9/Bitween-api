@@ -311,7 +311,6 @@ public static partial class Commands
                 return null;
             }
             var insecure = Environment.GetEnvironmentVariable("BITWEEN_INSECURE") is "1" or "true";
-            if (insecure) Console.Error.WriteLine("Warning: not checking the Bitween's certificate (BITWEEN_INSECURE).");
             return new BitweenApi(url, token, insecure);
         }
 
