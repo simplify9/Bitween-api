@@ -143,6 +143,37 @@ When writing XML:
 - A list directly inside another list is refused.
 - Fields named `@xmlns` or `@xmlns:prefix` become namespace declarations. A prefix without a declaration is refused.
 
+### CSV
+
+`sourceFormat` and `targetFormat` can be `csv`, for delimited text, with `sourceCsv` and `targetCsv` saying
+how each side is delimited, since a partner's semicolon file often becomes someone else's comma file:
+
+```json
+{ "version": 1, "sourceFormat": "csv", "targetFormat": "json",
+  "sourceCsv": { "delimiter": ";", "hasHeader": true },
+  "root": { "over": "", "fields": [ { "target": ["sku"], "from": { "kind": "path", "path": "SKU" } } ] } }
+```
+
+| Option | Default | |
+|---|---|---|
+| `delimiter` | `,` | Any characters: `;`, `\|`, `\t` for tab |
+| `hasHeader` | `true` | Whether the first line names the columns. Without a header, columns are named by position: `1`, `2`, `3`. |
+| `byteOrderMark` | `false` | When writing, start the file with a UTF-8 byte-order mark, so Excel opens accented names correctly |
+
+When reading CSV, the document is a list of rows, so a list rule walks it with `"over": ""`, and `root`
+makes the whole output a list, one entry per row. Every field
+is text: nothing turns `041800` into a number, and a rule's own `type` does when one is wanted. A row
+wider than the header gets its extra fields named by position rather than dropped. Blank rows are skipped,
+and a file that is only a header is a list of no rows.
+
+When writing CSV, the output is a list of rows, or one object for a single row. Every column any row has is
+written, in the order they first appear, and a row without one gets an empty field there. A nested field
+becomes a dotted column name, as `destination.city`. A list inside a row is refused rather than folded into
+one cell.
+
+The information type of a CSV document is carried, not read: it has no promoted properties, and only
+subscriptions and routes without a filter pick it up. Its mapping reads it.
+
 ### Preview
 
 `POST /api/mappingpreviews` runs rules against a sample through the same code as the pipeline, without saving anything.
