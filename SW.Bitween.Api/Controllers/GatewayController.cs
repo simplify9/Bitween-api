@@ -171,7 +171,7 @@ public class GatewayController(
         }
         else
         {
-            if (duplicate != null) xchangeReferences.Add(duplicate.Reference);
+            if (duplicate != null && duplicate.FitsWith(xchangeReferences)) xchangeReferences.Add(duplicate.Reference);
 
             // The sets already read at the top of the request, from the cache.
             var xchange = await xchangeService.CreateXchange(subscription, xchangeFile, xchangeReferences.ToArray(),

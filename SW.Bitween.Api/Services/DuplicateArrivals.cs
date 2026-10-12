@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,16 @@ public record DuplicateVerdict(string OriginalXchangeId, bool Drop)
 {
     /// <summary>The reference a duplicate that is let through carries, so it can be searched for.</summary>
     public string Reference => $"duplicate-of: {OriginalXchangeId}";
+
+    /// <summary>The length of the column an exchange's references are stored in, joined by one separator each.</summary>
+    public const int ReferencesMaxLength = 1024;
+
+    /// <summary>
+    /// Whether the reference fits beside <paramref name="references"/>. When it doesn't, it is left off:
+    /// the duplicate is still counted, and an exchange that couldn't be saved would be a message lost.
+    /// </summary>
+    public bool FitsWith(IEnumerable<string> references) =>
+        (references ?? []).Sum(r => (r?.Length ?? 0) + 1) + Reference.Length <= ReferencesMaxLength;
 }
 
 /// <summary>

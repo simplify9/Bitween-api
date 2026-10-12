@@ -85,7 +85,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     /// <summary>A duplicate let through carries a reference to the exchange it repeats.</summary>
     public static string[] WithDuplicateReference(string[] references, DuplicateVerdict duplicate) =>
-        duplicate == null ? references : [.. references ?? [], duplicate.Reference];
+        duplicate == null || !duplicate.FitsWith(references) ? references : [.. references ?? [], duplicate.Reference];
 
     public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup,
         bool manualRetry = false)

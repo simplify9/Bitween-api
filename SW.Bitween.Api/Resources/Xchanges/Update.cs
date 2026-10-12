@@ -107,7 +107,7 @@ namespace SW.Bitween.Resources.Xchanges
             }
             else if (xchangeId is null)
             {
-                if (duplicate != null) xchangeReferences.Add(duplicate.Reference);
+                if (duplicate != null && duplicate.FitsWith(xchangeReferences)) xchangeReferences.Add(duplicate.Reference);
                 var subscription = await cache.SubscriptionByIdAsync(sub.Id);
                 var xchange = await xchangeService.CreateXchange(subscription, xchangeFile,
                     xchangeReferences.ToArray(), Guid.NewGuid().ToString("N"));

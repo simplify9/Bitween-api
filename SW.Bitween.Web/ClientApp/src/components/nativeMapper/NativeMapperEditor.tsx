@@ -657,7 +657,9 @@ function FixedWidthControls({
       columns: [...columns, { name: "", start: last ? last.start + last.length : 1, length: 10, align: "left", pad: " " }],
     });
   };
-  const number = (text: string) => Math.max(1, Math.floor(Number(text) || 1));
+  // 0 while a box is being retyped, rather than snapping back to 1 under the cursor; the server
+  // refuses a start or length below 1 with a message, which the preview shows.
+  const number = (text: string) => Math.max(0, Math.floor(Number(text) || 0));
   const input = "h-7 rounded-md border border-ink-200 px-1.5 text-xs";
 
   return (
