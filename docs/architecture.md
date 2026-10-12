@@ -146,8 +146,9 @@ Inactive subscriptions are not cached, so no entry point can start them.
 
 ## Running more than one replica
 
-Replicas share the database and RabbitMQ. Exchange processing scales out by adding replicas and tuning prefetch per work group. Two points need care.
+Replicas share the database and RabbitMQ. Exchange processing scales out by adding replicas and tuning prefetch per work group. These points need care.
 
-- The startup code states that Quartz clustering is not guaranteed with the pinned scheduler packages. Scheduled jobs set a database running flag, so one job cannot receive twice at once. Aggregations have no such flag.
+- Quartz runs clustered on every database provider: each replica gets its own scheduler instance id, and a fire is claimed through row locks in the Quartz tables, so each fire runs on one replica only. Which replica runs a job is up to Quartz, and one replica often runs them all. If it stops, another picks the jobs up within about 30 seconds, Quartz's idle wait; a replica that dies without stopping misses its 10-second check-ins, and about 20 seconds later the others release what it had claimed. Retry, retention, cleanup, pruning and queue snapshot jobs each have one schedule, run one at a time across the cluster, and need nothing more.
+- Each schedule of a receiver or aggregation, and each **Receive now** or **Aggregate now**, is a separate Quartz job, so two runs of one subscription can overlap, on one replica or two. Both claim the subscription's database running flag first, and the second one skips.
 - Settings and cache changes reach other replicas only through the bus broadcast.
 - Data source adapters run only on replicas with `Bitween:BusProvidersEnabled`. A delivery through a data source fails on a replica without it.

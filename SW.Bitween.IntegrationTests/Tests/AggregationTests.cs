@@ -203,7 +203,8 @@ public class AggregationTests(BitweenFixture fixture)
     [Fact]
     public async Task Two_replicas_running_one_aggregation_at_once_make_one_roll_up_and_no_failure()
     {
-        // Quartz isn't clustered, so on two replicas the same aggregation fires on both at once.
+        // Two schedules, or a schedule and "aggregate now", firing together: separate Quartz jobs, so
+        // nothing in Quartz stops them overlapping.
         int aggId;
         await using (var setup = fixture.CreateScope())
         {

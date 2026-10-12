@@ -27,9 +27,10 @@ public class AggregationJob(
 
         if (aggSub == null) return;
 
-        // Every replica runs every scheduled job: Quartz isn't clustered here. Two replicas building one
-        // roll-up at once could only have one saved (an exchange is rolled up once), so the other run
-        // failed and was logged as an error, every time. Claimed as a receiver is, the other run steps aside.
+        // Quartz runs each fire once across the cluster, but each schedule of a subscription and each
+        // "aggregate now" is a job of its own, so two runs of one aggregation can still overlap, on one
+        // replica or two. Only one roll-up could be saved (an exchange is rolled up once), so the other
+        // run failed and was logged as an error. Claimed as a receiver is, the other run steps aside.
         if (!await runFlagUpdater.MarkAsRunning(aggSub.Id)) return;
         try
         {

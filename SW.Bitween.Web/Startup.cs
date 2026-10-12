@@ -274,11 +274,9 @@ namespace SW.Bitween.Web
             }
 
             // Register the persistent Quartz scheduler using the same DB as Bitween.
-            // NOTE: clustering is only guaranteed once SimplyWorks.Scheduler.* is bumped past
-            // 8.1.1 (the version pinned in the .csproj files as of this comment) - the fix that
-            // makes clustering unconditional (unique auto-generated SchedulerId per instance)
-            // hasn't been published yet. Until that bump happens, these packages run
-            // NON-clustered (EnableClustering defaulted to false and no longer settable here).
+            // Every provider runs it clustered, with an instance id generated per process, so each
+            // fire runs on one replica only and a stopped replica's jobs carry on elsewhere. See
+            // QuartzClusteringTests, which fails if a package bump ever turns that off.
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 // For PostgreSQL + managed identity, Npgsql has no "Authentication=" connection
