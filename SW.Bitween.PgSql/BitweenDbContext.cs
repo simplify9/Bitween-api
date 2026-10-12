@@ -498,6 +498,15 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
             });
 
+            modelBuilder.Entity<NotificationChannel>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.HasIndex(p => p.Name).IsUnique();
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
+            });
+
             modelBuilder.Entity<XchangeNotification>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();

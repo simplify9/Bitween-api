@@ -58,6 +58,7 @@ public class ReadGuardTests(BitweenFixture fixture)
             ["exchange summary"] = Search<Resources.Xchanges.Summary>(scope),
             ["subscriptions"] = Search<Resources.Subscriptions.Search>(scope),
             ["notifiers"] = Search<Resources.Notifiers.Search>(scope),
+            ["notification channels"] = Search<Resources.NotificationChannels.Search>(scope),
             ["API gateways"] = Search<Resources.ApiGateways.Search>(scope),
             ["bus gateways"] = Search<Resources.BusGateways.Search>(scope),
             ["retry policies"] = Search<Resources.RetryPolicies.Search>(scope),
@@ -85,6 +86,7 @@ public class ReadGuardTests(BitweenFixture fixture)
         await Search<Resources.Partners.Search>(scope, lookup: true)();
         await Search<Resources.Subscriptions.Search>(scope, lookup: true)();
         await Search<Resources.RetryPolicies.Search>(scope, lookup: true)();
+        await Search<Resources.NotificationChannels.Search>(scope, lookup: true)();
         await ActivatorUtilities.CreateInstance<Resources.Accounts.Search>(scope.ServiceProvider)
             .Handle(new SearchMembersModel { Lookup = true });
     }

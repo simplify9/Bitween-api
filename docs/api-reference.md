@@ -279,6 +279,11 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/retrypolicies/{id}/attempts` | `retry-policies.view` |
 | `POST /api/retrypolicies/{id}/resetusage` | `retry-policies.edit` |
 | `POST /api/retrypolicies/{id}/savealertoverride` | `retry-policies.edit` |
+| `GET /api/notificationchannels`, `GET /api/notificationchannels/{id}` | `notifiers.view`. Secret settings come back as `__private__`. |
+| `GET /api/notificationchannels?lookup=true` | signed in. Ids and names only, for pickers. |
+| `POST /api/notificationchannels` | `notifiers.create`. `{ name, handlerId, handlerProperties }` |
+| `POST /api/notificationchannels/{id}` | `notifiers.edit`. A `__private__` value keeps the stored secret only while the adapter and where it connects stay the same. |
+| `DELETE /api/notificationchannels/{id}` | `notifiers.delete` |
 | `GET /api/notifiers`, `GET /api/notifiers/{id}` | `notifiers.view` |
 | `POST /api/notifiers` | `notifiers.create` |
 | `POST /api/notifiers/{id}` | `notifiers.edit` |

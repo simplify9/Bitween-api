@@ -267,11 +267,12 @@ public static class PermissionCatalog
             (Edit, "Change value sets."),
             (Delete, "Delete value sets.")),
 
-        Area("notifiers", "Notifiers", "Subscriptions", "Alerts sent when exchanges fail or succeed.",
-            (View, "Browse notifiers and their delivery history."),
-            (Create, "Create notifiers."),
-            (Edit, "Change notifiers."),
-            (Delete, "Remove notifiers.")),
+        Area("notifiers", "Notification channels", "Subscriptions",
+            "Where notifications and alerts are sent, and the legacy notifiers.",
+            (View, "Browse notification channels, legacy notifiers and their delivery history."),
+            (Create, "Create notification channels and legacy notifiers."),
+            (Edit, "Change notification channels and legacy notifiers."),
+            (Delete, "Remove notification channels and legacy notifiers.")),
 
         Area("api-gateways", "API gateways", "Subscriptions", "HTTP entry points partners call into.",
             (View, "Browse API gateways and attached partners."),
