@@ -1,6 +1,7 @@
 import type { ApiClient } from "../client";
 import { adapterMethods } from "./adapters";
 import { adapterDraftMethods } from "./adapterDrafts";
+import { marketplaceMethods } from "./marketplace";
 import { auditMethods } from "./audit";
 import { categoryMethods } from "./categories";
 import { dashboardMethods } from "./dashboard";
@@ -39,6 +40,7 @@ export const httpClient: ApiClient = {
   ...categoryMethods,
   ...adapterMethods,
   ...adapterDraftMethods,
+  ...marketplaceMethods,
   ...gatewayMethods,
   ...exchangeMethods,
   ...queueHealthMethods,

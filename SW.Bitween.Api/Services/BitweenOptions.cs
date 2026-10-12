@@ -261,6 +261,22 @@ namespace SW.Bitween
         public string RebexLicenseKey { get; set; }
 
         /// <summary>
+        /// The Bitween Registry the Adapters page's Marketplace tab browses and installs from. Empty,
+        /// the default, keeps the marketplace off: nothing is fetched from anywhere.
+        /// </summary>
+        public string RegistryUrl { get; set; }
+
+        /// <summary>
+        /// The registry's Ed25519 public keys, base64 or PEM, separated by commas or new lines. A
+        /// version installs only when the registry's countersignature verifies with one of them, so a
+        /// registry URL alone, or a server pretending to be the registry, can't install anything.
+        /// </summary>
+        public string RegistryTrustedKeys { get; set; }
+
+        /// <summary>Whether connectors from Community publishers, which Simplify9 hasn't vetted, may be installed.</summary>
+        public bool RegistryAllowCommunity { get; set; }
+
+        /// <summary>
         /// Allowed CORS origins for credential-bearing requests (cookies).
         /// When set, enables AllowCredentials() on the CORS policy.
         /// Example: ["https://localhost:3000", "https://slim-dev.starlinks-me.com"]

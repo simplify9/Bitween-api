@@ -449,6 +449,37 @@ filter once more than one is in use. Beside a subscription's adapter, the runtim
 runs is named, and the version picker names each version's runtime when they differ, since pinning
 one can move a step to another runtime.
 
+### Installing from the marketplace
+
+The **Marketplace** tab on the **Adapters** page lists the connectors a Bitween Registry offers, and
+installs them. It is off until **Settings, Marketplace** has a **Registry address**, and installs nothing
+until it also has the registry's **signing keys**: the registry's Ed25519 public keys, base64 or PEM,
+separated by commas or new lines.
+
+Browsing needs `subscriptions.view`; installing needs `adapter-source.operate`. Installing a version:
+
+1. reads it from the registry, and refuses one that isn't published there, one from a Community publisher
+   unless **Allow Community connectors** is on, a paid one (licences aren't checked yet), and one that needs
+   a newer Bitween (`ADAPTER_NEEDS_NEWER_BITWEEN`);
+2. refuses an id this Bitween already has from anywhere but a registry (`REGISTRY_ID_TAKEN`), so a
+   registry package never takes the place of an adapter published here, and a version it already has
+   (`REGISTRY_INSTALLED`);
+3. reads the registry's revocation list, which must be signed by a trusted key, and refuses a revoked
+   version (`REGISTRY_REVOKED`);
+4. downloads the package and checks that its SHA-256 is the one signed, that the registry's
+   countersignature verifies with one of the trusted keys, and that the publisher's signature verifies with
+   the key the registry vouched for (`REGISTRY_SIGNATURE`);
+5. publishes it as **Upload package** does, made current only when **Make it current** is ticked, and
+   records the registry in its catalog entry.
+
+Every check fails closed: a registry that can't be reached, or a list that doesn't verify, refuses the
+install. Once installed, a connector runs from this Bitween's own storage like any published adapter, and
+never needs the registry again; pinning, **Make current** and **Withdraw** work as for any other. Each
+install is in the audit trail as an `AdapterRelease` with the action `installed`.
+
+A card says **Installed** when this Bitween has the registry's newest version, and **Update available**
+when it has an older one. Nothing is updated by itself.
+
 ### Writing an adapter in Bitween
 
 Python, JavaScript and TypeScript adapters can be written in Bitween itself, without the CLI.

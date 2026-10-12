@@ -90,6 +90,9 @@ public class AdapterRelease
     public const string PromotedAction = "promoted";
     public const string WithdrawnAction = "withdrawn";
 
+    /// <summary>Installed from a Bitween Registry, through the Marketplace tab.</summary>
+    public const string InstalledAction = "installed";
+
     private AdapterRelease()
     {
     }

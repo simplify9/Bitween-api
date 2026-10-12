@@ -212,6 +212,28 @@ public static class SettingsCatalog
             "How long an open circuit fails calls at once before one is let through to try the destination again.",
             SettingKind.Number, t => t.Bitween.CircuitBreakerOpenSeconds.ToString(CultureInfo.InvariantCulture)),
 
+        // --- Marketplace ---
+        new("Bitween.RegistryUrl", "Marketplace",
+            "Registry address",
+            "The Bitween Registry the Marketplace tab on the Adapters page browses and installs connectors from, as https://registry.bitween.io. Leave it empty to keep the marketplace off.",
+            SettingKind.String, false,
+            t => t.Bitween.RegistryUrl,
+            (t, v) => t.Bitween.RegistryUrl = v),
+
+        new("Bitween.RegistryTrustedKeys", "Marketplace",
+            "Registry signing keys",
+            "The registry's public keys, separated by commas or new lines. A connector is installed only when the registry's signature on it verifies with one of these, so a wrong address can never install anything.",
+            SettingKind.String, false,
+            t => t.Bitween.RegistryTrustedKeys,
+            (t, v) => t.Bitween.RegistryTrustedKeys = v),
+
+        new("Bitween.RegistryAllowCommunity", "Marketplace",
+            "Allow Community connectors",
+            "Turn this on to install connectors from Community publishers, which Simplify9 hasn't vetted. Official and Verified connectors can always be installed.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.RegistryAllowCommunity),
+            (t, v) => t.Bitween.RegistryAllowCommunity = Bool(v)),
+
         // --- Reliability & jobs ---
         new("Bitween.RetryJobCron", "Reliability & jobs",
             "Retry poll schedule",

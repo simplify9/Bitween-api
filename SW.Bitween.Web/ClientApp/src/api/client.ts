@@ -94,6 +94,9 @@ import type {
   AdapterSourceListing,
   AdapterDraft,
   AdapterDraftSummary,
+  MarketplaceInstallResult,
+  MarketplacePackage,
+  MarketplaceSearch,
   DraftBuild,
   DraftLanguage,
   DraftPublishResult,
@@ -344,6 +347,13 @@ export interface ApiClient {
   getAdapterSource(adapterId: string, version: string): Promise<AdapterSourceListing>;
   /** One source file of a published version; each read is audited. Needs adapter-source.view. */
   getAdapterSourceFile(adapterId: string, version: string, path: string): Promise<AdapterSourceFile>;
+
+  // - the marketplace (browsing needs subscriptions.view; installing needs adapter-source.operate) -
+  /** What the registry set under Settings lists; `configured` is false when none is. */
+  searchMarketplace(q: string, tier: string): Promise<MarketplaceSearch>;
+  getMarketplacePackage(id: string): Promise<MarketplacePackage>;
+  /** Verifies a registry version's signatures and publishes it here, current only when asked. */
+  installFromMarketplace(id: string, version: string, current: boolean): Promise<MarketplaceInstallResult>;
 
   // - the adapter editor (adapter-source.edit; publishing and promoting need adapter-source.operate) -
   listAdapterDrafts(): Promise<AdapterDraftSummary[]>;

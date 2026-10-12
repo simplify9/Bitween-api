@@ -15,7 +15,7 @@ import {
 import { api, type AdapterKind, type AdapterUploadResult } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
@@ -36,6 +36,7 @@ import {
 } from "../../lib/adapterInventory";
 import { AdapterCallsContext, CALL_DAYS, type AdapterCallsByAdapter } from "./adapterCalls";
 import { AdapterCallsDetail, AdapterCallsLine } from "./AdapterCallsSummary";
+import { MarketplaceTab } from "./MarketplaceTab";
 
 // CodeMirror, its diff view and the language packs load only when someone opens source.
 const AdapterSourceViewer = lazy(() => import("./AdapterSourceViewer"));
@@ -53,8 +54,8 @@ const KIND_LABEL: Record<AdapterKind, string> = {
 
 /**
  * Every adapter this Bitween can run, in three tabs: the ones built in, the ones installed on this
- * instance (published packages, and drafts being written), and the marketplace of adapters that
- * could be installed, still to come. Each has its own search and filters; the tabs show counts.
+ * instance (published packages, and drafts being written), and the marketplace of connectors the
+ * registry set under Settings offers. Each has its own search and filters; the tabs show counts.
  */
 export function AdaptersPage() {
   const [params, setParams] = useSearchParams();
@@ -157,9 +158,7 @@ export function AdaptersPage() {
       <AdapterCallsContext.Provider value={calls}>
         <div role="tabpanel" id={`adapters-panel-${tab}`} aria-labelledby={`adapters-tab-${tab}`}>
         {tab === "marketplace" ? (
-          <EmptyState icon={<Store />} title="The marketplace is on its way">
-            Browsing and installing adapters published by Simplify9 and others will live here.
-          </EmptyState>
+          <MarketplaceTab />
         ) : catalogs.loading ? (
           <LoadingBlock label="Reading the adapters…" />
         ) : catalogs.error ? (

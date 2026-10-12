@@ -22,6 +22,7 @@ public class SettingsCatalogTests
                 "API behavior",
                 "Single sign-on (Microsoft)",
                 "Adapters",
+                "Marketplace",
                 "Reliability & jobs",
                 "Messaging",
                 "Database",

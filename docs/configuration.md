@@ -83,6 +83,7 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | | First values of the Microsoft sign-in settings. |
 | `DisableEmailPasswordLogin` | `false` | First value of the runtime setting. |
 | `RebexLicenseKey` | | First value of the runtime setting. |
+| `RegistryUrl`, `RegistryTrustedKeys`, `RegistryAllowCommunity` | empty, empty, `false` | First values of the Marketplace settings. See [Adapters](adapters.md#installing-from-the-marketplace). |
 | `RetryJobCron` | `0 * * * * ?` | First value of the runtime setting. |
 
 ## `Theme` section
@@ -139,6 +140,9 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.ServerlessCommandTimeout` | Adapters | Read-only | `300` |
 | `Bitween.NativeAdapterTimeout` | Adapters | Read-only | `900` |
 | `Bitween.CircuitBreakerFailures`, `CircuitBreakerWindowSeconds`, `CircuitBreakerOpenSeconds` | Adapters | Read-only | `5`, `60`, `60` |
+| `Bitween.RegistryUrl` | Marketplace | Yes | empty, the marketplace off |
+| `Bitween.RegistryTrustedKeys` | Marketplace | Yes | empty |
+| `Bitween.RegistryAllowCommunity` | Marketplace | Yes | `false` |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
 | `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |

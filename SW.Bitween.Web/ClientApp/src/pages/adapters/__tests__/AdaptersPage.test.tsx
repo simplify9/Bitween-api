@@ -5,7 +5,7 @@ import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/
 
 /**
  * The Adapters page: built-in and installed adapters in their own tabs, with versions and usage,
- * and the marketplace tab waiting for its content.
+ * and the marketplace tab listing what the registry set under Settings offers.
  */
 
 /** GET /adapters/Catalog, per kind: `RawCatalogAdapter` in src/api/http/adapters.ts. */
@@ -275,13 +275,75 @@ describe("the Adapters page", () => {
     expect(received).toMatchObject({ query: "?version=minor&current=true", type: "application/zip" });
   });
 
-  it("has a marketplace tab, still to come", async () => {
-    const { user } = renderApp("/adapters", { handlers });
+  it("says the marketplace is off until a registry is set", async () => {
+    const { user } = renderApp("/adapters", {
+      handlers: [...handlers, http.get(apiPath("/marketplace/search"), () => HttpResponse.json({ configured: false }))],
+    });
 
     await user.click(await screen.findByRole("tab", { name: "Marketplace" }, LOADED));
 
     expect(screen.getByRole("tab", { name: "Marketplace" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("The marketplace is on its way")).toBeVisible();
+    expect(await screen.findByText("The marketplace is off")).toBeVisible();
+  });
+
+  it("lists the registry's connectors and installs one", async () => {
+    const card = {
+      id: "s9.openapi",
+      displayName: "OpenAPI",
+      summary: "Calls any operation of an API described by OpenAPI.",
+      publisher: "s9",
+      publisherName: "Simplify9",
+      tier: "Official",
+      pricing: "Free",
+      latest: "1.1.0",
+      runtime: "python",
+      kinds: "handler",
+      categories: ["Protocols"],
+      iconDataUri: null,
+      downloads: 3,
+      updatedOn: "2026-10-12T00:00:00Z",
+    };
+    const installed = { installed: true, fromRegistry: true, current: "1.0.0", versions: ["1.0.0"] };
+    let body: unknown;
+    const { user } = renderApp("/adapters?tab=marketplace", {
+      handlers: [
+        ...handlers,
+        http.get(apiPath("/marketplace/search"), () =>
+          HttpResponse.json({ configured: true, registry: "https://registry.test", result: [{ card, installed }], totalCount: 1 }),
+        ),
+        http.get(apiPath("/marketplace/package"), () =>
+          HttpResponse.json({
+            package: {
+              card,
+              description: null,
+              homepage: null,
+              license: "MIT",
+              versions: [
+                { version: "1.1.0", status: "Published", size: 10, minBitweenVersion: "10.0.0", signedOn: "2026-10-12T00:00:00Z", revokeReason: null },
+                { version: "1.0.0", status: "Published", size: 10, minBitweenVersion: "10.0.0", signedOn: "2026-10-01T00:00:00Z", revokeReason: null },
+              ],
+            },
+            latest: { properties: [{ name: "SpecUrl", description: "Where the OpenAPI document is" }] },
+            installed,
+          }),
+        ),
+        http.post(apiPath("/marketplace/install"), async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ adapterId: "s9.openapi", version: "1.1.0", current: true, sha256: "x", publisher: "s9" });
+        }),
+      ],
+    });
+
+    // Installed from the registry, with a newer version there.
+    expect(await screen.findByText("Update available")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /OpenAPI/ }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("SpecUrl")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Install 1.1.0" }));
+
+    expect(await within(dialog).findByText(/Installed s9.openapi 1.1.0/)).toBeVisible();
+    expect(body).toEqual({ id: "s9.openapi", version: "1.1.0", current: true });
   });
 
   it("is in the sidebar for whoever can see subscriptions, and only for them", async () => {

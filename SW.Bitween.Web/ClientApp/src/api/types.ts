@@ -1846,3 +1846,70 @@ export interface SubscriptionCategory {
   description: string | null;
   createdOn: string;
 }
+
+// - the marketplace (a Bitween Registry, when one is set under Settings) -
+
+export type RegistryTier = "Official" | "Verified" | "Community";
+
+export interface MarketplaceCard {
+  id: string;
+  displayName: string;
+  summary: string | null;
+  publisher: string;
+  publisherName: string;
+  tier: RegistryTier;
+  pricing: "Free" | "Paid";
+  latest: string;
+  runtime: string | null;
+  kinds: string | null;
+  categories: string[];
+  iconDataUri: string | null;
+  downloads: number;
+  updatedOn: string;
+}
+
+/** What this Bitween already has of a registry package. */
+export interface MarketplaceInstalled {
+  installed: boolean;
+  /** Installed from a registry; false for an adapter of the same name published here. */
+  fromRegistry: boolean;
+  current: string | null;
+  versions: string[];
+}
+
+export interface MarketplaceSearch {
+  configured: boolean;
+  registry?: string;
+  result?: { card: MarketplaceCard; installed: MarketplaceInstalled }[];
+  totalCount?: number;
+}
+
+export interface MarketplaceVersion {
+  version: string;
+  status: "Published" | "Withdrawn" | "Revoked" | string;
+  size: number;
+  minBitweenVersion: string | null;
+  signedOn: string | null;
+  revokeReason: string | null;
+}
+
+export interface MarketplacePackage {
+  package: {
+    card: MarketplaceCard;
+    description: string | null;
+    homepage: string | null;
+    license: string | null;
+    versions: MarketplaceVersion[];
+  };
+  /** The newest version's manifest, for its settings. */
+  latest: { properties?: { name: string; displayName?: string; description?: string }[] } | null;
+  installed: MarketplaceInstalled;
+}
+
+export interface MarketplaceInstallResult {
+  adapterId: string;
+  version: string;
+  current: boolean;
+  sha256: string;
+  publisher: string;
+}
