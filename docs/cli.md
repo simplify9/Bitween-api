@@ -114,6 +114,33 @@ bitween adapter promote acme.orders 0.1.0
 variables. The catalog then records the publisher from `SWSL_PUBLISHED_BY`, `GITHUB_ACTOR` or the local
 user name, and nothing reaches Bitween's audit trail.
 
+## Testing mappings
+
+`bitween mapping test` maps sample documents with subscriptions' mappings as saved on the Bitween, and
+compares each output with the one expected. It runs the same preview the mapping editor does, which is
+the pipeline's own read, map and write; nothing is delivered. Run it in CI after `bitween apply`, so a
+mapping change that breaks a partner's document fails the build.
+
+```yaml
+# mappings.yaml
+cases:
+  - name: An order maps to the warehouse's shape
+    subscription: Orders to warehouse
+    input: samples/order.json
+    expected: samples/order.expected.json
+    partner: Acme marketplace        # whose values to map with; the subscription's own when left out
+```
+
+```sh
+bitween mapping test mappings.yaml            # PASS or FAIL per case; exit 1 when any fails
+bitween mapping test mappings.yaml --update   # write each output as its expected file, to start or refresh them
+```
+
+Paths are relative to the file. JSON is compared as JSON, so spacing and key order don't count, and a
+failure names the first path that differs, as `$.customer is "acme"; "ACME" expected.` XML is compared as
+XML. The rules-based mapper and the legacy JSON mapper can be tested this way; a custom mapper is tested
+with `bitween adapter run`. Needs `subscriptions.edit`, which the preview asks for, so a CI account needs it too.
+
 ## Configuration as code
 
 ```sh

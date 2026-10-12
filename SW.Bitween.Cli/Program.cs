@@ -27,6 +27,9 @@ public static class Program
                 case "adapter":
                 case "adapters":
                     return await Adapter(args[1..], profiles);
+                case "mapping":
+                case "mappings":
+                    return await Mapping(args[1..], profiles);
                 case "version":
                 case "--version":
                     Console.WriteLine($"bitween {Version}");
@@ -59,6 +62,16 @@ public static class Program
             Console.WriteLine(ex.Message);
             return Commands.Failure;
         }
+    }
+
+    static async Task<int> Mapping(string[] args, Profiles profiles)
+    {
+        // One command for now, as a verb so 'bitween mapping test --help' reads like the others.
+        var parsed = Parser().ParseArguments<MappingTestOptions, MappingPlaceholderOptions>(args);
+        return await parsed.MapResult(
+            (MappingTestOptions o) => Commands.TestMappings(o, profiles),
+            (MappingPlaceholderOptions _) => Task.FromResult(Help(parsed, "bitween mapping")),
+            _ => Task.FromResult(Help(parsed, "bitween mapping")));
     }
 
     static async Task<int> Adapter(string[] args, Profiles profiles)
@@ -126,6 +139,9 @@ public static class Program
           bitween adapter promote <id> <version>
           bitween adapter versions <id>
           bitween adapter withdraw <id> <version>
+
+          bitween mapping test <cases.yaml> Map sample inputs with subscriptions' saved mappings and compare
+                                           them with what's expected (--update writes the outputs instead)
 
         bitween <command> --help shows a command's options.
         """;
