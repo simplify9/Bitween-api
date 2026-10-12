@@ -182,6 +182,10 @@ jobs:
       # The production cluster's gateway. The default, s9-dev-edge, does not exist there, and
       # the deploy would create a second public-gateway in it instead of failing.
       gateway-parent-namespace: 's9-prod-edge'
+      # Attach to the gateway's *.bitween.io wildcard listener (certificate included) rather than
+      # onboarding a listener and certificate for app.bitween.io. The deploy fails before helm
+      # runs if the listener is missing. Develop stays per-host: the dev gateway has no wildcard.
+      gateway-section-name: 'https-wildcard-bitween-io'
       # Every line is handed to helm --set as it stands, so no comments inside.
       # AWS_*_CHECKSUM_*=when_required: production stores files in DigitalOcean Spaces too, so it
       # carries develop's checksum setting (see the note there) until the fix lands in SW-CloudFiles.
