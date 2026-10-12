@@ -172,7 +172,7 @@ adapters:
 | `dataSources` | `name` | `adapter`, `kind`, `properties` |
 | `dataSourceStatements` | `dataSource` and `name` | `sql`, `workGroup` |
 | `adapters` | the package | published unless that version already is; `current: true` makes it the one that runs |
-| `subscriptions` | `name` | `type`, `informationType`, `partner`, `receiver`/`validator`/`mapper`/`handler` blocks, `paused` |
+| `subscriptions` | `name` | `type`, `informationType`, `partner`, `receiver`/`validator`/`mapper`/`handler` blocks, `paused`, `expectTraffic` compared whole (a member left out is unset) |
 | `apiGateways` | `urlName` | `partners` attached, each `{ partner, subscription }` |
 | `busGateways` | `name` | `routes`, each `{ subscription, partner, matchExpression }` |
 | `notifiers` | `name` | `handler`, `properties`, `subscriptions` |

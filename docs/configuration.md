@@ -77,6 +77,7 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings in the database. |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |
+| `QuietSubscriptionsCron` | `0 0/5 * * * ?` | Quartz cron for checking subscriptions that [expect traffic](entry-points.md#when-traffic-stops). A subscription can't expect a gap shorter than five minutes, so running it less often only delays the alert. |
 | `ApiCallSubscriptionResponseAcceptedStatusCode` | `202` | First value of the runtime setting. |
 | `JwtExpiryMinutes` | `60` | First value of the runtime setting. |
 | `MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | | First values of the Microsoft sign-in settings. |

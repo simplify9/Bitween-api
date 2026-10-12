@@ -138,6 +138,21 @@ A scheduled job that pulls files from S3:
 
 A subscription bound to a data source also carries `dataSourceId`.
 
+`expectTraffic` asks to be told when the subscription stops receiving exchanges. See [Entry points](entry-points.md#when-traffic-stops). It is replaced like the rest of the configuration, so an update without it removes it.
+
+```json
+"expectTraffic": { "everyMinutes": 15, "days": ["Sun", "Mon", "Tue", "Wed", "Thu"], "from": "08:00", "to": "22:00", "timeZone": "Asia/Riyadh" }
+```
+
+| Field | Rule |
+|---|---|
+| `everyMinutes` | Required, 5 to 10080. When a window has hours, no longer than the window. |
+| `days` | `Sun` to `Sat`, any case; stored in week order. Null or empty means every day. |
+| `from`, `to` | `HH:mm`, both or neither. `to` later than `from`; a window can't run past midnight. |
+| `timeZone` | An IANA name such as `Asia/Riyadh`. Null means UTC. |
+
+A value that breaks a rule is refused with a validation error whose message says which. `GET /api/subscriptions/{id}` and the search also return `quietSince`: when the subscription was found quiet, or null. It can't be set through the API.
+
 ## Adapters and mapping
 
 | Method and path | Permission | Description |

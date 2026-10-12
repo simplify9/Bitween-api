@@ -215,6 +215,6 @@ A notifier runs a handler adapter after exchanges of chosen subscriptions finish
 | Watches | The subscriptions it listens to. A notifier that watches nothing never fires. |
 | Inactive | Switches it off |
 
-The handler receives a JSON document describing the result, with PascalCase fields: `Id`, `Success`, `Exception`, `StartedOn`, `FinishedOn`, `OutputBad`, `ResponseBad`, `SubscriptionId`, `SubscriptionName`, `DocumentId`, `DocumentName` and `CorrelationId`. Its properties also get `xchangeid`. Partner and global tokens are not resolved in notifier properties.
+The handler receives a JSON document describing the result, with PascalCase fields: `Id`, `Success`, `Exception`, `StartedOn`, `FinishedOn`, `OutputBad`, `ResponseBad`, `SubscriptionId`, `SubscriptionName`, `DocumentId`, `DocumentName`, `CorrelationId`, `SuppressedSinceLast` and `Event`. Its properties also get `xchangeid`. `Event` is null for an exchange's result; a notifier on failed results is also told when a subscription that [expects traffic](entry-points.md#when-traffic-stops) goes quiet (`gone-quiet`) and when it comes back (`back`). Partner and global tokens are not resolved in notifier properties.
 
 Each run is recorded with its outcome and any error. The notifier page lists recent notifications, and `GET /api/notifications` searches them. Notifiers run on each work group's `-Result` queue, separate from exchange processing.

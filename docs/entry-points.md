@@ -183,6 +183,34 @@ Without a `waitresponse` header, the call returns `200` with the exchange id at 
 
 The partner can read the outcome later with `GET /api/xchanges/{exchangeId}`, which returns whether it succeeded and a URL to the response file.
 
+## When traffic stops
+
+A partner whose system breaks, a carrier that moves its folder, a table that stops filling: none of these fails an exchange, because no exchange is created. A subscription can say how often it expects one, and Bitween tells its notifiers when none arrives.
+
+On the subscription's page, **Expect traffic** takes:
+
+- **Every** so many minutes, at least 5.
+- **Days**, Sun to Sat. None picked means every day.
+- **From** and **To**, local times of day, both or neither. Without them the whole day counts. A window can't run past midnight.
+- **Time zone**, an IANA name such as `Asia/Riyadh`. Empty means UTC.
+
+Every five minutes (`Bitween:QuietSubscriptionsCron`), Bitween checks each active subscription that isn't paused and has an expectation:
+
+- **Gone quiet.** Inside the window, when no exchange of the subscription started in the last *every* minutes, and the window has been open at least that long, the subscription is marked **Quiet since** that moment. Whole days in a row count as one open stretch, so Sunday's silence carries into Monday. A window with hours opens afresh each day, so the last order of yesterday evening doesn't make it quiet at 08:01.
+- **Back.** When an exchange starts after it was marked, the mark is cleared, inside the window or not.
+- Outside the window nothing is raised.
+
+Each change is sent once, to the subscription's notifiers that have **Run on failed result** on, as the same JSON document a failed exchange sends (see [Notifiers](retries-and-alerts.md#notifiers)), with `Event` set:
+
+| `Event` | `Success` | `Exception` |
+|---|---|---|
+| `gone-quiet` | `false` | `No exchanges since 2026-10-12 08:14 UTC; Orders from marketplace expects at least one every 15 minutes, Sun-Thu 08:00-22:00 Asia/Riyadh.` |
+| `back` | `true` | `Exchanges arriving again after 47 minutes.` |
+
+There is no exchange, so `Id` and `CorrelationId` are an id made for the alert, such as `gone-quiet-42-20261012082900`, and the handler's properties get no `xchangeid`. The sends are logged, not listed under the notifier's notifications. The subscription's page shows the mark, and the dashboard's insights list quiet subscriptions.
+
+Removing the expectation clears the mark. Pausing or switching off the subscription stops new marks; one already set stays until traffic returns.
+
 ## Exchanges created by hand
 
 In the admin UI, members with `exchanges.operate` can create an exchange from the Exchanges page. The API equivalent is `POST /api/xchanges`.
