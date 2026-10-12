@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Linq;
@@ -9,6 +10,7 @@ using SW.Bitween.Domain.Gateway;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
+using SW.Scheduler;
 using Xunit;
 
 namespace SW.Bitween.IntegrationTests.Tests;
@@ -232,6 +234,36 @@ public class SubscriptionLifecycleTests(BitweenFixture fixture)
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         Assert.False(await db.Set<Subscription>().AnyAsync(s => s.Id == id));
+    }
+
+    /// <summary>
+    /// A deleted scheduled job takes its triggers with it. They used to stay in Quartz, firing a
+    /// receiving job every time for a subscription that no longer existed.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_scheduled_job_removes_its_triggers()
+    {
+        var (documentId, _) = await Groundwork();
+        int id;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var subscription = new Subscription(Unique("Scheduled"), documentId);
+            subscription.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(3))]);
+            subscription.Inactive = false;
+            db.Add(subscription);
+            await db.SaveChangesAsync();
+            id = subscription.Id;
+            await scope.ServiceProvider.GetRequiredService<SubscriptionSchedulerService>().ScheduleAll(subscription);
+        }
+
+        var schedules = (RecordingScheduleRepository)fixture.CreateScope().ServiceProvider.GetRequiredService<IScheduleRepository>();
+        var key = ScheduleToCronExtension.ScheduleKeyFor("receiver", id, new Schedule(Recurrence.Daily, TimeSpan.FromHours(3)));
+        Assert.True(schedules.Scheduled.ContainsKey(key));
+
+        await Delete(id);
+
+        Assert.False(schedules.Scheduled.ContainsKey(key));
     }
 
     [Fact]

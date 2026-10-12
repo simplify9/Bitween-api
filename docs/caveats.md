@@ -95,7 +95,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 
 | Issue | Where |
 |---|---|
-| Deleting a subscription does not remove its Quartz triggers. | `Resources/Subscriptions/Delete.cs` |
 | A killed run leaves the running flag set; later runs are skipped until it goes stale after `StaleRunAfterMinutes`, or someone clears it on the subscription's page. | `Services/RunFlagUpdater.cs` |
 | A replica that stops leaves its scheduled jobs idle for up to 30 seconds, Quartz's idle wait, before another replica picks them up. | `SW.Bitween.Web/Startup.cs` |
 | Consecutive failures pause a subscription only when its **Auto-pause** is set; it is off by default. | `Services/XchangeService.cs` |
