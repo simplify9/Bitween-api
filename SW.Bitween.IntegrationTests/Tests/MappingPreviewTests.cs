@@ -60,6 +60,53 @@ public class MappingPreviewTests
         });
     }
 
+    /// <summary>
+    /// A workbook can't be pasted into the editor, so an Excel sample is cells copied from Excel,
+    /// tab-separated, and an Excel output is shown as rows the same way rather than as base64.
+    /// </summary>
+    [Fact]
+    public async Task An_excel_mapping_previews_a_pasted_sample_and_shows_its_rows()
+    {
+        var rules = new
+        {
+            version = 1,
+            sourceFormat = "excel",
+            targetFormat = "excel",
+            root = new
+            {
+                over = "",
+                fields = new object[] { new { target = new[] { "ref" }, from = new { kind = "Path", path = "Reference" } } },
+            },
+        };
+
+        var response = await PreviewAsync(rules, "Reference\tAmount\n041800\t12.5\n");
+
+        Assert.Null(response.Error);
+        Assert.Equal("ref\n041800\n", response.OutputDocument!.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public async Task A_fixed_width_mapping_previews()
+    {
+        var rules = new
+        {
+            version = 1,
+            sourceFormat = "fixedwidth",
+            targetFormat = "json",
+            sourceFixedWidth = new { columns = new object[] { new { name = "type", start = 1, length = 1 }, new { name = "reference", start = 2, length = 6 } } },
+            root = new
+            {
+                over = "",
+                fields = new object[] { new { target = new[] { "ref" }, from = new { kind = "Path", path = "reference" } } },
+            },
+        };
+
+        var response = await PreviewAsync(rules, "DSO-1  \n");
+
+        Assert.Null(response.Error);
+        Assert.Equal("SO-1", (string)JToken.Parse(response.OutputDocument!)[0]!["ref"]!);
+    }
+
     [Fact]
     public async Task Maps_a_sample_document()
     {
@@ -145,7 +192,7 @@ public class MappingPreviewTests
 
         Assert.Contains("not a source format", response.Error);
         Assert.Equal(
-            "'yaml' is not a source format this mapper supports. Supported: csv, json, xml.",
+            "'yaml' is not a source format this mapper supports. Supported: csv, excel, fixedwidth, json, xml.",
             response.Error);
     }
 

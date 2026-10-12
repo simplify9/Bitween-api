@@ -23,12 +23,14 @@ public static class DocumentFormats
     /// semicolon file routinely becomes somebody else's comma file - so its reader and its writer
     /// cannot be the same shared object. The formats that need no configuration stay singletons.
     /// </remarks>
-    private static readonly Dictionary<string, Func<CsvOptions?, IDocumentFormat>> ById =
+    private static readonly Dictionary<string, Func<FormatOptions, IDocumentFormat>> ById =
         new(StringComparer.OrdinalIgnoreCase)
         {
             ["json"] = _ => Json,
             ["xml"] = _ => Xml,
-            ["csv"] = csv => new CsvFormat(csv),
+            ["csv"] = o => new CsvFormat(o.Csv),
+            ["fixedwidth"] = o => new FixedWidthFormat(o.FixedWidth),
+            ["excel"] = o => new ExcelFormat(o.Excel),
         };
 
     /// <summary>Format ids, for the editor's dropdown and for error messages.</summary>
@@ -38,12 +40,15 @@ public static class DocumentFormats
     public static bool TryGet(
         string? id,
         [NotNullWhen(true)] out IDocumentFormat? format,
-        CsvOptions? csv = null)
+        CsvOptions? csv = null) => TryGet(id, out format, new FormatOptions(csv));
+
+    /// <summary>The format for an id, configured with whichever of <paramref name="options"/> applies to it.</summary>
+    public static bool TryGet(string? id, [NotNullWhen(true)] out IDocumentFormat? format, FormatOptions options)
     {
         format = null;
         if (id is null || !ById.TryGetValue(id, out var build)) return false;
 
-        format = build(csv);
+        format = build(options ?? new FormatOptions());
         return true;
     }
 

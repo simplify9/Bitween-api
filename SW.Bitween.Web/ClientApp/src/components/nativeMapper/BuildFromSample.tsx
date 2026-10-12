@@ -3,6 +3,7 @@ import { Wand2 } from "lucide-react";
 import { parseSample } from "../../lib/nativeMapper/documentTree";
 import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import type { ScaffoldTally } from "../../lib/nativeMapper/scaffold";
+import { sideOptions } from "../../lib/nativeMapper/types";
 import { FormatButton } from "../ui/FormatButton";
 import { Popover } from "../ui/Popover";
 import { Button } from "../ui/basics";
@@ -19,8 +20,8 @@ export function BuildFromSample() {
   const dispatch = useRulesDispatch();
 
   const parsed = useMemo(
-    () => parseSample(targetSample, rules.targetFormat, "target", rules.targetCsv),
-    [targetSample, rules.targetFormat, rules.targetCsv],
+    () => parseSample(targetSample, rules.targetFormat, "target", rules.targetCsv, sideOptions(rules, "target")),
+    [targetSample, rules],
   );
 
   return (

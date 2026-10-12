@@ -174,6 +174,60 @@ one cell.
 The information type of a CSV document is carried, not read: it has no promoted properties, and only
 subscriptions and routes without a filter pick it up. Its mapping reads it.
 
+### Fixed-width text
+
+`fixedwidth` reads and writes one record per line, each field at a set position. Nothing in such a file
+says where a field ends, so `sourceFixedWidth` and `targetFixedWidth` give the layout, as the partner's
+specification does:
+
+```json
+"sourceFixedWidth": {
+  "columns": [
+    { "name": "type", "start": 1, "length": 1 },
+    { "name": "reference", "start": 2, "length": 8 },
+    { "name": "amount", "start": 10, "length": 7, "align": "right", "pad": "0" }
+  ],
+  "skipLines": 1,
+  "trim": true
+}
+```
+
+| Option | Default | |
+|---|---|---|
+| `columns` | | Each column's `name`, its `start` (the line's first character is 1) and its `length`. Columns can't overlap. |
+| `align`, `pad` | `left`, a space | When writing: which side a value keeps to, and what fills the rest. Amounts are usually `right` with `0`. |
+| `skipLines` | `0` | When reading: lines at the top that aren't records, such as a title |
+| `trim` | `true` | When reading: take the padding off each value |
+
+Read, the document is a list of rows, as CSV's is. A line shorter than the layout is read as far as it
+goes, and blank lines are skipped. When writing, each row has to be an object of the layout's columns
+(a nested field becomes a dotted name, as `destination.city`): a field the layout has no column for is
+refused, and **a value longer than its column is refused rather than cut**, because a cut amount or
+reference would be booked without anyone noticing.
+
+### Excel
+
+`excel` reads and writes Excel workbooks (.xlsx), one sheet at a time. A workbook is binary and a message
+in Bitween is text, so it travels as base64: give the receiver that picks it up (S3, Azure Blob, SFTP, FTP)
+`ResponseEncoding` `base64`, and the upload handler that writes one `DataEncoding` `base64`.
+
+| Option | Default | |
+|---|---|---|
+| `sheet` | first sheet, or `Sheet1` | `sourceExcel`: the sheet to read, by name. `targetExcel`: the name of the one written. |
+| `hasHeader` | `true` | Whether the first row names the columns. Without it, columns are named by position: `1`, `2`, `3`. |
+
+Read, the sheet is a list of rows, as CSV's is, and every cell is text: a reference keeps its leading
+zeros, numbers are written the invariant way (`12.5`), cells formatted as dates become ISO 8601
+(`2026-10-12`, or with a time), booleans are `true` or `false`, and a formula is the value Excel last
+calculated. Empty rows are skipped. The older .xls format isn't read; save it as .xlsx.
+
+Written, the workbook has one sheet, with a header row when `hasHeader` is on. Text is written as text,
+so leading zeros survive, and numbers and booleans as numbers and booleans.
+
+In the editor, the sample of an Excel source is a few rows copied from Excel and pasted, which arrive as
+tab-separated text; the preview reads a pasted sample the same way, and shows an Excel output as its rows,
+tab-separated, rather than as base64. `bitween mapping test` sends an `.xlsx` input file as base64.
+
 ### Preview
 
 `POST /api/mappingpreviews` runs rules against a sample through the same code as the pipeline, without saving anything.

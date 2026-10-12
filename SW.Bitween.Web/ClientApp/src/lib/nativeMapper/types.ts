@@ -9,7 +9,7 @@
 // nothing is recovered out of anything, so the editor reads back exactly what it
 // wrote.
 
-export type DocumentFormatId = "json" | "xml" | "csv";
+export type DocumentFormatId = "json" | "xml" | "csv" | "fixedwidth" | "excel";
 
 /**
  * Which of the day and the month comes first in the incoming document's dates.
@@ -55,6 +55,44 @@ export const defaultCsvOptions = (): CsvOptions => ({
   hasHeader: true,
   byteOrderMark: false,
 });
+
+/** One column of a fixed-width layout: where it starts (the line's first character is 1) and how long it is. */
+export interface FixedWidthColumn {
+  name: string;
+  start: number;
+  length: number;
+  /** Which side a written value keeps to; amounts are usually right-aligned. */
+  align?: "left" | "right";
+  /** The character padding a written value: a space unless the specification says otherwise. */
+  pad?: string;
+}
+
+/** How one side reads or writes fixed-width text. Nothing is inferred: the layout is the partner's specification. */
+export interface FixedWidthOptions {
+  columns: FixedWidthColumn[];
+  /** Lines at the top that aren't records, skipped when reading. */
+  skipLines?: number;
+  /** Whether read values have their padding taken off. On unless turned off. */
+  trim?: boolean;
+}
+
+export const defaultFixedWidthOptions = (): FixedWidthOptions => ({ columns: [], skipLines: 0, trim: true });
+
+/** How one side reads or writes an Excel workbook. */
+export interface ExcelOptions {
+  /** The sheet to read, or to name when writing; the first sheet, or Sheet1, when empty. */
+  sheet?: string;
+  hasHeader: boolean;
+}
+
+export const defaultExcelOptions = (): ExcelOptions => ({ sheet: "", hasHeader: true });
+
+/** The settings one side's format takes, whichever format it is. */
+export interface SideFormatOptions {
+  csv?: CsvOptions;
+  fixedWidth?: FixedWidthOptions;
+  excel?: ExcelOptions;
+}
 
 /** The separators worth offering, all of which turn up in real partner files. */
 export const CSV_DELIMITERS: { value: string; label: string }[] = [
@@ -190,6 +228,14 @@ export interface MappingRules {
   sourceCsv?: CsvOptions;
   /** How the produced document is delimited, when it is delimited text. */
   targetCsv?: CsvOptions;
+  /** The incoming document's columns, when it is fixed-width text. */
+  sourceFixedWidth?: FixedWidthOptions;
+  /** The produced document's columns, when it is fixed-width text. */
+  targetFixedWidth?: FixedWidthOptions;
+  /** Which sheet of the incoming workbook, when it is Excel. */
+  sourceExcel?: ExcelOptions;
+  /** The produced workbook's sheet, when it is Excel. */
+  targetExcel?: ExcelOptions;
   fields: FieldRule[];
   lists: ListRule[];
   /** When set, the whole output is this list rather than an object. */
@@ -281,7 +327,15 @@ export const DOCUMENT_FORMATS: { id: DocumentFormatId; label: string }[] = [
   { id: "json", label: "JSON" },
   { id: "xml", label: "XML" },
   { id: "csv", label: "CSV" },
+  { id: "fixedwidth", label: "Fixed-width" },
+  { id: "excel", label: "Excel" },
 ];
+
+/** One side's format settings, out of the rules. */
+export const sideOptions = (rules: MappingRules, side: "source" | "target"): SideFormatOptions =>
+  side === "source"
+    ? { csv: rules.sourceCsv, fixedWidth: rules.sourceFixedWidth, excel: rules.sourceExcel }
+    : { csv: rules.targetCsv, fixedWidth: rules.targetFixedWidth, excel: rules.targetExcel };
 
 /**
  * Where a value can come from, with labels short enough to sit inside a row.

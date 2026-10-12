@@ -58,6 +58,24 @@ public class MappingRules
     /// <summary>How the produced document is delimited, when it is delimited text.</summary>
     public Formats.CsvOptions? TargetCsv { get; set; }
 
+    /// <summary>The incoming document's columns, when it is fixed-width text.</summary>
+    public Formats.FixedWidthOptions? SourceFixedWidth { get; set; }
+
+    /// <summary>The produced document's columns, when it is fixed-width text.</summary>
+    public Formats.FixedWidthOptions? TargetFixedWidth { get; set; }
+
+    /// <summary>Which sheet of the incoming workbook, when it is Excel.</summary>
+    public Formats.ExcelOptions? SourceExcel { get; set; }
+
+    /// <summary>The produced workbook's sheet, when it is Excel.</summary>
+    public Formats.ExcelOptions? TargetExcel { get; set; }
+
+    /// <summary>The incoming side's format settings, whichever format it is.</summary>
+    public Formats.FormatOptions SourceOptions() => new(SourceCsv, SourceFixedWidth, SourceExcel);
+
+    /// <summary>The produced side's format settings, whichever format it is.</summary>
+    public Formats.FormatOptions TargetOptions() => new(TargetCsv, TargetFixedWidth, TargetExcel);
+
     public List<FieldRule> Fields { get; set; } = new();
 
     public List<ListRule> Lists { get; set; } = new();

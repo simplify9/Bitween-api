@@ -89,11 +89,21 @@ public class Preview(RequestContext requestContext, BitweenDbContext dbContext,
                         $"Bitween understands up to version {MappingRules.CurrentVersion}.",
             };
 
-        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source, rules.SourceCsv))
+        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source, rules.SourceOptions()))
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.SourceFormat, "source") };
 
-        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target, rules.TargetCsv))
+        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target, rules.TargetOptions()))
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.TargetFormat, "target") };
+
+        // A workbook can't be pasted into the editor, so its sample is cells copied from Excel,
+        // which arrive as tab-separated text. Read that way when it isn't a workbook in base64;
+        // the exchange pipeline only ever reads the workbook itself.
+        if (source is ExcelFormat && !LooksLikeBase64(request.SourceDocument))
+            source = new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.SourceExcel?.HasHeader != false });
+
+        // And a workbook can't be shown, so the preview shows its rows the same way.
+        if (target is ExcelFormat)
+            target = new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.TargetExcel?.HasHeader != false });
 
         ValueNode input;
         try
@@ -134,5 +144,13 @@ public class Preview(RequestContext requestContext, BitweenDbContext dbContext,
             // rather than to any one rule, so it is reported the same way a bad sample is.
             return new MappingPreviewResponse { Error = ex.Message };
         }
+    }
+
+    static bool LooksLikeBase64(string text)
+    {
+        var trimmed = (text ?? "").Trim();
+        if (trimmed.Length == 0 || trimmed.Length % 4 != 0) return false;
+        Span<byte> buffer = new byte[trimmed.Length];
+        return Convert.TryFromBase64String(trimmed, buffer, out _);
     }
 }

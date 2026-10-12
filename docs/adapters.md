@@ -125,6 +125,7 @@ Writes the payload to an S3-compatible bucket.
 | `FileName` | | Full object key. When empty, the key is `{FolderName}/{yyyyMMddHHmmss}_{guid}.{FileExtension}`. |
 | `FileExtension` | | |
 | `ContentType` | `text/plain` | |
+| `DataEncoding` | `utf8` | `base64` decodes the payload into bytes before uploading, for a binary file such as an Excel workbook the mapper wrote. |
 
 The response file holds the object key.
 
@@ -137,6 +138,7 @@ Writes the payload to an Azure Blob container.
 | `ConnectionString` *(required, secret)*, `ContainerName` *(required)* | |
 | `FileName` | Blob name. When empty, a timestamp and GUID name is generated. |
 | `FileExtension` | |
+| `DataEncoding` | `utf8` by default. `base64` decodes the payload into bytes before uploading, for a binary file such as an Excel workbook. |
 
 Existing blobs are overwritten. The response file holds the blob name.
 

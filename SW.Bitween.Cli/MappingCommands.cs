@@ -101,7 +101,11 @@ public static partial class Commands
     static async Task<string> RunCase(BitweenApi api, string folder, JsonObject c, bool update)
     {
         var subscriptionName = (string)c["subscription"] ?? throw new InvalidOperationException("The case names no subscription.");
-        var input = await File.ReadAllTextAsync(Path.Combine(folder, (string)c["input"] ?? throw new InvalidOperationException("The case names no input.")));
+        var inputPath = Path.Combine(folder, (string)c["input"] ?? throw new InvalidOperationException("The case names no input."));
+        // A workbook is binary, and travels through Bitween as base64, so it is sent that way.
+        var input = inputPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+            ? Convert.ToBase64String(await File.ReadAllBytesAsync(inputPath))
+            : await File.ReadAllTextAsync(inputPath);
         var expectedPath = Path.Combine(folder, (string)c["expected"] ?? throw new InvalidOperationException("The case names no expected file."));
 
         var subscriptionId = await IdByName(api, "subscriptions", subscriptionName);

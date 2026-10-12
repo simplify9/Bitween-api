@@ -34,4 +34,8 @@ public class S3UploadHandlerInput
     [DefaultValue("text/plain")]
     [Description("Content-Type to set on the uploaded object (e.g. text/plain, application/json).")]
     public string ContentType { get; set; } = "text/plain";
+
+    [DefaultValue("utf8")]
+    [Description("Encoding used to write the file contents: utf8, or base64 to write the decoded bytes.")]
+    public string DataEncoding { get; set; } = "utf8";
 }

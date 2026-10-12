@@ -8,7 +8,7 @@
 // that resolve to null.
 
 import { dsvFormat } from "d3-dsv";
-import { defaultCsvOptions, type CsvOptions } from "./types";
+import { defaultCsvOptions, type CsvOptions, type FixedWidthOptions, type SideFormatOptions } from "./types";
 
 export type DocumentNodeKind = "value" | "object" | "list";
 
@@ -57,12 +57,20 @@ export function parseSample(
   format: string,
   role: SampleRole = "source",
   csv: CsvOptions = defaultCsvOptions(),
+  more: Omit<SideFormatOptions, "csv"> = {},
 ): ParsedSample {
   if (!text.trim()) return { root: null, error: null };
 
   if (format === "xml") return parseXmlSample(text, role);
 
   if (format === "csv") return parseCsvSample(text, csv);
+
+  if (format === "fixedwidth") return parseFixedWidthSample(text, more.fixedWidth);
+
+  // A workbook can't be opened here, so the sample is its cells pasted from Excel, which
+  // arrive as tab-separated text. The preview reads a pasted sample the same way.
+  if (format === "excel")
+    return parseCsvSample(text, { delimiter: "\t", hasHeader: more.excel?.hasHeader !== false });
 
   if (format !== "json") {
     return { root: null, error: `No preview of the document shape for ${format} yet.` };
@@ -172,6 +180,37 @@ function mergeNode(a: DocumentNode, b: DocumentNode): DocumentNode {
  * reason this format needed nothing from the mapper. A rule walks the document with
  * an empty path and reads a column off each row.
  */
+/** Fixed-width lines cut at the layout's columns, the same way the server reads them. */
+function parseFixedWidthSample(text: string, options: FixedWidthOptions | undefined): ParsedSample {
+  const columns = [...(options?.columns ?? [])].filter((c) => c.name).sort((a, b) => a.start - b.start);
+  if (columns.length === 0)
+    return { root: null, error: "Add the file's columns under its format settings to see its fields." };
+
+  const lines = stripByteOrderMark(text)
+    .split(/\r\n|\r|\n/)
+    .slice(Math.max(0, options?.skipLines ?? 0))
+    .filter((line) => line.trim().length > 0);
+  const trim = options?.trim !== false;
+
+  return {
+    root: {
+      key: "",
+      path: "",
+      kind: "list",
+      count: lines.length,
+      children: mergeShape(
+        lines.flatMap((line) =>
+          columns.map((c) => {
+            const value = line.substring(c.start - 1, c.start - 1 + c.length);
+            return { key: c.name, path: c.name, kind: "value" as const, sample: trim ? value.trim() : value, children: [] };
+          }),
+        ),
+      ),
+    },
+    error: null,
+  };
+}
+
 function parseCsvSample(text: string, options: CsvOptions): ParsedSample {
   // d3-dsv takes one character. The wire format allows more, since the server's parser
   // does - so a mapping hand-edited to a longer delimiter still runs, it just cannot be

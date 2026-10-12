@@ -7,6 +7,9 @@ import {
   emptyListRule,
   emptyRules,
   type CsvOptions,
+  type ExcelOptions,
+  type FixedWidthOptions,
+  sideOptions,
   type DateOrderName,
   type DocumentFormatId,
   type EditorFieldRule,
@@ -77,6 +80,8 @@ export type RulesEditorAction =
   | { type: "SET_TARGET_FORMAT"; format: DocumentFormatId }
   | { type: "SET_DATE_ORDER"; order: DateOrderName }
   | { type: "SET_CSV_OPTIONS"; side: "source" | "target"; options: CsvOptions }
+  | { type: "SET_FIXED_WIDTH_OPTIONS"; side: "source" | "target"; options: FixedWidthOptions }
+  | { type: "SET_EXCEL_OPTIONS"; side: "source" | "target"; options: ExcelOptions }
   | { type: "SET_SOURCE_SAMPLE"; text: string }
   | { type: "SET_TARGET_SAMPLE"; text: string }
   | { type: "SCAFFOLD_FROM_TARGET" }
@@ -225,6 +230,8 @@ function changesTheMapping(action: RulesEditorAction): boolean {
     case "SET_SOURCE_FORMAT":
     case "SET_TARGET_FORMAT":
     case "SET_CSV_OPTIONS":
+    case "SET_FIXED_WIDTH_OPTIONS":
+    case "SET_EXCEL_OPTIONS":
     case "SET_DATE_ORDER":
     case "ADD_FIELD":
     case "UPDATE_FIELD":
@@ -295,6 +302,16 @@ export function rulesEditorReducer(
         else draft.rules.targetCsv = action.options;
         break;
 
+      case "SET_FIXED_WIDTH_OPTIONS":
+        if (action.side === "source") draft.rules.sourceFixedWidth = action.options;
+        else draft.rules.targetFixedWidth = action.options;
+        break;
+
+      case "SET_EXCEL_OPTIONS":
+        if (action.side === "source") draft.rules.sourceExcel = action.options;
+        else draft.rules.targetExcel = action.options;
+        break;
+
       // Samples are an editor convenience - runtime never reads them - so changing
       // one is not a change to the mapping and does not go on the undo stack.
       case "SET_SOURCE_SAMPLE":
@@ -312,8 +329,8 @@ export function rulesEditorReducer(
       // Both samples are parsed here rather than passed in, so the action carries
       // nothing and the button cannot hand the reducer a tree from a stale render.
       case "SCAFFOLD_FROM_TARGET": {
-        const target = parseSample(draft.targetSample, draft.rules.targetFormat, "target", draft.rules.targetCsv);
-        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv);
+        const target = parseSample(draft.targetSample, draft.rules.targetFormat, "target", draft.rules.targetCsv, sideOptions(draft.rules, "target"));
+        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv, sideOptions(draft.rules, "source"));
         draft.scaffold = target.error
           ? { created: 0, matched: 0, problem: target.error }
           : scaffoldFromTarget(draft.rules, target.root, source.root);
@@ -321,7 +338,7 @@ export function rulesEditorReducer(
       }
 
       case "MATCH_SOURCES": {
-        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv);
+        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv, sideOptions(draft.rules, "source"));
         draft.match = matchSources(draft.rules, source.root);
         break;
       }
@@ -335,6 +352,10 @@ export function rulesEditorReducer(
           targetFormat: draft.rules.targetFormat,
           sourceCsv: draft.rules.sourceCsv,
           targetCsv: draft.rules.targetCsv,
+          sourceFixedWidth: draft.rules.sourceFixedWidth,
+          targetFixedWidth: draft.rules.targetFixedWidth,
+          sourceExcel: draft.rules.sourceExcel,
+          targetExcel: draft.rules.targetExcel,
         };
         draft.selectedId = null;
         draft.scaffold = null;
