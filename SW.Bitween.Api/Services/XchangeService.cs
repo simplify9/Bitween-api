@@ -1279,13 +1279,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// </summary>
     private async Task NotifyThroughChannels(Xchange xchange, XchangeResult xchangeResult)
     {
-        if (xchange.SubscriptionId == null) return;
-
-        // The cache holds active subscriptions only, and an exchange can finish just after its
-        // subscription was switched off. What it was set to notify still applies to that exchange.
-        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange.SubscriptionId.Value)
-                           ?? await dbContext.Set<Subscription>().AsNoTracking()
-                               .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId.Value);
+        var subscription = await SubscriptionOf(xchange);
 
         var channelIds = (subscription?.Notifications ?? [])
             .Where(n => xchangeResult.Success
@@ -1300,6 +1294,17 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         foreach (var channelId in channelIds)
             await NotifyChannel(channelId, subscription, xchange, xchangeResult, partner);
     }
+
+    /// <summary>
+    /// The subscription an exchange ran for. The cache holds active subscriptions only, and an
+    /// exchange can finish just after its subscription was switched off; what it was set to notify
+    /// still applies to that exchange.
+    /// </summary>
+    private async Task<Subscription> SubscriptionOf(Xchange xchange) =>
+        xchange?.SubscriptionId is not { } id
+            ? null
+            : await BitweenCache.SubscriptionByIdAsync(id)
+              ?? await dbContext.Set<Subscription>().AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
 
     private async Task NotifyChannel(int channelId, Subscription subscription, Xchange xchange,
         XchangeResult xchangeResult, Partner partner)
@@ -1355,8 +1360,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             return;
 
         var xchange = await dbContext.FindAsync<Xchange>(xchangeResult.Id);
-        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange!.SubscriptionId!.Value);
-        var document = await BitweenCache.DocumentByIdAsync(xchange.DocumentId);
+        var subscription = await SubscriptionOf(xchange);
+        var document = await BitweenCache.DocumentByIdAsync(xchange!.DocumentId);
 
         // One message for an outage, not one per failure: within the quiet window after a send for
         // the same subscription and outcome, this one is recorded but not sent.
