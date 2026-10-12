@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "nativerebexftpuploadhandler",
   "displayName": "FTP / SFTP upload (Rebex)",
-  "summary": "Uploads the message as a file to an FTP or SFTP server. Uses the Rebex client and needs a Rebex license.",
+  "summary": "Uploads the message as a file to an FTP or SFTP server. Uses the Rebex client and needs a Rebex license. Moved to the marketplace as s9.rebex.ftp.upload; offered here only while something still uses it.",
   "publisher": {
     "name": "Simplify9",
     "url": "https://simplify9.com"

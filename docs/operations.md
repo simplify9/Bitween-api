@@ -159,7 +159,7 @@ Exchange rows can outlive their files. Opening such a file says it was deleted b
 | The Microsoft sign-in popup fails with `user_cancelled` | The redirect URI does not point at `/blank.html` |
 | Changing appsettings or Helm values does not change a setting | The setting is already stored in the database, which wins |
 | Queue health says RabbitMQ management isn't configured | One of the three management keys is missing |
-| Rebex adapters are missing from the pickers | No Rebex license key is saved |
+| Rebex adapters are missing from the pickers | No Rebex license key is saved, or nothing uses that one any more: it [moved to the marketplace](adapters.md#moved-to-the-marketplace) |
 | An API gateway returns 404 at the right URL | The attached subscription is inactive |
 | An API gateway returns 503 | The gateway is deactivated |
 | A scheduled job never runs | Check schedule health for Stuck or Not scheduled, and that the subscription is active |

@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "nativerebexpop3receiver",
   "displayName": "Email pickup (POP3, Rebex)",
-  "summary": "Reads messages from a POP3 mailbox on a schedule, using the Rebex client.",
+  "summary": "Reads messages from a POP3 mailbox on a schedule, using the Rebex client. Moved to the marketplace as s9.rebex.pop3.receiver; offered here only while a subscription still uses it.",
   "publisher": {
     "name": "Simplify9",
     "url": "https://simplify9.com"

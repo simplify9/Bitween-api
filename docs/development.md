@@ -123,7 +123,7 @@ Always save with `SaveChangesAsync`. The synchronous `SaveChanges` throws, becau
 1. Create a folder in `SW.Bitween.NativeAdapters` with an input class. Annotate its properties with `[Required]`, `[Description]`, `[DefaultValue]` and, for secrets, `[Secure]`.
 2. Create the adapter class. Implement `INativeInfolinkHandler`, `INativeInfolinkReceiver`, `INativeInfolinkValidator` or `INativeInfolinkMapper`. Its `Name` must start with `Native`, `StartupValuesType` returns the input class, and `InitializeStartupValues` reads the properties.
 3. Register it twice in `ServiceCollectionExtensions.AddNativeAdapters`: once as its kind's interface and once as `INativeAdapter`.
-4. Implement `IRequiresRebexLicense` if it needs Rebex. Implement `IReceivesMappingContext` if it is a mapper that should receive partner and global values as context.
+4. A new adapter that needs Rebex belongs in the marketplace, as the [Rebex ones moved there](adapters.md#moved-to-the-marketplace). Implement `IReceivesMappingContext` if it is a mapper that should receive partner and global values as context.
 
 Adapters are found by name, ignoring case, and the name is the id stored on subscriptions. Renaming an adapter breaks every subscription that uses it.
 

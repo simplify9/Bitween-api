@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "nativerebexftpreceiver",
   "displayName": "FTP / SFTP pickup (Rebex)",
-  "summary": "Picks up files from an FTP or SFTP server on a schedule, leaving files still being written for the next run. Uses the Rebex client and needs a Rebex license.",
+  "summary": "Picks up files from an FTP or SFTP server on a schedule, leaving files still being written for the next run. Uses the Rebex client and needs a Rebex license. Moved to the marketplace as s9.rebex.ftp.receiver; offered here only while a subscription still uses it.",
   "publisher": {
     "name": "Simplify9",
     "url": "https://simplify9.com"

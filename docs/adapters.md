@@ -35,6 +35,20 @@ Each adapter declares its properties. The UI shows which are required, which are
 
 The Rebex FTP/SFTP adapters and the Rebex POP3 receiver use the commercial Rebex library. They are hidden from the adapter pickers until a key is saved in the **Rebex license key** setting, which takes effect without a restart. Each has open-source counterparts that need no license: the SFTP adapters and the FTP / FTPS adapters below, and `NativePop3Receiver`.
 
+### Moved to the marketplace
+
+The Rebex adapters are no longer offered for new work. They are packages in the [marketplace](#installing-from-the-marketplace) now, with the same properties plus a `LicenseKey`:
+
+| Built in | Marketplace package |
+|---|---|
+| `NativeRebexFtpReceiver` | `s9.rebex.ftp.receiver` |
+| `NativeRebexFtpUploadHandler` | `s9.rebex.ftp.upload` |
+| `NativeRebexPop3Receiver` | `s9.rebex.pop3.receiver` |
+
+A package doesn't read the **Rebex license key** setting, so keep the key in a global value set and write `{{globals.<set>.<key>}}` in its `LicenseKey` property.
+
+Nothing that uses a built-in one changes: it keeps running, and its editor keeps it. Each stays in the pickers, with a licence key saved, while any subscription names it, active or not, and for the upload handler a notifier or a retry alert counts too. Once nothing does, it is no longer listed, and there is no picking it again.
+
 ## Handlers
 
 ### NativeHttpHandler
@@ -178,7 +192,7 @@ FTP connection properties, shared with `NativeFtpReceiver`:
 
 ### NativeRebexFtpUploadHandler
 
-Uploads over SFTP or plain FTP with Rebex, shown as "(Rebex)". Needs a Rebex license. Its `Protocol` property picks the protocol, where the open-source adapters are split by protocol instead: `sftp` and `sftpssh` map to `NativeSftpUploadHandler`, `ftp` to `NativeFtpUploadHandler` with `Encryption` `none`. Every other property has the same name.
+Uploads over SFTP or plain FTP with Rebex, shown as "(Rebex)". Needs a Rebex license, and is [offered only while in use](#moved-to-the-marketplace): new work uses `s9.rebex.ftp.upload`. Its `Protocol` property picks the protocol, where the open-source adapters are split by protocol instead: `sftp` and `sftpssh` map to `NativeSftpUploadHandler`, `ftp` to `NativeFtpUploadHandler` with `Encryption` `none`. Every other property has the same name.
 
 | Property | Default | Notes |
 |---|---|---|
@@ -230,7 +244,7 @@ The reply must be JSON, and a status of 400 or above fails the run. Without `Nex
 
 ### NativeSftpReceiver, NativeFtpReceiver and NativeRebexFtpReceiver
 
-Read files over SFTP (`NativeSftpReceiver`), FTP or FTPS (`NativeFtpReceiver`), with open-source clients and no license, or over SFTP or plain FTP with Rebex (`NativeRebexFtpReceiver`, shown as "(Rebex)", needs a license). The connection properties are the upload handlers' for the same protocol.
+Read files over SFTP (`NativeSftpReceiver`), FTP or FTPS (`NativeFtpReceiver`), with open-source clients and no license, or over SFTP or plain FTP with Rebex (`NativeRebexFtpReceiver`, shown as "(Rebex)", needs a license, and is [offered only while in use](#moved-to-the-marketplace)). The connection properties are the upload handlers' for the same protocol.
 
 | Property | Default | Notes |
 |---|---|---|
@@ -242,7 +256,7 @@ Read files over SFTP (`NativeSftpReceiver`), FTP or FTPS (`NativeFtpReceiver`), 
 
 ### NativePop3Receiver and NativeRebexPop3Receiver
 
-Read email from a POP3 mailbox. `NativePop3Receiver` uses MailKit. `NativeRebexPop3Receiver` uses Rebex, needs a license, and connects over implicit TLS on port 995 only.
+Read email from a POP3 mailbox. `NativePop3Receiver` uses MailKit. `NativeRebexPop3Receiver` uses Rebex, needs a license, connects over implicit TLS on port 995 only, and is [offered only while in use](#moved-to-the-marketplace).
 
 | Property | Notes |
 |---|---|
@@ -492,6 +506,13 @@ marketplace too, published by Simplify9 under their own ids, such as `bitween.db
 sources refer to. They are the one exception to `REGISTRY_ID_TAKEN`: one installed by hand from a CLI
 release was Simplify9's as well, so the registry's version upgrades it. `scripts/publish-providers-to-registry.sh`
 builds all six with a release's version and publishes them for review.
+
+Simplify9's own connectors, from the Bitween-Connectors repository, include:
+
+| Package | |
+|---|---|
+| `s9.soap` | A handler that calls a SOAP 1.1 or 1.2 web service, with HTTP Basic or a WS-Security UsernameToken. A Client or Sender fault is a bad response; a Server or Receiver fault fails the delivery, so a retry policy retries it. |
+| `s9.rebex.ftp.receiver`, `s9.rebex.ftp.upload`, `s9.rebex.pop3.receiver` | The [Rebex adapters](#moved-to-the-marketplace) that were built in. |
 
 ### Writing an adapter in Bitween
 
