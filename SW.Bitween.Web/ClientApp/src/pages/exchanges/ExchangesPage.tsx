@@ -343,7 +343,7 @@ export function ExchangesPage() {
       </div>
 
       {/* — filters — */}
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-4 grid grid-flow-row-dense grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
         <SearchSelect
           aria-label="Filter by subscription"
           size="sm"
@@ -368,6 +368,30 @@ export function ExchangesPage() {
           onChange={(v) => setParam("informationTypeId", v || null)}
           options={infoTypes.map((t) => ({ value: String(t.id), label: t.name, code: t.code }))}
         />
+        {/* Key and value share one cell spanning two columns, so the grid never wraps them onto
+            separate rows. Placed after the information type, which narrows the key list. */}
+        <div className="col-span-2 flex gap-2">
+          <div className="w-44 shrink-0">
+            <SearchSelect
+              aria-label="Filter by promoted property key"
+              size="sm"
+              value={query.propertyKey ?? ""}
+              clearLabel="Any property"
+              options={propertyKeyOptions}
+              onChange={(v) => setParam("propertyKey", v || null)}
+            />
+          </div>
+          <TextInput
+            aria-label="Filter by promoted property"
+            className="!h-8 min-w-0 flex-1 text-[13px]"
+            placeholder={query.propertyKey ? `${query.propertyKey} contains…` : "Any property value"}
+            title="Matches any part of the value, ignoring case"
+            defaultValue={query.property ?? ""}
+            key={`prop-${query.property ?? ""}`}
+            onBlur={(e) => e.target.value !== (query.property ?? "") && setParam("property", e.target.value || null)}
+            onKeyDown={(e) => e.key === "Enter" && setParam("property", e.currentTarget.value || null)}
+          />
+        </div>
         <TextInput
           aria-label="Filter by exchange ids"
           className="!h-8 text-[13px]"
@@ -387,25 +411,6 @@ export function ExchangesPage() {
             e.target.value !== (query.correlationId ?? "") && setParam("correlationId", e.target.value || null)
           }
           onKeyDown={(e) => e.key === "Enter" && setParam("correlationId", e.currentTarget.value || null)}
-        />
-        <div className="w-44">
-          <SearchSelect
-            aria-label="Filter by promoted property key"
-            size="sm"
-            value={query.propertyKey ?? ""}
-            clearLabel="Any property"
-            options={propertyKeyOptions}
-            onChange={(v) => setParam("propertyKey", v || null)}
-          />
-        </div>
-        <TextInput
-          aria-label="Filter by promoted property"
-          className="!h-8 text-[13px]"
-          placeholder={query.propertyKey ? `${query.propertyKey} is…` : "Any property value"}
-          defaultValue={query.property ?? ""}
-          key={`prop-${query.property ?? ""}`}
-          onBlur={(e) => e.target.value !== (query.property ?? "") && setParam("property", e.target.value || null)}
-          onKeyDown={(e) => e.key === "Enter" && setParam("property", e.currentTarget.value || null)}
         />
         <label className="flex items-center gap-1.5 text-[13px] text-ink-500">
           From
