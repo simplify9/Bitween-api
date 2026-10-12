@@ -25,14 +25,19 @@ namespace SW.Bitween.Domain
         /// <see cref="NotifierId"/> because the alert is configured on the retry policy rather than
         /// on a notifier - which is also how the send is recognised as already done on a redelivery.
         /// </summary>
-        public static XchangeNotification ForRetryBudgetAlert(string xchangeId, string exception = null) =>
-            new(xchangeId, null, RetryBudgetAlertName, exception);
+        public static XchangeNotification ForRetryBudgetAlert(string xchangeId, int channelId,
+            string exception = null) =>
+            new(xchangeId, null, RetryBudgetAlertName, exception) { ChannelId = channelId };
 
         public const string AutoPauseAlertName = "Auto-pause alert";
 
-        /// <summary>The alert that the subscription this exchange belongs to was paused by its failure.</summary>
-        public static XchangeNotification ForAutoPauseAlert(string xchangeId, string exception = null) =>
-            new(xchangeId, null, AutoPauseAlertName, exception);
+        /// <summary>
+        /// The alert that the subscription this exchange belongs to was paused by its failure. One row
+        /// per channel told, so a redelivery skips the channels that already heard.
+        /// </summary>
+        public static XchangeNotification ForAutoPauseAlert(string xchangeId, int channelId,
+            string exception = null) =>
+            new(xchangeId, null, AutoPauseAlertName, exception) { ChannelId = channelId };
 
         /// <summary>Logs a send a subscription's own notifications made through a channel.</summary>
         public static XchangeNotification ForChannel(string xchangeId, int channelId, string channelName,

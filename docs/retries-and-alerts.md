@@ -47,7 +47,7 @@ A policy is a list of groups. When an exchange fails, the first group that appli
 | `matchers` | Conditions. Any one of them selects the group. |
 | `action` | `Allow` retries within the budget. `Block` stops retries for the failures it matches. |
 | `budget` | Required for `Allow`. Holds the per-message limit, the shared total and the delay strategy. |
-| `alertMode`, `alertHandlerId`, `alertHandlerProperties` | Where the budget-exhausted alert goes. |
+| `alertMode`, `alertChannelId` | Where the budget-exhausted alert goes: the id of a notification channel. |
 
 For `Error`, matchers look at the full exception text. For `BadResult`, they look at the response body.
 
@@ -186,7 +186,7 @@ The Scheduled retries page lists waiting retries. **Run now**, `POST /api/delaye
 
 ## Budget-exhausted alerts
 
-When a group's shared total runs out, Bitween sends one alert through a handler adapter. The most specific level that decides wins.
+When a group's shared total runs out, Bitween sends one alert through a notification channel. The most specific level that decides wins.
 
 | Level | Where it is set |
 |---|---|
@@ -194,9 +194,11 @@ When a group's shared total runs out, Bitween sends one alert through a handler 
 | Group | The group's alert settings |
 | Policy | The policy-wide alert card. Inline policies have no policy level. |
 
-At each level, `Silent` stops the alert, `Send` with a handler sends it there, and `Inherit` defers to the level above. `Send` without a handler also defers. When no level decides, nobody is alerted.
+At each level, `Silent` stops the alert, `Send` sends it through the level's channel, and `Inherit` defers to the level above. Saving `Send` without a channel is refused. When no level decides, nobody is alerted.
 
-The handler receives a JSON document with the exchange id, subscription id and name, information type name, correlation id, policy name, group name, total budget, blocked reason, exception and time.
+The channel's adapter receives a JSON document with the exchange id, subscription id and name, information type name, correlation id, policy name, group name, total budget, blocked reason, exception and time. Email, Teams and Slack channels send a message Bitween writes from it instead.
+
+Alerts saved with their own handler before channels existed are moved onto channels the first time this version starts. Each distinct handler and settings becomes one channel named *Retry alert: ...*, shared by every level that had the same one.
 
 Each delivery is recorded as a notification named *Retry budget alert*. Once one delivery succeeds, a redelivered event does not send a second alert.
 

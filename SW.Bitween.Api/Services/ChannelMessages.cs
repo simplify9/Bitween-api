@@ -30,7 +30,10 @@ public static class ChannelMessages
     public static ChannelMessage For(object payload, string linkBase) => payload switch
     {
         ChannelMessage message => message,
+        XchangeResultNotification { Event: not null } quiet => ForQuiet(quiet, linkBase),
         XchangeResultNotification result => ForResult(result, linkBase),
+        RetryBudgetExhaustedNotification alert => ForRetryAlert(alert, linkBase),
+        SubscriptionAutoPausedNotification paused => ForAutoPause(paused, linkBase),
         _ => throw new ArgumentException($"There is no message for a {payload?.GetType().Name}.", nameof(payload))
     };
 
@@ -79,6 +82,67 @@ public static class ChannelMessages
             LinkLabel = "Open the exchange"
         };
     }
+
+    private static ChannelMessage ForRetryAlert(RetryBudgetExhaustedNotification alert, string linkBase) => new()
+    {
+        Title = $"Retries stopped for {alert.SubscriptionName}",
+        Tone = ChannelMessageTone.Failure,
+        Text = $"\"{alert.GroupName}\" used its whole budget of {alert.MaxAttemptsTotal} retries. Failures it " +
+               "matches aren't retried again until the budget is reset or the subscription succeeds.",
+        Facts =
+        [
+            new("Subscription", alert.SubscriptionName),
+            new("Retry policy", alert.PolicyName ?? "Its own policy"),
+            new("Group", alert.GroupName),
+            new("Information type", alert.DocumentName),
+            new("Exchange", alert.XchangeId),
+            new("When", When(alert.OccurredOn))
+        ],
+        Detail = alert.Exception ?? alert.BlockedReason,
+        LinkUrl = ExchangeLink(linkBase, alert.XchangeId),
+        LinkLabel = "Open the exchange"
+    };
+
+    private static ChannelMessage ForAutoPause(SubscriptionAutoPausedNotification paused, string linkBase) => new()
+    {
+        Title = $"{paused.SubscriptionName} paused itself",
+        Tone = ChannelMessageTone.Failure,
+        Text = $"It failed {paused.Failures} times in a row, so it stopped delivering. What arrives meanwhile " +
+               "waits on hold until someone resumes it.",
+        Facts =
+        [
+            new("Subscription", paused.SubscriptionName),
+            new("Last failed exchange", paused.XchangeId),
+            new("When", When(paused.OccurredOn))
+        ],
+        Detail = paused.Exception,
+        LinkUrl = SubscriptionLink(linkBase, paused.SubscriptionId),
+        LinkLabel = "Open the subscription"
+    };
+
+    /// <summary>"Went quiet" and "is back": about the subscription, not any one exchange.</summary>
+    private static ChannelMessage ForQuiet(XchangeResultNotification quiet, string linkBase)
+    {
+        var back = quiet.Event == QuietSubscriptionsJob.Back;
+        return new ChannelMessage
+        {
+            Title = back ? $"{quiet.SubscriptionName} is receiving again" : $"{quiet.SubscriptionName} went quiet",
+            Tone = back ? ChannelMessageTone.Success : ChannelMessageTone.Warning,
+            // The job's own sentence: how long, or since when, and what it expects.
+            Text = quiet.Exception,
+            Facts =
+            [
+                new("Subscription", quiet.SubscriptionName),
+                new("Information type", quiet.DocumentName),
+                new("When", When(quiet.FinishedOn))
+            ],
+            LinkUrl = SubscriptionLink(linkBase, quiet.SubscriptionId),
+            LinkLabel = "Open the subscription"
+        };
+    }
+
+    private static string SubscriptionLink(string linkBase, int subscriptionId) =>
+        linkBase == null ? null : $"{linkBase}/subscriptions/{subscriptionId}";
 
     private static string ExchangeLink(string linkBase, string xchangeId) =>
         linkBase == null || string.IsNullOrEmpty(xchangeId)

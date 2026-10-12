@@ -46,7 +46,16 @@ namespace SW.Bitween.Model
     public enum NotificationChannelUseKind
     {
         /// <summary>A subscription's own notifications when its exchanges finish.</summary>
-        Subscription
+        Subscription,
+
+        /// <summary>A retry policy's default budget alert.</summary>
+        RetryPolicy,
+
+        /// <summary>A group's budget alert, in a shared policy or in a subscription's inline one.</summary>
+        RetryGroup,
+
+        /// <summary>One subscription's alert for one group, overriding the policy.</summary>
+        RetryAlertOverride
     }
 
     /// <summary>One place that sends through a channel.</summary>
@@ -54,9 +63,13 @@ namespace SW.Bitween.Model
     {
         public NotificationChannelUseKind Kind { get; set; }
 
+        /// <summary>Set when the use lives on a subscription, inline retry groups included.</summary>
         public int? SubscriptionId { get; set; }
 
-        /// <summary>Reads on its own, e.g. "Orders to SAP".</summary>
+        /// <summary>Set when the use lives on a shared retry policy.</summary>
+        public int? RetryPolicyId { get; set; }
+
+        /// <summary>Reads on its own, e.g. "Orders to SAP" or "Default policy › Timeouts".</summary>
         public string Name { get; set; } = null!;
     }
 
@@ -76,5 +89,11 @@ namespace SW.Bitween.Model
 
         /// <summary>The exchange finished with a good response.</summary>
         public bool OnSuccess { get; set; }
+
+        /// <summary>
+        /// The subscription went quiet against what it expects, and again when exchanges are back.
+        /// Not about any one exchange, so it can be a row's only tick.
+        /// </summary>
+        public bool OnQuiet { get; set; }
     }
 }

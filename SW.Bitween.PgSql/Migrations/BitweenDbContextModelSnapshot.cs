@@ -2177,6 +2177,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("group_id");
 
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("alert_channel_id");
+
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -2232,6 +2236,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("alert_channel_id");
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)

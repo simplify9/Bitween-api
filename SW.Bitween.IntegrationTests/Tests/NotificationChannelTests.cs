@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Adapters;
@@ -300,6 +301,10 @@ public class NotificationChannelTests(BitweenFixture fixture)
 
         await SaveNotifications(subscriptionId, []);
         Assert.Empty((await ReadSubscription(subscriptionId)).Notifications!);
+
+        // Going quiet is not about any one exchange, so it can be a row's only tick.
+        await SaveNotifications(subscriptionId, [new SubscriptionNotification { ChannelId = channelId, OnQuiet = true }]);
+        Assert.True(Assert.Single((await ReadSubscription(subscriptionId)).Notifications!).OnQuiet);
     }
 
     [Fact]
@@ -490,6 +495,113 @@ public class NotificationChannelTests(BitweenFixture fixture)
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => Create(Unique("Plain webhook"),
             new Dictionary<string, string> { ["WebhookUrl"] = "http://hooks.slack.test/x" }, "NativeSlackMessageHandler"));
         Assert.Contains("CHANNEL_WEBHOOK_NOT_HTTPS", ex.Message);
+    }
+
+    [Fact]
+    public async Task Retry_alerts_with_their_own_handler_are_moved_onto_one_shared_channel()
+    {
+        await ForgetTheRetryAlertMove();
+        var recipient = $"{Unique("moved")}@example.com";
+        var props = new Dictionary<string, string> { ["To"] = recipient, ["Host"] = "relay" };
+
+        int policyId;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            // Written the way rows saved before channels look: a handler on the policy and the same
+            // one on a group, in a different key order.
+            var policy = new RetryPolicy
+            {
+                Name = Unique("Legacy alert policy"),
+                AlertHandlerId = "NativeSmtpHandler",
+                AlertHandlerProperties = props,
+                Groups =
+                [
+                    new RetryGroup
+                    {
+                        Name = "Timeout",
+                        AppliesTo = [XchangeResultType.Error],
+                        Matchers = [new ContainsMatcher { Value = "timeout" }],
+                        AlertMode = RetryAlertMode.Send,
+                        AlertHandlerId = "NativeSmtpHandler",
+                        AlertHandlerProperties = new Dictionary<string, string> { ["Host"] = "relay", ["To"] = recipient }
+                    }
+                ]
+            };
+            db.Add(policy);
+            await db.SaveChangesAsync();
+            policyId = policy.Id;
+
+            Assert.True(await RetryAlertChannelConversion.Run(db, NullLogger.Instance) >= 2);
+        }
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var policy = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+
+            Assert.Null(policy.AlertHandlerId);
+            Assert.Null(policy.Groups[0].AlertHandlerId);
+
+            // The same handler with the same settings is one channel, whatever the key order.
+            Assert.NotNull(policy.AlertChannelId);
+            Assert.Equal(policy.AlertChannelId, policy.Groups[0].AlertChannelId);
+
+            var channel = await db.Set<NotificationChannel>().AsNoTracking()
+                .SingleAsync(c => c.Id == policy.AlertChannelId);
+            Assert.Equal("NativeSmtpHandler", channel.HandlerId);
+            Assert.Equal(recipient, channel.HandlerProperties["To"]);
+
+            // And the alert still goes somewhere.
+            Assert.Equal(channel.Id, RetryAlertResolver.Resolve(null, policy.Groups[0], policy)!.ChannelId);
+
+            // Done once per database: the next boot only looks the record up.
+            Assert.Equal(0, await RetryAlertChannelConversion.Run(db, NullLogger.Instance));
+        }
+    }
+
+    /// <summary>Two replicas start together and both reach the move. One does it; nothing is made twice.</summary>
+    [Fact]
+    public async Task Two_instances_moving_retry_alerts_at_once_make_one_set_of_channels()
+    {
+        await ForgetTheRetryAlertMove();
+        var recipient = $"{Unique("raced")}@example.com";
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(new RetryPolicy
+            {
+                Name = Unique("Raced alert policy"),
+                AlertHandlerId = "NativeSmtpHandler",
+                AlertHandlerProperties = new Dictionary<string, string> { ["To"] = recipient }
+            });
+            await db.SaveChangesAsync();
+        }
+
+        async Task<int> Boot()
+        {
+            await using var scope = fixture.CreateScope();
+            return await RetryAlertChannelConversion.Run(
+                scope.ServiceProvider.GetRequiredService<BitweenDbContext>(), NullLogger.Instance);
+        }
+
+        var moved = await Task.WhenAll(Boot(), Boot());
+
+        Assert.Equal(1, moved.Count(m => m > 0));
+        await using (var scope = fixture.CreateScope())
+        {
+            var channels = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+                .Set<NotificationChannel>().AsNoTracking().ToListAsync();
+            Assert.Single(channels, c => c.HandlerProperties.GetValueOrDefault("To") == recipient);
+        }
+    }
+
+    /// <summary>Lets the move run again in this database, as it does on its first boot.</summary>
+    private async Task ForgetTheRetryAlertMove()
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Setting>()
+            .Where(s => s.Id == RetryAlertChannelConversion.DoneKey).ExecuteDeleteAsync();
     }
 
     private static string Token(string prefix) => $"{prefix}-{Guid.NewGuid():N}";

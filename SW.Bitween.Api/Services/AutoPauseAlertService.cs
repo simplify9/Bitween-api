@@ -1,17 +1,15 @@
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
-using SW.Bitween.Services.Adapters;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween;
 
-/// <summary>What the alert handler is sent when a subscription pauses itself.</summary>
+/// <summary>What a channel's adapter is sent when a subscription pauses itself.</summary>
 public class SubscriptionAutoPausedNotification
 {
     public string Kind => "SubscriptionAutoPaused";
@@ -24,60 +22,63 @@ public class SubscriptionAutoPausedNotification
 }
 
 /// <summary>
-/// Tells someone a subscription paused itself, through the alert handler of its retry policy - the
-/// place already set up to hear that deliveries stopped going through. A subscription with no such
-/// policy, or one with no alert handler, has the pause logged and shown on its page, and nothing sent.
+/// Tells someone a subscription paused itself: through its retry policy's alert channel, the place
+/// already set up to hear that deliveries stopped going through, and through the subscription's own
+/// notifications ticked for failures. A channel that is both hears once. With neither, the pause is
+/// logged and shown on the subscription's page, and nothing is sent.
 /// </summary>
 public class AutoPauseAlertService(
     BitweenDbContext dbContext,
-    IAdapterInvoker adapterInvoker,
+    NotificationChannelSender channelSender,
     ILogger<AutoPauseAlertService> logger) : IConsume<SubscriptionAutoPausedEvent>
 {
     public async Task Process(SubscriptionAutoPausedEvent message)
     {
-        // At-least-once delivery: a successful row says it already went out.
-        var alreadySent = await dbContext.Set<XchangeNotification>()
-            .AnyAsync(n => n.XchangeId == message.XchangeId
-                           && n.NotifierName == XchangeNotification.AutoPauseAlertName
-                           && n.Success);
-        if (alreadySent) return;
-
         var subscription = await dbContext.Set<Subscription>().AsNoTracking()
             .Include(s => s.RetryPolicy)
             .FirstOrDefaultAsync(s => s.Id == message.SubscriptionId);
-        var target = RetryAlertResolver.Resolve(null, null, subscription?.RetryPolicy);
-        if (target == null) return;
+        if (subscription == null) return;
+
+        var channelIds = (subscription.Notifications ?? []).Where(n => n.OnFailure).Select(n => n.ChannelId).ToList();
+        if (RetryAlertResolver.Resolve(null, null, subscription.RetryPolicy) is { } target)
+            channelIds.Insert(0, target.ChannelId);
+
+        // At-least-once delivery: a successful row says that channel already heard.
+        var told = await dbContext.Set<XchangeNotification>()
+            .Where(n => n.XchangeId == message.XchangeId
+                        && n.NotifierName == XchangeNotification.AutoPauseAlertName
+                        && n.Success && n.ChannelId != null)
+            .Select(n => n.ChannelId!.Value)
+            .ToListAsync();
+        var toTell = channelIds.Distinct().Except(told).ToList();
+        if (toTell.Count == 0) return;
 
         var notification = new SubscriptionAutoPausedNotification
         {
             SubscriptionId = message.SubscriptionId,
-            SubscriptionName = subscription!.Name,
+            SubscriptionName = subscription.Name,
             Failures = message.Failures,
             XchangeId = message.XchangeId,
             Exception = subscription.LastException,
             OccurredOn = message.OccurredOn
         };
-        var handlerProperties = new Dictionary<string, string>(
-            target.HandlerProperties ?? new Dictionary<string, string>())
-        {
-            ["xchangeid"] = message.XchangeId
-        };
+        var partnerId = await dbContext.Set<Xchange>().AsNoTracking()
+            .Where(x => x.Id == message.XchangeId)
+            .Select(x => x.PartnerId)
+            .FirstOrDefaultAsync() ?? subscription.PartnerId;
+        var partner = partnerId is { } id ? await dbContext.FindAsync<Partner>(id) : null;
 
-        try
+        foreach (var channelId in toTell)
         {
-            await adapterInvoker.InvokeAsync<XchangeFile>(
-                target.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle),
-                new XchangeFile(JsonConvert.SerializeObject(notification), message.XchangeId),
-                handlerProperties, message.XchangeId);
-            dbContext.Add(XchangeNotification.ForAutoPauseAlert(message.XchangeId));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Auto-pause alert for subscription {SubscriptionId} could not be delivered through {HandlerId}.",
-                message.SubscriptionId, target.HandlerId);
-            dbContext.Add(XchangeNotification.ForAutoPauseAlert(message.XchangeId, ex.ToString()));
-        }
+            var error = await channelSender.Send(channelId, notification, message.XchangeId, message.XchangeId,
+                partner);
+            if (error != null)
+                logger.LogError(error,
+                    "Auto-pause alert for subscription {SubscriptionId} could not be delivered through channel {ChannelId}.",
+                    message.SubscriptionId, channelId);
 
-        await dbContext.SaveChangesAsync();
+            dbContext.Add(XchangeNotification.ForAutoPauseAlert(message.XchangeId, channelId, error?.ToString()));
+            await dbContext.SaveChangesAsync();
+        }
     }
 }

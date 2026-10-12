@@ -95,7 +95,7 @@ internal static class ChannelValidation
     public static async Task EnsureNotificationsCanSend(BitweenDbContext dbContext,
         ICollection<SubscriptionNotification> notifications)
     {
-        if (notifications.Any(n => !n.OnFailure && !n.OnBadResult && !n.OnSuccess))
+        if (notifications.Any(n => !n.OnFailure && !n.OnBadResult && !n.OnSuccess && !n.OnQuiet))
             throw new SWValidationException("NOTIFICATION_NO_OUTCOME",
                 "A notification has nothing ticked to send on. Tick at least one outcome, or remove it.");
 

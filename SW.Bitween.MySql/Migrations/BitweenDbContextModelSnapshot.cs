@@ -1788,6 +1788,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<Guid>("GroupId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1833,6 +1836,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)

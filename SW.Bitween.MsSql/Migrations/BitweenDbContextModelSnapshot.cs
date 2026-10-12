@@ -1795,6 +1795,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1840,6 +1843,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)

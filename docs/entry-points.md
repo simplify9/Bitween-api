@@ -203,7 +203,7 @@ Every five minutes (`Bitween:QuietSubscriptionsCron`), Bitween checks each activ
 - **Back.** When an exchange starts after it was marked, the mark is cleared, inside the window or not.
 - Outside the window nothing is raised.
 
-Each change is sent once, to the subscription's notifiers that have **Run on failed result** on, as the same JSON document a failed exchange sends (see [Notifiers](retries-and-alerts.md#notifiers)), with `Event` set:
+Each change is sent once, to the subscription's notifiers that have **Run on failed result** on and to its notification channels ticked **Goes quiet**, as the same JSON document a failed exchange sends (see [Notifiers](retries-and-alerts.md#notifiers)), with `Event` set as below. Email, Teams and Slack channels send a message Bitween writes from it instead.
 
 | `Event` | `Success` | `Exception` |
 |---|---|---|

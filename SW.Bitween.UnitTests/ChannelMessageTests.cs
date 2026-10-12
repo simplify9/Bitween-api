@@ -86,6 +86,67 @@ public class ChannelMessageTests
     }
 
     [TestMethod]
+    public void A_spent_retry_budget_says_which_group_stopped_and_why()
+    {
+        var message = ChannelMessages.For(new RetryBudgetExhaustedNotification
+        {
+            XchangeId = "x-9",
+            SubscriptionName = "Orders to SAP",
+            GroupName = "Timeouts",
+            MaxAttemptsTotal = 8,
+            PolicyName = null,
+            Exception = "Timed out",
+            OccurredOn = Noon
+        }, "https://bitween.example");
+
+        Assert.AreEqual("Retries stopped for Orders to SAP", message.Title);
+        Assert.AreEqual(ChannelMessageTone.Failure, message.Tone);
+        StringAssert.Contains(message.Text, "\"Timeouts\" used its whole budget of 8 retries");
+        Assert.AreEqual("Its own policy", message.Facts.Single(f => f.Label == "Retry policy").Value);
+        Assert.AreEqual("https://bitween.example/exchanges?ids=x-9", message.LinkUrl);
+    }
+
+    [TestMethod]
+    public void A_subscription_that_paused_itself_says_how_many_failures_and_links_to_it()
+    {
+        var message = ChannelMessages.For(new SubscriptionAutoPausedNotification
+        {
+            SubscriptionId = 7,
+            SubscriptionName = "Orders to SAP",
+            Failures = 5,
+            XchangeId = "x-5",
+            Exception = "Timed out",
+            OccurredOn = Noon
+        }, "https://bitween.example");
+
+        Assert.AreEqual("Orders to SAP paused itself", message.Title);
+        Assert.AreEqual(ChannelMessageTone.Failure, message.Tone);
+        StringAssert.Contains(message.Text, "failed 5 times in a row");
+        Assert.AreEqual("https://bitween.example/subscriptions/7", message.LinkUrl);
+    }
+
+    [TestMethod]
+    public void Going_quiet_and_coming_back_read_as_what_they_are()
+    {
+        XchangeResultNotification Quiet(string kind) => new()
+        {
+            Id = $"{kind}-7", SubscriptionId = 7, SubscriptionName = "Orders to SAP", DocumentName = "Order",
+            Event = kind, Success = kind == QuietSubscriptionsJob.Back,
+            Exception = "No exchanges since 2026-10-08 11:00 UTC", FinishedOn = Noon
+        };
+
+        var quiet = ChannelMessages.For(Quiet(QuietSubscriptionsJob.GoneQuiet), "https://bitween.example");
+        Assert.AreEqual("Orders to SAP went quiet", quiet.Title);
+        Assert.AreEqual(ChannelMessageTone.Warning, quiet.Tone);
+        Assert.AreEqual("No exchanges since 2026-10-08 11:00 UTC", quiet.Text);
+        Assert.AreEqual("https://bitween.example/subscriptions/7", quiet.LinkUrl);
+
+        var back = ChannelMessages.For(Quiet(QuietSubscriptionsJob.Back), null);
+        Assert.AreEqual("Orders to SAP is receiving again", back.Title);
+        Assert.AreEqual(ChannelMessageTone.Success, back.Tone);
+    }
+
+    [TestMethod]
     public void Anything_but_a_message_is_refused_by_the_message_adapters()
     {
         Assert.ThrowsException<InvalidOperationException>(() => ChannelMessage.Parse("{\"Id\":\"x-1\"}"));

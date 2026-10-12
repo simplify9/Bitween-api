@@ -22,9 +22,20 @@ public class NotificationChannelSender(IInfolinkCache cache, IAdapterInvoker ada
     /// The partner the reported exchange ran for, which <c>{{partner.…}}</c> in the channel's
     /// settings is filled from, so one channel can, say, email each partner's own contact.
     /// </param>
+    /// <param name="xchangeId">Null for an alert about no one exchange; <paramref name="correlationId"/> then stands in.</param>
     public Task<Exception> Send(NotificationChannel channel, object payload, string xchangeId,
         string correlationId, Partner partner = null) =>
         Deliver(channel, payload, xchangeId, correlationId, partner, attempts: 3);
+
+    /// <summary>
+    /// The same, by the channel's id. One that no longer exists comes back as the error: deleting a
+    /// channel something still uses is refused, so this is a delete racing a send.
+    /// </summary>
+    public async Task<Exception> Send(int channelId, object payload, string xchangeId, string correlationId,
+        Partner partner = null) =>
+        await cache.NotificationChannelByIdAsync(channelId) is { } channel
+            ? await Send(channel, payload, xchangeId, correlationId, partner)
+            : new InvalidOperationException($"Notification channel {channelId} no longer exists.");
 
     /// <summary>
     /// Sends a made-up notification, once, so whoever set the channel up can see one arrive. Nothing
@@ -70,8 +81,9 @@ public class NotificationChannelSender(IInfolinkCache cache, IAdapterInvoker ada
                 ? ChannelMessages.For(payload, LinkBase)
                 : payload;
 
+            // An alert with no exchange names its file after its own id, as a notifier's does.
             return await NotifierDelivery.SendAsync(adapterInvoker, channel.HandlerId, properties, data,
-                xchangeId, xchangeId, correlationId, attempts);
+                xchangeId ?? correlationId, xchangeId, correlationId, attempts);
         }
         catch (Exception ex)
         {

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.Bitween.Resources.NotificationChannels;
+using SW.Bitween.Resources.RetryPolicies;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.Subscriptions;
@@ -113,6 +114,10 @@ internal static class SubscriptionConfigurationApplier
             !await dbContext.Set<RetryPolicy>().AnyAsync(p => p.Id == model.RetryPolicyId))
             throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
                 $"Retry policy {model.RetryPolicyId} was not found.");
+
+        if (model.CustomRetryPolicy != null)
+            await RetryGroupValidation.EnsureAlertChannelsExist(dbContext,
+                RetryGroupValidation.AlertChannelIds(model.CustomRetryPolicy.Groups));
 
         entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
 
