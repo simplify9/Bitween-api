@@ -1,20 +1,27 @@
 name: Bitween API CI/CD (Gateway · both)
 run-name: Run-${{ github.ref_name }}-${{ github.run_number }}
 
+# Two pipelines that publish nothing under the same name:
+#   releases/r10.0-develop  the simplify9/bitween-develop image and the bitween-develop chart,
+#                           deployed to playground. No NuGet packages, the CLI as a pre-release.
+#   releases/r10.0          the simplify9/bitween image and the bitween chart clients install
+#                           (ChartMuseum + GHCR), the NuGet packages, the CLI and the SDKs. Never deployed.
+# Run workflow by hand on either branch to rerun that branch's pipeline.
 on:
   push:
     branches:
-      - releases/**
+      - releases/r10.0
+      - releases/r10.0-develop
   workflow_dispatch:
 
-# One queue for staging AND release, not one per branch. Both jobs below take their patch from
-# the same 10.0.x git tags and push the same docker.io/simplify9/bitween:10.0.<patch> image tag,
-# and a run only claims its patch when it tags at the very end. Two runs overlapping (a staging
-# push, then the staging -> r10.0 merge seconds later) would compute the same patch: the image
-# tag is overwritten by whichever finishes last, while ChartMuseum (409 = success) and NuGet
-# (--skip-duplicate) silently keep whichever came first.
+# One queue per branch. Both pipelines still take their patch from the same 10.0.x git tags, so a
+# develop run and a release run that overlap can compute the same patch, but they publish it under
+# different names (bitween-develop / bitween, cli-v10.0.N-dev.<run> / cli-v10.0.N, git tag
+# 10.0.N-releases-r10-0-develop.<run> / 10.0.N), so nothing is overwritten or silently kept. One
+# queue for both would be worse: GitHub keeps a single pending run per group, so a develop push
+# would cancel a release waiting behind another develop run.
 concurrency:
-  group: cicd-gateway-bitween-10.0
+  group: cicd-gateway-bitween-${{ github.ref_name }}
   cancel-in-progress: false
 
 # contents: write -> tag job. packages: write -> publish AND pull the Helm chart
@@ -27,8 +34,8 @@ permissions:
 
 jobs:
   build-publish-deploy:
-    # Staging: build, publish to GHCR only, deploy to playground (or any branch, manually).
-    if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r10.0-develop') || github.event_name == 'workflow_dispatch' }}
+    # Develop: build, publish bitween-develop, deploy to playground.
+    if: ${{ github.ref_name == 'releases/r10.0-develop' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
     with:
       major-version: '10'
@@ -39,37 +46,31 @@ jobs:
       docker-context: '.'
       docker-platforms: 'linux/amd64'
 
-      chart-name: 'bitween'                 # must match charts/default Chart.yaml name:
-      chart-path: './charts/default'
+      # charts/develop is charts/default under its own name (see its Chart.yaml): the reusable
+      # requires chart-name to match Chart.yaml, and the production chart must stay bitween.
+      chart-name: 'bitween-develop'
+      chart-path: './charts/develop'
+      # ChartMuseum to install it by hand, GHCR for the deploy below.
+      chart-publish-method: 'both'
+      chart-repo-url: 'https://charts.sf9.io'
 
-      # 1) Publish the Helm chart to GHCR OCI only. ChartMuseum is what clients install from,
-      # so only the release job below publishes there; staging versions are plain x.y.z and
-      # would otherwise be the newest chart a client gets.
-      chart-publish-method: 'github-oci'
-
-      # Docker image stays on Docker Hub
+      # The chart's image is <image.repo>/<chart name>:<version>, so the image is named after
+      # the chart. Its own repository also keeps develop off simplify9/bitween:latest.
       container-registry: 'docker.io'
-      image-name: 'simplify9/bitween'
+      image-name: 'simplify9/bitween-develop'
 
-      # Build + unit-test + push the SDK NuGet package (versioned with the
-      # pipeline semver, e.g. 8.1.x - was 8.0.<run_number> in the old job),
-      # and the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference.
-      nuget-projects: >-
-        SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
-        SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
-      run-tests: 'true'
-      # Integration tests run against real Postgres/RabbitMQ/MailHog via
-      # Testcontainers - self-contained, no extra CI services needed, since
-      # ubuntu-latest already has a Docker daemon available.
-      test-projects: |
-        SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
-        SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
+      # No nuget-projects: develop publishes no packages. The reusable runs the tests only in
+      # its NuGet job, so develop-tests below runs them.
 
-      # 2) Deploy to playground via Gateway API
+      # Deploy to playground via Gateway API
       deploy: true
-      # 3) Pull the chart from GHCR OCI
+      # Pull the chart from GHCR OCI
       deploy-chart-source: 'github-oci'
       deploy-namespace: 'playground'
+      # Upgrade the existing release in place: with nameOverride=bitween (helm-set-values) every
+      # resource name and selector is what the bitween chart rendered. A new bitween-develop
+      # release would run beside the old one, and the older HTTPRoute keeps app-dev.bitween.io.
+      deploy-release-name: 'bitween'
       routing-mode: 'gateway-api'
       gateway-hostnames: 'app-dev.bitween.io'
       # '/' serves the admin SPA out of this image's wwwroot, so the root has to route
@@ -85,6 +86,7 @@ jobs:
       # kills one mid-traffic, and anything that runs on every replica at once (scheduled jobs, data
       # source leases) shows up here first.
       helm-set-values: |
+        nameOverride=bitween
         global.environment=Development
         replicaCount=2
         resources.requests.cpu=25m
@@ -95,13 +97,11 @@ jobs:
       # Docker image push credentials (Docker Hub)
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
       registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+      chartmuseum-username: ${{ secrets.CM_USER }}
+      chartmuseum-password: ${{ secrets.CM_PASSWORD }}
 
       # GHCR chart push + pull and git tagging use the built-in token
       github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # NuGet API key for the SDK package push (publishes to nuget.org, the
-      # reusable's default feed - no nuget-source override needed).
-      nuget-api-key: ${{ secrets.SWNUGETKEY }}
 
       # Gateway-API cluster kubeconfig (V2)
       kubeconfig-gateway: ${{ secrets.S9DEV_KUBECONFIG_V2 }}
@@ -117,11 +117,33 @@ jobs:
       # (openssl rand -base64 48). Changing it signs out everyone holding an older token.
       helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
 
+  develop-tests:
+    # The same build and tests the reusable runs in its NuGet job, which develop skips. As before,
+    # a failure does not hold back the deploy.
+    if: ${{ github.ref_name == 'releases/r10.0-develop' }}
+    runs-on: ${{ vars.S9_RUNNER || vars.S9_HOSTED_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: simplify9/.github/.github/actions/dotnet-build@main
+        with:
+          projects: '**/*.csproj'
+          test-projects: |
+            SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
+            SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
+          configuration: 'Release'
+          dotnet-version: '10.0.x'
+          run-tests: 'true'
+
   publish-release:
-    # Release: build and publish to ChartMuseum for clients, never deploy. releases/r10.0 is the
+    # Release: build and publish for clients, never deploy. releases/r10.0 is the
     # repository's default branch, so the reusable workflow treats it as a release: a clean
     # 10.0.<patch> git tag, and the critical Dependabot gate runs first.
-    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0' }}
+    if: ${{ github.ref_name == 'releases/r10.0' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
     with:
       major-version: '10'
@@ -134,7 +156,9 @@ jobs:
 
       chart-name: 'bitween'
       chart-path: './charts/default'
-      chart-publish-method: 'chartmuseum'
+      # ChartMuseum, where clients install from today, and GHCR OCI (oci://ghcr.io/simplify9/charts/bitween),
+      # the same versions as an immutable, digest-pinned mirror.
+      chart-publish-method: 'both'
       chart-repo-url: 'https://charts.sf9.io'
 
       container-registry: 'docker.io'
@@ -145,6 +169,9 @@ jobs:
         SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
         SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
       run-tests: 'true'
+      # Integration tests run against real Postgres/RabbitMQ/MailHog via
+      # Testcontainers - self-contained, no extra CI services needed, since
+      # ubuntu-latest already has a Docker daemon available.
       test-projects: |
         SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
         SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
@@ -159,12 +186,12 @@ jobs:
       nuget-api-key: ${{ secrets.SWNUGETKEY }}
       dependabot-alerts-token: ${{ secrets.DEPENDABOT_ALERTS_TOKEN }}
 
-  # The bitween CLI and the adapter contract packages carry the version the run above computed, so
-  # nothing is tagged by hand. A staging build releases the CLI as a pre-release, cli-v<x.y.z>-stg.<run>;
-  # the release from releases/r10.0 releases it as the latest, cli-v<x.y.z>, and publishes the SDKs.
-  cli-staging:
+  # The bitween CLI and the SDKs carry the version the run above computed, so nothing is tagged by
+  # hand. A develop build releases the CLI as a pre-release, cli-v<x.y.z>-dev.<run>; the release
+  # from releases/r10.0 releases it as the latest, cli-v<x.y.z>, and publishes the SDKs. Each runs
+  # only when the job it needs ran, so the branch is decided above.
+  cli-develop:
     needs: build-publish-deploy
-    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0-develop' }}
     uses: ./.github/workflows/cli-release.yml
     with:
       version: ${{ needs.build-publish-deploy.outputs.version }}
@@ -173,14 +200,12 @@ jobs:
 
   cli-release:
     needs: publish-release
-    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0' }}
     uses: ./.github/workflows/cli-release.yml
     with:
       version: ${{ needs.publish-release.outputs.version }}
 
   sdk-release:
     needs: publish-release
-    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0' }}
     permissions:
       contents: read
     uses: ./.github/workflows/sdk-release.yml
