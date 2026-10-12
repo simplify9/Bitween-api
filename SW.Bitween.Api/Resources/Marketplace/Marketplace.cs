@@ -31,8 +31,8 @@ public class MarketplaceInstallRequest
 public record InstalledState(bool Installed, bool FromRegistry, string Current, IReadOnlyList<string> Versions);
 
 /// <summary>
-/// The Marketplace tab: what the registry lists, with what this Bitween has of each. With no
-/// registry address set it says the marketplace is off and fetches nothing.
+/// The Marketplace tab: what the registry lists, with what this Bitween has of each. Turned off,
+/// or with no registry address, it says so and fetches nothing.
 /// </summary>
 [HandlerName("search")]
 public class Search(BitweenDbContext dbContext, RequestContext requestContext, RegistryClient registry, AdapterCatalog catalog)
@@ -41,7 +41,7 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext, R
     public async Task<object> Handle(MarketplaceSearchRequest request)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
-        if (!registry.Configured) return new { Configured = false };
+        if (!registry.Configured) return new { Configured = false, registry.Disabled };
 
         var found = await registry.SearchAsync(request.Q, request.Tier);
         var result = new List<object>();

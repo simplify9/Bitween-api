@@ -65,6 +65,17 @@ public class RegistrySignaturesTests
     }
 
     [TestMethod]
+    public void Bitween_ships_trusting_simplify9s_registry()
+    {
+        var options = new BitweenOptions();
+        var (keys, unreadable) = RegistrySignatures.TrustedKeys(options.RegistryTrustedKeys);
+        Assert.AreEqual(0, unreadable.Count);
+        Assert.AreEqual(1, keys.Count);
+        Assert.IsTrue(options.RegistryEnabled);
+        Assert.AreEqual(BitweenOptions.OfficialRegistryUrl, options.RegistryUrl);
+    }
+
+    [TestMethod]
     public void A_key_id_is_the_registrys()
     {
         // The registry's key ids: the first 16 hex characters of the SHA-256 of the key's DER.

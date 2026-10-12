@@ -275,15 +275,26 @@ describe("the Adapters page", () => {
     expect(received).toMatchObject({ query: "?version=minor&current=true", type: "application/zip" });
   });
 
-  it("says the marketplace is off until a registry is set", async () => {
+  it("says when an administrator turned the marketplace off", async () => {
     const { user } = renderApp("/adapters", {
-      handlers: [...handlers, http.get(apiPath("/marketplace/search"), () => HttpResponse.json({ configured: false }))],
+      handlers: [
+        ...handlers,
+        http.get(apiPath("/marketplace/search"), () => HttpResponse.json({ configured: false, disabled: true })),
+      ],
     });
 
     await user.click(await screen.findByRole("tab", { name: "Marketplace" }, LOADED));
 
     expect(screen.getByRole("tab", { name: "Marketplace" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByText("The marketplace is off")).toBeVisible();
+    expect(await screen.findByText("The marketplace is turned off")).toBeVisible();
+  });
+
+  it("says when no registry is set", async () => {
+    renderApp("/adapters?tab=marketplace", {
+      handlers: [...handlers, http.get(apiPath("/marketplace/search"), () => HttpResponse.json({ configured: false, disabled: false }))],
+    });
+
+    expect(await screen.findByText("No registry is set")).toBeVisible();
   });
 
   it("lists the registry's connectors and installs one", async () => {

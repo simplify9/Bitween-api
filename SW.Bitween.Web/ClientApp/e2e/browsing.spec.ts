@@ -65,18 +65,18 @@ test("the Adapters page opens on Built-in, lists published adapters under Instal
   await expect(custom.getByText("No adapter matches.")).toBeVisible();
 });
 
-test("the Adapters page's Marketplace tab says it is off with no registry set, and the tab is kept in the URL across a reload", async ({
+test("the Adapters page's Marketplace tab is kept in the URL across a reload", async ({
   page,
 }) => {
   await page.goto("adapters");
   await page.getByRole("tab", { name: "Marketplace" }).click();
   await expect(page).toHaveURL(/[?&]tab=marketplace/);
   await expect(page.getByRole("tab", { name: "Marketplace" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByText("The marketplace is off")).toBeVisible();
+  // What the tab shows depends on whether this instance reaches a registry, so only the tab is checked.
   await expect(page.getByRole("searchbox", { name: "Search adapters" })).toHaveCount(0);
 
   await page.reload();
-  await expect(page.getByText("The marketplace is off")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Marketplace" })).toHaveAttribute("aria-selected", "true");
 
   await page.getByRole("tab", { name: /^Built-in/ }).click();
   await expect(page).not.toHaveURL(/tab=/);

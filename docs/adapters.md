@@ -452,9 +452,11 @@ one can move a step to another runtime.
 ### Installing from the marketplace
 
 The **Marketplace** tab on the **Adapters** page lists the connectors a Bitween Registry offers, and
-installs them. It is off until **Settings, Marketplace** has a **Registry address**, and installs nothing
-until it also has the registry's **signing keys**: the registry's Ed25519 public keys, base64 or PEM,
-separated by commas or new lines.
+installs them. It is on by default, with Simplify9's registry and its signing keys, and reaches the
+registry only when someone opens the tab or installs. **Settings, Marketplace** turns it off, for a
+Bitween that must not reach the internet, or points it at another registry or a mirror: its **Registry
+address** and its **signing keys**, the registry's Ed25519 public keys, base64 or PEM, separated by commas
+or new lines.
 
 Browsing needs `subscriptions.view`; installing needs `adapter-source.operate`. Installing a version:
 

@@ -51,7 +51,10 @@ public class RegistryClient(BitweenOptions options)
     /// <summary>The largest package downloaded, matching what the upload endpoint accepts.</summary>
     public const long MaxPackageBytes = 200L * 1024 * 1024;
 
-    public bool Configured => !string.IsNullOrWhiteSpace(options.RegistryUrl);
+    /// <summary>Turned off under Settings: nothing is fetched.</summary>
+    public bool Disabled => !options.RegistryEnabled;
+
+    public bool Configured => options.RegistryEnabled && !string.IsNullOrWhiteSpace(options.RegistryUrl);
 
     public string BaseUrl => options.RegistryUrl?.Trim().TrimEnd('/');
 
@@ -84,9 +87,10 @@ public class RegistryClient(BitweenOptions options)
 
     async Task<HttpResponseMessage> SendAsync(string path)
     {
+        if (Disabled)
+            throw new SWValidationException("REGISTRY_OFF", "The marketplace is turned off under Settings, Marketplace.");
         if (!Configured)
-            throw new SWValidationException("REGISTRY_OFF",
-                "The marketplace is off. Set the registry address under Settings, Marketplace.");
+            throw new SWValidationException("REGISTRY_OFF", "No registry address is set under Settings, Marketplace.");
 
         HttpResponseMessage response;
         try

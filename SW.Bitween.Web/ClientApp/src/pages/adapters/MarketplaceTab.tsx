@@ -41,7 +41,7 @@ export function MarketplaceTab() {
     return (
       <EmptyState
         icon={<Store />}
-        title="The marketplace is off"
+        title={search.data?.disabled ? "The marketplace is turned off" : "No registry is set"}
         action={
           <Can permission="settings.view">
             <Link to="/settings" className="text-sm font-medium text-crimson-700 hover:underline">
@@ -50,7 +50,9 @@ export function MarketplaceTab() {
           </Can>
         }
       >
-        To browse and install connectors, set the registry's address and signing keys under Settings, Marketplace.
+        {search.data?.disabled
+          ? "An administrator turned it off under Settings, Marketplace. Turn it back on there to browse and install connectors."
+          : "Set the registry's address and signing keys under Settings, Marketplace to browse and install connectors."}
       </EmptyState>
     );
 

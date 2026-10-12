@@ -1879,6 +1879,8 @@ export interface MarketplaceInstalled {
 
 export interface MarketplaceSearch {
   configured: boolean;
+  /** Turned off under Settings; otherwise not configured means no registry address. */
+  disabled?: boolean;
   registry?: string;
   result?: { card: MarketplaceCard; installed: MarketplaceInstalled }[];
   totalCount?: number;

@@ -260,18 +260,31 @@ namespace SW.Bitween
         /// </summary>
         public string RebexLicenseKey { get; set; }
 
+        /// <summary>Simplify9's registry, which every Bitween uses unless Settings names another.</summary>
+        public const string OfficialRegistryUrl = "https://registry.bitween.io";
+
         /// <summary>
-        /// The Bitween Registry the Adapters page's Marketplace tab browses and installs from. Empty,
-        /// the default, keeps the marketplace off: nothing is fetched from anywhere.
+        /// The public keys Simplify9's registry countersigns with. A new key is added here before the
+        /// registry starts using it, and an old one stays while connectors it signed are still offered.
         /// </summary>
-        public string RegistryUrl { get; set; }
+        public const string OfficialRegistryKeys = "MCowBQYDK2VwAyEAHjZoLJQT1V4Q47w3VjK66vgg/vg0CC48XugEIHqyf8Y=";
+
+        /// <summary>
+        /// Whether the Adapters page's Marketplace tab is on. On by default: browsing reaches the
+        /// registry only when someone opens the tab, and installing is always someone's choice. An
+        /// administrator turns it off under Settings, Marketplace, for a site that must not reach out.
+        /// </summary>
+        public bool RegistryEnabled { get; set; } = true;
+
+        /// <summary>The Bitween Registry the Marketplace tab browses and installs from: Simplify9's unless changed.</summary>
+        public string RegistryUrl { get; set; } = OfficialRegistryUrl;
 
         /// <summary>
         /// The registry's Ed25519 public keys, base64 or PEM, separated by commas or new lines. A
         /// version installs only when the registry's countersignature verifies with one of them, so a
-        /// registry URL alone, or a server pretending to be the registry, can't install anything.
+        /// changed address alone, or a server pretending to be the registry, can't install anything.
         /// </summary>
-        public string RegistryTrustedKeys { get; set; }
+        public string RegistryTrustedKeys { get; set; } = OfficialRegistryKeys;
 
         /// <summary>Whether connectors from Community publishers, which Simplify9 hasn't vetted, may be installed.</summary>
         public bool RegistryAllowCommunity { get; set; }

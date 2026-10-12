@@ -213,16 +213,23 @@ public static class SettingsCatalog
             SettingKind.Number, t => t.Bitween.CircuitBreakerOpenSeconds.ToString(CultureInfo.InvariantCulture)),
 
         // --- Marketplace ---
+        new("Bitween.RegistryEnabled", "Marketplace",
+            "Marketplace",
+            "The Marketplace tab on the Adapters page, where connectors from the registry below are browsed and installed. Turn it off for a Bitween that must not reach the internet: nothing is fetched from the registry while it's off.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.RegistryEnabled),
+            (t, v) => t.Bitween.RegistryEnabled = Bool(v)),
+
         new("Bitween.RegistryUrl", "Marketplace",
             "Registry address",
-            "The Bitween Registry the Marketplace tab on the Adapters page browses and installs connectors from, as https://registry.bitween.io. Leave it empty to keep the marketplace off.",
+            "The Bitween Registry the marketplace uses. Simplify9's unless you run your own or a mirror.",
             SettingKind.String, false,
             t => t.Bitween.RegistryUrl,
             (t, v) => t.Bitween.RegistryUrl = v),
 
         new("Bitween.RegistryTrustedKeys", "Marketplace",
             "Registry signing keys",
-            "The registry's public keys, separated by commas or new lines. A connector is installed only when the registry's signature on it verifies with one of these, so a wrong address can never install anything.",
+            "The registry's public keys, separated by commas or new lines. A connector is installed only when the registry's signature on it verifies with one of these, so a wrong address can never install anything. Simplify9's registry's keys unless changed.",
             SettingKind.String, false,
             t => t.Bitween.RegistryTrustedKeys,
             (t, v) => t.Bitween.RegistryTrustedKeys = v),
