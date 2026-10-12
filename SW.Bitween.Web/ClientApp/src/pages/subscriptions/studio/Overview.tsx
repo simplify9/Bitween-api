@@ -17,6 +17,7 @@ import { keys } from "../../../api/queryKeys";
 import { ExceptionBlock } from "../../../components/ui/Exception";
 import { CategoryField } from "./CategoryField";
 import { HealthPanel } from "./HealthPanel";
+import { ExpectTrafficPanel } from "./ExpectTrafficPanel";
 
 /** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
 export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
@@ -262,6 +263,12 @@ export function Overview({
           - incoming work is being held and will be released on resume.
         </p>
       )}
+      {s.quietSince && (
+        <p className="rounded-xl bg-warn-100 px-4 py-2.5 text-[13px] text-warn-700">
+          Quiet since {formatDateTime(s.quietSince)}
+          {s.expectTraffic && `: no exchanges within the expected ${s.expectTraffic.everyMinutes} minutes`}.
+        </p>
+      )}
       {/* The scheduled types get this per-attempt instead, in ReceiveAttemptsPanel below -
           showing it again here duplicated the same error twice on one page. */}
       {s.lastException && attemptKind === null && (
@@ -276,6 +283,12 @@ export function Overview({
 
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="min-w-0 space-y-5">
+          <ExpectTrafficPanel
+            value={draft.expectTraffic}
+            onChange={(v) => set("expectTraffic", v)}
+            disabled={!canEdit}
+          />
+
           {scheduled && attemptKind === null && (
             <Panel title="Recent runs" description="From the scheduler's own history, kept about 30 days.">
               <RunsTable runs={runs.data ?? []} pending={runs.isPending} />

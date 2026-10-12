@@ -746,6 +746,19 @@ export interface Schedule {
   backwards: boolean;
 }
 
+/** The expectation that a subscription sees traffic regularly, checked by a server job. */
+export interface ExpectTraffic {
+  /** Quiet once no exchange arrives for this long inside the window; at least 5. */
+  everyMinutes: number;
+  /** "Sun".."Sat"; null or empty is every day. */
+  days: string[] | null;
+  /** "HH:mm" in `timeZone`, both or neither; no overnight windows, so `to` is later than `from`. */
+  from: string | null;
+  to: string | null;
+  /** IANA id such as "Asia/Riyadh"; null is UTC. */
+  timeZone: string | null;
+}
+
 export interface Subscription {
   id: number;
   name: string;
@@ -766,6 +779,10 @@ export interface Subscription {
   pausedAutomatically: boolean;
   /** Pause after this many failed deliveries in a row; null never pauses. */
   autoPauseAfterFailures: number | null;
+  /** Traffic it should see regularly; null expects nothing. */
+  expectTraffic: ExpectTraffic | null;
+  /** When the server found it quiet against `expectTraffic`; null while it is not. Read-only. */
+  quietSince: string | null;
   workGroupId: number | null;
   /** A label an operator files it under; null for none. */
   categoryId: number | null;

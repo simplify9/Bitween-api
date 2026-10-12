@@ -309,6 +309,7 @@ export interface ApiClient {
         | "runOnBadResponses"
         | "aggregationTarget"
         | "autoPauseAfterFailures"
+        | "expectTraffic"
         | "receiverVersion"
         | "validatorVersion"
         | "mapperVersion"

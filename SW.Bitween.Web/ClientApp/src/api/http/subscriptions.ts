@@ -2,6 +2,7 @@ import type { ApiClient } from "../client";
 import {
   ApiRequestError,
   type AggregationTarget,
+  type ExpectTraffic,
   type SourcePaths,
   type Subscription,
   type SubscriptionDetail,
@@ -99,6 +100,8 @@ interface RawSubscription {
   pausedOn: string | null;
   pausedAutomatically?: boolean;
   autoPauseAfterFailures?: number | null;
+  expectTraffic?: ExpectTraffic | null;
+  quietSince?: string | null;
   receiverVersion?: string | null;
   validatorVersion?: string | null;
   mapperVersion?: string | null;
@@ -170,6 +173,8 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     mapperVersion: raw.mapperVersion ?? null,
     handlerVersion: raw.handlerVersion ?? null,
     autoPauseAfterFailures: raw.autoPauseAfterFailures ?? null,
+    expectTraffic: raw.expectTraffic ?? null,
+    quietSince: raw.quietSince ?? null,
     workGroupId: raw.workGroupId ?? null,
     categoryId: raw.categoryId ?? null,
     retryPolicyId: raw.retryPolicyId ?? null,
@@ -234,6 +239,7 @@ type UpdatableFields = Partial<
     | "runOnBadResponses"
     | "aggregationTarget"
     | "autoPauseAfterFailures"
+    | "expectTraffic"
     | "receiverVersion"
     | "validatorVersion"
     | "mapperVersion"
@@ -308,6 +314,8 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
       changes.autoPauseAfterFailures !== undefined
         ? changes.autoPauseAfterFailures
         : (current.autoPauseAfterFailures ?? null),
+    // The same: left out, the update would drop the expectation. quietSince is the server's alone.
+    expectTraffic: changes.expectTraffic !== undefined ? changes.expectTraffic : (current.expectTraffic ?? null),
     newResponseSubscription: newResponseSubscriptionBody(changes.newResponseSubscription),
     temporary: current.temporary,
     aggregationTarget:
