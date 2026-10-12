@@ -1,6 +1,6 @@
 # Known limitations
 
-These behaviours were found while documenting Bitween from its source code, and re-checked against the code on 11 September 2026. Some are deliberate trade-offs explained in code comments. Others look like gaps worth fixing. Each entry says where to look.
+These behaviours were found while documenting Bitween from its source code, and re-checked against the code on 11 September 2026. Entries fixed since were removed on 12 October 2026. Some are deliberate trade-offs explained in code comments. Others look like gaps worth fixing. Each entry says where to look.
 
 ## Security
 
@@ -20,7 +20,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 
 | Issue | Where |
 |---|---|
-| Sync API gateway calls and the legacy `waitresponse` wait compare the back-off step with the requested wait, not elapsed time. The step caps at 8 seconds, so a wait of 8 or more, including the gateway default of 120, never times out. | `Controllers/GatewayController.cs`, `Resources/Xchanges/Update.cs` |
 | Pausing only holds messages routed by content, to internal subscriptions and bus gateway routes. Other entry points still create exchanges on a paused subscription. | `Services/XchangeService.cs` |
 | Validators only run for API gateways and the legacy API call endpoint. | `Services/XchangeService.cs` |
 | Exchanges created by fan-out do not carry the parent's references. | `XchangeService.CreateXchangesForHits` |
@@ -28,8 +27,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Mappers other than the rules-based mapper fail on payloads that are not JSON, and overwrite payload keys named `__partner__` or `__globals__`. | `XchangeService.RunMapper` |
 | An API gateway attached to an inactive subscription returns 404. | `Controllers/GatewayController.cs` |
 | The one-retry-per-exchange rule has no unique index behind it, so two retries committed at the same moment both succeed. | `XchangeService.EnsureNotAlreadyRetried` |
-| Retrying an id that does not exist fails with an unhandled error instead of a validation message. | `Resources/Xchanges/Retry.cs` |
-| Bulk retry includes exchanges that have no result yet, so work still in flight can run twice. | `Resources/Xchanges/BulkRetryPlanner.cs` |
+| Bulk retry includes exchanges that have no result yet, so work still in flight can run twice. Deliberate: after a broker outage those are the exchanges a bulk retry is for. | `Resources/Xchanges/BulkRetryPlanner.cs` |
 | The dashboard's *Failures to act on* tile says it covers 14 days, but counts failures of any age. | `ClientApp/src/pages/dashboard/DashboardPage.tsx` |
 | The information type's duplicate interval is stored but never enforced. | `Domain/Document/Document.cs` |
 | An exchange's delivered time is never recorded. | `Domain/XchangeDelivery.cs` |
@@ -41,7 +39,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Issue | Where |
 |---|---|
 | The HTTP handler's property descriptions disagree with its behaviour. `Bearer` uses `LoginPassword`; `OAuth2` is the client credentials grant; `Headers` are `Name:Value` pairs separated by commas or new lines (`Name=Value` is read too, and spaces are trimmed); `CorrelationId` is sent as a header; `patch` sends a POST. | `NativeAdapters/HttpHandler` |
-| The HTTP adapters add authentication headers to an `HttpClient` shared per origin, so headers can accumulate across subscriptions calling the same origin. | `NativeHttpHandler.cs`, `DynamicHttpProxy.cs` |
 | The HTTP receiver makes one request per run, with no pagination. | `NativeHttpReceiver.cs` |
 | The S3 receiver's folder prefix has no trailing slash. The S3 upload handler ignores the folder when a file name is set. | `NativeS3Receiver.cs`, `NativeS3UploadHandler.cs` |
 | POP3 receivers read only the first attachment, and the Rebex one uses port 995 only. | `Pop3Receiver`, `RebexPop3Receiver` |
@@ -91,7 +88,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 |---|---|
 | RabbitMQ messages without a `message-id` are never deduplicated. | `SW.Bitween.Adapters.Bus.RabbitMq/RabbitBusHandler.cs` |
 | Per-endpoint settings on a bus gateway are stored but no adapter reads them. | `Domain/Gateway/BusGateway.cs` |
-| RabbitMQ publishing uses no publisher confirms. | `RabbitBusHandler.cs` |
 | A retried publish carries a different message id, so the customer's broker cannot deduplicate it. | `Domain/Xchange/Xchange.cs` |
 | Messages on an endpoint no gateway claims are acknowledged and discarded. | `Services/DataSources/BusProviderEventSink.cs` |
 
