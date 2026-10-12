@@ -1,9 +1,0 @@
-# The develop build of charts/default: the same templates and values (symlinked), published as
-# bitween-develop so it can never be mistaken for the production bitween chart clients install.
-# The image is <image.repo>/<chart name>, so this chart runs simplify9/bitween-develop.
-# CI overwrites version and appVersion.
-apiVersion: v2
-version: 0.0.1
-appVersion: 0.0.1
-description: A Helm chart for Bitween (develop builds from releases/r10.0-develop)
-name: bitween-develop

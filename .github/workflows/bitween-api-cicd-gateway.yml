@@ -46,10 +46,11 @@ jobs:
       docker-context: '.'
       docker-platforms: 'linux/amd64'
 
-      # charts/develop is charts/default under its own name (see its Chart.yaml): the reusable
-      # requires chart-name to match Chart.yaml, and the production chart must stay bitween.
+      # The production chart, published as bitween-develop: rename-chart sets Chart.yaml's name
+      # at package time, so develop and production ship from one chart directory and cannot drift.
       chart-name: 'bitween-develop'
-      chart-path: './charts/develop'
+      chart-path: './charts/default'
+      rename-chart: true
       # ChartMuseum to install it by hand, GHCR for the deploy below.
       chart-publish-method: 'both'
       chart-repo-url: 'https://charts.sf9.io'
@@ -59,8 +60,12 @@ jobs:
       container-registry: 'docker.io'
       image-name: 'simplify9/bitween-develop'
 
-      # No nuget-projects: develop publishes no packages. The reusable runs the tests only in
-      # its NuGet job, so develop-tests below runs them.
+      # No nuget-projects: develop publishes no packages. The tests still run (build and test,
+      # no pack); as before, a failure does not hold back the deploy.
+      run-tests: 'true'
+      test-projects: |
+        SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
+        SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
 
       # Deploy to playground via Gateway API
       deploy: true
@@ -122,28 +127,6 @@ jobs:
       # Set the TokenKey secret to a long random string unique to this environment
       # (openssl rand -base64 48). Changing it signs out everyone holding an older token.
       helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
-
-  develop-tests:
-    # The same build and tests the reusable runs in its NuGet job, which develop skips. As before,
-    # a failure does not hold back the deploy.
-    if: ${{ github.ref_name == 'releases/r10.0-develop' }}
-    runs-on: ${{ vars.S9_RUNNER || vars.S9_HOSTED_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: simplify9/.github/.github/actions/dotnet-build@main
-        with:
-          projects: '**/*.csproj'
-          test-projects: |
-            SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
-            SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
-          configuration: 'Release'
-          dotnet-version: '10.0.x'
-          run-tests: 'true'
 
   publish-release:
     # Release: build and publish for clients, never deploy. releases/r10.0 is the
