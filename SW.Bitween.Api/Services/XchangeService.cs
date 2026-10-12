@@ -1275,29 +1275,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             SuppressedSinceLast = suppressedSince
         };
 
-        var handlerProperties = notifier.HandlerProperties.ToDictionary();
-        handlerProperties["xchangeid"] = xchangeResult.Id;
-
-        // A couple of quick retries for a mail server that hiccups; a send that failed used to be
-        // recorded and never tried again.
-        Exception lastError = null;
-        for (var attempt = 0; attempt < 3; attempt++)
-        {
-            if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(attempt * 2));
-            try
-            {
-                await adapterInvoker.InvokeAsync<XchangeFile>(
-                    notifier.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle),
-                    new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id),
-                    handlerProperties, correlationId);
-                lastError = null;
-                break;
-            }
-            catch (Exception ex)
-            {
-                lastError = ex;
-            }
-        }
+        var lastError = await NotifierDelivery.SendAsync(adapterInvoker, notifier, notificationData,
+            xchangeResult.Id, correlationId);
 
         dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name, lastError?.ToString()));
         await dbContext.SaveChangesAsync();
