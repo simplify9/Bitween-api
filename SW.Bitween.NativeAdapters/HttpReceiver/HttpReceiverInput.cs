@@ -51,4 +51,18 @@ public class HttpReceiverInput
 
     [Description("Seconds to wait for the endpoint to answer before the run fails. Default 100.")]
     public int TimeoutSeconds { get; set; } = 100;
+
+    [Description("For an API that pages its results: the path to the next page's address in each reply (e.g. next, links.next, @odata.nextLink). Pages are followed until it is empty or missing, on the same server only.")]
+    public string? NextLinkPath { get; set; }
+
+    [Description("For an API that numbers its pages: the query parameter that does it (e.g. page). Pages are asked for from PageStart up, until one has no items.")]
+    public string? PageParameter { get; set; }
+
+    [DefaultValue(1)]
+    [Description("The first page's number, with PageParameter. Default 1.")]
+    public int PageStart { get; set; } = 1;
+
+    [DefaultValue(20)]
+    [Description("The most pages one run reads, with NextLinkPath or PageParameter. Default 20.")]
+    public int MaxPages { get; set; } = 20;
 }

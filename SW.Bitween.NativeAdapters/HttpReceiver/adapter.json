@@ -112,6 +112,28 @@
       "type": "number",
       "default": "100",
       "description": "Seconds to wait for the endpoint to answer before the run fails. Default 100."
+    },
+    {
+      "name": "NextLinkPath",
+      "type": "text",
+      "description": "For an API that pages its results: the path to the next page\u0027s address in each reply (e.g. next, links.next, @odata.nextLink). Pages are followed until it is empty or missing, on the same server only."
+    },
+    {
+      "name": "PageParameter",
+      "type": "text",
+      "description": "For an API that numbers its pages: the query parameter that does it (e.g. page). Pages are asked for from PageStart up, until one has no items."
+    },
+    {
+      "name": "PageStart",
+      "type": "number",
+      "default": "1",
+      "description": "The first page\u0027s number, with PageParameter. Default 1."
+    },
+    {
+      "name": "MaxPages",
+      "type": "number",
+      "default": "20",
+      "description": "The most pages one run reads, with NextLinkPath or PageParameter. Default 20."
     }
   ]
 }

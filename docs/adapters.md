@@ -203,8 +203,11 @@ Calls an HTTP endpoint once per run and turns the JSON reply into items. Its pro
 | Property | Notes |
 |---|---|
 | `ArrayPath` | JSON path to the array of items. Without it, a root array is split into items and any other reply is a single item. |
+| `NextLinkPath` | For an API that pages its results: the path to the next page's address in each reply, such as `next`, `links.next` or `@odata.nextLink`. It can be relative. Pages are followed until it is empty or missing, and only on the `Url`'s own server: a link elsewhere fails the run rather than be sent the credentials. |
+| `PageParameter` | For an API that numbers its pages: the query parameter that does it, such as `page`. Pages are asked for from `PageStart` (1) up, until one has no items. |
+| `MaxPages` | The most pages one run reads with either, 20 by default. The next run starts from the first page again. |
 
-The reply must be JSON, and a status of 400 or above fails the run. There is no pagination, items have no file name, and nothing is removed at the source.
+The reply must be JSON, and a status of 400 or above fails the run. Without `NextLinkPath` or `PageParameter` it makes one request per run, as before. Items have no file name, and nothing is removed at the source.
 
 ### NativeS3Receiver
 
