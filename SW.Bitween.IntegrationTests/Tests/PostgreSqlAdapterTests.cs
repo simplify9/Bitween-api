@@ -660,6 +660,44 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
         Assert.All(processed["rows"]!, r => Assert.True(r.Value<bool>("processed")));
     }
 
+    /// <summary>
+    /// A row whose marking fails after Bitween accepted it is marked on the next poll, not received
+    /// again. It used to be read again, since neither its mark nor the cursor had moved, and every
+    /// such row became a second exchange.
+    /// </summary>
+    [SkippableFact]
+    public async Task A_row_whose_marking_failed_is_marked_next_time_rather_than_received_again()
+    {
+        var adapter = await AdapterAsync();
+        var me = Subscription(9);
+        me["ReceiveStatement"] = "flakyOrders";
+        me["ReceiveMode"] = "incrementing";
+        me["MarkProcessedStatement"] = "markFlaky";
+
+        await adapter.InvokeAsync<object>("Initialize", timeoutSeconds: 60, properties: me);
+        var first = await adapter.InvokeAsync<List<string>>("ListFiles", timeoutSeconds: 60, properties: me);
+        Assert.Equal(new[] { 23, 24 }, first.Select(KeyOf));
+
+        // Accepted by Bitween, then the mark fails.
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            adapter.InvokeAsync<object>("DeleteFile", first[0], timeoutSeconds: 60, properties: me));
+        await adapter.InvokeAsync<object>("Finalize", timeoutSeconds: 60, properties: me);
+
+        await using (var connection = new Npgsql.NpgsqlConnection(_postgres.AdminConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var fix = new Npgsql.NpgsqlCommand("insert into flaky_marks values (true)", connection);
+            await fix.ExecuteNonQueryAsync();
+        }
+
+        await adapter.InvokeAsync<object>("Initialize", timeoutSeconds: 60, properties: me);
+        var second = await adapter.InvokeAsync<List<string>>("ListFiles", timeoutSeconds: 60, properties: me);
+
+        Assert.Equal(new[] { 24 }, second.Select(KeyOf));
+        var processed = await adapter.InvokeAsync<JObject>("Query", new { name = "processedOrders" }, timeoutSeconds: 60);
+        Assert.Contains(processed["rows"]!, r => r.Value<int>("id") == 23);
+    }
+
     // ---------------------------------------------------------------- setup
 
     async Task<int> CreateDataSourceAsync()
@@ -710,7 +748,13 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
                 ""sql"":          ""select * from {PostgreSqlDbFixture.Table} where id > @cursor and id > 20 order by id"",
                 ""cursorColumn"": ""id"",
                 ""keyColumn"":    ""id""
-            }}
+            }},
+            ""flakyOrders"": {{
+                ""sql"":          ""select * from {PostgreSqlDbFixture.Table} where id > @cursor and id between 23 and 24 order by id"",
+                ""cursorColumn"": ""id"",
+                ""keyColumn"":    ""id""
+            }},
+            ""markFlaky"": ""update {PostgreSqlDbFixture.Table} set processed = true where id = @key and 1 / (select count(*) from flaky_marks) = 1""
         }}",
 
         ["ReceiveMode"] = "incrementing",

@@ -72,7 +72,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 |---|---|
 | The Oracle `Schema` setting does not change name resolution. | `SW.Bitween.Adapters.Db.Oracle` |
 | `timestamp+incrementing` has no tie-break column and behaves like `timestamp`. | `Adapters.Db.Core/DbReceiver.cs` |
-| Database receiving has no deduplication. A row whose marking fails after its exchange was stored is received again. | `Adapters.Db.Core/DbReceiver.cs` |
+| A row is received again when Bitween stops between storing its exchange and marking it. A marking that fails is finished on the next poll instead. | `Adapters.Db.Core/DbReceiver.cs` |
 | The cursor advances per accepted row, so a statement not ordered by the cursor column can skip rows. | `Adapters.Db.Core/DbReceiver.cs` |
 | A delivery's `call` cannot declare output parameters, so Oracle REF CURSOR and PostgreSQL procedure rows are not returned. | `Adapters.Db.Core/DbResidentAdapterBase.cs` |
 | Rows beyond `MaxRows` cannot be fetched by a delivery, and the open cursor holds a connection until it times out. | `Adapters.Db.Core/DbResidentAdapterBase.cs` |

@@ -76,6 +76,41 @@ public abstract partial class DbResidentAdapterBase
     }
 
     /// <summary>
+    /// Rows Bitween accepted whose marking failed: the mark-processed statement, or advancing the
+    /// cursor, threw after the row's exchange was stored. Without this the next poll read them again
+    /// and made a second exchange of each. Scoped per subscription, as the cursor is.
+    /// </summary>
+    string UnmarkedStateName()
+    {
+        var subscriptionId = Context.ValueOf(SubscriptionIdKey);
+        return string.IsNullOrWhiteSpace(subscriptionId) ? "receive.unmarked" : $"receive.unmarked.{subscriptionId}";
+    }
+
+    /// <summary>The most unmarked keys remembered, oldest forgotten first, so the state stays small.</summary>
+    const int MaxUnmarked = 1000;
+
+    async Task<List<string>> ReadUnmarkedAsync()
+    {
+        var saved = await Context.GetStateAsync(UnmarkedStateName(), Stopping);
+        if (string.IsNullOrWhiteSpace(saved)) return new List<string>();
+        try
+        {
+            return JsonConvert.DeserializeObject<List<string>>(saved) ?? new List<string>();
+        }
+        catch (JsonException)
+        {
+            return new List<string>();
+        }
+    }
+
+    Task SaveUnmarkedAsync(List<string> keys) =>
+        Context.SetStateAsync(UnmarkedStateName(),
+            JsonConvert.SerializeObject(keys.Count > MaxUnmarked ? keys.Skip(keys.Count - MaxUnmarked).ToList() : keys),
+            Stopping);
+
+    static string KeyText(object key) => Convert.ToString(key, CultureInfo.InvariantCulture);
+
+    /// <summary>
     /// Set by the host on every invocation. Its Bitween-side name is
     /// <c>StartupValuesFiller.SubscriptionIdKey</c>; the two are literals on either side of a
     /// process boundary rather than a shared constant, because the adapter is published on its
@@ -307,8 +342,10 @@ public abstract partial class DbResidentAdapterBase
         if (page.Rows.Count == 0) return Array.Empty<string>();
 
         var batchId = Guid.NewGuid().ToString("N");
-        var batch = new ReceiveBatch { Outstanding = page.Rows.Count };
+        var batch = new ReceiveBatch();
         var ids = new List<string>(page.Rows.Count);
+        var unmarked = await ReadUnmarkedAsync();
+        var unmarkedBefore = unmarked.Count;
 
         foreach (var row in page.Rows)
         {
@@ -316,6 +353,23 @@ public abstract partial class DbResidentAdapterBase
                 throw new InvalidOperationException(
                     $"A row came back with no value in the key column '{plan.KeyColumn}'. The "
                     + "receive statement has to select it, spelled as the database returns it.");
+
+            // Already accepted, and only its marking failed: finish that, rather than hand it to
+            // Bitween again as a new exchange.
+            if (unmarked.Contains(KeyText(key)))
+            {
+                try
+                {
+                    await Acknowledge(row, plan, plan.NeedsCursor && row.TryGetValue(plan.CursorColumn, out var c) ? c : null);
+                    unmarked.Remove(KeyText(key));
+                    Logger.LogInformation("Row {Key} was already received; marked it processed now instead of receiving it again.", key);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Row {Key} was already received and still can't be marked processed; it is skipped, not received again.", key);
+                }
+                continue;
+            }
 
             var id = $"{batchId}:{key}";
             batch.Rows[id] = row;
@@ -326,6 +380,10 @@ public abstract partial class DbResidentAdapterBase
             ids.Add(id);
         }
 
+        if (unmarked.Count != unmarkedBefore) await SaveUnmarkedAsync(unmarked);
+        if (ids.Count == 0) return Array.Empty<string>();
+
+        batch.Outstanding = ids.Count;
         batches[batchId] = batch;
         Logger.LogInformation("Polled {Count} row(s) in batch {Batch}.", ids.Count, batchId);
         return ids;
@@ -353,23 +411,23 @@ public abstract partial class DbResidentAdapterBase
         var key = KeyOf(fileId);
         var plan = Plan();
 
-        if (!string.IsNullOrWhiteSpace(plan.MarkProcessedSql))
+        try
         {
-            var parameters = new Dictionary<string, object> { ["key"] = RawKey(row, plan) };
-
-            // Every column is offered as a parameter too, so a mark statement can use more than the
-            // key - a status column, a batch id, the row's own timestamp.
-            foreach (var kv in row) parameters[kv.Key] = kv.Value;
-
-            await Execute(new StatementRequest
-            {
-                Sql = plan.MarkProcessedSql,
-                Parameters = parameters
-            }, adHocAllowed: true);
+            await Acknowledge(row, plan, batch.Cursors.TryGetValue(fileId, out var cursorValue) ? cursorValue : null);
         }
-
-        if (batch.Cursors.TryGetValue(fileId, out var cursorValue) && cursorValue != null)
-            await Context.SetStateAsync(CursorStateName(), FormatCursor(cursorValue), Stopping);
+        catch
+        {
+            // The row's exchange is stored. Remembered, so the next poll marks it rather than
+            // receiving it a second time; the failure still fails this call, so it is reported.
+            var unmarked = await ReadUnmarkedAsync();
+            var text = KeyText(RawKey(row, plan) ?? key);
+            if (!unmarked.Contains(text))
+            {
+                unmarked.Add(text);
+                await SaveUnmarkedAsync(unmarked);
+            }
+            throw;
+        }
 
         batch.Rows.Remove(fileId);
         batch.Outstanding--;
@@ -390,6 +448,31 @@ public abstract partial class DbResidentAdapterBase
 
         PruneStaleBatches();
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// What makes a row's progress real: the mark-processed statement runs, then the cursor advances
+    /// past it. Both, in that order. Advancing the cursor first would skip a row whose marking failed.
+    /// </summary>
+    async Task Acknowledge(Dictionary<string, object> row, ReceivePlan plan, object cursorValue)
+    {
+        if (!string.IsNullOrWhiteSpace(plan.MarkProcessedSql))
+        {
+            var parameters = new Dictionary<string, object> { ["key"] = RawKey(row, plan) };
+
+            // Every column is offered as a parameter too, so a mark statement can use more than the
+            // key - a status column, a batch id, the row's own timestamp.
+            foreach (var kv in row) parameters[kv.Key] = kv.Value;
+
+            await Execute(new StatementRequest
+            {
+                Sql = plan.MarkProcessedSql,
+                Parameters = parameters
+            }, adHocAllowed: true);
+        }
+
+        if (cursorValue != null)
+            await Context.SetStateAsync(CursorStateName(), FormatCursor(cursorValue), Stopping);
     }
 
     // ------------------------------------------------------------------ helpers
