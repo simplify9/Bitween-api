@@ -569,6 +569,15 @@ namespace SW.Bitween
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<XchangeRetryClaim>(b =>
+            {
+                b.ToTable("XchangeRetryClaims");
+                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.RetryXchangeId).IsUnicode(false).HasMaxLength(50).IsRequired();
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeRetryClaim>(p => p.Id)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<XchangeAggregation>(b =>
             {
                 b.ToTable("XchangeAggregations");

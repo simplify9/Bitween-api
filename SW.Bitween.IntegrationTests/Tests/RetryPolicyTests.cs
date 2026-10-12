@@ -1256,17 +1256,19 @@ public class RetryPolicyTests(BitweenFixture fixture)
         // on its own before any handler runs.
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
 
+        // Two originals, since an exchange is retried only once.
         var original = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        var otherOriginal = await xs.CreateXchange(sub, new XchangeFile("{}"));
         await db.SaveChangesAsync();
 
         // One of each, exactly as their callers build them: the endpoint behind the Retry button, and
         // RetryJob working through a due DelayedRetry.
         await xs.CreateXchange(sub, original, new XchangeFile("{}"), manualRetry: true);
-        await xs.CreateXchange(sub, original, new XchangeFile("{}"));
+        await xs.CreateXchange(sub, otherOriginal, new XchangeFile("{}"));
         await db.SaveChangesAsync();
 
         var children = await db.Set<Xchange>().AsNoTracking()
-            .Where(x => x.RetryFor == original.Id).ToListAsync();
+            .Where(x => x.RetryFor == original.Id || x.RetryFor == otherOriginal.Id).ToListAsync();
         var byHand = Assert.Single(children, x => x.ManualRetry);
         var byPolicy = Assert.Single(children, x => !x.ManualRetry);
 

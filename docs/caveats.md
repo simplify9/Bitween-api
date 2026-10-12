@@ -26,7 +26,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 | A retry without reset keeps the response subscription but drops the response message type name. | `Domain/Xchange/Xchange.cs` |
 | Mappers other than the rules-based mapper fail on payloads that are not JSON, and overwrite payload keys named `__partner__` or `__globals__`. | `XchangeService.RunMapper` |
 | An API gateway attached to an inactive subscription returns 404. | `Controllers/GatewayController.cs` |
-| The one-retry-per-exchange rule has no unique index behind it, so two retries committed at the same moment both succeed. | `XchangeService.EnsureNotAlreadyRetried` |
 | Bulk retry includes exchanges that have no result yet, so work still in flight can run twice. Deliberate: after a broker outage those are the exchanges a bulk retry is for. | `Resources/Xchanges/BulkRetryPlanner.cs` |
 | The dashboard's *Failures to act on* tile says it covers 14 days, but counts failures of any age. | `ClientApp/src/pages/dashboard/DashboardPage.tsx` |
 | The information type's duplicate interval is stored but never enforced. | `Domain/Document/Document.cs` |

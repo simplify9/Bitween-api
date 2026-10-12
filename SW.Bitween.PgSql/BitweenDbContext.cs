@@ -427,6 +427,15 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<XchangeRetryClaim>(b =>
+            {
+                //b.ToTable("XchangeRetryClaims");
+                b.Property(p => p.Id).HasMaxLength(50);
+                b.Property(p => p.RetryXchangeId).HasMaxLength(50).IsRequired();
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeRetryClaim>(p => p.Id)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<XchangeAggregation>(b =>
             {
                 //b.ToTable("XchangeAggregations");

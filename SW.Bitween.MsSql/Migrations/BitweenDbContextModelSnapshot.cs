@@ -2253,6 +2253,27 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("XchangeResults", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeRetryClaim", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("ClaimedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RetryXchangeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("XchangeRetryClaims", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.RunFlagUpdater+RunningResult", b =>
                 {
                     b.Property<bool>("IsRunning")
@@ -3083,6 +3104,15 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasOne("SW.Bitween.Domain.Xchange", null)
                         .WithOne()
                         .HasForeignKey("SW.Bitween.Domain.XchangeResult", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeRetryClaim", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Xchange", null)
+                        .WithOne()
+                        .HasForeignKey("SW.Bitween.Domain.XchangeRetryClaim", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

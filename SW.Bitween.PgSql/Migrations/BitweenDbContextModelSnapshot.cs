@@ -2724,6 +2724,29 @@ namespace SW.Bitween.PgSql.Migrations
                     b.ToTable("xchange_result", "infolink");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeRetryClaim", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("ClaimedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("claimed_on");
+
+                    b.Property<string>("RetryXchangeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("retry_xchange_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_xchange_retry_claim");
+
+                    b.ToTable("xchange_retry_claim", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.RunFlagUpdater+RunningResult", b =>
                 {
                     b.Property<bool>("IsRunning")
@@ -3609,6 +3632,16 @@ namespace SW.Bitween.PgSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_xchange_result_xchange_id");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeRetryClaim", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Xchange", null)
+                        .WithOne()
+                        .HasForeignKey("SW.Bitween.Domain.XchangeRetryClaim", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_xchange_retry_claim_xchange_id");
                 });
 
             modelBuilder.Entity("SW.Scheduler.QuartzBlobTrigger", b =>

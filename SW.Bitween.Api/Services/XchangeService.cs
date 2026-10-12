@@ -75,6 +75,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var newXchange = new Xchange(xchange, file, workGroup, manualRetry);
         await AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
+        dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
     }
 
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
@@ -89,6 +90,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             groupAttemptCounts, manualRetry);
         await AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
+        dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
     }
 
     private static readonly Regex ExchangeFileKey = new("/[0-9a-f]{32}/(input|output|response)$");
@@ -1071,11 +1073,11 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// </summary>
     /// <remarks>
     /// Enforced here rather than at each endpoint so that every way of asking for a retry - by
-    /// hand, in bulk, or by a retry policy coming due - is held to it. Not enforced by a unique
-    /// index as well: exchanges retried before this rule existed can already have forked, and an
-    /// index that will not create over the data it inherits is worse than no index. Two retries of
-    /// the same exchange committed at the very same moment can therefore still both pass this
-    /// check; the loser is a duplicate attempt, which the tree then shows as a fork.
+    /// hand, in bulk, or by a retry policy coming due - is held to it. Two retries of the same
+    /// exchange at the very same moment can both pass this check; the <see cref="XchangeRetryClaim"/>
+    /// each adds then makes the second save fail, so only one is kept. Not a unique index on
+    /// RetryFor: exchanges retried before this rule existed can already have forked, and an index
+    /// can't be created over the data it inherits.
     /// </remarks>
     private async Task EnsureNotAlreadyRetried(string xchangeId)
     {

@@ -49,7 +49,18 @@ namespace SW.Bitween.Resources.Xchanges
             }
             dbContext.Record(requestContext, OperatorAction.Retry, key,
                 xchangeRetry.Reset ? "with the subscription's current settings" : null);
-            await dbContext.SaveChangesAsync();
+            try
+            {
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Another retry of the same exchange was saved a moment before this one.
+                if (await dbContext.Set<XchangeRetryClaim>().AsNoTracking().AnyAsync(c => c.Id == key))
+                    throw new SWValidationException("ALREADY_RETRIED",
+                        "This exchange was retried a moment ago by someone or something else. Retry that attempt instead.");
+                throw;
+            }
 
             return null;
         }

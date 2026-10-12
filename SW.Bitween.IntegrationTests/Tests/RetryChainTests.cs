@@ -151,6 +151,37 @@ public class RetryChainTests
         Assert.Equal(1, await db.Set<Xchange>().CountAsync(x => x.RetryFor == xchange.Id));
     }
 
+    /// <summary>
+    /// Two retries of one exchange at the very same moment both pass the check, since neither has
+    /// saved yet. The claim each adds makes the database refuse the second save, so one is kept.
+    /// The other retry is played here by a claim saved first, from another context.
+    /// </summary>
+    [Fact]
+    public async Task Of_two_retries_at_the_same_moment_the_database_keeps_one()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+
+        var (_, xchange) = await FailedXchange(db, xs, "Retry Race Doc");
+
+        await using (var other = _fixture.CreateScope())
+        {
+            var otherDb = other.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            otherDb.Add(new XchangeRetryClaim(xchange.Id, Guid.NewGuid().ToString("N")));
+            await otherDb.SaveChangesAsync();
+        }
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() =>
+            new Resources.Xchanges.Retry(db, ctx, xs).Handle(xchange.Id, new XchangeRetry { Reset = false }));
+
+        Assert.Contains("ALREADY_RETRIED", ex.Validations.Select(v => v.Key));
+        await using var check = _fixture.CreateScope();
+        Assert.Equal(0, await check.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<Xchange>().CountAsync(x => x.RetryFor == xchange.Id));
+    }
+
     [Fact]
     public async Task BulkRetry_retries_a_chain_once_when_two_of_its_attempts_are_selected()
     {
