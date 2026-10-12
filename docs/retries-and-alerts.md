@@ -12,7 +12,7 @@ Content-Type: application/json
 ```
 
 - A retry is a new exchange with the original input, and `retryFor` set to the original's id.
-- **Each exchange can be retried once.** A second retry of the same exchange is refused with `ALREADY_RETRIED`, so you continue from its newest attempt. The attempts form a chain, shown in the exchange drawer with each attempt named by its promoted properties, and returned by `GET /api/xchanges/retrytree?id=`.
+- **Each exchange can be retried once.** A second retry of the same exchange is refused with `ALREADY_RETRIED`, so you continue from its newest attempt. The database enforces it too, so two retries of one exchange at the same moment, by two people or by a person and a retry policy, keep one; the other is refused with the same code. The attempts form a chain, shown in the exchange drawer with each attempt named by its promoted properties, and returned by `GET /api/xchanges/retrytree?id=`.
 - With `reset: false`, the retry reuses the mapper, handler and properties stored on the original exchange. This works even when the subscription has since been deleted.
 - With `reset: true`, shown in the UI as *Re-resolve adapter properties*, the retry uses the subscription's current configuration and resolves partner and global tokens again.
 - Retrying an exchange that has an automatic retry waiting is refused. Use **Run now** on the waiting retry instead.

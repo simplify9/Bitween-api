@@ -277,6 +277,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddSingleton<IScheduleRepository, RecordingScheduleRepository>();
                     services.AddScoped<SubscriptionSchedulerService>();
                     services.AddScoped<SubscriptionRevisions>();
+                    services.AddScoped<Services.Marketplace.RegistryClient>();
+                    services.AddScoped<Services.Marketplace.MarketplaceInstaller>();
 
                     services.AddSingleton<DataSourceProviderCatalog>();
                     services.AddScoped<StatementUsageReader>();

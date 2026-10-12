@@ -48,6 +48,11 @@ public class RegistryClient(BitweenOptions options)
 
     static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    /// <summary>For tests: answers in place of the network, as the CLI's BitweenApi.HandlerOverride does.</summary>
+    internal static Func<HttpMessageHandler> HandlerOverride { get; set; }
+
+    static HttpClient Client => HandlerOverride is { } handler ? new HttpClient(handler()) : Http;
+
     /// <summary>The largest package downloaded, matching what the upload endpoint accepts.</summary>
     public const long MaxPackageBytes = 200L * 1024 * 1024;
 
@@ -95,7 +100,7 @@ public class RegistryClient(BitweenOptions options)
         HttpResponseMessage response;
         try
         {
-            response = await Http.GetAsync(BaseUrl + path, HttpCompletionOption.ResponseHeadersRead);
+            response = await Client.GetAsync(BaseUrl + path, HttpCompletionOption.ResponseHeadersRead);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or UriFormatException)
         {

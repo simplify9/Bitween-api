@@ -27,7 +27,7 @@ The sign-in page offers email and password, Microsoft, or both, depending on set
 | **Flow map** | A read-only map of gateways, bus message types and subscriptions, with warnings for loops, gateways without partners or routes, and messages nobody listens to. |
 | **All subscriptions** | Every subscription, filtered by type, information type, partner and status. |
 | **Partners** | Partner properties and API keys, and everything that uses each partner. |
-| **Adapters** | Built-in and custom adapters with their settings, versions and the subscriptions that use them. With `adapter-source.view`, read the source a version was published with and compare two versions. With `adapter-source.edit`, write Python, JavaScript and TypeScript adapters in the editor; with `adapter-source.operate`, publish them and make a version current. |
+| **Adapters** | Built-in and custom adapters with their settings, versions and the subscriptions that use them. With `adapter-source.view`, read the source a version was published with and compare two versions. With `adapter-source.edit`, write Python, JavaScript and TypeScript adapters in the editor; with `adapter-source.operate`, publish them and make a version current. The **Marketplace** tab lists the connectors of the registry set under Settings, marks those already installed or with an update, and installs one ([Installing from the marketplace](adapters.md#installing-from-the-marketplace)). |
 
 ### Subscription studio
 
@@ -69,7 +69,7 @@ their next save.
 | Page | What it does |
 |---|---|
 | **Data sources** | Broker and database connections. Settings forms are built from the adapter. Test a connection, watch live health, and for databases manage SQL statements with save-time checks and browse the schema. |
-| **Information types** | Name, code, format, promoted properties, bus availability and message type name, and what uses each type. Promoted properties are dragged into order, which is the order lists show them in; the first names archived exchanges. |
+| **Information types** | Name, code, format, promoted properties, bus availability and message type name, and what uses each type. Promoted properties are dragged into order, which is the order lists show them in; the first names archived exchanges. With a duplicate window, the type's page counts the week's [duplicates](concepts.md#duplicates) and offers **Drop duplicates**. |
 | **Global values** | Value sets, and the subscriptions that reference each key. |
 | **Work groups** | Queue settings and live throughput per lane. |
 | **Retry policies** | Groups, conditions, budgets and alert routing. The usage panel shows spent budgets per subscription, and the test panel runs the draft policy against sample errors. |

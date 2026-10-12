@@ -248,6 +248,8 @@ The rules editor has three panels.
 
 **Build from a sample** reads a target sample and adds rules for fields not yet mapped, filling in sources it can recognise. **Preview as** chooses a partner for resolving partner values. Save with Ctrl+S or Cmd+S.
 
+The toolbar's format chip, as **JSON → XML**, opens what the mapping reads and writes: each side's format, and its settings for [CSV](#csv) (separator, header, the byte-order mark Excel wants), [fixed-width text](#fixed-width-text) (a table of columns, lines to skip, trimming, and on the written side each column's alignment and padding) and [Excel](#excel) (the sheet and the header).
+
 ## Legacy JSON mapper
 
 `NativeJSONMapper` renders a [Scriban](https://github.com/scriban/scriban) template over the JSON payload and stores the result as JSON.
