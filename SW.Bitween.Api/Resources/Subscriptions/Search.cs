@@ -71,6 +71,8 @@ namespace SW.Bitween.Resources.Subscriptions
                     PausedOn = subscriber.PausedOn,
                     PausedAutomatically = subscriber.PausedAutomatically,
                     AutoPauseAfterFailures = subscriber.AutoPauseAfterFailures,
+                    ExpectTraffic = subscriber.ExpectTraffic,
+                    QuietSince = subscriber.QuietSince,
                     IsRunning = subscriber.IsRunning,
                     ConsecutiveFailures = subscriber.ConsecutiveFailures,
                     LastException = subscriber.LastException,

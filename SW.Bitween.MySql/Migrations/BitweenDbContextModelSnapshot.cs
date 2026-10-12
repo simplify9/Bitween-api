@@ -1752,6 +1752,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ExpectTraffic")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1802,6 +1805,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("tinyint(1)");
 
                     b.Property<DateTime?>("PausedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("QuietSince")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("ReceiveOn")

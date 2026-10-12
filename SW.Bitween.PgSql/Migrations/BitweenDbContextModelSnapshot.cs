@@ -2132,6 +2132,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("document_id");
 
+                    b.Property<string>("ExpectTraffic")
+                        .HasColumnType("text")
+                        .HasColumnName("expect_traffic");
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -2193,6 +2197,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<DateTime?>("PausedOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("paused_on");
+
+                    b.Property<DateTime?>("QuietSince")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("quiet_since");
 
                     b.Property<DateTime?>("ReceiveOn")
                         .HasColumnType("timestamp with time zone")

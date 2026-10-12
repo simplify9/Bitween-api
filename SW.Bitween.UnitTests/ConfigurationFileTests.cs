@@ -171,4 +171,40 @@ public class ConfigurationFileTests
         Assert.AreEqual(0, new RetryPolicies().Unresolved(Policy(new JsonObject { ["maxAttemptsPerError"] = 6, ["maxAttemptsTotal"] = null }), (_, _) => true).Count());
         Assert.AreEqual(0, new RetryPolicies().Unresolved(Policy(new JsonObject { ["maxAttemptsPerError"] = 6, ["maxAttemptsTotal"] = 0 }), (_, _) => true).Count());
     }
+
+    /// <summary>
+    /// Bitween answers expectTraffic with every member, nulls included. Exported, it names only what
+    /// is set; compared, a member either side leaves unset is unset on both, and one set on only one
+    /// side is a change, so a plan neither repeats itself nor misses a removed time zone.
+    /// </summary>
+    [TestMethod]
+    public void Expected_traffic_compares_by_what_is_set()
+    {
+        static JsonObject Api(string zone) => new()
+        {
+            ["name"] = "Orders", ["type"] = "GatewayApiCall", ["pausedOn"] = null,
+            ["expectTraffic"] = new JsonObject
+            {
+                ["everyMinutes"] = 15, ["days"] = null, ["from"] = null, ["to"] = null, ["timeZone"] = zone,
+            },
+        };
+        var ctx = new Context(null);
+        var kind = new Subscriptions();
+        var have = kind.ToExisting(ctx, "1", Api(null));
+
+        Assert.AreEqual("""{"everyMinutes":15}""", have.File["expectTraffic"]!.ToJsonString());
+
+        JsonObject Want(JsonNode expect) => new() { ["name"] = "Orders", ["expectTraffic"] = expect };
+        Assert.IsFalse(kind.Differences(ctx, Want(new JsonObject { ["everyMinutes"] = 15 }), have).Contains("expectTraffic"));
+        Assert.IsFalse(kind.Differences(ctx, Want(new JsonObject { ["everyMinutes"] = "15", ["days"] = new JsonArray() }), have)
+            .Contains("expectTraffic"));
+        Assert.IsTrue(kind.Differences(ctx, Want(new JsonObject { ["everyMinutes"] = 30 }), have).Contains("expectTraffic"));
+        Assert.IsTrue(kind.Differences(ctx, Want(null), have).Contains("expectTraffic"));
+
+        var zoned = kind.ToExisting(ctx, "1", Api("Asia/Riyadh"));
+        Assert.IsTrue(kind.Differences(ctx, Want(new JsonObject { ["everyMinutes"] = 15 }), zoned).Contains("expectTraffic"));
+
+        var none = kind.ToExisting(ctx, "1", new JsonObject { ["name"] = "Orders", ["expectTraffic"] = null });
+        Assert.IsFalse(kind.Differences(ctx, Want(null), none).Contains("expectTraffic"));
+    }
 }

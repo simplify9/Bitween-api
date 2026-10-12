@@ -86,6 +86,8 @@ internal static class SubscriptionConfigurationApplier
             throw new SWValidationException("AutoPauseAfterFailures",
                 "Pause after between 1 and 1000 failures in a row, or leave it empty to never pause.");
         entity.AutoPauseAfterFailures = model.AutoPauseAfterFailures;
+        // Replaced like the fields around it: an update that leaves it out stops expecting traffic.
+        entity.SetExpectTraffic(TrafficWindow.Normalize(model.ExpectTraffic));
         // Meaningless for every other type, where it stays at its default - but harmless
         // there, and applying it unconditionally is what stops create and update disagreeing.
         entity.AggregationTarget = model.AggregationTarget;

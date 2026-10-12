@@ -325,6 +325,7 @@ public class Subscriptions : Kind
         Same("schedules"),
         Reference("responseSubscription", "responseSubscriptionId", "subscriptions"),
         Same("responseMessageTypeName"), Same("runOnBadResponses"), Same("autoPauseAfterFailures"), Same("aggregationTarget"),
+        Same("expectTraffic"),
     ];
 
     public override IReadOnlyList<string> Fixed => ["type", "informationType", "partner", "aggregationFor"];
@@ -341,6 +342,9 @@ public class Subscriptions : Kind
             file[role] = block;
         }
         file["paused"] = api["pausedOn"] != null;
+        // Bitween answers every member, set or not; the file names only what is set.
+        if (file["expectTraffic"] is JsonObject expect)
+            foreach (var key in expect.Where(p => Values.Empty(p.Value)).Select(p => p.Key).ToList()) expect.Remove(key);
         // Every aggregation is of the one built-in type; the file doesn't say it.
         if ((string)api["type"] == "Aggregation") file.Remove("informationType");
         return file;
@@ -369,6 +373,13 @@ public class Subscriptions : Kind
             if (!same) differ.Add(role);
         }
         if (want["paused"] is JsonValue paused && (bool)paused != ((bool?)have.File["paused"] ?? false)) differ.Add("paused");
+        // A member the file leaves out is unset (days: every day, no hours, UTC), not "keep what Bitween has",
+        // so one set in Bitween alone is a difference too.
+        if (want.ContainsKey("expectTraffic"))
+        {
+            differ.Remove("expectTraffic");
+            if (!Values.Same(want["expectTraffic"], have.File["expectTraffic"], exactKeys: true)) differ.Add("expectTraffic");
+        }
         return differ;
     }
 

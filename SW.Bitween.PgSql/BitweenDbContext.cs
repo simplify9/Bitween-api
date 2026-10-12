@@ -618,6 +618,10 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     cp => cp == null ? null : JsonSerializer.Serialize(cp, _polymorphicOpts),
                     json => json == null ? null : JsonSerializer.Deserialize<CustomRetryPolicy>(json, _polymorphicOpts)
                 );
+                b.Property(s => s.ExpectTraffic).HasConversion(
+                    e => e == null ? null : JsonSerializer.Serialize(e, _polymorphicOpts),
+                    json => json == null ? null : JsonSerializer.Deserialize<ExpectTraffic>(json, _polymorphicOpts)
+                );
             });
 
             modelBuilder.Entity<DelayedRetry>(b =>

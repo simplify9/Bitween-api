@@ -313,6 +313,7 @@ namespace SW.Bitween
                 b.HasOne(i => i.RetryPolicy).WithMany().HasForeignKey(i => i.RetryPolicyId).IsRequired(false)
                     .OnDelete(DeleteBehavior.SetNull);
                 b.Property(p => p.CustomRetryPolicy).StoreAsJson();
+                b.Property(p => p.ExpectTraffic).StoreAsJson();
                 b.Property(p => p.MatchExpression).HasMatchExpressionConversion();
             });
 

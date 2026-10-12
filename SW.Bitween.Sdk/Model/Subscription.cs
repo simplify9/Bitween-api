@@ -278,6 +278,13 @@ namespace SW.Bitween.Model
         public int? AutoPauseAfterFailures { get; set; }
 
         /// <summary>
+        /// Flag the subscription as gone quiet when no exchange arrives this often, inside a window.
+        /// Null - the default - expects nothing. Replaced like the other fields here: an update
+        /// without it removes it.
+        /// </summary>
+        public ExpectTraffic? ExpectTraffic { get; set; }
+
+        /// <summary>
         /// Aggregation only: which file of each collected exchange the roll-up links to.
         /// <para>
         /// Here rather than on <see cref="SubscriptionUpdate"/>, where it used to live, because
@@ -349,5 +356,12 @@ namespace SW.Bitween.Model
     public class SubscriptionGet : SubscriptionUpdate
     {
         public SubscriptionType Type { get; set; }
+
+        /// <summary>
+        /// When the subscription was found quiet against its <see cref="SubscriptionConfiguration.ExpectTraffic"/>;
+        /// null while traffic arrives as expected. Here rather than on <see cref="SubscriptionUpdate"/>
+        /// so that sending a read back can't set it.
+        /// </summary>
+        public DateTime? QuietSince { get; set; }
     }
 }

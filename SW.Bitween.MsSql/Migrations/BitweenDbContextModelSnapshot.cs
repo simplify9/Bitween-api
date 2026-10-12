@@ -1759,6 +1759,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ExpectTraffic")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1809,6 +1812,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("PausedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("QuietSince")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("ReceiveOn")

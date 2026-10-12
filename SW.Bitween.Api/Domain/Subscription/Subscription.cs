@@ -84,6 +84,23 @@ public class Subscription : BaseEntity
 
     /// <summary>Paused by <see cref="AutoPauseAfterFailures"/> rather than by a person.</summary>
     public bool PausedAutomatically { get; private set; }
+
+    /// <summary>How often an exchange should arrive; null expects nothing. Validated by <see cref="TrafficWindow"/>.</summary>
+    public ExpectTraffic ExpectTraffic { get; private set; }
+
+    /// <summary>
+    /// When <c>QuietSubscriptionsJob</c> found no exchange where <see cref="ExpectTraffic"/> wanted one;
+    /// null while traffic arrives. Written by the job alone, with a conditional update, so two nodes
+    /// can't both raise it.
+    /// </summary>
+    public DateTime? QuietSince { get; private set; }
+
+    public void SetExpectTraffic(ExpectTraffic expectTraffic)
+    {
+        ExpectTraffic = expectTraffic;
+        // Nothing is expected any more, so nothing can be missing; left set it would show for good.
+        if (expectTraffic == null) QuietSince = null;
+    }
     /// <summary>
     /// Which external system this subscription's adapters connect through - a database, typically.
     ///
