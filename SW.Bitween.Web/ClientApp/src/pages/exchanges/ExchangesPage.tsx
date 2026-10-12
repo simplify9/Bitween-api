@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Download, Pause, Play, Plus, RotateCcw, X } from "lucide-react";
+import { ArrowUp, Download, Pause, Play, Plus, RefreshCw, RotateCcw, X } from "lucide-react";
 import {
   api,
   type BulkRetrySelection,
@@ -94,12 +94,16 @@ export function ExchangesPage() {
 
   // A relative range ("last hour") is worked out each time the list is asked for, so a live list
   // keeps showing the last hour rather than the hour before the page was opened.
-  const { data, isLoading, dataUpdatedAt } = useQuery({
+  const { data, isLoading, isFetching, isPlaceholderData, dataUpdatedAt, refetch } = useQuery({
     queryKey: keys.exchanges.search(viewSearch(searchParams) + `&offset=${query.offset}`),
     queryFn: () => api.searchExchanges(readQuery(searchParams)),
     refetchInterval: refreshMs || false,
     placeholderData: keepPreviousData,
   });
+  // Loads someone is waiting on: a changed filter or page (the old rows stay up meanwhile), or the
+  // Refresh button. Not the background ticks of live refresh, which would dim the list every 15s.
+  const [refreshing, setRefreshing] = useState(false);
+  const reloading = isPlaceholderData || refreshing;
 
   // --- counts and volume ---
   // With a time filter, one request answers both. Without one the list covers all time, which
@@ -124,6 +128,16 @@ export function ExchangesPage() {
     retry: false,
   });
   const volume = timed ? breakdown.data : chartBreakdown.data;
+
+  // Now, rather than at the next tick - or at all, paused. The counts and the chart come along so
+  // they never disagree with the rows. The chart's query is off when the list is timed, and a
+  // refetch would run it anyway, against no parameters.
+  const refresh = () => {
+    setRefreshing(true);
+    void Promise.all([refetch(), breakdown.refetch(), chartParams ? chartBreakdown.refetch() : null]).finally(() =>
+      setRefreshing(false),
+    );
+  };
   const rangeEndsNow = !searchParams.get("to") && searchParams.get("range") !== "yesterday";
 
   const subscriptions = useSubscriptionsCache().data ?? [];
@@ -347,7 +361,13 @@ export function ExchangesPage() {
         description="Every message that flows through Bitween. Open one to follow its journey and read its documents."
         actions={
           <>
-            <LiveControl refreshMs={refreshMs} onChange={setRefreshMs} updatedAt={dataUpdatedAt} />
+            <LiveControl
+              refreshMs={refreshMs}
+              onChange={setRefreshMs}
+              updatedAt={dataUpdatedAt}
+              onRefresh={refresh}
+              fetching={isFetching}
+            />
             <Can permission="exchanges.operate">
               <Link to="/exchanges/new">
                 <Button variant="primary">
@@ -442,29 +462,34 @@ export function ExchangesPage() {
                     : "Traffic will show up here as soon as a subscription processes something."}
               </EmptyState>
             ) : (
-              <div className="rounded-xl border border-ink-200 bg-white">
-                <ExchangeList
-                  rows={rows}
-                  openId={openId}
-                  onOpen={toggleOpen}
-                  compact={!!openRow}
-                  selection={{
-                    isSelected,
-                    toggle: toggleSelected,
-                    allOnPage: allOnPageSelected,
-                    toggleAllOnPage: () => {
-                      // In "all matching" mode the box stands for the whole filter, so
-                      // clearing it drops the whole selection rather than excluding 25 rows.
-                      if (allMatching) return clearSelection();
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (allOnPageSelected) rows.forEach((r) => next.delete(r.id));
-                        else rows.forEach((r) => next.add(r.id));
-                        return next;
-                      });
-                    },
-                  }}
-                />
+              <div className="relative rounded-xl border border-ink-200 bg-white" aria-busy={reloading}>
+                {reloading && (
+                  <div className="absolute inset-x-0 top-0 z-10 h-0.5 animate-pulse bg-crimson-500" title="Loading…" />
+                )}
+                <div className={`transition-opacity ${reloading ? "opacity-50" : ""}`}>
+                  <ExchangeList
+                    rows={rows}
+                    openId={openId}
+                    onOpen={toggleOpen}
+                    compact={!!openRow}
+                    selection={{
+                      isSelected,
+                      toggle: toggleSelected,
+                      allOnPage: allOnPageSelected,
+                      toggleAllOnPage: () => {
+                        // In "all matching" mode the box stands for the whole filter, so
+                        // clearing it drops the whole selection rather than excluding 25 rows.
+                        if (allMatching) return clearSelection();
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          if (allOnPageSelected) rows.forEach((r) => next.delete(r.id));
+                          else rows.forEach((r) => next.add(r.id));
+                          return next;
+                        });
+                      },
+                    }}
+                  />
+                </div>
 
                 {/* - paging - */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
@@ -630,10 +655,14 @@ function LiveControl({
   refreshMs,
   onChange,
   updatedAt,
+  onRefresh,
+  fetching,
 }: {
   refreshMs: number;
   onChange: (ms: number) => void;
   updatedAt: number;
+  onRefresh: () => void;
+  fetching: boolean;
 }) {
   const [lastLive, setLastLive] = useState(15_000);
   const live = refreshMs > 0;
@@ -670,6 +699,15 @@ function LiveControl({
         className="flex w-9 items-center justify-center border-l border-ink-100 text-ink-600 hover:bg-ink-50"
       >
         {live ? <Pause className="size-3.5" aria-hidden /> : <Play className="size-3.5" aria-hidden />}
+      </button>
+      <button
+        type="button"
+        onClick={onRefresh}
+        aria-label="Refresh"
+        title="Load the latest exchanges now"
+        className="flex w-9 items-center justify-center border-l border-ink-100 text-ink-600 hover:bg-ink-50"
+      >
+        <RefreshCw className={`size-3.5 ${fetching ? "animate-spin" : ""}`} aria-hidden />
       </button>
     </span>
   );

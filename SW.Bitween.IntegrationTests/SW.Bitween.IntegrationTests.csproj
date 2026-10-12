@@ -55,7 +55,7 @@
     <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.2" />
 
     <!-- Bus (for IPublish + AddBus registration) -->
-    <PackageReference Include="SimplyWorks.Bus" Version="10.0.1" />
+    <PackageReference Include="SimplyWorks.Bus" Version="10.0.3" />
 
     <!-- EF Core naming conventions (used by PgSql context) -->
     <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
