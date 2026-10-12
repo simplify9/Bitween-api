@@ -6,7 +6,7 @@
 
 ## Finding an exchange
 
-The Exchanges page filters by status, subscription, partner, information type, exchange ids, correlation id, a promoted property value and a date range. Pick a promoted property to search inside its value only; any part of the value matches, ignoring case. Filters live in the URL, so a filtered view can be shared as a link.
+The Exchanges page filters by status, subscription, partner, information type, exchange ids, correlation id, a promoted property value and a date range. Pick a promoted property to search inside its value only; any part of the value matches, ignoring case. Filters live in the URL, so a filtered view can be shared as a link. The list reloads itself every 15 seconds by default (adjustable, or off); **Refresh** reloads it right away.
 
 - Search by **promoted property** to find a business document, such as an order number.
 - Search by **correlation id** to see every exchange in one flow, including exchanges created from responses.
