@@ -183,6 +183,8 @@ jobs:
       # the deploy would create a second public-gateway in it instead of failing.
       gateway-parent-namespace: 's9-prod-edge'
       # Every line is handed to helm --set as it stands, so no comments inside.
+      # AWS_*_CHECKSUM_*=when_required: production stores files in DigitalOcean Spaces too, so it
+      # carries develop's checksum setting (see the note there) until the fix lands in SW-CloudFiles.
       helm-set-values: |
         global.environment=Production
         replicaCount=2
@@ -190,6 +192,8 @@ jobs:
         resources.requests.memory=704Mi
         resources.limits.memory=1408Mi
         environmentVariables.Bitween__BusProvidersEnabled=true
+        environmentVariables.AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+        environmentVariables.AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
     secrets:
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
       registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
