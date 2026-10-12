@@ -49,6 +49,21 @@ With no stage selected, the overview shows health, next and last run, work group
 
 Edits stay a draft until saved from the bar at the bottom of the page.
 
+#### Versions
+
+Each save that changes a subscription's configuration, from creating it on, is recorded as a version:
+who saved it, when, and which settings it changed. The **Versions** panel on the overview lists the last
+50. **Compare** shows each setting that differs from now, side by side. **Restore** saves the version's
+configuration as the subscription: checked like any save, recorded as a new version, and leaving whether
+it is active as it is.
+
+A version never holds a secret. A setting its adapter marks as secret, or one the adapter doesn't
+describe, is kept as `__private__`, so restoring keeps the value the subscription has now, unless the
+version points at another destination (a host, a URL): a save that changes a destination drops the
+secrets the sentinel stood for, so they are entered again. Running state, such as failure counts and
+pauses, is not part of a version. Subscriptions saved before versions existed start their history at
+their next save.
+
 ## Configuration
 
 | Page | What it does |

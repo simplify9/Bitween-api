@@ -694,6 +694,17 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
             });
 
+            modelBuilder.Entity<SubscriptionRevision>(b =>
+            {
+                //b.ToTable("SubscriptionRevisions");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Snapshot).IsRequired();
+                b.Property(p => p.SavedBy).HasMaxLength(200);
+                b.HasIndex(p => new { p.SubscriptionId, p.Number }).IsUnique();
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<DuplicateArrival>(b =>
             {
                 //b.ToTable("DuplicateArrivals");

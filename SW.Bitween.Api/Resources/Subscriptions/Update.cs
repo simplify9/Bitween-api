@@ -14,7 +14,7 @@ namespace SW.Bitween.Resources.Subscriptions
 {
     public class Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache,
         RequestContext requestContext, SubscriptionSchedulerService subScheduler,
-        AdapterRequirements adapterRequirements) : ICommandHandler<int, SubscriptionUpdate, object>
+        AdapterRequirements adapterRequirements, SubscriptionRevisions revisions) : ICommandHandler<int, SubscriptionUpdate, object>
     {
         private readonly BitweenDbContext _dbContext = dbContext;
 
@@ -49,6 +49,7 @@ namespace SW.Bitween.Resources.Subscriptions
             // Sync Quartz: unschedule removed entries, schedule new/kept ones.
             await subScheduler.Sync(entity, oldSchedules);
 
+            await revisions.RecordAsync(key);
             return null;
         }
 

@@ -276,6 +276,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     // to construct, and a real Quartz store would fire background jobs mid-test.
                     services.AddSingleton<IScheduleRepository, RecordingScheduleRepository>();
                     services.AddScoped<SubscriptionSchedulerService>();
+                    services.AddScoped<SubscriptionRevisions>();
 
                     services.AddSingleton<DataSourceProviderCatalog>();
                     services.AddScoped<StatementUsageReader>();

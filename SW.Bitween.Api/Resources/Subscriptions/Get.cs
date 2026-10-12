@@ -27,7 +27,12 @@ namespace SW.Bitween.Resources.Subscriptions
         public async Task<object> Handle(int key)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+            return await Read(key);
+        }
 
+        /// <summary>The subscription as the API answers for it, secrets masked. Also what a revision records.</summary>
+        public async Task<SubscriptionGet> Read(int key)
+        {
             // A missing one is a 404, which the page says as "no longer exists"; it used to be a
             // NullReferenceException and a 500.
             var subscriber =

@@ -30,6 +30,7 @@ export const keys = {
     rowsSearch: (params: Record<string, unknown>) => ["subscriptions", "rows", params] as const,
     detail: (id: number | string | null | undefined) => ["subscriptions", "detail", id] as const,
     runs: (id: number) => ["subscriptions", "runs", id] as const,
+    revisions: (id: number) => ["subscriptions", "revisions", id] as const,
     receiveAttempts: (id: number, params: Record<string, unknown>) =>
       ["subscriptions", "receive-attempts", id, params] as const,
     sourcePaths: (id: number) => ["subscriptions", "source-paths", id] as const,

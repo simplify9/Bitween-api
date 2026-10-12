@@ -18,6 +18,7 @@ import { ExceptionBlock } from "../../../components/ui/Exception";
 import { CategoryField } from "./CategoryField";
 import { HealthPanel } from "./HealthPanel";
 import { ExpectTrafficPanel } from "./ExpectTrafficPanel";
+import { VersionsPanel } from "./VersionsPanel";
 
 /** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
 export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
@@ -294,6 +295,8 @@ export function Overview({
               <RunsTable runs={runs.data ?? []} pending={runs.isPending} />
             </Panel>
           )}
+
+          <VersionsPanel subscriptionId={s.id} />
 
           <HistoryCard entityName="Subscription" entityKey={s.id} />
         </div>

@@ -104,6 +104,8 @@ The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `re
 | `POST /api/subscriptions/{id}/retryusage` | `subscriptions.view` |
 | `POST /api/subscriptions/{id}/resetretryusage` | `subscriptions.operate` |
 | `GET /api/subscriptions/runs?subscriptionId=&limit=` | `subscriptions.view` |
+| `GET /api/subscriptions/history?subscriptionId=` | `subscriptions.view`. Its versions, newest first: `[{ number, savedOn, savedBy, changed }]`, `changed` naming the settings that differ from the version before. |
+| `GET /api/subscriptions/revision?subscriptionId=&number=` | `subscriptions.view`. `{ number, savedOn, configuration }`, the configuration in the shape `GET /api/subscriptions/{id}` answers, secrets as `__private__`. Restoring it is posting it to `POST /api/subscriptions/{id}`. |
 | `GET /api/subscriptions/receiveattempts?subscriptionId=&outcome=&offset=&limit=` | `subscriptions.view` |
 | `GET /api/subscriptions/sourcepaths?subscriptionId=` | `exchanges.view`. The paths in the last document it received, with their values: what a response or bus gateway subscription it feeds can read. |
 | `GET /api/subscriptions/lastruns` | `subscriptions.view` |

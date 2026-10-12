@@ -1920,3 +1920,21 @@ export interface MarketplaceInstallResult {
   sha256: string;
   publisher: string;
 }
+
+// - a subscription's versions -
+
+/** One save in a subscription's history: who, when, and which settings it changed from the one before. */
+export interface SubscriptionRevision {
+  number: number;
+  savedOn: string;
+  savedBy: string | null;
+  /** Setting names as the API spells them, e.g. handlerProperties. Empty for the first. */
+  changed: string[];
+}
+
+/** A revision's configuration, in the subscription's own wire shape. Secrets are __private__. */
+export interface SubscriptionRevisionDetail {
+  number: number;
+  savedOn: string;
+  configuration: Record<string, unknown>;
+}

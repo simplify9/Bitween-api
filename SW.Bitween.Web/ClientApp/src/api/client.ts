@@ -97,6 +97,8 @@ import type {
   MarketplaceInstallResult,
   MarketplacePackage,
   MarketplaceSearch,
+  SubscriptionRevision,
+  SubscriptionRevisionDetail,
   DraftBuild,
   DraftLanguage,
   DraftPublishResult,
@@ -332,6 +334,12 @@ export interface ApiClient {
   aggregateNow(id: number): Promise<Subscription>;
   /** Run history for one scheduled subscription, newest first. Empty for unscheduled types. */
   listSubscriptionRuns(id: number, limit?: number): Promise<SubscriptionRun[]>;
+  /** The subscription's versions, newest first. */
+  listSubscriptionRevisions(id: number): Promise<SubscriptionRevision[]>;
+  getSubscriptionRevision(id: number, number: number): Promise<SubscriptionRevisionDetail>;
+  getSubscriptionConfiguration(id: number): Promise<Record<string, unknown>>;
+  /** Saves a version's configuration as the subscription. Needs subscriptions.edit. */
+  restoreSubscriptionRevision(id: number, number: number): Promise<void>;
   searchReceiveAttempts(
     subscriptionId: number,
     query: { outcome: ReceiveOutcome | null; offset: number; limit: number },

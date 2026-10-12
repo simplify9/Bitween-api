@@ -2385,6 +2385,47 @@ namespace SW.Bitween.PgSql.Migrations
                     b.ToTable("subscription_category", "infolink");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<string>("SavedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("saved_by");
+
+                    b.Property<DateTime>("SavedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saved_on");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("snapshot");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_subscription_revision");
+
+                    b.HasIndex("SubscriptionId", "Number")
+                        .IsUnique()
+                        .HasDatabaseName("ix_subscription_revision_subscription_id_number");
+
+                    b.ToTable("subscription_revision", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.WorkGroup", b =>
                 {
                     b.Property<int>("Id")
@@ -3627,6 +3668,16 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Navigation("Schedules");
 
                     b.Navigation("WorkGroup");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_subscription_revision_subscription_subscription_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>

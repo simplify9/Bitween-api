@@ -105,6 +105,7 @@ namespace SW.Bitween.Web
             services.AddScoped<SW.Bitween.Services.Adapters.AdapterWorkshop>();
             services.AddScoped<SW.Bitween.Services.Marketplace.RegistryClient>();
             services.AddScoped<SW.Bitween.Services.Marketplace.MarketplaceInstaller>();
+            services.AddScoped<SubscriptionRevisions>();
             services.AddScoped<SW.Bitween.Services.Adapters.AdapterChanges>();
             services.AddSingleton<ServerlessAdapterDescriber>();
             services.AddScoped<AdapterStartupValues>();

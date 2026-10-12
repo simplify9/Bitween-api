@@ -19,6 +19,8 @@ import {
   type ReceiveOutcome,
   type Schedule,
   type ScheduleHealth,
+  type SubscriptionRevision,
+  type SubscriptionRevisionDetail,
 } from "../types";
 import { schedulesSummary } from "../../lib/schedules";
 import { documentMethods } from "./documents";
@@ -586,6 +588,39 @@ export const subscriptionMethods = {
   async aggregateNow(id: number): Promise<Subscription> {
     await post(`/subscriptions/${id}/aggregatenow`, {});
     return toSubscription(await fetchRaw(id), id);
+  },
+
+  listSubscriptionRevisions(id: number): Promise<SubscriptionRevision[]> {
+    return get<SubscriptionRevision[]>(`/subscriptions/history?subscriptionId=${id}`);
+  },
+
+  getSubscriptionRevision(id: number, number: number): Promise<SubscriptionRevisionDetail> {
+    return get<SubscriptionRevisionDetail>(`/subscriptions/revision?subscriptionId=${id}&number=${number}`);
+  },
+
+  /** The subscription as it reads now, raw, for comparing a revision with. */
+  async getSubscriptionConfiguration(id: number): Promise<Record<string, unknown>> {
+    return (await fetchRaw(id)) as unknown as Record<string, unknown>;
+  },
+
+  /**
+   * Saves a revision's configuration as the subscription: an ordinary save, so it is checked as
+   * any save is and becomes a revision of its own. What a save can't change, and whether the
+   * subscription is active, are kept as they are now.
+   */
+  async restoreSubscriptionRevision(id: number, number: number): Promise<void> {
+    const [current, revision] = await Promise.all([
+      fetchRaw(id),
+      get<SubscriptionRevisionDetail>(`/subscriptions/revision?subscriptionId=${id}&number=${number}`),
+    ]);
+    await post(`/subscriptions/${id}`, {
+      ...revision.configuration,
+      documentId: current.documentId,
+      partnerId: current.partnerId,
+      aggregationForId: current.aggregationForId,
+      inactive: current.inactive,
+      newResponseSubscription: null,
+    });
   },
 
   listSubscriptionRuns(id: number, limit = 20): Promise<SubscriptionRun[]> {

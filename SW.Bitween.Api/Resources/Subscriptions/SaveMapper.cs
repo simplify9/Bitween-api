@@ -10,7 +10,7 @@ namespace SW.Bitween.Resources.Subscriptions
 {
     [HandlerName("savemapper")]
     public class SaveMapper(BitweenDbContext dbContext, IInfolinkCache BitweenCache,
-        RequestContext requestContext) : ICommandHandler<int, SubscriptionSaveMapper, object>
+        RequestContext requestContext, SubscriptionRevisions revisions) : ICommandHandler<int, SubscriptionSaveMapper, object>
     {
         public async Task<object> Handle(int key, SubscriptionSaveMapper model)
         {
@@ -29,6 +29,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
             await dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();
+            await revisions.RecordAsync(key);
             return null;
         }
 

@@ -1965,6 +1965,39 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("SubscriptionCategory");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SavedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("SavedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionRevisions", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.WorkGroup", b =>
                 {
                     b.Property<int>("Id")
@@ -3098,6 +3131,15 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Navigation("Schedules");
 
                     b.Navigation("WorkGroup");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>

@@ -24,7 +24,7 @@ namespace SW.Bitween.Resources.Subscriptions
     /// </summary>
     public class Create(BitweenDbContext dbContext, RequestContext requestContext,
         IInfolinkCache BitweenCache, SubscriptionSchedulerService subScheduler,
-        AdapterRequirements adapterRequirements) : ICommandHandler<SubscriptionCreate, object>
+        AdapterRequirements adapterRequirements, SubscriptionRevisions revisions) : ICommandHandler<SubscriptionCreate, object>
     {
         private readonly BitweenDbContext _dbContext = dbContext;
 
@@ -74,6 +74,7 @@ namespace SW.Bitween.Resources.Subscriptions
             await BitweenCache.BroadcastRevoke();
             await subScheduler.Sync(entity, Array.Empty<Schedule>());
 
+            await revisions.RecordAsync(entity.Id);
             return entity.Id;
         }
 
