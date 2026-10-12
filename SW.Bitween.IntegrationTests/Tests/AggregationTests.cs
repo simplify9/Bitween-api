@@ -201,6 +201,51 @@ public class AggregationTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task Two_replicas_running_one_aggregation_at_once_make_one_roll_up_and_no_failure()
+    {
+        // Quartz isn't clustered, so on two replicas the same aggregation fires on both at once.
+        int aggId;
+        await using (var setup = fixture.CreateScope())
+        {
+            var db = setup.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var sourceDoc = new Document(null, "Agg Two Replicas Doc", DocumentFormat.Json);
+            db.Set<Document>().Add(sourceDoc);
+            await db.SaveChangesAsync();
+            var sourceSub = new Subscription("Agg Two Replicas Source", sourceDoc.Id) { Inactive = false };
+            db.Set<Subscription>().Add(sourceSub);
+            await db.SaveChangesAsync();
+            for (var i = 0; i < 5; i++)
+            {
+                var xchange = new Xchange(sourceSub, new XchangeFile($"{{\"i\":{i}}}"));
+                db.Set<Xchange>().Add(xchange);
+                await db.SaveChangesAsync();
+                db.Set<XchangeResult>().Add(new XchangeResult(xchange.Id, null, null));
+                await db.SaveChangesAsync();
+            }
+            var aggSub = new Subscription("Agg Two Replicas", sourceSub.Id, Partner.SystemId) { Inactive = false };
+            aggSub.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(2))]);
+            db.Set<Subscription>().Add(aggSub);
+            await db.SaveChangesAsync();
+            aggId = aggSub.Id;
+        }
+        fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
+
+        await using var first = fixture.CreateScope();
+        await using var second = fixture.CreateScope();
+        await Task.WhenAll(
+            first.ServiceProvider.GetRequiredService<AggregationJob>().Execute(new AggregationJobParams(aggId, null)),
+            second.ServiceProvider.GetRequiredService<AggregationJob>().Execute(new AggregationJobParams(aggId, null)));
+
+        await using var check = fixture.CreateScope();
+        var read = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        Assert.Equal(1, await read.Set<Xchange>().CountAsync(x => x.SubscriptionId == aggId));
+        Assert.DoesNotContain(await read.Set<ReceiveAttempt>().Where(a => a.SubscriptionId == aggId).Select(a => a.Outcome).ToListAsync(),
+            o => o == ReceiveOutcome.Failed);
+        // And the flag is let go: the next run goes ahead, finding nothing left.
+        Assert.False((await read.Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == aggId)).IsRunning);
+    }
+
+    [Fact]
     public async Task A_run_with_nothing_outstanding_records_no_new_data_rather_than_nothing()
     {
         await using var scope = fixture.CreateScope();

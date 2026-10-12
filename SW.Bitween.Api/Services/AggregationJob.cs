@@ -16,6 +16,7 @@ public record AggregationJobParams(int SubscriptionId, string? CronExpression);
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
 public class AggregationJob(
     BitweenDbContext dbContext,
+    RunFlagUpdater runFlagUpdater,
     XchangeService xchangeService,
     ILogger<AggregationJob> logger) : IScheduledJob<AggregationJobParams>
 {
@@ -25,6 +26,24 @@ public class AggregationJob(
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
         if (aggSub == null) return;
+
+        // Every replica runs every scheduled job: Quartz isn't clustered here. Two replicas building one
+        // roll-up at once could only have one saved (an exchange is rolled up once), so the other run
+        // failed and was logged as an error, every time. Claimed as a receiver is, the other run steps aside.
+        if (!await runFlagUpdater.MarkAsRunning(aggSub.Id)) return;
+        try
+        {
+            await RollUpAsync(aggSub);
+        }
+        finally
+        {
+            // Released after the roll-up is saved, so a run that starts next sees it.
+            await runFlagUpdater.MarkAsIdle(aggSub.Id);
+        }
+    }
+
+    async Task RollUpAsync(Subscription aggSub)
+    {
 
         var startedOn = DateTime.UtcNow;
         // Decided as the run goes and written once at the end. Recording inside both the try
@@ -78,7 +97,7 @@ public class AggregationJob(
             // that is bookkeeping, and calling the run failed would misreport delivered work.
             // The error is kept on the attempt either way, and on the integration's health.
             if (createdExchangeIds.Length == 0) outcome = ReceiveOutcome.Failed;
-            logger.LogError(ex, "Error processing aggregation for subscription {SubscriptionId}", jobParams.SubscriptionId);
+            logger.LogError(ex, "Error processing aggregation for subscription {SubscriptionId}", aggSub.Id);
         }
 
         RecordAttempt(aggSub.Id, startedOn, outcome, errorMessage, createdExchangeIds);
