@@ -9,6 +9,7 @@ import type {
   BusGatewayRoute,
   BusGatewayRow,
   GatewayAuthentication,
+  GatewayFailureAnswer,
   GatewayAuthMethod,
   InlineSubscriptionDraft,
   MatchGroup,
@@ -226,7 +227,13 @@ export const gatewayMethods = {
 
   async updateApiGateway(
     id: number,
-    changes: { name: string; urlName: string; inactive: boolean; authentication?: GatewayAuthentication },
+    changes: {
+      name: string;
+      urlName: string;
+      inactive: boolean;
+      authentication?: GatewayAuthentication;
+      failureAnswer?: GatewayFailureAnswer;
+    },
   ): Promise<ApiGateway> {
     // Update replaces the record, so every field it accepts has to be sent back -
     // omitting `inactive` would quietly reactivate a paused gateway on a rename.
@@ -236,6 +243,8 @@ export const gatewayMethods = {
       urlName: changes.urlName,
       inactive: changes.inactive,
       ...(changes.authentication && { authentication: changes.authentication }),
+      // Left out, like authentication, the gateway keeps what it has.
+      ...(changes.failureAnswer && { failureAnswer: changes.failureAnswer }),
     });
     return { id, name: changes.name, urlName: changes.urlName, inactive: changes.inactive, createdOn: "" };
   },

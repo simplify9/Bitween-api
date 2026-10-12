@@ -211,7 +211,17 @@ public class GatewayController(
                         };
                     }
                 case false:
-                    return BadRequest();
+                {
+                    if (apiGateway.FailureAnswer == GatewayFailureAnswer.Legacy) return BadRequest();
+                    // The retry, if any, is scheduled in the same save as the result, so it is there now.
+                    var retryOn = await dbContext.Set<DelayedRetry>().AsNoTracking()
+                        .Where(r => r.Id == xchangeId).Select(r => (DateTime?)r.On).FirstOrDefaultAsync();
+                    var hasMapper = await dbContext.Set<Xchange>().AsNoTracking()
+                        .Where(x => x.Id == xchangeId).Select(x => x.MapperId != null).FirstOrDefaultAsync();
+                    var answer = GatewayFailureAnswers.For(apiGateway.FailureAnswer, xchangeId, hasMapper,
+                        mapped: xchangeResult.OutputSize > 0 || xchangeResult.OutputName != null, retryOn);
+                    return new ObjectResult(answer.Body) { StatusCode = answer.Status };
+                }
             }
         }
 

@@ -34,6 +34,12 @@ public class ApiGateway : BaseEntity,IAudited
     public string JwtAudience { get; set; }
     public string JwtPartnerClaim { get; set; }
 
+    /// <summary>
+    /// What a sync call is told when the delivery behind it fails. Legacy (400, no body) for gateways
+    /// made before this existed: a caller may be written against it.
+    /// </summary>
+    public GatewayFailureAnswer FailureAnswer { get; set; }
+
     public ICollection<ApiGatewayPartner> Partners { get; set; }
     public DateTime CreatedOn { get; set; }
     public string CreatedBy { get; set; }

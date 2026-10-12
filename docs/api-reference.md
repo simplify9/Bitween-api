@@ -176,8 +176,8 @@ Publishing a package, promoting, withdrawing, and publishing from a draft are re
 | `GET /api/apigateways`, `GET /api/apigateways/{id}` | `api-gateways.view` |
 | `GET /api/apigateways/{id}/rejections` | `api-gateways.view`. Calls to the gateway turned away since the answering node started, counted by reason (`not-authenticated`, `not-attached`, `gateway-off`, `no-subscription`, `rate-limited`, `unknown-gateway`), with the most recent: when, status and caller address. Kept in memory per node. |
 | `GET /api/apigateways/attachments?apiGatewayId=&search=&offset=&limit=` | `api-gateways.view` |
-| `POST /api/apigateways` | `api-gateways.create`. `{ name, urlName, inactive, authentication? }`. `authentication` is `{ method: "PartnerKey" \| "Jwt", keyHeader, issuer, audience, partnerClaim }`, and defaults to partner keys. An empty `keyHeader` uses the one in Settings. |
-| `POST /api/apigateways/{id}` | `api-gateways.edit`. Same body. Leaving `authentication` out keeps what the gateway has. |
+| `POST /api/apigateways` | `api-gateways.create`. `{ name, urlName, inactive, authentication?, failureAnswer? }`. `authentication` is `{ method: "PartnerKey" \| "Jwt", keyHeader, issuer, audience, partnerClaim }`, and defaults to partner keys. An empty `keyHeader` uses the one in Settings. `failureAnswer` is `"Accurate"` (the default for a new gateway) or `"Legacy"`; see [Entry points](entry-points.md#async-and-sync). |
+| `POST /api/apigateways/{id}` | `api-gateways.edit`. Same body. Leaving `authentication` or `failureAnswer` out keeps what the gateway has. |
 | `DELETE /api/apigateways/{id}` | `api-gateways.delete` |
 | `POST /api/apigateways/{id}/addpartner` | `api-gateways.edit`. `{ partnerId, subscriptionId }` or `{ partnerId, newIntegration }` |
 | `POST /api/apigateways/{id}/updatepartner` | `api-gateways.edit` |

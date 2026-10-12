@@ -145,4 +145,27 @@ describe("an API gateway's page", () => {
     await expect.poll(() => sent).not.toBeNull();
     expect((sent!.authentication as Record<string, unknown>).keyHeader).toBe("X-Orders-Key");
   });
+
+  it("says 400 as before for a gateway made earlier, and can be told to say what happens next", async () => {
+    let sent: Record<string, unknown> | null = null;
+    const { user } = openGateway(
+      { method: "PartnerKey", keyHeader: null, issuer: null, audience: null, partnerClaim: null },
+      [],
+      [
+        http.post(apiPath("/apigateways/15"), async ({ request }) => {
+          sent = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json(null);
+        }),
+      ],
+    );
+
+    const answer = await screen.findByLabelText("Sync callers are told");
+    expect(answer).toHaveValue("Legacy");
+
+    await user.selectOptions(answer, "Accurate");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await expect.poll(() => sent).not.toBeNull();
+    expect(sent!.failureAnswer).toBe("Accurate");
+  });
 });

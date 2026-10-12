@@ -889,6 +889,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("FailureAnswer")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Inactive")
                         .HasColumnType("tinyint(1)");
 

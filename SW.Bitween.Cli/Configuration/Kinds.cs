@@ -423,7 +423,8 @@ public class ApiGateways : Kind
     public override string Resource => "apigateways";
     public override string KeyField => "urlName";
 
-    public override IReadOnlyList<Field> Fields { get; } = [Same("name"), Same("urlName"), Same("inactive"), Same("authentication")];
+    public override IReadOnlyList<Field> Fields { get; } =
+        [Same("name"), Same("urlName"), Same("inactive"), Same("authentication"), Same("failureAnswer")];
 
     public override IEnumerable<string> DependsOn => ["partners", "subscriptions"];
 

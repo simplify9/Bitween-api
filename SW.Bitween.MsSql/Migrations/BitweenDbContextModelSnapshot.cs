@@ -895,6 +895,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("FailureAnswer")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Inactive")
                         .HasColumnType("bit");
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pause, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";
-import { api, type ApiGatewayAttachment, type GatewayAuthentication } from "../../api";
+import { api, type ApiGatewayAttachment, type GatewayAuthentication, type GatewayFailureAnswer } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { finishUrlName, toUrlName, urlNameProblem } from "../../lib/identifiers";
@@ -50,6 +50,12 @@ const keyUsage = (header: string) => [
     tip: "For tools that only ask for a username and password. The username is the key's name and the password is the key. Doesn't work for a key whose name has a colon in it.",
     value: "username: <the key's name>\npassword: <key>",
   },
+];
+
+// What a sync caller is told when the delivery behind its call fails.
+const FAILURE_ANSWERS = [
+  { value: "Accurate", label: "What happens next (202, 422 or 502)" },
+  { value: "Legacy", label: "400, as before" },
 ];
 
 const AUTH_METHODS = [
@@ -138,6 +144,7 @@ export function ApiGatewayPage() {
 
   const [name, setName] = useState("");
   const [urlName, setUrlName] = useState("");
+  const [failureAnswer, setFailureAnswer] = useState<GatewayFailureAnswer>("Legacy");
   const [auth, setAuth] = useState<GatewayAuthentication>({
     method: "PartnerKey",
     keyHeader: "",
@@ -156,6 +163,7 @@ export function ApiGatewayPage() {
       setName(gateway.data.name);
       setUrlName(gateway.data.urlName);
       setAuth(gateway.data.authentication);
+      setFailureAnswer(gateway.data.failureAnswer ?? "Legacy");
       setLoaded(true);
     }
   }, [gateway.data, loaded]);
@@ -165,8 +173,9 @@ export function ApiGatewayPage() {
       !!gateway.data &&
       (name !== gateway.data.name ||
         urlName !== gateway.data.urlName ||
+        failureAnswer !== (gateway.data.failureAnswer ?? "Legacy") ||
         JSON.stringify(trimmedAuth(auth)) !== JSON.stringify(trimmedAuth(gateway.data.authentication))),
-    [gateway.data, name, urlName, auth],
+    [gateway.data, name, urlName, auth, failureAnswer],
   );
 
   const save = useMutation({
@@ -178,6 +187,7 @@ export function ApiGatewayPage() {
         // out would reactivate a deactivated gateway on an unrelated rename.
         inactive: gateway.data?.inactive ?? false,
         authentication: trimmedAuth(auth),
+        failureAnswer,
       }),
     onSuccess: async () => {
       // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
@@ -270,6 +280,24 @@ export function ApiGatewayPage() {
             </Field>
             <CopyField value={`/api/gateway/${urlName}/sync`} label="Synchronous - waits for the result" />
             <CopyField value={`/api/gateway/${urlName}/async`} label="Asynchronous - returns the exchange id" />
+          </div>
+        </Panel>
+
+        <Panel
+          title="When a delivery fails"
+          description="What a partner calling /sync is told when the delivery behind its call fails. 400 tells it the request was wrong, even when the destination was down and Bitween will deliver it later."
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Sync callers are told" htmlFor="ag-failure-answer">
+              <Select
+                id="ag-failure-answer"
+                value={failureAnswer}
+                disabled={!canEdit}
+                options={FAILURE_ANSWERS}
+                title="202 with the exchange id when a retry is scheduled (don't send it again), 422 when the message couldn't be mapped, 502 when the delivery failed and won't be retried. 400 is what every gateway answered before; partners may be written against it."
+                onChange={(e) => setFailureAnswer(e.target.value as GatewayFailureAnswer)}
+              />
+            </Field>
           </div>
         </Panel>
 

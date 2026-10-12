@@ -989,7 +989,10 @@ export interface ApiGatewayDetail extends ApiGateway {
   authentication: GatewayAuthentication;
   /** The system-wide key header (Settings → API behavior), used while `keyHeader` is empty. */
   defaultKeyHeader: string;
+  /** What a sync call is told when its delivery fails. Legacy: 400 always. Accurate: 202, 422 or 502. */
+  failureAnswer?: GatewayFailureAnswer;
 }
+export type GatewayFailureAnswer = "Legacy" | "Accurate";
 
 // --- Bus gateways ---
 

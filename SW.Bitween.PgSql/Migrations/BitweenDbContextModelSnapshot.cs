@@ -1061,6 +1061,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_on");
 
+                    b.Property<int>("FailureAnswer")
+                        .HasColumnType("integer")
+                        .HasColumnName("failure_answer");
+
                     b.Property<bool>("Inactive")
                         .HasColumnType("boolean")
                         .HasColumnName("inactive");

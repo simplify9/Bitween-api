@@ -88,8 +88,17 @@ The claim named in the gateway's partner claim, `sub` unless set, must equal a p
 | Success with no response body | `200` with the exchange id |
 | Success with a response | `200` with the response body and its content type |
 | Bad response | `400` with the response body |
-| Failure | `400` with no body |
+| Failure | Depends on the gateway's **When a delivery fails** setting, below |
 | Wait ended before a result | `202` with the exchange id |
+
+What a failure answers is set per gateway, under **When a delivery fails** (`failureAnswer` in the API and in `bitween apply`).
+
+| Setting | Failure, a retry scheduled | Failure, the message couldn't be mapped | Failure, no retry |
+|---|---|---|---|
+| `Accurate` | `202` with `{ exchangeId, status: "retrying", nextAttemptOn }` | `422` with `{ exchangeId, status: "failed", error }` | `502` with `{ exchangeId, status: "failed", error }` |
+| `Legacy` | `400` with no body | `400` with no body | `400` with no body |
+
+Gateways created before the setting existed answer `Legacy`, as they always did; new ones answer `Accurate` unless created with `Legacy`. Legacy tells the caller its request was wrong even when the destination was down and Bitween will deliver the message by retry minutes later, so a caller that acts on the 400 (cancels the order, sends a corrected one) and then sees the message delivered anyway is working from a false answer. With `Accurate`, a `202` means Bitween has the message and will deliver it again: sending it again would make a second one.
 
 The `Wait-Period` header is meant to limit the wait. Bitween checks for the result after 1, 1, 2, 3 and 5 seconds, then every 8 seconds. The loop compares the current step, not the elapsed time, with the header value. Since the step never exceeds 8 seconds, a `Wait-Period` of 8 or more keeps the request open until the exchange has a result. That includes the default of 120. Only values below 8 can end with a `202`. Always set a timeout on the client or proxy.
 

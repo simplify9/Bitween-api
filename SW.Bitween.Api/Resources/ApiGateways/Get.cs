@@ -31,6 +31,7 @@ namespace SW.Bitween.Resources.ApiGateways
                 Name = gateway.Name,
                 UrlName = gateway.UrlName,
                 Inactive = gateway.Inactive,
+                FailureAnswer = gateway.FailureAnswer,
                 Authentication = GatewayAuthentication.Read(gateway),
                 DefaultKeyHeader = options.PartnerKeyHeader,
                 PartnersCount = gateway.Partners.Count,

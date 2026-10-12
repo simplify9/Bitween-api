@@ -14,6 +14,7 @@ import type {
   BusGatewayRow,
   DataSourceProvider,
   GatewayAuthentication,
+  GatewayFailureAnswer,
   DataSourceDetail,
   DataSourceInspectResult,
   DataSourceRow,
@@ -402,7 +403,13 @@ export interface ApiClient {
   /** Leave `authentication` out to keep what the gateway has - pausing it must not change who can call. */
   updateApiGateway(
     id: number,
-    changes: { name: string; urlName: string; inactive: boolean; authentication?: GatewayAuthentication },
+    changes: {
+      name: string;
+      urlName: string;
+      inactive: boolean;
+      authentication?: GatewayAuthentication;
+      failureAnswer?: GatewayFailureAnswer;
+    },
   ): Promise<ApiGateway>;
   deleteApiGateway(id: number): Promise<void>;
   /** The subscription is either an existing id or defined inline; the endpoint commits both as one. */
