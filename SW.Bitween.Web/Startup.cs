@@ -539,7 +539,13 @@ namespace SW.Bitween.Web
             // Resolved per adapter instance so a license key saved in Settings applies without a restart.
             services.AddNativeAdapters(
                 sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey,
-                sp => sp.GetRequiredService<BitweenOptions>().BlockPrivateNetworkAddresses);
+                sp => sp.GetRequiredService<BitweenOptions>().BlockPrivateNetworkAddresses,
+                sp =>
+                {
+                    var options = sp.GetRequiredService<BitweenOptions>();
+                    return new CircuitBreakerSettings(options.CircuitBreakerFailures,
+                        options.CircuitBreakerWindowSeconds, options.CircuitBreakerOpenSeconds);
+                });
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();

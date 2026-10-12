@@ -91,12 +91,17 @@ public abstract class FilePickup<TSettings> : INativeInfolinkReceiver, IDisposab
 /// Uploading the message as a file, the same whichever protocol reaches the server. Behaves as the
 /// Rebex FTP upload handler does.
 /// </summary>
-public abstract class FileUpload<TSettings> : INativeInfolinkHandler
+public abstract class FileUpload<TSettings>(DestinationCircuits? circuits) : INativeInfolinkHandler
     where TSettings : IUploadSettings, new()
 {
+    readonly DestinationCircuits circuits = circuits ?? DestinationCircuits.None;
+
     protected TSettings Options { get; private set; } = new();
 
     private protected abstract Task<IFileTransfer> ConnectAsync();
+
+    /// <summary>The server this uploads to, as its circuit is known: protocol, host and port.</summary>
+    private protected abstract string Destination { get; }
 
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
@@ -110,10 +115,20 @@ public abstract class FileUpload<TSettings> : INativeInfolinkHandler
 
         var filename = NameFor(xchangeFile, Options, DateTime.UtcNow);
 
-        await using var transfer = await ConnectAsync();
-        await using var stream = new MemoryStream(bytes);
-        // The path the Rebex adapter writes to, an empty TargetPath included.
-        await transfer.UploadAsync(stream, $"{Options.TargetPath}/{filename}");
+        using var pass = circuits.Enter(Destination);
+        try
+        {
+            await using var transfer = await ConnectAsync();
+            await using var stream = new MemoryStream(bytes);
+            // The path the Rebex adapter writes to, an empty TargetPath included.
+            await transfer.UploadAsync(stream, $"{Options.TargetPath}/{filename}");
+        }
+        catch (Exception e)
+        {
+            pass.Failed(e);
+            throw;
+        }
+        pass.Succeeded();
 
         return new XchangeFile(string.Empty);
     }
@@ -166,8 +181,10 @@ public class NativeSftpReceiver : FilePickup<SftpPickupSettings>
 }
 
 /// <summary>Uploads the message as a file to an SFTP server, over SSH.NET. No license needed.</summary>
-public class NativeSftpUploadHandler : FileUpload<SftpUploadSettings>
+public class NativeSftpUploadHandler(DestinationCircuits? circuits = null) : FileUpload<SftpUploadSettings>(circuits)
 {
+    private protected override string Destination => $"sftp://{Options.Host}:{Options.Port ?? 22}";
+
     private protected override Task<IFileTransfer> ConnectAsync() =>
         SftpTransfer.ConnectAsync(Options.Host, Options.Port, Options.Username, Options.Password,
             Options.PrivateKey, Options.HostKeyFingerprint, SftpTimeouts.Of(Options.TimeoutSeconds));
@@ -186,8 +203,11 @@ public class NativeFtpReceiver : FilePickup<FtpPickupSettings>
 }
 
 /// <summary>Uploads the message as a file to an FTP or FTPS server, over FluentFTP. No license needed.</summary>
-public class NativeFtpUploadHandler : FileUpload<FtpUploadSettings>
+public class NativeFtpUploadHandler(DestinationCircuits? circuits = null) : FileUpload<FtpUploadSettings>(circuits)
 {
+    private protected override string Destination =>
+        $"ftp://{Options.Host}:{Options.Port ?? ((Options.Encryption ?? "").Trim().Equals("implicit", StringComparison.OrdinalIgnoreCase) ? 990 : 21)}";
+
     private protected override Task<IFileTransfer> ConnectAsync() =>
         FtpTransfer.ConnectAsync(Options.Host, Options.Port, Options.Username, Options.Password!,
             Options.Encryption, Options.CertificateThumbprint, Options.PassiveMode);

@@ -200,6 +200,18 @@ public static class SettingsCatalog
             "How long one call to a built-in adapter may take before the exchange fails as a timeout. 0 for no limit.",
             SettingKind.Number, t => t.Bitween.NativeAdapterTimeout.ToString(CultureInfo.InvariantCulture)),
 
+        View("Bitween.CircuitBreakerFailures", "Adapters", "Circuit breaker failures",
+            "Failures in a row (timeouts, refused connections, 429, 5xx) after which a built-in adapter's calls to that destination fail at once, as a 503, for a while. 0 switches it off.",
+            SettingKind.Number, t => t.Bitween.CircuitBreakerFailures.ToString(CultureInfo.InvariantCulture)),
+
+        View("Bitween.CircuitBreakerWindowSeconds", "Adapters", "Circuit breaker window (seconds)",
+            "The failures must fall within this many seconds to open a destination's circuit.",
+            SettingKind.Number, t => t.Bitween.CircuitBreakerWindowSeconds.ToString(CultureInfo.InvariantCulture)),
+
+        View("Bitween.CircuitBreakerOpenSeconds", "Adapters", "Circuit breaker cool-down (seconds)",
+            "How long an open circuit fails calls at once before one is let through to try the destination again.",
+            SettingKind.Number, t => t.Bitween.CircuitBreakerOpenSeconds.ToString(CultureInfo.InvariantCulture)),
+
         // --- Reliability & jobs ---
         new("Bitween.RetryJobCron", "Reliability & jobs",
             "Retry poll schedule",

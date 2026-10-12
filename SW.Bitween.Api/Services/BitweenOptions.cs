@@ -141,6 +141,21 @@ namespace SW.Bitween
         public int NativeAdapterTimeout { get; set; }
 
         /// <summary>
+        /// Failures in a row (timeouts, refused or dropped connections, 429, 5xx but 501) after which a
+        /// built-in adapter's calls to that destination fail at once, as a 503, for
+        /// <see cref="CircuitBreakerOpenSeconds"/>. A partner that stopped answering held a place in the
+        /// processing queue for each delivery's whole timeout, and flows to healthy partners waited behind
+        /// it. Counted per destination and per replica. 0 switches it off.
+        /// </summary>
+        public int CircuitBreakerFailures { get; set; } = 5;
+
+        /// <summary>The failures must fall within this many seconds to open the circuit.</summary>
+        public int CircuitBreakerWindowSeconds { get; set; } = 60;
+
+        /// <summary>Seconds an open circuit fails calls at once before it lets one through to try.</summary>
+        public int CircuitBreakerOpenSeconds { get; set; } = 60;
+
+        /// <summary>
         /// Lets the adapter editor build drafts that name packages in requirements.txt or
         /// package.json: the server then downloads them from PyPI and npm, or from the mirrors
         /// PIP_INDEX_URL and NPM_CONFIG_REGISTRY name. Off by default, since it needs the server to

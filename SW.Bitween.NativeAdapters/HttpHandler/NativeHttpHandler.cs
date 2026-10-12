@@ -7,8 +7,10 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters;
 
-public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHandler
+public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits? circuits = null) : INativeInfolinkHandler
 {
+    readonly DestinationCircuits circuits = circuits ?? DestinationCircuits.None;
+
     private HttpMethod HttpMethodFromString(string method)
     {
         switch (method.ToLower())
@@ -33,6 +35,24 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
         HttpClient client = httpProxy.GetClient(_options.Url);
+
+        Uri uri;
+        if (!string.IsNullOrEmpty(xchangeFile.Data) && _options.Url.Contains("{{"))
+        {
+            Template parsedTemplate = Template.Parse(_options.Url);
+            IDictionary<string, object> obj =
+                JsonConvert.DeserializeObject<IDictionary<string, object>>(xchangeFile.Data,
+                    new DictionaryConverter()) ?? new Dictionary<string, object>();
+            Hash jsonHash = Hash.FromDictionary(obj);
+            uri = new Uri(parsedTemplate.Render(jsonHash));
+            EnsureSameOrigin(_options.Url, uri);
+        }
+        else
+            uri = new Uri(_options.Url);
+
+        // Before signing in, so a destination whose circuit is open costs no login call either.
+        // Userinfo is left out of the key: it is a credential, and the key is logged.
+        using var pass = circuits.Enter($"{uri.Scheme}://{uri.Authority}");
 
         // Credentials go on this request, never on the client: the proxy shares one client per
         // origin across every subscription that calls it, so a default header set here was sent on
@@ -95,20 +115,6 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
                 break;
         }
 
-        Uri uri;
-        if (!string.IsNullOrEmpty(xchangeFile.Data) && _options.Url.Contains("{{"))
-        {
-            Template parsedTemplate = Template.Parse(_options.Url);
-            IDictionary<string, object> obj =
-                JsonConvert.DeserializeObject<IDictionary<string, object>>(xchangeFile.Data,
-                    new DictionaryConverter()) ?? new Dictionary<string, object>();
-            Hash jsonHash = Hash.FromDictionary(obj);
-            uri = new Uri(parsedTemplate.Render(jsonHash));
-            EnsureSameOrigin(_options.Url, uri);
-        }
-        else
-            uri = new Uri(_options.Url);
-
         var httpMethod = HttpMethodFromString(_options.Verb);
         HttpRequestMessage request = new HttpRequestMessage()
         {
@@ -129,15 +135,27 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy) : INativeInfolinkHan
         // The client is shared, so the timeout is this request's own rather than the client's.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds)));
         HttpResponseMessage response;
+        string resp;
         try
         {
             response = await client.SendAsync(request, timeout.Token);
+            resp = await response.Content.ReadAsStringAsync();
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested)
         {
+            pass.Failed();
             throw new TimeoutException($"{uri.GetLeftPart(UriPartial.Authority)} did not answer within {_options.TimeoutSeconds} seconds.");
         }
-        string resp = await response.Content.ReadAsStringAsync();
+        catch (Exception e)
+        {
+            pass.Failed(e);
+            throw;
+        }
+
+        if (DestinationCircuits.IsUnwell(response.StatusCode))
+            pass.Failed();
+        else
+            pass.Succeeded();
 
         // 408 and 429 mean "not now", not "this message is wrong": they fail the delivery, so a retry
         // policy can try again, instead of being recorded as a bad response nobody retries.

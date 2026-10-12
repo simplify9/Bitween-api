@@ -62,6 +62,14 @@ For `Error`, matchers look at the full exception text. For `BadResult`, they loo
 
 There is no status-code matcher. To match an HTTP status, use `contains` or `regex` on the exception text or body. The HTTP handler fails a delivery with `{code}: {name}: {body}`, as in `503: ServiceUnavailable: ...`, so `"503:"` matches one status and `"^5\\d\\d:"` (as a regex) any server error. Older versions carried only the name (`ServiceUnavailable: ...`); that text is still there, so matchers written against it keep working.
 
+### When a destination is paused
+
+The built-in HTTP, SMTP, SFTP and FTP handlers stop calling a destination for a while once it has failed several times in a row ([When a destination keeps failing](adapters.md#when-a-destination-keeps-failing)). Deliveries to it then fail at once with `503: ServiceUnavailable: circuit open for {destination} (...)`, as a `CircuitOpenException`, and go through the retry policy like any other failure.
+
+- A group that matches `"503:"` retries them. A group that matches only the original failure, such as `exceptionType` `TimeoutException` or `HttpRequestException`, does not, unless it also matches `"503:"` or `CircuitOpenException`.
+- Each one is an attempt, and counts against `maxAttemptsPerError` and `maxAttemptsTotal`. A delay shorter than the cool-down (`Bitween:CircuitBreakerOpenSeconds`, 60 seconds by default) spends attempts on a destination that is still paused, so give such groups a first delay of at least the cool-down.
+- They count towards a subscription's **Auto-pause** like any other failure, and arrive faster than the timeouts they replace.
+
 ### Delay strategies
 
 The index is 0 for the first retry.

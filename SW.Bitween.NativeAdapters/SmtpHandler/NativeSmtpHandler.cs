@@ -20,8 +20,10 @@ namespace SW.Bitween.NativeAdapters.SmtpHandler;
 /// out, a notifier on a failed exchange - which is why the subject and body are templated instead
 /// of the payload being emailed raw. A JSON blob in an inbox tells nobody anything.
 /// </remarks>
-public class NativeSmtpHandler : INativeInfolinkHandler
+public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeInfolinkHandler
 {
+    readonly DestinationCircuits circuits = circuits ?? DestinationCircuits.None;
+
     private SmtpHandlerInput _options = new();
 
     public string Name => "NativeSmtpHandler";
@@ -79,6 +81,24 @@ public class NativeSmtpHandler : INativeInfolinkHandler
             ? _options.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls
             : SecureSocketOptions.None;
 
+        // Admitted once the message is built: one that can't be built fails the same whether the relay is up or not.
+        using var pass = circuits.Enter($"smtp://{_options.Host}:{_options.Port}");
+        try
+        {
+            await Send(client, security, message);
+        }
+        catch (Exception e)
+        {
+            pass.Failed(e);
+            throw;
+        }
+        pass.Succeeded();
+
+        return new XchangeFile(subject, xchangeFile.Filename);
+    }
+
+    private async Task Send(SmtpClient client, SecureSocketOptions security, MimeMessage message)
+    {
         await client.ConnectAsync(_options.Host, _options.Port, security);
 
         // A relay that accepts unauthenticated mail from inside the network is a normal setup, so
@@ -98,8 +118,6 @@ public class NativeSmtpHandler : INativeInfolinkHandler
 
         await client.SendAsync(message);
         await client.DisconnectAsync(true);
-
-        return new XchangeFile(subject, xchangeFile.Filename);
     }
 
     private static void AddAddresses(InternetAddressList list, string? addresses)

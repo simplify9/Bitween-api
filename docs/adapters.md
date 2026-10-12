@@ -70,6 +70,29 @@ Sends the payload to an HTTP endpoint.
 | 4xx | Bad response. The body is kept and flagged, and retry policies see it as a `BadResult`. |
 | 5xx, or below 200 | The exchange fails with the status and body, so retry policies see it as an `Error`. |
 
+#### When a destination keeps failing
+
+Each Bitween process keeps a circuit breaker per destination: scheme, host and port, so `https://erp.example/orders` and `https://erp.example/invoices` share one, and every subscription calling that destination shares it too. It is there so one partner that stops answering does not take every place in the processing queue for its whole timeout while flows to healthy partners wait behind it.
+
+| Counts as a failure | Doesn't count |
+|---|---|
+| No answer within `TimeoutSeconds` | 2xx and 3xx, which reset the count |
+| Connection refused, reset or dropped | 4xx other than 429: the partner rejected this message, and other messages may be fine. These reset the count, as the partner answered. |
+| 429 | 501: the endpoint will never do what was asked, and waiting won't change that |
+| 500, 502, 503, 504 and any other 5xx but 501 | A failure before anything is sent, such as a URL template that doesn't render, or a sign-in (`Login`, `OAuth2`) that is refused |
+
+After `Bitween:CircuitBreakerFailures` failures in a row (5 by default) within `Bitween:CircuitBreakerWindowSeconds` (60), the circuit opens. For `Bitween:CircuitBreakerOpenSeconds` (60) every delivery to that destination fails at once, without signing in or sending anything, with:
+
+```
+503: ServiceUnavailable: circuit open for https://erp.example (5 failures in a row; trying again after 10:15:30Z)
+```
+
+The exception is a `CircuitOpenException`. The `503:` prefix is the one the handler uses for a real 503, so a retry policy that retries 503 retries these too; see [Retries and alerts](retries-and-alerts.md#when-a-destination-is-paused). After the cool-down one delivery is let through to try. If it succeeds, the circuit closes and deliveries flow again; if it fails, the circuit opens for another cool-down. While that trial is under way, other deliveries still fail at once. A 500 from one message the partner can't handle counts like any other, but takes a run of them with no success between to open the circuit.
+
+The circuit opening is logged as a warning, with the destination and the time it will try again, and closing as information. The `bitween.circuits.opened` counter, tagged with the destination, is exported with Bitween's other metrics.
+
+Each replica learns on its own, from its own calls, and forgets on restart. `Bitween:CircuitBreakerFailures` set to `0` switches the breaker off. See [Configuration](configuration.md).
+
 ### NativeSmtpHandler
 
 Sends an email built from the payload.
@@ -88,6 +111,8 @@ Sends an email built from the payload.
 | `CertificateThumbprint` | | The relay certificate's SHA-256 thumbprint, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before anything is sent. |
 
 Without a pinned thumbprint, server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
+
+A relay that keeps failing is paused as the HTTP handler pauses a partner ([When a destination keeps failing](#when-a-destination-keeps-failing)), keyed by `smtp://{Host}:{Port}`. Timeouts, dropped connections and a 421 reply count. A refused recipient, a bad template or a refused sign-in don't.
 
 ### NativeS3UploadHandler
 
@@ -118,6 +143,8 @@ Existing blobs are overwritten. The response file holds the blob name.
 ### NativeSftpUploadHandler and NativeFtpUploadHandler
 
 Upload the payload as a file, with open-source clients and no license: `NativeSftpUploadHandler` over SFTP (SSH.NET), `NativeFtpUploadHandler` over FTP or FTPS (FluentFTP). The file is named after the exchange file, or a UTC timestamp when it has no name, and a name from the message can't climb out of `TargetPath`.
+
+A server that keeps failing is paused as the HTTP handler pauses a partner ([When a destination keeps failing](#when-a-destination-keeps-failing)), keyed by `sftp://{Host}:{Port}` or `ftp://{Host}:{Port}`. Timeouts and refused, reset or dropped connections count. A refused sign-in, a missing directory or a refused write don't. The receivers, and the Rebex, S3 and Azure Blob adapters, have no breaker.
 
 | Property | Default | Notes |
 |---|---|---|

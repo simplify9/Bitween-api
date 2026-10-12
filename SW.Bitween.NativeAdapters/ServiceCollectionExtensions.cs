@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using SW.Bitween.NativeAdapters.AzureBlobReceiver;
 using SW.Bitween.NativeAdapters.AzureBlobUploadHandler;
 using SW.Bitween.NativeAdapters.HttpReceiver;
@@ -24,10 +26,21 @@ public static class ServiceCollectionExtensions
     /// Whether the HTTP adapters may reach private and loopback addresses; see
     /// <see cref="OutboundAddressGuard"/>. Link-local addresses are refused either way.
     /// </param>
+    /// <param name="circuitBreaker">
+    /// When a destination's circuit opens and for how long; see <see cref="DestinationCircuits"/>.
+    /// <see cref="CircuitBreakerSettings.Default"/> when not given.
+    /// </param>
     public static void AddNativeAdapters(this IServiceCollection serviceCollection,
         Func<IServiceProvider, string?>? rebexLicenseKey = null,
-        Func<IServiceProvider, bool>? blockPrivateNetworks = null)
+        Func<IServiceProvider, bool>? blockPrivateNetworks = null,
+        Func<IServiceProvider, CircuitBreakerSettings>? circuitBreaker = null)
     {
+        // One per process, so every adapter instance (they are scoped) learns from the others' calls.
+        serviceCollection.TryAddSingleton(sp => new DestinationCircuits(
+            circuitBreaker?.Invoke(sp) ?? CircuitBreakerSettings.Default,
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<DestinationCircuits>>()));
+
         serviceCollection.ConfigureHttpClientDefaults(builder =>
         {
             builder.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
