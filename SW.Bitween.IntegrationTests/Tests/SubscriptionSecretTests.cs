@@ -32,7 +32,8 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
     private static int _seq;
     private static string Unique(string prefix) => $"{prefix}-{Interlocked.Increment(ref _seq)}";
 
-    private async Task<(int subscriptionId, int documentId, int partnerId)> AnIntegrationWithASecret()
+    private async Task<(int subscriptionId, int documentId, int partnerId)> AnIntegrationWithASecret(
+        string handlerId = null)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -51,6 +52,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
             DocumentId = document.Id,
             PartnerId = partner.Id,
             Type = SubscriptionType.ApiCall,
+            HandlerId = handlerId,
             HandlerProperties =
             [
                 new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
@@ -61,7 +63,11 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
         return (id, document.Id, partner.Id);
     }
 
-    private async Task Update(int id, int documentId, int partnerId, params KeyAndValue[] handlerProperties)
+    private Task Update(int id, int documentId, int partnerId, params KeyAndValue[] handlerProperties) =>
+        UpdateWithHandler(id, documentId, partnerId, null, handlerProperties);
+
+    private async Task UpdateWithHandler(int id, int documentId, int partnerId, string handlerId,
+        params KeyAndValue[] handlerProperties)
     {
         await using var scope = fixture.CreateScope();
         scope.Superuser();
@@ -71,6 +77,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
             Name = Unique("Sends mail"),
             DocumentId = documentId,
             PartnerId = partnerId,
+            HandlerId = handlerId,
             HandlerProperties = handlerProperties,
         });
     }
@@ -117,6 +124,26 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
 
         Assert.False(properties.ContainsKey("Password"));
         Assert.Equal("smtp.attacker.example", properties["Host"]);
+    }
+
+    /// <summary>
+    /// Nor when the edit switches the adapter: the kept password would be handed to an adapter that
+    /// sends wherever its own settings say, by someone who never saw it.
+    /// </summary>
+    [Fact]
+    public async Task Switching_the_adapter_drops_the_kept_secret()
+    {
+        var (id, documentId, partnerId) = await AnIntegrationWithASecret("NativeSmtpHandler");
+
+        await UpdateWithHandler(id, documentId, partnerId, "NativeSmtpHandler",
+            new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+            new KeyAndValue { Key = "Password", Value = Sentinel });
+        Assert.Equal(RealPassword, (await StoredProperties(id))["Password"]);
+
+        await UpdateWithHandler(id, documentId, partnerId, "NativeHttpHandler",
+            new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+            new KeyAndValue { Key = "Password", Value = Sentinel });
+        Assert.False((await StoredProperties(id)).ContainsKey("Password"));
     }
 
     [Fact]
