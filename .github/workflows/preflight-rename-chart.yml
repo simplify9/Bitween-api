@@ -1,0 +1,35 @@
+# Throwaway: runs the develop pipeline's build, tests and chart publish against the shared workflow
+# from simplify9/.github#189 (rename-chart, run-tests without NuGet) before that PR merges.
+# No deploy, GHCR only. Deleted with its branch afterwards.
+name: Preflight rename-chart (temporary)
+on:
+  push:
+    branches: [musa/ci/preflight-rename-chart]
+permissions:
+  contents: write
+  packages: write
+  security-events: read
+jobs:
+  preflight:
+    uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@musa/service-cicd-chart-rename-and-tests
+    with:
+      major-version: '10'
+      minor-version: '0'
+      dotnet-version: '10.0.x'
+      dockerfile-path: './Dockerfile'
+      docker-context: '.'
+      docker-platforms: 'linux/amd64'
+      chart-name: 'bitween-develop'
+      chart-path: './charts/default'
+      rename-chart: true
+      chart-publish-method: 'github-oci'
+      container-registry: 'docker.io'
+      image-name: 'simplify9/bitween-develop'
+      run-tests: 'true'
+      test-projects: |
+        SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
+        SW.Bitween.IntegrationTests/SW.Bitween.IntegrationTests.csproj
+    secrets:
+      registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+      registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
