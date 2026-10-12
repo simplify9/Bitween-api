@@ -154,4 +154,21 @@ public class ConfigurationFileTests
         var receiving = new JsonObject { ["name"] = "Pickup", ["type"] = "Receiving", ["informationType"] = "Customer return" };
         Assert.AreEqual(0, new Subscriptions().Unresolved(receiving, (_, _) => true).Count());
     }
+
+    [TestMethod]
+    public void A_retry_budget_without_a_shared_total_is_turned_away_since_it_would_never_retry()
+    {
+        JsonObject Policy(JsonObject budget) => new()
+        {
+            ["name"] = "Partner outage",
+            ["groups"] = new JsonArray(new JsonObject { ["name"] = "down or slow", ["appliesTo"] = new JsonArray("Error"), ["budget"] = budget }),
+        };
+        var missing = new RetryPolicies().Unresolved(Policy(new JsonObject { ["maxAttemptsPerError"] = 6 }), (_, _) => true).ToList();
+        Assert.IsTrue(missing.Any(p => p.Contains("no retries at all")), string.Join("; ", missing));
+
+        Assert.AreEqual(0, new RetryPolicies().Unresolved(Policy(new JsonObject { ["maxAttemptsPerError"] = 6, ["maxAttemptsTotal"] = 500 }), (_, _) => true).Count());
+        // Null is no ceiling, and 0 written out is taken as meant.
+        Assert.AreEqual(0, new RetryPolicies().Unresolved(Policy(new JsonObject { ["maxAttemptsPerError"] = 6, ["maxAttemptsTotal"] = null }), (_, _) => true).Count());
+        Assert.AreEqual(0, new RetryPolicies().Unresolved(Policy(new JsonObject { ["maxAttemptsPerError"] = 6, ["maxAttemptsTotal"] = 0 }), (_, _) => true).Count());
+    }
 }

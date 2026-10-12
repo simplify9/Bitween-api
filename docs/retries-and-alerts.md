@@ -77,7 +77,7 @@ The index is 0 for the first retry.
 A budget sets two limits.
 
 - **`maxAttemptsPerError`** caps retries of one message. The count is the length of the exchange's retry chain.
-- **`maxAttemptsTotal`** is a total shared by every message of one subscription in one group. It is not a rolling window. It only resets when someone resets it or when the subscription next succeeds.
+- **`maxAttemptsTotal`** is a total shared by every message of one subscription in one group. It is not a rolling window. It only resets when someone resets it or when the subscription next succeeds. **Left out, it is 0, and the group retries nothing**, as stored policies always have; `null` means no shared ceiling. `bitween apply` refuses a budget that leaves it out.
 
 When a subscription succeeds, each of its budgets that was already exhausted before that exchange started is released. Partly spent budgets are left alone.
 

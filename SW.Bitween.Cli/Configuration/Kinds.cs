@@ -220,6 +220,21 @@ public class RetryPolicies : Kind
         return file;
     }
 
+    /// <summary>
+    /// A budget that leaves maxAttemptsTotal out allows no retries at all: Bitween reads a missing total as
+    /// zero, as stored policies always have. Written in a file that is never what was meant, so it is
+    /// refused; 0 written out, or null for no shared ceiling, is taken as said.
+    /// </summary>
+    public override IEnumerable<string> Unresolved(JsonObject want, Func<string, string, bool> known)
+    {
+        foreach (var problem in base.Unresolved(want, known)) yield return problem;
+        foreach (var group in (want["groups"] as JsonArray ?? []).OfType<JsonObject>())
+            if (group["budget"] is JsonObject budget && !string.Equals((string)group["action"], "Block", StringComparison.OrdinalIgnoreCase) &&
+                !budget.ContainsKey("maxAttemptsTotal"))
+                yield return $"groups: {Context.Quote((string)group["name"] ?? "(unnamed)")} has no budget.maxAttemptsTotal, which Bitween reads as no retries at all; " +
+                             "give the shared total, or null for no ceiling";
+    }
+
     protected override JsonObject UpdateBody(Context ctx, Existing have, JsonObject want)
     {
         var body = base.UpdateBody(ctx, have, want);
