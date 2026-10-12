@@ -52,6 +52,13 @@ public interface IKeepsBookmark
 /// </remarks>
 public interface IReceivesMappingContext { }
 
+/// <summary>
+/// Marks a handler that delivers Bitween's own notification messages, the Email, Teams and Slack
+/// channel types, rather than a document. It is chosen by picking that type for a notification
+/// channel, so it is kept out of every adapter picker, where it could only ever fail.
+/// </summary>
+public interface IChannelMessageAdapter { }
+
 public interface INativeInfolinkHandler : INativeAdapter, IInfolinkHandler { }
 public interface INativeInfolinkMapper : INativeAdapter, IInfolinkHandler { }
 public interface INativeInfolinkValidator : IInfolinkValidator, INativeAdapter { }

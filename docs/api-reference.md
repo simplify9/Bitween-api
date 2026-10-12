@@ -283,7 +283,8 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `GET /api/notificationchannels?lookup=true` | signed in. Ids and names only, for pickers. |
 | `POST /api/notificationchannels` | `notifiers.create`. `{ name, handlerId, handlerProperties }` |
 | `POST /api/notificationchannels/{id}` | `notifiers.edit`. A `__private__` value keeps the stored secret only while the adapter and where it connects stay the same. |
-| `DELETE /api/notificationchannels/{id}` | `notifiers.delete` |
+| `POST /api/notificationchannels/{id}/test` | `notifiers.edit`. Sends one made-up notification through the channel as saved. Returns `{ sent, error }`. |
+| `DELETE /api/notificationchannels/{id}` | `notifiers.delete`. Refused while a subscription still sends through it. |
 | `GET /api/notifiers`, `GET /api/notifiers/{id}` | `notifiers.view` |
 | `POST /api/notifiers` | `notifiers.create` |
 | `POST /api/notifiers/{id}` | `notifiers.edit` |

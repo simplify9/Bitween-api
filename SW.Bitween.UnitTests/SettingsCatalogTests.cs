@@ -24,6 +24,7 @@ public class SettingsCatalogTests
                 "Single sign-on (OpenID Connect)",
                 "Adapters",
                 "Marketplace",
+                "Mail server",
                 "Reliability & jobs",
                 "Messaging",
                 "Database",
@@ -109,5 +110,32 @@ public class SettingsCatalogTests
         Assert.AreEqual("X-Api-Key", target.Bitween.PartnerKeyHeader);
         // Already carries Bearer and Basic; a key sent in it would be read as one of those.
         Assert.ThrowsException<System.FormatException>(() => definition.Write(target, "Authorization"));
+    }
+
+    /// <summary>
+    /// The mail server is set once for every Email channel. It is read on each send, so it is an
+    /// edit like any other, and its password is stored the way the Rebex key is: encrypted.
+    /// </summary>
+    [TestMethod]
+    public void The_mail_server_is_editable_and_checks_what_it_is_given()
+    {
+        var mail = SettingsCatalog.All.Where(d => d.Section == "Mail server").ToDictionary(d => d.Key);
+
+        Assert.IsTrue(mail.Values.All(d => d.Access == SettingAccess.Editable));
+        CollectionAssert.AreEqual(new[] { "Bitween.MailServer.Password" },
+            mail.Values.Where(d => d.Secret).Select(d => d.Key).ToArray());
+        Assert.AreEqual("587", SettingsService.DefaultOf(mail["Bitween.MailServer.Port"]));
+        Assert.AreEqual("true", SettingsService.DefaultOf(mail["Bitween.MailServer.UseTls"]));
+
+        var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
+        Assert.ThrowsException<System.FormatException>(() => mail["Bitween.MailServer.Port"].Write(target, "70000"));
+        Assert.ThrowsException<System.FormatException>(() =>
+            mail["Bitween.MailServer.From"].Write(target, "Bitween <bitween@example.com>"));
+
+        mail["Bitween.MailServer.From"].Write(target, " bitween@example.com ");
+        Assert.AreEqual("bitween@example.com", target.Bitween.MailServer.From);
+        // Empty clears it, which is how an administrator stops Email channels sending.
+        mail["Bitween.MailServer.Host"].Write(target, "");
+        Assert.IsNull(target.Bitween.MailServer.Host);
     }
 }

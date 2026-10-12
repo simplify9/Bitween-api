@@ -29,9 +29,10 @@ public static class NotifierDelivery
     /// The same for any handler and payload, so a notification channel retries as a notifier does.
     /// </summary>
     /// <param name="fileName">What the handler's file is called: the exchange id, or the alert's own.</param>
+    /// <param name="attempts">One for a test someone is waiting on, who would rather hear at once.</param>
     public static async Task<Exception> SendAsync(IAdapterInvoker adapterInvoker, string handlerId,
         IReadOnlyDictionary<string, string> properties, object payload, string fileName, string xchangeId,
-        string correlationId)
+        string correlationId, int attempts = 3)
     {
         var handlerProperties = properties.ToDictionary();
         if (xchangeId != null) handlerProperties["xchangeid"] = xchangeId;
@@ -39,7 +40,7 @@ public static class NotifierDelivery
         // A couple of quick retries for a mail server that hiccups; a send that failed used to be
         // recorded and never tried again.
         Exception lastError = null;
-        for (var attempt = 0; attempt < 3; attempt++)
+        for (var attempt = 0; attempt < attempts; attempt++)
         {
             if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(attempt * 2));
             try

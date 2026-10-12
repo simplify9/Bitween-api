@@ -388,7 +388,148 @@ public class NotificationChannelTests(BitweenFixture fixture)
         Assert.Contains("FormatException", row.Exception);
     }
 
+    [Fact]
+    public async Task The_test_button_sends_through_the_channel_and_says_whether_it_went()
+    {
+        var subject = "{{ SubscriptionName }} from " + Unique("test button");
+        var working = await Create(Unique("Testable"), MailHog(subject));
+        var broken = MailHog(subject);
+        // Nothing listens on port 1, so the connection is refused at once.
+        broken["Port"] = "1";
+        var refused = await Create(Unique("Untestable"), broken);
+
+        var sent = await TestChannel(working);
+        Assert.True(sent.Sent);
+        Assert.Null(sent.Error);
+        // A template written against the notification's fields is part of what is tested.
+        Assert.Single(await Mailed(subject.Replace("{{ SubscriptionName }}", "Test notification")));
+
+        var failed = await TestChannel(refused);
+        Assert.False(failed.Sent);
+        Assert.False(string.IsNullOrWhiteSpace(failed.Error));
+        // The reason alone, not a stack trace, because it is shown to whoever pressed the button.
+        Assert.DoesNotContain("   at ", failed.Error);
+
+        // Nothing to record it against, so the history stays clean.
+        Assert.Empty(await Sends(working));
+        Assert.Empty(await Sends(refused));
+    }
+
+    [Fact]
+    public async Task A_failure_reaches_an_email_channel_as_a_message_bitween_writes()
+    {
+        var channelId = await Create(Unique("Email channel"),
+            new Dictionary<string, string> { ["To"] = "ops@example.com" }, "NativeEmailMessageHandler");
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+        var subscriptionName = (await ReadSubscription(subscriptionId)).Name;
+        var xchangeId = await FinishedExchange(subscriptionId, failed: true, exception: "<b>Timed out</b> after 30s");
+
+        await ProcessResult(xchangeId);
+
+        var mail = Assert.Single(await Mailed($"{subscriptionName} failed"));
+        Assert.Equal("bitween@example.com", mail.From.Mailboxes.Single().Address);
+        Assert.Equal("ops@example.com", mail.To.Mailboxes.Single().Address);
+        // The error is text from somewhere else, so it is shown, not obeyed.
+        Assert.Contains("&lt;b&gt;Timed out&lt;/b&gt;", mail.HtmlBody);
+        Assert.Contains($"https://bitween.test/exchanges?ids={xchangeId}", mail.HtmlBody);
+        Assert.Contains("Timed out", mail.TextBody);
+    }
+
+    [Fact]
+    public async Task Global_values_and_the_partners_own_properties_are_filled_into_a_channel()
+    {
+        var setId = Unique("mail-values");
+        var subject = Unique("Filled subject");
+        var partnerContact = $"{Unique("contact")}@example.com";
+        Partner partner;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(new GlobalAdapterValuesSet { Id = setId, Name = setId, Values = new() { ["team"] = "team@example.com" } });
+            partner = new Partner(Unique("Notified partner"))
+            {
+                AdapterProperties = new Dictionary<string, string> { ["CONTACT"] = partnerContact }
+            };
+            db.Add(partner);
+            await db.SaveChangesAsync();
+            scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        }
+
+        // One channel, written once: the shared address from a global value set, and whoever the
+        // reported exchange's partner names as its contact.
+        var properties = MailHog(subject);
+        properties["To"] = "{{partner.CONTACT}}";
+        properties["Cc"] = $"{{{{globals.{setId}.team}}}}";
+        var channel = await Stored(await Create(Unique("Filled channel"), properties));
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var error = await scope.ServiceProvider.GetRequiredService<NotificationChannelSender>()
+                .Send(channel, new XchangeResultNotification { Id = "x", SubscriptionName = "Orders" }, "x", null, partner);
+            Assert.Null(error);
+        }
+
+        var mail = Assert.Single(await Mailed(subject));
+        Assert.Equal(partnerContact, mail.To.Mailboxes.Single().Address);
+        Assert.Equal("team@example.com", mail.Cc.Mailboxes.Single().Address);
+    }
+
+    [Fact]
+    public async Task An_email_channel_without_anyone_to_send_to_is_refused()
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() =>
+            Create(Unique("Nobody"), [], "NativeEmailMessageHandler"));
+        Assert.Contains("CHANNEL_SETTINGS_MISSING", ex.Message);
+        Assert.Contains("To", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_chat_webhook_has_to_be_https()
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Create(Unique("Plain webhook"),
+            new Dictionary<string, string> { ["WebhookUrl"] = "http://hooks.slack.test/x" }, "NativeSlackMessageHandler"));
+        Assert.Contains("CHANNEL_WEBHOOK_NOT_HTTPS", ex.Message);
+    }
+
     private static string Token(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
+
+    /// <summary>The SMTP adapter pointed at MailHog, with a subject of its own so a test finds its mail.</summary>
+    private Dictionary<string, string> MailHog(string subject) => new()
+    {
+        ["Host"] = "localhost",
+        ["Port"] = fixture.MailHogSmtpPort.ToString(),
+        ["UseTls"] = "false",
+        ["From"] = "bitween@example.com",
+        ["To"] = "ops@example.com",
+        ["Subject"] = subject,
+        ["Body"] = "Exchange {{ Id }}"
+    };
+
+    private async Task<List<MimeKit.MimeMessage>> Mailed(string subject)
+    {
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var messages = System.Text.Json.JsonDocument.Parse(
+            await http.GetStringAsync($"{fixture.MailHogApi}/api/v2/messages?limit=250"));
+        var found = new List<MimeKit.MimeMessage>();
+        foreach (var item in messages.RootElement.GetProperty("items").EnumerateArray())
+        {
+            var raw = item.GetProperty("Raw").GetProperty("Data").GetString()!;
+            var message = await MimeKit.MimeMessage.LoadAsync(
+                new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(raw)));
+            if (message.Subject == subject) found.Add(message);
+        }
+        return found;
+    }
+
+    private async Task<NotificationChannelTestResult> TestChannel(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (NotificationChannelTestResult)await ActivatorUtilities
+            .CreateInstance<Resources.NotificationChannels.Test>(scope.ServiceProvider)
+            .Handle(id, new NotificationChannelTest());
+    }
 
     /// <summary>A channel whose messages the test responder counts under <paramref name="token"/>.</summary>
     private async Task<int> RecordingChannel(string token, Dictionary<string, string> extra = null)
@@ -441,7 +582,8 @@ public class NotificationChannelTests(BitweenFixture fixture)
             .Handle(subscriptionId, model);
     }
 
-    private async Task<string> FinishedExchange(int subscriptionId, bool failed)
+    private async Task<string> FinishedExchange(int subscriptionId, bool failed,
+        string exception = "System.Exception: the partner is down")
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -450,7 +592,7 @@ public class NotificationChannelTests(BitweenFixture fixture)
             .CreateXchange(subscription, new XchangeFile("{}"));
         await db.SaveChangesAsync();
         db.Add(new XchangeResult(xchange.Id, null, null,
-            exception: failed ? "System.Exception: the partner is down" : null));
+            exception: failed ? exception : null));
         await db.SaveChangesAsync();
         return xchange.Id;
     }

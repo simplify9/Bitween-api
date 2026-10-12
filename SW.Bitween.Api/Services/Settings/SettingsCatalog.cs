@@ -284,6 +284,65 @@ public static class SettingsCatalog
             t => Str(t.Bitween.RegistryAllowCommunity),
             (t, v) => t.Bitween.RegistryAllowCommunity = Bool(v)),
 
+        // --- Mail server ---
+        // Shared by every Email notification channel, which then only names its recipients. The
+        // Email adapter reads these on each send, so a change applies to the next email.
+        new("Bitween.MailServer.Host", "Mail server",
+            "Server",
+            "The SMTP server Email notification channels send through, e.g. smtp.office365.com. While it's empty, Email channels can't send.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.Host,
+            (t, v) => t.Bitween.MailServer.Host = Trimmed(v)),
+
+        new("Bitween.MailServer.Port", "Mail server",
+            "Port",
+            "587 for STARTTLS, 465 for SSL, 25 for an internal relay without encryption.",
+            SettingKind.Number, false,
+            t => t.Bitween.MailServer.Port.ToString(CultureInfo.InvariantCulture),
+            (t, v) => t.Bitween.MailServer.Port = Port(v)),
+
+        new("Bitween.MailServer.UseTls", "Mail server",
+            "Encrypt the connection",
+            "Uses STARTTLS or SSL, whichever the port calls for. Turn it off only for an internal relay without TLS; a password is then never sent.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.MailServer.UseTls),
+            (t, v) => t.Bitween.MailServer.UseTls = Bool(v)),
+
+        new("Bitween.MailServer.CertificateThumbprint", "Mail server",
+            "Certificate thumbprint",
+            "The SHA-256 thumbprint of the server's certificate, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused. Leave it empty for a server with a valid certificate.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.CertificateThumbprint,
+            (t, v) => t.Bitween.MailServer.CertificateThumbprint = Trimmed(v)),
+
+        new("Bitween.MailServer.Username", "Mail server",
+            "Username",
+            "The account to sign in as. Leave it empty to sign in as the From address, or for a relay that needs no sign-in.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.Username,
+            (t, v) => t.Bitween.MailServer.Username = Trimmed(v)),
+
+        new("Bitween.MailServer.Password", "Mail server",
+            "Password",
+            "The password for that account. Leave it empty for a relay that needs no sign-in.",
+            SettingKind.String, true,
+            t => t.Bitween.MailServer.Password,
+            (t, v) => t.Bitween.MailServer.Password = v),
+
+        new("Bitween.MailServer.From", "Mail server",
+            "From address",
+            "The address notification emails come from, e.g. bitween@acme.com.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.From,
+            (t, v) => t.Bitween.MailServer.From = EmailAddress(v)),
+
+        new("Bitween.MailServer.FromName", "Mail server",
+            "From name",
+            "Shown beside the From address, e.g. Bitween alerts.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.FromName,
+            (t, v) => t.Bitween.MailServer.FromName = Trimmed(v)),
+
         // --- Reliability & jobs ---
         new("Bitween.MaxRetryAfterSeconds", "Reliability & jobs",
             "Longest wait an adapter can ask for (seconds)",
@@ -536,4 +595,22 @@ public static class SettingsCatalog
     /// <summary>Empty clears it. Otherwise an absolute http(s) address with nothing after the host and path.</summary>
     private static int? NullableInt(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : Int(value);
+
+    private static int Port(string value) =>
+        Int(value) is var parsed and >= 1 and <= 65535
+            ? parsed
+            : throw new FormatException($"'{value}' isn't a port. Use a number from 1 to 65535.");
+
+    /// <summary>Empty clears it.</summary>
+    private static string Trimmed(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>Empty clears it. Otherwise one plain address, without the display name, which has a setting of its own.</summary>
+    private static string EmailAddress(string value)
+    {
+        var address = Trimmed(value);
+        if (address == null) return null;
+        return MimeKit.MailboxAddress.TryParse(address, out var parsed) && parsed.Address == address
+            ? address
+            : throw new FormatException($"'{address}' isn't an email address.");
+    }
 }

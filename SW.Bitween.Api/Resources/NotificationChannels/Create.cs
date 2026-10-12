@@ -15,6 +15,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext, I
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Notifiers.Create);
         await ChannelValidation.EnsureNameIsFree(dbContext, request.Name);
         ChannelValidation.EnsureTransportIsSecure(request.HandlerId, request.HandlerProperties);
+        ChannelValidation.EnsureWebhookIsHttps(request.HandlerId, request.HandlerProperties);
 
         // A new channel has nothing stored behind a sentinel, so one that arrives (from a channel
         // copied out of Get, say) is dropped rather than saved as the literal password.

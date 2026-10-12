@@ -32,6 +32,17 @@ namespace SW.Bitween.Model
         public List<NotificationChannelUse> UsedBy { get; set; } = [];
     }
 
+    /// <summary>Sends a made-up notification through the channel as it is saved. Carries nothing.</summary>
+    public class NotificationChannelTest { }
+
+    public class NotificationChannelTestResult
+    {
+        public bool Sent { get; set; }
+
+        /// <summary>Why it was not sent, in the words of whatever refused it. Null when it was.</summary>
+        public string? Error { get; set; }
+    }
+
     public enum NotificationChannelUseKind
     {
         /// <summary>A subscription's own notifications when its exchanges finish.</summary>

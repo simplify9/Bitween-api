@@ -19,6 +19,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
 
         await ChannelValidation.EnsureNameIsFree(dbContext, request.Name, key);
         ChannelValidation.EnsureTransportIsSecure(request.HandlerId, request.HandlerProperties);
+        ChannelValidation.EnsureWebhookIsHttps(request.HandlerId, request.HandlerProperties);
 
         // A hidden secret is put back only while the adapter, and where it connects, stay the same.
         // Otherwise someone who can edit but not see the password could point the channel at their

@@ -5,7 +5,9 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
+using SW.Bitween.NativeAdapters.SlackMessageHandler;
 using SW.Bitween.NativeAdapters.SmtpHandler;
+using SW.Bitween.NativeAdapters.TeamsMessageHandler;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.NotificationChannels;
@@ -44,6 +46,29 @@ internal static class ChannelValidation
         throw new SWValidationException("CHANNEL_PASSWORD_WITHOUT_TLS",
             "This channel would send its mail password over an unencrypted connection. " +
             "Turn UseTls on, or clear the password if the server does not need one.");
+    }
+
+    /// <summary>
+    /// Refuses a Teams or Slack webhook that is not a full https address. Both services only hand
+    /// out https ones, and anything else would carry the message, and the address that lets anyone
+    /// post to the channel, in the clear.
+    /// </summary>
+    /// <remarks>
+    /// A reference to a global value is let through, as is the mask of a stored address: the value
+    /// it stands for is checked when it is sent.
+    /// </remarks>
+    public static void EnsureWebhookIsHttps(string handlerId, IReadOnlyDictionary<string, string> properties)
+    {
+        if (!nameof(NativeTeamsMessageHandler).Equals(handlerId, StringComparison.OrdinalIgnoreCase) &&
+            !nameof(NativeSlackMessageHandler).Equals(handlerId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var url = Value(properties ?? new Dictionary<string, string>(), nameof(TeamsMessageInput.WebhookUrl));
+        if (string.IsNullOrWhiteSpace(url) || url == AdapterSecretProperties.Sentinel || url.Contains("{{")) return;
+
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw new SWValidationException("CHANNEL_WEBHOOK_NOT_HTTPS",
+                "The webhook address has to be a full https:// address, copied from Teams or Slack.");
     }
 
     /// <summary>
