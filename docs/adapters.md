@@ -487,6 +487,12 @@ install is in the audit trail as an `AdapterRelease` with the action `installed`
 A card says **Installed** when this Bitween has the registry's newest version, and **Update available**
 when it has an older one. Nothing is updated by itself.
 
+The data source providers (Oracle, PostgreSQL, MySQL, SQL Server, RabbitMQ and Amazon SQS) are on the
+marketplace too, published by Simplify9 under their own ids, such as `bitween.db.oracle`, which data
+sources refer to. They are the one exception to `REGISTRY_ID_TAKEN`: one installed by hand from a CLI
+release was Simplify9's as well, so the registry's version upgrades it. `scripts/publish-providers-to-registry.sh`
+builds all six with a release's version and publishes them for review.
+
 ### Writing an adapter in Bitween
 
 Python, JavaScript and TypeScript adapters can be written in Bitween itself, without the CLI.

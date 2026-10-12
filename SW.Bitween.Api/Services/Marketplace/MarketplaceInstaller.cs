@@ -69,7 +69,7 @@ public class MarketplaceInstaller(
             throw new SWValidationException("ADAPTER_NEEDS_NEWER_BITWEEN",
                 $"{packageId} {version} needs Bitween {needs} or later; this is {BitweenInfo.Version(options)}.");
 
-        await EnsureIdIsOurs(packageId, version);
+        await EnsureIdIsOurs(packageId, version, IsBitweensOwn(packageId, detail));
         await EnsureNotRevoked(trusted, packageId, version, detail.Sha256);
 
         var package = await registry.DownloadAsync(packageId, version);
@@ -85,23 +85,34 @@ public class MarketplaceInstaller(
     }
 
     /// <summary>
-    /// Refuses an id this Bitween already has from somewhere other than a registry, so a registry
-    /// package can never take the place of an adapter someone published here.
+    /// Bitween's own packages, the data source providers, which Simplify9 publishes under their
+    /// historic <c>bitween.</c> ids. An instance installed them by hand from a CLI release before the
+    /// marketplace existed, so a registry version may follow one installed that way.
     /// </summary>
-    async Task EnsureIdIsOurs(string packageId, string version)
+    public static bool IsBitweensOwn(string packageId, RegistryVersion detail) =>
+        packageId.StartsWith("bitween.", StringComparison.Ordinal)
+        && string.Equals(detail.Publisher, "s9", StringComparison.Ordinal)
+        && string.Equals(detail.Tier, "Official", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Refuses an id this Bitween already has from somewhere other than a registry, so a registry
+    /// package can never take the place of an adapter someone published here. Bitween's own
+    /// packages are the exception: what was installed by hand was Simplify9's too.
+    /// </summary>
+    async Task EnsureIdIsOurs(string packageId, string version, bool bitweensOwn)
     {
         var entry = await catalog.GetAsync(packageId);
         if (entry == null)
         {
             // An adapter published before catalogs has a package and no entry.
             var legacy = await cloudFiles.ListAsync(AdapterCatalogPaths.Current(serverlessOptions.AdapterRemotePath, packageId));
-            if (legacy.Any())
+            if (legacy.Any() && !bitweensOwn)
                 throw new SWValidationException("REGISTRY_ID_TAKEN",
                     $"This Bitween already has an adapter named {packageId} that didn't come from the registry.");
             return;
         }
 
-        if (entry.Extensions == null || !entry.Extensions.ContainsKey(OriginExtension))
+        if (!bitweensOwn && (entry.Extensions == null || !entry.Extensions.ContainsKey(OriginExtension)))
             throw new SWValidationException("REGISTRY_ID_TAKEN",
                 $"This Bitween already has an adapter named {packageId} that didn't come from the registry.");
         if (entry.Find(version) != null)

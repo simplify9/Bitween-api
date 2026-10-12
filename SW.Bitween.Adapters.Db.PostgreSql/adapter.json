@@ -3,5 +3,18 @@
   "version": "1.0.0",
   "displayName": "PostgreSQL",
   "summary": "A PostgreSQL database as a data source: its named statements, read from and written to.",
-  "lifecycle": "resident"
+  "lifecycle": "resident",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "AGPL-3.0-only",
+  "categories": [
+    "Data sources"
+  ],
+  "compatibility": {
+    "applications": {
+      "bitween": "10.0.0"
+    }
+  }
 }

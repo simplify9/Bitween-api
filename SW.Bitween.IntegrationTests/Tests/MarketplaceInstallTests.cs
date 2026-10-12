@@ -259,6 +259,25 @@ public class MarketplaceInstallTests(BitweenFixture fixture) : IDisposable
         Assert.Equal("0.9.0", (await Installed(l.Id)).Current);
     }
 
+    /// <summary>
+    /// The data source providers were installed by hand from CLI releases before the marketplace;
+    /// Simplify9's registry version of one follows it rather than being refused.
+    /// </summary>
+    [Fact]
+    public async Task Bitweens_own_package_installed_by_hand_is_upgraded_from_the_registry()
+    {
+        var l = NewListing();
+        l.Id = $"bitween.db.test{Interlocked.Increment(ref _seq)}";
+        l.Version = "2.0.0";
+        await using (var scope = fixture.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<AdapterWorkshop>()
+                .UploadAsync(new MemoryStream(PythonPackage(l.Id, "1.0.0", "1.0.0")), "1.0.0", true, null, "cli release");
+        Serve(l);
+
+        Assert.Equal("2.0.0", (await Install(l)).Version);
+        Assert.Equal("2.0.0", (await Installed(l.Id)).Current);
+    }
+
     [Fact]
     public async Task Turned_off_nothing_is_fetched()
     {
