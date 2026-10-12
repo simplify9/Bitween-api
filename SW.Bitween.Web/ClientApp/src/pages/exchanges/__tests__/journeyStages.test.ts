@@ -29,11 +29,11 @@ describe("journeyStages labels", () => {
     ]);
   });
 
-  it("does not claim a Processing exchange was mapped or handled", () => {
+  it("does not claim a Processing exchange was mapped or handled, nor that both stages run at once", () => {
     expect(labels(row("processing"))).toEqual([
       "Received:done",
       "Mapping:running",
-      "Handling:running",
+      "Handling:notReached",
     ]);
   });
 

@@ -37,7 +37,7 @@ const STRIP_COLORS: Record<StageState, string> = {
   bad: "bg-warn-400",
   failed: "bg-danger-600",
   skipped: "bg-ink-200",
-  running: "bg-ink-400 animate-pulse",
+  running: "journey-running",
   notReached: "bg-ink-100",
 };
 

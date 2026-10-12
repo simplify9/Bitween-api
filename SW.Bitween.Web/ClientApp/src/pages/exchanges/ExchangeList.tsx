@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import type { ExchangeRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { Badge } from "../../components/ui/basics";
@@ -9,8 +10,25 @@ import { PromotedProps } from "../../components/config/shared";
 import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
 import { duration, formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { hasRetryChain, retryTreeQuery } from "./retryTree";
-import { journeySummary } from "./journey";
+import { journeyStages, journeySummary } from "./journey";
 import { JourneyStrip, StatusBadge } from "./shared";
+
+/**
+ * Where an exchange got to: the three-segment strip and the phrase under it. While a stage is
+ * underway the phrase gets a spinner, so "Mapping now" reads as happening rather than as a label.
+ */
+function PipelineCell({ x }: { x: ExchangeRow }) {
+  const running = journeyStages(x).some((s) => s.state === "running");
+  return (
+    <span className="flex flex-col gap-1">
+      <JourneyStrip x={x} />
+      <span className={`inline-flex items-center gap-1 text-[11px] whitespace-nowrap ${running ? "font-medium text-ink-700" : "text-ink-500"}`}>
+        {running && <Loader2 className="size-3 animate-spin text-focus-500" aria-hidden />}
+        {journeySummary(x)}
+      </span>
+    </span>
+  );
+}
 
 /** Whether the window is narrow enough for cards. Off where it can't be asked, as in tests. */
 function useNarrow(): boolean {
@@ -129,7 +147,7 @@ export function ExchangeList({
               </Can>
             </th>
             <th className="px-3 py-2 font-medium">Exchange</th>
-            <th className="px-3 py-2 font-medium">Status</th>
+            <th className="px-3 py-2 font-medium">{compact ? "Status and pipeline" : "Status"}</th>
             {!compact && <th className="px-3 py-2 font-medium">Pipeline</th>}
             {!compact && <th className="px-3 py-2 font-medium">Route</th>}
             <th className="py-2 pr-4 pl-3 text-right font-medium">Started</th>
@@ -173,7 +191,14 @@ export function ExchangeList({
                       >
                         {x.informationTypeCode}
                       </Link>
-                      {compact && x.subscriptionName && <span className="truncate">· {x.subscriptionName}</span>}
+                      {/* Beside the open exchange there is no Route column, so the route rides
+                          along here instead of disappearing. */}
+                      {compact && (
+                        <span className="min-w-0 truncate">
+                          · {x.subscriptionName ?? "No subscription"}
+                          {x.partnerName && <span className="text-ink-400"> · {x.partnerName}</span>}
+                        </span>
+                      )}
                     </span>
                     {x.exception && (
                       <ExceptionLine text={x.exception} className={`max-w-full font-mono text-[11.5px] ${errorTone(x)}`} />
@@ -187,13 +212,16 @@ export function ExchangeList({
                     <StatusBadge status={x.status} />
                     {markers(x)}
                   </span>
+                  {/* And the pipeline, under the status it explains. */}
+                  {compact && (
+                    <span className="mt-1.5 block">
+                      <PipelineCell x={x} />
+                    </span>
+                  )}
                 </td>
                 {!compact && (
                   <td className={cell}>
-                    <span className="flex flex-col gap-1">
-                      <JourneyStrip x={x} />
-                      <span className="text-[11px] whitespace-nowrap text-ink-500">{journeySummary(x)}</span>
-                    </span>
+                    <PipelineCell x={x} />
                   </td>
                 )}
                 {!compact && (

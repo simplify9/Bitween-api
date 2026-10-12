@@ -230,6 +230,41 @@ describe("the open exchange", () => {
     expect(screen.queryByRole("complementary", { name: /^Exchange / })).not.toBeInTheDocument();
   });
 
+  it("keeps the route and the pipeline in the narrowed list, folded into the columns that remain", async () => {
+    const api = backend();
+    const { user } = renderApp("/exchanges", { handlers: api.handlers });
+
+    await user.click((await screen.findAllByRole("row"))[2]);
+    await screen.findByRole("complementary", { name: `Exchange ${id(1)}` });
+
+    const row = screen.getAllByRole("row")[1];
+    expect(screen.getByRole("columnheader", { name: "Status and pipeline" })).toBeVisible();
+    expect(within(row).getByText(/· Push orders/)).toBeVisible();
+    expect(within(row).getByText("Failed while mapping")).toBeVisible();
+  });
+
+  it("shows a stage in progress as one, in the list and in the open exchange", async () => {
+    const running = { status: null, finishedOn: null, exception: null, inputKey: "in-1", inputFileName: "in.json", inputFileSize: 4 };
+    const api = backend({ rows: 0 });
+    const { user } = renderApp("/exchanges", {
+      handlers: [
+        http.get(apiPath("/xchanges"), () => HttpResponse.json({ result: [exchange(0, running)], totalCount: 1 })),
+        http.get(apiPath("/bitweendocs"), () => HttpResponse.json({ key: "in-1", data: "{}" })),
+        ...api.handlers.slice(1),
+      ],
+    });
+
+    const row = (await screen.findAllByRole("row"))[1];
+    expect(within(row).getByText("Mapping now")).toBeVisible();
+    // The strip's running segment is the striped, moving one.
+    expect(row.querySelector(".journey-running")).toBeInTheDocument();
+
+    await user.click(row);
+    const panel = await screen.findByRole("complementary", { name: `Exchange ${id(0)}` });
+    expect(within(panel).getByText("In progress")).toBeVisible();
+    expect(within(panel).getByText("Mapping now. Its document shows here when it finishes.")).toBeVisible();
+  });
+
   it("moves through the list with J and K, and ticks the open one with X", async () => {
     const api = backend();
     const { user } = renderApp("/exchanges", { handlers: api.handlers });

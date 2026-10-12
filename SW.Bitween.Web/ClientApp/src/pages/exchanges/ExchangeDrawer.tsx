@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, Play, RotateCcw } from "lucide-react";
+import { Download, FileText, Loader2, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button } from "../../components/ui/basics";
@@ -23,7 +23,16 @@ const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNod
   bad: { ring: "border-warn-100", badge: <Badge tone="warn">Bad response</Badge> },
   failed: { ring: "border-danger-200", badge: <Badge tone="danger">Failed</Badge> },
   skipped: { ring: "border-ink-100 border-dashed", badge: <Badge>Skipped</Badge> },
-  running: { ring: "border-ink-200", badge: <Badge tone="ink">Running</Badge> },
+  // Spinner and the focus blue, like the list's striped bar: underway, no outcome yet.
+  running: {
+    ring: "border-focus-400",
+    badge: (
+      <span className="inline-flex items-center gap-1 rounded-md bg-focus-100 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-ink-800">
+        <Loader2 className="size-3 animate-spin text-focus-500" aria-hidden />
+        In progress
+      </span>
+    ),
+  },
   notReached: { ring: "border-ink-100", badge: <Badge>Not reached</Badge> },
 };
 
@@ -252,7 +261,11 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
                 onClick={() => file?.key && setStage(s.key)}
                 title={file?.key ? `Show the ${s.key} document` : (s.note ?? "No document")}
                 className={`w-full min-w-0 rounded-xl border bg-white px-3 py-2 text-left transition-colors ${tone.ring} ${
-                  file?.key ? "cursor-pointer hover:bg-ink-50" : "cursor-default bg-ink-50/50 opacity-80"
+                  file?.key
+                    ? "cursor-pointer hover:bg-ink-50"
+                    : s.state === "running"
+                      ? "cursor-default bg-focus-100/40"
+                      : "cursor-default bg-ink-50/50 opacity-80"
                 } ${active ? "border-crimson-300 ring-2 ring-crimson-100" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -267,7 +280,9 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
                       <span className="shrink-0 text-ink-500">· {kb(file.size)}</span>
                     </>
                   ) : (
-                    <span className="text-ink-500">{s.note ?? "No document"}</span>
+                    <span className={s.state === "running" ? "text-ink-700" : "text-ink-500"}>
+                      {s.state === "running" ? `${s.note}. Its document shows here when it finishes.` : (s.note ?? "No document")}
+                    </span>
                   )}
                 </div>
               </button>

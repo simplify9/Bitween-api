@@ -113,6 +113,28 @@
   }
 }
 
+/* ── A pipeline stage still in progress ───────────────────────────────────────
+   A pulse on grey read as "faded", not "working": nothing about it said a stage was underway.
+   Stripes that move along the bar are what a progress bar looks like everywhere else, and the
+   focus blue is the one colour here that means neither a result nor a brand - a stage in
+   progress has no outcome yet. Held still for anyone who asked their system for less motion. */
+.journey-running {
+  background-color: var(--color-focus-400);
+  background-image: repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.5) 0 4px, transparent 4px 8px);
+  background-size: 11.314px 11.314px;
+  animation: journey-running 0.9s linear infinite;
+}
+@keyframes journey-running {
+  to {
+    background-position: 11.314px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-running {
+    animation: none;
+  }
+}
+
 /* ── Colouring a JSON or XML document ─────────────────────────────────────────
    The classes highlight.js emits, in this app's palette rather than one of its
    own themes - those assume a background of their own, and these documents are

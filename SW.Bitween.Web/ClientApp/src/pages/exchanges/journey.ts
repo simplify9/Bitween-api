@@ -28,7 +28,7 @@ export function journeyStages(x: ExchangeRow): JourneyStage[] {
     : x.files.mapped
       ? { key: "Mapped", state: "done" }
       : x.status === "processing"
-        ? { key: "Mapped", state: "running" }
+        ? { key: "Mapped", state: "running", note: "Mapping now" }
         : x.status === "failed"
           ? { key: "Mapped", state: "failed", note: "Failed while mapping" }
           : { key: "Mapped", state: "notReached" };
@@ -36,13 +36,17 @@ export function journeyStages(x: ExchangeRow): JourneyStage[] {
   const handlerReached = !(mapped.state === "failed");
   const handled: Omit<JourneyStage, "label"> = !handlerReached
     ? { key: "Handled", state: "notReached", note: "Never reached" }
-    : x.status === "success"
+    : // One stage runs at a time: while mapping is underway the handler has not started, and
+      // showing both as running put two spinners on one piece of work.
+      mapped.state === "running"
+      ? { key: "Handled", state: "notReached", note: "Not reached yet" }
+      : x.status === "success"
       ? { key: "Handled", state: "done" }
       : x.status === "badResponse"
         ? { key: "Handled", state: "bad", note: "Delivered, but the response reports an error" }
         : x.status === "failed"
           ? { key: "Handled", state: "failed", note: "Failed while handling" }
-          : { key: "Handled", state: "running" };
+          : { key: "Handled", state: "running", note: "Handling now" };
 
   return [{ key: "Input", state: "done" } as Omit<JourneyStage, "label">, mapped, handled].map(
     (s) => ({ ...s, label: stageLabel(s.key, s.state) }),
