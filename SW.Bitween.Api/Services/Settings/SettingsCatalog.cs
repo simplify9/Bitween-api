@@ -196,6 +196,10 @@ public static class SettingsCatalog
             "How long a custom adapter may run before the serverless runner gives up on it.",
             SettingKind.Number, t => t.Bitween.ServerlessCommandTimeout.ToString(CultureInfo.InvariantCulture)),
 
+        View("Bitween.NativeAdapterTimeout", "Adapters", "Built-in adapter timeout (seconds)",
+            "How long one call to a built-in adapter may take before the exchange fails as a timeout. 0 for no limit.",
+            SettingKind.Number, t => t.Bitween.NativeAdapterTimeout.ToString(CultureInfo.InvariantCulture)),
+
         // --- Reliability & jobs ---
         new("Bitween.RetryJobCron", "Reliability & jobs",
             "Retry poll schedule",

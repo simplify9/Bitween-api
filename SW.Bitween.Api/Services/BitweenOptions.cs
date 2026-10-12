@@ -14,6 +14,7 @@ namespace SW.Bitween
             DatabaseType = "MySql";
             AdminDatabaseName = "defaultdb";
             ServerlessCommandTimeout = 300;
+            NativeAdapterTimeout = 900;
             BusProvidersEnabled = false;
             BusProviderMaxInFlight = 16;
             InboundMessagePruneCron = "0 30 3 * * ?";
@@ -130,6 +131,14 @@ namespace SW.Bitween
         public string ExchangeRetentionCron { get; set; } = "0 0 4 * * ?";
 
         public int ServerlessCommandTimeout { get; set; }
+
+        /// <summary>
+        /// Seconds one call to a built-in adapter may take before it fails as a timeout, a retry policy's to
+        /// retry. Built-in adapters run in Bitween's own process, so a call that never returns (a server that
+        /// accepts a connection and says nothing) held its place in the processing queue for good, and enough
+        /// of them stopped all processing. 0 for no limit.
+        /// </summary>
+        public int NativeAdapterTimeout { get; set; }
 
         /// <summary>
         /// Lets the adapter editor build drafts that name packages in requirements.txt or

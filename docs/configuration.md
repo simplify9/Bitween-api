@@ -59,6 +59,7 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `ExchangeRetentionDays`, `ArchiveExchanges`, `ExchangeRetentionCron` | `0`, `true`, `0 0 4 * * ?` | First values of the retention settings. |
 | `AdapterPath` | `adapters` | Storage key prefix for custom adapter packages. |
 | `ServerlessCommandTimeout` | `300` | Seconds a custom adapter may run. |
+| `NativeAdapterTimeout` | `900` | Seconds one call to a built-in adapter may take. Past it the exchange fails as a timeout, which a retry policy can retry, and the adapter's connection is closed. Without it, a server that accepts a connection and never answers held its place in the processing queue for good. The call can't be stopped, only left, so it may still finish: a retry can deliver twice what a hung partner did receive. `0` for no limit. |
 | `AdapterEditorDependencies` | `false` | Let the adapter editor fetch the packages a draft's `requirements.txt` or `package.json` names, from PyPI and npm or the mirrors in `PIP_INDEX_URL` and `NPM_CONFIG_REGISTRY`. Needs the server to reach them. See [Adapters](adapters.md#writing-an-adapter-in-bitween). |
 | `AdapterEditorMemoryMb` | `256` | Memory a draft may use while the editor checks or tries it. `0` for no limit. |
 | `AdapterEditorCpuCores` | `1` | Cores a draft may keep busy, for a few seconds, while the editor checks or tries it. `0` for no limit. |
@@ -132,6 +133,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.RebexLicenseKey` | Adapters | Yes, secret | empty |
 | `Bitween.AdapterPath` | Adapters | Read-only | `adapters` |
 | `Bitween.ServerlessCommandTimeout` | Adapters | Read-only | `300` |
+| `Bitween.NativeAdapterTimeout` | Adapters | Read-only | `900` |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
 | `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |
