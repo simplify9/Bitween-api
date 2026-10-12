@@ -121,6 +121,7 @@ public class ApplyTests(HttpFixture fixture) : IDisposable
                     value: "503"
                 budget:
                   maxAttemptsPerError: 3
+                  maxAttemptsTotal: 5
                   delayStrategy:
                     type: fixed
                     delayMs: 1000
