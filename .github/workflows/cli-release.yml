@@ -4,10 +4,10 @@ name: bitween CLI release
 # installed to run them. Never run by hand or by a tag: the CI run that publishes this repository
 # calls it with the version it computed (determine-semver: the next patch from the git tags), so the
 # CLI carries the version of the release it ships with. The computed version is the bare x.y.z on
-# staging too, so a staging build says so with prerelease and passes its run number.
+# develop too, so a develop build says so with prerelease and passes its run number.
 #   a release, 10.0.61                                  cli-v10.0.61          the latest release
-#   a prerelease, 10.0.61 with prerelease and run 121   cli-v10.0.61-stg.121  a pre-release, to try out
-# Called by bitween-api-cicd-gateway.yml: after the release from releases/r10.0, and after each staging build.
+#   a prerelease, 10.0.61 with prerelease and run 121   cli-v10.0.61-dev.121  a pre-release, to try out
+# Called by bitween-api-cicd-gateway.yml: after the release from releases/r10.0, and after each develop build.
 on:
   workflow_call:
     inputs:
@@ -43,12 +43,12 @@ jobs:
         run: |
           v="$VERSION"
           if [ "$PRERELEASE" = "true" ]; then
-            # A pre-release names its run: 10.0.61 from run 121 is 10.0.61-stg.121.
-            v="${v%%-*}-stg.${RUN_NUMBER:-${GITHUB_RUN_NUMBER}}"
+            # A pre-release names its run: 10.0.61 from run 121 is 10.0.61-dev.121.
+            v="${v%%-*}-dev.${RUN_NUMBER:-${GITHUB_RUN_NUMBER}}"
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           elif [[ "$v" == *-* ]]; then
-            # A version that already carries its branch and run: 10.0.61-releases-r10-0-staging.121 is 10.0.61-stg.121.
-            v="${v%%-*}-stg.${v##*.}"
+            # A version that already carries its branch and run: 10.0.61-releases-r10-0-develop.121 is 10.0.61-dev.121.
+            v="${v%%-*}-dev.${v##*.}"
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
             echo "prerelease=false" >> "$GITHUB_OUTPUT"

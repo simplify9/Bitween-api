@@ -13,7 +13,7 @@ its contract, its Python and Node packages, and publishing through Bitween's API
 
 Each release has a self-contained binary for Linux (x64, arm64, and musl x64 and arm64 for Alpine), macOS (x64, arm64) and
 Windows (x64), with a `SHA256SUMS` file. Each release of Bitween from `releases/r10.0` releases the CLI with it, at Bitween's version, as
-`cli-v<version>`; each staging build releases a pre-release, `cli-v<version>-stg.<run>`. It needs nothing else
+`cli-v<version>`; each build from `releases/r10.0-develop` releases a pre-release, `cli-v<version>-dev.<run>`. It needs nothing else
 installed, apart from what the adapters you build need: the .NET SDK for .NET adapters, Python 3.12 or
 later for Python ones (with pip when they have requirements), Node 22 or later for JavaScript and
 TypeScript ones (with npm when they have dependencies).
@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/simplify9/Bitween-api/releases/r10.
 
 That installs the latest release to `~/.local/bin`, after checking the download against `SHA256SUMS`;
 `INSTALL_DIR` changes where, and `BITWEEN_CLI_VERSION=10.0.60` picks a version. The script never
-picks a staging pre-release on its own, only when named: `BITWEEN_CLI_VERSION=10.0.61-stg.121`. It works on Linux and
+picks a develop pre-release on its own, only when named: `BITWEEN_CLI_VERSION=10.0.61-dev.121`. It works on Linux and
 macOS, on x64 and arm64, glibc or musl (Alpine). On Windows, download
 `bitween-win-x64.zip` from the [releases](https://github.com/simplify9/Bitween-api/releases) and put
 `bitween.exe` on your `PATH`.
