@@ -91,12 +91,20 @@ export function ExchangesPage() {
   const [bulkResult, setBulkResult] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isFetching, dataUpdatedAt, refetch } = useQuery({
+  const { data, isLoading, isFetching, isPlaceholderData, dataUpdatedAt, refetch } = useQuery({
     queryKey: keys.exchanges.search(searchParams.toString()),
     queryFn: () => api.searchExchanges(query),
     refetchInterval: refreshMs || false,
     placeholderData: keepPreviousData,
   });
+  // Loads someone is waiting on: a changed filter or page (the old rows stay up meanwhile), or the
+  // Refresh button. Not the background ticks of live refresh, which would dim the list every 15s.
+  const [refreshing, setRefreshing] = useState(false);
+  const reloading = isPlaceholderData || refreshing;
+  const refresh = () => {
+    setRefreshing(true);
+    void refetch().finally(() => setRefreshing(false));
+  };
 
   const subscriptions = useSubscriptionsCache().data ?? [];
   const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() }).data ?? [];
@@ -333,7 +341,7 @@ export function ExchangesPage() {
             />
           )}
           {/* Now, rather than at the next tick - or at all, with live refresh off. */}
-          <Button size="sm" onClick={() => void refetch()} title="Load the latest exchanges now">
+          <Button size="sm" onClick={refresh} title="Load the latest exchanges now">
             <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} aria-hidden />
             Refresh
           </Button>
@@ -482,8 +490,11 @@ export function ExchangesPage() {
               : "Traffic will show up here as soon as a subscription processes something."}
         </EmptyState>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="relative overflow-x-auto rounded-xl border border-ink-200 bg-white" aria-busy={reloading}>
+          {reloading && (
+            <div className="absolute inset-x-0 top-0 z-10 h-0.5 animate-pulse bg-crimson-500" title="Loading…" />
+          )}
+          <table className={`w-full text-left text-sm transition-opacity ${reloading ? "opacity-50" : ""}`}>
             <thead>
               <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
                 <th className="w-10 py-2.5 pl-4">
