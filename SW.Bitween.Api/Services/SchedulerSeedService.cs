@@ -44,6 +44,9 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
             nameof(Services.Metrics.MetricsPruneJob), stoppingToken);
         await ScheduleWithRetry(() => scheduleRepo.Schedule<Services.Metrics.QueueSnapshotJob>(options.QueueSnapshotCron),
             nameof(Services.Metrics.QueueSnapshotJob), stoppingToken);
+        // Always scheduled; it reads nothing beyond the subscriptions while none expects traffic.
+        await ScheduleWithRetry(() => scheduleRepo.Schedule<QuietSubscriptionsJob>(options.QuietSubscriptionsCron),
+            nameof(QuietSubscriptionsJob), stoppingToken);
         // Always scheduled; it does nothing while exchange retention is 0, so turning retention on in
         // Settings needs no re-scheduling.
         await ScheduleWithRetry(() => scheduleRepo.Schedule<ExchangeRetentionJob>(options.ExchangeRetentionCron),

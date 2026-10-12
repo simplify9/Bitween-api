@@ -23,5 +23,12 @@ namespace SW.Bitween.Model
         /// held back since the last one sent, so an outage reads as one message with a count.
         /// </summary>
         public int SuppressedSinceLast { get; set; }
+
+        /// <summary>
+        /// Null for the result of an exchange. "gone-quiet" when a subscription saw no exchange for
+        /// longer than it expects, and "back" when exchanges arrive again; neither has an exchange,
+        /// so <see cref="Id"/> and <see cref="CorrelationId"/> are an id made up for the alert.
+        /// </summary>
+        public string? Event { get; set; }
     }
 }

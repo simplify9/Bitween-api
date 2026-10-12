@@ -43,9 +43,18 @@ public class Insights(BitweenDbContext db, RequestContext requestContext, IMemor
             .Select(s => new
             {
                 s.Id, s.Name, s.Inactive, s.PausedOn, s.PausedAutomatically, s.RetryPolicyId, s.WorkGroupId, s.PartnerId,
-                s.HandlerId, s.HandlerVersion, s.MapperId, s.MapperVersion,
+                s.HandlerId, s.HandlerVersion, s.MapperId, s.MapperVersion, s.QuietSince,
             }).ToListAsync();
         Item Link(int id, string name) => new(name, $"/subscriptions/{id}");
+
+        // Set by QuietSubscriptionsJob: expected traffic that hasn't come. Longest quiet first.
+        var quiet = subscriptions.Where(s => !s.Inactive && s.PausedOn == null && s.QuietSince != null)
+            .OrderBy(s => s.QuietSince).ToList();
+        if (quiet.Count > 0)
+            insights.Add(new("quiet-subscriptions", "warn", "Subscriptions gone quiet",
+                "Expected traffic hasn't arrived. Check the partner or the source they read from.",
+                quiet.Count, quiet.Take(Listed).Select(s => new Item($"{s.Name} (since {s.QuietSince:yyyy-MM-dd HH:mm} UTC)",
+                    $"/subscriptions/{s.Id}"))));
 
         var paused = subscriptions.Where(s => !s.Inactive && s.PausedOn != null).ToList();
         if (paused.Count > 0)

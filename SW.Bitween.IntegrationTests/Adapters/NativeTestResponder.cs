@@ -22,10 +22,17 @@ public class NativeTestResponder : INativeInfolinkHandler
     /// <summary>How many times each <c>Body</c> was delivered, so a test can tell a repeat delivery happened.</summary>
     public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> Deliveries = new();
 
+    /// <summary>What each <c>Body</c> was handed, in order, so a test can read what a notifier sent.</summary>
+    public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Concurrent.ConcurrentQueue<string>> Received = new();
+
     public Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
         var hasBody = _settings.TryGetValue("Body", out var body);
-        if (hasBody) Deliveries.AddOrUpdate(body, 1, (_, n) => n + 1);
+        if (hasBody)
+        {
+            Deliveries.AddOrUpdate(body, 1, (_, n) => n + 1);
+            Received.GetOrAdd(body, _ => new()).Enqueue(xchangeFile.Data);
+        }
 
         return Task.FromResult(new XchangeFile(
             hasBody ? body : xchangeFile.Data,

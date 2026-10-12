@@ -28,6 +28,7 @@ public class Background(BitweenDbContext dbContext, RequestContext requestContex
         (typeof(Services.DataSources.InboundMessagePruneJob), "Broker deduplication clean-up", "Forgets deduplication keys older than each data source keeps them."),
         (typeof(Services.Metrics.QueueSnapshotJob), "Queue snapshots", "Records the broker's queue totals every few minutes, for the backlog trend."),
         (typeof(Services.Metrics.MetricsPruneJob), "Metrics clean-up", "Deletes hourly metrics and queue snapshots past their keeping."),
+        (typeof(QuietSubscriptionsJob), "Quiet subscriptions", "Tells the notifiers when a subscription that expects traffic gets none, and when it comes back."),
     ];
 
     public async Task<object> Handle()

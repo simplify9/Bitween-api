@@ -301,5 +301,11 @@ namespace SW.Bitween
 
         /// <summary>How often to record the broker's queue totals for the backlog trend. Every five minutes.</summary>
         public string QueueSnapshotCron { get; set; } = "0 0/5 * * * ?";
+
+        /// <summary>
+        /// How often to look for subscriptions that expect traffic and have gone quiet. Every five
+        /// minutes, which is also the shortest gap a subscription can expect.
+        /// </summary>
+        public string QuietSubscriptionsCron { get; set; } = "0 0/5 * * * ?";
     }
 }
