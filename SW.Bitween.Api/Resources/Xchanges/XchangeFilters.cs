@@ -253,6 +253,24 @@ internal static class XchangeFilters
             condition.Filters.Remove(errorFilter);
         }
 
+        // The one promoted property the value below has to be found in. Sent apart from the value
+        // because the client used to send them together as "key:value", which only matched a value
+        // that starts with what was typed: "SO-1001" was found by "SO", never by "1001".
+        var keyFilters = condition.Filters.Where(f => f.Field == "PromotedPropertyKey").ToList();
+        var key = keyFilters.Select(f => f.Value?.ToString()).FirstOrDefault(v => !string.IsNullOrEmpty(v))?.ToLower();
+        foreach (var keyFilter in keyFilters)
+            condition.Filters.Remove(keyFilter);
+
+        // Stored as "key:value,key:value": the key comes first or after a comma, which keeps "id"
+        // from matching "orderId:". Asked of lower(properties_raw) as it is, not with a comma put in
+        // front: Postgres keeps statistics for that expression (its trigram index), and without them
+        // it guessed almost nothing matched, so a common key fetched and sorted every match rather
+        // than reading the newest 25 - 6s against 1M exchanges.
+        var keyTag = "," + key + ":";
+        if (key != null)
+            query = query.Where(i => i.PromotedPropertiesRaw.ToLower().StartsWith(key + ":")
+                                     || i.PromotedPropertiesRaw.ToLower().Contains(keyTag));
+
         var propertiesFilters = condition.Filters
             .Where(f => f.Field == "PromotedPropertiesRaw").ToList();
         foreach (var propertyFilter in propertiesFilters)
@@ -264,6 +282,19 @@ internal static class XchangeFilters
             // the search to stay case-insensitive. No index is lost: a Contains is a
             // leading-wildcard LIKE, which the b-tree on this column could never serve.
             query = query.Where(i => i.PromotedPropertiesRaw.ToLower().Contains(value));
+
+            // With a key, only inside that key's value: what follows ",key:" up to the next comma.
+            // A value that itself holds a comma is only searched up to it, since the stored text
+            // cannot tell that comma from the one before the next key. IndexOf rather than Contains
+            // for the same estimate reason as the key above: Postgres guesses a third of rows pass
+            // an unknown comparison but under 1% pass an unknown LIKE.
+            if (key != null)
+                query = from i in query
+                        let rest = ("," + i.PromotedPropertiesRaw.ToLower())
+                            .Substring(("," + i.PromotedPropertiesRaw.ToLower()).IndexOf(keyTag) + keyTag.Length) + ","
+                        where rest.Substring(0, rest.IndexOf(",")).IndexOf(value) >= 0
+                        select i;
+
             condition.Filters.Remove(propertyFilter);
         }
 

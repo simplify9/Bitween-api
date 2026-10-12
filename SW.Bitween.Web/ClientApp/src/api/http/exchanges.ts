@@ -193,13 +193,11 @@ function buildExchangeFilters(query: ExchangeQuery): URLSearchParams {
     params.append("filter", `ReceiveAttemptId:1:${query.receiveAttemptId}`);
   if (query.correlationId?.trim()) params.append("filter", `CorrelationId:1:${query.correlationId.trim()}`);
   if (query.latest) params.append("filter", "LatestOnly:1:true");
-  // PromotedPropertiesRaw is stored as "key:value,key:value", so prefixing the key turns
-  // the same substring match into a scoped one - no schema or endpoint change needed.
-  // Typing "merchant:Acme" into the value box has therefore always worked; the picker
-  // just makes it something you can find.
-  const propertyValue = query.property?.trim() ?? "";
-  const propertyTerm = query.propertyKey ? `${query.propertyKey}:${propertyValue}` : propertyValue;
-  if (propertyTerm) params.append("filter", `PromotedPropertiesRaw:4:${propertyTerm}`);
+  // The key goes apart from the value so the server can look anywhere inside that key's value.
+  // Sent as one "key:value" term it only matched values starting with what was typed.
+  if (query.propertyKey) params.append("filter", `PromotedPropertyKey:1:${query.propertyKey}`);
+  const propertyValue = query.property?.trim();
+  if (propertyValue) params.append("filter", `PromotedPropertiesRaw:4:${propertyValue}`);
   if (query.errorContains?.trim()) params.append("filter", `ErrorContains:4:${query.errorContains.trim()}`);
   if (query.isRetry) params.append("filter", "IsRetry:1:true");
   if (query.scheduledRetry) params.append("filter", "HasScheduledRetry:1:true");
