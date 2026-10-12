@@ -82,6 +82,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("OidcIdentity")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)

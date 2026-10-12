@@ -103,6 +103,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("must_change_password");
 
+                    b.Property<string>("OidcIdentity")
+                        .HasColumnType("text")
+                        .HasColumnName("oidc_identity");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)

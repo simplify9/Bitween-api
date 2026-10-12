@@ -45,7 +45,8 @@ See [Entry points](entry-points.md) for status codes.
 
 | Method and path | Permission | Description |
 |---|---|---|
-| `POST /api/accounts/login` | none | Sign in with a username and password, a Microsoft token, or a refresh token (the refresh cookie, or `refreshToken` in the body). Returns `{ jwt }`. |
+| `POST /api/accounts/login` | none | Sign in with a username and password, a Microsoft token, an OpenID Connect code (`{ oidcCode, oidcState }`), or a refresh token (the refresh cookie, or `refreshToken` in the body). Returns `{ jwt }`. |
+| `POST /api/accounts/oidcstart` | none | Starts an [OpenID Connect sign-in](security.md#openid-connect): returns `{ url }`, the provider's sign-in address, and sets the cookie the sign-in is finished with. |
 | `POST /api/accounts/logout` | none | Deletes the refresh token and clears site data. A client without cookies sends `{ refreshToken }`. |
 | `POST /api/accounts/cligrant` | signed in | Signs the bitween CLI in as the caller: `{ codeChallenge }`, the CLI's S256 PKCE challenge. Returns `{ code }`, good for two minutes. The admin UI's `/cli-login` page calls it after the member confirms. |
 | `POST /api/accounts/clitoken` | none | The CLI trades that code for a session: `{ code, codeVerifier }`. Returns `{ jwt, refreshToken, email }`. |

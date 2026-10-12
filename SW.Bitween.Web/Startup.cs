@@ -121,6 +121,7 @@ namespace SW.Bitween.Web
             services.AddScoped<MappingContextFactory>();
             services.AddScoped<XchangeService>();
             services.AddSingleton<FileLinks>();
+            services.AddScoped<OidcSignIn>();
             services.AddSingleton<StorageRetention>();
             services.AddSingleton<StorageAccess>();
             services.AddScoped<ExchangeArchive>();
@@ -794,10 +795,12 @@ namespace SW.Bitween.Web
             // well - otherwise one trailing character moves an attempt to the general budget.
             var value = path.Value!.TrimEnd('/');
 
-            // A service token traded for a session is a sign-in too, and gets the same budget.
+            // A service token traded for a session is a sign-in too, and gets the same budget, as
+            // does starting a single sign-on, which asks the provider for its metadata.
             return value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
                 && (value.EndsWith("/login", StringComparison.OrdinalIgnoreCase)
-                    || value.EndsWith("/accounts/servicetoken", StringComparison.OrdinalIgnoreCase));
+                    || value.EndsWith("/accounts/servicetoken", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/oidcstart", StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

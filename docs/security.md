@@ -2,19 +2,19 @@
 
 ## Sign-in
 
-Bitween supports three ways to sign in.
+Bitween supports four ways to sign in.
 
 ### Email and password
 
 `POST /api/accounts/login` with `{ "Username": "...", "Password": "..." }`.
 
-- Five wrong passwords in a row lock the account for 15 minutes. An administrator can unlock it early.
+- Five wrong passwords from one address lock that address out of the account for 15 minutes, and 20 from anywhere lock the account itself for 15 minutes. An administrator can unlock it early.
 - Disabled accounts cannot sign in.
 - Passwords need at least 8 characters, including an upper-case letter, a lower-case letter, a digit and a symbol. When an administrator sets someone else's password, only the 8-character minimum applies.
 - Passwords are hashed with PBKDF2-HMAC-SHA256, 210,000 iterations and a random salt, and compared in constant time. Hashes stored before September 2026 use PBKDF2-SHA1 with 10,000 iterations. They still verify, and are only replaced when the password is next set.
 - Bitween sends no email, so there is no self-service password reset.
 
-Turning on the **Microsoft sign-in only** setting disables this method. New accounts are then created without a password.
+Turning on the **Microsoft sign-in only** setting disables this method, for Microsoft and OpenID Connect sign-in alike. New accounts are then created without a password.
 
 ### Microsoft
 
@@ -22,13 +22,23 @@ The sign-in page offers Microsoft once the Azure AD client id, tenant id and red
 
 1. The browser signs in through an MSAL popup and gets an ID token.
 2. It posts `{ "MsToken": "<id token>" }` to `POST /api/accounts/login`.
-3. Bitween validates the token's signature and lifetime against Microsoft's published signing keys, reads the email, and signs in the Bitween account with that email.
+3. Bitween validates the token's signature and lifetime against Microsoft's published signing keys, and checks that it was issued for this app's client id by the token's own tenant, pinned to the configured tenant when that is a tenant id.
+4. It signs in the account bound to the token's Microsoft identity (object id and tenant). An account with none bound yet is found by the token's address, and the identity is bound to it on that first sign-in; after that, another Microsoft identity with the same address is refused.
 
 Accounts are never created automatically. Add each person on the Team page first.
 
 The redirect URI must be `/blank.html` on the Bitween host, such as `https://bitween.example.com/blank.html`, and must be registered on the Azure AD app. Other pages send a cross-origin opener policy that breaks the popup. Bitween logs a warning at startup when the redirect URI does not end in `/blank.html`.
 
-Bitween does not check the token's issuer or audience. See [Known limitations](caveats.md#security).
+### OpenID Connect
+
+The sign-in page offers any OpenID Connect provider, such as Keycloak, Okta, Entra ID, Google or ADFS, once its **Provider address** (the issuer) and **Client ID** are set under **Settings, Single sign-on (OpenID Connect)**. The button reads "Continue with" the **Button label**, or "single sign-on". It can be offered beside Microsoft and passwords, or alone.
+
+1. `POST /api/accounts/oidcstart` returns the provider's sign-in address, read from its `/.well-known/openid-configuration`, for the authorization code flow with PKCE. The state, nonce and PKCE verifier go in an HttpOnly cookie encrypted with a key derived from `Token:Key`, valid for 10 minutes, so any node can finish a sign-in another started.
+2. The provider sends the browser back to `/oidc-callback`, which posts `{ "OidcCode": "...", "OidcState": "..." }` to `POST /api/accounts/login`.
+3. Bitween checks the state against the cookie, exchanges the code at the provider's token endpoint itself, with the verifier and, for a confidential client, the **Client secret**, and validates the ID token: its signature against the provider's keys, its issuer, its audience (the client id), its lifetime and its nonce.
+4. It signs in the account bound to the token's subject and issuer. An account with none bound is found by the token's `email`, unless the provider says the address isn't verified (`email_verified` false), and the identity is bound on that first sign-in. After that another identity with the same address is refused.
+
+Register `https://<bitween host>/oidc-callback` as the redirect URI at the provider, or set **Redirect URI** when the public address isn't the one requests arrive on. The scopes asked are `openid email profile` unless **Scopes** says otherwise. Accounts are never created automatically.
 
 ### Break-glass login (removed)
 
@@ -113,8 +123,8 @@ The seeded **SYSTEM** partner has a key named `default` whose value is fixed in 
 ## Secrets
 
 - Adapter properties marked secret are masked as `__private__` in every API response and redacted from the audit trail. Their defaults are withheld from the adapter descriptions the UI reads. A published adapter that doesn't mark its passwords and keys as private has them returned in plain text, so check custom adapters before uploading them.
-- The Rebex license key is the only secret setting. It is encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
-- Partner properties, global values, adapter properties and data source settings, including passwords, are stored unencrypted in the database.
+- The secret settings are the Rebex license key and the OpenID Connect client secret. They are encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
+- Partner properties, global values, adapter properties, data source settings, notifier and retry alert properties, including passwords, are encrypted in the database with AES-256-GCM when `Bitween:SettingsEncryptionKey` is set, and stored in plain text when it isn't. Values stored before the key was set are encrypted a few minutes after the next start. `Bitween:PreviousSettingsEncryptionKey` still decrypts values while the key is rotated.
 
 ## Exchange files
 
@@ -131,7 +141,7 @@ Exchange files are always written as private objects, so a storage URL doesn't o
 
 Data sources open connections to customers' brokers and databases, so they only run on nodes with `Bitween__BusProvidersEnabled` set.
 
-- Their settings are masked in responses but stored unencrypted.
+- Their settings are masked in responses, and encrypted at rest as other credentials are (see [Secrets](#secrets)).
 - Anyone with `data-sources.view` can browse a database's catalogue and see the login's privileges.
 - Saving or testing an Oracle statement runs `DBMS_SQL.PARSE`, which executes DDL. Connect Oracle sources with a login that has no DDL rights.
 - SQL only comes from named statements, and every value is bound as a parameter, unless a data source turns on `AllowAdHocSql`.
@@ -158,7 +168,7 @@ Every response carries these headers.
 
 Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notifiers, global value sets, settings, accounts, roles and role assignments.
 
-Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited. Reading an adapter's source is: each file read is an `AdapterSourceAccess` entry with the adapter, version and file. So are the adapter editor's drafts, each save recorded by a hash of its files rather than the code, and every version published, made current or withdrawn from Bitween (`AdapterRelease`). Operations that change what Bitween does without changing its configuration are recorded as `OperatorAction` entries naming what was done to what: retrying an exchange, a bulk retry, exporting exchange files, running a scheduled retry now, requeueing dead letters and deleting unattended queues. A sign-in with a password, Microsoft or the CLI sets the member's `LastSignInOn`, which is in the trail as a change to the account; a session renewing itself doesn't.
+Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited. Reading an adapter's source is: each file read is an `AdapterSourceAccess` entry with the adapter, version and file. So are the adapter editor's drafts, each save recorded by a hash of its files rather than the code, and every version published, made current or withdrawn from Bitween (`AdapterRelease`). Operations that change what Bitween does without changing its configuration are recorded as `OperatorAction` entries naming what was done to what: retrying an exchange, a bulk retry, exporting exchange files, running a scheduled retry now, requeueing dead letters and deleting unattended queues. A sign-in with a password, Microsoft, OpenID Connect or the CLI sets the member's `LastSignInOn`, which is in the trail as a change to the account; a session renewing itself doesn't.
 
 The trail is written in the same transaction as the change, and no API edits or deletes it. Browse it on the Audit trail page or with `GET /api/audit`.
 
@@ -170,7 +180,7 @@ The trail is written in the same transaction as the change, and no API edits or 
    yourself: until then, whoever signs in with it first chooses the new one.
 3. Replace or remove the SYSTEM partner's API key.
 4. Set `Token__Key` to a long random secret, and choose your own `Token__Issuer` and `Token__Audience`.
-5. Set `Bitween__SettingsEncryptionKey` before saving a Rebex license key.
+5. Set `Bitween__SettingsEncryptionKey`, so credentials are encrypted at rest, and before saving a Rebex license key or an OpenID Connect client secret.
 6. Give the chart's Ingress a TLS entry for its host, so file links are built on an https address, and treat roll-ups and exchange results as holding the files themselves: a link opens its file without a login. Over plain http a link and its file can be read on the way.
 7. Serve Bitween over HTTPS. The refresh cookie is always marked `Secure`.
 8. Connect data sources with least-privilege logins, and never with DDL rights on Oracle.

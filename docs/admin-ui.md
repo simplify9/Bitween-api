@@ -6,7 +6,7 @@ Every page and action is gated by permissions. Anything a member cannot use is h
 
 ## Signing in
 
-The sign-in page offers email and password, Microsoft, or both, depending on settings. After sign-in, members land on the first page their permissions allow. Sessions end after 30 minutes with no activity.
+The sign-in page offers email and password, Microsoft, an [OpenID Connect provider](security.md#openid-connect), or any of them together, depending on settings. After sign-in, members land on the first page their permissions allow. Sessions end after 30 minutes with no activity.
 
 ## Operate
 

@@ -21,6 +21,7 @@ public class SettingsCatalogTests
                 "Documents & storage",
                 "API behavior",
                 "Single sign-on (Microsoft)",
+                "Single sign-on (OpenID Connect)",
                 "Adapters",
                 "Marketplace",
                 "Reliability & jobs",

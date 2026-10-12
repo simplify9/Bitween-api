@@ -74,7 +74,7 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
 | `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
-| `SettingsEncryptionKey` | | Passphrase that encrypts secret settings in the database. |
+| `SettingsEncryptionKey` | | Passphrase that encrypts secret settings and stored credentials in the database. See [Security](security.md#secrets). |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |
 | `QuietSubscriptionsCron` | `0 0/5 * * * ?` | Quartz cron for checking subscriptions that [expect traffic](entry-points.md#when-traffic-stops). A subscription can't expect a gap shorter than five minutes, so running it less often only delays the alert. |
@@ -82,6 +82,7 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `JwtExpiryMinutes` | `60` | First value of the runtime setting. |
 | `MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | | First values of the Microsoft sign-in settings. |
 | `DisableEmailPasswordLogin` | `false` | First value of the runtime setting. |
+| `OidcAuthority`, `OidcClientId`, `OidcClientSecret`, `OidcDisplayName`, `OidcScopes`, `OidcRedirectUri` | | First values of the OpenID Connect sign-in settings. See [Security](security.md#openid-connect). |
 | `RebexLicenseKey` | | First value of the runtime setting. |
 | `RegistryEnabled`, `RegistryUrl`, `RegistryTrustedKeys`, `RegistryAllowCommunity` | `true`, Simplify9's registry and its keys, `false` | First values of the Marketplace settings. See [Adapters](adapters.md#installing-from-the-marketplace). |
 | `RetryJobCron` | `0 * * * * ?` | First value of the runtime setting. |
@@ -135,6 +136,8 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.CorsOrigins` | API behavior | Read-only | empty |
 | `Bitween.MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | Single sign-on (Microsoft) | Yes | empty |
 | `Bitween.DisableEmailPasswordLogin` | Single sign-on (Microsoft) | Yes | `false` |
+| `Bitween.OidcAuthority`, `OidcClientId`, `OidcDisplayName`, `OidcScopes`, `OidcRedirectUri` | Single sign-on (OpenID Connect) | Yes | empty |
+| `Bitween.OidcClientSecret` | Single sign-on (OpenID Connect) | Yes, secret | empty |
 | `Bitween.RebexLicenseKey` | Adapters | Yes, secret | empty |
 | `Bitween.AdapterPath` | Adapters | Read-only | `adapters` |
 | `Bitween.ServerlessCommandTimeout` | Adapters | Read-only | `300` |

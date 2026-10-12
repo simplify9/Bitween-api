@@ -7,6 +7,10 @@ export interface AppConfig {
   msalRedirectUri?: string | null;
   /** When true the backend rejects email/password sign-in outright, so don't offer the form. */
   disableEmailPasswordLogin?: boolean;
+  /** Whether an OpenID Connect provider is configured, so the sign-in page offers it. */
+  oidcEnabled?: boolean;
+  /** The provider's name for the button, as "Continue with {name}"; null for "single sign-on". */
+  oidcDisplayName?: string | null;
   isRabbitMqManagementConfigured?: boolean;
   /** Effective brand values (any stored override already applied), keyed like `ThemeOptions`. */
   theme?: Record<string, string | boolean | null>;

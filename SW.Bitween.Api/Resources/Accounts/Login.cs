@@ -15,7 +15,7 @@ namespace SW.Bitween.Resources.Accounts
     [Unprotect]
     public class Login(JwtTokenParameters jwtTokenParameters, BitweenDbContext dbContext,
         BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger,
-        SignInThrottle throttle) : ICommandHandler<UserLogin, object>
+        SignInThrottle throttle, Services.OidcSignIn oidc) : ICommandHandler<UserLogin, object>
     {
         // Account-wide, across every address: the backstop for guessing spread over many of them.
         // Five from any one address already locks that address out - see SignInThrottle.
@@ -37,12 +37,17 @@ namespace SW.Bitween.Resources.Accounts
                 .Set<Account>()
                 .AsQueryable();
             AccountExtensions.MicrosoftIdentity microsoftIdentity = null;
+            Services.OidcSignIn.OidcIdentity oidcIdentity = null;
+
+            // Single sign-on, with Microsoft or an OpenID Connect provider: the provider vouched for
+            // who this is, so there is no password to check.
+            var ssoLogin = !string.IsNullOrEmpty(request.MsToken) || !string.IsNullOrEmpty(request.OidcCode);
 
             // Credentials sent with the request are what the caller is asking to sign in as. A refresh
             // cookie can still be in the browser from the previous session - a sign-out whose request
             // never completed leaves it there - and preferring it signed the next person in as the
             // previous one. So the cookie is only read when nothing else was sent.
-            var signingInWithCredentials = !string.IsNullOrEmpty(request.MsToken) ||
+            var signingInWithCredentials = ssoLogin ||
                                            !string.IsNullOrEmpty(request.Username) ||
                                            !string.IsNullOrEmpty(request.Password);
 
@@ -110,17 +115,19 @@ namespace SW.Bitween.Resources.Accounts
                 await dbContext.Set<RefreshToken>().Where(t => t.Id == leftover).ExecuteDeleteAsync();
             }
 
-            if (string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken) &&
+            if (string.IsNullOrEmpty(refreshTokenValue) && !ssoLogin &&
                 BitweenSettings.DisableEmailPasswordLogin)
             {
                 logger.LogWarning("Email/password login attempt rejected: DisableEmailPasswordLogin is enabled.");
-                throw new SWException("Email and password login is disabled. Please sign in with Microsoft.");
+                throw new SWException(oidc.IsConfigured && string.IsNullOrWhiteSpace(BitweenSettings.MsalClientId)
+                    ? "Email and password login is disabled. Please sign in with single sign-on."
+                    : "Email and password login is disabled. Please sign in with Microsoft.");
             }
 
             // A credential login must carry both a username and a password. Without this guard a
             // request with a valid username but empty/missing password would skip verification
             // below and still be issued a token.
-            if (string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken) &&
+            if (string.IsNullOrEmpty(refreshTokenValue) && !ssoLogin &&
                 (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password)))
             {
                 logger.LogWarning("Login rejected: missing username or password on a credential login.");
@@ -155,6 +162,35 @@ namespace SW.Bitween.Resources.Accounts
                                     .Select(u => (int?)u.Id).FirstOrDefaultAsync();
                 accountQ = accountQ.Where(u => u.Id == accountId);
             }
+            else if (!string.IsNullOrEmpty(request.OidcCode))
+            {
+                try
+                {
+                    oidcIdentity = await oidc.CompleteAsync(request.OidcCode, request.OidcState);
+                }
+                catch (Services.OidcSignIn.Refused ex)
+                {
+                    logger.LogWarning("Single sign-on refused: {Reason}", ex.Message);
+                    throw new SWException(ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning("Single sign-on refused: {Reason}", ex.Message);
+                    throw new SWException("Could not sign you in with single sign-on. Please try again, or contact your administrator.");
+                }
+
+                // The bound identity first; the address, when the provider vouches for it, only for
+                // an account that has none yet.
+                var identity = oidcIdentity.SubjectAndIssuer;
+                var email = oidcIdentity.Email;
+                var accountId = await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.OidcIdentity == identity)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync()
+                                ?? (email == null ? null : await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.Email.ToLower() == email)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync());
+                accountQ = accountQ.Where(u => u.Id == accountId);
+            }
             else
             {
                 accountQ = accountQ.Where(u => u.Email.ToLower() == request.Username.ToLower());
@@ -167,7 +203,7 @@ namespace SW.Bitween.Resources.Accounts
             // match, so this is the second lock on that door, not the first.
             if (account is { IsService: true }) account = null;
 
-            var credentialLogin = string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken);
+            var credentialLogin = string.IsNullOrEmpty(refreshTokenValue) && !ssoLogin;
 
             if (account is null)
             {
@@ -178,6 +214,12 @@ namespace SW.Bitween.Resources.Accounts
                 {
                     logger.LogWarning("MS login failed: no account found matching the token email.");
                     throw new SWException("Your Microsoft account is not registered in the system. Please contact your administrator to be added.");
+                }
+
+                if (oidcIdentity is not null)
+                {
+                    logger.LogWarning("Single sign-on failed: no account is bound to the identity or has its verified address.");
+                    throw new SWException("Your account is not registered in the system. Please contact your administrator to be added.");
                 }
 
                 throw new SWException("Invalid username or password.");
@@ -207,8 +249,19 @@ namespace SW.Bitween.Resources.Accounts
                 }
             }
 
+            if (oidcIdentity is not null)
+            {
+                if (account.OidcIdentity is null)
+                    account.BindOidcIdentity(oidcIdentity.SubjectAndIssuer);
+                else if (account.OidcIdentity != oidcIdentity.SubjectAndIssuer)
+                {
+                    logger.LogWarning("Single sign-on refused: account {AccountId} is bound to a different identity.", account.Id);
+                    throw new SWException("This account is linked to a different single sign-on identity. Please contact your administrator.");
+                }
+            }
+
             if (string.IsNullOrEmpty(refreshTokenValue) && !string.IsNullOrEmpty(request.Username) &&
-                !string.IsNullOrEmpty(request.Password) && string.IsNullOrEmpty(request.MsToken))
+                !string.IsNullOrEmpty(request.Password) && !ssoLogin)
             {
                 var nowUtc = DateTime.UtcNow;
                 var address = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";

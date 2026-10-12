@@ -32,6 +32,8 @@ public class PipelineTests(HttpFixture fixture)
         "SW.Bitween.Resources.Accounts.CliToken",
         "SW.Bitween.Resources.Accounts.Login",
         "SW.Bitween.Resources.Accounts.Logout",
+        // Starts a single sign-on, which by definition comes before one.
+        "SW.Bitween.Resources.Accounts.OidcStart",
         // Trades a service account's token for a session: the token is the credential.
         "SW.Bitween.Resources.Accounts.ServiceTokenSignIn",
         "SW.Bitween.Resources.Settings.Config",

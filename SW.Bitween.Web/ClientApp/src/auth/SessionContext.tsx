@@ -11,6 +11,7 @@ export interface SessionContextValue {
   can: (permission: PermissionKey) => boolean;
   signIn: (email: string, password: string) => Promise<Session>;
   signInWithMicrosoft: () => Promise<Session>;
+  signInWithOidc: (code: string, state: string) => Promise<Session>;
   /** Adopt a session produced elsewhere (invite acceptance, demo switch). */
   adoptSession: (session: Session) => void;
   /** Re-fetch the session after profile changes. */
@@ -93,6 +94,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     adoptSession(next);
     return next;
   }, [adoptSession]);
+
+  const signInWithOidc = useCallback(
+    async (code: string, state: string) => {
+      const next = await api.loginWithOidc(code, state);
+      adoptSession(next);
+      return next;
+    },
+    [adoptSession],
+  );
 
   const refresh = useCallback(async () => {
     const startedAt = generation.current;
@@ -178,6 +188,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       can: (permission) => session?.permissions.includes(permission) ?? false,
       signIn,
       signInWithMicrosoft,
+      signInWithOidc,
       adoptSession,
       refresh,
       signOut,
@@ -190,6 +201,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       initializing,
       signIn,
       signInWithMicrosoft,
+      signInWithOidc,
       adoptSession,
       refresh,
       signOut,

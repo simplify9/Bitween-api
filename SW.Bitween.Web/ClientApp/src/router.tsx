@@ -5,6 +5,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./pages/auth/Login";
 import { ChangePasswordPage } from "./pages/auth/ChangePassword";
 import { CliLoginPage } from "./pages/auth/CliLogin";
+import { OidcCallbackPage } from "./pages/auth/OidcCallback";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { RouteError } from "./pages/RouteError";
 import { Suspense, type ReactNode } from "react";
@@ -151,6 +152,8 @@ const pageRoutes: RouteObject[] = (Object.keys(PAGES) as PageId[]).map((id) => {
 /** Exported apart from the router so the component tests can mount the same routes in memory. */
 export const routes: RouteObject[] = [
   { path: "/login", element: <LoginPage />, errorElement: <RouteError /> },
+  // Where an OpenID Connect provider sends the browser back; it signs in, so it needs no session.
+  { path: "/oidc-callback", element: <OidcCallbackPage />, errorElement: <RouteError /> },
   {
     element: <RequireAuth />,
     // A page that crashes shows this, with a way back, rather than react-router's developer screen.

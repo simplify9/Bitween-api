@@ -41,6 +41,10 @@ public class Config(BitweenOptions BitweenOptions, ThemeOptions themeOptions) : 
             BitweenOptions.MsalRedirectUri,
             BitweenOptions.MsalTenantId,
             BitweenOptions.DisableEmailPasswordLogin,
+            // Whether to offer the button, and its name; the provider's address stays on the server,
+            // which starts the sign-in.
+            OidcEnabled = !string.IsNullOrWhiteSpace(BitweenOptions.OidcAuthority) && !string.IsNullOrWhiteSpace(BitweenOptions.OidcClientId),
+            OidcDisplayName = string.IsNullOrWhiteSpace(BitweenOptions.OidcDisplayName) ? null : BitweenOptions.OidcDisplayName.Trim(),
             IsRabbitMqManagementConfigured = !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUrl)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUsername)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementPassword),

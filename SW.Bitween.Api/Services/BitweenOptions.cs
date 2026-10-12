@@ -217,6 +217,25 @@ namespace SW.Bitween
         /// any email/password login attempt outright.
         /// </summary>
         public bool DisableEmailPasswordLogin { get; set; }
+
+        /// <summary>
+        /// The OpenID Connect provider's issuer address, as <c>https://id.example.com/realms/main</c>.
+        /// With <see cref="OidcClientId"/>, turns on single sign-on with it. Off when empty.
+        /// </summary>
+        public string OidcAuthority { get; set; }
+        public string OidcClientId { get; set; }
+
+        /// <summary>For a confidential client; a public one with PKCE needs none.</summary>
+        public string OidcClientSecret { get; set; }
+
+        /// <summary>Where the provider sends the browser back; this Bitween's <c>/oidc-callback</c> when empty.</summary>
+        public string OidcRedirectUri { get; set; }
+
+        /// <summary>Space-separated; <c>openid email profile</c> when empty.</summary>
+        public string OidcScopes { get; set; }
+
+        /// <summary>The sign-in button's label, as "Sign in with {name}".</summary>
+        public string OidcDisplayName { get; set; }
         public int JwtExpiryMinutes { get; set; }
 
         /// <summary>

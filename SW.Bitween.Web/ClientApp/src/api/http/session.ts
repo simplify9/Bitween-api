@@ -133,6 +133,19 @@ export const sessionMethods = {
     return loadSession();
   },
 
+  async startOidc(): Promise<string> {
+    abortPendingLogout();
+    const { url } = await post<{ url: string }>("/accounts/oidcstart", {});
+    return url;
+  },
+
+  async loginWithOidc(code: string, state: string): Promise<Session> {
+    abortPendingLogout();
+    const { jwt } = await post<LoginResult>("/accounts/login", { OidcCode: code, OidcState: state });
+    setToken(jwt);
+    return loadSession();
+  },
+
   async logout(): Promise<void> {
     // Cleared first and unconditionally. This used to run in a `finally`, which
     // deleted the Jwt and then let the error through - the worst pairing, because

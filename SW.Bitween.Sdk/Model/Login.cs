@@ -14,6 +14,25 @@ namespace SW.Bitween.Model
 
         /// <summary>Sent instead of a password when Microsoft sign-in is on.</summary>
         public string? MsToken { get; set; }
+
+        /// <summary>
+        /// Sent instead of a password with <see cref="OidcState"/>: the code an OpenID Connect
+        /// provider sent the browser back with.
+        /// </summary>
+        public string? OidcCode { get; set; }
+
+        public string? OidcState { get; set; }
+    }
+
+    /// <summary>Nothing to send: what the sign-in needs is in Bitween's settings.</summary>
+    public class OidcStartRequest
+    {
+    }
+
+    public class OidcStartResult
+    {
+        /// <summary>The provider's sign-in address to send the browser to.</summary>
+        public string Url { get; set; } = null!;
     }
 
 

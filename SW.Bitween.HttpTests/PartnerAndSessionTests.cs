@@ -108,6 +108,22 @@ public class PartnerAndSessionTests(HttpFixture fixture)
         return await client.SendAsync(request);
     }
 
+    /// <summary>
+    /// Starting a single sign-on is open, being how one begins, and says so plainly when no
+    /// provider is configured; the sign-in page and the config endpoint agree it isn't offered.
+    /// </summary>
+    [Fact]
+    public async Task Single_sign_on_is_off_until_a_provider_is_configured()
+    {
+        using var client = fixture.Client();
+        var start = await client.PostAsJsonAsync("/api/accounts/oidcstart", new { });
+        Assert.Equal(HttpStatusCode.BadRequest, start.StatusCode);
+        Assert.Contains("not configured", await start.Content.ReadAsStringAsync());
+
+        using var config = JsonDocument.Parse(await client.GetStringAsync("/api/settings/config"));
+        Assert.False(config.RootElement.GetProperty("oidcEnabled").GetBoolean());
+    }
+
     [Fact]
     public async Task Signing_out_ends_the_session_and_its_refresh_token()
     {

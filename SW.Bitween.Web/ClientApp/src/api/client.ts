@@ -126,6 +126,10 @@ export interface ApiClient {
   getSession(): Promise<Session | null>;
   login(email: string, password: string): Promise<Session>;
   loginWithMicrosoft(): Promise<Session>;
+  /** The OpenID Connect provider's sign-in address to send the browser to. */
+  startOidc(): Promise<string>;
+  /** Finishes a single sign-on with what the provider sent the browser back with. */
+  loginWithOidc(code: string, state: string): Promise<Session>;
   logout(): Promise<void>;
 
   // - self service -

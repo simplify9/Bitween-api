@@ -70,6 +70,14 @@ namespace SW.Bitween.Domain.Accounts
 
         public void BindMicrosoftIdentity(string identity) => MicrosoftIdentity = identity;
 
+        /// <summary>
+        /// The OpenID Connect identity - subject and issuer - this account signs in as, bound on its
+        /// first single sign-on, as <see cref="MicrosoftIdentity"/> is.
+        /// </summary>
+        public string OidcIdentity { get; private set; }
+
+        public void BindOidcIdentity(string identity) => OidcIdentity = identity;
+
         public bool IsLockedOut(DateTime nowUtc) => LockoutEnd.HasValue && LockoutEnd.Value > nowUtc;
 
         public void RegisterSuccessfulLogin()
