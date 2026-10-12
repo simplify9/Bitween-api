@@ -79,4 +79,24 @@ public class WorkGroupTests(HttpFixture fixture)
         Assert.Equal(HttpStatusCode.OK, (await Api.CallSyncAsync(fixture, urlName, key)).StatusCode);
         admin.Dispose();
     }
+
+    [Fact]
+    public async Task A_second_work_group_with_a_name_already_taken_is_refused_and_so_is_a_rename_onto_one()
+    {
+        // Two applies running at once each made one; their subscriptions ended up split between the two.
+        var admin = await fixture.AdminAsync();
+        var name = Api.Unique("Acme ERP");
+        var first = (int)(await Api.Json(await admin.PostAsJsonAsync("/api/workgroups", new { name, busMessageName = "AcmeErp" })))["id"]!;
+
+        var again = await admin.PostAsJsonAsync("/api/workgroups", new { name = $"  {name.ToUpperInvariant()} ", busMessageName = "AcmeErp2" });
+        Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
+        Assert.Contains("already a work group named", await again.Content.ReadAsStringAsync());
+
+        var other = (int)(await Api.Json(await admin.PostAsJsonAsync("/api/workgroups", new { name = Api.Unique("Other"), busMessageName = "Other" })))["id"]!;
+        var rename = await admin.PostAsJsonAsync($"/api/workgroups/{other}", new { name, busMessageName = "Other" });
+        Assert.Equal(HttpStatusCode.BadRequest, rename.StatusCode);
+
+        // Saving a group under its own name is no clash.
+        Assert.True((await admin.PostAsJsonAsync($"/api/workgroups/{first}", new { name, busMessageName = "AcmeErp" })).IsSuccessStatusCode);
+    }
 }

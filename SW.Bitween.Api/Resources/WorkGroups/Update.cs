@@ -20,6 +20,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
         // Update binds the same CreateWorkGroupModel type as Create, so Create's
         // Validate (IValidator<CreateWorkGroupModel>) already runs for this request too -
         // CqApiController resolves validators by the request's concrete type.
+        if (!string.Equals(workGroup.Name?.Trim(), request.Name?.Trim(), System.StringComparison.OrdinalIgnoreCase))
+            await Create.EnsureNameIsFree(dbContext, request.Name, key);
         var oldBusMessageName = workGroup.GetBusMessageName();
         workGroup.Name = request.Name;
         workGroup.BusMessageName = request.BusMessageName;
