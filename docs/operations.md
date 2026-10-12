@@ -76,6 +76,42 @@ Two parts come from the server instead. **Failures to act on** counts failed exc
 
 The Audit trail page shows who changed which configuration entity, when, and the values before and after. Filter by entity type, member, entity id, date range, or everything changed in one save. See [Security](security.md#audit-trail).
 
+## Metrics and traces
+
+Bitween exports metrics and traces over OpenTelemetry (OTLP) when a collector is set, so it shows up in
+Grafana, Datadog, Azure Monitor, Honeycomb or anything else that takes OTLP. Nothing is exported, and
+nothing changes, while neither address is set.
+
+| Variable | Default | |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | | The collector, as `http://otel-collector:4317`. `OpenTelemetry__Endpoint` is read when this isn't set. |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `http/protobuf` for a collector on port 4318, or one that takes HTTP only. |
+| `OTEL_SERVICE_NAME` | `bitween` | The service name every metric and span carries. Give each deployment its own. |
+
+What is exported:
+
+| Name | Kind | |
+|---|---|---|
+| `bitween.exchanges.created` | counter | Exchanges created, tagged `kind`: `routing` for a document to be fanned out to subscriptions, `subscription` for one subscription's |
+| `bitween.exchanges.processed` | counter | Exchanges processed, tagged `outcome`: `success`, `bad_response` or `error` |
+| `bitween.exchanges.processing.duration` | histogram, seconds | From taking an exchange off its queue to saving its result, tagged `outcome` |
+| `bitween.subscriptions.auto_paused` | counter | Subscriptions paused for failing too many deliveries in a row |
+| `bitween.circuits.opened` | counter | A destination's circuit opening, tagged `destination` ([Adapters](adapters.md#when-a-destination-keeps-failing)) |
+| ASP.NET Core, HttpClient and .NET runtime metrics | | Requests, outgoing calls, memory, GC and thread pool |
+| Traces | spans | Each incoming request (health checks left out), each outgoing HTTP call, and `exchange.process` for each exchange, tagged `bitween.exchange.id`, `bitween.subscription.id`, `bitween.document.id` and `bitween.outcome` |
+
+An outgoing call made while an exchange is processed is a child of its `exchange.process` span, so a
+trace shows which partner call took the time. The dashboard in the admin UI reads Bitween's own
+database and needs none of this.
+
+With the Helm chart, set the variables under `environmentVariables`:
+
+```yaml
+environmentVariables:
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring:4317"
+  OTEL_SERVICE_NAME: "bitween-acme-prod"
+```
+
 ## Logs
 
 Bitween logs to the console. When `SwLogger:ElasticsearchUrl` is set and the environment is listed in `SwLogger:ElasticsearchEnvironments`, logs also go to Elasticsearch, enriched with request context.
