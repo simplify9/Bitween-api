@@ -4,8 +4,8 @@ run-name: Run-${{ github.ref_name }}-${{ github.run_number }}
 # Two pipelines that publish nothing under the same name:
 #   releases/r10.0-develop  the simplify9/bitween-develop image and the bitween-develop chart,
 #                           deployed to playground. No NuGet packages, the CLI as a pre-release.
-#   releases/r10.0          the simplify9/bitween image and the bitween chart clients install from
-#                           ChartMuseum, the NuGet packages, the CLI and the SDKs. Never deployed.
+#   releases/r10.0          the simplify9/bitween image and the bitween chart clients install
+#                           (ChartMuseum + GHCR), the NuGet packages, the CLI and the SDKs. Never deployed.
 # Run workflow by hand on either branch to rerun that branch's pipeline.
 on:
   push:
@@ -140,7 +140,7 @@ jobs:
           run-tests: 'true'
 
   publish-release:
-    # Release: build and publish to ChartMuseum for clients, never deploy. releases/r10.0 is the
+    # Release: build and publish for clients, never deploy. releases/r10.0 is the
     # repository's default branch, so the reusable workflow treats it as a release: a clean
     # 10.0.<patch> git tag, and the critical Dependabot gate runs first.
     if: ${{ github.ref_name == 'releases/r10.0' }}
@@ -156,7 +156,9 @@ jobs:
 
       chart-name: 'bitween'
       chart-path: './charts/default'
-      chart-publish-method: 'chartmuseum'
+      # ChartMuseum, where clients install from today, and GHCR OCI (oci://ghcr.io/simplify9/charts/bitween),
+      # the same versions as an immutable, digest-pinned mirror.
+      chart-publish-method: 'both'
       chart-repo-url: 'https://charts.sf9.io'
 
       container-registry: 'docker.io'
