@@ -829,6 +829,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("DocumentFormat")
                         .HasColumnType("int");
 
+                    b.Property<bool>("DropDuplicates")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<int>("DuplicateInterval")
                         .HasColumnType("int");
 
@@ -866,10 +869,44 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 10001,
                             BusEnabled = false,
                             DocumentFormat = 0,
+                            DropDuplicates = false,
                             DuplicateInterval = 0,
                             Name = "Aggregation Document",
                             PromotedProperties = "{}"
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.DuplicateArrival", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Dropped")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("OriginalXchangeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId", "OccurredOn");
+
+                    b.ToTable("DuplicateArrivals", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>

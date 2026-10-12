@@ -96,8 +96,18 @@ namespace SW.Bitween.Resources.Xchanges
             var xchangeId = string.IsNullOrEmpty(idempotencyKey)
                 ? null
                 : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
-            if (xchangeId is null)
+            // Not for a replayed call: its payload is a repeat by definition, and it is answered already.
+            var duplicate = xchangeId is null
+                ? await new DuplicateArrivals(dbContext).CheckAsync(document, par.Partner.Id, xchangeFile)
+                : null;
+            if (duplicate?.Drop == true)
             {
+                await dbContext.SaveChangesAsync();
+                xchangeId = duplicate.OriginalXchangeId;
+            }
+            else if (xchangeId is null)
+            {
+                if (duplicate != null) xchangeReferences.Add(duplicate.Reference);
                 var subscription = await cache.SubscriptionByIdAsync(sub.Id);
                 var xchange = await xchangeService.CreateXchange(subscription, xchangeFile,
                     xchangeReferences.ToArray(), Guid.NewGuid().ToString("N"));

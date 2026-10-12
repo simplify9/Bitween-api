@@ -18,6 +18,7 @@ export const informationTypeDraftOf = (t: InformationType): InformationTypeDraft
   busEnabled: t.busEnabled,
   busMessageTypeName: t.busMessageTypeName ?? "",
   duplicateIntervalMinutes: t.duplicateIntervalMinutes,
+  dropDuplicates: t.dropDuplicates,
   disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
   promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
   validationSchema: t.validationSchema ?? "",
@@ -30,6 +31,7 @@ export const EMPTY_INFORMATION_TYPE: InformationTypeDraft = {
   busEnabled: false,
   busMessageTypeName: "",
   duplicateIntervalMinutes: 0,
+  dropDuplicates: false,
   disregardsUnfilteredMessages: false,
   promotedProperties: [],
   validationSchema: "",
@@ -50,6 +52,7 @@ export const informationTypeChanges = (draft: InformationTypeDraft) => ({
   // the name a paused type resumes on, or nothing for a type that was never on it.
   busMessageTypeName: draft.busMessageTypeName.trim() || undefined,
   duplicateIntervalMinutes: draft.duplicateIntervalMinutes,
+  dropDuplicates: draft.dropDuplicates,
   disregardsUnfilteredMessages: draft.disregardsUnfilteredMessages,
   promotedProperties: draft.promotedProperties
     .filter((r) => r.key.trim() || r.value.trim())

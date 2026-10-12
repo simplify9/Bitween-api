@@ -11,7 +11,8 @@ namespace SW.Bitween;
 /// Deletes <see cref="ReceiveAttempt"/> rows older than
 /// <see cref="BitweenOptions.ReceiveAttemptRetentionDays"/>.
 /// Scheduled via <see cref="BitweenOptions.ReceiveAttemptCleanupCron"/> (registered by
-/// <c>SchedulerSeedService</c>).
+/// <c>SchedulerSeedService</c>). Also deletes reported duplicates older than
+/// <see cref="DuplicateArrivals.KeepDays"/>, which only feed the information type's weekly count.
 /// </summary>
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
 public class ReceiveAttemptCleanupJob(BitweenDbContext dbContext, BitweenOptions options) : IScheduledJob
@@ -22,5 +23,7 @@ public class ReceiveAttemptCleanupJob(BitweenDbContext dbContext, BitweenOptions
         await dbContext.Set<ReceiveAttempt>()
             .Where(a => a.StartedOn < cutoff)
             .ExecuteDeleteAsync();
+
+        await new DuplicateArrivals(dbContext).PruneAsync();
     }
 }

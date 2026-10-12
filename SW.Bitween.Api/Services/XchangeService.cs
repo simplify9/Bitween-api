@@ -40,8 +40,16 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
 
-        var xchange = await CreateXchange(subscription, file, references, Guid.NewGuid().ToString("N"), gatewayPartner,
-            globalAdapterValuesSets);
+        var duplicate = await new DuplicateArrivals(dbContext).CheckAsync(
+            await BitweenCache.DocumentByIdAsync(subscription.DocumentId), gatewayPartner?.Id ?? subscription.PartnerId, file);
+        if (duplicate?.Drop == true)
+        {
+            await dbContext.SaveChangesAsync();
+            return duplicate.OriginalXchangeId;
+        }
+
+        var xchange = await CreateXchange(subscription, file, WithDuplicateReference(references, duplicate),
+            Guid.NewGuid().ToString("N"), gatewayPartner, globalAdapterValuesSets);
         await dbContext.SaveChangesAsync();
         return xchange.Id;
     }
@@ -51,6 +59,14 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         var document = await BitweenCache.DocumentByIdAsync(documentId);
         Xchange xchange;
+
+        var duplicate = await new DuplicateArrivals(dbContext).CheckAsync(document, null, file);
+        if (duplicate?.Drop == true)
+        {
+            await dbContext.SaveChangesAsync();
+            return;
+        }
+        references = WithDuplicateReference(references, duplicate);
 
         if (document?.DisregardsUnfilteredMessages ?? false)
         {
@@ -66,6 +82,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         await dbContext.SaveChangesAsync();
     }
+
+    /// <summary>A duplicate let through carries a reference to the exchange it repeats.</summary>
+    public static string[] WithDuplicateReference(string[] references, DuplicateVerdict duplicate) =>
+        duplicate == null ? references : [.. references ?? [], duplicate.Reference];
 
     public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup,
         bool manualRetry = false)

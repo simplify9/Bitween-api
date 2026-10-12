@@ -67,7 +67,7 @@ public class InformationTypes : Kind
     public override IReadOnlyList<Field> Fields { get; } =
     [
         Same("name"), Same("code"), new("format", "documentFormat"), Same("busEnabled"), Same("busMessageTypeName"),
-        Same("duplicateInterval"), Same("disregardsUnfilteredMessages"),
+        Same("duplicateInterval"), Same("dropDuplicates"), Same("disregardsUnfilteredMessages"),
         new("promotedProperties", "promotedProperties", FieldMode.KeyValues), Same("validationSchema"),
     ];
 

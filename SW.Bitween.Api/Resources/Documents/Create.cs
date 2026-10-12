@@ -45,6 +45,7 @@ namespace SW.Bitween.Resources.Documents
                 BusEnabled = model.BusEnabled,
                 BusMessageTypeName = model.BusEnabled ? model.BusMessageTypeName : null,
                 DuplicateInterval = model.DuplicateInterval,
+                DropDuplicates = model.DropDuplicates,
                 DisregardsUnfilteredMessages = model.DisregardsUnfilteredMessages,
             };
             if (model.PromotedProperties != null)

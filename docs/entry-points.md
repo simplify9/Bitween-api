@@ -45,6 +45,9 @@ Bitween checks each call in this order.
 | The attached subscription is active | 404 |
 | The subscription's validator accepts the body | Validation error |
 
+A payload its information type drops as a [duplicate](concepts.md#duplicates) is answered with the
+exchange it repeats, and the header `Bitween-Duplicate-Of`.
+
 Deactivation is checked after authorization on purpose, so only attached partners learn that the gateway exists.
 
 ### Authentication

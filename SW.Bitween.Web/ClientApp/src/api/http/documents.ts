@@ -31,6 +31,10 @@ interface RawDocument {
   busEnabled: boolean;
   busMessageTypeName: string | null;
   duplicateInterval: number;
+  /** Absent from servers that predate it. */
+  dropDuplicates?: boolean;
+  duplicatesLastWeek?: number;
+  duplicatesDroppedLastWeek?: number;
   disregardsUnfilteredMessages: boolean;
   promotedProperties: RawKeyAndValue[] | null;
   validationSchema?: string | null;
@@ -82,6 +86,9 @@ const toInformationType = (d: RawDocument): InformationType => ({
   busEnabled: d.busEnabled,
   busMessageTypeName: d.busMessageTypeName ?? undefined,
   duplicateIntervalMinutes: d.duplicateInterval,
+  dropDuplicates: d.dropDuplicates ?? false,
+  duplicatesLastWeek: d.duplicatesLastWeek,
+  duplicatesDroppedLastWeek: d.duplicatesDroppedLastWeek,
   disregardsUnfilteredMessages: d.disregardsUnfilteredMessages,
   promotedProperties: (d.promotedProperties ?? []).map((p) => ({ key: p.key, path: p.value })),
   validationSchema: d.validationSchema ?? null,
@@ -128,6 +135,7 @@ const documentBody = (t: Omit<InformationType, "id" | "createdOn">) => ({
   // Sent with the bus off too: the name is what a paused type resumes on.
   busMessageTypeName: t.busMessageTypeName || undefined,
   duplicateInterval: t.duplicateIntervalMinutes,
+  dropDuplicates: t.dropDuplicates,
   disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
   promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
   // Empty removes it; the server reads a missing one as "leave it alone".

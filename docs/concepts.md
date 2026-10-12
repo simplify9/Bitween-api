@@ -13,9 +13,28 @@ An information type describes one kind of business document, such as a purchase 
 | Promoted properties | Named paths into the payload, such as `orderId` pointing at `order.id` in JSON or an XPath in XML. Their values are extracted from every exchange, shown in lists in the type's order and searchable. The first one names archived exchanges. Point them at short values, such as an order number: a value longer than 500 characters is stored cut. |
 | Available on the bus, bus message type name | When enabled, Bitween consumes RabbitMQ messages published under this name and treats each one as a document of this type. The name cannot contain spaces and must be unique ignoring case. |
 | Disregard unfiltered messages | When on, documents arriving on the bus are filtered straight away. Only matching subscriptions get exchanges, and no document-level exchange is recorded. |
-| Duplicate interval | Stored and shown, but not enforced by the current code. |
+| Duplicate window, drop duplicates | Minutes within which the same payload from the same partner again is a duplicate; 0 checks nothing. See [Duplicates](#duplicates). |
 
 The information type with id `10001` is reserved for aggregation output.
+
+### Duplicates
+
+With a duplicate window, a payload is compared, by its hash, with the exchanges of its type started
+within the window, where it first arrives: an API gateway, the older partner endpoint, a scheduled job,
+the bus or a customer's broker. Retries, aggregations and exchanges made from a response are never
+checked; they repeat a payload on purpose. The comparison is per partner, so the same document from two
+partners is two documents. A payload arriving with no partner, from the bus or a broker, matches its
+earlier copy whichever partner that was routed to.
+
+- **Drop duplicates off**, the default and how every type that had a window before this behaves: a
+  duplicate goes through like any message, with the reference `duplicate-of: <exchange id>`, and is
+  counted. The type's page says how many arrived in the last 7 days, which is what to look at before
+  turning dropping on.
+- **Drop duplicates on**: no exchange is made. An API gateway answers with the exchange the payload
+  repeats and the header `Bitween-Duplicate-Of`, as it answers a replayed `Idempotency-Key`; the older
+  endpoint answers the same way; a scheduled job's item is taken from the source as if received.
+
+Duplicates are kept for 30 days for the count, and pruned with receive attempts.
 
 ## Partner
 

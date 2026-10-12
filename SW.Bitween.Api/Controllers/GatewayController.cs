@@ -25,6 +25,9 @@ public class GatewayController(
     GatewayActivity activity,
     BitweenOptions options) : ControllerBase
 {
+    /// <summary>Answers a call whose payload the type dropped as a duplicate, naming the exchange it repeats.</summary>
+    public const string DuplicateOfHeader = "Bitween-Duplicate-Of";
+
     /// <summary>
     /// <c>{gateway's url name}/sync</c> or <c>/async</c>. The url name can be several segments,
     /// so it is everything before the last one - a route can't put a literal after a catch-all.
@@ -149,12 +152,27 @@ public class GatewayController(
         var xchangeId = string.IsNullOrEmpty(idempotencyKey)
             ? null
             : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+        // Not for a replayed call: its payload is a repeat by definition, and it is answered already.
+        var duplicate = xchangeId is null
+            ? await new DuplicateArrivals(dbContext).CheckAsync(document, partner.Id, xchangeFile)
+            : null;
+
         if (xchangeId is not null)
         {
             Response.Headers["Idempotent-Replay"] = "true";
         }
+        else if (duplicate?.Drop == true)
+        {
+            // The same payload from this partner within the type's duplicate window, which the type
+            // drops: answered with the exchange it repeats, as a replayed call would be.
+            await dbContext.SaveChangesAsync();
+            xchangeId = duplicate.OriginalXchangeId;
+            Response.Headers[DuplicateOfHeader] = xchangeId;
+        }
         else
         {
+            if (duplicate != null) xchangeReferences.Add(duplicate.Reference);
+
             // The sets already read at the top of the request, from the cache.
             var xchange = await xchangeService.CreateXchange(subscription, xchangeFile, xchangeReferences.ToArray(),
                 Guid.NewGuid().ToString("N"), partner, globalAdapterValuesSet);

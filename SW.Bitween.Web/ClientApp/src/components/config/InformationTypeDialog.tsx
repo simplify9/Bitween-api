@@ -75,6 +75,7 @@ export function InformationTypeDialog({
         busEnabled: changes.busEnabled,
         busMessageTypeName: changes.busMessageTypeName,
         duplicateIntervalMinutes: changes.duplicateIntervalMinutes,
+        dropDuplicates: changes.dropDuplicates,
         disregardsUnfilteredMessages: changes.disregardsUnfilteredMessages,
         promotedProperties: changes.promotedProperties,
         // Left out, the save would send an empty one and remove the schema.

@@ -29,6 +29,7 @@ export interface InformationTypeDraft {
   busEnabled: boolean;
   busMessageTypeName: string;
   duplicateIntervalMinutes: number;
+  dropDuplicates: boolean;
   disregardsUnfilteredMessages: boolean;
   /** key = friendly name, value = the path. */
   promotedProperties: KvRow[];
@@ -154,7 +155,7 @@ export function InformationTypeFields({
           <Field
             label="Duplicate window (minutes)"
             htmlFor={`${idPrefix}-dup`}
-            hint="Identical payloads arriving within this window are treated as duplicates. 0 turns it off."
+            hint="The same payload from the same partner again within this window is a duplicate. 0 turns it off."
           >
             <TextInput
               id={`${idPrefix}-dup`}
@@ -165,6 +166,33 @@ export function InformationTypeFields({
               onChange={(e) => set("duplicateIntervalMinutes", Math.max(0, Number(e.target.value)))}
             />
           </Field>
+          {draft.duplicateIntervalMinutes > 0 && (
+            <div className="space-y-1 sm:col-span-2">
+              <Checkbox
+                label="Drop duplicates"
+                description={
+                  draft.dropDuplicates
+                    ? "Duplicates are dropped: no exchange is made, and an API gateway caller gets the exchange it repeats."
+                    : "Off: duplicates go through like any message, tagged duplicate-of so they can be found, and are counted below. Turn this on once the count shows only true repeats."
+                }
+                checked={draft.dropDuplicates}
+                disabled={!canEdit}
+                onChange={(e) => set("dropDuplicates", e.target.checked)}
+              />
+              {saved?.duplicatesLastWeek !== undefined && (
+                <p className="pl-6.5 text-xs text-ink-500">
+                  {saved.duplicatesLastWeek === 0
+                    ? "No duplicates in the last 7 days."
+                    : `${saved.duplicatesLastWeek} duplicate${saved.duplicatesLastWeek === 1 ? "" : "s"} in the last 7 days` +
+                      (saved.duplicatesDroppedLastWeek
+                        ? `, ${saved.duplicatesDroppedLastWeek} dropped.`
+                        : saved.dropDuplicates
+                          ? "."
+                          : ", none dropped: they would have been with this on.")}
+                </p>
+              )}
+            </div>
+          )}
           <div className="space-y-3 sm:col-span-2">
             <Checkbox
               label="Available on the message bus"

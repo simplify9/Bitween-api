@@ -463,6 +463,14 @@ namespace SW.Bitween
                 b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
             });
 
+            modelBuilder.Entity<DuplicateArrival>(b =>
+            {
+                b.ToTable("DuplicateArrivals");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.OriginalXchangeId).IsUnicode(false).HasMaxLength(50).IsRequired();
+                b.HasIndex(p => new { p.DocumentId, p.OccurredOn });
+            });
+
             modelBuilder.Entity<ReceiveAttempt>(b =>
             {
                 b.ToTable("ReceiveAttempts");

@@ -989,6 +989,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("document_format");
 
+                    b.Property<bool>("DropDuplicates")
+                        .HasColumnType("boolean")
+                        .HasColumnName("drop_duplicates");
+
                     b.Property<int>("DuplicateInterval")
                         .HasColumnType("integer")
                         .HasColumnName("duplicate_interval");
@@ -1034,10 +1038,51 @@ namespace SW.Bitween.PgSql.Migrations
                             Id = 10001,
                             BusEnabled = false,
                             DocumentFormat = 0,
+                            DropDuplicates = false,
                             DuplicateInterval = 0,
                             Name = "Aggregation Document",
                             PromotedProperties = "{}"
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.DuplicateArrival", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("document_id");
+
+                    b.Property<bool>("Dropped")
+                        .HasColumnType("boolean")
+                        .HasColumnName("dropped");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_on");
+
+                    b.Property<string>("OriginalXchangeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("original_xchange_id");
+
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_duplicate_arrival");
+
+                    b.HasIndex("DocumentId", "OccurredOn")
+                        .HasDatabaseName("ix_duplicate_arrival_document_id_occurred_on");
+
+                    b.ToTable("duplicate_arrival", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>

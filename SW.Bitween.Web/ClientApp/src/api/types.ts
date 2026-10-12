@@ -304,8 +304,13 @@ export interface InformationType {
   format: InformationTypeFormat;
   busEnabled: boolean;
   busMessageTypeName?: string;
-  /** How long an identical incoming payload counts as a duplicate. 0 = off. */
+  /** How long an identical incoming payload from the same partner counts as a duplicate. 0 = off. */
   duplicateIntervalMinutes: number;
+  /** Drop duplicates instead of letting them through tagged duplicate-of. */
+  dropDuplicates: boolean;
+  /** Duplicates in the last 7 days, and how many were dropped. Read with one type only. */
+  duplicatesLastWeek?: number;
+  duplicatesDroppedLastWeek?: number;
   disregardsUnfilteredMessages: boolean;
   /** Friendly name → JSONPath/XPath, matched by routes and filters. */
   promotedProperties: { key: string; path: string }[];

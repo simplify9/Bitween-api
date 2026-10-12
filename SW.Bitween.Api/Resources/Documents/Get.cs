@@ -23,7 +23,7 @@ namespace SW.Bitween.Resources.Documents
             // DocumentRow rather than DocumentUpdate: it is the read shape, and RetiredOn belongs
             // on it rather than on the model used to write a type - retiring is its own command,
             // not a field an update can set.
-            return await dbContext.Set<Document>().Search("Id", key).Select(document => new DocumentRow
+            var row = await dbContext.Set<Document>().Search("Id", key).Select(document => new DocumentRow
             {
                 Id = document.Id,
                 Code = document.Code,
@@ -31,6 +31,7 @@ namespace SW.Bitween.Resources.Documents
                 BusEnabled = document.BusEnabled,
                 BusMessageTypeName = document.BusMessageTypeName,
                 DuplicateInterval = document.DuplicateInterval,
+                DropDuplicates = document.DropDuplicates,
                 PromotedProperties = document.PromotedProperties.ToKeyAndValueCollection(),
                 ValidationSchema = document.ValidationSchema,
                 DocumentFormat = document.DocumentFormat,
@@ -39,6 +40,10 @@ namespace SW.Bitween.Resources.Documents
                 UsedByCount = dbContext.Set<Subscription>()
                     .Count(subscription => subscription.DocumentId == document.Id)
             }).SingleOrDefaultAsync();
+
+            if (row != null)
+                (row.DuplicatesLastWeek, row.DuplicatesDroppedLastWeek) = await new DuplicateArrivals(dbContext).CountAsync(key);
+            return row;
         }
     }
 }
