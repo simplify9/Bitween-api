@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Download, Layers, Plus, RotateCcw, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Layers, Plus, RefreshCw, RotateCcw, X } from "lucide-react";
 import { api, type BulkRetrySelection, type ExchangeQuery, type ExchangeStatus, type ExportFilesCheck } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -91,7 +91,7 @@ export function ExchangesPage() {
   const [bulkResult, setBulkResult] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, dataUpdatedAt } = useQuery({
+  const { data, isLoading, isFetching, dataUpdatedAt, refetch } = useQuery({
     queryKey: keys.exchanges.search(searchParams.toString()),
     queryFn: () => api.searchExchanges(query),
     refetchInterval: refreshMs || false,
@@ -332,6 +332,11 @@ export function ExchangesPage() {
               title={`Live — refreshed ${timeAgo(new Date(dataUpdatedAt).toISOString())}`}
             />
           )}
+          {/* Now, rather than at the next tick - or at all, with live refresh off. */}
+          <Button size="sm" onClick={() => void refetch()} title="Load the latest exchanges now">
+            <RefreshCw className={`size-3.5 ${isFetching ? "animate-spin" : ""}`} aria-hidden />
+            Refresh
+          </Button>
           <Select
             aria-label="Refresh interval"
             className="!h-8 !w-auto text-[13px]"
