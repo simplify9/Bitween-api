@@ -314,6 +314,7 @@ namespace SW.Bitween
                     .OnDelete(DeleteBehavior.SetNull);
                 b.Property(p => p.CustomRetryPolicy).StoreAsJson();
                 b.Property(p => p.ExpectTraffic).StoreAsJson();
+                b.Property(p => p.Notifications).StoreAsJson();
                 b.Property(p => p.MatchExpression).HasMatchExpressionConversion();
             });
 
@@ -577,6 +578,8 @@ namespace SW.Bitween
                 b.HasIndex(p => p.XchangeId);
                 // The quiet window looks up a notifier's recent sends.
                 b.HasIndex(p => new { p.NotifierId, p.FinishedOn });
+                // And a channel's.
+                b.HasIndex(p => new { p.ChannelId, p.FinishedOn });
             });
 
             modelBuilder.Entity<XchangeDelivery>(b =>

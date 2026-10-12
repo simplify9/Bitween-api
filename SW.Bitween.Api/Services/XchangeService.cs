@@ -22,7 +22,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
     IPublishWithValues publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
     IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery,
-    FileLinks fileLinks, StorageRetention storageRetention) :
+    FileLinks fileLinks, StorageRetention storageRetention, NotificationChannelSender channelSender) :
     // IConsume<ApiXchangeCreatedEvent>,
     // IConsume<InternalXchangeCreatedEvent>,
     // IConsume<AggregateXchangeCreatedEvent>,
@@ -1269,6 +1269,78 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                     break;
             }
         }
+
+        await NotifyThroughChannels(xchange, xchangeResult);
+    }
+
+    /// <summary>
+    /// Sends the subscription's own notifications: each row names a channel and the outcomes it is
+    /// told about. Runs after the legacy notifiers, which still fire.
+    /// </summary>
+    private async Task NotifyThroughChannels(Xchange xchange, XchangeResult xchangeResult)
+    {
+        if (xchange.SubscriptionId == null) return;
+
+        // The cache holds active subscriptions only, and an exchange can finish just after its
+        // subscription was switched off. What it was set to notify still applies to that exchange.
+        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange.SubscriptionId.Value)
+                           ?? await dbContext.Set<Subscription>().AsNoTracking()
+                               .FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId.Value);
+
+        var channelIds = (subscription?.Notifications ?? [])
+            .Where(n => xchangeResult.Success
+                ? xchangeResult.ResponseBad ? n.OnBadResult : n.OnSuccess
+                : n.OnFailure)
+            .Select(n => n.ChannelId)
+            .Distinct()
+            .ToList();
+        if (channelIds.Count == 0) return;
+
+        var partner = xchange.PartnerId is { } partnerId ? await dbContext.FindAsync<Partner>(partnerId) : null;
+        foreach (var channelId in channelIds)
+            await NotifyChannel(channelId, subscription, xchange, xchangeResult, partner);
+    }
+
+    private async Task NotifyChannel(int channelId, Subscription subscription, Xchange xchange,
+        XchangeResult xchangeResult, Partner partner)
+    {
+        // Sent already: the result event was delivered again.
+        if (await dbContext.Set<XchangeNotification>().AsNoTracking()
+                .AnyAsync(n => n.XchangeId == xchangeResult.Id && n.ChannelId == channelId && (n.Success || n.Suppressed)))
+            return;
+
+        var channel = await BitweenCache.NotificationChannelByIdAsync(channelId);
+
+        // A channel in use can't be deleted, so this is a delete racing the send. Recorded as a
+        // failure rather than skipped, so the gap shows in the history.
+        if (channel == null)
+        {
+            dbContext.Add(XchangeNotification.ForChannel(xchangeResult.Id, channelId, $"Channel {channelId}",
+                $"Notification channel {channelId} no longer exists."));
+            await dbContext.SaveChangesAsync();
+            return;
+        }
+
+        // One message for an outage, as a notifier sends: see NotifyResult.
+        var (lastSent, suppressedSince) = await QuietWindow(
+            dbContext.Set<XchangeNotification>().Where(n => n.ChannelId == channelId), subscription.Id, xchangeResult);
+        if (InQuietWindow(lastSent))
+        {
+            var held = XchangeNotification.ForChannel(xchangeResult.Id, channelId, channel.Name);
+            held.Suppressed = true;
+            held.Success = false;
+            dbContext.Add(held);
+            await dbContext.SaveChangesAsync();
+            return;
+        }
+
+        var document = await BitweenCache.DocumentByIdAsync(xchange.DocumentId);
+        var notification = ResultNotification(xchange, xchangeResult, subscription, document, suppressedSince);
+        var error = await channelSender.Send(channel, notification, xchangeResult.Id,
+            xchange.CorrelationId ?? xchange.Id, partner);
+
+        dbContext.Add(XchangeNotification.ForChannel(xchangeResult.Id, channelId, channel.Name, error?.ToString()));
+        await dbContext.SaveChangesAsync();
     }
 
     private async Task NotifyResult(Notifier notifier, XchangeResult xchangeResult, string correlationId)
@@ -1288,31 +1360,16 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         // One message for an outage, not one per failure: within the quiet window after a send for
         // the same subscription and outcome, this one is recorded but not sent.
-        var (lastSent, suppressedSince) = await QuietWindow(notifier, subscription.Id, xchangeResult);
-        if (lastSent is not null && BitweenSettings.NotifierQuietMinutes > 0 &&
-            lastSent > DateTime.UtcNow.AddMinutes(-BitweenSettings.NotifierQuietMinutes))
+        var (lastSent, suppressedSince) = await QuietWindow(
+            dbContext.Set<XchangeNotification>().Where(n => n.NotifierId == notifier.Id), subscription.Id, xchangeResult);
+        if (InQuietWindow(lastSent))
         {
             dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name) { Suppressed = true, Success = false });
             await dbContext.SaveChangesAsync();
             return;
         }
 
-        var notificationData = new XchangeResultNotification
-        {
-            Id = xchangeResult.Id,
-            Exception = xchangeResult.Exception,
-            Success = xchangeResult.Success,
-            FinishedOn = xchangeResult.FinishedOn,
-            OutputBad = xchangeResult.OutputBad,
-            ResponseBad = xchangeResult.ResponseBad,
-            StartedOn = xchange.StartedOn,
-            SubscriptionName = subscription.Name,
-            SubscriptionId = subscription.Id,
-            DocumentName = document.Name,
-            DocumentId = document.Id,
-            CorrelationId = xchange.CorrelationId,
-            SuppressedSinceLast = suppressedSince
-        };
+        var notificationData = ResultNotification(xchange, xchangeResult, subscription, document, suppressedSince);
 
         var lastError = await NotifierDelivery.SendAsync(adapterInvoker, notifier, notificationData,
             xchangeResult.Id, correlationId);
@@ -1321,18 +1378,40 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         await dbContext.SaveChangesAsync();
     }
 
+    private static XchangeResultNotification ResultNotification(Xchange xchange, XchangeResult xchangeResult,
+        Subscription subscription, Document document, int suppressedSince) => new()
+    {
+        Id = xchangeResult.Id,
+        Exception = xchangeResult.Exception,
+        Success = xchangeResult.Success,
+        FinishedOn = xchangeResult.FinishedOn,
+        OutputBad = xchangeResult.OutputBad,
+        ResponseBad = xchangeResult.ResponseBad,
+        StartedOn = xchange.StartedOn,
+        SubscriptionName = subscription.Name,
+        SubscriptionId = subscription.Id,
+        DocumentName = document.Name,
+        DocumentId = document.Id,
+        CorrelationId = xchange.CorrelationId,
+        SuppressedSinceLast = suppressedSince
+    };
+
+    private bool InQuietWindow(DateTime? lastSent) =>
+        lastSent is not null && BitweenSettings.NotifierQuietMinutes > 0 &&
+        lastSent > DateTime.UtcNow.AddMinutes(-BitweenSettings.NotifierQuietMinutes);
+
     /// <summary>
-    /// When this notifier last sent for the subscription and this outcome, and how many it has held
-    /// back since.
+    /// When one notifier or channel, given as its <paramref name="sends"/>, last sent for the
+    /// subscription and this outcome, and how many it has held back since.
     /// </summary>
-    private async Task<(DateTime? LastSent, int SuppressedSince)> QuietWindow(Notifier notifier, int subscriptionId,
-        XchangeResult result)
+    private async Task<(DateTime? LastSent, int SuppressedSince)> QuietWindow(IQueryable<XchangeNotification> sends,
+        int subscriptionId, XchangeResult result)
     {
         var sameOutcome =
-            from n in dbContext.Set<XchangeNotification>().AsNoTracking()
+            from n in sends.AsNoTracking()
             join x in dbContext.Set<Xchange>() on n.XchangeId equals x.Id
             join r in dbContext.Set<XchangeResult>() on n.XchangeId equals r.Id
-            where n.NotifierId == notifier.Id && x.SubscriptionId == subscriptionId &&
+            where x.SubscriptionId == subscriptionId &&
                   r.Success == result.Success && r.ResponseBad == result.ResponseBad
             select n;
 

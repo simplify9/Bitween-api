@@ -1985,6 +1985,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Notifications")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
@@ -2317,6 +2320,9 @@ namespace SW.Bitween.MsSql.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ChannelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("nvarchar(max)");
 
@@ -2343,6 +2349,8 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("XchangeId");
+
+                    b.HasIndex("ChannelId", "FinishedOn");
 
                     b.HasIndex("NotifierId", "FinishedOn");
 

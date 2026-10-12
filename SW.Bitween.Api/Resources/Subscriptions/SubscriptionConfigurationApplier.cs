@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
+using SW.Bitween.Resources.NotificationChannels;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.Subscriptions;
@@ -114,6 +115,14 @@ internal static class SubscriptionConfigurationApplier
                 $"Retry policy {model.RetryPolicyId} was not found.");
 
         entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
+
+        // Null leaves them as they are, so a caller that has never heard of notifications, such as
+        // an older client or a script, does not wipe them by saving something else.
+        if (model.Notifications != null)
+        {
+            await ChannelValidation.EnsureNotificationsCanSend(dbContext, model.Notifications);
+            entity.SetNotifications(model.Notifications);
+        }
     }
 
     private static Dictionary<string, string> MergeWithOriginal(

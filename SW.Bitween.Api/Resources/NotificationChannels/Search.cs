@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -23,12 +24,18 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
 
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Notifiers.View);
 
+        var rows = await query.OrderBy(c => c.Name)
+            .Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex)
+            .ToListAsync();
+
+        var uses = await NotificationChannelUsage.Find(dbContext);
+        foreach (var row in rows)
+            row.UsedBy = uses.GetValueOrDefault(row.Id) ?? [];
+
         return new SearchyResponse<NotificationChannelRow>
         {
             TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
-            Result = await query.OrderBy(c => c.Name)
-                .Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex)
-                .ToListAsync()
+            Result = rows
         };
     }
 }

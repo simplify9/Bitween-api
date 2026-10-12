@@ -1978,6 +1978,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("Notifications")
+                        .HasColumnType("longtext");
+
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
@@ -2309,6 +2312,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ChannelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("longtext");
 
@@ -2335,6 +2341,8 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("XchangeId");
+
+                    b.HasIndex("ChannelId", "FinishedOn");
 
                     b.HasIndex("NotifierId", "FinishedOn");
 

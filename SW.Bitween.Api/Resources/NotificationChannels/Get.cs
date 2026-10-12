@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
@@ -23,7 +24,8 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Adap
             Name = channel.Name,
             HandlerId = channel.HandlerId,
             // Secrets go out as the sentinel. Update reads it as "keep what is stored".
-            HandlerProperties = await secrets.Mask(channel.HandlerId, channel.HandlerProperties) ?? []
+            HandlerProperties = await secrets.Mask(channel.HandlerId, channel.HandlerProperties) ?? [],
+            UsedBy = (await NotificationChannelUsage.Find(dbContext)).GetValueOrDefault(channel.Id) ?? []
         };
     }
 }

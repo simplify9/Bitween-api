@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 using SW.Bitween.Domain;
+using SW.Bitween.IntegrationTests.Adapters;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
@@ -218,15 +221,23 @@ public class NotificationChannelTests(BitweenFixture fixture)
     public async Task A_channel_password_is_stored_encrypted_and_read_back_plain()
     {
         SecretColumnCipher.Configure("integration test passphrase");
+        int? id = null;
         try
         {
-            var id = await Create(Unique("Encrypted"), Smtp("hunter2-at-rest"));
+            id = await Create(Unique("Encrypted"), Smtp("hunter2-at-rest"));
 
-            Assert.DoesNotContain("hunter2-at-rest", await RawHandlerProperties(id));
-            Assert.Equal("hunter2-at-rest", (await Stored(id)).HandlerProperties["Password"]);
+            Assert.DoesNotContain("hunter2-at-rest", await RawHandlerProperties(id.Value));
+            Assert.Equal("hunter2-at-rest", (await Stored(id.Value)).HandlerProperties["Password"]);
         }
         finally
         {
+            // Unreadable once the key is gone, and the cache loads every channel, so it can't stay.
+            if (id != null)
+            {
+                await using var scope = fixture.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<NotificationChannel>()
+                    .Where(c => c.Id == id).ExecuteDeleteAsync();
+            }
             SecretColumnCipher.Configure(null);
         }
     }
@@ -255,5 +266,206 @@ public class NotificationChannelTests(BitweenFixture fixture)
             await decrypt.RunAsync(CancellationToken.None);
             SecretColumnCipher.Configure(null);
         }
+    }
+
+    [Fact]
+    public async Task A_channel_in_use_names_its_users_and_cannot_be_deleted()
+    {
+        var channelId = await Create(Unique("In use"), Smtp());
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+
+        var use = Assert.Single((await Get(channelId)).UsedBy);
+        Assert.Equal(subscriptionId, use.SubscriptionId);
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Delete(channelId));
+        Assert.Contains("NOTIFICATION_CHANNEL_IN_USE", ex.Message);
+        Assert.NotNull(await Stored(channelId));
+    }
+
+    [Fact]
+    public async Task Notifications_are_saved_and_a_save_that_leaves_them_out_keeps_them()
+    {
+        var channelId = await RecordingChannel(Token("saved"));
+        var subscriptionId = await NotifyingSubscription();
+
+        await SaveNotifications(subscriptionId, [new SubscriptionNotification { ChannelId = channelId, OnFailure = true }]);
+        var row = Assert.Single((await ReadSubscription(subscriptionId)).Notifications!);
+        Assert.Equal(channelId, row.ChannelId);
+        Assert.True(row.OnFailure);
+
+        // An older client, or a script, that has never heard of them.
+        await SaveNotifications(subscriptionId, null);
+        Assert.Single((await ReadSubscription(subscriptionId)).Notifications!);
+
+        await SaveNotifications(subscriptionId, []);
+        Assert.Empty((await ReadSubscription(subscriptionId)).Notifications!);
+    }
+
+    [Fact]
+    public async Task A_subscription_refuses_notifications_that_could_never_send()
+    {
+        var channelId = await RecordingChannel(Token("checks"));
+        var subscriptionId = await NotifyingSubscription();
+
+        async Task<string> Refused(params SubscriptionNotification[] rows) =>
+            (await Assert.ThrowsAsync<SWValidationException>(() => SaveNotifications(subscriptionId, rows))).Message;
+
+        Assert.Contains("NOTIFICATION_NO_OUTCOME", await Refused(new SubscriptionNotification { ChannelId = channelId }));
+        Assert.Contains("NOTIFICATION_CHANNEL_REPEATED", await Refused(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true },
+            new SubscriptionNotification { ChannelId = channelId, OnSuccess = true }));
+        Assert.Contains("NOTIFICATION_CHANNEL_NOT_FOUND", await Refused(
+            new SubscriptionNotification { ChannelId = 999_999, OnFailure = true }));
+    }
+
+    [Fact]
+    public async Task A_failure_goes_to_the_channel_ticked_for_failures_and_a_success_to_the_one_ticked_for_successes()
+    {
+        var failures = Token("failures");
+        var successes = Token("successes");
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = await RecordingChannel(failures), OnFailure = true },
+            new SubscriptionNotification { ChannelId = await RecordingChannel(successes), OnSuccess = true });
+
+        await ProcessResult(await FinishedExchange(subscriptionId, failed: true));
+        await ProcessResult(await FinishedExchange(subscriptionId, failed: false));
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(failures));
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(successes));
+
+        var sent = JsonConvert.DeserializeObject<XchangeResultNotification>(
+            NativeTestResponder.Received[failures].Single());
+        Assert.False(sent.Success);
+        Assert.Contains("the partner is down", sent.Exception);
+    }
+
+    /// <summary>An outage is one message through a channel, as it is through a notifier.</summary>
+    [Fact]
+    public async Task A_burst_of_failures_sends_one_message_through_a_channel_and_counts_the_rest()
+    {
+        var token = Token("burst");
+        var channelId = await RecordingChannel(token);
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+
+        for (var i = 0; i < 4; i++) await ProcessResult(await FinishedExchange(subscriptionId, failed: true));
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+        var rows = await Sends(channelId);
+        Assert.Equal(1, rows.Count(n => n.Success));
+        Assert.Equal(3, rows.Count(n => n.Suppressed));
+    }
+
+    [Fact]
+    public async Task A_repeat_of_the_result_event_sends_once_through_a_channel()
+    {
+        var token = Token("repeat");
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = await RecordingChannel(token), OnFailure = true });
+        var id = await FinishedExchange(subscriptionId, failed: true);
+
+        await ProcessResult(id);
+        await ProcessResult(id);
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+    }
+
+    [Fact]
+    public async Task A_send_the_adapter_keeps_refusing_is_tried_three_times_then_recorded_as_failed()
+    {
+        var token = Token("refused");
+        // The responder counts the message, then fails on a "Bad" that isn't true or false.
+        var channelId = await RecordingChannel(token, new Dictionary<string, string> { ["Bad"] = "neither" });
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+
+        await ProcessResult(await FinishedExchange(subscriptionId, failed: true));
+
+        Assert.Equal(3, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+        var row = Assert.Single(await Sends(channelId));
+        Assert.False(row.Success);
+        Assert.Contains("FormatException", row.Exception);
+    }
+
+    private static string Token(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
+
+    /// <summary>A channel whose messages the test responder counts under <paramref name="token"/>.</summary>
+    private async Task<int> RecordingChannel(string token, Dictionary<string, string> extra = null)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var properties = new Dictionary<string, string>(extra ?? []) { ["Body"] = token };
+        var channel = new NotificationChannel
+        {
+            Name = Unique("Recording"), HandlerId = nameof(NativeTestResponder), HandlerProperties = properties
+        };
+        db.Add(channel);
+        await db.SaveChangesAsync();
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        return channel.Id;
+    }
+
+    private async Task<int> NotifyingSubscription(params SubscriptionNotification[] notifications)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var document = new Document(null, $"Channels {Guid.NewGuid():N}", DocumentFormat.Json);
+        db.Add(document);
+        await db.SaveChangesAsync();
+        // A gateway type: a Receiving one would need schedules before an update is accepted.
+        var subscription = new Subscription($"Channels {Guid.NewGuid():N}", document.Id,
+            SubscriptionType.GatewayApiCall) { Inactive = false };
+        subscription.SetNotifications(notifications);
+        db.Add(subscription);
+        await db.SaveChangesAsync();
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        return subscription.Id;
+    }
+
+    private async Task<SubscriptionGet> ReadSubscription(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (SubscriptionGet)await ActivatorUtilities
+            .CreateInstance<Resources.Subscriptions.Get>(scope.ServiceProvider).Handle(id);
+    }
+
+    private async Task SaveNotifications(int subscriptionId, ICollection<SubscriptionNotification> notifications)
+    {
+        var model = await ReadSubscription(subscriptionId);
+        model.Notifications = notifications;
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        await ActivatorUtilities.CreateInstance<Resources.Subscriptions.Update>(scope.ServiceProvider)
+            .Handle(subscriptionId, model);
+    }
+
+    private async Task<string> FinishedExchange(int subscriptionId, bool failed)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var subscription = await db.Set<Subscription>().SingleAsync(s => s.Id == subscriptionId);
+        var xchange = await scope.ServiceProvider.GetRequiredService<XchangeService>()
+            .CreateXchange(subscription, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+        db.Add(new XchangeResult(xchange.Id, null, null,
+            exception: failed ? "System.Exception: the partner is down" : null));
+        await db.SaveChangesAsync();
+        return xchange.Id;
+    }
+
+    private async Task ProcessResult(string xchangeId)
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<XchangeService>()
+            .Process("Channels" + XchangeService.ResultQueueSuffix, JsonConvert.SerializeObject(new { Id = xchangeId }));
+    }
+
+    private async Task<List<XchangeNotification>> Sends(int channelId)
+    {
+        await using var scope = fixture.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<XchangeNotification>().AsNoTracking().Where(n => n.ChannelId == channelId).ToListAsync();
     }
 }

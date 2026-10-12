@@ -2411,6 +2411,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
+                    b.Property<string>("Notifications")
+                        .HasColumnType("text")
+                        .HasColumnName("notifications");
+
                     b.Property<int?>("PartnerId")
                         .HasColumnType("integer")
                         .HasColumnName("partner_id");
@@ -2813,6 +2817,10 @@ namespace SW.Bitween.PgSql.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ChannelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("channel_id");
+
                     b.Property<string>("Exception")
                         .HasColumnType("text")
                         .HasColumnName("exception");
@@ -2848,6 +2856,9 @@ namespace SW.Bitween.PgSql.Migrations
 
                     b.HasIndex("XchangeId")
                         .HasDatabaseName("ix_xchange_notification_xchange_id");
+
+                    b.HasIndex("ChannelId", "FinishedOn")
+                        .HasDatabaseName("ix_xchange_notification_channel_id_finished_on");
 
                     b.HasIndex("NotifierId", "FinishedOn")
                         .HasDatabaseName("ix_xchange_notification_notifier_id_finished_on");

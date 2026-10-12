@@ -308,6 +308,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<IAdapterInvoker, AdapterInvoker>();
                     services.AddScoped<MappingContextFactory>();
                     services.AddScoped<XchangeService>();
+                    services.AddScoped<NotificationChannelSender>();
                     services.AddSingleton<FileLinks>();
                     services.AddScoped<OidcSignIn>();
                     services.AddScoped<ReceiverBookmarks>();

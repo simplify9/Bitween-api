@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
+using SW.Bitween.Model;
 using SW.Bitween.NativeAdapters.SmtpHandler;
 using SW.PrimitiveTypes;
 
@@ -60,6 +61,30 @@ internal static class ChannelValidation
         if (missing.Count > 0)
             throw new SWValidationException("CHANNEL_SETTINGS_MISSING",
                 $"This channel can't send without {string.Join(", ", missing)}.");
+    }
+
+    /// <summary>
+    /// Refuses a subscription's notification rows that could never send: one with no outcome
+    /// ticked, a channel listed twice, or a channel that doesn't exist.
+    /// </summary>
+    public static async Task EnsureNotificationsCanSend(BitweenDbContext dbContext,
+        ICollection<SubscriptionNotification> notifications)
+    {
+        if (notifications.Any(n => !n.OnFailure && !n.OnBadResult && !n.OnSuccess))
+            throw new SWValidationException("NOTIFICATION_NO_OUTCOME",
+                "A notification has nothing ticked to send on. Tick at least one outcome, or remove it.");
+
+        if (notifications.GroupBy(n => n.ChannelId).Any(g => g.Count() > 1))
+            throw new SWValidationException("NOTIFICATION_CHANNEL_REPEATED",
+                "The same channel is listed twice. Tick every outcome it should send on in one row.");
+
+        var ids = notifications.Select(n => n.ChannelId).ToList();
+        var found = await dbContext.Set<NotificationChannel>().Where(c => ids.Contains(c.Id))
+            .Select(c => c.Id).ToListAsync();
+        var missing = ids.Except(found).ToList();
+        if (missing.Count > 0)
+            throw new SWValidationException("NOTIFICATION_CHANNEL_NOT_FOUND",
+                $"Notification channel {string.Join(", ", missing)} was not found.");
     }
 
     private static string Value(IReadOnlyDictionary<string, string> properties, string key) =>
