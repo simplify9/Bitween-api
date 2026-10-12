@@ -85,6 +85,10 @@ jobs:
       # handed to helm --set as it stands, so no comments inside. replicaCount=2: the lab's phase 6
       # kills one mid-traffic, and anything that runs on every replica at once (scheduled jobs, data
       # source leases) shows up here first.
+      # AWS_*_CHECKSUM_*=when_required: an experiment for S3-compatible stores. Since AWSSDK.S3 3.7.410
+      # uploads are aws-chunked with a trailing checksum, which such stores save into the object
+      # (the lab's S3 invoices arrive starting "C3;chunk-signature=..."). The lasting fix belongs
+      # in SW-CloudFiles; this shows on staging whether the SDK default is the cause.
       helm-set-values: |
         nameOverride=bitween
         global.environment=Development
@@ -93,6 +97,8 @@ jobs:
         resources.requests.memory=704Mi
         resources.limits.memory=1408Mi
         environmentVariables.Bitween__BusProvidersEnabled=true
+        environmentVariables.AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+        environmentVariables.AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
     secrets:
       # Docker image push credentials (Docker Hub)
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
