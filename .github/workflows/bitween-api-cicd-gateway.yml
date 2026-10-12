@@ -28,7 +28,7 @@ permissions:
 jobs:
   build-publish-deploy:
     # Staging: build, publish to GHCR only, deploy to playground (or any branch, manually).
-    if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r10.0-staging') || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event_name == 'push' && github.ref_name == 'releases/r10.0-develop') || github.event_name == 'workflow_dispatch' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
     with:
       major-version: '10'
@@ -163,7 +163,7 @@ jobs:
   # the release from releases/r10.0 releases it as the latest, cli-v<x.y.z>, and publishes the SDKs.
   cli-staging:
     needs: build-publish-deploy
-    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0-staging' }}
+    if: ${{ github.event_name == 'push' && github.ref_name == 'releases/r10.0-develop' }}
     uses: ./.github/workflows/cli-release.yml
     with:
       version: ${{ needs.build-publish-deploy.outputs.version }}
