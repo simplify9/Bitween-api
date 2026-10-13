@@ -90,6 +90,13 @@ namespace SW.Bitween
         public int MaxRetryChainDepth { get; set; } = 100;
 
         /// <summary>
+        /// The longest an adapter's "try again after" may push back a retry its policy allowed, in
+        /// seconds: six hours. A longer wait is cut to this, so no partner can park retries for days.
+        /// 0 ignores what adapters ask, and retries on the policy's schedule as before.
+        /// </summary>
+        public int MaxRetryAfterSeconds { get; set; } = 21600;
+
+        /// <summary>
         /// After a notifier sends for a subscription and outcome, further notifications for the same
         /// pair within this many minutes are recorded as suppressed rather than sent, and the next
         /// one sent says how many there were. An outage no longer means one email per failure.

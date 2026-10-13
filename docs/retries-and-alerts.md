@@ -80,6 +80,18 @@ The index is 0 for the first retry.
 | `linear` | `initialDelayMs`, `incrementMs` | `initialDelayMs + index × incrementMs` |
 | `exponential` | `initialDelayMs`, `multiplier` (default 2), `maxDelayMs` (default 30000) | `initialDelayMs × multiplier^index`, capped at `maxDelayMs` |
 
+### When an adapter says when to try again
+
+An adapter can say how long to wait: a partner answered 429 Too Many Requests with a `Retry-After`, or a quota resets at a known time. It does so by failing with an error whose message starts with `{{retryAfter:SECONDS}}`. The SDKs write it for you: `throw new RetryLaterException(TimeSpan.FromSeconds(30), "...")` in .NET, `raise sw.RetryLater(30, "...")` in Python, `throw new sw.RetryLater(30, "...")` in JavaScript. Any error whose message starts that way says the same, on any SDK version. The built-in HTTP handler says it whenever a partner's 408, 429 or 5xx answer carries a `Retry-After`; its error text is unchanged, so matchers keep working, with the wait carried inside it.
+
+It changes only when a retry runs, never whether one does:
+
+- the policy decides as before: the group, the block, both budgets;
+- a retry it allows runs no sooner than the wait asked for, and up to a tenth later, so a crowd told the same thing doesn't come back at once; a shorter wait than the policy's delay changes nothing;
+- the wait is cut to **Longest wait an adapter can ask for** (`Bitween:MaxRetryAfterSeconds`, six hours by default), so no partner can park retries for days; 0 ignores what adapters ask.
+
+Only the start of an exception's message is read, right after its type name, so a partner's answer quoted later in an error asks for nothing.
+
 ### Budgets
 
 A budget sets two limits.
@@ -120,7 +132,7 @@ When a subscription succeeds, each of its budgets that was already exhausted bef
 5. If the group blocks, there is no retry.
 6. If the message reached `maxAttemptsPerError`, there is no retry. This is checked first, so it does not spend the shared total.
 7. If the shared total is spent, there is no retry. When this failure is the one that used up the total, an alert is raised.
-8. Otherwise a retry is scheduled after the delay.
+8. Otherwise a retry is scheduled after the delay, give or take a tenth, or later when the adapter [said when to try again](#when-an-adapter-says-when-to-try-again).
 
 When no retry is scheduled, the exchange result records one of these reasons.
 

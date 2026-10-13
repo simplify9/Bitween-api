@@ -285,6 +285,13 @@ public static class SettingsCatalog
             (t, v) => t.Bitween.RegistryAllowCommunity = Bool(v)),
 
         // --- Reliability & jobs ---
+        new("Bitween.MaxRetryAfterSeconds", "Reliability & jobs",
+            "Longest wait an adapter can ask for (seconds)",
+            "When an adapter says when to try again - a partner answered 429 Too Many Requests with a Retry-After - a retry the policy allows waits at least that long, up to this. It never makes a retry sooner or makes one the policy wouldn't. 0 ignores what adapters ask.",
+            SettingKind.Number, false,
+            t => t.Bitween.MaxRetryAfterSeconds.ToString(CultureInfo.InvariantCulture),
+            (t, v) => t.Bitween.MaxRetryAfterSeconds = NonNegativeInt(v)),
+
         new("Bitween.RetryJobCron", "Reliability & jobs",
             "Retry poll schedule",
             "How often Bitween looks for exchanges whose scheduled retry has come due, as a cron expression: second minute hour day-of-month month day-of-week. Saving re-schedules the job straight away.",

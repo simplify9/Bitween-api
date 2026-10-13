@@ -86,6 +86,7 @@ Once the password is anything else the value is ignored, so it can stay in place
 | `RebexLicenseKey` | | First value of the runtime setting. |
 | `RegistryEnabled`, `RegistryUrl`, `RegistryTrustedKeys`, `RegistryAllowCommunity` | `true`, Simplify9's registry and its keys, `false` | First values of the Marketplace settings. See [Adapters](adapters.md#installing-from-the-marketplace). |
 | `RetryJobCron` | `0 * * * * ?` | First value of the runtime setting. |
+| `MaxRetryAfterSeconds` | `21600` | First value of the runtime setting: the longest an adapter's [try again after](retries-and-alerts.md#when-an-adapter-says-when-to-try-again) can push back a retry. |
 
 ## `Theme` section
 
@@ -147,6 +148,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.RegistryUrl` | Marketplace | Yes | `https://registry.bitween.io` |
 | `Bitween.RegistryTrustedKeys` | Marketplace | Yes | Simplify9's registry's keys |
 | `Bitween.RegistryAllowCommunity` | Marketplace | Yes | `false` |
+| `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
 | `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |

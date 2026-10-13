@@ -33,7 +33,7 @@
       "name": "ApiKey",
       "type": "text",
       "secret": true,
-      "description": "API key used for ApiKey or Bearer authentication."
+      "description": "API key, sent as the ApiKey header with the ApiKey authentication type."
     },
     {
       "name": "LoginUrl",
@@ -43,13 +43,13 @@
     {
       "name": "LoginUsername",
       "type": "text",
-      "description": "Username for Basic or OAuth2 password-grant authentication."
+      "description": "Username for Basic and Login authentication."
     },
     {
       "name": "LoginPassword",
       "type": "text",
       "secret": true,
-      "description": "Password for Basic or OAuth2 password-grant authentication."
+      "description": "Password for Basic and Login authentication, and the token for Bearer: {{connections.NAME.accessToken}} works here."
     },
     {
       "name": "LoginBody",

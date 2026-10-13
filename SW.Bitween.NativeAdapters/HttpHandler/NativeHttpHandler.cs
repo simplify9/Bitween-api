@@ -167,7 +167,12 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
                 : "";
             // The number first, as retry policies match it ("503:"), then the name it always carried
             // ("ServiceUnavailable:"), so matchers written against either keep working.
-            throw new Exception($"{(int)response.StatusCode}: {response.StatusCode}: {resp}{retryAfter}");
+            var message = $"{(int)response.StatusCode}: {response.StatusCode}: {resp}{retryAfter}";
+            // A partner that said when to come back is told when Bitween's retry runs: carried inside,
+            // so the text above, which retry policies match, is the same as it always was.
+            if (RetryLaterException.From(response.Headers.RetryAfter, DateTimeOffset.UtcNow) is { } wait)
+                throw new Exception(message, new RetryLaterException(wait, $"The partner answered {(int)response.StatusCode} and asked to wait."));
+            throw new Exception(message);
         }
         XchangeFile xchangeFile1 = response.StatusCode < HttpStatusCode.BadRequest
             ? new XchangeFile(resp)

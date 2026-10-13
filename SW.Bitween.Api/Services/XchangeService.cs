@@ -994,7 +994,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         }
     }
 
-    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content,
+    internal async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content,
         XchangeResult xchangeResult)
     {
         if (xchange.SubscriptionId == null) return;
@@ -1049,7 +1049,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             dbContext.Add(new DelayedRetry
             {
                 Id = xchange.Id,
-                On = DateTime.UtcNow + Jittered(decision.Delay)
+                On = DateTime.UtcNow + RetryDelay(decision.Delay, resultType == XchangeResultType.Error ? content : null,
+                    BitweenSettings.MaxRetryAfterSeconds)
             });
         else
             // A policy applied but refused. Recorded so an exhausted budget is distinguishable
@@ -1065,6 +1066,22 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 decision.MatchedGroup!.Id,
                 decision.MatchedGroup.Name,
                 decision.MatchedGroup.Budget!.MaxAttemptsTotal!.Value);
+    }
+
+    /// <summary>
+    /// When the retry the policy allowed runs: the policy's delay, jittered, unless the adapter said
+    /// to wait longer - then that long, and up to a tenth more so a crowd told the same thing doesn't
+    /// return at the same instant. The wait asked for is cut to <paramref name="maxRetryAfterSeconds"/>.
+    /// </summary>
+    internal static TimeSpan RetryDelay(TimeSpan policyDelay, string error, int maxRetryAfterSeconds)
+    {
+        var delay = Jittered(policyDelay);
+        if (maxRetryAfterSeconds <= 0 || Model.AutoRetry.RetryAfterHint.Read(error) is not { } asked) return delay;
+
+        var cap = TimeSpan.FromSeconds(maxRetryAfterSeconds);
+        var wait = asked > cap ? cap : asked;
+        wait = TimeSpan.FromMilliseconds(wait.TotalMilliseconds * (1 + Random.Shared.NextDouble() * 0.1));
+        return wait > delay ? wait : delay;
     }
 
     /// <summary>

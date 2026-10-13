@@ -44,7 +44,7 @@ A connection is an OAuth2 client whose tokens Bitween asks for, renews and rotat
 
 Register `https://<bitween host>/oauth-callback` as the redirect URI at the provider. The approval uses PKCE and a state checked against an encrypted cookie. **Extra approval parameters** are added to the approval page's address, as `access_type=offline&prompt=consent`, which Google needs before it gives a refresh token; others want a scope such as `offline_access` or `refresh_token`. A connection approved without one says so, and needs approving again when its token expires.
 
-Write `{{connections.NAME.accessToken}}` in any setting: the HTTP handler's `ApiKey` with `AuthType` `Bearer`, or the `Token` of `s9.openapi` with `Auth` `bearer`. As the adapter starts:
+Write `{{connections.NAME.accessToken}}` in any setting: the HTTP handler's `LoginPassword` with `AuthType` `Bearer`, or the `Token` of `s9.openapi` with `Auth` `bearer`. As the adapter starts:
 
 - a token good for at least two more minutes is used as it is; otherwise it is renewed first, with the refresh token or the client's credentials;
 - of several nodes or calls needing a renewal at once, one renews and the others wait for its token, because a provider that rotates refresh tokens honours only the first renewal;
@@ -106,8 +106,8 @@ Sends the payload to an HTTP endpoint.
 | Reply status | Result |
 |---|---|
 | 2xx or 3xx | Success. The body becomes the response file. |
-| 4xx | Bad response. The body is kept and flagged, and retry policies see it as a `BadResult`. |
-| 5xx, or below 200 | The exchange fails with the status and body, so retry policies see it as an `Error`. |
+| 4xx other than 408 and 429 | Bad response. The body is kept and flagged, and retry policies see it as a `BadResult`. |
+| 5xx, 408, 429, or below 200 | The exchange fails with the status and body, so retry policies see it as an `Error`. A `Retry-After` the partner sent is in the error text, and Bitween's next retry waits at least that long ([details](retries-and-alerts.md#when-an-adapter-says-when-to-try-again)). |
 
 #### When a destination keeps failing
 
