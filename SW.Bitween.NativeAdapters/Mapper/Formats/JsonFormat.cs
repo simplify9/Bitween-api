@@ -140,6 +140,11 @@ public class JsonFormat : IDocumentFormat
                                                       && m >= long.MinValue && m <= long.MaxValue:
                 return new JValue((long)m);
 
+            // A fixed value that is a list or an object, as ["Email"]: the rules keep its JSON type,
+            // so it is written as the JSON it is rather than as one value.
+            case ScalarNode { Value: JContainer container }:
+                return container.DeepClone();
+
             case ScalarNode scalar:
                 return scalar.Value is null ? JValue.CreateNull() : new JValue(scalar.Value);
 
