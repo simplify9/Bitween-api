@@ -41,6 +41,32 @@ public class ChannelMessageTests
     };
 
     /// <summary>
+    /// The error as a person reads it: the message and the inner ones, without the stack frames under
+    /// them. The exchange the message links to keeps the whole text.
+    /// </summary>
+    [TestMethod]
+    public void An_error_is_shown_without_its_stack_trace()
+    {
+        var result = Result();
+        result.Exception = string.Join("\n",
+            "System.Exception: 500: InternalServerError: {\"error\":\"down\"}",
+            " ---> System.Net.Http.HttpRequestException: Connection refused (erp.example:443)",
+            "   at SW.Bitween.NativeAdapters.NativeHttpHandler.Handle(XchangeFile xchangeFile) in /src/NativeHttpHandler.cs:line 175",
+            "   --- End of inner exception stack trace ---",
+            "   at SW.Bitween.Services.XchangeService.RunHandler(Xchange xchange)",
+            "--- End of stack trace from previous location ---",
+            "   at SW.Bitween.Services.XchangeService.Process(Xchange xchange)");
+
+        Assert.AreEqual(
+            "System.Exception: 500: InternalServerError: {\"error\":\"down\"}\n" +
+            " ---> System.Net.Http.HttpRequestException: Connection refused (erp.example:443)",
+            ChannelMessages.For(result, null).Detail);
+        // Nothing to cut, nothing cut; and no error, none shown.
+        Assert.AreEqual("Timed out after 30s", ChannelMessages.For(Result(), null).Detail);
+        Assert.IsNull(ChannelMessage.WithoutStackTrace(null));
+    }
+
+    /// <summary>
     /// A server that never greets, as one expecting TLS from the first byte does when Bitween starts
     /// plainly for STARTTLS, fails at the connect limit, saying what to check, rather than after MailKit's two minutes.
     /// </summary>

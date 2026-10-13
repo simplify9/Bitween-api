@@ -77,7 +77,7 @@ public static class ChannelMessages
                 var n => $"{n} more like this since the last message were not sent separately."
             },
             Facts = facts,
-            Detail = result.Exception,
+            Detail = ChannelMessage.WithoutStackTrace(result.Exception),
             LinkUrl = ExchangeLink(linkBase, result.Id),
             LinkLabel = "Open the exchange"
         };
@@ -98,7 +98,7 @@ public static class ChannelMessages
             new("Exchange", alert.XchangeId),
             new("When", When(alert.OccurredOn))
         ],
-        Detail = alert.Exception ?? alert.BlockedReason,
+        Detail = ChannelMessage.WithoutStackTrace(alert.Exception) ?? alert.BlockedReason,
         LinkUrl = ExchangeLink(linkBase, alert.XchangeId),
         LinkLabel = "Open the exchange"
     };
@@ -115,7 +115,7 @@ public static class ChannelMessages
             new("Last failed exchange", paused.XchangeId),
             new("When", When(paused.OccurredOn))
         ],
-        Detail = paused.Exception,
+        Detail = ChannelMessage.WithoutStackTrace(paused.Exception),
         LinkUrl = SubscriptionLink(linkBase, paused.SubscriptionId),
         LinkLabel = "Open the subscription"
     };

@@ -23,7 +23,7 @@ public class ChannelMessage
 
     public List<ChannelMessageFact> Facts { get; set; } = [];
 
-    /// <summary>Shown as it is in a monospace block: an exception, typically.</summary>
+    /// <summary>Shown as it is in a monospace block: an error, typically, see <see cref="WithoutStackTrace"/>.</summary>
     public string? Detail { get; set; }
 
     public string? LinkUrl { get; set; }
@@ -48,6 +48,22 @@ public class ChannelMessage
             ? message
             : throw new InvalidOperationException(
                 "This adapter only sends Bitween's notification messages. Use it through a notification channel.");
+    }
+
+    /// <summary>
+    /// An exception as a person reads it: its message and its inner ones, without the stack frames
+    /// that follow them. Those help a developer, who has the exchange the message links to; in an
+    /// email or a chat they bury the one line that says what went wrong.
+    /// </summary>
+    public static string? WithoutStackTrace(string? exception)
+    {
+        if (string.IsNullOrWhiteSpace(exception)) return exception;
+        var kept = exception.Replace("\r\n", "\n").Split('\n')
+            .Where(line => !line.StartsWith("   at ", StringComparison.Ordinal) &&
+                           !line.TrimStart().StartsWith("--- End of ", StringComparison.Ordinal))
+            .ToList();
+        var text = string.Join("\n", kept).TrimEnd();
+        return text.Length > 0 ? text : exception;
     }
 
     /// <summary>Cuts <paramref name="text"/> to <paramref name="limit"/> characters, marking the cut.</summary>
