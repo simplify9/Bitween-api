@@ -190,6 +190,11 @@ jobs:
       # Every line is handed to helm --set as it stands, so no comments inside.
       # AWS_*_CHECKSUM_*=when_required: production stores files in DigitalOcean Spaces too, so it
       # carries develop's checksum setting (see the note there) until the fix lands in SW-CloudFiles.
+      # CloudFiles__DisableAutoLifecycle=true: production's Spaces key is a limited (Read/Write/Delete)
+      # key for bitweenprod alone, and Spaces gives limited keys no bucket settings, so the read of the
+      # bucket's lifecycle rules that SW-CloudFiles makes at startup is refused and the app exits. The
+      # temp1/7/30/365 expiry rules (temp30/ holds exchange files: 30-day retention) were put on the
+      # bucket once by hand instead; keep them in step with SW-CloudFiles' if those ever change.
       helm-set-values: |
         global.environment=Production
         replicaCount=2
@@ -199,6 +204,7 @@ jobs:
         environmentVariables.Bitween__BusProvidersEnabled=true
         environmentVariables.AWS_REQUEST_CHECKSUM_CALCULATION=when_required
         environmentVariables.AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
+        environmentVariables.CloudFiles__DisableAutoLifecycle=true
     secrets:
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
       registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
