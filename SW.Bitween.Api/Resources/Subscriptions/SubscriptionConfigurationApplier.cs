@@ -131,9 +131,14 @@ internal static class SubscriptionConfigurationApplier
             throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
                 $"Retry policy {model.RetryPolicyId} was not found.");
 
+        // Here rather than in the update handler alone, so a subscription created with an inline
+        // policy is held to the same rules as a shared policy and as an update.
         if (model.CustomRetryPolicy != null)
+        {
+            RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
             await RetryGroupValidation.EnsureAlertChannelsExist(dbContext,
                 RetryGroupValidation.AlertChannelIds(model.CustomRetryPolicy.Groups));
+        }
 
         entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
 

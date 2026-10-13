@@ -1093,6 +1093,35 @@ public class RetryPolicyTests(BitweenFixture fixture)
         Assert.Contains("NOTIFICATION_CHANNEL_NOT_FOUND", notFound.Message);
     }
 
+    /// <summary>
+    /// A subscription created with an inline policy is held to the same alert rules as a shared
+    /// policy: a group set to send with no channel would drop the alert without a word.
+    /// </summary>
+    [Fact]
+    public async Task An_inline_policy_is_held_to_the_alert_rules_when_a_subscription_is_created()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        scope.Superuser();
+        var document = new Document(null, "Inline alert doc " + Guid.NewGuid().ToString("N")[..8], DocumentFormat.Json);
+        var partner = new Partner("Inline alert partner " + Guid.NewGuid().ToString("N")[..8]);
+        db.AddRange(document, partner);
+        await db.SaveChangesAsync();
+
+        var sendsNowhere = SimplePolicy("Inline");
+        sendsNowhere.Groups[0] = WithAlert(sendsNowhere.Groups[0], RetryAlertMode.Send, null);
+        var refused = await Assert.ThrowsAsync<SWValidationException>(() =>
+            ActivatorUtilities.CreateInstance<Resources.Subscriptions.Create>(scope.ServiceProvider).Handle(new SubscriptionCreate
+            {
+                Name = "Inline alert " + Guid.NewGuid().ToString("N")[..8],
+                Type = SubscriptionType.GatewayApiCall,
+                DocumentId = document.Id,
+                PartnerId = partner.Id,
+                CustomRetryPolicy = new CustomRetryPolicy { Groups = sendsNowhere.Groups },
+            }));
+        Assert.Contains("RETRY_GROUP_ALERT_NO_CHANNEL", refused.Message);
+    }
+
     [Fact]
     public async Task A_group_with_its_own_alert_handler_is_refused()
     {

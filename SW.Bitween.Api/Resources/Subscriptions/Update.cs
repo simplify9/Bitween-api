@@ -8,7 +8,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using SW.Bitween.Resources.RetryPolicies;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -38,9 +37,6 @@ namespace SW.Bitween.Resources.Subscriptions
                 !await _dbContext.Set<RetryPolicy>().AnyAsync(p => p.Id == model.RetryPolicyId))
                 throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
                     $"Retry policy {model.RetryPolicyId} was not found.");
-
-            if (model.CustomRetryPolicy != null)
-                RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
 
             // Everything a person configures, through the same code the create handler runs.
             await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model, storedAdapters);
