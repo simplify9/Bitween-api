@@ -58,6 +58,28 @@ describe("a retry group's page", () => {
     expect(written[0].groups.map((g) => [g.id, g.budget?.maxAttemptsPerError])).toEqual([["g-1", 5]]);
   });
 
+  it("won't bring back a group that was removed while its page was open", async () => {
+    const { written, handlers } = server();
+    let removed = false;
+    const { user } = renderApp("/retry-policies/3/groups/g-1", {
+      handlers: [
+        http.get(apiPath("/retrypolicies/3"), () =>
+          HttpResponse.json({ name: "Carrier API failures", groups: removed ? [] : [timeouts], alertChannelId: 7 }),
+        ),
+        ...handlers,
+      ],
+    });
+
+    const perMessage = await screen.findByLabelText("Retries per message");
+    removed = true;
+    await user.clear(perMessage);
+    await user.type(perMessage, "5");
+    await user.click(screen.getByRole("button", { name: "Save group" }));
+
+    expect(await screen.findByText(/This group was removed from the policy meanwhile/)).toBeVisible();
+    expect(written).toHaveLength(0);
+  });
+
   it("adds a new group after the ones the policy already has", async () => {
     const { written, handlers } = server();
     const { user, router } = renderApp("/retry-policies/3/groups/new?return=%2Felsewhere", { handlers });

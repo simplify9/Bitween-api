@@ -309,11 +309,14 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
     const missing = problemWith(draft);
     if (missing) return setProblem(`Still needs ${missing}.`);
     const group = groupOf(draft, isNew ? crypto.randomUUID() : groupId);
-    write.mutate((groups) =>
-      isNew || !groups.some((g) => g.id === group.id)
-        ? [...groups, group]
-        : groups.map((g) => (g.id === group.id ? group : g)),
-    );
+    write.mutate((groups) => {
+      if (isNew) return [...groups, group];
+      // Removed meanwhile, in another tab or by someone else: saving would bring it back without
+      // the spent budgets and alert routes it had.
+      if (!groups.some((g) => g.id === group.id))
+        throw new Error("This group was removed from the policy meanwhile. Open the policy to see it as it is now.");
+      return groups.map((g) => (g.id === group.id ? group : g));
+    });
   };
 
   const toggleAppliesTo = (t: RetryResultType) =>
