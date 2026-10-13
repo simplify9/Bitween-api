@@ -62,6 +62,9 @@ public static class RetryAlertChannelConversion
         return host;
     }
 
+    /// <summary>Inline policies read at once.</summary>
+    private const int InlinePage = 1000;
+
     /// <summary>Returns how many alert settings it moved.</summary>
     public static async Task<int> Run(BitweenDbContext dbContext, ILogger logger)
     {
@@ -86,13 +89,6 @@ public static class RetryAlertChannelConversion
         }
 
         var policies = await dbContext.Set<RetryPolicy>().ToListAsync();
-        // Narrow, and only the subscriptions that have an inline policy at all: the table can be big.
-        var inlinePolicies = (await dbContext.Set<Subscription>().AsNoTracking()
-                .Where(s => s.CustomRetryPolicy != null)
-                .Select(s => new { s.Id, s.Name, s.CustomRetryPolicy })
-                .ToListAsync())
-            .Where(s => s.CustomRetryPolicy.Groups.Any(g => !string.IsNullOrWhiteSpace(g.AlertHandlerId)))
-            .ToList();
         var overrides = await dbContext.Set<RetryAlertOverride>()
             .Where(o => o.AlertHandlerId != null)
             .ToListAsync();
@@ -135,12 +131,27 @@ public static class RetryAlertChannelConversion
                 dbContext.Entry(policy).Property(p => p.Groups).IsModified = true;
         }
 
-        foreach (var subscription in inlinePolicies)
+        // Narrow, only the subscriptions with an inline policy at all, and a page at a time: there can
+        // be hundreds of thousands of those, each a JSON document, and few with an alert of their own.
+        for (var after = 0; ;)
         {
-            await MoveGroups(subscription.CustomRetryPolicy.Groups, subscription.Name, ChannelFor);
-            await dbContext.Set<Subscription>()
-                .Where(s => s.Id == subscription.Id)
-                .ExecuteUpdateAsync(u => u.SetProperty(s => s.CustomRetryPolicy, subscription.CustomRetryPolicy));
+            var page = await dbContext.Set<Subscription>().AsNoTracking()
+                .Where(s => s.Id > after && s.CustomRetryPolicy != null)
+                .OrderBy(s => s.Id)
+                .Select(s => new { s.Id, s.Name, s.CustomRetryPolicy })
+                .Take(InlinePage)
+                .ToListAsync();
+            if (page.Count == 0) break;
+            after = page[^1].Id;
+
+            foreach (var subscription in page.Where(s =>
+                         s.CustomRetryPolicy.Groups.Any(g => !string.IsNullOrWhiteSpace(g.AlertHandlerId))))
+            {
+                await MoveGroups(subscription.CustomRetryPolicy.Groups, subscription.Name, ChannelFor);
+                await dbContext.Set<Subscription>()
+                    .Where(s => s.Id == subscription.Id)
+                    .ExecuteUpdateAsync(u => u.SetProperty(s => s.CustomRetryPolicy, subscription.CustomRetryPolicy));
+            }
         }
 
         if (overrides.Count > 0)
@@ -155,9 +166,12 @@ public static class RetryAlertChannelConversion
                 var group = policies.SelectMany(p => p.Groups).FirstOrDefault(g => g.Id == alertOverride.GroupId);
                 var subscriptionName = names.GetValueOrDefault(alertOverride.SubscriptionId)
                                        ?? $"Subscription {alertOverride.SubscriptionId}";
-                alertOverride.AlertChannelId ??= await ChannelFor(alertOverride.AlertHandlerId,
-                    alertOverride.AlertHandlerProperties,
-                    $"Retry alert: {subscriptionName} › {group?.Name ?? "group"}");
+                // Only an override that sent used its handler; a stale one on Inherit or Silent, or a
+                // blank one, would only leave an empty channel behind.
+                if (alertOverride.AlertMode == Model.RetryAlertMode.Send && !string.IsNullOrWhiteSpace(alertOverride.AlertHandlerId))
+                    alertOverride.AlertChannelId ??= await ChannelFor(alertOverride.AlertHandlerId,
+                        alertOverride.AlertHandlerProperties,
+                        $"Retry alert: {subscriptionName} › {group?.Name ?? "group"}");
                 alertOverride.AlertHandlerId = null;
                 alertOverride.AlertHandlerProperties = null;
             }
@@ -176,8 +190,10 @@ public static class RetryAlertChannelConversion
         {
             if (string.IsNullOrWhiteSpace(group.AlertHandlerId)) continue;
 
-            group.AlertChannelId ??= await channelFor(group.AlertHandlerId, group.AlertHandlerProperties,
-                $"Retry alert: {ownerName} › {group.Name}");
+            // As for overrides: a handler left on a group that doesn't send was never used.
+            if (group.AlertMode == Model.RetryAlertMode.Send)
+                group.AlertChannelId ??= await channelFor(group.AlertHandlerId, group.AlertHandlerProperties,
+                    $"Retry alert: {ownerName} › {group.Name}");
             group.AlertHandlerId = null;
             group.AlertHandlerProperties = null;
             changed = true;

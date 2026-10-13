@@ -624,6 +624,70 @@ public class NotificationChannelTests(BitweenFixture fixture)
         }
     }
 
+    /// <summary>
+    /// A subscription's inline policy and a per-subscription override move too. A handler left on a
+    /// level that didn't send, or a blank one, was never used: it is cleared, and makes no channel.
+    /// </summary>
+    [Fact]
+    public async Task Inline_policies_and_overrides_are_moved_and_unused_handlers_make_no_channel()
+    {
+        await ForgetTheRetryAlertMove();
+        var tag = Unique("moved-inline");
+        Dictionary<string, string> Hook(string name) => new() { ["Url"] = $"https://hooks.example/{tag}/{name}" };
+        RetryGroup Group(string name, RetryAlertMode mode, string handler, string hook) => new()
+        {
+            Name = name, AppliesTo = [XchangeResultType.Error], Matchers = [new ContainsMatcher { Value = name }],
+            AlertMode = mode, AlertHandlerId = handler, AlertHandlerProperties = hook == null ? null : Hook(hook),
+        };
+
+        int subscriptionId;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var document = new Document(null, Unique("Inline move doc"), DocumentFormat.Json);
+            var partner = new Partner(Unique("Inline move partner"));
+            var shared = new RetryPolicy { Name = Unique("Shared for overrides"), Groups = [Group("shared", RetryAlertMode.Inherit, null, null)] };
+            db.AddRange(document, partner, shared);
+            await db.SaveChangesAsync();
+
+            var subscription = new Subscription(Unique("Inline move"), document.Id, SubscriptionType.Internal, partner.Id);
+            subscription.SetRetryPolicy(null, new CustomRetryPolicy
+            {
+                Groups = [Group("sends", RetryAlertMode.Send, "NativeHttpHandler", "inline"), Group("stale", RetryAlertMode.Inherit, "NativeHttpHandler", "stale")]
+            });
+            db.Add(subscription);
+            await db.SaveChangesAsync();
+            subscriptionId = subscription.Id;
+
+            db.AddRange(
+                new RetryAlertOverride { SubscriptionId = subscriptionId, GroupId = shared.Groups[0].Id, AlertMode = RetryAlertMode.Send, AlertHandlerId = "NativeHttpHandler", AlertHandlerProperties = Hook("override") },
+                new RetryAlertOverride { SubscriptionId = subscriptionId, GroupId = Guid.NewGuid(), AlertMode = RetryAlertMode.Silent, AlertHandlerId = " " });
+            await db.SaveChangesAsync();
+
+            Assert.True(await RetryAlertChannelConversion.Run(db, NullLogger.Instance) >= 2);
+        }
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var inline = (await db.Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == subscriptionId)).CustomRetryPolicy.Groups;
+            Assert.All(inline, g => Assert.Null(g.AlertHandlerId));
+            Assert.NotNull(inline.Single(g => g.Name == "sends").AlertChannelId);
+            Assert.Null(inline.Single(g => g.Name == "stale").AlertChannelId);
+
+            var overrides = await db.Set<RetryAlertOverride>().AsNoTracking().Where(o => o.SubscriptionId == subscriptionId).ToListAsync();
+            Assert.All(overrides, o => Assert.Null(o.AlertHandlerId));
+            Assert.NotNull(overrides.Single(o => o.AlertMode == RetryAlertMode.Send).AlertChannelId);
+            Assert.Null(overrides.Single(o => o.AlertMode == RetryAlertMode.Silent).AlertChannelId);
+
+            var made = (await db.Set<NotificationChannel>().AsNoTracking().ToListAsync())
+                .Where(c => c.HandlerProperties.GetValueOrDefault("Url")?.Contains(tag) == true || string.IsNullOrWhiteSpace(c.HandlerId))
+                .Select(c => c.HandlerProperties.GetValueOrDefault("Url")).ToList();
+            Assert.Equal(2, made.Count);
+            Assert.DoesNotContain(made, url => url == null || url.EndsWith("/stale"));
+        }
+    }
+
     /// <summary>Two replicas start together and both reach the move. One does it; nothing is made twice.</summary>
     [Fact]
     public async Task Two_instances_moving_retry_alerts_at_once_make_one_set_of_channels()
