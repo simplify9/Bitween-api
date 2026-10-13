@@ -485,7 +485,7 @@ public class ConnectionTests : IDisposable
         try
         {
             var delete = await Assert.ThrowsAsync<SWValidationException>(() =>
-                As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id, new ConnectionDelete())));
+                As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id)));
             Assert.Contains($"notification channel '{channel.Name}'", delete.Validations.First().Value);
             var renamed = ClientCredentials(c.Name + "x");
             Assert.Contains("can't be renamed", (await Assert.ThrowsAsync<SWValidationException>(() => Update(c.Id, renamed))).Validations.First().Value);
@@ -496,7 +496,7 @@ public class ConnectionTests : IDisposable
             await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<NotificationChannel>()
                 .Where(x => x.Id == channel.Id).ExecuteDeleteAsync();
         }
-        await As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id, new ConnectionDelete()));
+        await As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id));
     }
 
     [Fact]
