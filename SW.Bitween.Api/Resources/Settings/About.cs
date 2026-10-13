@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -36,7 +35,8 @@ public class About(BitweenDbContext dbContext, RequestContext requestContext, Bi
         return new
         {
             Version = BitweenInfo.Version(options).ToString(),
-            Build = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+            // The version and commit CI stamped on this build; none for a build it didn't stamp.
+            Build = BitweenInfo.Build,
             Node = new
             {
                 Name = Environment.MachineName,

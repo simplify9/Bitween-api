@@ -485,7 +485,8 @@ kinds its manifest declares, while it has a version that has not been withdrawn.
 A manifest can name the oldest Bitween the adapter works with, in `compatibility.applications.bitween`
 (manifests written before SimplyWorks.Serverless 10.2 used `compatibility.minBitweenVersion`, which is
 still read). Saving a subscription that changes a stage to such an adapter, or pins such a version, on
-an older Bitween is refused with `ADAPTER_NEEDS_NEWER_BITWEEN`.
+an older Bitween is refused with `ADAPTER_NEEDS_NEWER_BITWEEN`. A Bitween's own version is
+[`Bitween:Version`](configuration.md#bitween-section), shown under **Settings, About**.
 
 A custom adapter may run for `Bitween:ServerlessCommandTimeout` seconds, 300 by default.
 

@@ -32,6 +32,10 @@ COPY ["SW.Bitween.Web/ClientApp/", "./"]
 RUN yarn build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# The release and commit, stamped into the assemblies so a container says which it is without being
+# told: CI passes both. A build without them is versioned as before.
+ARG BITWEEN_VERSION=
+ARG BITWEEN_COMMIT=
 WORKDIR /src
 COPY ["SW.Bitween.Web/SW.Bitween.Web.csproj", "SW.Bitween.Web/"]
 COPY ["SW.Bitween.Api/SW.Bitween.Api.csproj", "SW.Bitween.Api/"]
@@ -41,11 +45,15 @@ COPY ["SW.Bitween.MsSql/SW.Bitween.MsSql.csproj", "SW.Bitween.MsSql/"]
 RUN dotnet restore "SW.Bitween.Web/SW.Bitween.Web.csproj"
 COPY . .
 WORKDIR "/src/SW.Bitween.Web"
-RUN dotnet build "SW.Bitween.Web.csproj" -c Release -o /app/build
+RUN dotnet build "SW.Bitween.Web.csproj" -c Release -o /app/build \
+    ${BITWEEN_VERSION:+-p:Version=$BITWEEN_VERSION} ${BITWEEN_COMMIT:+-p:SourceRevisionId=$BITWEEN_COMMIT}
 
 FROM build AS publish
+ARG BITWEEN_VERSION=
+ARG BITWEEN_COMMIT=
 # UI is built in the ui-build stage; the SDK image has no node
-RUN dotnet publish "SW.Bitween.Web.csproj" -c Release -o /app/publish -p:SkipClientBuild=true
+RUN dotnet publish "SW.Bitween.Web.csproj" -c Release -o /app/publish -p:SkipClientBuild=true \
+    ${BITWEEN_VERSION:+-p:Version=$BITWEEN_VERSION} ${BITWEEN_COMMIT:+-p:SourceRevisionId=$BITWEEN_COMMIT}
 
 FROM base AS final
 WORKDIR /app
