@@ -89,6 +89,15 @@ spec:
             - name: Bitween__RabbitMqManagementUsername
               value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUsername | quote }}
 
+            # Any other setting given under environmentVariables, as the docs say to: Bitween__BusProvidersEnabled
+            # to run data sources, say. The three above are handled on their own.
+            {{- range $name, $value := .Values.environmentVariables }}
+            {{- if not (has $name (list "Bitween__RabbitMqManagementUrl" "Bitween__RabbitMqManagementPassword" "Bitween__RabbitMqManagementUsername")) }}
+            - name: {{ $name }}
+              value: {{ $value | toString | quote }}
+            {{- end }}
+            {{- end }}
+
             - name: Bitween__StorageProvider
               value: {{ .Values.storageProvider }}
 

@@ -113,7 +113,8 @@ Run several replicas behind a load balancer for throughput and availability, and
 
 | Pipeline | Trigger | What it does |
 |---|---|---|
-| `.github/workflows/bitween-api-cicd-gateway.yml` | Push to `releases/r10.0`, or manual | Runs unit and integration tests, pushes the image to Docker Hub, publishes the chart to GHCR and `charts.sf9.io`, pushes `SimplyWorks.Bitween.Sdk` to NuGet, tags the repository, and deploys the playground environment |
+| `.github/workflows/bitween-api-cicd-gateway.yml` | Push to `releases/r10.0-develop`, or manual on it | Runs unit and integration tests, pushes the `simplify9/bitween-develop` image to Docker Hub, publishes the production chart (`charts/default`) as `bitween-develop` to `charts.sf9.io` and GHCR, tags the repository, and deploys to the `bitween-dev` namespace on the dev cluster (`app-dev.bitween.io`, on the gateway's `*.bitween.io` wildcard listener). Publishes no NuGet packages. |
+| `.github/workflows/bitween-api-cicd-gateway.yml` | Push to `releases/r10.0`, or manual on it | Runs unit and integration tests, pushes the `simplify9/bitween` image to Docker Hub, publishes the `bitween` chart clients install to `charts.sf9.io` and GHCR (`oci://ghcr.io/simplify9/charts/bitween`), pushes `SimplyWorks.Bitween.Sdk` and `SimplyWorks.Bitween.Adapters` to NuGet, tags the repository, and deploys to the `bitween` namespace on the production cluster (`app.bitween.io`, on the gateway's `*.bitween.io` wildcard listener). The deploy runs only while the `BITWEEN_PROD_DEPLOY` repository variable is `true`. |
 | `.github/workflows/critical-vuln-check.yml` | Pull requests to release and develop branches | Fails while critical Dependabot alerts are open |
 | `.github/workflows/dependabot-auto-merge.yml` | Dependabot pull requests | Auto-merges patch updates |
 | `azure-pipelines.yml` | `releases/*` | The earlier Azure DevOps pipeline, still in the repository |
