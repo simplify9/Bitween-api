@@ -196,6 +196,7 @@ A value that breaks a rule is refused with a validation error whose message says
 | `GET /api/marketplace/kit?id=&version=` | `subscriptions.view` | A kit's connectors and the parameters it asks for |
 | `POST /api/marketplace/kitplan` | `adapter-source.operate` | `{ id, version, name, parameters }`: what installing it would do, as `{ name, ready, applied, lines, problems, warnings, changes }`. Changes nothing. |
 | `POST /api/marketplace/kitinstall` | `adapter-source.operate` | The same, installed: its connectors, then its configuration, as the caller |
+| `POST /api/kits/plan?name=&examples=&set=NAME=value` | `adapter-source.operate` | Plan a kit sent as its zip, the request body, as `bitween kit build` writes it, changing nothing. Answers as `kitplan`. With `examples=true`, a required parameter not given takes the kit's example, or a placeholder. The registry calls it on a reference Bitween to check each kit published. |
 | `POST /api/adapters/withdraw` | `adapter-source.operate` | Take a published version out of use: `{ adapterId, version }`. It stays listed but can't be pinned or made current. |
 | `GET /api/adapterdrafts?adapterId=` | `adapter-source.edit` | The editor's drafts, newest first, optionally for one adapter |
 | `GET /api/adapterdrafts/{id}` | `adapter-source.edit` | A draft with its files |

@@ -65,10 +65,26 @@ public class KitInstaller(MarketplaceInstaller marketplace, RegistryClient regis
     public Task<KitRun> InstallAsync(string id, string version, string name, IDictionary<string, string> parameters) =>
         RunAsync(id, version, name, parameters, apply: true);
 
+    /// <summary>
+    /// What installing a kit given as its zip would do, changing nothing: how the registry checks a kit
+    /// against a reference Bitween before review. With <paramref name="examples"/>, a required parameter
+    /// not given takes the kit's example, or a placeholder, as bitween kit test does.
+    /// </summary>
+    public async Task<KitRun> PlanPackageAsync(byte[] package, string name, IDictionary<string, string> parameters, bool examples)
+    {
+        if (package == null || package.Length == 0) throw new SWValidationException("Package", "Send the kit's zip as the request body.");
+        return await RunPackageAsync(package, "kit", name, parameters, apply: false, examples);
+    }
+
     async Task<KitRun> RunAsync(string id, string version, string name, IDictionary<string, string> parameters, bool apply)
     {
         var (package, detail, _) = await marketplace.FetchVerifiedAsync(id, version, refuseKits: false);
+        return await RunPackageAsync(package, detail.PackageId, name, parameters, apply, examples: false);
+    }
 
+    async Task<KitRun> RunPackageAsync(byte[] package, string fallbackName, string name, IDictionary<string, string> parameters,
+        bool apply, bool examples)
+    {
         var folder = Path.Combine(Path.GetTempPath(), "bitween-kits", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         var zip = Path.Combine(folder, "kit.zip");
@@ -78,14 +94,25 @@ public class KitInstaller(MarketplaceInstaller marketplace, RegistryClient regis
             ConfigFile config;
             try
             {
-                var kit = Kit.Load(zip);
+                Kit kit;
+                try
+                {
+                    kit = Kit.Load(zip);
+                }
+                catch (InvalidDataException)
+                {
+                    throw new ConfigException("That isn't a zip: send the one bitween kit build writes.");
+                }
                 var given = (parameters ?? new Dictionary<string, string>())
                     .Where(p => p.Value != null).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+                if (examples)
+                    foreach (var p in kit.Parameters.Where(p => p.Required && p.Default == null && !given.Keys.Any(k => string.Equals(k, p.Name, StringComparison.OrdinalIgnoreCase))))
+                        given[p.Name] = p.Example ?? $"<{p.Name}>";
                 config = kit.Configuration(given, null, string.IsNullOrWhiteSpace(name) ? null : name.Trim());
             }
             catch (ConfigException ex)
             {
-                return new KitRun(name ?? detail.PackageId, false, false, [], [ex.Message], [], 0);
+                return new KitRun(name ?? fallbackName, false, false, [], [ex.Message], [], 0);
             }
 
             using var api = new BitweenApi(null, null, new Profile { Url = SelfUrl, AccessToken = CallerToken() });

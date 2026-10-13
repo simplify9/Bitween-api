@@ -295,6 +295,9 @@ bitween kit build kits/s9.salesforce.contacts                # a zip for the reg
 
 A kit published to the registry is also installed from Bitween's [Marketplace tab](adapters.md#installing-from-the-marketplace),
 which asks for its parameters in a form and shows the same plan.
+Before review, the registry plans each kit published on a reference Bitween (`POST /api/kits/plan` with
+its examples standing in for parameters), so give every required parameter without a default an `example`
+that plans.
 
 ## Publishing to the registry
 
