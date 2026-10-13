@@ -290,7 +290,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/notificationchannels` | `notifiers.create`. `{ name, handlerId, handlerProperties }` |
 | `POST /api/notificationchannels/{id}` | `notifiers.edit`. A `__private__` value keeps the stored secret only while the adapter and where it connects stay the same. |
 | `POST /api/notificationchannels/{id}/test` | `notifiers.edit`. Sends one made-up notification through the channel as saved. Returns `{ sent, error }`. |
-| `DELETE /api/notificationchannels/{id}` | `notifiers.delete`. Refused while a subscription still sends through it. |
+| `DELETE /api/notificationchannels/{id}` | `notifiers.delete`. Refused while anything still uses it: a subscription, a retry policy, a group or an alert override. |
 | `GET /api/notifiers`, `GET /api/notifiers/{id}` | `notifiers.view` |
 | `POST /api/notifiers` | `notifiers.create` |
 | `POST /api/notifiers/{id}` | `notifiers.edit` |
