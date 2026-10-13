@@ -1,0 +1,43 @@
+# Staging's own RabbitMQ, in bitween-dev on the dev cluster (s9-dev-gw), run by the RabbitMQ Cluster
+# Operator already installed there (rabbitmq-system). Settings follow talmaro-dev's broker, sized for
+# staging: one node, 5Gi, no TLS as it is reached only inside the cluster.
+#
+#   kubectl --context s9-dev-gw apply -f charts/staging/rabbitmq.yaml
+#
+# The operator makes the service bitween-rabbitmq.bitween-dev.svc (5672 AMQP, 15672 management) and the
+# secret bitween-rabbitmq-default-user, which holds the user, password and connection details.
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: bitween-rabbitmq
+  namespace: bitween-dev
+spec:
+  replicas: 1
+  image: rabbitmq:4.3-management
+  delayStartSeconds: 30
+  # The operator's default is 7 days, to drain quorum queues safely; staging needn't wait that long.
+  terminationGracePeriodSeconds: 120
+  persistence:
+    storageClassName: do-block-storage
+    storage: 5Gi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 704Mi
+    limits:
+      cpu: "1"
+      memory: 704Mi
+  rabbitmq:
+    additionalPlugins:
+      - rabbitmq_peer_discovery_k8s
+      - rabbitmq_prometheus
+    additionalConfig: |
+      log.console.level = info
+      log.console.formatter = json
+      # 60% of the 704Mi limit, so flow control starts before the container is killed for memory.
+      vm_memory_high_watermark.absolute = 440MB
+      disk_free_limit.absolute = 440MB
+      # Quorum queues' write-ahead log, kept well inside the memory limit.
+      raft.wal_max_size_bytes = 134217728
+  service:
+    type: ClusterIP
