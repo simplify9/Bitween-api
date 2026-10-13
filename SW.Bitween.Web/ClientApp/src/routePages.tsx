@@ -56,6 +56,8 @@ export const ResponseSubscriptionsPage = lazy(() => import("./pages/response-sub
 export const NewResponseSubscriptionPage = lazy(() => import("./pages/response-subscriptions/NewResponseSubscriptionPage").then((m) => ({ default: m.NewResponseSubscriptionPage })));
 export const RetryPoliciesPage = lazy(() => import("./pages/retry-policies/RetryPoliciesPage").then((m) => ({ default: m.RetryPoliciesPage })));
 export const RetryPolicyPage = lazy(() => import("./pages/retry-policies/RetryPolicyPage").then((m) => ({ default: m.RetryPolicyPage })));
+export const RetryGroupPage = lazy(() => import("./pages/retry-policies/RetryGroupPage").then((m) => ({ default: m.RetryGroupPage })));
+export const NotificationChannelPage = lazy(() => import("./pages/notification-channels/NotificationChannelPage").then((m) => ({ default: m.NotificationChannelPage })));
 export const MembersPage = lazy(() => import("./pages/team/MembersPage").then((m) => ({ default: m.MembersPage })));
 export const RoleEditor = lazy(() => import("./pages/team/RoleEditor").then((m) => ({ default: m.RoleEditor })));
 export const RolesPage = lazy(() => import("./pages/team/RolesPage").then((m) => ({ default: m.RolesPage })));

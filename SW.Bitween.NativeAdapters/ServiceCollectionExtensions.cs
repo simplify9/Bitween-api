@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using SW.Bitween.NativeAdapters.AzureBlobReceiver;
 using SW.Bitween.NativeAdapters.AzureBlobUploadHandler;
+using SW.Bitween.NativeAdapters.ChannelMessages;
+using SW.Bitween.NativeAdapters.EmailMessageHandler;
 using SW.Bitween.NativeAdapters.HttpReceiver;
 using SW.Bitween.NativeAdapters.Pop3Receiver;
 using SW.Bitween.NativeAdapters.FileTransfers;
@@ -11,7 +13,9 @@ using SW.Bitween.NativeAdapters.RebexFtpUploadHandler;
 using SW.Bitween.NativeAdapters.RebexPop3Receiver;
 using SW.Bitween.NativeAdapters.S3Receiver;
 using SW.Bitween.NativeAdapters.S3UploadHandler;
+using SW.Bitween.NativeAdapters.SlackMessageHandler;
 using SW.Bitween.NativeAdapters.SmtpHandler;
+using SW.Bitween.NativeAdapters.TeamsMessageHandler;
 
 namespace SW.Bitween.NativeAdapters;
 
@@ -30,10 +34,15 @@ public static class ServiceCollectionExtensions
     /// When a destination's circuit opens and for how long; see <see cref="DestinationCircuits"/>.
     /// <see cref="CircuitBreakerSettings.Default"/> when not given.
     /// </param>
+    /// <param name="mailServer">
+    /// The mail server Email channels send through. Read per adapter instance for the same reason as
+    /// the license key: it is set in Settings while the app runs. Left out, Email channels have none.
+    /// </param>
     public static void AddNativeAdapters(this IServiceCollection serviceCollection,
         Func<IServiceProvider, string?>? rebexLicenseKey = null,
         Func<IServiceProvider, bool>? blockPrivateNetworks = null,
-        Func<IServiceProvider, CircuitBreakerSettings>? circuitBreaker = null)
+        Func<IServiceProvider, CircuitBreakerSettings>? circuitBreaker = null,
+        Func<IServiceProvider, MailServerOptions>? mailServer = null)
     {
         // One per process, so every adapter instance (they are scoped) learns from the others' calls.
         serviceCollection.TryAddSingleton(sp => new DestinationCircuits(
@@ -82,6 +91,20 @@ public static class ServiceCollectionExtensions
 
         serviceCollection.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
         serviceCollection.AddScoped<INativeAdapter, NativeSmtpHandler>();
+
+        // The three notification channel types. Registered like any handler so a channel can name
+        // one, and kept out of the adapter pickers by IChannelMessageAdapter.
+        mailServer ??= _ => new MailServerOptions();
+        serviceCollection.AddScoped<INativeInfolinkHandler>(sp =>
+            new NativeEmailMessageHandler(mailServer(sp), sp.GetRequiredService<DestinationCircuits>()));
+        serviceCollection.AddScoped<INativeAdapter>(sp =>
+            new NativeEmailMessageHandler(mailServer(sp), sp.GetRequiredService<DestinationCircuits>()));
+
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeTeamsMessageHandler>();
+        serviceCollection.AddScoped<INativeAdapter, NativeTeamsMessageHandler>();
+
+        serviceCollection.AddScoped<INativeInfolinkHandler, NativeSlackMessageHandler>();
+        serviceCollection.AddScoped<INativeAdapter, NativeSlackMessageHandler>();
 
         serviceCollection.AddScoped<INativeInfolinkHandler, NativeS3UploadHandler>();
         serviceCollection.AddScoped<INativeAdapter, NativeS3UploadHandler>();

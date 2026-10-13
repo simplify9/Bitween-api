@@ -85,11 +85,14 @@ export function UnsavedBar({
   busy,
   onSave,
   onDiscard,
+  blocked,
 }: {
   error?: string;
   busy: boolean;
   onSave: () => void;
   onDiscard: () => void;
+  /** Why the edits can't be saved yet; Save stays off and this is shown instead of an error. */
+  blocked?: string;
 }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 backdrop-blur lg:left-[var(--sidebar-w,15.5rem)]">
@@ -97,11 +100,11 @@ export function UnsavedBar({
       <div className="flex items-center justify-between gap-3 py-2.5 pr-40 pl-4 sm:pl-6">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink-800">Unsaved changes</p>
-          <FormError>{error}</FormError>
+          <FormError>{error ?? blocked}</FormError>
         </div>
         <div className="flex shrink-0 gap-2">
           <Button onClick={onDiscard}>Discard</Button>
-          <Button variant="primary" busy={busy} onClick={onSave}>
+          <Button variant="primary" busy={busy} disabled={!!blocked} onClick={onSave}>
             Save changes
           </Button>
         </div>

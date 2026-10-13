@@ -138,6 +138,15 @@ export const keys = {
     detail: (id: string) => ["value-sets", "detail", id] as const,
   },
 
+  notificationChannels: {
+    all: ["notification-channels"] as const,
+    list: ["notification-channels", "list"] as const,
+    lookup: ["notification-channels", "lookup"] as const,
+    detail: (id: number | string) => ["notification-channels", "detail", id] as const,
+    sends: (id: number, failedOnly: boolean, page: number) =>
+      ["notification-channels", "sends", id, failedOnly, page] as const,
+  },
+
   notifiers: {
     all: ["notifiers"] as const,
     list: ["notifiers", "list"] as const,
@@ -256,6 +265,7 @@ export function applyQueryDefaults(queryClient: QueryClient): void {
     keys.retryPolicies.all,
     keys.valueSets.all,
     keys.notifiers.all,
+    keys.notificationChannels.all,
     keys.roles.all,
     keys.users.all,
     keys.serviceAccounts.all,
@@ -282,6 +292,12 @@ export function applyQueryDefaults(queryClient: QueryClient): void {
     // A history card sits on the same page as the form that writes to it, so it is never
     // allowed to be a few minutes behind what the person just did.
     keys.audit.all,
+    // A channel's "used by" changes whenever a subscription or retry policy is saved, and it decides
+    // whether Delete is offered; its sends arrive all the time. Only the names for pickers stay
+    // reference data.
+    keys.notificationChannels.list,
+    ["notification-channels", "detail"],
+    ["notification-channels", "sends"],
   ];
 
   for (const key of fixed) queryClient.setQueryDefaults(key, { staleTime: Infinity });

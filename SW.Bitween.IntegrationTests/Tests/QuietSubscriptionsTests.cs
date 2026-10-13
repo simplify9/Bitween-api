@@ -133,6 +133,45 @@ public class QuietSubscriptionsTests(BitweenFixture fixture)
         Assert.Equal(["gone-quiet", "back"], Received(token).Select(s => s.Event));
     }
 
+    /// <summary>
+    /// The subscription's own notifications hear it too, through the rows ticked for going quiet, and
+    /// only those: a row ticked for failures alone hears nothing about traffic.
+    /// </summary>
+    [Fact]
+    public async Task A_channel_ticked_for_going_quiet_hears_it_go_quiet_and_come_back()
+    {
+        var (id, _, _) = await Watched(Always());
+        var quietToken = $"quiet-channel-{Guid.NewGuid():N}";
+        var failsToken = $"fails-channel-{Guid.NewGuid():N}";
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            NotificationChannel Channel(string token) => new()
+            {
+                Name = $"Channel {token}", HandlerId = nameof(NativeTestResponder),
+                HandlerProperties = new Dictionary<string, string> { ["Body"] = token }
+            };
+            var (quiet, fails) = (Channel(quietToken), Channel(failsToken));
+            db.AddRange(quiet, fails);
+            await db.SaveChangesAsync();
+
+            var subscription = await db.Set<Subscription>().SingleAsync(s => s.Id == id);
+            subscription.SetNotifications([
+                new SubscriptionNotification { ChannelId = quiet.Id, OnQuiet = true },
+                new SubscriptionNotification { ChannelId = fails.Id, OnFailure = true }
+            ]);
+            await db.SaveChangesAsync();
+            scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        }
+
+        await RunJob();
+        await Exchange(id);
+        await RunJob();
+
+        Assert.Equal(["gone-quiet", "back"], Received(quietToken).Select(s => s.Event));
+        Assert.Empty(Received(failsToken));
+    }
+
     [Fact]
     public async Task A_paused_or_inactive_subscription_is_not_raised()
     {

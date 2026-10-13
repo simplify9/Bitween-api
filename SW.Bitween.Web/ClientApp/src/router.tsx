@@ -53,6 +53,8 @@ import {
   ResponseSubscriptionsPage,
   RetryPoliciesPage,
   RetryPolicyPage,
+  RetryGroupPage,
+  NotificationChannelPage,
   RoleEditor,
   RolesPage,
   ServiceAccountsPage,
@@ -124,6 +126,8 @@ const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
   workGroup: <WorkGroupPage />,
   retryPolicies: <RetryPoliciesPage />,
   retryPolicy: <RetryPolicyPage />,
+  retryGroupNew: <RetryGroupPage isNew />,
+  retryGroup: <RetryGroupPage />,
   notifiers: <NotifiersPage />,
   notifier: <NotifierPage />,
   members: <MembersPage />,
@@ -134,6 +138,8 @@ const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
   roleNew: <RoleEditor />,
   role: <RoleEditor />,
   settings: <SettingsPage />,
+  notificationChannelNew: <NotificationChannelPage isNew />,
+  notificationChannel: <NotificationChannelPage />,
   nodes: <NodesPage />,
   audit: <AuditPage />,
   profile: <ProfilePage />,
@@ -145,12 +151,18 @@ export interface PageHandle {
 }
 
 const pageRoutes: RouteObject[] = (Object.keys(PAGES) as PageId[]).map((id) => {
-  const { path, permission } = PAGES[id];
+  const { path, permission, alsoFor } = PAGES[id];
   const element = PAGE_ELEMENTS[id];
   return {
     path,
     handle: { page: id } satisfies PageHandle,
-    element: permission ? <RequirePermission permission={permission}>{element}</RequirePermission> : element,
+    element: permission ? (
+      <RequirePermission permission={permission} alsoFor={alsoFor}>
+        {element}
+      </RequirePermission>
+    ) : (
+      element
+    ),
   };
 });
 

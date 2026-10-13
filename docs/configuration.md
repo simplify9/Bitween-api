@@ -92,6 +92,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |
 | `QuietSubscriptionsCron` | `0 0/5 * * * ?` | Quartz cron for checking subscriptions that [expect traffic](entry-points.md#when-traffic-stops). A subscription can't expect a gap shorter than five minutes, so running it less often only delays the alert. |
+| `NotifierQuietMinutes` | `5` | After a notification channel or legacy notifier sends for a subscription and an outcome, more of the same within this many minutes are held back and counted in the next message. `0` sends every one. See [Delivery](retries-and-alerts.md#delivery). |
 | `ApiCallSubscriptionResponseAcceptedStatusCode` | `202` | First value of the runtime setting. |
 | `JwtExpiryMinutes` | `60` | First value of the runtime setting. |
 | `MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | | First values of the Microsoft sign-in settings. |
@@ -162,6 +163,8 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.RegistryUrl` | Marketplace | Yes | `https://registry.bitween.io` |
 | `Bitween.RegistryTrustedKeys` | Marketplace | Yes | Simplify9's registry's keys |
 | `Bitween.RegistryAllowCommunity` | Marketplace | Yes | `false` |
+| `Bitween.MailServer.Host`, `Port`, `UseTls`, `CertificateThumbprint`, `Username`, `From`, `FromName` | Mail server | Yes | port `587`, `UseTls` `true`, the rest empty |
+| `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
 | `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
@@ -173,6 +176,12 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Theme.CompanyName`, `TabTitle`, `TabIcon`, `LoginLogo`, `BitweenLogo`, `BitweenHeaderIcon`, `BitweenText`, `ShowFooter`, `LinkedinLink`, `GithubLink`, `WebsiteLink`, `AllRightsReserved`, `CopyRightsIcon` | Brand & theme | Yes | Simplify9 branding |
 
 The retry poll and retention crons are validated before they're saved, and saving one reschedules its job. A document prefix must be folder names of letters, digits, dots, dashes and underscores, and no folder can be only dots (`.` or `..`). Each exchange keeps the prefix its files were written under, so changing it only affects new exchanges.
+
+### Mail server
+
+The **Mail server** section is the one SMTP server every Email notification channel sends through, so a channel only names its recipients. It is read on each send. Until a host and a From address are set, Email channels can't send, and their page says so. The connection follows the [SMTP adapter's](adapters.md#nativesmtphandler) rules: a password is only sent over TLS, `CertificateThumbprint` trusts exactly that certificate, and a server that doesn't answer within 30 seconds fails the send. The password is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`. Without one, set it through configuration (`Bitween__MailServer__Password`).
+
+The page also has a **Notification channels** section. Channels are records rather than settings: they have their own table, each opens on a page of its own, and the `notifiers` permissions cover them rather than `settings`. See [Notification channels](retries-and-alerts.md#notification-channels).
 
 `GET /api/retention` and `POST /api/retention/preview` describe what the retention settings do, as saved or as proposed. The Settings page uses them. `POST /api/retention/aggregation` says whether exchanges would be removed before an aggregation on the given schedules rolls them up; the aggregation page uses it.
 

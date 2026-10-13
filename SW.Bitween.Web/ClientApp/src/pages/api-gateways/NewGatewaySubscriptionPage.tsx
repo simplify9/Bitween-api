@@ -24,7 +24,9 @@ import { ResponseFields } from "../subscriptions/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
-import { useResponseDetour } from "../../lib/responseDetour";
+import { useDetour } from "../../lib/detour";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
+import { NotificationsPanel } from "../subscriptions/studio/NotificationsPanel";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -48,6 +50,7 @@ type Draft = Pick<
   | "workGroupId"
   | "retryPolicyId"
   | "dataSourceId"
+  | "notifications"
 > & { informationTypeId: number | null };
 
 const EMPTY: Draft = {
@@ -67,6 +70,7 @@ const EMPTY: Draft = {
   workGroupId: null,
   retryPolicyId: null,
   dataSourceId: null,
+  notifications: [],
 };
 
 const STAGES_HERE = stagesFor("GatewayApiCall");
@@ -96,8 +100,9 @@ export function NewGatewaySubscriptionPage() {
   const queryClient = useQueryClient();
   // Back from creating a response subscription: the subscription as it was left, with that one
   // picked. `?partnerId=` survives the trip, since the way back is this page's own URL.
-  const detour = useResponseDetour<Draft>();
-  const returned = detour.kept !== null || detour.pickedResponse !== null;
+  const detour = useDetour<Draft>();
+  // Back from the response trip specifically; a channel trip comes back to the Notifications card.
+  const returned = detour.pickedResponse !== null || (detour.kept !== null && detour.slot === null);
   const [stage, setStage] = useState<StageId | null>(returned ? "response" : "delivery");
   /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
@@ -112,9 +117,14 @@ export function NewGatewaySubscriptionPage() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
+  // EMPTY first: a draft kept by an older page has no notifications to spread over it.
+  const kept = { ...EMPTY, ...detour.kept };
   const [draft, update] = useDraft<Draft>({
-    ...(detour.kept ?? EMPTY),
+    ...kept,
     ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+    ...(detour.pickedChannel !== null
+      ? { notifications: withPickedChannel(kept.notifications, detour.slot, detour.pickedChannel) }
+      : {}),
   });
   const bindsToDataSource = useBindsToDataSource();
 
@@ -162,6 +172,7 @@ export function NewGatewaySubscriptionPage() {
         workGroupId: draft.workGroupId,
         retryPolicyId: draft.retryPolicyId,
         dataSourceId: draft.dataSourceId,
+        notifications: draft.notifications,
         enabled: draft.enabled,
       }),
     onSuccess: (created) => {
@@ -226,6 +237,7 @@ export function NewGatewaySubscriptionPage() {
     draft.informationTypeId === null && "the information type it carries",
     draft.handlerId === null && "a delivery",
     adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties) && "its required delivery fields",
+    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
   ].filter((m): m is string => typeof m === "string");
 
   const renderStage = (stageId: StageId) => {
@@ -398,6 +410,16 @@ export function NewGatewaySubscriptionPage() {
           </button>
         </div>
       )}
+
+      <div className="mt-5">
+        <NotificationsPanel
+          value={draft.notifications}
+          onChange={(notifications) => update({ notifications })}
+          canEdit
+          onNewChannel={(index) => detour.newChannel(draft, notificationSlot(index))}
+          onEditChannel={(channelId) => detour.openChannel(draft, channelId)}
+        />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
         <Checkbox

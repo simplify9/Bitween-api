@@ -35,7 +35,7 @@ Bitween now runs adapters in three ways, and picks the first that claims an adap
 | Resident | Packages marked as resident | A long-lived process that keeps its connection or pool open between messages |
 | Classic | Everything else | A new process for each call, as described in [Adapters](adapters.md#custom-adapters) |
 
-Every stage of the pipeline goes through the same invoker, so any role (receiver, validator, mapper, handler, notifier) can use any runtime. A resident adapter is worth its extra complexity when opening a connection is expensive, as it is for brokers and database pools.
+Every stage of the pipeline goes through the same invoker, so any role (receiver, validator, mapper, handler, notification channel) can use any runtime. A resident adapter is worth its extra complexity when opening a connection is expensive, as it is for brokers and database pools.
 
 ## Settings
 

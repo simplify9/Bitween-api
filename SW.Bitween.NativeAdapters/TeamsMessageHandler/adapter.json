@@ -1,0 +1,35 @@
+{
+  "manifestVersion": 1,
+  "id": "nativeteamsmessagehandler",
+  "displayName": "Microsoft Teams notification",
+  "summary": "Posts a notification to a Teams channel as an Adaptive Card, through a Teams Workflows webhook. Used by Teams notification channels.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "teams",
+    "microsoft",
+    "webhook",
+    "notification"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "WebhookUrl",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "A Teams Workflows webhook address. In Teams, add the \"Post to a channel when a webhook request is received\" workflow to the channel, then copy the address it gives you. Anyone with it can post to the channel, so it is kept hidden."
+    }
+  ]
+}

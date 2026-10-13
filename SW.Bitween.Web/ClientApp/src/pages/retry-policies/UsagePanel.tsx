@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BellOff, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
-import { api, type SubscriptionSetupRef, type RetryAlertLevel, type RetryUsageRow } from "../../api";
+import {
+  api,
+  type RetryAlertConfig,
+  type RetryAlertLevel,
+  type RetryUsageRow,
+  type SubscriptionSetupRef,
+} from "../../api";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { Panel } from "../../components/ui/Panel";
@@ -40,7 +47,7 @@ type FilterKey = "attention" | "exhausted" | "silent" | "overridden" | "all";
  * tell them apart flags every deliberate silence until nobody reads it any more.
  */
 const needsAttention = (r: RetryUsageRow) =>
-  r.exhausted || r.alert?.delivered === false || (r.resolvedHandlerId === null && r.silencedAt === null);
+  r.exhausted || r.alert?.delivered === false || (r.resolvedChannelId === null && r.silencedAt === null);
 
 const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boolean; blurb: string }[] = [
   {
@@ -59,7 +66,7 @@ const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boo
   {
     key: "silent",
     label: "No alert",
-    match: (r) => r.resolvedHandlerId === null,
+    match: (r) => r.resolvedChannelId === null,
     blurb: "Nothing is sent when these run out - whether that was chosen or simply never set.",
   },
   {
@@ -73,13 +80,19 @@ const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boo
 
 /** Where this pair's alert ends up, said as a destination rather than a mode. */
 function AlertCell({ row }: { row: RetryUsageRow }) {
-  if (row.resolvedHandlerId)
+  const channels = useNotificationChannelNames();
+  if (row.resolvedChannelId !== null) {
+    const name = channels.data?.find((c) => c.id === row.resolvedChannelId)?.name ?? "…";
+    const setBy = row.resolvedFrom ? ` · set by ${LEVEL_WORD[row.resolvedFrom]}` : "";
+    // One line, cut like the subscription and group beside it: a channel name has spaces, and
+    // wrapped in this narrow column it stood each row several lines tall.
     return (
-      <span className="text-[13px] text-ink-700">
-        <span className="font-mono text-xs">{row.resolvedHandlerId}</span>
-        {row.resolvedFrom && <span className="text-ink-500"> · set by {LEVEL_WORD[row.resolvedFrom]}</span>}
+      <span className="block truncate text-[13px] text-ink-700" title={`${name}${setBy}`}>
+        {name}
+        {setBy && <span className="text-ink-500">{setBy}</span>}
       </span>
     );
+  }
 
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px]">
@@ -188,24 +201,29 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
 function OverrideDialog({
   policyId,
   row,
+  initial,
   onClose,
+  onNewChannel,
+  onOpenChannel,
 }: {
   policyId: number;
   row: RetryUsageRow;
+  /** What to start from instead of what the pair sends now - a channel just made for it. */
+  initial?: RetryAlertConfig;
   onClose: () => void;
+  onNewChannel?: () => void;
+  onOpenChannel?: (channelId: number) => void;
 }) {
   const queryClient = useQueryClient();
-  // Seeded from what this pair currently sends, not from an empty form: an override replaces
-  // the level above rather than merging with it, so starting blank would quietly drop the very
-  // settings the alert needs to arrive.
-  const [value, setValue] = useState({
-    alertMode: row.override.alertMode,
-    alertHandlerId: row.override.alertHandlerId ?? row.resolvedHandlerId,
-    alertHandlerProperties:
-      Object.keys(row.override.alertHandlerProperties).length > 0
-        ? row.override.alertHandlerProperties
-        : row.resolvedHandlerProperties,
-  });
+  const channels = useNotificationChannelNames();
+  // Seeded from what this pair currently sends, so "Send here" starts from the channel already in
+  // use rather than from nothing.
+  const [value, setValue] = useState<RetryAlertConfig>(
+    initial ?? {
+      alertMode: row.override.alertMode,
+      alertChannelId: row.override.alertChannelId ?? row.resolvedChannelId,
+    },
+  );
 
   const save = useMutation({
     mutationFn: () => api.saveRetryAlertOverride(policyId, { ...value, subscriptionId: row.subscriptionId, groupId: row.groupId }),
@@ -225,10 +243,16 @@ function OverrideDialog({
         <AlertRouting
           value={value}
           onChange={setValue}
+          onNewChannel={onNewChannel}
+          onEditChannel={onOpenChannel}
           inherited={
-            row.resolvedHandlerId ? (
+            row.resolvedChannelId !== null ? (
               <>
-                Sends through <code className="font-mono">{row.resolvedHandlerId}</code>, set by{" "}
+                Sends through{" "}
+                <span className="font-medium text-ink-700">
+                  {channels.data?.find((c) => c.id === row.resolvedChannelId)?.name ?? "…"}
+                </span>
+                , set by{" "}
                 {row.resolvedFrom ? LEVEL_WORD[row.resolvedFrom] : "a level above"}.
               </>
             ) : row.silencedAt ? (
@@ -244,7 +268,7 @@ function OverrideDialog({
           <Button
             variant="primary"
             busy={save.isPending}
-            disabled={value.alertMode === "Send" && !value.alertHandlerId}
+            disabled={value.alertMode === "Send" && value.alertChannelId === null}
             onClick={() => save.mutate()}
           >
             Save routing
@@ -259,19 +283,36 @@ export function UsagePanel({
   policyId,
   subscriptions,
   canEdit,
+  onNewOverrideChannel,
+  onOpenChannel,
+  reopen,
+  onReopened,
 }: {
   policyId: number;
   /** Used to explain an empty report - the subscriptions are still following the policy. */
   subscriptions: SubscriptionSetupRef[];
   canEdit: boolean;
+  /** Leaves for the new channel page from one pair's override; see NotificationChannelPicker. */
+  onNewOverrideChannel?: (row: RetryUsageRow) => void;
+  onOpenChannel?: (channelId: number) => void;
+  /** An override to open again, keyed subscriptionId:groupId, with the channel made for it. */
+  reopen?: { key: string; channelId: number } | null;
+  onReopened?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FilterKey>("attention");
   const [open, setOpen] = useState<string | null>(null);
-  const [overriding, setOverriding] = useState<RetryUsageRow | null>(null);
+  const [overriding, setOverriding] = useState<{ row: RetryUsageRow; initial?: RetryAlertConfig } | null>(null);
   const [resetting, setResetting] = useState<RetryUsageRow | "all" | null>(null);
 
   const usage = useQuery({ queryKey: keys.retryUsage.forPolicy(policyId), queryFn: () => api.getRetryUsage(policyId) });
+
+  useEffect(() => {
+    if (!reopen || !usage.data) return;
+    const row = usage.data.find((r) => `${r.subscriptionId}:${r.groupId}` === reopen.key);
+    if (row) setOverriding({ row, initial: { alertMode: "Send", alertChannelId: reopen.channelId } });
+    onReopened?.();
+  }, [reopen, usage.data, onReopened]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
 
@@ -418,7 +459,7 @@ export function UsagePanel({
                               Reset
                             </Button>
                           )}
-                          <Button size="sm" onClick={() => setOverriding(r)}>
+                          <Button size="sm" onClick={() => setOverriding({ row: r })}>
                             Route alert
                           </Button>
                         </span>
@@ -446,7 +487,14 @@ export function UsagePanel({
       )}
 
       {overriding && (
-        <OverrideDialog policyId={policyId} row={overriding} onClose={() => setOverriding(null)} />
+        <OverrideDialog
+          policyId={policyId}
+          row={overriding.row}
+          initial={overriding.initial}
+          onClose={() => setOverriding(null)}
+          onNewChannel={onNewOverrideChannel && (() => onNewOverrideChannel(overriding.row))}
+          onOpenChannel={onOpenChannel}
+        />
       )}
 
       {resetting && (

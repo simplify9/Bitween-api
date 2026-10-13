@@ -12,6 +12,7 @@ import { ReceiveAttemptsPanel, type AttemptKind } from "./ReceiveAttemptsPanel";
 import { RetryBudget } from "./RetryBudget";
 import { Fact } from "./Fact";
 import { LaneAndRetry } from "./LaneAndRetry";
+import { NotificationsPanel } from "./NotificationsPanel";
 import type { Draft, EntryPoint } from "./model";
 import { keys } from "../../../api/queryKeys";
 import { ExceptionBlock } from "../../../components/ui/Exception";
@@ -155,6 +156,8 @@ export function Overview({
   canEdit,
   entryPoints,
   scheduled,
+  onNewChannel,
+  onEditChannel,
 }: {
   s: SubscriptionDetail;
   draft: Draft;
@@ -163,6 +166,9 @@ export function Overview({
   entryPoints: EntryPoint[];
   /** Receiving and Aggregation run on a schedule, so they have run history. */
   scheduled: boolean;
+  /** Leave for a channel's page, keeping the draft - see NotificationsPanel. */
+  onNewChannel?: (index: number) => void;
+  onEditChannel?: (channelId: number) => void;
 }) {
   // Both scheduled types keep their own attempt history and show it in one table
   // (ReceiveAttemptsPanel) instead of the scheduler's run history beside a separate exchange
@@ -302,6 +308,14 @@ export function Overview({
         </div>
 
         <div className="min-w-0 space-y-5">
+          <NotificationsPanel
+            value={draft.notifications}
+            onChange={(notifications) => set("notifications", notifications)}
+            canEdit={canEdit}
+            onNewChannel={onNewChannel}
+            onEditChannel={onEditChannel}
+          />
+
           {attemptKind === null && (
             <Can permission="exchanges.view">
               <Panel title="Recent exchanges" description="Latest traffic through this subscription.">
@@ -311,7 +325,7 @@ export function Overview({
           )}
 
           {s.watchingNotifiers.length > 0 && (
-            <Panel title="Watched by" description="Notifiers alerting on this subscription's outcomes.">
+            <Panel title="Legacy notifiers" description="Notifiers made before channels, still alerting on this subscription's outcomes.">
               <MiniTable
                 rows={s.watchingNotifiers}
                 rowKey={(n) => n.id}

@@ -64,6 +64,7 @@ public class RetiringRebexTests(BitweenFixture fixture)
         }
         foreach (var n in await db.Set<Notifier>().Where(n => lowered.Contains(n.HandlerId.ToLower())).ToListAsync())
             n.HandlerId = null;
+        await db.Set<NotificationChannel>().Where(c => lowered.Contains(c.HandlerId.ToLower())).ExecuteDeleteAsync();
         foreach (var p in await db.Set<RetryPolicy>().Where(p => lowered.Contains(p.AlertHandlerId.ToLower())).ToListAsync())
             p.AlertHandlerId = null;
         await db.SaveChangesAsync();
@@ -114,6 +115,23 @@ public class RetiringRebexTests(BitweenFixture fixture)
 
         await Forget(id);
         Assert.DoesNotContain(FtpReceiver, await Listed("receivers"));
+    });
+
+    [Fact]
+    public Task The_Rebex_upload_handler_counts_a_notification_channel_as_using_it() => Licensed(async () =>
+    {
+        Assert.DoesNotContain(Upload, await Listed("handlers"));
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Set<NotificationChannel>().Add(new NotificationChannel { Name = Unique("Rebex channel"), HandlerId = Upload });
+            await db.SaveChangesAsync();
+        }
+        Assert.Contains(Upload, await Listed("handlers"));
+
+        await ParkExistingUsers();
+        Assert.DoesNotContain(Upload, await Listed("handlers"));
     });
 
     [Fact]

@@ -8,6 +8,7 @@ import { SearchSelect } from "../ui/SearchSelect";
 import { InformationTypeDialog } from "./InformationTypeDialog";
 import { SubscriptionDialog } from "./SubscriptionDialog";
 import { PartnerDialog } from "./PartnerDialog";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
 import { useSubscriptionsCache } from "./lookups";
 import { keys } from "../../api/queryKeys";
 import { formatLabel } from "../../lib/informationTypeFormat";
@@ -274,6 +275,64 @@ export function PartnerPicker({
           partnerId={dialog}
           onClose={() => setDialog(undefined)}
           onSaved={(partnerId) => onChange(partnerId)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pick-one notification channel. Channels have pages of their own: making or changing one from
+ * here goes to that page and comes back, so the page this sits on hands over the callbacks -
+ * it is the one holding the draft that has to survive the trip (see `lib/detour.ts`). Without
+ * them only existing channels can be picked.
+ */
+export function NotificationChannelPicker({
+  value,
+  onChange,
+  clearLabel,
+  disabled = false,
+  id,
+  size,
+  onNew,
+  onEdit,
+}: {
+  value: number | null;
+  onChange: (id: number | null) => void;
+  /** When set, an empty choice with this label is offered - e.g. "No alert". */
+  clearLabel?: string;
+  disabled?: boolean;
+  id?: string;
+  size?: "sm" | "md";
+  /** Goes to make a new channel; the page comes back with it picked. */
+  onNew?: () => void;
+  /** Goes to the picked channel's page. */
+  onEdit?: (channelId: number) => void;
+}) {
+  const channels = useNotificationChannelNames();
+  const canCreate = useSessionCan("notifiers.create");
+  const canView = useSessionCan("notifiers.view");
+
+  return (
+    <div>
+      <SearchSelect
+        id={id}
+        size={size}
+        aria-label="Notification channel"
+        value={value === null ? "" : String(value)}
+        disabled={disabled || channels.isPending}
+        onChange={(v) => onChange(v === "" ? null : Number(v))}
+        placeholder="Pick a channel…"
+        clearLabel={clearLabel}
+        options={(channels.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
+      />
+      {!disabled && (
+        <PickerLinks
+          createLabel="New channel"
+          actions={[
+            ...(onEdit && canView && value !== null ? [{ label: "Open it", onAct: () => onEdit(value) }] : []),
+            ...(onNew && canCreate ? [{ label: "New channel", icon: true, onAct: onNew }] : []),
+          ]}
         />
       )}
     </div>

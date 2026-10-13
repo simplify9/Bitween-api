@@ -183,6 +183,10 @@ namespace SW.Bitween
             if (string.IsNullOrWhiteSpace(bitweenOptions.RebexLicenseKey))
                 adapters = adapters.Where(a => a is not IRequiresRebexLicense).ToList();
 
+            // A channel type's adapter only knows how to send Bitween's own messages. A channel
+            // names it by picking the type, so no picker offers it.
+            adapters = adapters.Where(a => a is not IChannelMessageAdapter).ToList();
+
             return adapters.Select(a => a.GetType().Name).ToList();
         }
         private string? GetDefaultValue(PropertyInfo property)

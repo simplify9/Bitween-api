@@ -120,6 +120,7 @@ namespace SW.Bitween.Web
             services.AddScoped<IAdapterInvoker, AdapterInvoker>();
             services.AddScoped<MappingContextFactory>();
             services.AddScoped<XchangeService>();
+            services.AddScoped<NotificationChannelSender>();
             services.AddSingleton<FileLinks>();
             services.AddScoped<OidcSignIn>();
             services.AddScoped<ReceiverBookmarks>();
@@ -543,7 +544,8 @@ namespace SW.Bitween.Web
                     });
             });
 
-            // Resolved per adapter instance so a license key saved in Settings applies without a restart.
+            // Resolved per adapter instance so a license key or mail server saved in Settings applies
+            // without a restart.
             services.AddNativeAdapters(
                 sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey,
                 sp => sp.GetRequiredService<BitweenOptions>().BlockPrivateNetworkAddresses,
@@ -552,7 +554,8 @@ namespace SW.Bitween.Web
                     var options = sp.GetRequiredService<BitweenOptions>();
                     return new CircuitBreakerSettings(options.CircuitBreakerFailures,
                         options.CircuitBreakerWindowSeconds, options.CircuitBreakerOpenSeconds);
-                });
+                },
+                sp => sp.GetRequiredService<BitweenOptions>().MailServer);
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();

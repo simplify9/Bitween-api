@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { feederOf, newResponsePath, returnPath, safeReturn } from "../responseDetour";
+import { channelPath, feederOf, newResponsePath, returnPath, safeReturn } from "../detour";
 
 describe("the way back from creating a response subscription", () => {
   it("only goes somewhere inside the app", () => {
@@ -34,5 +34,22 @@ describe("the subscription a response subscription is being made for", () => {
     expect(feederOf(new URLSearchParams("return=%2Fx"))).toBeNull();
     expect(feederOf(new URLSearchParams("feeder=abc"))).toBeNull();
     expect(feederOf(new URLSearchParams("feeder=-3"))).toBeNull();
+  });
+});
+
+describe("the way to a notification channel and back", () => {
+  it("opens the create page or the channel's own page, carrying the way back", () => {
+    expect(channelPath("/subscriptions/10?draftKept=1")).toBe(
+      "/settings/notification-channels/new?return=%2Fsubscriptions%2F10%3FdraftKept%3D1",
+    );
+    expect(channelPath("/retry-policies/3?draftKept=1", 7)).toBe(
+      "/settings/notification-channels/7?return=%2Fretry-policies%2F3%3FdraftKept%3D1",
+    );
+  });
+
+  it("comes back with the new channel under its own name, so it can't be taken for a response", () => {
+    expect(returnPath("/subscriptions/10?draftKept=1", 7, "channel")).toBe(
+      "/subscriptions/10?draftKept=1&pickedChannel=7",
+    );
   });
 });

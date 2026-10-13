@@ -1501,6 +1501,48 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("QueueSnapshots", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.NotificationChannel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HandlerId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("HandlerProperties")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("NotificationChannels", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
                 {
                     b.Property<int>("Id")
@@ -1746,6 +1788,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<Guid>("GroupId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1791,6 +1836,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
@@ -1935,6 +1983,9 @@ namespace SW.Bitween.MySql.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Notifications")
+                        .HasColumnType("longtext");
 
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
@@ -2267,6 +2318,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ChannelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("longtext");
 
@@ -2293,6 +2347,8 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("XchangeId");
+
+                    b.HasIndex("ChannelId", "FinishedOn");
 
                     b.HasIndex("NotifierId", "FinishedOn");
 

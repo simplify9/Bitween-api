@@ -3,6 +3,7 @@ using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 
 namespace SW.Bitween.Domain;
@@ -94,6 +95,14 @@ public class Subscription : BaseEntity
     /// can't both raise it.
     /// </summary>
     public DateTime? QuietSince { get; private set; }
+
+    /// <summary>Which finished exchanges are reported, and through which notification channel.</summary>
+    public List<SubscriptionNotification> Notifications { get; private set; } = [];
+
+    public void SetNotifications(IEnumerable<SubscriptionNotification> notifications)
+    {
+        Notifications = notifications?.ToList() ?? [];
+    }
 
     public void SetExpectTraffic(ExpectTraffic expectTraffic)
     {

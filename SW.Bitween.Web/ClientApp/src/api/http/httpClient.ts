@@ -16,6 +16,7 @@ import { subscriptionMethods } from "./subscriptions";
 import { mapperMethods } from "./mappers";
 import { notifierMethods } from "./notifiers";
 import { connectionMethods } from "./connections";
+import { notificationChannelMethods } from "./notificationChannels";
 import { partnerMethods } from "./partners";
 import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
@@ -52,6 +53,7 @@ export const httpClient: ApiClient = {
   ...mapperMethods,
   ...notifierMethods,
   ...connectionMethods,
+  ...notificationChannelMethods,
   ...teamMethods,
   ...serviceAccountMethods,
   ...settingsMethods,

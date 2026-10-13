@@ -97,6 +97,31 @@ public class RetryAndNotifierHardeningTests(BitweenFixture fixture)
         Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
     }
 
+    /// <summary>
+    /// An exchange can finish just after its subscription is switched off. Its notifier used to look
+    /// the subscription up among the active ones only, found nothing and threw, and the result event
+    /// failed with everything it still had to send.
+    /// </summary>
+    [Fact]
+    public async Task A_result_for_a_subscription_switched_off_meanwhile_still_notifies()
+    {
+        var token = $"switched-off-{Guid.NewGuid():N}";
+        var (subscriptionId, _) = await NotifierOnFailures(token);
+        var id = await FailedExchange(subscriptionId);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            (await db.Set<Subscription>().SingleAsync(s => s.Id == subscriptionId)).Inactive = true;
+            await db.SaveChangesAsync();
+            scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        }
+
+        await ProcessResult(id);
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+    }
+
     private async Task ProcessResult(string xchangeId)
     {
         await using var scope = fixture.CreateScope();

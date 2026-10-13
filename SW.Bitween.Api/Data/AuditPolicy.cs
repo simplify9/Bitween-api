@@ -54,6 +54,7 @@ public static class AuditPolicy
         typeof(RetryPolicy),
         typeof(RetryAlertOverride),
         typeof(Notifier),
+        typeof(NotificationChannel),
         typeof(GlobalAdapterValuesSet),
         // Who added a connection, changed its client, or authorized it. Token renewals bypass the
         // change tracker, so the hourly refresh of a token isn't an entry.
@@ -93,6 +94,7 @@ public static class AuditPolicy
         ],
         [typeof(Partner)] = [nameof(Partner.AdapterProperties)],
         [typeof(Notifier)] = [nameof(Notifier.HandlerProperties)],
+        [typeof(NotificationChannel)] = [nameof(NotificationChannel.HandlerProperties)],
         [typeof(RetryPolicy)] = [nameof(RetryPolicy.AlertHandlerProperties)],
         [typeof(RetryAlertOverride)] = [nameof(RetryAlertOverride.AlertHandlerProperties)],
 

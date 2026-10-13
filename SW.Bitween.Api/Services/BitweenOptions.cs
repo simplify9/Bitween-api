@@ -125,6 +125,13 @@ namespace SW.Bitween
         /// </summary>
         public string PublicUrl { get; set; }
 
+        /// <summary>
+        /// The mail server every Email notification channel sends through. One instance for the life
+        /// of the app: Settings changes its properties in place, and the Email adapter reads them on
+        /// each send, so it must never be replaced.
+        /// </summary>
+        public SW.Bitween.NativeAdapters.ChannelMessages.MailServerOptions MailServer { get; } = new();
+
         /// <summary>Days an exchange is kept before the retention job removes it. 0 keeps exchanges for ever.</summary>
         public int ExchangeRetentionDays { get; set; }
 

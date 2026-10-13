@@ -22,8 +22,10 @@ import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { useResponseDetour } from "../../lib/responseDetour";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { useDetour } from "../../lib/detour";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
+import { NotificationsPanel } from "../subscriptions/studio/NotificationsPanel";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -52,6 +54,7 @@ type Draft = Pick<
   | "workGroupId"
   | "retryPolicyId"
   | "dataSourceId"
+  | "notifications"
 > & {
   informationTypeId: number | null;
   enable: boolean;
@@ -74,6 +77,7 @@ const EMPTY: Draft = {
   workGroupId: null,
   retryPolicyId: null,
   dataSourceId: null,
+  notifications: [],
   enable: true,
 };
 
@@ -89,8 +93,9 @@ export function NewScheduledJobPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Back from creating a response subscription: the job as it was left, with that one picked.
-  const detour = useResponseDetour<Draft>();
-  const returned = detour.kept !== null || detour.pickedResponse !== null;
+  const detour = useDetour<Draft>();
+  // Back from the response trip specifically; a channel trip comes back to the Notifications card.
+  const returned = detour.pickedResponse !== null || (detour.kept !== null && detour.slot === null);
   const [stage, setStage] = useState<StageId | null>(returned ? "response" : "source");
   /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
@@ -101,9 +106,14 @@ export function NewScheduledJobPage() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
+  // EMPTY first: a draft kept by an older page has no notifications to spread over it.
+  const kept = { ...EMPTY, ...detour.kept };
   const [draft, update, clear] = useDraft<Draft>({
-    ...(detour.kept ?? EMPTY),
+    ...kept,
     ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+    ...(detour.pickedChannel !== null
+      ? { notifications: withPickedChannel(kept.notifications, detour.slot, detour.pickedChannel) }
+      : {}),
   });
   const bindsToDataSource = useBindsToDataSource();
 
@@ -126,6 +136,7 @@ export function NewScheduledJobPage() {
         workGroupId: draft.workGroupId,
         retryPolicyId: draft.retryPolicyId,
         dataSourceId: draft.dataSourceId,
+        notifications: draft.notifications,
         enabled: draft.enable,
       }),
     onSuccess: (created) => {
@@ -183,6 +194,7 @@ export function NewScheduledJobPage() {
     draft.schedules.length === 0 && "a schedule",
     draft.handlerId === null && "a delivery",
     unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
+    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
   ].filter((m): m is string => typeof m === "string");
 
   const renderStage = (stageId: StageId) => {
@@ -369,6 +381,16 @@ export function NewScheduledJobPage() {
           </button>
         </div>
       )}
+
+      <div className="mt-5">
+        <NotificationsPanel
+          value={draft.notifications}
+          onChange={(notifications) => update({ notifications })}
+          canEdit
+          onNewChannel={(index) => detour.newChannel(draft, notificationSlot(index))}
+          onEditChannel={(channelId) => detour.openChannel(draft, channelId)}
+        />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
         <Checkbox

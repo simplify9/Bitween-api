@@ -188,7 +188,7 @@ The partner can read the outcome later with `GET /api/xchanges/{exchangeId}`, wh
 
 ## When traffic stops
 
-A partner whose system breaks, a carrier that moves its folder, a table that stops filling: none of these fails an exchange, because no exchange is created. A subscription can say how often it expects one, and Bitween tells its notifiers when none arrives.
+A partner whose system breaks, a carrier that moves its folder, a table that stops filling: none of these fails an exchange, because no exchange is created. A subscription can say how often it expects one, and Bitween sends a notification when none arrives.
 
 On the subscription's page, **Expect traffic** takes:
 
@@ -203,14 +203,14 @@ Every five minutes (`Bitween:QuietSubscriptionsCron`), Bitween checks each activ
 - **Back.** When an exchange starts after it was marked, the mark is cleared, inside the window or not.
 - Outside the window nothing is raised.
 
-Each change is sent once, to the subscription's notifiers that have **Run on failed result** on, as the same JSON document a failed exchange sends (see [Notifiers](retries-and-alerts.md#notifiers)), with `Event` set:
+Each change is sent once, to the subscription's notifiers that have **Run on failed result** on and to its notification channels ticked **Goes quiet**, as the same JSON document a failed exchange sends (see [Subscription notifications](retries-and-alerts.md#subscription-notifications)), with `Event` set as below. Email, Teams and Slack channels send a message Bitween writes from it instead.
 
 | `Event` | `Success` | `Exception` |
 |---|---|---|
 | `gone-quiet` | `false` | `No exchanges since 2026-10-12 08:14 UTC; Orders from marketplace expects at least one every 15 minutes, Sun-Thu 08:00-22:00 Asia/Riyadh.` |
 | `back` | `true` | `Exchanges arriving again after 47 minutes.` |
 
-There is no exchange, so `Id` and `CorrelationId` are an id made for the alert, such as `gone-quiet-42-20261012082900`, and the handler's properties get no `xchangeid`. The sends are logged, not listed under the notifier's notifications. The subscription's page shows the mark, and the dashboard's insights list quiet subscriptions.
+There is no exchange, so `Id` and `CorrelationId` are an id made for the alert, such as `gone-quiet-42-20261012082900`, and the handler's properties get no `xchangeid`. The sends are logged, not listed in the notification history. The subscription's page shows the mark, and the dashboard's insights list quiet subscriptions.
 
 Removing the expectation clears the mark. Pausing or switching off the subscription stops new marks; one already set stays until traffic returns.
 

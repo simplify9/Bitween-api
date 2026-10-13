@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -159,35 +160,72 @@ public class AutoPauseTests(BitweenFixture fixture)
         Assert.Null(sub.LastException);
     }
 
+    /// <summary>
+    /// The policy's alert channel is the place already set up to hear that deliveries stopped; the
+    /// subscription's own rows ticked for failures want to hear it too. A channel that is both hears
+    /// once, and a redelivered event tells nobody twice.
+    /// </summary>
     [Fact]
-    public async Task The_pause_is_sent_to_the_retry_policys_alert_handler()
+    public async Task The_pause_reaches_the_policys_alert_channel_and_the_channels_ticked_for_failures_once_each()
     {
-        int policyId;
+        var policyToken = Unique("pause-policy");
+        var rowToken = Unique("pause-row");
+        var successToken = Unique("pause-success-only");
+        int policyChannel, rowChannel, successChannel, policyId;
         await using (var scope = fixture.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-            var policy = new RetryPolicy { Name = Unique("Auto-pause policy"), AlertHandlerId = Responder };
+            NotificationChannel Channel(string token) => new()
+            {
+                Name = Unique("Auto-pause channel"), HandlerId = Responder,
+                HandlerProperties = new Dictionary<string, string> { ["Body"] = token }
+            };
+            var channels = new[] { Channel(policyToken), Channel(rowToken), Channel(successToken) };
+            db.AddRange(channels);
+            await db.SaveChangesAsync();
+            (policyChannel, rowChannel, successChannel) = (channels[0].Id, channels[1].Id, channels[2].Id);
+
+            var policy = new RetryPolicy { Name = Unique("Auto-pause policy"), AlertChannelId = policyChannel };
             db.Add(policy);
             await db.SaveChangesAsync();
             policyId = policy.Id;
         }
 
         var id = await NewSubscription(1, policyId);
-        var xchangeId = await Deliver(id);
-
         await using (var scope = fixture.CreateScope())
         {
-            await ActivatorUtilities.CreateInstance<AutoPauseAlertService>(scope.ServiceProvider)
-                .Process(new SubscriptionAutoPausedEvent
-                    { SubscriptionId = id, XchangeId = xchangeId, Failures = 1, OccurredOn = DateTime.UtcNow });
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var sub = await db.Set<Subscription>().SingleAsync(s => s.Id == id);
+            sub.SetNotifications([
+                new SubscriptionNotification { ChannelId = policyChannel, OnFailure = true },
+                new SubscriptionNotification { ChannelId = rowChannel, OnFailure = true },
+                new SubscriptionNotification { ChannelId = successChannel, OnSuccess = true }
+            ]);
+            await db.SaveChangesAsync();
+            scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
         }
+        var xchangeId = await Deliver(id);
+
+        var paused = new SubscriptionAutoPausedEvent
+            { SubscriptionId = id, XchangeId = xchangeId, Failures = 1, OccurredOn = DateTime.UtcNow };
+        for (var delivery = 0; delivery < 2; delivery++)
+        {
+            await using var scope = fixture.CreateScope();
+            await ActivatorUtilities.CreateInstance<AutoPauseAlertService>(scope.ServiceProvider).Process(paused);
+        }
+
+        Assert.Equal(1, Adapters.NativeTestResponder.Deliveries.GetValueOrDefault(policyToken));
+        Assert.Equal(1, Adapters.NativeTestResponder.Deliveries.GetValueOrDefault(rowToken));
+        Assert.Equal(0, Adapters.NativeTestResponder.Deliveries.GetValueOrDefault(successToken));
 
         await using (var scope = fixture.CreateScope())
         {
             var sent = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
                 .Set<XchangeNotification>().AsNoTracking()
-                .SingleAsync(n => n.XchangeId == xchangeId && n.NotifierName == XchangeNotification.AutoPauseAlertName);
-            Assert.True(sent.Success, sent.Exception);
+                .Where(n => n.XchangeId == xchangeId && n.NotifierName == XchangeNotification.AutoPauseAlertName)
+                .ToListAsync();
+            Assert.Equal(new int?[] { policyChannel, rowChannel }, sent.Select(n => n.ChannelId).OrderBy(c => c));
+            Assert.All(sent, n => Assert.True(n.Success, n.Exception));
         }
     }
 

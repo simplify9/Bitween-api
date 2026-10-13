@@ -84,6 +84,13 @@ const ROWS: SettingRow[] = [
     hasValue: true,
   }),
   editable({
+    key: "Bitween.MailServer.Host",
+    section: "Mail server",
+    label: "Server",
+    kind: "string",
+    defaultValue: "",
+  }),
+  editable({
     key: "Bitween.RetryJobCron",
     section: "Reliability & jobs",
     label: "Retry poll schedule",
@@ -188,7 +195,7 @@ afterEach(() => {
 });
 
 describe("the settings page", () => {
-  it("lists a section per catalog section, in catalog order, with no restart-required rows", async () => {
+  it("lists a section per catalog section, in catalog order, with channels after the mail server", async () => {
     openSettings();
 
     const links = (await sectionNav()).getAllByRole("link");
@@ -197,6 +204,10 @@ describe("the settings page", () => {
       "API behavior",
       "Single sign-on (Microsoft)",
       "Adapters",
+      "Mail server",
+      // Not a catalog section: channels are records with their own pages, next to the mail server
+      // every Email channel sends through.
+      "Notification channels",
       "Reliability & jobs",
       "Messaging",
       "Database",
@@ -209,6 +220,29 @@ describe("the settings page", () => {
     // Nothing carries a restart badge: a setting that couldn't take effect immediately is shown
     // as an environment value instead of being offered as an edit that needs a restart to land.
     expect(screen.queryByText("Restart", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("opens on the notification channels alone for a member without the Settings permission", async () => {
+    let askedForSettings = false;
+    renderApp("/settings", {
+      as: { permissions: ["notifiers.view", "subscriptions.view"] },
+      handlers: [
+        http.get(apiPath("/settings"), () => {
+          askedForSettings = true;
+          return HttpResponse.json(ROWS);
+        }),
+        http.get(apiPath("/notificationchannels"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/notifiers"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/adapters/Catalog"), () => HttpResponse.json([])),
+      ],
+    });
+
+    const links = (await sectionNav()).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual(["Notification channels"]);
+    expect(screen.getByRole("heading", { name: "Notification channels" })).toBeVisible();
+    expect(askedForSettings).toBe(false);
+    // And the sidebar leads there.
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
   });
 
   it("shows environment settings but doesn't offer them as edits", async () => {

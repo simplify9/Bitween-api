@@ -19,6 +19,7 @@ import {
   type ReceiveOutcome,
   type Schedule,
   type ScheduleHealth,
+  type SubscriptionNotification,
   type SubscriptionRevision,
   type SubscriptionRevisionDetail,
 } from "../types";
@@ -97,6 +98,7 @@ interface RawSubscription {
   responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
   runOnBadResponses?: boolean;
+  notifications?: SubscriptionNotification[] | null;
   receiveOn: string | null;
   aggregateOn: string | null;
   pausedOn: string | null;
@@ -195,6 +197,7 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     responseSubscriptionId: raw.responseSubscriptionId ?? null,
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
     runOnBadResponses: raw.runOnBadResponses ?? false,
+    notifications: raw.notifications ?? [],
     aggregationForId: raw.aggregationForId ?? null,
     aggregationTarget: raw.aggregationTarget ?? "Input",
     isRunning: raw.isRunning ?? false,
@@ -239,6 +242,7 @@ type UpdatableFields = Partial<
     | "responseSubscriptionId"
     | "responseMessageTypeName"
     | "runOnBadResponses"
+    | "notifications"
     | "aggregationTarget"
     | "autoPauseAfterFailures"
     | "expectTraffic"
@@ -318,6 +322,7 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
         : (current.autoPauseAfterFailures ?? null),
     // The same: left out, the update would drop the expectation. quietSince is the server's alone.
     expectTraffic: changes.expectTraffic !== undefined ? changes.expectTraffic : (current.expectTraffic ?? null),
+    notifications: changes.notifications ?? current.notifications ?? [],
     newResponseSubscription: newResponseSubscriptionBody(changes.newResponseSubscription),
     temporary: current.temporary,
     aggregationTarget:
@@ -523,6 +528,7 @@ export const subscriptionMethods = {
     responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
     runOnBadResponses?: boolean;
+    notifications?: SubscriptionNotification[];
     enabled?: boolean;
   }): Promise<Subscription> {
     // One call, one transaction. This used to be a POST followed by a PATCH,
@@ -555,6 +561,7 @@ export const subscriptionMethods = {
       responseSubscriptionId: input.responseSubscriptionId ?? null,
       responseMessageTypeName: input.responseMessageTypeName ?? null,
       runOnBadResponses: input.runOnBadResponses ?? false,
+      notifications: input.notifications ?? [],
       inactive: !(input.enabled ?? false),
     });
     return toSubscription(await fetchRaw(id), id);

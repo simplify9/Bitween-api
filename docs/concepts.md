@@ -120,7 +120,9 @@ A global value set is a named dictionary shared by all adapters. Adapters refere
 | On-hold exchange | A message routed by content to a paused subscription. It becomes a real exchange when the subscription is resumed. |
 | Delayed retry | An automatic retry waiting for its time. Its id is the failed exchange's id. |
 | Receive attempt | One run of a scheduled job or aggregation and its outcome: received data, nothing new, or failed. |
-| Notifier | A handler adapter that runs after exchanges of chosen subscriptions succeed, return a bad response or fail. |
+| Notification channel | Where notifications and alerts are sent: Email, Microsoft Teams, Slack, or any other handler adapter with its properties. |
+| Notification | A subscription's rule to send through a channel when its exchanges fail, return a bad response or succeed, or when it goes quiet. |
+| Legacy notifier | A notifier made before channels. It still runs for the subscriptions it watches, but new ones are not offered in the UI. |
 | Retry policy | Rules that decide whether and when a failed exchange is retried. |
 | Category | A code and description used to group subscriptions. Picked on the subscription's page, beside its work group; **All subscriptions** filters by it and its **Categories** button adds, renames and deletes them (one in use can't be deleted). |
 | Data source | A connection to a customer's broker or database, held open by a resident adapter. See [Data sources](data-sources.md). |

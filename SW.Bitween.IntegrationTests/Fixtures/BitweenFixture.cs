@@ -11,6 +11,7 @@ using Npgsql;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Adapters;
 using SW.Bitween.NativeAdapters;
+using SW.Bitween.NativeAdapters.EmailMessageHandler;
 using SW.Bitween.NativeAdapters.SmtpHandler;
 using SW.Bitween.PgSql;
 using SW.Bitween.Services;
@@ -195,6 +196,15 @@ public sealed class BitweenFixture : IAsyncLifetime
                         // The fixture is a node that runs data sources: it registers the resident
                         // host for them below, and resident pipeline adapters run only on such a node.
                         BusProvidersEnabled = true,
+                        // Where Email channels send: the MailHog the SMTP handler tests read back from.
+                        MailServer =
+                        {
+                            Host = "localhost",
+                            Port = MailHogSmtpPort,
+                            UseTls = false,
+                            From = "bitween@example.com",
+                            FromName = "Bitween tests"
+                        },
                     });
 
                     services.AddSingleton(new ThemeOptions());
@@ -264,6 +274,10 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();
                     services.AddScoped<INativeInfolinkHandler, NativeTestResponder>();
                     services.AddScoped<INativeAdapter, NativeTestResponder>();
+                    services.AddScoped<INativeInfolinkHandler>(sp =>
+                        new NativeEmailMessageHandler(sp.GetRequiredService<BitweenOptions>().MailServer));
+                    services.AddScoped<INativeAdapter>(sp =>
+                        new NativeEmailMessageHandler(sp.GetRequiredService<BitweenOptions>().MailServer));
 
                     // The mapper step had no end-to-end coverage at all - every mapper test was a
                     // unit test against ScribanJsonHelper, so what XchangeService does to a payload
@@ -308,6 +322,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<IAdapterInvoker, AdapterInvoker>();
                     services.AddScoped<MappingContextFactory>();
                     services.AddScoped<XchangeService>();
+                    services.AddScoped<NotificationChannelSender>();
                     services.AddSingleton<FileLinks>();
                     services.AddScoped<OidcSignIn>();
                     services.AddScoped<ReceiverBookmarks>();
