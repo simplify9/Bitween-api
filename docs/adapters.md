@@ -52,7 +52,7 @@ Write `{{connections.NAME.accessToken}}` in any setting: the HTTP handler's `Log
 
 When a token can't be had, the adapter call fails with the reason, so retry policies and alerts work as for any failure, and the connection shows it. A provider that refuses the refresh token (`invalid_grant`) leaves the connection **Needs authorizing**. **Test** renews now and shows the result.
 
-The client secret, the password and both tokens are encrypted at rest when `Bitween:SettingsEncryptionKey` is set, and masked in the API as `__private__`; a secret sent back as `__private__` is kept. Changing the client, its token or authorize URL, its scopes or its user forgets the tokens it has. A connection settings refer to (a subscription's, a notifier's, a retry policy's, a partner's or a global value set's) can't be deleted or renamed. Adding, changing and authorizing a connection are in the audit trail, with the secrets left out; renewing a token isn't.
+The client secret, the password and both tokens are encrypted at rest when `Bitween:SettingsEncryptionKey` is set, and masked in the API as `__private__`; a secret sent back as `__private__` is kept. Changing the client, its token or authorize URL, its scopes or its user forgets the tokens it has. A connection settings refer to (a subscription's, a notification channel's, a notifier's, a retry policy's, a partner's or a global value set's) can't be deleted or renamed. Adding, changing and authorizing a connection are in the audit trail, with the secrets left out; renewing a token isn't.
 
 Data source settings can't use connections: a data source's adapter runs for a long time, and a token handed to it when it starts would expire.
 
@@ -72,7 +72,7 @@ The Rebex adapters are no longer offered for new work. They are packages in the 
 
 A package doesn't read the **Rebex license key** setting, so keep the key in a global value set and write `{{globals.<set>.<key>}}` in its `LicenseKey` property.
 
-Nothing that uses a built-in one changes: it keeps running, and its editor keeps it. Each stays in the pickers, with a licence key saved, while any subscription names it, active or not, and for the upload handler a notifier or a retry alert counts too. Once nothing does, it is no longer listed, and there is no picking it again.
+Nothing that uses a built-in one changes: it keeps running, and its editor keeps it. Each stays in the pickers, with a licence key saved, while any subscription names it, active or not, and for the upload handler a notification channel, a notifier or a retry alert counts too. Once nothing does, it is no longer listed, and there is no picking it again.
 
 ## Handlers
 

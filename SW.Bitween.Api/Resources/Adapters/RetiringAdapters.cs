@@ -27,8 +27,8 @@ namespace SW.Bitween.Resources.Adapters;
 /// <para>
 /// One-way on purpose: past that point there is no picking it again. Which is why the question of
 /// what counts as "in use" is answered generously - an inactive subscription still holds its
-/// settings and can be switched back on, so it counts, and so does a notifier or a retry alert
-/// naming a handler. Withholding an adapter a subscription is still saved with would leave that
+/// settings and can be switched back on, so it counts, and so does a notification channel, a
+/// notifier or a retry alert naming a handler. Withholding an adapter a subscription is still saved with would leave that
 /// subscription's own adapter missing from the list its picker draws from, which reads as no
 /// adapter chosen at all.
 /// </para>
@@ -82,6 +82,7 @@ internal static class RetiringAdapters
 
     private static async Task<bool> HandlerInUse(BitweenDbContext db, string id) =>
         await db.Set<Subscription>().AnyAsync(s => s.HandlerId != null && s.HandlerId.ToLower() == id)
+        || await db.Set<NotificationChannel>().AnyAsync(c => c.HandlerId.ToLower() == id)
         || await db.Set<Notifier>().AnyAsync(n => n.HandlerId != null && n.HandlerId.ToLower() == id)
         || await db.Set<RetryPolicy>().AnyAsync(p => p.AlertHandlerId != null && p.AlertHandlerId.ToLower() == id)
         || await db.Set<RetryAlertOverride>().AnyAsync(o => o.AlertHandlerId != null && o.AlertHandlerId.ToLower() == id);
