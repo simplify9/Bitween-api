@@ -1309,9 +1309,15 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     private async Task NotifyChannel(int channelId, Subscription subscription, Xchange xchange,
         XchangeResult xchangeResult, Partner partner)
     {
+        // A retry or auto-pause alert about this exchange can go through the same channel; it is
+        // not this notification, so neither the redelivery check nor the quiet window may count it.
+        var sends = dbContext.Set<XchangeNotification>().Where(n => n.ChannelId == channelId &&
+            n.NotifierName != XchangeNotification.RetryBudgetAlertName &&
+            n.NotifierName != XchangeNotification.AutoPauseAlertName);
+
         // Sent already: the result event was delivered again.
-        if (await dbContext.Set<XchangeNotification>().AsNoTracking()
-                .AnyAsync(n => n.XchangeId == xchangeResult.Id && n.ChannelId == channelId && (n.Success || n.Suppressed)))
+        if (await sends.AsNoTracking()
+                .AnyAsync(n => n.XchangeId == xchangeResult.Id && (n.Success || n.Suppressed)))
             return;
 
         var channel = await BitweenCache.NotificationChannelByIdAsync(channelId);
@@ -1328,7 +1334,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         // One message for an outage, as a notifier sends: see NotifyResult.
         var (lastSent, suppressedSince) = await QuietWindow(
-            dbContext.Set<XchangeNotification>().Where(n => n.ChannelId == channelId), subscription.Id, xchangeResult);
+            sends, subscription.Id, xchangeResult);
         if (InQuietWindow(lastSent))
         {
             var held = XchangeNotification.ForChannel(xchangeResult.Id, channelId, channel.Name);
@@ -1409,11 +1415,21 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// When one notifier or channel, given as its <paramref name="sends"/>, last sent for the
     /// subscription and this outcome, and how many it has held back since.
     /// </summary>
+    /// <remarks>
+    /// Only the last hour beyond the window is looked at. Unbounded, a channel shared by many
+    /// subscriptions was walked back through its whole history to find that one of them had never
+    /// sent: 3 seconds per finished exchange at 600,000 sends. A send older than that can't hold
+    /// this one back, and what it held back is too old to be news in the next message.
+    /// </remarks>
     private async Task<(DateTime? LastSent, int SuppressedSince)> QuietWindow(IQueryable<XchangeNotification> sends,
         int subscriptionId, XchangeResult result)
     {
+        var minutes = BitweenSettings.NotifierQuietMinutes;
+        if (minutes <= 0) return (null, 0);
+        var since = DateTime.UtcNow.AddMinutes(-(minutes + 60));
+
         var sameOutcome =
-            from n in sends.AsNoTracking()
+            from n in sends.AsNoTracking().Where(n => n.FinishedOn > since)
             join x in dbContext.Set<Xchange>() on n.XchangeId equals x.Id
             join r in dbContext.Set<XchangeResult>() on n.XchangeId equals r.Id
             where x.SubscriptionId == subscriptionId &&

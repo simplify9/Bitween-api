@@ -202,7 +202,7 @@ The channel's adapter receives a JSON document with the exchange id, subscriptio
 
 Alerts saved with their own handler before channels existed are moved onto channels the first time this version starts. Each distinct handler and settings becomes one channel named *Retry alert: ...*, shared by every level that had the same one.
 
-Each delivery is recorded as a notification named *Retry budget alert*. Once one delivery succeeds, a redelivered event does not send a second alert. It is sent as described in [Delivery](#delivery).
+Each delivery is recorded as a notification named *Retry budget alert*. Once one delivery succeeds, a redelivered event does not send a second alert. It is tried and guarded as described in [Delivery](#delivery), but the quiet window holds back only a subscription's own notifications, never an alert.
 
 ### Usage
 

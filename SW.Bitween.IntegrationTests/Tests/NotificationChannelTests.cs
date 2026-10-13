@@ -362,6 +362,37 @@ public class NotificationChannelTests(BitweenFixture fixture)
         Assert.Equal(3, rows.Count(n => n.Suppressed));
     }
 
+    /// <summary>
+    /// A retry or auto-pause alert about an exchange can go through the same channel as the
+    /// subscription's own failure message. It is a different message: it neither stands in for that
+    /// one nor opens the quiet window for the failures after it.
+    /// </summary>
+    [Fact]
+    public async Task An_alert_through_the_same_channel_neither_replaces_nor_holds_back_the_failure_message()
+    {
+        var token = Token("alerted");
+        var channelId = await RecordingChannel(token);
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+        var first = await FinishedExchange(subscriptionId, failed: true);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(XchangeNotification.ForRetryBudgetAlert(first, channelId, null));
+            db.Add(XchangeNotification.ForAutoPauseAlert(first, channelId, null));
+            await db.SaveChangesAsync();
+        }
+
+        await ProcessResult(first);
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+        var rows = await Sends(channelId);
+        Assert.Single(rows, n => n.Success && n.NotifierName != XchangeNotification.RetryBudgetAlertName &&
+                                 n.NotifierName != XchangeNotification.AutoPauseAlertName);
+        Assert.DoesNotContain(rows, n => n.Suppressed);
+    }
+
     [Fact]
     public async Task A_repeat_of_the_result_event_sends_once_through_a_channel()
     {
