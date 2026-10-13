@@ -55,8 +55,13 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
             return properties.ToDictionary(kv => kv.Key, _ => Sentinel);
         }
 
+        // Adapters read their settings ignoring case, so a secret saved as "password" is still the
+        // adapter's Password, and has to be hidden like it.
+        var byName = new Dictionary<string, StartupValue>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in described) byName.TryAdd(name, value);
+
         return properties.ToDictionary(kv => kv.Key, kv =>
-            described.TryGetValue(kv.Key, out var startupValue)
+            byName.TryGetValue(kv.Key, out var startupValue)
             && startupValue.Private
             && !string.IsNullOrEmpty(kv.Value)
                 ? Sentinel
@@ -124,7 +129,14 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
             return false;
 
         var before = stored ?? new Dictionary<string, string>();
-        var after = (incoming ?? []).Where(kv => kv.Key != null)
+        // The same name twice in different case: the check below would see only one of them, and
+        // the adapter, which reads names ignoring case, could connect with the other. "host" set to
+        // a new server beside "Host" sent as the sentinel would carry the stored password there.
+        var named = (incoming ?? []).Where(kv => kv.Key != null).ToList();
+        if (named.Select(kv => kv.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count() != named.Count)
+            return false;
+
+        var after = named
             .GroupBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.OrdinalIgnoreCase);
 

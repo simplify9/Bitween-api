@@ -29,6 +29,21 @@ public class SecretKeepingTests
     public void Pointing_the_adapter_elsewhere_drops_it() =>
         Assert.IsFalse(AdapterSecretProperties.MayKeepStoredSecrets("http", "http", Stored, Incoming(url: "https://attacker.example")));
 
+    /// <summary>
+    /// "host" pointed at a new server beside "Host" sent as the sentinel: one key to the check, two
+    /// to the adapter, which reads names ignoring case and could connect with the new one.
+    /// </summary>
+    [TestMethod]
+    public void The_same_name_twice_in_different_case_drops_it()
+    {
+        var incoming = new Dictionary<string, string>
+        {
+            ["url"] = "https://attacker.example", ["Url"] = AdapterSecretProperties.Sentinel,
+            ["Password"] = AdapterSecretProperties.Sentinel, ["Subject"] = "Orders",
+        };
+        Assert.IsFalse(AdapterSecretProperties.MayKeepStoredSecrets("http", "http", Stored, incoming));
+    }
+
     [TestMethod]
     public void Switching_adapters_drops_it() =>
         Assert.IsFalse(AdapterSecretProperties.MayKeepStoredSecrets("http", "smtp", Stored, Incoming()));

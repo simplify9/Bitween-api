@@ -92,6 +92,39 @@ public class NotificationChannelTests(BitweenFixture fixture)
             .SingleAsync();
     }
 
+    /// <summary>
+    /// The adapter reads its settings ignoring case, so a password saved as "password" is still its
+    /// Password, and is hidden like one; and a request naming the host twice in different case can't
+    /// carry the stored password to a new server.
+    /// </summary>
+    [Fact]
+    public async Task A_secret_is_hidden_and_protected_whatever_the_case_of_its_name()
+    {
+        var name = Unique("Lower-case password");
+        var properties = Smtp();
+        properties.Remove("Password");
+        properties["password"] = "hunter2";
+        var id = await Create(name, properties);
+
+        Assert.Equal(Sentinel, (await Get(id)).HandlerProperties["password"]);
+
+        // Refused, or saved without the password: either way it never sits beside the new host.
+        var attack = new Dictionary<string, string>(StringComparer.Ordinal) { ["host"] = "attacker.example", ["Host"] = Sentinel, ["password"] = Sentinel };
+        foreach (var (key, value) in Smtp().Where(kv => kv.Key is not ("Host" or "Password"))) attack[key] = value;
+        try
+        {
+            await Update(id, new NotificationChannelUpdate { Name = name, HandlerId = "NativeSmtpHandler", HandlerProperties = attack });
+        }
+        catch (SWValidationException)
+        {
+        }
+
+        var stored = (await Stored(id)).HandlerProperties;
+        Assert.False(stored.Values.Contains("attacker.example") && stored.Values.Contains("hunter2"),
+            "the stored password was carried to a new host");
+        await Delete(id);
+    }
+
     [Fact]
     public async Task A_channel_password_is_hidden_on_read_and_kept_when_saved_back()
     {
