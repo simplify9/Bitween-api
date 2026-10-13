@@ -15,6 +15,7 @@ public class OperatorAction
     public const string RunRetryNow = "run-retry-now";
     public const string RequeueDeadLetters = "requeue-dead-letters";
     public const string DeleteQueues = "delete-queues";
+    public const string ForgetBookmark = "forget-bookmark";
 
     private OperatorAction()
     {

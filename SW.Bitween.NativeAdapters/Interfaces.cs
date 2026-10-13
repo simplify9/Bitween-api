@@ -17,6 +17,22 @@ public interface INativeAdapter
 public interface IRequiresRebexLicense { }
 
 /// <summary>
+/// A receiver that keeps a bookmark through Bitween: where its last good run got to, as the
+/// <c>bitween-bookmark</c> contract describes for packaged receivers.
+/// </summary>
+/// <remarks>
+/// Bitween puts the bookmark the subscription's last good run left in the receiver's settings as
+/// <c>__bookmark__</c> (absent on a first run), and calls <see cref="Bookmark"/> once every item of a
+/// run was taken in, keeping what it returns for the next run. A run in which anything failed
+/// doesn't move it.
+/// </remarks>
+public interface IKeepsBookmark
+{
+    /// <summary>Where the next run starts; null or empty keeps the bookmark as it was.</summary>
+    Task<string?> Bookmark();
+}
+
+/// <summary>
 /// Marks a mapper that is given the partner and global values as context of its own, rather than
 /// reading them out of the payload.
 /// </summary>

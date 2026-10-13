@@ -122,6 +122,7 @@ namespace SW.Bitween.Web
             services.AddScoped<XchangeService>();
             services.AddSingleton<FileLinks>();
             services.AddScoped<OidcSignIn>();
+            services.AddScoped<ReceiverBookmarks>();
             services.AddSingleton<SealedState>();
             services.AddScoped<Services.Connections.ConnectionTokens>();
             services.AddSingleton<StorageRetention>();

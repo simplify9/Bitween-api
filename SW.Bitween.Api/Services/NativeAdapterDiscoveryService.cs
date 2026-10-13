@@ -124,6 +124,10 @@ namespace SW.Bitween
                 a is IReceivesMappingContext);
         }
 
+        /// <summary>The built-in receiver's type, without setting it up: for asking what it can do.</summary>
+        public Type? NativeReceiverType(string adapterId) =>
+            nativeReceivers.FirstOrDefault(a => a.GetType().Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase))?.GetType();
+
         public INativeInfolinkReceiver GetNativeReceiver(string adapterId, IDictionary<string, string> settings)
         {
             var result =

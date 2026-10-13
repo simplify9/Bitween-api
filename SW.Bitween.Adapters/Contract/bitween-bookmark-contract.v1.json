@@ -1,0 +1,29 @@
+{
+  "contract": "bitween-bookmark",
+  "version": 1,
+  "description": "A receiver that keeps a bookmark through Bitween: where its last good run got to, so the next run takes only what is new. Declared beside the bitween contract. Bitween keeps the bookmark per subscription, hands it to each run as the setting __bookmark__ (absent on a first run), and calls Bookmark once every file of a run was taken in, keeping what it returns. A run in which anything failed doesn't move it.",
+  "encoding": {
+    "string": "A string argument or result is the raw UTF-8 text, not a JSON string.",
+    "none": "A method with no argument receives an empty payload."
+  },
+  "types": {
+    "BookmarkText": {
+      "encoding": "string",
+      "description": "Where the next run starts, in a form of the receiver's own choosing, up to 8000 characters. Empty keeps the bookmark as it was."
+    }
+  },
+  "errors": "A Bookmark that fails fails the run, and the bookmark stays where it was.",
+  "kinds": {
+    "receiver": {
+      "description": "Keeps a bookmark between runs.",
+      "session": "Called in the same session as the run, after the last DeleteFile and before Finalize. Called before ListFiles, it returns the bookmark the run was given.",
+      "methods": [
+        {
+          "name": "Bookmark",
+          "input": null,
+          "output": "BookmarkText"
+        }
+      ]
+    }
+  }
+}

@@ -20,7 +20,8 @@ public class ReceivingJob(
     RunFlagUpdater runFlagUpdater,
     IAdapterInvoker adapterInvoker,
     XchangeService xchangeService,
-    ILogger<ReceivingJob> logger) : IScheduledJob<ReceivingJobParams>
+    ILogger<ReceivingJob> logger,
+    Services.ReceiverBookmarks bookmarks = null) : IScheduledJob<ReceivingJobParams>
 {
     public async Task Execute(ReceivingJobParams jobParams)
     {
@@ -61,7 +62,18 @@ public class ReceivingJob(
                 // The receiver's cursor is namespaced by this. Without it, two subscriptions
                 // polling one data source share a cursor and split the rows between them.
                 .WithSubscription(rec.Id);
-            await RunReceiver(rec.ReceiverRef, startupParameters, rec.Id, createdExchangeIds);
+
+            // A receiver that keeps a bookmark is handed the one its last good run left.
+            string bookmark = null;
+            var keepsBookmark = bookmarks != null && await bookmarks.KeptByAsync(rec.ReceiverRef);
+            if (keepsBookmark)
+            {
+                bookmark = (await bookmarks.GetAsync(rec.Id, rec.ReceiverRef))?.Value;
+                if (bookmark != null) startupParameters[Services.ReceiverBookmarks.StartupKey] = bookmark;
+            }
+
+            await RunReceiver(rec.ReceiverRef, startupParameters, rec.Id, createdExchangeIds,
+                keepsBookmark ? next => bookmarks.SetAsync(rec.Id, rec.ReceiverRef, next) : null, bookmark);
             rec.SetHealth();
             RecordAttempt(rec.Id, startedOn,
                 createdExchangeIds.Count > 0 ? ReceiveOutcome.Received : ReceiveOutcome.NoNewData,
@@ -98,7 +110,7 @@ public class ReceivingJob(
 
     private async Task RunReceiver(
         string serverlessId, IDictionary<string, string> startupParameters, int subId,
-        List<string> createdExchangeIds)
+        List<string> createdExchangeIds, Func<string, Task> keepBookmark = null, string bookmark = null)
     {
         // One session for the whole run: Initialize, the listing, every GetFile and DeleteFile, and
         // Finalize all have to reach the SAME instance, or Initialize runs somewhere the listing
@@ -140,6 +152,14 @@ public class ReceivingJob(
 
                 createdExchangeIds.Add(exchangeId);
                 await session.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);
+            }
+
+            // Only once every item was taken in: a bookmark moved past one that failed would leave
+            // it behind for good. Asked before Finalize, while the receiver still has the run.
+            if (keepBookmark != null && failed.Count == 0)
+            {
+                var next = await session.InvokeAsync<string>(Services.ReceiverBookmarks.Method);
+                if (!string.IsNullOrEmpty(next) && next != bookmark) await keepBookmark(next);
             }
         }
         finally

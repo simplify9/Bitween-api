@@ -34,6 +34,7 @@ export const keys = {
     receiveAttempts: (id: number, params: Record<string, unknown>) =>
       ["subscriptions", "receive-attempts", id, params] as const,
     sourcePaths: (id: number) => ["subscriptions", "source-paths", id] as const,
+    bookmark: (id: number) => ["subscriptions", "bookmark", id] as const,
     lastRuns: ["subscriptions", "last-runs"] as const,
     scheduleHealth: ["subscriptions", "schedule-health"] as const,
   },

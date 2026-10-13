@@ -79,6 +79,8 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     http.get(apiPath("/subscriptioncategories"), () => HttpResponse.json({ result: [], totalCount: 0 })),
     // A subscription's versions, which its overview lists: none recorded, unless a test says.
     http.get(apiPath("/subscriptions/history"), () => HttpResponse.json([])),
+    // A receiver's bookmark, which a receiving subscription's runs show: none, unless a test says.
+    http.get(apiPath("/subscriptions/bookmark"), () => HttpResponse.json({ value: null, updatedOn: null })),
     // Metrics, which many pages show beside what they are about: none yet, unless a test says.
     ...defaultMetrics(),
   );

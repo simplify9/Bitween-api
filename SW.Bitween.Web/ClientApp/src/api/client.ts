@@ -356,6 +356,10 @@ export interface ApiClient {
   getSubscriptionConfiguration(id: number): Promise<Record<string, unknown>>;
   /** Saves a version's configuration as the subscription. Needs subscriptions.edit. */
   restoreSubscriptionRevision(id: number, number: number): Promise<void>;
+  /** Where the subscription's receiver last got to, when it keeps a bookmark. */
+  getBookmark(subscriptionId: number): Promise<{ value: string | null; updatedOn: string | null }>;
+  /** Forgets it, so the receiver's next run starts from the beginning. */
+  forgetBookmark(subscriptionId: number): Promise<void>;
   searchReceiveAttempts(
     subscriptionId: number,
     query: { outcome: ReceiveOutcome | null; offset: number; limit: number },

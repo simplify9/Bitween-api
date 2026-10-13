@@ -74,9 +74,20 @@ An adapter in another runtime is never started to be asked. It is described from
 
 Each SDK declares settings once, in code: `Runner.Expect` in .NET, `sw.expect` in Python and `expect` in JavaScript and TypeScript. That one declaration feeds both the manifest and the handshake, and `bitween adapter test` fails if the two don't match.
 
+## Receivers that keep a bookmark
+
+A receiver can keep a bookmark through Bitween: where its last good run got to, so the next run takes only what is new. It can't keep one itself, since each run is a new process, possibly on another node. A package says it does by declaring the `bitween-bookmark` contract, version 1, beside `bitween`: `[AdapterContract("bitween-bookmark", 1)]` in .NET, or the same entry in the contracts of a Python or JavaScript adapter. A built-in receiver implements `IKeepsBookmark`.
+
+- Bitween keeps one bookmark per subscription and receiver. Each run gets it in the setting `__bookmark__`, absent on a first run, by the same double-underscore convention as `__subscriptionId__`.
+- Once every item of a run was taken in, and before `Finalize`, Bitween calls `Bookmark` (no argument, a string back, up to 8000 characters) and keeps what it returns. Empty keeps the bookmark as it was. A run in which any item failed doesn't call it, so the bookmark never moves past something that wasn't received; at worst items are taken again.
+- What the bookmark holds is the receiver's own business: a time, an id, a cursor, or a small JSON object of them.
+- `GET /api/subscriptions/bookmark?subscriptionId=` shows it, and `POST /api/subscriptions/{id}/forgetbookmark` forgets it, so the next run starts from the beginning; the subscription's runs panel shows it with a **Forget bookmark** button. Forgetting needs `subscriptions.operate` and is in the audit trail.
+
+`bitween adapter test` checks a receiver that declares the contract: that it has `Bookmark`, and that it answers.
+
 ## Errors and rejections
 
-A call fails when the adapter raises an error. Bitween records the error's type and message on the exchange, and the subscription's retry policy decides what happens next.
+A call fails when the adapter raises an error. Bitween records the error's type and message on the exchange, and the subscription's retry policy decides what happens next. An error whose message starts with `{{retryAfter:SECONDS}}` asks for the retry to wait at least that long; see [Retries](retries-and-alerts.md#when-an-adapter-says-when-to-try-again).
 
 A handler whose partner **rejected** the message doesn't fail. It returns the partner's answer with `BadData` set to true. That's how Bitween tells "the partner said no", which a retry won't fix, from "we couldn't reach the partner", which it might.
 

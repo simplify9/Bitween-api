@@ -627,6 +627,14 @@ export const subscriptionMethods = {
     return get<SubscriptionRun[]>(`/subscriptions/runs?subscriptionId=${id}&limit=${limit}`);
   },
 
+  getBookmark(subscriptionId: number): Promise<{ value: string | null; updatedOn: string | null }> {
+    return get<{ value: string | null; updatedOn: string | null }>(`/subscriptions/bookmark?subscriptionId=${subscriptionId}`);
+  },
+
+  async forgetBookmark(subscriptionId: number): Promise<void> {
+    await post(`/subscriptions/${subscriptionId}/forgetbookmark`, {});
+  },
+
   async searchReceiveAttempts(
     subscriptionId: number,
     query: { outcome: ReceiveOutcome | null; offset: number; limit: number },

@@ -39,8 +39,16 @@ public static class BitweenAdapters
     public static ContractDocument Contract { get; } = ContractDocument.FromJson(
         Text($"contract/bitween-adapter-contract.v{ContractVersion}.json"), file => Text("contract/" + file));
 
-    /// <summary>Makes the kit check every adapter that declares the Bitween contract, without being handed it.</summary>
-    public static void RegisterContract() => ContractDocument.Register(Contract);
+    /// <summary>A receiver that keeps a bookmark through Bitween, declared beside the Bitween contract.</summary>
+    public static ContractDocument BookmarkContract { get; } = ContractDocument.FromJson(
+        Text("contract/bitween-bookmark-contract.v1.json"), file => Text("contract/" + file));
+
+    /// <summary>Makes the kit check every adapter that declares a Bitween contract, without being handed it.</summary>
+    public static void RegisterContract()
+    {
+        ContractDocument.Register(Contract);
+        ContractDocument.Register(BookmarkContract);
+    }
 
     /// <summary>
     /// Bitween's kinds for Python (simplyworks-bitween) and Node (@simplyworks/bitween), for a build to

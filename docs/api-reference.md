@@ -123,6 +123,8 @@ The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `re
 | `GET /api/subscriptions/history?subscriptionId=` | `subscriptions.view`. Its versions, newest first: `[{ number, savedOn, savedBy, changed }]`, `changed` naming the settings that differ from the version before. |
 | `GET /api/subscriptions/revision?subscriptionId=&number=` | `subscriptions.view`. `{ number, savedOn, configuration }`, the configuration in the shape `GET /api/subscriptions/{id}` answers, secrets as `__private__`. Restoring it is posting it to `POST /api/subscriptions/{id}`. |
 | `GET /api/subscriptions/receiveattempts?subscriptionId=&outcome=&offset=&limit=` | `subscriptions.view` |
+| `GET /api/subscriptions/bookmark?subscriptionId=` | `subscriptions.view`. `{ value, updatedOn }`: where a receiver that [keeps a bookmark](adapter-contract.md#receivers-that-keep-a-bookmark) last got to; `value` is null when there is none. |
+| `POST /api/subscriptions/{id}/forgetbookmark` | `subscriptions.operate`. Forgets it, so the next run starts from the beginning. In the audit trail. |
 | `GET /api/subscriptions/sourcepaths?subscriptionId=` | `exchanges.view`. The paths in the last document it received, with their values: what a response or bus gateway subscription it feeds can read. |
 | `GET /api/subscriptions/lastruns` | `subscriptions.view` |
 | `GET /api/subscriptions/schedulehealth` | `subscriptions.view` |

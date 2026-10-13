@@ -536,6 +536,8 @@ Simplify9's own connectors, from the Bitween-Connectors repository, include:
 
 | Package | |
 |---|---|
+| `s9.openapi` | A handler that calls one operation of a REST API, found in its OpenAPI 3.0 or Swagger 2 description, checking the body against the operation's schema before sending. Bearer (a [connection](#connections) works), Basic, API key or OAuth2 client credentials. A `Retry-After` the API sends is [waited out](retries-and-alerts.md#when-an-adapter-says-when-to-try-again). |
+| `s9.openapi.receiver` | A receiver that takes records in from a list operation: every page (Link header, next address, cursor, page number or offset), each record one exchange, and only what changed since the last run, by a [bookmark](adapter-contract.md#receivers-that-keep-a-bookmark). |
 | `s9.soap` | A handler that calls a SOAP 1.1 or 1.2 web service, with HTTP Basic or a WS-Security UsernameToken. A Client or Sender fault is a bad response; a Server or Receiver fault fails the delivery, so a retry policy retries it. |
 | `s9.rebex.ftp.receiver`, `s9.rebex.ftp.upload`, `s9.rebex.pop3.receiver` | The [Rebex adapters](#moved-to-the-marketplace) that were built in. |
 

@@ -63,6 +63,9 @@ public class NativeAdapterRuntime(NativeAdapterDiscoveryService discovery, Bitwe
                 case (INativeInfolinkValidator v, nameof(IInfolinkValidator.Validate)):
                     return await v.Validate((XchangeFile)argument);
 
+                case (IKeepsBookmark b, nameof(IKeepsBookmark.Bookmark)):
+                    return await b.Bookmark();
+
                 case (INativeInfolinkReceiver r, nameof(IInfolinkReceiver.Initialize)):
                     await r.Initialize();
                     return null;

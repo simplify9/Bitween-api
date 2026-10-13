@@ -258,6 +258,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddSingleton<INativeInfolinkReceiver, NativeFailingTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativePartlyFailingTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeEmptyTestReceiver>();
+                    // Scoped, as a run sets it up from its settings: a singleton would carry one run into the next.
+                    services.AddScoped<INativeInfolinkReceiver, NativeBookmarkTestReceiver>();
                     services.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();
                     services.AddScoped<INativeInfolinkHandler, NativeTestResponder>();
@@ -308,6 +310,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<XchangeService>();
                     services.AddSingleton<FileLinks>();
                     services.AddScoped<OidcSignIn>();
+                    services.AddScoped<ReceiverBookmarks>();
                     services.AddSingleton<SealedState>();
                     services.AddScoped<Services.Connections.ConnectionTokens>();
                     services.AddSingleton<StorageRetention>();

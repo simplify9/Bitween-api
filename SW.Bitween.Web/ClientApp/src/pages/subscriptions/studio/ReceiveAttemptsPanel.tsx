@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
 import { api, type ReceiveAttemptRow, type ReceiveOutcome } from "../../../api";
-import { Badge, EmptyState, LoadingBlock } from "../../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../../components/ui/basics";
+import { Can } from "../../../auth/guards";
+import { ConfirmDialog } from "../../../components/ui/overlays";
 import { Select } from "../../../components/ui/forms";
 import { Pagination } from "../../../components/ui/Pagination";
 import { Table } from "../../../components/ui/Table";
@@ -207,6 +209,48 @@ function AttemptExchanges({
  * that couldn't even connect shows up here just as much as one that produced an exchange -
  * "Exchanges" as a title would undersell the rows that have none.
  */
+/**
+ * Where a receiver that keeps a bookmark last got to - the next run takes only what came after it -
+ * with a way to forget it and take everything again. Shown only when there is one.
+ */
+export function BookmarkLine({ subscriptionId }: { subscriptionId: number }) {
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const bookmark = useQuery({
+    queryKey: keys.subscriptions.bookmark(subscriptionId),
+    queryFn: () => api.getBookmark(subscriptionId),
+  });
+  const forget = useMutation({
+    mutationFn: () => api.forgetBookmark(subscriptionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.subscriptions.bookmark(subscriptionId) }),
+  });
+  const b = bookmark.data;
+  if (!b?.value) return null;
+  return (
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[13px]">
+      <span className="min-w-0 text-ink-600">
+        Next run starts after <code className="font-mono text-xs break-all text-ink-800">{b.value}</code>
+        {b.updatedOn && <span className="text-ink-500"> · moved {timeAgo(b.updatedOn)}</span>}
+      </span>
+      <Can permission="subscriptions.operate">
+        <Button className="!h-7 text-[12px]" onClick={() => setConfirming(true)}>Forget bookmark</Button>
+      </Can>
+      <FormError>{forget.error?.message}</FormError>
+      {confirming && (
+        <ConfirmDialog
+          title="Forget the bookmark?"
+          body="The next run takes everything the source has again, from the beginning, so records already received will be received again."
+          confirmLabel="Forget bookmark"
+          onConfirm={async () => {
+            await forget.mutateAsync();
+          }}
+          onClose={() => setConfirming(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function ReceiveAttemptsPanel({
   subscriptionId,
   kind,
@@ -229,6 +273,7 @@ export function ReceiveAttemptsPanel({
 
   return (
     <div>
+      {kind === "receiving" && <BookmarkLine subscriptionId={subscriptionId} />}
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold text-ink-900">Runs</h2>
