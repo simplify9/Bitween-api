@@ -253,15 +253,22 @@ function SettingRowEditor({
  * banner brings you back. Save writes everything; Discard reverts it all.
  */
 export function SettingsPage() {
+  const canView = useSessionCan("settings.view");
   const canEdit = useSessionCan("settings.edit");
   const canViewChannels = useSessionCan("notifiers.view");
   const queryClient = useQueryClient();
-  const { data: rows, isLoading } = useQuery({ queryKey: keys.settings.list, queryFn: () => api.listSettings() });
+  // Opened for the notification channels alone, by a role without Settings: nothing else to load.
+  const { data: settingRows, isLoading } = useQuery({
+    queryKey: keys.settings.list,
+    queryFn: () => api.listSettings(),
+    enabled: canView,
+  });
+  const rows = canView ? settingRows : [];
   const draft = useSettingsDraft();
   const [confirmingRetention, setConfirmingRetention] = useState(false);
 
   const [searchParams] = useSearchParams();
-  const sections = sectionsOf(rows ?? [], canViewChannels);
+  const sections = canView ? sectionsOf(rows ?? [], canViewChannels) : [CHANNELS_SECTION];
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
   // Deleting exchanges, or changing where files go and so how long they last, is said out loud
@@ -295,7 +302,7 @@ export function SettingsPage() {
     },
   });
 
-  if (isLoading) return <LoadingBlock label="Loading settings…" />;
+  if (canView && isLoading) return <LoadingBlock label="Loading settings…" />;
   if (!rows) return null;
 
   const dirtyCount = Object.keys(draft).length;
@@ -318,7 +325,11 @@ export function SettingsPage() {
     <div className={dirtyCount > 0 ? "pb-20" : ""}>
       <PageHeader
         title="Settings"
-        description="Instance-wide configuration. Changes preview live across the app - walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
+        description={
+          canView
+            ? "Instance-wide configuration. Changes preview live across the app - walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
+            : "Where notifications and retry alerts are sent. The rest of Settings is for administrators."
+        }
       />
 
       {/* A left column, not a row of pill tabs: eight sections wrap to a second row on a
@@ -420,9 +431,11 @@ export function SettingsPage() {
 
       {/* Not per section: a setting has no page of its own, so the one useful question is
           "who changed anything here", and that is the whole table rather than a slice of it. */}
-      <div className="mt-5">
-        <HistoryCard entityName="Setting" description="Recent changes to instance settings." />
-      </div>
+      {canView && (
+        <div className="mt-5">
+          <HistoryCard entityName="Setting" description="Recent changes to instance settings." />
+        </div>
+      )}
 
       {dirtyCount > 0 && (
         <UnsavedBar

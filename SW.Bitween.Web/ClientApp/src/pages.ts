@@ -56,6 +56,8 @@ export interface PageDef<Id extends string = string> {
   title: string;
   /** Needed to open it. None: any signed-in session. */
   permission?: PermissionKey;
+  /** Opens it too, for a page that then shows only what each of these allows. */
+  alsoFor?: PermissionKey[];
   /** The page this one sits under, for breadcrumbs. */
   parent?: Id;
   /** In the sidebar, under this group. Order within the group is the order here. */
@@ -417,6 +419,9 @@ export const PAGES = definePages({
     path: "settings",
     title: "Settings",
     permission: "settings.view",
+    // Notification channels live here, and the built-in Member and Viewer roles hold the
+    // notification permissions without Settings: for them it shows the channels alone.
+    alsoFor: ["notifiers.view"],
     nav: { group: "administration", icon: Settings },
     keywords: ["configuration", "branding", "sso", "mail server"],
   },

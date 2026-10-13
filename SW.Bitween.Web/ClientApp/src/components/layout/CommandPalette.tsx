@@ -91,8 +91,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     return (Object.keys(PAGES) as PageId[])
       .filter((id) => !PAGES[id].path.includes(":"))
       .filter((id) => {
-        const permission = PAGES[id].permission;
-        return !permission || can(permission);
+        const { permission, alsoFor = [] } = PAGES[id];
+        return !permission || can(permission) || alsoFor.some(can);
       })
       .map((id) => {
         const page = PAGES[id];

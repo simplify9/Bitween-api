@@ -39,7 +39,7 @@ export const NAV_GROUPS: NavGroup[] = (Object.keys(GROUP_LABELS) as NavGroupId[]
         label: page.title,
         path: `/${page.path}`,
         icon: page.nav.icon,
-        permissions: page.permission ? [page.permission] : [],
+        permissions: page.permission ? [page.permission, ...(page.alsoFor ?? [])] : [],
       },
     ];
   }),

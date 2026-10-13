@@ -222,6 +222,29 @@ describe("the settings page", () => {
     expect(screen.queryByText("Restart", { exact: true })).not.toBeInTheDocument();
   });
 
+  it("opens on the notification channels alone for a member without the Settings permission", async () => {
+    let askedForSettings = false;
+    renderApp("/settings", {
+      as: { permissions: ["notifiers.view", "subscriptions.view"] },
+      handlers: [
+        http.get(apiPath("/settings"), () => {
+          askedForSettings = true;
+          return HttpResponse.json(ROWS);
+        }),
+        http.get(apiPath("/notificationchannels"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/notifiers"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/adapters/Catalog"), () => HttpResponse.json([])),
+      ],
+    });
+
+    const links = (await sectionNav()).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual(["Notification channels"]);
+    expect(screen.getByRole("heading", { name: "Notification channels" })).toBeVisible();
+    expect(askedForSettings).toBe(false);
+    // And the sidebar leads there.
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  });
+
   it("shows environment settings but doesn't offer them as edits", async () => {
     const { user } = openSettings();
     await user.click((await sectionNav()).getByRole("link", { name: "Database" }));

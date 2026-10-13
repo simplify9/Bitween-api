@@ -67,13 +67,16 @@ export function AccessDenied({ permission }: { permission: PermissionKey }) {
 /** Route-level permission gate. */
 export function RequirePermission({
   permission,
+  alsoFor = [],
   children,
 }: {
   permission: PermissionKey;
+  /** Any of these opens it too. */
+  alsoFor?: PermissionKey[];
   children: ReactNode;
 }) {
   const { can } = useSession();
-  if (!can(permission)) return <AccessDenied permission={permission} />;
+  if (!can(permission) && !alsoFor.some(can)) return <AccessDenied permission={permission} />;
   return <>{children}</>;
 }
 
