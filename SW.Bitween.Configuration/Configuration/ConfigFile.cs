@@ -38,6 +38,13 @@ public class ConfigFile
     IReadOnlyDictionary<string, string> parameters = new Dictionary<string, string>();
     ISet<string> secretParameters = new HashSet<string>();
 
+    /// <summary>
+    /// Set for a kit: the files read nothing but their parameters and files of their own. A kit can come from
+    /// anyone and is installed inside Bitween's own process, where ${env:...} would read the server's
+    /// environment, its signing key and database password among it, and ${file:../...} any file it can open.
+    /// </summary>
+    string containedIn;
+
     /// <summary>Every parameter the files named, given or not: what a kit checks its declarations against.</summary>
     public SortedSet<string> ParametersUsed { get; } = new(StringComparer.Ordinal);
 
@@ -48,9 +55,12 @@ public class ConfigFile
 
     /// <param name="defaultName">The name when no file says metadata.name, as a kit's bundle needn't.</param>
     /// <param name="allowMissingSecrets">For checking files without their secrets: an unset one is left empty.</param>
+    /// <param name="contained">
+    /// For a kit's bundle: ${env:...} and ${secret:...} are refused, and ${file:...} must be inside <paramref name="path"/>.
+    /// </param>
     public static ConfigFile Load(string path, string secretsDir = null, IReadOnlyDictionary<string, string> parameters = null,
         ISet<string> secretParameters = null, bool allowMissingParameters = false, string defaultName = null,
-        bool allowMissingSecrets = false)
+        bool allowMissingSecrets = false, bool contained = false)
     {
         var files = Directory.Exists(path)
             ? Directory.EnumerateFiles(path, "*.*", SearchOption.TopDirectoryOnly)
@@ -63,6 +73,7 @@ public class ConfigFile
         {
             parameters = parameters ?? new Dictionary<string, string>(),
             secretParameters = secretParameters ?? new HashSet<string>(),
+            containedIn = contained ? Path.GetFullPath(Directory.Exists(path) ? path : Path.GetDirectoryName(Path.GetFullPath(path))!) : null,
         };
         var missing = new SortedSet<string>(StringComparer.Ordinal);
         var missingParameters = new SortedSet<string>(StringComparer.Ordinal);
@@ -152,6 +163,8 @@ public class ConfigFile
                 var resolved = Reference.Replace(s, m =>
                 {
                     var (source, name) = (m.Groups[1].Value, m.Groups[2].Value.Trim());
+                    if (containedIn != null && source is "env" or "secret")
+                        throw new ConfigException($"${{{source}:{name}}}: a kit reads values only from its parameters. Declare {name} as a parameter (secret: true for a secret) and read it with ${{param:{name}}}.");
                     switch (source)
                     {
                         case "secret":
@@ -174,6 +187,8 @@ public class ConfigFile
                             return "";
                         default:
                             var full = Path.GetFullPath(Path.Combine(folder, name));
+                            if (containedIn != null && !full.StartsWith(containedIn.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                                throw new ConfigException($"${{file:{name}}}: a kit reads only its own files, inside its bundle folder.");
                             if (!File.Exists(full)) throw new ConfigException($"${{file:{name}}}: there's no file at {full}.");
                             return File.ReadAllText(full);
                     }

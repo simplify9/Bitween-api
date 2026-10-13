@@ -267,6 +267,11 @@ parameters:
 A parameter is required unless it has a `default` or says `required: false`. A `secret: true` one is kept
 out of what's printed, and can also come from a file of its name in `--secrets-dir`.
 
+A kit reads nothing but its parameters and its own files: `${env:...}` and `${secret:...}` are refused, and
+`${file:...}` must name a file inside `bundle/`. Bitween installs kits from the Marketplace tab inside its
+own process, where the environment holds its signing key and database password, so a kit can't name them.
+Plain `plan` and `apply` files keep every reference.
+
 ```sh
 bitween kit test kits/s9.salesforce.contacts                 # checks it, without a Bitween
 bitween kit test kits/s9.salesforce.contacts --plan --set ...   # and what it would do on one

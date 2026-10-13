@@ -120,13 +120,39 @@ public class KitTests
         Assert.IsTrue(unpinned.Check().Warnings.Any(w => w.Contains("pin it to 1.0.0")));
     }
 
-    [TestMethod]
-    public void A_secret_in_the_bundle_warns_that_a_kit_asks_for_it_as_a_parameter()
+    /// <summary>
+    /// A kit is installed inside Bitween's own process, so it reads nothing but its parameters and its own files:
+    /// ${env:...} there would be the server's environment, and ${file:../...} any file the server can open.
+    /// </summary>
+    [DataTestMethod]
+    [DataRow("${secret:SOME_KEY}", "reads values only from its parameters")]
+    [DataRow("${env:Token__Key}", "reads values only from its parameters")]
+    [DataRow("${file:../../kit.yaml}", "reads only its own files")]
+    [DataRow("${file:/etc/hosts}", "reads only its own files")]
+    public void A_kit_reads_nothing_but_its_parameters_and_its_own_files(string reference, string problem)
     {
-        var kit = Kit.Load(Write(bundle: Bundle.Replace("${param:Key}", "${secret:SOME_KEY}")));
-        var (problems, warnings) = kit.Check();
-        Assert.AreEqual(0, problems.Count, string.Join("\n", problems));
-        Assert.IsTrue(warnings.Any(w => w.Contains("SOME_KEY")));
+        var kit = Kit.Load(Write(bundle: Bundle.Replace("${param:Key}", reference)));
+        var (problems, _) = kit.Check();
+        Assert.IsTrue(problems.Any(p => p.Contains(problem)), string.Join("\n", problems));
+        var ex = Assert.ThrowsException<ConfigException>(() =>
+            kit.Configuration(new Dictionary<string, string> { ["Url"] = "u", ["Key"] = "k" }, null, null));
+        StringAssert.Contains(ex.Message, problem);
+    }
+
+    [TestMethod]
+    public void A_kit_reads_its_own_files_in_subfolders_and_plain_apply_files_still_read_anything()
+    {
+        var path = Write(bundle: Bundle.Replace("${param:Key}", "${file:api/token.txt}"));
+        Directory.CreateDirectory(Path.Combine(path, "bundle", "api"));
+        File.WriteAllText(Path.Combine(path, "bundle", "api", "token.txt"), "from-the-kit");
+        var config = Kit.Load(path).Configuration(new Dictionary<string, string> { ["Url"] = "u", ["Key"] = "k" }, null, null);
+        Assert.AreEqual("from-the-kit", (string)config.Sections["subscriptions"].Single()["handler"]!["properties"]!["Token"]);
+
+        // Outside a kit, files are the user's own: a path out of the folder, and the environment, still work.
+        var plain = Path.Combine(folder, "plain.yaml");
+        Environment.SetEnvironmentVariable("BITWEEN_KIT_TEST_VALUE", "from-env");
+        File.WriteAllText(plain, "apiVersion: bitween/v1\nkind: Configuration\nmetadata: { name: plain }\ninformationTypes:\n  - name: ${env:BITWEEN_KIT_TEST_VALUE}\n");
+        Assert.AreEqual("from-env", (string)ConfigFile.Load(plain).Sections["informationTypes"].Single()["name"]);
     }
 
     [DataTestMethod]

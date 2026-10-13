@@ -130,7 +130,8 @@ public class Kit
     /// </summary>
     public ConfigFile Configuration(IReadOnlyDictionary<string, string> given, string secretsDir, string name, bool allowMissing = false)
     {
-        var config = ConfigFile.Load(BundleFolder, secretsDir, Values(given), SecretParameters, allowMissing, defaultName: name ?? Id);
+        var config = ConfigFile.Load(BundleFolder, secretsDir, Values(given), SecretParameters, allowMissing, defaultName: name ?? Id,
+            contained: true);
         config.Rename(name ?? Id);
         config.Prepend(Kinds.Adapters, Connectors.Select(c => new JsonObject { ["install"] = c.Id, ["version"] = c.Version }));
         return config;
@@ -148,7 +149,7 @@ public class Kit
         try
         {
             config = ConfigFile.Load(BundleFolder, null, placeholders, SecretParameters, allowMissingParameters: true, defaultName: Id,
-                allowMissingSecrets: true);
+                allowMissingSecrets: true, contained: true);
         }
         catch (ConfigException ex)
         {
@@ -160,8 +161,6 @@ public class Kit
             problems.Add($"The bundle reads ${{param:{used}}}, which kit.yaml doesn't declare.");
         foreach (var declared in Parameters.Where(p => !config.ParametersUsed.Contains(p.Name)))
             warnings.Add($"Parameter {declared.Name} is declared but nothing in the bundle reads it.");
-        if (config.SecretReferences.Count > 0)
-            warnings.Add($"The bundle reads ${{secret:...}} ({string.Join(", ", config.SecretReferences)}): a kit asks for secrets as secret parameters instead, so the installer is asked for them.");
 
         // Every adapter the bundle's subscriptions and notifiers run is built in or one of the kit's connectors.
         foreach (var (section, item) in config.Sections.SelectMany(s => s.Value.Select(i => (s.Key, i))))
