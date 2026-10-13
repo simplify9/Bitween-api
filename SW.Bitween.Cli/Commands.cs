@@ -370,8 +370,21 @@ public static partial class Commands
 
     public static async Task<int> Test(TestOptions opts)
     {
-        var (package, cleanup) = await PackageFolderAsync(opts.Package);
-        if (package == null) return Failure;
+        // With --json, standard output is the report alone; why there's no package goes to standard error,
+        // and the report says the package itself failed, so a tool reading it gets an answer.
+        string problem = null;
+        var (package, cleanup) = await PackageFolderAsync(opts.Package,
+            opts.Json ? text => { problem = text; Console.Error.WriteLine(text); } : null);
+        if (package == null)
+        {
+            if (opts.Json)
+            {
+                var report = new ConformanceReport();
+                report.Checks.Add(new ConformanceCheck("package", CheckOutcome.Failed, problem));
+                Console.WriteLine(TestReportJson(report));
+            }
+            return Failure;
+        }
         try
         {
             var report = await new ConformanceRunner().RunAsync(new ConformanceOptions
@@ -550,13 +563,25 @@ public static partial class Commands
     };
 
     /// <summary>A package folder from a zip, a package folder, or a project folder built first.</summary>
-    static async Task<(string Folder, Action Cleanup)> PackageFolderAsync(string given)
+    /// <param name="say">Where to say why there's no package; standard output unless given.</param>
+    static async Task<(string Folder, Action Cleanup)> PackageFolderAsync(string given, Action<string> say = null)
     {
+        say ??= Console.WriteLine;
         var path = Path.GetFullPath(given);
         if (File.Exists(path) && path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
             var folder = Path.Combine(Path.GetTempPath(), "bitween-cli", Guid.NewGuid().ToString("N"));
-            ZipFile.ExtractToDirectory(path, folder);
+            try
+            {
+                ZipFile.ExtractToDirectory(path, folder);
+            }
+            catch (InvalidDataException ex)
+            {
+                // Cut short in transit, or not a zip at all: said, rather than a stack trace.
+                TryDelete(folder);
+                say($"{given} can't be opened as a zip ({ex.Message}) Build it again with bitween adapter build.");
+                return (null, () => { });
+            }
             return (folder, () => TryDelete(folder));
         }
 
@@ -571,7 +596,7 @@ public static partial class Commands
         if (Directory.Exists(path) && File.Exists(Path.Combine(path, AdapterManifest.FileName)))
             return (path, () => { });
 
-        Console.WriteLine($"{given} is neither a package zip, a package folder nor a project folder");
+        say($"{given} is neither a package zip, a package folder nor a project folder");
         return (null, () => { });
     }
 
