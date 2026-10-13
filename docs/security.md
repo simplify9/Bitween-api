@@ -73,7 +73,7 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Subscriptions | `partners` | view, create, edit, delete |
 | Subscriptions | `documents` | view, create, edit, delete |
 | Subscriptions | `global-values` | view, create, edit, delete |
-| Subscriptions | `notifiers` | view, create, edit, delete |
+| Subscriptions | `notifiers` | view, create, edit, delete. Covers notification channels and legacy notifiers. |
 | Subscriptions | `api-gateways` | view, create, edit, delete |
 | Subscriptions | `bus-gateways` | view, create, edit, delete |
 | Configuration | `data-sources` | view, create, edit, delete, operate |
@@ -124,8 +124,9 @@ The seeded **SYSTEM** partner has a key named `default` whose value is fixed in 
 
 - Adapter properties marked secret are masked as `__private__` in every API response and redacted from the audit trail. Their defaults are withheld from the adapter descriptions the UI reads. A published adapter that doesn't mark its passwords and keys as private has them returned in plain text, so check custom adapters before uploading them.
 - A [connection](adapters.md#connections)'s client secret, password, refresh token and access token are encrypted the same way, and are never returned by the API or written to the audit trail. An access token is put into an adapter's settings only as the adapter starts, so none is stored on an exchange.
-- The secret settings are the Rebex license key and the OpenID Connect client secret. They are encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
-- Partner properties, global values, adapter properties, data source settings, notifier and retry alert properties, including passwords, are encrypted in the database with AES-256-GCM when `Bitween:SettingsEncryptionKey` is set, and stored in plain text when it isn't. Values stored before the key was set are encrypted a few minutes after the next start. `Bitween:PreviousSettingsEncryptionKey` still decrypts values while the key is rotated.
+- The secret settings are the Rebex license key, the OpenID Connect client secret and the mail server password. They are encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
+- Teams and Slack webhook addresses are secret, because anyone who has one can post to the channel.
+- Partner properties, global values, adapter properties, data source settings, notification channel, notifier and retry alert properties, including passwords, are encrypted in the database with AES-256-GCM when `Bitween:SettingsEncryptionKey` is set, and stored in plain text when it isn't. Values stored before the key was set are encrypted a few minutes after the next start. `Bitween:PreviousSettingsEncryptionKey` still decrypts values while the key is rotated.
 
 ## Exchange files
 
@@ -167,7 +168,7 @@ Every response carries these headers.
 
 ## Audit trail
 
-Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notifiers, global value sets, settings, accounts, roles and role assignments.
+Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notification channels, notifiers, global value sets, settings, accounts, roles and role assignments.
 
 Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited. Reading an adapter's source is: each file read is an `AdapterSourceAccess` entry with the adapter, version and file. So are the adapter editor's drafts, each save recorded by a hash of its files rather than the code, and every version published, made current or withdrawn from Bitween (`AdapterRelease`). Operations that change what Bitween does without changing its configuration are recorded as `OperatorAction` entries naming what was done to what: retrying an exchange, a bulk retry, exporting exchange files, running a scheduled retry now, requeueing dead letters and deleting unattended queues. A sign-in with a password, Microsoft, OpenID Connect or the CLI sets the member's `LastSignInOn`, which is in the trail as a change to the account; a session renewing itself doesn't.
 

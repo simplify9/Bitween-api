@@ -173,6 +173,12 @@ A subscription bound to a data source also carries `dataSourceId`.
 
 A value that breaks a rule is refused with a validation error whose message says which. `GET /api/subscriptions/{id}` and the search also return `quietSince`: when the subscription was found quiet, or null. It can't be set through the API.
 
+`notifications` sends through [notification channels](retries-and-alerts.md#subscription-notifications) when the subscription's exchanges finish or it goes quiet. Unlike the rest, leaving it out of an update keeps the stored rows; an empty list clears them.
+
+```json
+"notifications": [ { "channelId": 4, "onFailure": true, "onBadResult": false, "onSuccess": false, "onQuiet": true } ]
+```
+
 ## Adapters and mapping
 
 | Method and path | Permission | Description |
@@ -271,14 +277,14 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/workgroups/{id}` | `workgroups.edit` |
 | `POST /api/workgroups/{id}/delete` | `workgroups.delete`. Refused while subscriptions use it. |
 | `GET /api/retrypolicies`, `GET /api/retrypolicies/{id}` | `retry-policies.view` |
-| `POST /api/retrypolicies` | `retry-policies.create` |
+| `POST /api/retrypolicies` | `retry-policies.create`. `{ name, groups, alertChannelId }`; see [Retry policies](retries-and-alerts.md#retry-policies). An alert names a notification channel; `alertHandlerId` is refused. |
 | `POST /api/retrypolicies/{id}` | `retry-policies.edit` |
 | `DELETE /api/retrypolicies/{id}` | `retry-policies.delete` |
 | `POST /api/retrypolicies/test` | `retry-policies.view` |
 | `POST /api/retrypolicies/{id}/usage` | `retry-policies.view` |
 | `POST /api/retrypolicies/{id}/attempts` | `retry-policies.view` |
 | `POST /api/retrypolicies/{id}/resetusage` | `retry-policies.edit` |
-| `POST /api/retrypolicies/{id}/savealertoverride` | `retry-policies.edit` |
+| `POST /api/retrypolicies/{id}/savealertoverride` | `retry-policies.edit`. `{ subscriptionId, groupId, alertMode, alertChannelId }` |
 | `GET /api/notificationchannels`, `GET /api/notificationchannels/{id}` | `notifiers.view`. Secret settings come back as `__private__`. |
 | `GET /api/notificationchannels?lookup=true` | signed in. Ids and names only, for pickers. |
 | `POST /api/notificationchannels` | `notifiers.create`. `{ name, handlerId, handlerProperties }` |
@@ -289,7 +295,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/notifiers` | `notifiers.create` |
 | `POST /api/notifiers/{id}` | `notifiers.edit` |
 | `DELETE /api/notifiers/{id}` | `notifiers.delete` |
-| `GET /api/notifications` | `notifiers.view`. Searchy. |
+| `GET /api/notifications` | `notifiers.view`. Searchy. Each row has its `channelId` (null for a legacy notifier), whether it was `suppressed` by the quiet window, and the `subscriptionId` and `subscriptionName` it reported. `ChannelId:1:{id}` keeps one channel's sends. |
 
 ## Administration
 
