@@ -76,8 +76,12 @@ public static class RetryAlertChannelConversion
         }
         catch (DbUpdateException)
         {
-            logger.LogInformation("Another instance moved the retry alerts onto notification channels.");
             dbContext.ChangeTracker.Clear();
+            await transaction.RollbackAsync();
+            // Only the marker another instance committed means the move is done; any other failure
+            // to save it is one, and the next boot tries again.
+            if (!await dbContext.Set<Setting>().AsNoTracking().AnyAsync(s => s.Id == DoneKey)) throw;
+            logger.LogInformation("Another instance moved the retry alerts onto notification channels.");
             return 0;
         }
 
