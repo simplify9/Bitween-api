@@ -274,6 +274,13 @@ namespace SW.Bitween.Web
                     "Please check your appsettings.json or environment configuration.");
             }
 
+            // MySQL connections are encrypted unless the connection string chooses otherwise: the driver's
+            // default, Preferred, falls back to plain text against a server without TLS. Set here so the
+            // scheduler, the migrations and the DbContext all use it. SslMode in the string still wins.
+            if (!string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
+                connectionString = MySqlTls.RequiredUnlessChosen(connectionString);
+
             // For SQL Server + managed identity, augment the connection string up front so both
             // the Quartz scheduler below and the DbContext registered later use the exact same
             // (fully authenticated) value - previously this was only applied after the scheduler
@@ -337,7 +344,7 @@ namespace SW.Bitween.Web
                 {
                     throw new InvalidOperationException(
                         $"PostgreSQL connection string is missing 'Host=' or 'Server=' parameter. " +
-                        $"Connection string: '{connectionString}'. " +
+                        // Never the connection string itself: it carries the password, and this goes to the log.
                         "Please check your ConnectionStrings:BitweenDb configuration.");
                 }
 
@@ -361,7 +368,7 @@ namespace SW.Bitween.Web
                     {
                         // Parameter values in EF's logs are passwords, partner keys and payloads; only
                         // a developer's own machine should ever write them out.
-                        if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
+                        if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                         c.UseSnakeCaseNamingConvention();
                         c.UseNpgsql(dataSource, b =>
                         {
@@ -382,7 +389,7 @@ namespace SW.Bitween.Web
                     {
                         // Parameter values in EF's logs are passwords, partner keys and payloads; only
                         // a developer's own machine should ever write them out.
-                        if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
+                        if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                         c.UseSnakeCaseNamingConvention();
                         c.UseNpgsql(dataSource, b =>
                         {
@@ -400,9 +407,9 @@ namespace SW.Bitween.Web
             {
                 services.AddDbContext<BitweenDbContext, MsSql.BitweenDbContext>(c =>
                 {
-                    // Parameter values in EF's logs are passwords, partner keys and payloads; only
-                    // a developer's own machine should ever write them out.
-                    if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
+                    // Parameter values in EF's logs are passwords, partner keys and payloads: written
+                    // only when asked for (Bitween:LogSqlParameterValues), never by environment.
+                    if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                     c.UseSqlServer(connectionString,
                         b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
                 });
@@ -413,9 +420,9 @@ namespace SW.Bitween.Web
                 // MySql (default)
                 services.AddDbContext<BitweenDbContext, MySql.BitweenDbContext>(c =>
                 {
-                    // Parameter values in EF's logs are passwords, partner keys and payloads; only
-                    // a developer's own machine should ever write them out.
-                    if (Environment.IsDevelopment()) c.EnableSensitiveDataLogging();
+                    // Parameter values in EF's logs are passwords, partner keys and payloads: written
+                    // only when asked for (Bitween:LogSqlParameterValues), never by environment.
+                    if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                     c.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 18)),
                         b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
                 });

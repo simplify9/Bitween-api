@@ -74,4 +74,17 @@ public class SecurePasswordHasherTests
         Assert.IsTrue(SecurePasswordHasher.IsHashSupported(SeededV1Hash));
         Assert.IsTrue(SecurePasswordHasher.IsHashSupported(SecurePasswordHasher.Hash("x")));
     }
+
+    /// <summary>
+    /// What sign-in replaces once it has the password: a V1 hash, and a V2 hash made with fewer
+    /// iterations than today's. A current hash is left alone.
+    /// </summary>
+    [TestMethod]
+    public void Only_an_old_hash_needs_rehashing()
+    {
+        Assert.IsTrue(SecurePasswordHasher.NeedsRehash(SeededV1Hash));
+        var current = SecurePasswordHasher.Hash("x");
+        Assert.IsTrue(SecurePasswordHasher.NeedsRehash(current.Replace("$210000$", "$10000$")));
+        Assert.IsFalse(SecurePasswordHasher.NeedsRehash(SecurePasswordHasher.Hash("x")));
+    }
 }

@@ -10,7 +10,8 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Accounts;
 
 [HandlerName("changePassword")]
-public class ChangePassword(BitweenDbContext dbContext, RequestContext requestContext)
+public class ChangePassword(BitweenDbContext dbContext, RequestContext requestContext, SignInThrottle throttle,
+    Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor)
     : ICommandHandler<ChangePasswordModel, object>
 {
     public async Task<object> Handle(ChangePasswordModel request)
@@ -20,13 +21,27 @@ public class ChangePassword(BitweenDbContext dbContext, RequestContext requestCo
         var accountId = Convert.ToInt32(requestContext.GetNameIdentifier());
         var account = await Members.FindAsync(dbContext, accountId);
 
+        // Checking the old password is guessing it, so it is limited as sign-in is: the same count of
+        // failures from one address locks it out for the same time, and a stolen session can't be
+        // used to try passwords until one fits.
+        var nowUtc = DateTime.UtcNow;
+        var address = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        if (throttle.LockedUntil(accountId, address, nowUtc) is { } lockedUntil)
+        {
+            var minutes = (int)Math.Ceiling((lockedUntil - nowUtc).TotalMinutes);
+            throw new SWValidationException("TOO_MANY_ATTEMPTS",
+                $"Too many wrong passwords. Try again in {minutes} minute{(minutes == 1 ? "" : "s")}.");
+        }
+
         // A service account has no password to change, and isn't found here.
         if (account is null || string.IsNullOrEmpty(account.Password) ||
             !SecurePasswordHasher.Verify(request.OldPassword, account.Password))
         {
+            throttle.RegisterFailure(accountId, address, nowUtc);
             throw new SWValidationException("AUTHENTICATION_ERROR",
                 "The Password entered does not match the user's password");
         }
+        throttle.Clear(accountId, address);
 
         account.SetPassword(request.NewPassword);
         await dbContext.SaveChangesAsync();

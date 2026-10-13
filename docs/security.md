@@ -10,8 +10,9 @@ Bitween supports four ways to sign in.
 
 - Five wrong passwords from one address lock that address out of the account for 15 minutes, and 20 from anywhere lock the account itself for 15 minutes. An administrator can unlock it early.
 - Disabled accounts cannot sign in.
+- Changing your own password checks the old one, and that check is limited as sign-in is: five wrong ones from one address lock the change out for 15 minutes, so a session left open can't be used to guess the password.
 - Passwords need at least 8 characters, including an upper-case letter, a lower-case letter, a digit and a symbol. When an administrator sets someone else's password, only the 8-character minimum applies.
-- Passwords are hashed with PBKDF2-HMAC-SHA256, 210,000 iterations and a random salt, and compared in constant time. Hashes stored before September 2026 use PBKDF2-SHA1 with 10,000 iterations. They still verify, and are only replaced when the password is next set.
+- Passwords are hashed with PBKDF2-HMAC-SHA256, 210,000 iterations and a random salt, and compared in constant time. Hashes stored before September 2026 use PBKDF2-SHA1 with 10,000 iterations. They still verify, and each is replaced with the current hash the next time that person signs in with their password.
 - Bitween sends no email, so there is no self-service password reset.
 
 Turning on the **Microsoft sign-in only** setting disables this method, for Microsoft and OpenID Connect sign-in alike. New accounts are then created without a password.
@@ -126,6 +127,7 @@ The seeded **SYSTEM** partner has a key named `default` whose value is fixed in 
 - A [connection](adapters.md#connections)'s client secret, password, refresh token and access token are encrypted the same way, and are never returned by the API or written to the audit trail. An access token is put into an adapter's settings only as the adapter starts, so none is stored on an exchange.
 - The secret settings are the Rebex license key, the OpenID Connect client secret and the mail server password. They are encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
 - Teams and Slack webhook addresses are secret, because anyone who has one can post to the channel.
+- A bus gateway's endpoint settings are masked as its data source's settings are: those the data source names as secret, and any with a credential's name (password, token, key and so on). Sending `__private__` back keeps the stored value.
 - Partner properties, global values, adapter properties, data source settings, notification channel, notifier and retry alert properties, including passwords, are encrypted in the database with AES-256-GCM when `Bitween:SettingsEncryptionKey` is set, and stored in plain text when it isn't. Values stored before the key was set are encrypted a few minutes after the next start. `Bitween:PreviousSettingsEncryptionKey` still decrypts values while the key is rotated.
 
 ## Exchange files
@@ -186,4 +188,5 @@ The trail is written in the same transaction as the change, and no API edits or 
 6. Give the chart's Ingress a TLS entry for its host, so file links are built on an https address, and treat roll-ups and exchange results as holding the files themselves: a link opens its file without a login. Over plain http a link and its file can be read on the way.
 7. Serve Bitween over HTTPS. The refresh cookie is always marked `Secure`.
 8. Connect data sources with least-privilege logins, and never with DDL rights on Oracle.
-9. Review [Known limitations](caveats.md#security).
+9. Keep the chart's read-only root file system (`securityContext.readOnlyRootFilesystem`, on by default), and connect to MySQL over TLS (required by default).
+10. Review [Known limitations](caveats.md#security).

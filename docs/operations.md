@@ -114,7 +114,7 @@ environmentVariables:
 
 ## Logs
 
-Bitween logs to the console. When `SwLogger:ElasticsearchUrl` is set and the environment is listed in `SwLogger:ElasticsearchEnvironments`, logs also go to Elasticsearch, enriched with request context.
+Bitween logs to the console. SQL statements are logged without their parameter values, which hold passwords, partner keys and payloads, unless `Bitween:LogSqlParameterValues` is on; a developer's `launchSettings.json` turns it on locally, and no environment does by itself. When `SwLogger:ElasticsearchUrl` is set and the environment is listed in `SwLogger:ElasticsearchEnvironments`, logs also go to Elasticsearch, enriched with request context.
 
 Messages worth watching for:
 
@@ -134,7 +134,7 @@ Messages worth watching for:
 | Receive attempts | `Bitween:ReceiveAttemptRetentionDays`, 30 days by default |
 | Broker deduplication keys | Each data source's window, 30 days by default |
 | Scheduler execution history | Managed by the scheduler library |
-| Audit entries | Kept indefinitely |
+| Audit entries | `Bitween:AuditRetentionDays`, deleted by the daily receive attempt clean-up. 0, the default, keeps them indefinitely. |
 
 The retention job runs on the **Retention schedule** setting, 04:00 daily by default. It removes exchanges that started more than **Keep exchanges (days)** ago, oldest first and in small batches. An exchange waiting for a scheduled retry is kept, and so is one a newer retry still points at, until that retry is removed too.
 
@@ -158,6 +158,7 @@ Exchange rows can outlive their files. Opening such a file says it was deleted b
 |---|---|
 | The Microsoft sign-in popup fails with `user_cancelled` | The redirect URI does not point at `/blank.html` |
 | Changing appsettings or Helm values does not change a setting | The setting is already stored in the database, which wins |
+| Every subscription slows down while one partner is slow | Subscriptions without a work group share one lane, and a slow partner's calls hold its processing slots for up to `Bitween:NativeAdapterTimeout`. Give that partner's subscriptions a [work group](concepts.md#work-group) of their own, with a small prefetch, so it only slows itself. The **Work groups** page says how many subscriptions share the default lane. |
 | Queue health says RabbitMQ management isn't configured | One of the three management keys is missing |
 | Rebex adapters are missing from the pickers | No Rebex license key is saved, or nothing uses that one any more: it [moved to the marketplace](adapters.md#moved-to-the-marketplace) |
 | An API gateway returns 404 at the right URL | The attached subscription is inactive |

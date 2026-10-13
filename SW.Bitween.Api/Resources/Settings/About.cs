@@ -93,6 +93,7 @@ public class About(BitweenDbContext dbContext, RequestContext requestContext, Bi
             Retention = new
             {
                 options.ReceiveAttemptRetentionDays,
+                options.AuditRetentionDays,
                 options.ReceiveAttemptCleanupCron,
                 options.InboundMessagePruneCron,
             },

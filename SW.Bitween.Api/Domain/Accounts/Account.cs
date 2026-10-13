@@ -123,6 +123,15 @@ namespace SW.Bitween.Domain.Accounts
             return true;
         }
 
+        /// <summary>
+        /// The same password, hashed again as passwords are hashed now: on a sign-in that just proved it,
+        /// so an account stored with an older, weaker hash is upgraded without anyone choosing a new one.
+        /// </summary>
+        public void UpgradePasswordHash(string password)
+        {
+            if (SecurePasswordHasher.NeedsRehash(Password)) Password = SecurePasswordHasher.Hash(password);
+        }
+
         public void SetPassword(string password)
         {
             Password = SecurePasswordHasher.Hash(password);

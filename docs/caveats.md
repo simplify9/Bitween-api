@@ -12,7 +12,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Partner API keys are stored hashed. Partner, adapter and data source credentials are encrypted at rest only when `Bitween:SettingsEncryptionKey` is set; without it they stay in plain text, and startup logs a warning. | `Services/SecretColumnEncryptionPass.cs` |
 | Saving or testing an Oracle statement runs `DBMS_SQL.PARSE`, which executes DDL. | `SW.Bitween.Adapters.Db.Oracle` |
 | A subscription using a database or bus adapter without a bound data source returns its connection settings unmasked. | `Services/AdapterSecretProperties.cs` |
-| Password hashes created before September 2026 use PBKDF2-SHA1 with 10,000 iterations and are never upgraded on sign-in. The seeded administrator's hash is one of them. | `Services/SecurePasswordHasher.cs` |
 | An administrator setting another member's password is only held to an 8-character minimum. | `Resources/Accounts/SetPassword.cs` |
 | The Helm chart's default token key is committed in `values.yaml`. | `charts/default/values.yaml` |
 
@@ -101,7 +100,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 
 | Issue | Where |
 |---|---|
-| `migratedb.sh` refers to projects from an older version and does not work. | `migratedb.sh` |
 | The Helm deployment declares container port 80 while the app listens on 8080, and probes use the declared port. | `charts/default/templates/deployment.yaml` |
 | The Dockerfile copies the .NET 6 shared runtime into the image without a stated reason. | `Dockerfile` |
 | A startup migration failure is logged by parsing the connection string as PostgreSQL, which may throw for other providers and hide the original error. | `SW.Bitween.Web/Program.cs` |

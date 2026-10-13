@@ -12,7 +12,8 @@ namespace SW.Bitween;
 /// <see cref="BitweenOptions.ReceiveAttemptRetentionDays"/>.
 /// Scheduled via <see cref="BitweenOptions.ReceiveAttemptCleanupCron"/> (registered by
 /// <c>SchedulerSeedService</c>). Also deletes reported duplicates older than
-/// <see cref="DuplicateArrivals.KeepDays"/>, which only feed the information type's weekly count.
+/// <see cref="DuplicateArrivals.KeepDays"/>, which only feed the information type's weekly count, and audit
+/// entries older than <see cref="BitweenOptions.AuditRetentionDays"/> when that is set.
 /// </summary>
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
 public class ReceiveAttemptCleanupJob(BitweenDbContext dbContext, BitweenOptions options) : IScheduledJob
@@ -25,5 +26,13 @@ public class ReceiveAttemptCleanupJob(BitweenDbContext dbContext, BitweenOptions
             .ExecuteDeleteAsync();
 
         await new DuplicateArrivals(dbContext).PruneAsync();
+
+        if (options.AuditRetentionDays > 0)
+        {
+            var auditCutoff = DateTime.UtcNow.AddDays(-options.AuditRetentionDays);
+            await dbContext.Set<SW.Bitween.Domain.AuditEntry>()
+                .Where(e => e.OccurredOn < auditCutoff)
+                .ExecuteDeleteAsync();
+        }
     }
 }

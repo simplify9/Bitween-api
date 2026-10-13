@@ -305,6 +305,7 @@ namespace SW.Bitween.Resources.Accounts
 
                 throttle.Clear(account.Id, address);
                 account.RegisterSuccessfulLogin();
+                account.UpgradePasswordHash(request.Password);
             }
 
             // A sign-in, not a session renewing itself: the member's last sign-in, and the trail's.

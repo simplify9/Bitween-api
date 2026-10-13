@@ -340,6 +340,27 @@ spec:
             {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+          # The only places Bitween writes, so its root file system can be read-only (securityContext).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: adapter-cache
+              mountPath: /app/adapters
+      volumes:
+        - name: tmp
+          {{- if .Values.scratch.tmpSizeLimit }}
+          emptyDir:
+            sizeLimit: {{ .Values.scratch.tmpSizeLimit }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: adapter-cache
+          {{- if .Values.scratch.adapterCacheSizeLimit }}
+          emptyDir:
+            sizeLimit: {{ .Values.scratch.adapterCacheSizeLimit }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
 #     {{- with .Values.imagePullSecrets }}
 #       imagePullSecrets:
 # {{ toYaml . | indent 8 }}

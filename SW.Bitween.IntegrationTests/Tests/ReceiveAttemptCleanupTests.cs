@@ -45,4 +45,30 @@ public class ReceiveAttemptCleanupTests(BitweenFixture fixture)
         Assert.Contains(justInside.Id, left);
         Assert.Contains(today.Id, left);
     }
+
+    [Fact]
+    public async Task Audit_entries_are_kept_unless_a_retention_is_set_and_then_only_inside_it()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var now = DateTime.UtcNow;
+
+        AuditEntry Entry(DateTime occurredOn) => new(new SW.EfCoreExtensions.GenericAuditDiffJson(
+            Guid.NewGuid().ToString("N"), 1, occurredOn, "audit-retention-test", "Partner", "Partner", "Modified", 1,
+            new System.Collections.Generic.Dictionary<string, SW.EfCoreExtensions.PropertyDiff>(), null));
+        var old = Entry(now.AddDays(-40));
+        var recent = Entry(now.AddDays(-10));
+        db.AddRange(old, recent);
+        await db.SaveChangesAsync();
+
+        async Task<string[]> Left() => await db.Set<AuditEntry>().AsNoTracking()
+            .Where(e => e.Id == old.Id || e.Id == recent.Id).Select(e => e.Id).ToArrayAsync();
+
+        // Off by default: nothing goes.
+        await new ReceiveAttemptCleanupJob(db, new BitweenOptions()).Execute();
+        Assert.Equal(2, (await Left()).Length);
+
+        await new ReceiveAttemptCleanupJob(db, new BitweenOptions { AuditRetentionDays = 30 }).Execute();
+        Assert.Equal([recent.Id], await Left());
+    }
 }

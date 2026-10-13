@@ -31,7 +31,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             entity.Inactive = model.Inactive;
             entity.DataSourceId = model.DataSourceId;
             entity.Endpoint = model.DataSourceId == null ? null : model.Endpoint;
-            entity.EndpointProperties = model.EndpointProperties ?? new();
+            // A secret the form sent back masked keeps what is stored; one never stored is dropped.
+            entity.EndpointProperties = DataSources.Secrets.Merge(entity.EndpointProperties, model.EndpointProperties ?? new());
 
             await _dbContext.SaveChangesAsync();
             await cache.BroadcastRevoke();

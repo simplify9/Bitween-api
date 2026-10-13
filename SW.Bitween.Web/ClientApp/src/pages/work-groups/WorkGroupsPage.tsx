@@ -81,6 +81,10 @@ export function WorkGroupsPage() {
   });
 
 
+  // Everything not in a work group shares one lane, so a partner that answers slowly there holds the
+  // processing slots the others are waiting for.
+  const ungrouped = subscriptions.filter((s) => s.workGroupId === null).length;
+
   const filtered = groups.data?.result ?? [];
   const total = groups.data?.total ?? 0;
 
@@ -114,6 +118,16 @@ export function WorkGroupsPage() {
         }}
         actions={createAction}
       />
+
+      {ungrouped > 0 && (
+        <p className="mb-4 max-w-3xl text-[13px] text-ink-600">
+          <strong className="font-medium text-ink-900">
+            {ungrouped} subscription{ungrouped === 1 ? "" : "s"} share{ungrouped === 1 ? "s" : ""} the default lane.
+          </strong>{" "}
+          A partner there that answers slowly holds processing slots the others wait for; give its subscriptions a work
+          group of their own, with a small prefetch, so it only slows itself.
+        </p>
+      )}
 
       <SearchBox value={searchText} onChange={setSearchText} label="Search work groups" className="mb-4 max-w-xs" />
 

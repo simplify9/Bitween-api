@@ -95,11 +95,23 @@ secrets:
   # Bitween__InitialAdminPassword: "<the first administrator's password>"
 
 # The image runs as its built-in non-root user; these keep the container from regaining root.
+# readOnlyRootFilesystem: nothing in the image can be changed by whatever runs in it. Bitween writes
+# only to /tmp and to its cache of downloaded adapter packages (/app/adapters), which are scratch
+# volumes (emptyDir, below), as temporary as the container's own layer was. Set it to false if
+# something on a deployment needs to write elsewhere.
 securityContext:
   runAsNonRoot: true
   allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
   capabilities:
     drop: ["ALL"]
+
+# The two places Bitween writes, as scratch space on the node: created empty with the pod, gone with
+# it. Not persistent volumes; the adapter cache is fetched again from storage when empty. A size
+# limit, such as 2Gi, caps each one.
+scratch:
+  tmpSizeLimit: ""
+  adapterCacheSizeLimit: ""
 
 # Requests so the scheduler places pods somewhere with room. No limits by default: a memory limit
 # set too low kills a pod mid-exchange, and what is enough depends on payload sizes and prefetch.

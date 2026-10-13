@@ -62,6 +62,20 @@ namespace SW.Bitween
         }
 
         /// <summary>
+        /// Whether a stored hash is weaker than what <see cref="Hash(string)"/> makes today, so it
+        /// should be replaced once the password is known again.
+        /// </summary>
+        public static bool NeedsRehash(string hashString)
+        {
+            // V1 is PBKDF2-HMAC-SHA1 at 10,000 iterations; a V2 hash made with fewer iterations than today's
+            // is as weak as its count. Either is replaced on the next sign-in that proves the password.
+            if (hashString == null || hashString.StartsWith(V1Prefix, StringComparison.Ordinal)) return true;
+            if (!hashString.StartsWith(V2Prefix, StringComparison.Ordinal)) return false;
+            var parts = hashString[V2Prefix.Length..].Split('$');
+            return parts.Length != 2 || !int.TryParse(parts[0], out var iterations) || iterations < DefaultIterations;
+        }
+
+        /// <summary>
         /// Checks if hash is supported.
         /// </summary>
         /// <param name="hashString">The hash.</param>

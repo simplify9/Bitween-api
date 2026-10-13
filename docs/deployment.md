@@ -61,6 +61,12 @@ Things to know about the chart:
 
 See [Configuration](configuration.md#helm-values) for how each value becomes an environment variable.
 
+The chart runs Bitween with a read-only root file system (`securityContext.readOnlyRootFilesystem`, on by
+default), so nothing in the image can be changed from inside the container. Bitween writes only to `/tmp` and
+to its cache of downloaded adapter packages, `/app/adapters`, which the chart mounts as `emptyDir` scratch
+space: created empty with the pod and gone with it, as the container's own layer was, and not persistent
+volumes. `scratch.tmpSizeLimit` and `scratch.adapterCacheSizeLimit` cap them, as `2Gi`.
+
 ## Databases
 
 Set `Bitween:DatabaseType` and `ConnectionStrings:BitweenDb`.
@@ -69,7 +75,7 @@ Set `Bitween:DatabaseType` and `ConnectionStrings:BitweenDb`.
 |---|---|---|
 | PostgreSQL | `PgSql` | Used by the Helm chart and the integration tests. Tables live in the `infolink` schema with snake_case columns. The connection string must contain `Host=` or `Server=`. |
 | SQL Server | `MsSql` | |
-| MySQL | `MySql` | The default when unset. Targets MySQL 8. |
+| MySQL | `MySql` | The default when unset. Targets MySQL 8. The connection is encrypted: `SslMode=Required` unless the connection string sets `SslMode` itself, so for a server without TLS set `SslMode=Preferred` or `None` there. |
 
 Migrations run automatically when the service starts. A failed migration stops startup and is logged with the targeted host and database. The scheduler's tables are created in the same database.
 

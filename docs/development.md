@@ -94,8 +94,6 @@ dotnet test SW.Bitween.UnitTests --filter MigrationDriftTests
 
 The PostgreSQL context declares its own model rather than inheriting the shared one. Make mapping changes in both `SW.Bitween.Api/Data/BitweenDbContext.cs` and `SW.Bitween.PgSql/BitweenDbContext.cs`.
 
-`migratedb.sh` refers to project names from an older version and does not work.
-
 ## Adding an API endpoint
 
 Add a class under `SW.Bitween.Api/Resources/{Area}` that implements a CqApi handler interface. The folder name, lower-cased, becomes the path. These rules are inferred from the existing handlers and the routes the UI calls.

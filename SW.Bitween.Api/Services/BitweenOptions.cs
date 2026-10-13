@@ -155,6 +155,13 @@ namespace SW.Bitween
         public int NativeAdapterTimeout { get; set; }
 
         /// <summary>
+        /// Write SQL parameter values into EF's logs. They are passwords, partner keys and payloads, so this is
+        /// off unless set, in every environment: a developer turns it on for their own machine
+        /// (launchSettings.json), and a staging that runs as Development no longer logs them.
+        /// </summary>
+        public bool LogSqlParameterValues { get; set; }
+
+        /// <summary>
         /// Failures in a row (timeouts, refused or dropped connections, 429, 5xx but 501) after which a
         /// built-in adapter's calls to that destination fail at once, as a 503, for
         /// <see cref="CircuitBreakerOpenSeconds"/>. A partner that stopped answering held a place in the
@@ -348,6 +355,12 @@ namespace SW.Bitween
         /// Format: <c>second minute hour dayOfMonth month dayOfWeek</c>
         /// </summary>
         public string ReceiveAttemptCleanupCron { get; set; } = "0 0 3 * * ?";
+
+        /// <summary>
+        /// How many days to keep audit entries before the daily clean-up deletes them. 0, the default, keeps
+        /// them for good, as before: the trail is evidence, and only an administrator decides it can go.
+        /// </summary>
+        public int AuditRetentionDays { get; set; }
 
         /// <summary>How many days of hourly metrics to keep. A year and a bit, for "same week last year".</summary>
         public int MetricsRetentionDays { get; set; } = 400;
