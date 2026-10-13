@@ -433,7 +433,9 @@ public class Subscriptions : Kind
             if (string.IsNullOrEmpty(channel)) yield return "notifications: a row names no channel";
             else if (!known("notificationChannels", channel)) yield return $"notifications: there's no notification channel {Context.Quote(channel)}";
         }
-        foreach (var problem in RetryPolicies.GroupProblems("customRetryPolicy", want["customRetryPolicy"]?["groups"], known)) yield return problem;
+        // Any other shape is Bitween's to refuse; reading into it here would only crash the plan.
+        var inline = want["customRetryPolicy"] as JsonObject;
+        foreach (var problem in RetryPolicies.GroupProblems("customRetryPolicy", inline?["groups"], known)) yield return problem;
     }
 
     static bool On(JsonNode tick) => Values.Same(tick, true);
