@@ -25,6 +25,7 @@ namespace SW.Bitween.Resources.Notifications
                 {
                     Id = notification.Id,
                     Success = notification.Success,
+                    Suppressed = notification.Suppressed,
                     Exception = notification.Exception,
                     FinishedOn = notification.FinishedOn,
                     NotifierName = notification.NotifierName,

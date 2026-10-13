@@ -19,6 +19,7 @@ interface RawSend {
   xchangeId: string;
   notifierName: string;
   success: boolean;
+  suppressed: boolean;
   exception: string | null;
   finishedOn: string;
   subscriptionId: number | null;
@@ -74,6 +75,8 @@ export const notificationChannelMethods = {
       filters: [
         ["ChannelId", SEARCHY_RULE.equalsTo, id],
         ["Success", SEARCHY_RULE.equalsTo, query.failedOnly ? "false" : ""],
+        // Held back by the quiet window is not sent, but nothing failed either.
+        ["Suppressed", SEARCHY_RULE.equalsTo, query.failedOnly ? "false" : ""],
       ],
       offset: query.offset,
       limit: query.limit,
@@ -85,6 +88,7 @@ export const notificationChannelMethods = {
         id: n.id,
         xchangeId: n.xchangeId,
         success: n.success,
+        heldBack: n.suppressed,
         exception: n.exception,
         on: n.finishedOn,
         sentFor: n.notifierName,

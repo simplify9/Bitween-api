@@ -575,9 +575,11 @@ export interface NotificationChannelSend {
   id: number;
   xchangeId: string;
   success: boolean;
+  /** Not sent: the quiet window held it back, and the next message counts it. */
+  heldBack: boolean;
   exception: string | null;
   on: string;
-  /** "Retry budget alert" for an alert; the channel's name for a subscription's own notification. */
+  /** "Retry budget alert" or "Auto-pause alert" for an alert; the channel's name for a subscription's own notification. */
   sentFor: string;
   /** Null once the exchange it was about has been removed. */
   subscriptionId: number | null;

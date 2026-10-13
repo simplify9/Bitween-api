@@ -9,6 +9,9 @@ namespace SW.Bitween.Model
         public string NotifierName { get; set; } = null!;
         public bool Success { get; set; }
 
+        /// <summary>Held back by the quiet window: not sent, and counted in the next message instead.</summary>
+        public bool Suppressed { get; set; }
+
         /// <summary>Null when the notification succeeded.</summary>
         public string? Exception { get; set; }
         public DateTime FinishedOn { get; set; }

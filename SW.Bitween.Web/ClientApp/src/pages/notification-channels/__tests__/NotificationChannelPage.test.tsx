@@ -111,13 +111,26 @@ describe("a saved notification channel", () => {
       // Only this channel's sends are asked for.
       expect(new URL(request.url).searchParams.getAll("filter")).toContain("ChannelId:1:5");
       return HttpResponse.json({
-        totalCount: 1,
+        totalCount: 2,
         result: [
+          {
+            id: 2,
+            xchangeId: "x-2",
+            notifierName: "Ops Teams",
+            success: false,
+            suppressed: true,
+            exception: null,
+            finishedOn: "2026-10-08T10:02:00Z",
+            channelId: 5,
+            subscriptionId: 11,
+            subscriptionName: "Returns",
+          },
           {
             id: 1,
             xchangeId: "x-1",
             notifierName: "Retry budget alert",
             success: false,
+            suppressed: false,
             exception: "Teams refused the message (404 Not Found).",
             finishedOn: "2026-10-08T10:00:00Z",
             channelId: 5,
@@ -146,6 +159,10 @@ describe("a saved notification channel", () => {
     const row = await within(sends).findByRole("row", { name: /Order intake/ });
     expect(within(row).getByText("Retry alert")).toBeVisible();
     expect(within(row).getByText("Failed")).toBeVisible();
+    // Held back by the quiet window: not sent, and not a failure either.
+    const held = within(sends).getByRole("row", { name: /Returns/ });
+    expect(within(held).getByText("Held back")).toBeVisible();
+    expect(within(held).queryByText("Failed")).toBeNull();
   });
 
   it("sends a test message and says why it didn't arrive", async () => {

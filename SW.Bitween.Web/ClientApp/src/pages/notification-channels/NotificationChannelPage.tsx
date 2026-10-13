@@ -538,7 +538,7 @@ function SendsPanel({ channelId }: { channelId: number }) {
   const pages = Math.max(1, Math.ceil(total / SENDS_PAGE));
 
   return (
-    <Panel title="Recent sends" description="Every attempt to deliver through this channel, and why any failed.">
+    <Panel title="Recent sends" description="Every send through this channel, held back ones included, and why any failed.">
       <div role="tablist" aria-label="Filter sends" className="mb-2 flex flex-wrap gap-1.5">
         {[
           { key: false, label: "All" },
@@ -584,7 +584,7 @@ function SendsPanel({ channelId }: { channelId: number }) {
             },
             {
               header: "About",
-              headerTitle: "The subscription whose exchange it reported, and whether it was a retry alert.",
+              headerTitle: "The subscription whose exchange it reported, and whether it was a retry or auto-pause alert.",
               truncate: true,
               cell: (n) => (
                 <span className="flex min-w-0 items-center gap-1.5">
@@ -603,6 +603,11 @@ function SendsPanel({ channelId }: { channelId: number }) {
                       Retry alert
                     </Badge>
                   )}
+                  {n.sentFor === "Auto-pause alert" && (
+                    <Badge tone="warn" title="The subscription paused itself after failures in a row.">
+                      Auto-pause
+                    </Badge>
+                  )}
                 </span>
               ),
             },
@@ -619,7 +624,19 @@ function SendsPanel({ channelId }: { channelId: number }) {
             },
             {
               header: "Result",
-              cell: (n) => (n.success ? <Badge tone="ok">Sent</Badge> : <Badge tone="danger">Failed</Badge>),
+              cell: (n) =>
+                n.success ? (
+                  <Badge tone="ok">Sent</Badge>
+                ) : n.heldBack ? (
+                  <Badge
+                    tone="neutral"
+                    title="Another message like it went out minutes before, so this one was not sent. The next message says how many were held back."
+                  >
+                    Held back
+                  </Badge>
+                ) : (
+                  <Badge tone="danger">Failed</Badge>
+                ),
             },
             {
               header: "Reason",
