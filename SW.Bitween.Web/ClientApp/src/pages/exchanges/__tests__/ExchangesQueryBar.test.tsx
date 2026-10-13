@@ -305,3 +305,31 @@ describe("pausing", () => {
     expect(filters(asked)).toContain("StartedOn:6:2026-09-20T10:00:00.001Z");
   });
 });
+
+describe("refresh", () => {
+  it("asks for the list and the counts again at once, even paused", async () => {
+    const api = backend();
+    const { user } = renderApp("/exchanges", { handlers: api.handlers });
+
+    // Paused, nothing else asks: every request after the click is the button's.
+    await user.click(await screen.findByRole("button", { name: "Pause live updates" }));
+    await screen.findByText("SO-0");
+    const before = { listed: api.listed.length, summarised: api.summarised.length };
+
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(api.listed.length).toBeGreaterThan(before.listed));
+    expect(api.summarised.length).toBeGreaterThan(before.summarised);
+  });
+});
+
+describe("promoted property", () => {
+  it("sends the picked key apart from the value, so any part of that key's value matches", async () => {
+    const api = backend();
+    renderApp("/exchanges?propertyKey=orderNo&property=1001", { handlers: api.handlers });
+
+    await waitFor(() => expect(api.listed.length).toBeGreaterThan(0));
+    const sent = filters(api.listed.at(-1)!);
+    expect(sent).toContain("PromotedPropertyKey:1:orderNo");
+    expect(sent).toContain("PromotedPropertiesRaw:4:1001");
+  });
+});
