@@ -24,12 +24,37 @@ An id starting with `native`, ignoring case, is a native adapter. For any other 
 Each adapter declares its properties. The UI shows which are required, which are secret, and each one's description and default.
 
 - **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notifier properties get neither. A response or bus gateway subscription's handler can also use `{{source.PATH}}`, a value from the original document; see [Response routing](exchange-pipeline.md#6-response-routing).
+- **Connections.** `{{connections.NAME.accessToken}}` is an OAuth2 access token Bitween keeps fresh, and `{{connections.NAME.authorization}}` is `Bearer` and the token, for a header. Unlike the tokens above, they are filled in as the adapter starts, for every adapter and every kind (handlers, mappers, validators, receivers, notifiers and retry alerts), so a token is never stored on an exchange. See [Connections](#connections).
 - **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property. A property is secret only if its adapter says so: `[Secure]` on a native adapter, and on a published one `isPrivate: true` in `Runner.Expect` (.NET), `secret=True` in `sw.expect` (Python) or `secret: true` in `expect` (JavaScript and TypeScript), which `bitween adapter build` writes into the manifest. Anything else is returned as stored. A secret property's default is never sent either, but the adapter still applies it when the value is left empty.
 - **Required properties** are checked when a subscription is saved. A blank value counts as missing.
 - **`xchangeid`** is added to mapper and handler properties at run time.
 - A value that does not convert to the property's type, such as `BatchSize=abc`, silently falls back to the default.
 - The admin UI loads every adapter of a kind, with its properties, in one call. A published adapter is described from its manifest when the manifest lists its properties. Otherwise a .NET adapter is started and asked; an adapter in another runtime never is, and a manifest that lists none means it has none.
 - Descriptions of custom adapters are cached on each node. Publishing, promoting or withdrawing a version through Bitween tells every node to forget the adapter, over the bus. A version published straight to storage shows its old properties for up to a minute.
+
+## Connections
+
+A connection is an OAuth2 client whose tokens Bitween asks for, renews and rotates, so that an adapter, built in or published, in any language, needs no OAuth code of its own. They are on the **Connections** page, with the global values permissions.
+
+| How it gets tokens | For |
+|---|---|
+| **Approve once** (authorization code) | Someone chooses **Authorize**, approves access at the provider, and comes back to `/oauth-callback`. The refresh token that brings keeps the connection going. Salesforce, Zoho, Shopify and Dynamics apps. |
+| **Client ID and secret** (client credentials) | Nobody approves anything. ServiceNow and most partner APIs. |
+| **Service user** (password grant) | A service user's name and password, for providers that still allow it. |
+
+Register `https://<bitween host>/oauth-callback` as the redirect URI at the provider. The approval uses PKCE and a state checked against an encrypted cookie. **Extra approval parameters** are added to the approval page's address, as `access_type=offline&prompt=consent`, which Google needs before it gives a refresh token; others want a scope such as `offline_access` or `refresh_token`. A connection approved without one says so, and needs approving again when its token expires.
+
+Write `{{connections.NAME.accessToken}}` in any setting: the HTTP handler's `ApiKey` with `AuthType` `Bearer`, or the `Token` of `s9.openapi` with `Auth` `bearer`. As the adapter starts:
+
+- a token good for at least two more minutes is used as it is; otherwise it is renewed first, with the refresh token or the client's credentials;
+- of several nodes or calls needing a renewal at once, one renews and the others wait for its token, because a provider that rotates refresh tokens honours only the first renewal;
+- a new refresh token the provider sends is kept, and the old one forgotten.
+
+When a token can't be had, the adapter call fails with the reason, so retry policies and alerts work as for any failure, and the connection shows it. A provider that refuses the refresh token (`invalid_grant`) leaves the connection **Needs authorizing**. **Test** renews now and shows the result.
+
+The client secret, the password and both tokens are encrypted at rest when `Bitween:SettingsEncryptionKey` is set, and masked in the API as `__private__`; a secret sent back as `__private__` is kept. Changing the client, its token or authorize URL, its scopes or its user forgets the tokens it has. A connection settings refer to (a subscription's, a notifier's, a retry policy's, a partner's or a global value set's) can't be deleted or renamed. Adding, changing and authorizing a connection are in the audit trail, with the secrets left out; renewing a token isn't.
+
+Data source settings can't use connections: a data source's adapter runs for a long time, and a token handed to it when it starts would expire.
 
 ## Rebex license
 

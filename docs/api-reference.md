@@ -57,6 +57,21 @@ See [Entry points](entry-points.md) for status codes.
 | `GET /api/settings/myversion` | signed in | API version |
 | `GET /api/permissions` | signed in | The permission catalogue |
 
+## Connections
+
+All need the global values permissions: `global-values.view` to read, `.create`, `.edit` and `.delete` to change. Secrets come back as `__private__`.
+
+| Method and path | Permission | Description |
+|---|---|---|
+| `GET /api/connections` | view | Every connection, with its status and the reference settings write |
+| `GET /api/connections/{id}` | view | One connection |
+| `POST /api/connections` | create | `{ name, grant, authorizeUrl, tokenUrl, clientId, clientSecret, scopes, authorizeParameters, tokenAuth, username, password }`; `grant` is `ClientCredentials`, `AuthorizationCode` or `Password` |
+| `POST /api/connections/{id}` | edit | The same; a secret sent as `__private__`, or left out, is kept |
+| `DELETE /api/connections/{id}` | delete | Refused while settings refer to it |
+| `POST /api/connections/{id}/authorize` | edit | Returns `{ url }`, the provider's approval page, and sets the cookie the approval is finished with |
+| `POST /api/connections/complete` | edit | `{ code, state }` from the provider's redirect to `/oauth-callback`. Returns `{ id, name }` |
+| `POST /api/connections/{id}/test` | edit | Renews the token now and returns the connection |
+
 ## Exchanges
 
 | Method and path | Permission | Description |

@@ -69,6 +69,9 @@ public class SecretColumnEncryptionPass(IServiceScopeFactory scopes, ILogger<Sec
         total += await RewriteAsync<Notifier>(cancellationToken, nameof(Notifier.HandlerProperties));
         total += await RewriteAsync<RetryPolicy>(cancellationToken, "AlertHandlerProperties");
         total += await RewriteAsync<RetryAlertOverride>(cancellationToken, "AlertHandlerProperties");
+        total += await RewriteAsync<Domain.Connections.Connection>(cancellationToken,
+            nameof(Domain.Connections.Connection.ClientSecret), nameof(Domain.Connections.Connection.Password),
+            nameof(Domain.Connections.Connection.RefreshToken), nameof(Domain.Connections.Connection.AccessToken));
         return total;
     }
 

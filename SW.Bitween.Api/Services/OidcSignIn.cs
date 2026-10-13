@@ -35,11 +35,12 @@ namespace SW.Bitween.Services;
 /// <c>Token:Key</c>, so any node can finish a sign-in another node started, and nothing is stored.
 /// </para>
 /// </remarks>
-public class OidcSignIn(BitweenOptions options, IConfiguration configuration, IHttpContextAccessor httpContextAccessor,
+public class OidcSignIn(BitweenOptions options, SealedState sealedState, IHttpContextAccessor httpContextAccessor,
     FileLinks fileLinks)
 {
     public const string FlowCookie = "bitween_oidc";
     public const string CallbackPath = "/oidc-callback";
+    const string FlowPurpose = "bitween:oidc-flow:v1";
     static readonly TimeSpan FlowLifetime = TimeSpan.FromMinutes(10);
 
     /// <summary>Who an ID token says it is: the address to match, when the provider vouches for it, and the identity to bind.</summary>
@@ -84,8 +85,8 @@ public class OidcSignIn(BitweenOptions options, IConfiguration configuration, IH
         if (!IsConfigured) throw new Refused("Single sign-on is not configured.");
         var metadata = await MetadataAsync(cancellation);
 
-        var flow = new Flow(Random(), Random(), Random(48), RedirectUri, DateTimeOffset.UtcNow.Add(FlowLifetime).ToUnixTimeSeconds());
-        httpContextAccessor.HttpContext?.Response.Cookies.Append(FlowCookie, Seal(flow), new CookieOptions
+        var flow = new Flow(SealedState.Random(), SealedState.Random(), SealedState.Random(48), RedirectUri, DateTimeOffset.UtcNow.Add(FlowLifetime).ToUnixTimeSeconds());
+        httpContextAccessor.HttpContext?.Response.Cookies.Append(FlowCookie, sealedState.Seal(FlowPurpose, flow), new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
@@ -96,7 +97,7 @@ public class OidcSignIn(BitweenOptions options, IConfiguration configuration, IH
             Path = "/",
         });
 
-        var challenge = Base64UrlEncoder.Encode(SHA256.HashData(Encoding.ASCII.GetBytes(flow.Verifier)));
+        var challenge = SealedState.Challenge(flow.Verifier);
         return QueryHelpers.AddQueryString(metadata.AuthorizationEndpoint, new Dictionary<string, string>
         {
             ["response_type"] = "code",
@@ -132,7 +133,7 @@ public class OidcSignIn(BitweenOptions options, IConfiguration configuration, IH
         var sealedFlow = context?.Request.Cookies[FlowCookie];
         context?.Response.Cookies.Delete(FlowCookie, new CookieOptions { Path = "/", Secure = true, HttpOnly = true, SameSite = SameSiteMode.Lax });
 
-        var flow = Open(sealedFlow);
+        var flow = sealedState.Open<Flow>(FlowPurpose, sealedFlow);
         if (flow == null || DateTimeOffset.UtcNow.ToUnixTimeSeconds() > flow.Expires)
             throw new Refused("The sign-in took too long or was started in another browser. Please try again.");
         if (string.IsNullOrEmpty(state) || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(state), Encoding.UTF8.GetBytes(flow.State)))
@@ -209,40 +210,7 @@ public class OidcSignIn(BitweenOptions options, IConfiguration configuration, IH
         return new OidcIdentity(string.IsNullOrEmpty(email) ? null : email, $"{subject}@{issuer}");
     }
 
-    record Flow(string State, string Nonce, string Verifier, string RedirectUri, long Expires);
-
-    byte[] Key => HKDF.DeriveKey(HashAlgorithmName.SHA256,
-        Encoding.UTF8.GetBytes(configuration["Token:Key"] ?? string.Empty), 32,
-        info: Encoding.UTF8.GetBytes("bitween:oidc-flow:v1"));
-
-    string Seal(Flow flow)
-    {
-        var plain = JsonSerializer.SerializeToUtf8Bytes(flow);
-        var nonce = RandomNumberGenerator.GetBytes(12);
-        var cipher = new byte[plain.Length];
-        var tag = new byte[16];
-        using (var aes = new AesGcm(Key, 16)) aes.Encrypt(nonce, plain, cipher, tag);
-        return Base64UrlEncoder.Encode([.. nonce, .. tag, .. cipher]);
-    }
-
-    Flow Open(string sealedFlow)
-    {
-        if (string.IsNullOrEmpty(sealedFlow)) return null;
-        try
-        {
-            var bytes = Base64UrlEncoder.DecodeBytes(sealedFlow);
-            if (bytes.Length < 29) return null;
-            var plain = new byte[bytes.Length - 28];
-            using (var aes = new AesGcm(Key, 16)) aes.Decrypt(bytes[..12], bytes[28..], bytes[12..28], plain);
-            return JsonSerializer.Deserialize<Flow>(plain);
-        }
-        catch (Exception ex) when (ex is CryptographicException or FormatException or JsonException or ArgumentException)
-        {
-            return null;
-        }
-    }
-
-    static string Random(int bytes = 32) => Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(bytes));
+    internal record Flow(string State, string Nonce, string Verifier, string RedirectUri, long Expires);
 
     static string Shorten(string text) => text.Length > 300 ? text[..300] + "..." : text;
 }

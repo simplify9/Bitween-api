@@ -8,6 +8,7 @@ import {
   Database,
   FileStack,
   FileText,
+  KeyRound,
   LayoutDashboard,
   Handshake,
   Layers,
@@ -323,6 +324,19 @@ export const PAGES = definePages({
     title: "Value set",
     permission: "global-values.view",
     parent: "globalValues",
+  },
+  connections: {
+    path: "connections",
+    title: "Connections",
+    permission: "global-values.view",
+    nav: { group: "configuration", icon: KeyRound },
+    keywords: ["oauth", "oauth2", "tokens", "sign in", "authorize", "salesforce", "credentials"],
+  },
+  connection: {
+    path: "connections/:id",
+    title: "Connection",
+    permission: "global-values.view",
+    parent: "connections",
   },
   workGroups: {
     path: "work-groups",

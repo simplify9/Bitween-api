@@ -15,6 +15,7 @@ import { globalValuesMethods } from "./globalValues";
 import { subscriptionMethods } from "./subscriptions";
 import { mapperMethods } from "./mappers";
 import { notifierMethods } from "./notifiers";
+import { connectionMethods } from "./connections";
 import { partnerMethods } from "./partners";
 import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
@@ -50,6 +51,7 @@ export const httpClient: ApiClient = {
   ...dataSourceMethods,
   ...mapperMethods,
   ...notifierMethods,
+  ...connectionMethods,
   ...teamMethods,
   ...serviceAccountMethods,
   ...settingsMethods,

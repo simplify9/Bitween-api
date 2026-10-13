@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Domain.Connections;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Services;
 using SW.EfCoreExtensions;
@@ -54,6 +55,9 @@ public static class AuditPolicy
         typeof(RetryAlertOverride),
         typeof(Notifier),
         typeof(GlobalAdapterValuesSet),
+        // Who added a connection, changed its client, or authorized it. Token renewals bypass the
+        // change tracker, so the hourly refresh of a token isn't an entry.
+        typeof(Connection),
         typeof(Setting),
         typeof(Account),
         typeof(Role),
@@ -100,6 +104,14 @@ public static class AuditPolicy
         [typeof(ApiCredential)] = [nameof(ApiCredential.Key)],
 
         [typeof(Account)] = [nameof(Account.Password)],
+
+        [typeof(Connection)] =
+        [
+            nameof(Connection.ClientSecret),
+            nameof(Connection.Password),
+            nameof(Connection.RefreshToken),
+            nameof(Connection.AccessToken)
+        ],
 
         // A hash of a random token, so no use to anyone; kept out anyway, like a partner's key.
         [typeof(ServiceToken)] = [nameof(ServiceToken.Hash)],

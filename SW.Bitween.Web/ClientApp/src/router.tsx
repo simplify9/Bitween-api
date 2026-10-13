@@ -29,6 +29,9 @@ import {
   ExchangeNewPage,
   ExchangesPage,
   FlowPage,
+  ConnectionPage,
+  ConnectionsPage,
+  OAuthCallbackPage,
   GlobalValueSetPage,
   GlobalValueSetsPage,
   HomeRedirect,
@@ -115,6 +118,8 @@ const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
   ),
   globalValues: <GlobalValueSetsPage />,
   globalValueSet: <GlobalValueSetPage />,
+  connections: <ConnectionsPage />,
+  connection: <ConnectionPage />,
   workGroups: <WorkGroupsPage />,
   workGroup: <WorkGroupPage />,
   retryPolicies: <RetryPoliciesPage />,
@@ -164,6 +169,17 @@ export const routes: RouteObject[] = [
       { path: "change-password", element: <ChangePasswordPage /> },
       // Where bitween login sends the browser; a session is all it needs, whatever it may do.
       { path: "cli-login", element: <CliLoginPage /> },
+      // Where a provider sends the browser back after approving a connection.
+      {
+        path: "oauth-callback",
+        element: (
+          <RequirePermission permission="global-values.edit">
+            <Suspense fallback={<LoadingBlock />}>
+              <OAuthCallbackPage />
+            </Suspense>
+          </RequirePermission>
+        ),
+      },
       {
         element: <AppShell />,
         children: [

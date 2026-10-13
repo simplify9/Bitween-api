@@ -35,6 +35,9 @@ export const DataSourceNewPage = lazy(() => import("./pages/data-sources/DataSou
 export const DataSourcePage = lazy(() => import("./pages/data-sources/DataSourcePage").then((m) => ({ default: m.DataSourcePage })));
 export const DataSourcesPage = lazy(() => import("./pages/data-sources/DataSourcesPage").then((m) => ({ default: m.DataSourcesPage })));
 export const FlowPage = lazy(() => import("./pages/flow/FlowPage").then((m) => ({ default: m.FlowPage })));
+export const ConnectionsPage = lazy(() => import("./pages/connections/ConnectionsPage").then((m) => ({ default: m.ConnectionsPage })));
+export const ConnectionPage = lazy(() => import("./pages/connections/ConnectionsPage").then((m) => ({ default: m.ConnectionPage })));
+export const OAuthCallbackPage = lazy(() => import("./pages/connections/ConnectionsPage").then((m) => ({ default: m.OAuthCallbackPage })));
 export const GlobalValueSetPage = lazy(() => import("./pages/global-values/GlobalValueSetPage").then((m) => ({ default: m.GlobalValueSetPage })));
 export const GlobalValueSetsPage = lazy(() => import("./pages/global-values/GlobalValueSetsPage").then((m) => ({ default: m.GlobalValueSetsPage })));
 export const InformationTypePage = lazy(() => import("./pages/information-types/InformationTypePage").then((m) => ({ default: m.InformationTypePage })));

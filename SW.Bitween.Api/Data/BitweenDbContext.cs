@@ -628,6 +628,29 @@ namespace SW.Bitween
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<Domain.Connections.Connection>(c =>
+            {
+                c.ToTable("Connections");
+                c.Property(p => p.Id).ValueGeneratedOnAdd();
+                c.Property(p => p.Name).IsRequired().HasMaxLength(100).IsUnicode(false);
+                c.HasIndex(p => p.Name).IsUnique();
+                c.Property(p => p.Grant).HasConversion<int>();
+                c.Property(p => p.Status).HasConversion<int>();
+                c.Property(p => p.AuthorizeUrl).HasMaxLength(1000);
+                c.Property(p => p.TokenUrl).HasMaxLength(1000);
+                c.Property(p => p.ClientId).HasMaxLength(500);
+                c.Property(p => p.ClientSecret).EncryptedText();
+                c.Property(p => p.Scopes).HasMaxLength(2000);
+                c.Property(p => p.AuthorizeParameters).HasMaxLength(2000);
+                c.Property(p => p.TokenAuth).HasMaxLength(20).IsUnicode(false);
+                c.Property(p => p.Username).HasMaxLength(500);
+                c.Property(p => p.Password).EncryptedText();
+                c.Property(p => p.RefreshToken).EncryptedText();
+                c.Property(p => p.AccessToken).EncryptedText();
+                c.Property(p => p.LastError).HasMaxLength(2000);
+                c.Property(p => p.AuthorizedBy).HasMaxLength(200);
+            });
+
             modelBuilder.Entity<Notifier>(b =>
             {
                 b.ToTable("Notifiers");

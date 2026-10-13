@@ -121,6 +121,10 @@ public static class SecretColumnCipher
         return builder;
     }
 
+    /// <summary>A text column holding a credential itself, encrypted as the JSON columns are.</summary>
+    public static PropertyBuilder<string> EncryptedText(this PropertyBuilder<string> builder) =>
+        builder.HasConversion(new ValueConverter<string, string>(v => Protect(v), v => Unprotect(v)));
+
     /// <summary>
     /// The same for a PostgreSQL <c>jsonb</c> column, which must always hold valid JSON. The
     /// encrypted payload is stored as a JSON string, so the column stays valid; a column written

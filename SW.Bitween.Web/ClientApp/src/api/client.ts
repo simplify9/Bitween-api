@@ -1,6 +1,8 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   AdapterInfo,
+  Connection,
+  ConnectionInput,
   AdapterKind,
   AggregationRetentionCheck,
   AggregationTarget,
@@ -231,6 +233,16 @@ export interface ApiClient {
   deleteInformationType(id: number): Promise<void>;
   /** Toggles: retires a type that is in use, restores one that is retired. */
   retireInformationType(id: number): Promise<{ retiredOn: string | null }>;
+
+  // - connections -
+  listConnections(): Promise<Connection[]>;
+  getConnection(id: number): Promise<Connection>;
+  createConnection(input: ConnectionInput): Promise<Connection>;
+  updateConnection(id: number, input: ConnectionInput): Promise<Connection>;
+  deleteConnection(id: number): Promise<void>;
+  authorizeConnection(id: number): Promise<string>;
+  completeConnection(code: string, state: string): Promise<{ id: number; name: string }>;
+  testConnection(id: number): Promise<Connection>;
 
   // - global values -
   listValueSets(): Promise<GlobalValuesSetRow[]>;

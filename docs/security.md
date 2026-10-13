@@ -123,6 +123,7 @@ The seeded **SYSTEM** partner has a key named `default` whose value is fixed in 
 ## Secrets
 
 - Adapter properties marked secret are masked as `__private__` in every API response and redacted from the audit trail. Their defaults are withheld from the adapter descriptions the UI reads. A published adapter that doesn't mark its passwords and keys as private has them returned in plain text, so check custom adapters before uploading them.
+- A [connection](adapters.md#connections)'s client secret, password, refresh token and access token are encrypted the same way, and are never returned by the API or written to the audit trail. An access token is put into an adapter's settings only as the adapter starts, so none is stored on an exchange.
 - The secret settings are the Rebex license key and the OpenID Connect client secret. They are encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
 - Partner properties, global values, adapter properties, data source settings, notifier and retry alert properties, including passwords, are encrypted in the database with AES-256-GCM when `Bitween:SettingsEncryptionKey` is set, and stored in plain text when it isn't. Values stored before the key was set are encrypted a few minutes after the next start. `Bitween:PreviousSettingsEncryptionKey` still decrypts values while the key is rotated.
 

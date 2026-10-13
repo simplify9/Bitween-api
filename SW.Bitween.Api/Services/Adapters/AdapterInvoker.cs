@@ -21,7 +21,8 @@ namespace SW.Bitween.Services.Adapters;
 /// adapter metrics: how long it took, and whether it failed and how - a timeout, a stop for going
 /// over a limit, a process that died, or an error of the adapter's own.
 /// </summary>
-public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecorder metrics = null, AdapterCatalog catalog = null)
+public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecorder metrics = null, AdapterCatalog catalog = null,
+    Connections.ConnectionTokens connections = null)
     : IAdapterInvoker
 {
     // Order matters: the classic runtime claims everything, so it has to be asked last.
@@ -30,6 +31,12 @@ public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecord
     public async Task<IAdapterSession> BeginAsync(string adapterId, AdapterRole role,
         IDictionary<string, string> properties = null, string correlationId = null)
     {
+        // Connection references become tokens here, as the adapter starts, and nowhere earlier: an
+        // exchange stores its settings with the reference in them, so no token is ever saved on
+        // one, and a retry later still gets a token that works. Every role and runtime passes
+        // through this, so every adapter can use them.
+        if (connections != null) properties = await connections.ResolveAsync(properties);
+
         foreach (var runtime in _runtimes)
             if (await runtime.CanRunAsync(adapterId))
             {

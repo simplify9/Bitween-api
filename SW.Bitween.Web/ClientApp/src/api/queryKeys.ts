@@ -125,6 +125,12 @@ export const keys = {
       ["retry-usage", "attempts", policyId, subscriptionId, groupId] as const,
   },
 
+  connections: {
+    all: ["connections"] as const,
+    list: ["connections", "list"] as const,
+    detail: (id: number) => ["connections", "detail", id] as const,
+  },
+
   valueSets: {
     all: ["value-sets"] as const,
     list: ["value-sets", "list"] as const,

@@ -1938,3 +1938,47 @@ export interface SubscriptionRevisionDetail {
   savedOn: string;
   configuration: Record<string, unknown>;
 }
+
+/** How a connection gets its tokens. */
+export type ConnectionGrant = "ClientCredentials" | "AuthorizationCode" | "Password";
+
+export type ConnectionStatus = "New" | "Connected" | "NeedsAuthorizing" | "Error";
+
+/** Credentials Bitween keeps fresh for adapters. Secrets come back as `__private__` when set. */
+export interface Connection {
+  id: number;
+  name: string;
+  grant: ConnectionGrant;
+  authorizeUrl: string | null;
+  tokenUrl: string | null;
+  clientId: string | null;
+  clientSecret: string | null;
+  scopes: string | null;
+  authorizeParameters: string | null;
+  tokenAuth: string | null;
+  username: string | null;
+  password: string | null;
+  status: ConnectionStatus;
+  lastError: string | null;
+  accessTokenExpiresOn: string | null;
+  hasRefreshToken: boolean;
+  authorizedBy: string | null;
+  authorizedOn: string | null;
+  /** What a setting writes to use it. */
+  reference: string;
+}
+
+/** A secret left as `__private__`, or not sent, keeps the stored one. */
+export interface ConnectionInput {
+  name: string;
+  grant: ConnectionGrant;
+  authorizeUrl?: string | null;
+  tokenUrl?: string | null;
+  clientId?: string | null;
+  clientSecret?: string | null;
+  scopes?: string | null;
+  authorizeParameters?: string | null;
+  tokenAuth?: string | null;
+  username?: string | null;
+  password?: string | null;
+}
