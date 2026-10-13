@@ -102,6 +102,7 @@ import type {
   MarketplaceInstallResult,
   MarketplacePackage,
   MarketplaceSearch,
+  RegistryCheckSummary,
   SubscriptionRevision,
   SubscriptionRevisionDetail,
   DraftBuild,
@@ -385,6 +386,10 @@ export interface ApiClient {
   getMarketplacePackage(id: string): Promise<MarketplacePackage>;
   /** Verifies a registry version's signatures and publishes it here, current only when asked. */
   installFromMarketplace(id: string, version: string, current: boolean): Promise<MarketplaceInstallResult>;
+  /** What the last registry check found: newer versions and revoked ones, for adapters installed from it. */
+  getMarketplaceUpdates(): Promise<RegistryCheckSummary>;
+  /** Asks the registry now rather than waiting for the daily check (adapter-source.operate). */
+  checkMarketplace(): Promise<RegistryCheckSummary>;
   /** A kit's connectors and the parameters it asks for. */
   getKit(id: string, version: string): Promise<KitInfo>;
   /** What installing a kit would do, changing nothing. */

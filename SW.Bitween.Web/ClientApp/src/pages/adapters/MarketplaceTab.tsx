@@ -31,6 +31,10 @@ const TIER_HINT: Record<RegistryTier, string> = {
 export function MarketplaceTab() {
   const [q, setQ] = useState("");
   const [tier, setTier] = useState("");
+  const [type, setType] = useState("");
+  const [category, setCategory] = useState("");
+  const [runtime, setRuntime] = useState("");
+  const [pricing, setPricing] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const search = useQuery({ queryKey: keys.marketplace(q, tier), queryFn: () => api.searchMarketplace(q, tier) });
 
@@ -56,7 +60,18 @@ export function MarketplaceTab() {
       </EmptyState>
     );
 
-  const results = search.data.result ?? [];
+  const listed = search.data.result ?? [];
+  // Filtered here, over the hundred the registry sends: category, runtime and price are on every card.
+  const categories = [...new Set(listed.flatMap((r) => r.card.categories ?? []))].sort();
+  const runtimes = [...new Set(listed.map((r) => r.card.runtime).filter((r): r is string => !!r))].sort();
+  const results = listed.filter(
+    ({ card }) =>
+      (type === "" || (type === "kit") === isKit(card)) &&
+      (category === "" || (card.categories ?? []).some((c) => c.toLowerCase() === category.toLowerCase())) &&
+      (runtime === "" || card.runtime === runtime) &&
+      (pricing === "" || card.pricing === pricing),
+  );
+  const filtered = q !== "" || tier !== "" || type !== "" || category !== "" || runtime !== "" || pricing !== "";
 
   return (
     <div className="space-y-4">
@@ -73,12 +88,48 @@ export function MarketplaceTab() {
             { value: "Community", label: "Community" },
           ]}
         />
+        <Select
+          aria-label="Type"
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          options={[
+            { value: "", label: "Connectors and kits" },
+            { value: "connector", label: "Connectors" },
+            { value: "kit", label: "Kits" },
+          ]}
+        />
+        {categories.length > 1 && (
+          <Select
+            aria-label="Category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            options={[{ value: "", label: "Every category" }, ...categories.map((c) => ({ value: c, label: c }))]}
+          />
+        )}
+        {runtimes.length > 1 && (
+          <Select
+            aria-label="Runtime"
+            value={runtime}
+            onChange={(e) => setRuntime(e.target.value)}
+            options={[{ value: "", label: "Any runtime" }, ...runtimes.map((r) => ({ value: r, label: r }))]}
+          />
+        )}
+        <Select
+          aria-label="Price"
+          value={pricing}
+          onChange={(e) => setPricing(e.target.value)}
+          options={[
+            { value: "", label: "Free and paid" },
+            { value: "Free", label: "Free" },
+            { value: "Paid", label: "Paid" },
+          ]}
+        />
         <span className="ml-auto text-xs text-ink-500">From {search.data.registry}</span>
       </div>
 
       {results.length === 0 ? (
-        <EmptyState icon={<Store />} title={q || tier ? "Nothing matches" : "No connectors yet"}>
-          {q || tier ? "Try other words, or every publisher." : "The registry hasn't published any connectors yet."}
+        <EmptyState icon={<Store />} title={filtered ? "Nothing matches" : "No connectors yet"}>
+          {filtered ? "Try other words, or fewer filters." : "The registry hasn't published any connectors yet."}
         </EmptyState>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

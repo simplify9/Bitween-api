@@ -147,6 +147,38 @@ public class KitInstall(BitweenDbContext dbContext, RequestContext requestContex
     }
 }
 
+public class MarketplaceUpdatesRequest
+{
+}
+
+/// <summary>
+/// What the last registry check found for the adapters installed from it: newer versions with their
+/// release notes, and installed versions the registry has revoked. Read from what was stored, so it
+/// answers with the registry unreachable.
+/// </summary>
+[HandlerName("updates")]
+public class Updates(BitweenDbContext dbContext, RequestContext requestContext, RegistryUpdates updates)
+    : IQueryHandler<MarketplaceUpdatesRequest, object>
+{
+    public async Task<object> Handle(MarketplaceUpdatesRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+        return await updates.ReadAsync();
+    }
+}
+
+/// <summary>Asks the registry now, rather than waiting for the daily check.</summary>
+[HandlerName("check")]
+public class Check(BitweenDbContext dbContext, RequestContext requestContext, RegistryUpdates updates)
+    : ICommandHandler<MarketplaceUpdatesRequest, object>
+{
+    public async Task<object> Handle(MarketplaceUpdatesRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.AdapterSource.Operate);
+        return await updates.CheckAsync();
+    }
+}
+
 static class Installed
 {
     public static async Task<InstalledState> Of(AdapterCatalog catalog, string id)

@@ -81,6 +81,10 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     http.get(apiPath("/subscriptions/history"), () => HttpResponse.json([])),
     // A receiver's bookmark, which a receiving subscription's runs show: none, unless a test says.
     http.get(apiPath("/subscriptions/bookmark"), () => HttpResponse.json({ value: null, updatedOn: null })),
+    // The registry check, which adapter and subscription pages flag revoked versions from: none set.
+    http.get(apiPath("/marketplace/updates"), () =>
+      HttpResponse.json({ configured: false, checkedOn: null, error: null, adapters: [] }),
+    ),
     // Metrics, which many pages show beside what they are about: none yet, unless a test says.
     ...defaultMetrics(),
   );

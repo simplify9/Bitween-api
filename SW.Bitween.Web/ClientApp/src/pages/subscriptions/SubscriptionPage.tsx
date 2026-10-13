@@ -20,6 +20,7 @@ import { useSourceDocument } from "../../components/config/sourceValues";
 import { SubscriptionStatusBadges, TypeBadge } from "../../components/config/shared";
 import { scheduleFault } from "../../components/config/subscriptionLabels";
 import { useSubscriptionsCache } from "../../components/config/lookups";
+import { RevokedAdapterNotice } from "../../components/config/RevokedAdapterNotice";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { DataSourceBinding } from "./studio/DataSourceBinding";
 import { useBindsToDataSource } from "../data-sources/providers";
@@ -691,6 +692,19 @@ function SubscriptionStudio() {
           <FormError>{receive.error?.message ?? aggregate.error?.message}</FormError>
         </div>
       </div>
+
+      <RevokedAdapterNotice
+        uses={(
+          [
+            ["receiver", s.receiverId, s.receiverVersion],
+            ["validator", s.validatorId, s.validatorVersion],
+            ["mapper", s.mapperId, s.mapperVersion],
+            ["handler", s.handlerId, s.handlerVersion],
+          ] as const
+        )
+          .filter(([, adapterId]) => !!adapterId)
+          .map(([kind, adapterId, version]) => ({ kind, adapterId: adapterId!, version: version ?? null }))}
+      />
 
       <StageRail faces={faces} selected={stage} onSelect={selectStage} />
 

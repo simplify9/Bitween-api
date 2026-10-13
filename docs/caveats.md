@@ -41,6 +41,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | POP3 receivers read only the first attachment, and the Rebex one uses port 995 only. | `Pop3Receiver`, `RebexPop3Receiver` |
 | Property values that fail to convert fall back to the default silently. | `NativeAdapters/ReflectionExtensions.cs` |
 | Notifier properties do not resolve partner or global tokens. | `XchangeService.NotifyResult` |
+| A version the registry revokes is flagged on the Adapters page and its subscriptions, not stopped. The marketplace tab shows and filters the first 100 packages the registry returns. | `Services/Marketplace/RegistryUpdates.cs`, `MarketplaceTab.tsx` |
 
 ## Adapters in other languages, the editor and the CLI
 

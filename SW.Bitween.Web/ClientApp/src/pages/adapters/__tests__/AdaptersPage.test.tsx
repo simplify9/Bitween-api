@@ -522,3 +522,92 @@ describe("the Adapters page", () => {
     expect(screen.getByText("2.4 MB")).toBeVisible();
   });
 });
+
+describe("the registry check on the Installed tab", () => {
+  const checked = (revoked: boolean) => ({
+    configured: true,
+    checkedOn: new Date(Date.now() - 3 * 3600_000).toISOString(),
+    error: null,
+    adapters: [
+      {
+        adapterId: "acme.handlers.orders",
+        current: "1.1.0",
+        latest: "1.2.0",
+        updateAvailable: true,
+        newer: [{ version: "1.2.0", releaseNotes: "Sends the order date." }],
+        revoked: revoked ? [{ version: "1.1.0", reason: "Leaks the token in logs.", revokedOn: "2026-10-13T00:00:00Z" }] : [],
+        listed: true,
+        checkedOn: "2026-10-13T00:00:00Z",
+      },
+    ],
+  });
+
+  it("flags a revoked current version and a newer one, with its notes, and checks again on asking", async () => {
+    let checks = 0;
+    const { user } = renderApp("/adapters?tab=installed", {
+      handlers: [
+        ...handlers,
+        http.get(apiPath("/marketplace/updates"), () => HttpResponse.json(checked(false))),
+        http.post(apiPath("/marketplace/check"), () => {
+          checks++;
+          return HttpResponse.json(checked(true));
+        }),
+      ],
+    });
+
+    expect(await screen.findByText(/Checked with the registry 3h ago\. 1 with a newer version\./, {}, LOADED)).toBeVisible();
+    const custom = await section("Published");
+    expect(custom.getByText("v1.2.0 available")).toBeVisible();
+    expect(custom.queryByText("Revoked")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Check now" }));
+    await waitFor(() => expect(checks).toBe(1));
+    expect(await screen.findByText(/1 with a revoked version/)).toBeVisible();
+    expect(custom.getByText("Revoked")).toHaveAttribute("title", "Leaks the token in logs.");
+
+    await user.click(custom.getByRole("button", { name: /Acme orders/ }));
+    expect(screen.getByText("Newer in the registry")).toBeVisible();
+    expect(screen.getByText(/Sends the order date\./)).toBeVisible();
+    const versions = screen.getByRole("heading", { name: "Versions" }).parentElement!;
+    expect(within(versions).getAllByRole("row")[1]).toHaveTextContent("v1.1.0CurrentRevoked");
+  });
+
+  it("says nothing when no registry is set", async () => {
+    renderApp("/adapters?tab=installed", { handlers });
+    expect(await screen.findByText("Acme orders", {}, LOADED)).toBeVisible();
+    expect(screen.queryByText(/Checked with the registry/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check now" })).not.toBeInTheDocument();
+  });
+
+  it("filters the marketplace to kits", async () => {
+    const card = (id: string, displayName: string, kinds: string) => ({
+      id, displayName, summary: null, publisher: "s9", publisherName: "Simplify9", tier: "Official", pricing: "Free",
+      latest: "1.0.0", runtime: kinds === "kit" ? null : "python", kinds, categories: ["CRM"], iconDataUri: null,
+      downloads: 0, updatedOn: "2026-10-13T00:00:00Z",
+    });
+    const installed = { installed: false, fromRegistry: false, current: null, versions: [] };
+    const { user } = renderApp("/adapters?tab=marketplace", {
+      handlers: [
+        ...handlers,
+        http.get(apiPath("/marketplace/search"), () =>
+          HttpResponse.json({
+            configured: true,
+            registry: "https://registry.bitween.io",
+            totalCount: 2,
+            result: [
+              { card: card("s9.zoho.contacts", "Zoho CRM contacts", "kit"), installed },
+              { card: card("s9.openapi", "REST API (OpenAPI)", "handler"), installed },
+            ],
+          }),
+        ),
+      ],
+    });
+
+    expect(await screen.findByText("REST API (OpenAPI)", {}, LOADED)).toBeVisible();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Type" }), "kit");
+    expect(screen.getByText("Zoho CRM contacts")).toBeVisible();
+    expect(screen.queryByText("REST API (OpenAPI)")).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Price" }), "Paid");
+    expect(screen.getByText("Nothing matches")).toBeVisible();
+  });
+});

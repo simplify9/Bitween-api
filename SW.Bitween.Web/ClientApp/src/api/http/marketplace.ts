@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { KitInfo, KitInstallRequest, KitRun, MarketplaceInstallResult, MarketplacePackage, MarketplaceSearch } from "../types";
+import type { KitInfo, KitInstallRequest, KitRun, MarketplaceInstallResult, MarketplacePackage, MarketplaceSearch, RegistryCheckSummary } from "../types";
 import { get, post } from "./request";
 
 export const marketplaceMethods = {
@@ -10,6 +10,10 @@ export const marketplaceMethods = {
 
   installFromMarketplace: (id: string, version: string, current: boolean) =>
     post<MarketplaceInstallResult>("/marketplace/install", { id, version, current }),
+
+  getMarketplaceUpdates: () => get<RegistryCheckSummary>("/marketplace/updates"),
+
+  checkMarketplace: () => post<RegistryCheckSummary>("/marketplace/check", {}),
 
   getKit: (id: string, version: string) => get<KitInfo>(`/marketplace/kit?${new URLSearchParams({ id, version })}`),
 

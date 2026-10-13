@@ -1,6 +1,6 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronRight,
@@ -21,7 +21,8 @@ import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { useSubscriptionsCache } from "../../components/config/lookups";
 import { SearchBox } from "../../components/ui/SearchBox";
-import { formatDate } from "../../lib/dates";
+import { formatDate, timeAgo } from "../../lib/dates";
+import { useRegistryChecks } from "../../components/config/registryChecks";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import {
@@ -176,6 +177,7 @@ export function AdaptersPage() {
             <Can permission="adapter-source.edit">
               <Drafts />
             </Can>
+            <RegistryCheckLine onMarketplace={() => selectTab("marketplace")} />
             <AdapterCatalog
               key="installed"
               title="Published"
@@ -260,6 +262,55 @@ function AdapterCatalog({
   );
 }
 
+/**
+ * When Bitween last asked the registry about what was installed from it, what it found, and a way
+ * to ask now. Shown only once a registry is set.
+ */
+function RegistryCheckLine({ onMarketplace }: { onMarketplace: () => void }) {
+  const { summary } = useRegistryChecks();
+  const queryClient = useQueryClient();
+  const check = useMutation({
+    mutationFn: () => api.checkMarketplace(),
+    onSuccess: (data) => queryClient.setQueryData(keys.marketplaceUpdates, data),
+  });
+  if (!summary?.configured) return null;
+
+  const updates = summary.adapters.filter((a) => a.updateAvailable).length;
+  const revoked = summary.adapters.filter((a) => a.revoked.length > 0).length;
+  return (
+    <div className="space-y-1.5">
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink-500">
+        <span>
+          {summary.checkedOn
+            ? `Checked with the registry ${timeAgo(summary.checkedOn)}.`
+            : "Not checked with the registry yet; it is checked once a day."}
+          {summary.checkedOn && updates > 0 && ` ${updates} with a newer version.`}
+          {summary.checkedOn && revoked > 0 && (
+            <span className="font-medium text-danger-700"> {revoked} with a revoked version.</span>
+          )}
+        </span>
+        <Can permission="adapter-source.operate">
+          <button
+            type="button"
+            onClick={() => check.mutate()}
+            disabled={check.isPending}
+            className="font-medium text-crimson-700 hover:underline disabled:text-ink-400"
+          >
+            {check.isPending ? "Checking…" : "Check now"}
+          </button>
+        </Can>
+        <button type="button" onClick={onMarketplace} className="font-medium text-crimson-700 hover:underline">
+          Browse the marketplace
+        </button>
+      </p>
+      {summary.error && (
+        <p className="text-[12.5px] text-danger-700">The last check didn't finish: {summary.error}</p>
+      )}
+      <FormError>{check.error?.message}</FormError>
+    </div>
+  );
+}
+
 function AdapterSection({
   title,
   description,
@@ -300,6 +351,8 @@ function AdapterSection({
 
 function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
   const [open, setOpen] = useState(false);
+  const check = useRegistryChecks().byAdapter.get(a.id.toLowerCase());
+  const currentRevoked = check?.revoked.find((r) => r.version === a.currentVersion);
   const used = usage?.subscriptions.length ?? 0;
   const pinnable = a.versions.filter((v) => !v.withdrawn).length;
 
@@ -326,6 +379,16 @@ function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: 
               </Badge>
             ))}
             {a.currentVersion && <Badge tone="ink">v{a.currentVersion}</Badge>}
+            {currentRevoked && (
+              <Badge tone="danger" title={currentRevoked.reason ?? "Revoked by the registry"}>
+                Revoked
+              </Badge>
+            )}
+            {check?.updateAvailable && check.latest && (
+              <Badge tone="warn" title="A newer version is in the registry">
+                v{check.latest} available
+              </Badge>
+            )}
             {runtimeLabel(runtimeOf(a)) && <Badge tone="neutral">{runtimeLabel(runtimeOf(a))}</Badge>}
           </span>
           <code className="block truncate font-mono text-[11.5px] text-ink-500">{a.id}</code>
@@ -460,6 +523,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
   // Not the current one: the server refuses, since everything following current would have nothing to run.
   const withdrawable = promotable;
   const actionColumn = a.hasCatalog && a.versions.some((v) => editable(v) || promotable(v));
+  const check = useRegistryChecks().byAdapter.get(a.id.toLowerCase());
   const edit = async (version: string) => {
     setEditError("");
     try {
@@ -507,6 +571,15 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                       {v.withdrawn && (
                         <Badge tone="neutral" className="ml-1.5">
                           Withdrawn
+                        </Badge>
+                      )}
+                      {check?.revoked.some((r) => r.version === v.version) && (
+                        <Badge
+                          tone="danger"
+                          className="ml-1.5"
+                          title={check.revoked.find((r) => r.version === v.version)?.reason ?? "Revoked by the registry"}
+                        >
+                          Revoked
                         </Badge>
                       )}
                     </td>
@@ -584,6 +657,26 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                 ? "1 use follows the current version."
                 : `${usage.followingCurrent} uses follow the current version.`}
             </p>
+          )}
+          {check && check.newer.length > 0 && (
+            <div className="mt-3 max-w-3xl">
+              <h4 className="mb-1 text-[12px] font-semibold text-ink-600">Newer in the registry</h4>
+              <ul className="space-y-1 text-[12.5px] text-ink-700">
+                {check.newer.map((n) => (
+                  <li key={n.version}>
+                    <span className="font-mono">v{n.version}</span>
+                    {n.releaseNotes && <span className="whitespace-pre-line text-ink-600">: {n.releaseNotes}</span>}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[12px] text-ink-500">
+                Install one from the{" "}
+                <Link to="/adapters?tab=marketplace" className="font-medium text-crimson-700 hover:underline">
+                  Marketplace tab
+                </Link>
+                ; it is added beside these, and made current only when you say.
+              </p>
+            </div>
           )}
           <FormError>{editError}</FormError>
           {promoting && (

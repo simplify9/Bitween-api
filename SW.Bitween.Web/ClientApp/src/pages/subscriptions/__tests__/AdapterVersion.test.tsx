@@ -113,3 +113,43 @@ describe("a retry policy set on the subscription through the API", () => {
     expect(saves[0].customRetryPolicy).toBeNull();
   });
 });
+
+describe("a version the registry has revoked", () => {
+  const updates = (revokedVersion: string) =>
+    http.get(apiPath("/marketplace/updates"), () =>
+      HttpResponse.json({
+        configured: true,
+        checkedOn: "2026-10-13T00:00:00Z",
+        error: null,
+        adapters: [
+          {
+            adapterId: "acme.handlers.orders", current: "1.1.0", latest: null, updateAvailable: false, newer: [],
+            revoked: [{ version: revokedVersion, reason: "Leaks the token in logs.", revokedOn: null }],
+            listed: true, checkedOn: "2026-10-13T00:00:00Z",
+          },
+        ],
+      }),
+    );
+
+  it("is named on a subscription pinned to it", async () => {
+    const { handlers } = backend([sub({ handlerVersion: "1.0.0" })]);
+    renderApp("/subscriptions/10", { handlers: [updates("1.0.0"), ...handlers] });
+    const notice = (await screen.findByText(/which the registry has revoked/)).closest("p")!;
+    expect(notice).toHaveTextContent(
+      "The handler runs acme.handlers.orders v1.0.0, which the registry has revoked: Leaks the token in logs.",
+    );
+  });
+
+  it("is named on one following current when current is revoked, and not when another version is", async () => {
+    const { handlers } = backend([sub()]);
+    renderApp("/subscriptions/10", { handlers: [updates("1.1.0"), ...handlers] });
+    expect(await screen.findByText(/v1\.1\.0, which the registry has revoked/)).toBeVisible();
+  });
+
+  it("isn't named when the subscription runs another version", async () => {
+    const { handlers } = backend([sub({ handlerVersion: "1.1.0" })]);
+    renderApp("/subscriptions/10", { handlers: [updates("1.0.0"), ...handlers] });
+    expect(await screen.findByRole("button", { name: "Disable" })).toBeVisible();
+    expect(screen.queryByText(/which the registry has revoked/)).not.toBeInTheDocument();
+  });
+});

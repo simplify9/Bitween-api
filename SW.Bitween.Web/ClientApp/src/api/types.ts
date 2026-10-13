@@ -1913,6 +1913,43 @@ export interface MarketplacePackage {
   installed: MarketplaceInstalled;
 }
 
+/** A version newer than any installed here, with what its publisher says changed. */
+export interface RegistryNewerVersion {
+  version: string;
+  releaseNotes: string | null;
+}
+
+/** An installed version the registry has revoked, from its signed revocation list. */
+export interface RegistryRevokedVersion {
+  version: string;
+  reason: string | null;
+  revokedOn: string | null;
+}
+
+/** What the last registry check found for one adapter installed from it. */
+export interface RegistryAdapterCheck {
+  adapterId: string;
+  /** Current here now. */
+  current: string | null;
+  latest: string | null;
+  updateAvailable: boolean;
+  /** Newest first. */
+  newer: RegistryNewerVersion[];
+  revoked: RegistryRevokedVersion[];
+  /** False when the registry no longer lists it. */
+  listed: boolean;
+  checkedOn: string;
+}
+
+/** The last registry check, run daily and on Check now. */
+export interface RegistryCheckSummary {
+  configured: boolean;
+  checkedOn: string | null;
+  /** Why the last check didn't finish; the flags from the one before stay. */
+  error: string | null;
+  adapters: RegistryAdapterCheck[];
+}
+
 /** A kit's parameter, as its install form asks for it. */
 export interface KitParameter {
   name: string;

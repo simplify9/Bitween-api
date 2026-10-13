@@ -499,7 +499,8 @@ one can move a step to another runtime.
 
 The **Marketplace** tab on the **Adapters** page lists the connectors a Bitween Registry offers, and
 installs them. It is on by default, with Simplify9's registry and its signing keys, and reaches the
-registry only when someone opens the tab or installs. **Settings, Marketplace** turns it off, for a
+registry only when someone opens the tab or installs, and once a day, when something was installed
+from it, to [check for updates and revocations](#updates-and-revocations). **Settings, Marketplace** turns it off, for a
 Bitween that must not reach the internet, or points it at another registry or a mirror: its **Registry
 address** and its **signing keys**, the registry's Ed25519 public keys, base64 or PEM, separated by commas
 or new lines.
@@ -526,7 +527,8 @@ never needs the registry again; pinning, **Make current** and **Withdraw** work 
 install is in the audit trail as an `AdapterRelease` with the action `installed`.
 
 A card says **Installed** when this Bitween has the registry's newest version, and **Update available**
-when it has an older one. Nothing is updated by itself.
+when it has an older one. Nothing is updated by itself. Besides the search and the publisher, the tab
+filters by type (connectors or kits), category, runtime and price.
 
 A card marked **Kit** is connectors plus the configuration that makes them useful (see [Kits](cli.md#kits)).
 Opening it shows the kit's parameters as a form, with secrets as password fields and defaults filled in, and
@@ -537,6 +539,25 @@ from it. It installs as you: Bitween runs the same planner as `bitween kit insta
 with your session, so it can make only what you could make yourself, and each change is in the audit
 trail under your name, with an `install-kit` operator action for the whole. Installing a kit as an adapter
 is refused (`REGISTRY_KIT`).
+
+#### Updates and revocations
+
+Once a day, on whichever node gets there first, Bitween asks the registry about every adapter installed
+from it: is there a newer version, with its release notes, and has an installed version been revoked.
+**Check now** on the **Installed** tab asks at once (`adapter-source.operate`). What it finds is kept in the
+database, so every node shows the same and the pages that show it never wait on the registry:
+
+- the **Installed** tab says when the registry was last asked and how many adapters have a newer or a
+  revoked version; a row shows **v1.2.0 available** and, when its current version is revoked, **Revoked**,
+  with the registry's reason on hover; its versions mark each revoked one and list the newer ones with
+  their notes;
+- a subscription whose receiver, validator, mapper or handler runs a revoked version, pinned or following
+  current, says so at the top of its page, with the reason.
+
+Revocations are read only from the registry's signed list, checked against the trusted keys as installing
+does. A list that doesn't verify, or a registry that can't be reached, changes nothing: the last good
+check's flags stay, and the tab says why the check didn't finish. A revoked version keeps running; what to
+do about it, pin another version or make one current, is yours to decide.
 
 The data source providers (Oracle, PostgreSQL, MySQL, SQL Server, RabbitMQ and Amazon SQS) are on the
 marketplace too, published by Simplify9 under their own ids, such as `bitween.db.oracle`, which data
@@ -552,6 +573,9 @@ Simplify9's own connectors, from the Bitween-Connectors repository, include:
 | `s9.openapi.receiver` | A receiver that takes records in from a list operation: every page (Link header, next address, cursor, page number or offset), each record one exchange, and only what changed since the last run, by a [bookmark](adapter-contract.md#receivers-that-keep-a-bookmark). |
 | `s9.soap` | A handler that calls a SOAP 1.1 or 1.2 web service, with HTTP Basic or a WS-Security UsernameToken. A Client or Sender fault is a bad response; a Server or Receiver fault fails the delivery, so a retry policy retries it. |
 | `s9.rebex.ftp.receiver`, `s9.rebex.ftp.upload`, `s9.rebex.pop3.receiver` | The [Rebex adapters](#moved-to-the-marketplace) that were built in. |
+
+And kits on those connectors: `s9.salesforce.contacts`, `s9.zoho.contacts` (any Zoho data centre) and
+`s9.servicenow.incidents`, each one job both ways between that system and yours.
 
 ### Writing an adapter in Bitween
 
