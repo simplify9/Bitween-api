@@ -343,6 +343,24 @@ bitween registry logout
 
 The signature is the one `scripts/sign.sh` in Bitween-Connectors makes, byte for byte.
 
+What the registry checks before a version goes to review, each check printed by `publish`:
+
+- **the package:** its manifest, that its id is in the publisher's namespace, the oldest Bitween it works with,
+  and that it carries its source, every file matching the hash its manifest records;
+- **the signature,** against a live key of the publisher;
+- **secrets:** the scan `bitween adapter build` runs, over every file the publisher wrote. It reports where,
+  never the value;
+- **dependencies:** what the package vendors (Python, Node and .NET), asked of the [OSV](https://osv.dev)
+  vulnerability database. A known critical vulnerability refuses it; others are listed for the reviewer;
+- **licences:** a dependency licensed under AGPL, GPL, SSPL, BUSL, a non-commercial Creative Commons licence or
+  the Commons Clause refuses it, unless it may be taken under another licence. LGPL and permissive licences pass;
+- **a kit's connectors,** which must be in the registry at the versions it names.
+
+The registry runs no package code. The contract check is `bitween adapter test`, which a publisher runs in its
+CI before publishing; Simplify9's connectors aren't published without passing it. Then a reviewer at Simplify9
+reads the version, with the files changed since the previous one marked, approves it, and the registry
+countersigns it.
+
 ### Exit codes
 
 `0` when the command did what was asked, `1` otherwise - a failed check, a refused publish, a problem
