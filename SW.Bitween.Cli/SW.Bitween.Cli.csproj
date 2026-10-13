@@ -16,6 +16,9 @@
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
+    <!-- Ed25519, for signing what bitween registry publish sends. Aliased, as in the API: another
+         dependency brings the older BouncyCastle.Crypto, with the same type names. -->
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" Aliases="BouncyCastle2" />
   </ItemGroup>
 
   <ItemGroup>

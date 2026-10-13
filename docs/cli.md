@@ -291,11 +291,42 @@ bitween kit build kits/s9.salesforce.contacts                # a zip for the reg
 A kit published to the registry is also installed from Bitween's [Marketplace tab](adapters.md#installing-from-the-marketplace),
 which asks for its parameters in a form and shows the same plan.
 
+## Publishing to the registry
+
+A publisher sends adapters and kits to a [Bitween Registry](adapters.md#installing-from-the-marketplace),
+where they wait for review. Publishing signs the package's SHA-256 with the publisher's Ed25519 key; the
+registry checks the signature against the public key it holds for the publisher, then a reviewer approves it
+and the registry countersigns it.
+
+```sh
+echo "$REGISTRY_TOKEN" | bitween registry login https://registry.bitween.io --key-file ~/keys/s9.pem
+bitween registry publish connectors/s9.openapi/bin/serverless/s9.openapi-1.0.0.zip
+bitween registry publish kits/s9.zoho.contacts/bin/s9.zoho.contacts-1.0.0.zip
+bitween registry status s9.openapi            # every version: in review, published, rejected, revoked
+bitween registry status s9.openapi 1.0.0      # one version's checks and the review's notes
+bitween registry whoami
+bitween registry logout
+```
+
+- **login** reads a publish token, issued on the registry's Tokens page, from standard input, checks it with
+  the registry, and keeps it with the registry's address in the CLI's configuration file, readable by you
+  alone. `--key-file` keeps the path of the signing key, never the key.
+- **publish** reads the id and version from the zip's `adapter.json`, signs it, and sends it. It prints every
+  check the registry ran. It exits `0` when the version is in review, `1` when a check failed (the failed ones
+  are printed) and `2` when that version is already in the registry, so CI can tell a missing version bump
+  from a broken package.
+- The key is an unencrypted Ed25519 private key in PEM, as `openssl genpkey -algorithm ed25519` writes it.
+  `--key-file` on publish, then `BITWEEN_SIGNING_KEY` (its PEM text), then `BITWEEN_SIGNING_KEY_FILE`, then
+  the path login kept, in that order. A key that can't be read is named by where it came from, never shown.
+- In CI, skip login: `BITWEEN_REGISTRY_URL` and `BITWEEN_REGISTRY_TOKEN` win over what login kept.
+
+The signature is the one `scripts/sign.sh` in Bitween-Connectors makes, byte for byte.
+
 ### Exit codes
 
 `0` when the command did what was asked, `1` otherwise - a failed check, a refused publish, a problem
 in the arguments - with the reason printed. `bitween plan --detailed-exitcode` exits `2` when there are
-changes to apply. `bitween adapter test` prints each check as `PASS`, `FAIL`
+changes to apply, and `bitween registry publish` exits `2` when the version is already in the registry. `bitween adapter test` prints each check as `PASS`, `FAIL`
 or `SKIP`.
 
 The CLI is `SW.Bitween.Cli`, built on `SW.Bitween.Adapters.Tooling`, which the adapter editor in Bitween

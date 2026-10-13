@@ -17,10 +17,23 @@ public class Profile
     public bool Insecure { get; set; }
 }
 
+/// <summary>A Bitween Registry signed in to, to publish: its address, a publish token, and where the signing key is.</summary>
+public class RegistryProfile
+{
+    public string Url { get; set; }
+    public string Token { get; set; }
+
+    /// <summary>The publisher's Ed25519 private key, as a path; the key itself is never copied here.</summary>
+    public string KeyFile { get; set; }
+}
+
 public class ProfileFile
 {
     public string Current { get; set; }
     public Dictionary<string, Profile> Profiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Set by bitween registry login; null until then.</summary>
+    public RegistryProfile Registry { get; set; }
 }
 
 /// <summary>

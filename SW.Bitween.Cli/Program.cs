@@ -33,6 +33,8 @@ public static class Program
                 case "kit":
                 case "kits":
                     return await KitVerb(args[1..], profiles);
+                case "registry":
+                    return await RegistryVerb(args[1..], profiles, input);
                 case "version":
                 case "--version":
                     Console.WriteLine($"bitween {Version}");
@@ -86,6 +88,20 @@ public static class Program
             (KitBuildOptions o) => Commands.KitBuild(o),
             (KitPlaceholderOptions _) => Task.FromResult(Help(parsed, "bitween kit")),
             _ => Task.FromResult(Help(parsed, "bitween kit")));
+    }
+
+    static async Task<int> RegistryVerb(string[] args, Profiles profiles, TextReader input)
+    {
+        var parsed = Parser().ParseArguments<RegistryLoginOptions, RegistryLogoutOptions, RegistryWhoAmIOptions,
+            RegistryPublishOptions, RegistryStatusOptions, RegistryPlaceholderOptions>(args);
+        return await parsed.MapResult(
+            (RegistryLoginOptions o) => Commands.RegistryLogin(o, profiles, input),
+            (RegistryLogoutOptions _) => Commands.RegistryLogout(profiles),
+            (RegistryWhoAmIOptions _) => Commands.RegistryWhoAmI(profiles),
+            (RegistryPublishOptions o) => Commands.RegistryPublish(o, profiles),
+            (RegistryStatusOptions o) => Commands.RegistryStatus(o, profiles),
+            (RegistryPlaceholderOptions _) => Task.FromResult(Help(parsed, "bitween registry")),
+            _ => Task.FromResult(Help(parsed, "bitween registry")));
     }
 
     static async Task<int> Adapter(string[] args, Profiles profiles)
@@ -161,6 +177,15 @@ public static class Program
           bitween adapter promote <id> <version>
           bitween adapter versions <id>
           bitween adapter withdraw <id> <version>
+
+          bitween registry login <url>     Keep a registry publish token, read from standard input
+                                           (--key-file for your publisher's Ed25519 key in PEM)
+          bitween registry publish <zip>   Sign a package or kit and send it for review (exit 2: already there)
+          bitween registry status <id> [version]
+                                           Where your versions are, or one version's checks and review
+          bitween registry whoami | logout
+                                           (BITWEEN_REGISTRY_URL, BITWEEN_REGISTRY_TOKEN and BITWEEN_SIGNING_KEY
+                                           or BITWEEN_SIGNING_KEY_FILE for CI)
 
           bitween mapping test <cases.yaml> Map sample inputs with subscriptions' saved mappings and compare
                                            them with what's expected (--update writes the outputs instead)
