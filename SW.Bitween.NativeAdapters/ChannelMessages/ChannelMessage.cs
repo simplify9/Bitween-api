@@ -44,6 +44,11 @@ public class ChannelMessage
         {
         }
 
+        // A fact with nothing to say, such as the information type of an exchange since removed,
+        // is left out rather than shown blank, or refused by Slack and Teams.
+        message?.Facts?.RemoveAll(f => f is null || string.IsNullOrWhiteSpace(f.Label) || string.IsNullOrWhiteSpace(f.Value));
+        if (message is { Facts: null }) message.Facts = [];
+
         return message is { Title.Length: > 0 }
             ? message
             : throw new InvalidOperationException(

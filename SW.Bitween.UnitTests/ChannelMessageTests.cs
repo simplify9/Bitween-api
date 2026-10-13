@@ -102,6 +102,26 @@ public class ChannelMessageTests
         }
     }
 
+    /// <summary>
+    /// A fact with no value, such as the information type of an exchange since removed, is left out
+    /// rather than crashing Slack's layout; and the Slack banner can't be turned into a mention.
+    /// </summary>
+    [TestMethod]
+    public void A_fact_with_no_value_is_left_out_and_the_slack_banner_cannot_mention_anyone()
+    {
+        var message = ChannelMessage.Parse(JsonConvert.SerializeObject(new ChannelMessage
+        {
+            Title = "<!channel> paused itself",
+            Tone = ChannelMessageTone.Failure,
+            Facts = [new("Subscription", "<!channel>"), new("Information type", null!), new("Group", " ")]
+        }));
+
+        CollectionAssert.AreEqual(new[] { "Subscription" }, message.Facts.Select(f => f.Label).ToArray());
+        foreach (var rendered in new[] { SlackBlocks.Render(message), TeamsCard.Render(message), EmailBody.Render(message).Html })
+            Assert.IsFalse(string.IsNullOrEmpty(rendered));
+        Assert.AreEqual("&lt;!channel&gt; paused itself", (string)JObject.Parse(SlackBlocks.Render(message))["text"]);
+    }
+
     [TestMethod]
     public void A_failed_exchange_reads_as_a_failure_with_its_error_and_a_link_to_it()
     {

@@ -71,7 +71,8 @@ internal static class SlackBlocks
 
         return new JObject
         {
-            ["text"] = message.Title,
+            // The notification banner: a subscription named "<!channel>" must not page everyone.
+            ["text"] = Escape(message.Title),
             ["blocks"] = blocks
         }.ToString(Formatting.None);
     }
