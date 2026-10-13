@@ -32,7 +32,7 @@ import { draftOf, entryPointsOf, feedersOf, stageDirty, type Draft } from "./stu
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useDetour } from "../../lib/detour";
-import { notificationSlot, withPickedChannel } from "../../lib/notificationChannels";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { useCurrentPage } from "../../lib/currentPage";
 import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../lib/subscriptionPaths";
@@ -738,6 +738,11 @@ function SubscriptionStudio() {
         <UnsavedBar
           busy={save.isPending}
           error={save.error?.message}
+          blocked={
+            draft && notificationsIncomplete(draft.notifications)
+              ? "Every notification needs a channel of its own and at least one outcome ticked."
+              : undefined
+          }
           onSave={() => save.mutate()}
           onDiscard={() => setLoaded(false)}
         />

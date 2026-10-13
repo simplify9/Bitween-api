@@ -22,4 +22,9 @@ describe("a notifications list the server would refuse", () => {
     // Going quiet is not about any one exchange, so it can be a row's only tick.
     expect(notificationsIncomplete([{ ...row(1), onFailure: false, onQuiet: true }])).toBe(false);
   });
+
+  it("is one that names the same channel twice", () => {
+    expect(notificationsIncomplete([row(1), row(2)])).toBe(false);
+    expect(notificationsIncomplete([row(1), { ...row(1), onFailure: false, onSuccess: true }])).toBe(true);
+  });
 });

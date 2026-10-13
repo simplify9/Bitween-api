@@ -89,6 +89,10 @@ export function withPickedChannel(
   return [...notifications, { channelId, onFailure: true, onBadResult: false, onSuccess: false, onQuiet: false }];
 }
 
-/** Whether any notification row is still missing its channel or every outcome - the save would be refused. */
+/**
+ * Whether any notification row is still missing its channel or every outcome, or names a channel
+ * another row already does - the save would be refused.
+ */
 export const notificationsIncomplete = (notifications: SubscriptionNotification[]): boolean =>
-  notifications.some((n) => n.channelId <= 0 || (!n.onFailure && !n.onBadResult && !n.onSuccess && !n.onQuiet));
+  notifications.some((n) => n.channelId <= 0 || (!n.onFailure && !n.onBadResult && !n.onSuccess && !n.onQuiet)) ||
+  new Set(notifications.map((n) => n.channelId)).size !== notifications.length;
