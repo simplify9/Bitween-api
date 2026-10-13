@@ -498,6 +498,15 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
             });
 
+            modelBuilder.Entity<NotificationChannel>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.HasIndex(p => p.Name).IsUnique();
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
+            });
+
             modelBuilder.Entity<XchangeNotification>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
@@ -506,6 +515,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasIndex(p => p.XchangeId);
                 // The quiet window looks up a notifier's recent sends.
                 b.HasIndex(p => new { p.NotifierId, p.FinishedOn });
+                // And a channel's.
+                b.HasIndex(p => new { p.ChannelId, p.FinishedOn });
             });
 
             modelBuilder.Entity<Account>(b =>
@@ -654,6 +665,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     e => e == null ? null : JsonSerializer.Serialize(e, _polymorphicOpts),
                     json => json == null ? null : JsonSerializer.Deserialize<ExpectTraffic>(json, _polymorphicOpts)
                 );
+                b.Property(s => s.Notifications).StoreAsJson();
             });
 
             modelBuilder.Entity<DelayedRetry>(b =>

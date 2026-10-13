@@ -18,19 +18,23 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   await expect(page.getByRole("heading", { name })).toBeVisible();
   await expect(page.getByText("No groups yet")).toBeVisible();
 
+  // A group has a page of its own, and saving it writes the policy straight away.
   await page.getByRole("button", { name: "Add group" }).click();
-  const dialog = page.getByRole("dialog", { name: "New group" });
-  await dialog.locator("#rg-name").fill(groupName);
-  await dialog.getByRole("button", { name: "Add condition" }).click();
-  await dialog.getByLabel("Text to find").fill("timeout");
+  await expect(page).toHaveURL(/\/retry-policies\/\d+\/groups\/new/);
+  // The URL changes a moment before the page does; the policy page has a Name field of its own.
+  await expect(page.getByRole("button", { name: "Add condition" })).toBeVisible();
+  await page.getByLabel("Name").fill(groupName);
+  await page.getByRole("button", { name: "Add condition" }).click();
+  await page.getByLabel("Text to find").fill("timeout");
   // Fixed delay in seconds - the backend stores this in milliseconds, so this
   // exercises the ms <-> seconds conversion in both directions once reloaded.
-  await dialog.locator("#rg-delay").selectOption("fixed");
-  await dialog.locator("#rg-d1").fill("45");
-  await dialog.getByRole("button", { name: "Add group" }).click();
+  await page.locator("#rg-delay").selectOption("fixed");
+  await page.locator("#rg-d1").fill("45");
+  await page.getByRole("button", { name: "Add group" }).click();
 
+  await expect(page).toHaveURL(/\/retry-policies\/\d+$/);
   await expect(page.getByText(groupName)).toBeVisible();
-  await page.getByRole("button", { name: "Save changes" }).click();
+  // Nothing left to save on the policy page: the group was written by its own page.
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 
   // Reload forces a fresh GET - proves the group (incl. the delay unit
@@ -41,6 +45,7 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   await expect(page.locator("#rg-delay")).toHaveValue("fixed");
   await expect(page.locator("#rg-d1")).toHaveValue("45");
   await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/retry-policies\/\d+$/);
 
   // Dry-run against the saved (now unsaved-clean) groups.
   await page.fill("#tp-content", "System.Net.Http.HttpRequestException: timeout while connecting");

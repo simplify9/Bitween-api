@@ -13,7 +13,8 @@ namespace SW.Bitween;
 /// <summary>
 /// Finds subscriptions whose <see cref="ExpectTraffic"/> went unmet - a partner that stops sending
 /// fails nothing, so nothing else would say so - and tells the notifiers that watch them for failed
-/// results. Once when it goes quiet, once when exchanges arrive again.
+/// results, and the subscription's own notifications ticked for going quiet. Once when it goes
+/// quiet, once when exchanges arrive again.
 /// <para>
 /// Every question asked of the exchanges is bounded in time: has one started since a moment no
 /// further back than the expected gap (or an hour, for the way back). Both the subscription and the
@@ -21,7 +22,8 @@ namespace SW.Bitween;
 /// </para>
 /// </summary>
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
-public class QuietSubscriptionsJob(BitweenDbContext db, IAdapterInvoker adapterInvoker, ILogger<QuietSubscriptionsJob> logger)
+public class QuietSubscriptionsJob(BitweenDbContext db, IAdapterInvoker adapterInvoker,
+    NotificationChannelSender channelSender, ILogger<QuietSubscriptionsJob> logger)
     : IScheduledJob
 {
     public const string GoneQuiet = "gone-quiet";
@@ -122,7 +124,8 @@ public class QuietSubscriptionsJob(BitweenDbContext db, IAdapterInvoker adapterI
 
     /// <summary>
     /// The notifiers watching the subscription for failed results get the same payload an exchange
-    /// result sends. No XchangeNotification row: there's no exchange for it to belong to.
+    /// result sends, and so do the channels its notifications tick for going quiet. No
+    /// XchangeNotification row: there's no exchange for it to belong to.
     /// </summary>
     async Task Notify(int subscriptionId, string subscriptionName, int documentId, string kind, string sentence, DateTime utcNow)
     {
@@ -134,7 +137,12 @@ public class QuietSubscriptionsJob(BitweenDbContext db, IAdapterInvoker adapterI
                 .ToListAsync())
             .Where(n => n.RunOnSubscriptions?.Contains(subscriptionId) == true)
             .ToList();
-        if (notifiers.Count == 0) return;
+        var owner = await db.Set<Subscription>().AsNoTracking()
+            .Where(s => s.Id == subscriptionId)
+            .Select(s => new { s.Notifications, s.PartnerId })
+            .FirstOrDefaultAsync();
+        var channelIds = (owner?.Notifications ?? []).Where(n => n.OnQuiet).Select(n => n.ChannelId).Distinct().ToList();
+        if (notifiers.Count == 0 && channelIds.Count == 0) return;
 
         var documentName = await db.Set<Document>().AsNoTracking()
             .Where(d => d.Id == documentId).Select(d => d.Name).FirstOrDefaultAsync();
@@ -164,6 +172,18 @@ public class QuietSubscriptionsJob(BitweenDbContext db, IAdapterInvoker adapterI
             else
                 logger.LogError(error, "Notifier {NotifierId} ({NotifierName}) could not be told subscription {SubscriptionId} {Event}.",
                     notifier.Id, notifier.Name, subscriptionId, kind);
+        }
+
+        var partner = owner?.PartnerId is { } partnerId ? await db.FindAsync<Partner>(partnerId) : null;
+        foreach (var channelId in channelIds)
+        {
+            var error = await channelSender.Send(channelId, notification, null, alertId, partner);
+            if (error == null)
+                logger.LogInformation("Told channel {ChannelId} subscription {SubscriptionId} {Event}.",
+                    channelId, subscriptionId, kind);
+            else
+                logger.LogError(error, "Channel {ChannelId} could not be told subscription {SubscriptionId} {Event}.",
+                    channelId, subscriptionId, kind);
         }
     }
 

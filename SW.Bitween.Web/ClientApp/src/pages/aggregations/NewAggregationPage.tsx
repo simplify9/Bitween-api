@@ -25,8 +25,10 @@ import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { useResponseDetour } from "../../lib/responseDetour";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { useDetour } from "../../lib/detour";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
+import { NotificationsPanel } from "../subscriptions/studio/NotificationsPanel";
 
 /** Local draft state with the patch-and-clear shape the other create pages use. */
 function useDraft<T extends object>(initial: T) {
@@ -52,6 +54,7 @@ type Draft = Pick<
   | "workGroupId"
   | "retryPolicyId"
   | "dataSourceId"
+  | "notifications"
 > & {
   aggregationForId: number | null;
   partnerId: number | null;
@@ -82,6 +85,7 @@ const EMPTY: Draft = {
   workGroupId: null,
   retryPolicyId: null,
   dataSourceId: null,
+  notifications: [],
   enable: false,
 };
 
@@ -101,8 +105,9 @@ export function NewAggregationPage() {
   const [params] = useSearchParams();
   const fixedSourceId = params.get("source") ? Number(params.get("source")) : null;
   // Back from creating a response subscription: the roll-up as it was left, with that one picked.
-  const detour = useResponseDetour<Draft>();
-  const returned = detour.kept !== null || detour.pickedResponse !== null;
+  const detour = useDetour<Draft>();
+  // Back from the response trip specifically; a channel trip comes back to the Notifications card.
+  const returned = detour.pickedResponse !== null || (detour.kept !== null && detour.slot === null);
 
   const [stage, setStage] = useState<StageId | null>(returned ? "response" : "aggregation");
   /** The visual mapper, over the page - there is no subscription page to send you to yet. */
@@ -114,9 +119,14 @@ export function NewAggregationPage() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
+  // EMPTY first: a draft kept by an older page has no notifications to spread over it.
+  const kept = { ...EMPTY, ...(detour.kept ?? { aggregationForId: fixedSourceId }) };
   const [draft, update] = useDraft<Draft>({
-    ...(detour.kept ?? { ...EMPTY, aggregationForId: fixedSourceId }),
+    ...kept,
     ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+    ...(detour.pickedChannel !== null
+      ? { notifications: withPickedChannel(kept.notifications, detour.slot, detour.pickedChannel) }
+      : {}),
   });
   const bindsToDataSource = useBindsToDataSource();
 
@@ -151,6 +161,7 @@ export function NewAggregationPage() {
         workGroupId: draft.workGroupId,
         retryPolicyId: draft.retryPolicyId,
         dataSourceId: draft.dataSourceId,
+        notifications: draft.notifications,
         enabled: draft.enable,
       }),
     onSuccess: (created) => {
@@ -211,6 +222,7 @@ export function NewAggregationPage() {
     // saved again from its own page. The surface that can make that mistake refuses to.
     draft.schedules.length === 0 && "a schedule",
     unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
+    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
   ].filter((m): m is string => typeof m === "string");
 
   const renderStage = (stageId: StageId) => {
@@ -405,6 +417,16 @@ export function NewAggregationPage() {
           </button>
         </div>
       )}
+
+      <div className="mt-5">
+        <NotificationsPanel
+          value={draft.notifications}
+          onChange={(notifications) => update({ notifications })}
+          canEdit
+          onNewChannel={(index) => detour.newChannel(draft, notificationSlot(index))}
+          onEditChannel={(channelId) => detour.openChannel(draft, channelId)}
+        />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
         <Checkbox

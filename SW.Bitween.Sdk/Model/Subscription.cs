@@ -271,6 +271,12 @@ namespace SW.Bitween.Model
         public CustomRetryPolicy? CustomRetryPolicy { get; set; }
 
         /// <summary>
+        /// Which finished exchanges are reported, and through which notification channel. Null
+        /// leaves what is stored alone; an empty list clears it.
+        /// </summary>
+        public ICollection<SubscriptionNotification>? Notifications { get; set; }
+
+        /// <summary>
         /// Pause the subscription after this many failed deliveries in a row, so a target that is
         /// down stops being hammered and what arrives meanwhile waits on hold. Null - the default -
         /// never pauses.

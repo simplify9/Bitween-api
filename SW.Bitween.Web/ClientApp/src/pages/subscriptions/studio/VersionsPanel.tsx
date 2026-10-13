@@ -34,6 +34,7 @@ const SETTING_NAMES: Record<string, string> = {
   customRetryPolicy: "Retry policy",
   autoPauseAfterFailures: "Auto-pause",
   expectTraffic: "Expected traffic",
+  notifications: "Notifications",
   workGroupId: "Work group",
   categoryId: "Category",
   dataSourceId: "Data source",

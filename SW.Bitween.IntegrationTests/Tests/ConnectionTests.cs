@@ -467,6 +467,39 @@ public class ConnectionTests : IDisposable
     }
 
     [Fact]
+    public async Task A_connection_a_notification_channel_refers_to_is_neither_deleted_nor_renamed()
+    {
+        var c = await Create(ClientCredentials());
+        var channel = new NotificationChannel
+        {
+            Name = UniqueName(),
+            HandlerId = "NativeHttpHandler",
+            HandlerProperties = new Dictionary<string, string> { ["Url"] = "https://ops.example/hook", ["ApiKey"] = $"{{{{connections.{c.Name}.authorization}}}}" },
+        };
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(channel);
+            await db.SaveChangesAsync();
+        }
+        try
+        {
+            var delete = await Assert.ThrowsAsync<SWValidationException>(() =>
+                As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id, new ConnectionDelete())));
+            Assert.Contains($"notification channel '{channel.Name}'", delete.Validations.First().Value);
+            var renamed = ClientCredentials(c.Name + "x");
+            Assert.Contains("can't be renamed", (await Assert.ThrowsAsync<SWValidationException>(() => Update(c.Id, renamed))).Validations.First().Value);
+        }
+        finally
+        {
+            await using var scope = fixture.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<NotificationChannel>()
+                .Where(x => x.Id == channel.Id).ExecuteDeleteAsync();
+        }
+        await As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id, new ConnectionDelete()));
+    }
+
+    [Fact]
     public async Task With_a_key_the_secret_and_the_tokens_are_encrypted_even_as_they_are_renewed()
     {
         SecretColumnCipher.Configure("integration test passphrase");

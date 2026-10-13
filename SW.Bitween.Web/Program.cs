@@ -40,7 +40,8 @@ namespace SW.Bitween.Web
                 throw;
             }
 
-            host.SecureSeededAdministrator().SecureSystemPartnerKey().HashStoredPartnerKeys().ApplyStoredSettings().Run();
+            host.SecureSeededAdministrator().SecureSystemPartnerKey().HashStoredPartnerKeys()
+                .MoveRetryAlertsToChannels().ApplyStoredSettings().Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>

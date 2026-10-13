@@ -162,7 +162,7 @@ public class Kit
         foreach (var declared in Parameters.Where(p => !config.ParametersUsed.Contains(p.Name)))
             warnings.Add($"Parameter {declared.Name} is declared but nothing in the bundle reads it.");
 
-        // Every adapter the bundle's subscriptions and notifiers run is built in or one of the kit's connectors.
+        // Every adapter the bundle's subscriptions, notifiers and notification channels run is built in or one of the kit's connectors.
         foreach (var (section, item) in config.Sections.SelectMany(s => s.Value.Select(i => (s.Key, i))))
         foreach (var adapter in AdaptersIn(section, item))
             if (!adapter.StartsWith("native", StringComparison.OrdinalIgnoreCase) && Connectors.All(c => !string.Equals(c.Id, adapter, StringComparison.OrdinalIgnoreCase)))
@@ -186,6 +186,6 @@ public class Kit
             foreach (var block in new[] { "receiver", "handler", "mapper", "validator" })
                 if (item[block] is JsonObject b && (string)b["adapter"] is { Length: > 0 } a) yield return a;
         }
-        else if (section is "notifiers" && (string)item["handler"] is { Length: > 0 } h) yield return h;
+        else if (section is "notifiers" or "notificationChannels" && (string)item["handler"] is { Length: > 0 } h) yield return h;
     }
 }

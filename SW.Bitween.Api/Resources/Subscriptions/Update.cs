@@ -8,7 +8,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using SW.Bitween.Resources.RetryPolicies;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
@@ -28,6 +27,8 @@ namespace SW.Bitween.Resources.Subscriptions
 
             // Capture before SetSchedules replaces the collection.
             var oldSchedules = entity.Schedules.ToList();
+            // And before SetProperties copies the model's adapter ids over the stored ones.
+            var storedAdapters = SubscriptionConfigurationApplier.StoredAdapters.Of(entity);
 
             // Name and the runtime-state fields, which only an update may set.
             _dbContext.Entry(entity).SetProperties(model);
@@ -37,11 +38,8 @@ namespace SW.Bitween.Resources.Subscriptions
                 throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
                     $"Retry policy {model.RetryPolicyId} was not found.");
 
-            if (model.CustomRetryPolicy != null)
-                RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
-
             // Everything a person configures, through the same code the create handler runs.
-            await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model);
+            await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model, storedAdapters);
 
             await _dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();

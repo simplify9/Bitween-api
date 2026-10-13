@@ -1,7 +1,6 @@
 import {
   Activity,
   ArrowLeftRight,
-  BellRing,
   Cable,
   CalendarClock,
   CornerDownLeft,
@@ -57,6 +56,8 @@ export interface PageDef<Id extends string = string> {
   title: string;
   /** Needed to open it. None: any signed-in session. */
   permission?: PermissionKey;
+  /** Opens it too, for a page that then shows only what each of these allows. */
+  alsoFor?: PermissionKey[];
   /** The page this one sits under, for breadcrumbs. */
   parent?: Id;
   /** In the sidebar, under this group. Order within the group is the order here. */
@@ -358,14 +359,25 @@ export const PAGES = definePages({
     permission: "retry-policies.view",
     parent: "retryPolicies",
   },
-  // Directly under retry policies: both are about what happens when something goes wrong, and a
-  // budget-exhausted alert is delivered by a notifier.
+  retryGroupNew: {
+    path: "retry-policies/:id/groups/new",
+    title: "New group",
+    permission: "retry-policies.edit",
+    parent: "retryPolicy",
+  },
+  retryGroup: {
+    path: "retry-policies/:id/groups/:groupId",
+    title: "Retry group",
+    permission: "retry-policies.view",
+    parent: "retryPolicy",
+  },
+  // Not in the sidebar: notifications are set on each subscription through a notification channel
+  // from Settings, and these older notifiers are reached from that Settings section.
   notifiers: {
     path: "notifiers",
-    title: "Notifiers",
+    title: "Legacy notifiers",
     permission: "notifiers.view",
-    nav: { group: "configuration", icon: BellRing },
-    keywords: ["alerts", "email"],
+    keywords: ["alerts", "email", "notifiers"],
   },
   notifier: { path: "notifiers/:id", title: "Notifier", permission: "notifiers.view", parent: "notifiers" },
 
@@ -407,8 +419,26 @@ export const PAGES = definePages({
     path: "settings",
     title: "Settings",
     permission: "settings.view",
+    // Notification channels live here, and the built-in Member and Viewer roles hold the
+    // notification permissions without Settings: for them it shows the channels alone.
+    alsoFor: ["notifiers.view"],
     nav: { group: "administration", icon: Settings },
-    keywords: ["configuration", "branding", "sso"],
+    keywords: ["configuration", "branding", "sso", "mail server"],
+  },
+  // Under Settings, where channels are listed: set up once there, and picked wherever something
+  // notifies.
+  notificationChannelNew: {
+    path: "settings/notification-channels/new",
+    title: "New notification channel",
+    permission: "notifiers.create",
+    parent: "settings",
+  },
+  notificationChannel: {
+    path: "settings/notification-channels/:id",
+    title: "Notification channel",
+    permission: "notifiers.view",
+    parent: "settings",
+    keywords: ["email", "teams", "slack", "alerts"],
   },
   nodes: {
     path: "nodes",

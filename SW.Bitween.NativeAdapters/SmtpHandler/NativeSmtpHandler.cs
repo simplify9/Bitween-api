@@ -52,6 +52,22 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
         if (message.To.Count == 0 && message.Cc.Count == 0 && message.Bcc.Count == 0)
             throw new InvalidOperationException("No recipients were configured for the SMTP handler.");
 
+        await Deliver(circuits, message, _options.Host, _options.Port, _options.UseTls, _options.Username,
+            _options.Password, _options.From, _options.CertificateThumbprint);
+
+        return new XchangeFile(subject, xchangeFile.Filename);
+    }
+
+    /// <summary>
+    /// Connects, signs in when there is a password, and sends. Shared with the Email channel's
+    /// adapter, so both make the same choices about encryption, certificates and the circuit breaker.
+    /// </summary>
+    /// <param name="username">Empty signs in as <paramref name="from"/>.</param>
+    /// <param name="connectLimit">How long reaching the server may take; <see cref="ConnectLimit"/> unless a test says otherwise.</param>
+    internal static async Task Deliver(DestinationCircuits circuits, MimeMessage message, string host, int port,
+        bool useTls, string? username, string? password, string from, string? certificateThumbprint,
+        TimeSpan? connectLimit = null)
+    {
         using var client = new SmtpClient();
 
         // Revocation stays switched on, so a certificate the CA has actually revoked is still refused.
@@ -64,9 +80,9 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
         client.CheckCertificateRevocation = true;
         // A pinned certificate is trusted for exactly what it is, a self-signed one included: how a
         // relay with its own certificate is used without trusting every certificate.
-        var pinned = string.IsNullOrWhiteSpace(_options.CertificateThumbprint)
+        var pinned = string.IsNullOrWhiteSpace(certificateThumbprint)
             ? null
-            : FtpTransfer.NormalizeThumbprint(_options.CertificateThumbprint);
+            : FtpTransfer.NormalizeThumbprint(certificateThumbprint);
         client.ServerCertificateValidationCallback = (_, certificate, chain, errors) =>
             pinned != null
                 ? certificate != null && FtpTransfer.Thumbprint(certificate) == pinned
@@ -77,15 +93,15 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
         // offers it", so a server that does not offer STARTTLS - or an offer stripped in transit -
         // silently continues in the clear. StartTls demands it and fails if it is not there. 465 is
         // the implicit-TLS port, where the handshake happens before any of that is negotiable.
-        var security = _options.UseTls
-            ? _options.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls
+        var security = useTls
+            ? port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls
             : SecureSocketOptions.None;
 
         // Admitted once the message is built: one that can't be built fails the same whether the relay is up or not.
-        using var pass = circuits.Enter($"smtp://{_options.Host}:{_options.Port}");
+        using var pass = circuits.Enter($"smtp://{host}:{port}");
         try
         {
-            await Send(client, security, message);
+            await Send(client, security, message, host, port, username, password, from, connectLimit ?? ConnectLimit);
         }
         catch (Exception e)
         {
@@ -93,17 +109,36 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
             throw;
         }
         pass.Succeeded();
-
-        return new XchangeFile(subject, xchangeFile.Filename);
     }
 
-    private async Task Send(SmtpClient client, SecureSocketOptions security, MimeMessage message)
+    /// <summary>
+    /// How long connecting may take: reaching the server, its greeting and the TLS handshake. Left to
+    /// MailKit it is two minutes, which is what a test message sat through when a server expecting TLS
+    /// from the first byte was set on a port other than 465: each side waited for the other to speak.
+    /// </summary>
+    internal static readonly TimeSpan ConnectLimit = TimeSpan.FromSeconds(30);
+
+    private static async Task Send(SmtpClient client, SecureSocketOptions security, MimeMessage message,
+        string host, int port, string? username, string? password, string from, TimeSpan connectLimit)
     {
-        await client.ConnectAsync(_options.Host, _options.Port, security);
+        using (var limit = new CancellationTokenSource(connectLimit))
+        {
+            try
+            {
+                await client.ConnectAsync(host, port, security, limit.Token);
+            }
+            catch (OperationCanceledException) when (limit.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    $"The mail server {host}:{port} didn't answer within {connectLimit.TotalSeconds:0} seconds. Either it can't be reached, " +
+                    "or it expects TLS from the first byte: Bitween does that only on port 465, and on any other port " +
+                    "starts plainly and asks for STARTTLS.");
+            }
+        }
 
         // A relay that accepts unauthenticated mail from inside the network is a normal setup, so
         // only authenticate when a password was actually supplied.
-        if (!string.IsNullOrWhiteSpace(_options.Password))
+        if (!string.IsNullOrWhiteSpace(password))
         {
             // Refusing beats sending the credential over a connection anyone on the path can read.
             if (!client.IsSecure)
@@ -111,16 +146,14 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
                     "The SMTP handler will not send a password over an unencrypted connection. " +
                     "Set UseTls to true, or clear the password if the relay does not need one.");
 
-            await client.AuthenticateAsync(
-                string.IsNullOrWhiteSpace(_options.Username) ? _options.From : _options.Username,
-                _options.Password);
+            await client.AuthenticateAsync(string.IsNullOrWhiteSpace(username) ? from : username, password);
         }
 
         await client.SendAsync(message);
         await client.DisconnectAsync(true);
     }
 
-    private static void AddAddresses(InternetAddressList list, string? addresses)
+    internal static void AddAddresses(InternetAddressList list, string? addresses)
     {
         if (string.IsNullOrWhiteSpace(addresses)) return;
 

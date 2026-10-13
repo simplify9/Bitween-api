@@ -1,0 +1,34 @@
+{
+  "manifestVersion": 1,
+  "id": "nativeslackmessagehandler",
+  "displayName": "Slack notification",
+  "summary": "Posts a notification to a Slack channel, laid out in Block Kit, through an incoming webhook. Used by Slack notification channels.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "slack",
+    "webhook",
+    "notification"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "WebhookUrl",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "A Slack incoming webhook address (https://hooks.slack.com/services/...), made for the channel the messages go to. Anyone with it can post there, so it is kept hidden."
+    }
+  ]
+}

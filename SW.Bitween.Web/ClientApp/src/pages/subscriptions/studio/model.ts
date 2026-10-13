@@ -23,6 +23,7 @@ export type Draft = Pick<
   | "responseSubscriptionId"
   | "responseMessageTypeName"
   | "runOnBadResponses"
+  | "notifications"
   | "aggregationTarget"
   | "autoPauseAfterFailures"
   | "expectTraffic"
@@ -52,6 +53,7 @@ export const draftOf = (d: SubscriptionDetail): Draft => ({
   responseSubscriptionId: d.responseSubscriptionId,
   responseMessageTypeName: d.responseMessageTypeName,
   runOnBadResponses: d.runOnBadResponses,
+  notifications: structuredClone(d.notifications),
   aggregationTarget: d.aggregationTarget,
   autoPauseAfterFailures: d.autoPauseAfterFailures,
   expectTraffic: structuredClone(d.expectTraffic),
@@ -89,6 +91,7 @@ export const EMPTY_SUBSCRIPTION: Draft = {
   responseSubscriptionId: null,
   responseMessageTypeName: null,
   runOnBadResponses: false,
+  notifications: [],
   aggregationTarget: "Input",
   autoPauseAfterFailures: null,
   expectTraffic: null,

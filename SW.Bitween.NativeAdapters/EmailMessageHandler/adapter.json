@@ -1,0 +1,43 @@
+{
+  "manifestVersion": 1,
+  "id": "nativeemailmessagehandler",
+  "displayName": "Email notification",
+  "summary": "Emails a notification Bitween lays out, through the mail server set in Settings. Used by Email notification channels.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "email",
+    "notification"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "To",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Recipients, separated by commas."
+    },
+    {
+      "name": "Cc",
+      "type": "text",
+      "description": "Carbon-copy recipients, separated by commas."
+    },
+    {
+      "name": "Bcc",
+      "type": "text",
+      "description": "Blind carbon-copy recipients, separated by commas."
+    }
+  ]
+}

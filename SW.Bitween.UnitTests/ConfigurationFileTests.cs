@@ -207,4 +207,87 @@ public class ConfigurationFileTests
         var none = kind.ToExisting(ctx, "1", new JsonObject { ["name"] = "Orders", ["expectTraffic"] = null });
         Assert.IsFalse(kind.Differences(ctx, Want(null), none).Contains("expectTraffic"));
     }
+
+    /// <summary>
+    /// Channels go by name in the file and by id in Bitween: a policy's alert, a group's, an inline
+    /// group's, and a subscription's notification rows, which compare as a set with a tick left out off.
+    /// </summary>
+    [TestMethod]
+    public void Channels_go_by_name_in_the_file_and_by_id_in_Bitween()
+    {
+        var ctx = new Context(null);
+        ctx.Know("notificationChannels", "Ops email", "5");
+        ctx.Know("notificationChannels", "On-call Teams", "6");
+
+        var policies = new RetryPolicies();
+        var policy = policies.ToExisting(ctx, "1", new JsonObject
+        {
+            ["name"] = "Partner outage", ["alertChannelId"] = 5,
+            ["groups"] = new JsonArray(new JsonObject
+            {
+                ["id"] = "6f1d2c1e-0000-0000-0000-000000000001", ["name"] = "down", ["alertMode"] = "Send", ["alertChannelId"] = 6,
+                ["alertHandlerId"] = null, ["alertHandlerProperties"] = null,
+            }),
+        });
+        Assert.AreEqual("Ops email", (string)policy.File["alertChannel"]);
+        Assert.AreEqual("""{"name":"down","alertMode":"Send","alertChannel":"On-call Teams"}""", policy.File["groups"]![0]!.ToJsonString());
+
+        var sent = policies.ToApi(ctx, policy.File);
+        Assert.AreEqual(5, (int)sent["alertChannelId"]!);
+        Assert.AreEqual("""{"name":"down","alertMode":"Send","alertChannelId":6}""", sent["groups"]![0]!.ToJsonString());
+
+        var subscriptions = new Subscriptions();
+        var subscription = subscriptions.ToExisting(ctx, "3", new JsonObject
+        {
+            ["name"] = "Orders", ["type"] = "GatewayApiCall", ["pausedOn"] = null,
+            ["notifications"] = new JsonArray(new JsonObject { ["channelId"] = 5, ["onFailure"] = true, ["onBadResult"] = false, ["onSuccess"] = false, ["onQuiet"] = true }),
+            ["customRetryPolicy"] = new JsonObject { ["groups"] = new JsonArray(new JsonObject { ["name"] = "down", ["alertChannelId"] = 6 }) },
+        });
+        Assert.AreEqual("""[{"channel":"Ops email","onFailure":true,"onQuiet":true}]""", subscription.File["notifications"]!.ToJsonString());
+        Assert.AreEqual("On-call Teams", (string)subscription.File["customRetryPolicy"]!["groups"]![0]!["alertChannel"]);
+
+        JsonObject Want(params JsonObject[] rows) => new() { ["name"] = "Orders", ["notifications"] = new JsonArray(rows) };
+        // The same row with a tick written out as off is the same; a tick fewer, or no rows, is not.
+        Assert.IsFalse(subscriptions.Differences(ctx, Want(new JsonObject { ["channel"] = "Ops email", ["onQuiet"] = true, ["onFailure"] = true, ["onSuccess"] = false }), subscription)
+            .Contains("notifications"));
+        Assert.IsTrue(subscriptions.Differences(ctx, Want(new JsonObject { ["channel"] = "Ops email", ["onFailure"] = true }), subscription).Contains("notifications"));
+        Assert.IsTrue(subscriptions.Differences(ctx, Want(), subscription).Contains("notifications"));
+
+        var api = subscriptions.ToApi(ctx, Want(new JsonObject { ["channel"] = "On-call Teams", ["onQuiet"] = true }));
+        Assert.AreEqual("""[{"channelId":6,"onFailure":false,"onBadResult":false,"onSuccess":false,"onQuiet":true}]""", api["notifications"]!.ToJsonString());
+        // Left out, Bitween keeps the rows it has.
+        Assert.IsFalse(subscriptions.ToApi(ctx, new JsonObject { ["name"] = "Orders" }).ContainsKey("notifications"));
+    }
+
+    [TestMethod]
+    public void An_alert_sent_the_retired_way_or_to_no_such_channel_is_turned_away()
+    {
+        static bool Known(string section, string key) => section == "notificationChannels" && key == "Ops email";
+        static JsonObject Group(string channel = null, string handler = null) =>
+            new() { ["name"] = "down", ["alertChannel"] = channel, ["alertHandlerId"] = handler, ["alertHandlerProperties"] = null };
+        static JsonObject Policy(string channel, JsonObject group) => new() { ["name"] = "Partner outage", ["alertChannel"] = channel, ["groups"] = new JsonArray(group) };
+        var kind = new RetryPolicies();
+
+        var old = new JsonObject { ["name"] = "Partner outage", ["alertHandler"] = "NativeSmtpHandler" };
+        Assert.IsTrue(kind.Unresolved(old, Known).Any(p => p.Contains("alertHandler is retired")));
+        Assert.IsTrue(kind.Unresolved(Policy(null, Group(handler: "NativeSmtpHandler")), Known).Any(p => p.Contains("alertHandlerId, which is retired")));
+
+        // An older export wrote the retired fields as null, which says nothing.
+        Assert.AreEqual(0, kind.Unresolved(Policy("Ops email", Group("Ops email")), Known).Count());
+        Assert.AreEqual(2, kind.Unresolved(Policy("Pager", Group("Pager")), Known).Count(p => p.Contains("\"Pager\"")));
+
+        var subscription = new JsonObject
+        {
+            ["name"] = "Orders",
+            ["notifications"] = new JsonArray(new JsonObject { ["channel"] = "Pager", ["onFailure"] = true }, new JsonObject { ["onFailure"] = true }),
+            ["customRetryPolicy"] = new JsonObject { ["groups"] = new JsonArray(Group("Pager")) },
+        };
+        var problems = new Subscriptions().Unresolved(subscription, Known).ToList();
+        CollectionAssert.AreEquivalent(new[]
+        {
+            "notifications: there's no notification channel \"Pager\"",
+            "notifications: a row names no channel",
+            "customRetryPolicy: \"down\" names alertChannel \"Pager\", and there's no notification channel by that name",
+        }, problems);
+    }
 }

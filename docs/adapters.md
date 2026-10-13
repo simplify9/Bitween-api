@@ -9,7 +9,7 @@ Adapters do the work at each stage of a subscription. Bitween has four kinds.
 | Mapper | Transforms the input | `Handle(file)` returns the output |
 | Handler | Delivers and returns an optional response | `Handle(file)` returns the response |
 
-What Bitween calls and passes is the [adapter contract](adapter-contract.md). In .NET its interfaces are `IBitweenReceiver`, `IBitweenValidator`, `IBitweenMapper` and `IBitweenHandler` from `SimplyWorks.Bitween.Adapters`. Adapters written against the older `IInfolinkReceiver`, `IInfolinkValidator` and `IInfolinkHandler` from `SimplyWorks.PrimitiveTypes`, with `XchangeFile`, are called the same way. The payload has text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notifiers and retry alerts reuse handler adapters.
+What Bitween calls and passes is the [adapter contract](adapter-contract.md). In .NET its interfaces are `IBitweenReceiver`, `IBitweenValidator`, `IBitweenMapper` and `IBitweenHandler` from `SimplyWorks.Bitween.Adapters`. Adapters written against the older `IInfolinkReceiver`, `IInfolinkValidator` and `IInfolinkHandler` from `SimplyWorks.PrimitiveTypes`, with `XchangeFile`, are called the same way. The payload has text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notification channels reuse handler adapters, built in or custom, for subscription notifications and alerts.
 
 ## Native and custom adapters
 
@@ -23,8 +23,8 @@ An id starting with `native`, ignoring case, is a native adapter. For any other 
 
 Each adapter declares its properties. The UI shows which are required, which are secret, and each one's description and default.
 
-- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notifier properties get neither. A response or bus gateway subscription's handler can also use `{{source.PATH}}`, a value from the original document; see [Response routing](exchange-pipeline.md#6-response-routing).
-- **Connections.** `{{connections.NAME.accessToken}}` is an OAuth2 access token Bitween keeps fresh, and `{{connections.NAME.authorization}}` is `Bearer` and the token, for a header. Unlike the tokens above, they are filled in as the adapter starts, for every adapter and every kind (handlers, mappers, validators, receivers, notifiers and retry alerts), so a token is never stored on an exchange. See [Connections](#connections).
+- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values. Notification channels get both on each send, with the partner of the exchange being reported, and legacy notifiers get neither. A response or bus gateway subscription's handler can also use `{{source.PATH}}`, a value from the original document; see [Response routing](exchange-pipeline.md#6-response-routing).
+- **Connections.** `{{connections.NAME.accessToken}}` is an OAuth2 access token Bitween keeps fresh, and `{{connections.NAME.authorization}}` is `Bearer` and the token, for a header. Unlike the tokens above, they are filled in as the adapter starts, for every adapter and every kind (handlers, mappers, validators, receivers, notification channels and legacy notifiers), so a token is never stored on an exchange. See [Connections](#connections).
 - **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property. A property is secret only if its adapter says so: `[Secure]` on a native adapter, and on a published one `isPrivate: true` in `Runner.Expect` (.NET), `secret=True` in `sw.expect` (Python) or `secret: true` in `expect` (JavaScript and TypeScript), which `bitween adapter build` writes into the manifest. Anything else is returned as stored. A secret property's default is never sent either, but the adapter still applies it when the value is left empty.
 - **Required properties** are checked when a subscription is saved. A blank value counts as missing.
 - **`xchangeid`** is added to mapper and handler properties at run time.
@@ -54,7 +54,7 @@ Write `{{connections.NAME.accessToken}}` in any setting: the HTTP handler's `Log
 
 When a token can't be had, the adapter call fails with the reason, so retry policies and alerts work as for any failure, and the connection shows it. A provider that refuses the refresh token (`invalid_grant`) leaves the connection **Needs authorizing**. **Test** renews now and shows the result.
 
-The client secret, the password and both tokens are encrypted at rest when `Bitween:SettingsEncryptionKey` is set, and masked in the API as `__private__`; a secret sent back as `__private__` is kept. Changing the client, its token or authorize URL, its scopes or its user forgets the tokens it has. A connection settings refer to (a subscription's, a notifier's, a retry policy's, a partner's or a global value set's) can't be deleted or renamed. Adding, changing and authorizing a connection are in the audit trail, with the secrets left out; renewing a token isn't.
+The client secret, the password and both tokens are encrypted at rest when `Bitween:SettingsEncryptionKey` is set, and masked in the API as `__private__`; a secret sent back as `__private__` is kept. Changing the client, its token or authorize URL, its scopes or its user forgets the tokens it has. A connection settings refer to (a subscription's, a notification channel's, a notifier's, a retry policy's, a partner's or a global value set's) can't be deleted or renamed. Adding, changing and authorizing a connection are in the audit trail, with the secrets left out; renewing a token isn't.
 
 Data source settings can't use connections: a data source's adapter runs for a long time, and a token handed to it when it starts would expire.
 
@@ -74,7 +74,7 @@ The Rebex adapters are no longer offered for new work. They are packages in the 
 
 A package doesn't read the **Rebex license key** setting, so keep the key in a global value set and write `{{globals.<set>.<key>}}` in its `LicenseKey` property.
 
-Nothing that uses a built-in one changes: it keeps running, and its editor keeps it. Each stays in the pickers, with a licence key saved, while any subscription names it, active or not, and for the upload handler a notifier or a retry alert counts too. Once nothing does, it is no longer listed, and there is no picking it again.
+Nothing that uses a built-in one changes: it keeps running, and its editor keeps it. Each stays in the pickers, with a licence key saved, while any subscription names it, active or not, and for the upload handler a notification channel, a notifier or a retry alert counts too. Once nothing does, it is no longer listed, and there is no picking it again.
 
 ## Handlers
 
@@ -151,7 +151,7 @@ Sends an email built from the payload.
 | `IsHtml` | `true` | |
 | `CertificateThumbprint` | | The relay certificate's SHA-256 thumbprint, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before anything is sent. |
 
-Without a pinned thumbprint, server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
+Connecting, which covers reaching the relay, its greeting and the TLS handshake, may take 30 seconds. A relay that expects TLS from the first byte on a port other than 465 never greets a client that starts plainly, so it fails there, saying so. Without a pinned thumbprint, server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
 
 A relay that keeps failing is paused as the HTTP handler pauses a partner ([When a destination keeps failing](#when-a-destination-keeps-failing)), keyed by `smtp://{Host}:{Port}`. Timeouts, dropped connections and a 421 reply count. A refused recipient, a bad template or a refused sign-in don't.
 

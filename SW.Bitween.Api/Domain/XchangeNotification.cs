@@ -25,21 +25,34 @@ namespace SW.Bitween.Domain
         /// <see cref="NotifierId"/> because the alert is configured on the retry policy rather than
         /// on a notifier - which is also how the send is recognised as already done on a redelivery.
         /// </summary>
-        public static XchangeNotification ForRetryBudgetAlert(string xchangeId, string exception = null) =>
-            new(xchangeId, null, RetryBudgetAlertName, exception);
+        public static XchangeNotification ForRetryBudgetAlert(string xchangeId, int channelId,
+            string exception = null) =>
+            new(xchangeId, null, RetryBudgetAlertName, exception) { ChannelId = channelId };
 
         public const string AutoPauseAlertName = "Auto-pause alert";
 
-        /// <summary>The alert that the subscription this exchange belongs to was paused by its failure.</summary>
-        public static XchangeNotification ForAutoPauseAlert(string xchangeId, string exception = null) =>
-            new(xchangeId, null, AutoPauseAlertName, exception);
+        /// <summary>
+        /// The alert that the subscription this exchange belongs to was paused by its failure. One row
+        /// per channel told, so a redelivery skips the channels that already heard.
+        /// </summary>
+        public static XchangeNotification ForAutoPauseAlert(string xchangeId, int channelId,
+            string exception = null) =>
+            new(xchangeId, null, AutoPauseAlertName, exception) { ChannelId = channelId };
+
+        /// <summary>Logs a send a subscription's own notifications made through a channel.</summary>
+        public static XchangeNotification ForChannel(string xchangeId, int channelId, string channelName,
+            string exception = null) =>
+            new(xchangeId, null, channelName, exception) { ChannelId = channelId };
 
 
         public string XchangeId { get; private set; }
         public bool Success { get; set; }
 
-        /// <summary>The notifier that produced this row, or <c>null</c> for a retry-budget alert.</summary>
+        /// <summary>The notifier that produced this row, or <c>null</c> for an alert or a channel send.</summary>
         public int? NotifierId { get; set; }
+
+        /// <summary>The channel the send went through. Null on rows written by a legacy notifier.</summary>
+        public int? ChannelId { get; private set; }
         public string NotifierName { get; set; }
         
         
@@ -47,7 +60,7 @@ namespace SW.Bitween.Domain
         public DateTime FinishedOn { get; private set; }
 
         /// <summary>
-        /// Not sent: the notifier had already sent for this subscription and outcome within its
+        /// Not sent: the notifier or channel had already sent for this subscription and outcome within its
         /// quiet window. Counted into the next notification that is sent.
         /// </summary>
         public bool Suppressed { get; set; }

@@ -15,12 +15,30 @@ import { keys } from "../../api/queryKeys";
 import { RETENTION_SECTION, retentionProposal, useRetention } from "../../lib/retention";
 import { NoticeList, RetentionPanel } from "./RetentionPanel";
 import { AboutPanel } from "./AboutPanel";
-
-/** Sections, in the order the backend catalog lists them. */
-const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section)), ABOUT_SECTION];
+import { NotificationChannelsPanel } from "./NotificationChannelsPanel";
 
 /** Not a section of the catalog: a read-only view of the instance, after the editable ones. */
 const ABOUT_SECTION = "About this instance";
+
+/**
+ * Not a catalog section either: channels are records with their own pages, not key/value
+ * settings. Listed with the sections all the same, because they are instance-wide configuration
+ * and this is where an administrator looks for it.
+ */
+const CHANNELS_SECTION = "Notification channels";
+
+/**
+ * Sections, in the order the backend catalog lists them, with channels placed after the mail
+ * server every Email channel sends through, and About last.
+ */
+const sectionsOf = (rows: SettingRow[], withChannels: boolean): string[] => {
+  const sections = [...new Set(rows.map((r) => r.section))];
+  if (withChannels) {
+    const after = sections.indexOf("Mail server");
+    sections.splice(after === -1 ? sections.length : after + 1, 0, CHANNELS_SECTION);
+  }
+  return [...sections, ABOUT_SECTION];
+};
 
 const sectionOf = (rows: SettingRow[], key: string) => rows.find((r) => r.key === key)?.section;
 
@@ -235,14 +253,22 @@ function SettingRowEditor({
  * banner brings you back. Save writes everything; Discard reverts it all.
  */
 export function SettingsPage() {
+  const canView = useSessionCan("settings.view");
   const canEdit = useSessionCan("settings.edit");
+  const canViewChannels = useSessionCan("notifiers.view");
   const queryClient = useQueryClient();
-  const { data: rows, isLoading } = useQuery({ queryKey: keys.settings.list, queryFn: () => api.listSettings() });
+  // Opened for the notification channels alone, by a role without Settings: nothing else to load.
+  const { data: settingRows, isLoading } = useQuery({
+    queryKey: keys.settings.list,
+    queryFn: () => api.listSettings(),
+    enabled: canView,
+  });
+  const rows = canView ? settingRows : [];
   const draft = useSettingsDraft();
   const [confirmingRetention, setConfirmingRetention] = useState(false);
 
   const [searchParams] = useSearchParams();
-  const sections = sectionsOf(rows ?? []);
+  const sections = canView ? sectionsOf(rows ?? [], canViewChannels) : [CHANNELS_SECTION];
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
   // Deleting exchanges, or changing where files go and so how long they last, is said out loud
@@ -276,7 +302,7 @@ export function SettingsPage() {
     },
   });
 
-  if (isLoading) return <LoadingBlock label="Loading settings…" />;
+  if (canView && isLoading) return <LoadingBlock label="Loading settings…" />;
   if (!rows) return null;
 
   const dirtyCount = Object.keys(draft).length;
@@ -299,7 +325,11 @@ export function SettingsPage() {
     <div className={dirtyCount > 0 ? "pb-20" : ""}>
       <PageHeader
         title="Settings"
-        description="Instance-wide configuration. Changes preview live across the app - walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
+        description={
+          canView
+            ? "Instance-wide configuration. Changes preview live across the app - walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
+            : "Where notifications and retry alerts are sent. The rest of Settings is for administrators."
+        }
       />
 
       {/* A left column, not a row of pill tabs: eight sections wrap to a second row on a
@@ -367,7 +397,7 @@ export function SettingsPage() {
               <h2 className="text-[15px] font-semibold text-ink-900">{section}</h2>
               {/* Stages a reset per row rather than writing: the draft previews the stock
                   branding across the whole app, and Discard puts it all back untouched. */}
-              {resettable.length > 0 && (
+              {section !== CHANNELS_SECTION && resettable.length > 0 && (
                 <Button size="sm" onClick={() => resettable.forEach((r) => settingsDraft.stage(r, null))}>
                   <RotateCcw className="size-3.5" aria-hidden />
                   Reset all to default
@@ -383,23 +413,29 @@ export function SettingsPage() {
           </div>
           {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} />}
           {section === ABOUT_SECTION && <AboutPanel />}
-          <div className="divide-y divide-ink-100">
-            {sectionRows.map((row) =>
-              row.access === "editable" ? (
-                <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
-              ) : (
-                <EnvironmentSettingRow key={row.key} row={row} />
-              ),
-            )}
-          </div>
+          {section === CHANNELS_SECTION ? (
+            <NotificationChannelsPanel />
+          ) : (
+            <div className="divide-y divide-ink-100">
+              {sectionRows.map((row) =>
+                row.access === "editable" ? (
+                  <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
+                ) : (
+                  <EnvironmentSettingRow key={row.key} row={row} />
+                ),
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Not per section: a setting has no page of its own, so the one useful question is
           "who changed anything here", and that is the whole table rather than a slice of it. */}
-      <div className="mt-5">
-        <HistoryCard entityName="Setting" description="Recent changes to instance settings." />
-      </div>
+      {canView && (
+        <div className="mt-5">
+          <HistoryCard entityName="Setting" description="Recent changes to instance settings." />
+        </div>
+      )}
 
       {dirtyCount > 0 && (
         <UnsavedBar

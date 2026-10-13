@@ -167,6 +167,10 @@ partners:
     properties: { region: eu }
     keys:
       main: ${secret:MARKETPLACE_KEY}
+notificationChannels:
+  - name: Ops email
+    handler: NativeEmailMessageHandler
+    properties: { To: ops@acme.example }
 subscriptions:
   - name: Orders to warehouse
     type: GatewayApiCall
@@ -177,6 +181,10 @@ subscriptions:
       properties:
         Url: https://warehouse.example.com/orders
         ApiKey: ${secret:WAREHOUSE_KEY}
+    notifications:
+      - channel: Ops email
+        onFailure: true
+        onQuiet: true
 apiGateways:
   - name: Orders inbound
     urlName: orders
@@ -195,15 +203,16 @@ adapters:
 | `informationTypes` | `name` | `format`, `promotedProperties` as a mapping |
 | `partners` | `name` | `properties`, `secretProperties`, `loginIdentity`, `keys` as name: value |
 | `globalValues` | `id` | `values` as a mapping |
-| `retryPolicies` | `name` | `groups` as Bitween writes them; groups keep their ids by name |
+| `connections` | `name` | `grant`, `authorizeUrl`, `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `authorizeParameters`, `tokenAuth`, `username`, `password`; see [Connections](adapters.md#connections). An approve-once (`AuthorizationCode`) connection still has to be authorized in Bitween after apply makes it; plan says so. |
+| `notificationChannels` | `name` | `handler`, `properties` |
+| `retryPolicies` | `name` | `alertChannel`; `groups` as Bitween writes them, each with its own `alertChannel`; groups keep their ids by name |
 | `dataSources` | `name` | `adapter`, `kind`, `properties` |
 | `dataSourceStatements` | `dataSource` and `name` | `sql`, `workGroup` |
 | `adapters` | the package | `package:` a zip, published unless that version already is; or `install:` a connector's id with `version:`, installed from the [marketplace](adapters.md#installing-from-the-marketplace) unless this Bitween has that version. `current: true` makes it the one that runs. |
-| `subscriptions` | `name` | `type`, `informationType`, `partner`, `receiver`/`validator`/`mapper`/`handler` blocks, `paused`, `expectTraffic` compared whole (a member left out is unset) |
+| `subscriptions` | `name` | `type`, `informationType`, `partner`, `receiver`/`validator`/`mapper`/`handler` blocks, `paused`, `expectTraffic` compared whole (a member left out is unset), `notifications` compared whole (a tick left out is off) |
 | `apiGateways` | `urlName` | `partners` attached, each `{ partner, subscription }` |
 | `busGateways` | `name` | `routes`, each `{ subscription, partner, matchExpression }` |
-| `notifiers` | `name` | `handler`, `properties`, `subscriptions` |
-| `connections` | `name` | `grant`, `authorizeUrl`, `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `authorizeParameters`, `tokenAuth`, `username`, `password`; see [Connections](adapters.md#connections). An approve-once (`AuthorizationCode`) connection still has to be authorized in Bitween after apply makes it; plan says so. |
+| `notifiers` | `name` | legacy, kept for those still in use: `handler`, `properties`, `subscriptions` |
 
 - **Names, not ids.** Items refer to each other by name, so one file works on any Bitween. A name Bitween has
   twice can't be referred to; plan says which.
@@ -211,6 +220,10 @@ adapters:
   an adapter's `properties` or a partner's `keys`, is compared and applied whole. A subscription's `type`,
   `informationType`, `partner` and `aggregationFor` can't change once it exists; plan refuses rather than
   guess.
+- **Alerts and notifications** name a notification channel: `alertChannel` on a retry policy or a group, and
+  `channel` in each of a subscription's `notifications`, with the ticks `onFailure`, `onBadResult`,
+  `onSuccess` and `onQuiet`. A file from before channels, with an `alertHandler`, is refused with what to
+  write instead.
 - **Secrets.** `${secret:NAME}` comes from the variable `NAME`, or the file `NAME` in `--secrets-dir`
   (`BITWEEN_SECRETS_DIR`), such as a mounted Kubernetes secret. `${env:NAME}` and `${file:path}` (relative
   to the file) work too, and `${param:NAME}` reads a value given with `--set NAME=value` (once per value) or a

@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
+using SW.Bitween.Resources.NotificationChannels;
+using SW.Bitween.Resources.RetryPolicies;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.Subscriptions;
@@ -27,15 +29,31 @@ internal static class SubscriptionConfigurationApplier
     /// </summary>
     private const string PrivateSentinel = "__private__";
 
-    public static async Task Apply(BitweenDbContext dbContext, AdapterRequirements adapterRequirements,
-        Subscription entity, SubscriptionConfiguration model)
+    /// <summary>The adapters a subscription held when it was loaded, which its stored secrets belong to.</summary>
+    internal record StoredAdapters(string Handler, string Mapper, string Receiver, string Validator,
+        string HandlerRef, string MapperRef, string ReceiverRef, string ValidatorRef)
     {
-        // Read before they are overwritten: whether a stored secret may be kept depends on the
-        // adapter it was stored for. See AdapterSecretProperties.MayKeepStoredSecrets.
+        public static StoredAdapters Of(Subscription subscription) => new(
+            subscription.HandlerId, subscription.MapperId, subscription.ReceiverId, subscription.ValidatorId,
+            subscription.HandlerRef, subscription.MapperRef, subscription.ReceiverRef, subscription.ValidatorRef);
+    }
+
+    /// <param name="stored">
+    /// Update reads these before its property copy, which already puts the model's adapter ids on
+    /// the entity; read here instead, the old adapter would be the new one, and a stored secret would
+    /// be kept for an adapter it was never meant for. Left out, the entity's are used, which is right
+    /// for one being created.
+    /// </param>
+    public static async Task Apply(BitweenDbContext dbContext, AdapterRequirements adapterRequirements,
+        Subscription entity, SubscriptionConfiguration model, StoredAdapters stored = null)
+    {
+        // Whether a stored secret may be kept depends on the adapter it was stored for. See
+        // AdapterSecretProperties.MayKeepStoredSecrets.
+        stored ??= StoredAdapters.Of(entity);
         var (oldHandler, oldMapper, oldReceiver, oldValidator) =
-            (entity.HandlerId, entity.MapperId, entity.ReceiverId, entity.ValidatorId);
+            (stored.Handler, stored.Mapper, stored.Receiver, stored.Validator);
         var (oldHandlerRef, oldMapperRef, oldReceiverRef, oldValidatorRef) =
-            (entity.HandlerRef, entity.MapperRef, entity.ReceiverRef, entity.ValidatorRef);
+            (stored.HandlerRef, stored.MapperRef, stored.ReceiverRef, stored.ValidatorRef);
 
         // A pin without an adapter means nothing, and a blank one means "follow current".
         static string Pin(string adapterId, string version) =>
@@ -113,7 +131,24 @@ internal static class SubscriptionConfigurationApplier
             throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
                 $"Retry policy {model.RetryPolicyId} was not found.");
 
+        // Here rather than in the update handler alone, so a subscription created with an inline
+        // policy is held to the same rules as a shared policy and as an update.
+        if (model.CustomRetryPolicy != null)
+        {
+            RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
+            await RetryGroupValidation.EnsureAlertChannelsExist(dbContext,
+                RetryGroupValidation.AlertChannelIds(model.CustomRetryPolicy.Groups));
+        }
+
         entity.SetRetryPolicy(model.RetryPolicyId, model.CustomRetryPolicy);
+
+        // Null leaves them as they are, so a caller that has never heard of notifications, such as
+        // an older client or a script, does not wipe them by saving something else.
+        if (model.Notifications != null)
+        {
+            await ChannelValidation.EnsureNotificationsCanSend(dbContext, model.Notifications);
+            entity.SetNotifications(model.Notifications);
+        }
     }
 
     private static Dictionary<string, string> MergeWithOriginal(

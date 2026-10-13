@@ -109,6 +109,8 @@ internal static class ConnectionRows
         foreach (var s in db.Set<Domain.Subscription>().AsEnumerable())
             if (Uses([s.HandlerProperties, s.MapperProperties, s.ReceiverProperties, s.ValidatorProperties]))
                 yield return $"subscription '{s.Name}'";
+        foreach (var c in db.Set<Domain.NotificationChannel>().AsEnumerable())
+            if (Uses([c.HandlerProperties])) yield return $"notification channel '{c.Name}'";
         foreach (var n in db.Set<Domain.Notifier>().AsEnumerable())
             if (Uses([n.HandlerProperties])) yield return $"notifier '{n.Name}'";
         foreach (var p in db.Set<Domain.RetryPolicy>().AsEnumerable())

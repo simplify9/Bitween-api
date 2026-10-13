@@ -47,9 +47,11 @@ A policy is a list of groups. When an exchange fails, the first group that appli
 | `matchers` | Conditions. Any one of them selects the group. |
 | `action` | `Allow` retries within the budget. `Block` stops retries for the failures it matches. |
 | `budget` | Required for `Allow`. Holds the per-message limit, the shared total and the delay strategy. |
-| `alertMode`, `alertHandlerId`, `alertHandlerProperties` | Where the budget-exhausted alert goes. |
+| `alertMode`, `alertChannelId` | Where the budget-exhausted alert goes: `Send` through the [notification channel](#notification-channels) `alertChannelId` names, `Silent`, or `Inherit` the policy's. |
 
 For `Error`, matchers look at the full exception text. For `BadResult`, they look at the response body.
+
+A shared policy's own `alertChannelId` is its policy-wide alert channel. Each group opens on a page of its own from the policy page. Saving a group there, or removing one from the policy page, writes the policy at once. The policy page's save bar covers only the policy's name and its policy-wide alert.
 
 ### Matchers
 
@@ -153,8 +155,8 @@ A policy is refused when a group:
 - has no result type or no matchers;
 - has matchers that cannot apply to its result types;
 - allows retries without a budget;
-- sends alerts without a handler;
-- sends alerts through `NativeSmtpHandler` with a password and TLS turned off.
+- sends alerts without a notification channel, or names a channel that does not exist;
+- still carries its own `alertHandlerId`. Alerts go through channels now.
 
 Deleting a policy is refused while a subscription uses it. Removing a group deletes its usage counters and alert overrides.
 
@@ -186,19 +188,21 @@ The Scheduled retries page lists waiting retries. **Run now**, `POST /api/delaye
 
 ## Budget-exhausted alerts
 
-When a group's shared total runs out, Bitween sends one alert through a handler adapter. The most specific level that decides wins.
+When a group's shared total runs out, Bitween sends one alert through a notification channel. The most specific level that decides wins.
 
 | Level | Where it is set |
 |---|---|
 | One subscription in one group | **Route alert** in the policy page's usage panel |
-| Group | The group's alert settings |
+| Group | The group's page |
 | Policy | The policy-wide alert card. Inline policies have no policy level. |
 
-At each level, `Silent` stops the alert, `Send` with a handler sends it there, and `Inherit` defers to the level above. `Send` without a handler also defers. When no level decides, nobody is alerted.
+At each level, `Silent` stops the alert, `Send` sends it through the level's channel, and `Inherit` defers to the level above. Saving `Send` without a channel is refused. When no level decides, nobody is alerted.
 
-The handler receives a JSON document with the exchange id, subscription id and name, information type name, correlation id, policy name, group name, total budget, blocked reason, exception and time.
+The channel's adapter receives a JSON document with the exchange id, subscription id and name, information type name, correlation id, policy name, group name, total budget, blocked reason, exception and time. Email, Teams and Slack channels send a message Bitween writes from it instead.
 
-Each delivery is recorded as a notification named *Retry budget alert*. Once one delivery succeeds, a redelivered event does not send a second alert.
+Alerts saved with their own handler before channels existed are moved onto channels the first time this version starts. Each distinct handler and settings becomes one channel named *Retry alert: ...*, shared by every level that had the same one.
+
+Each delivery is recorded as a notification named *Retry budget alert*. Once one delivery succeeds, a redelivered event does not send a second alert. It is tried and guarded as described in [Delivery](#delivery), but the quiet window holds back only a subscription's own notifications, never an alert.
 
 ### Usage
 
@@ -213,9 +217,95 @@ The policy page's usage panel shows, per subscription and group, the attempts us
 | Usage for one subscription | `POST /api/subscriptions/{id}/retryusage` | `subscriptions.view` |
 | Reset usage for one subscription | `POST /api/subscriptions/{id}/resetretryusage` | `subscriptions.operate` |
 
-## Notifiers
+## Auto-pause alerts
 
-A notifier runs a handler adapter after exchanges of chosen subscriptions finish.
+A subscription with **Auto-pause** set pauses itself after that many failures in a row. Bitween then sends one alert, recorded as a notification named *Auto-pause alert*, through:
+
+- its shared retry policy's policy-wide alert channel;
+- each of its [notifications](#subscription-notifications) ticked **Fails**.
+
+A channel that is both hears once, and a redelivered event doesn't send again to a channel that already heard. With neither, the pause is logged and shown on the subscription's page, and nothing is sent. An Email, Teams or Slack channel sends a message Bitween writes. Any other adapter receives a JSON document with `Kind` (`SubscriptionAutoPaused`), `SubscriptionId`, `SubscriptionName`, `Failures`, `XchangeId`, `Exception` and `OccurredOn`.
+
+## Notification channels
+
+A notification channel is where a notification goes and what is needed to deliver it. Channels are listed in **Settings > Notification channels**, each opens on a page of its own, and every place that notifies picks one by name:
+
+- a subscription's [notifications](#subscription-notifications);
+- a retry policy's [budget-exhausted alerts](#budget-exhausted-alerts), at the policy, group or single-subscription level;
+- [auto-pause alerts](#auto-pause-alerts).
+
+A picker's **New channel** opens the new channel page. Saving the channel brings you back with it picked, and with any unsaved edits on the page you left still in place. A picked channel's page can be opened the same way.
+
+### Channel types
+
+| Type | Asks for | Sends |
+|---|---|---|
+| Email | `To`, and optionally `Cc` and `Bcc` | An email through the server in [Settings > Mail server](configuration.md#mail-server) |
+| Microsoft Teams | `WebhookUrl`, a Teams Workflows webhook address | An Adaptive Card to the Teams channel |
+| Slack | `WebhookUrl`, an incoming webhook address | A Block Kit message to the Slack channel |
+| Another adapter | Any handler adapter, built in or custom, and its properties | The notification as JSON, described with each kind of notification |
+
+Email, Teams and Slack send a message Bitween writes: what happened, the facts that place it, the error without its stack trace, and a link to the exchange, which has the whole of it. The link is built on the instance's public address, `Bitween:PublicUrl`. Without one, only a test message sent from the page has a link. Their adapters, `NativeEmailMessageHandler`, `NativeTeamsMessageHandler` and `NativeSlackMessageHandler`, are only offered as channel types, never in an adapter picker.
+
+Microsoft retired the Office 365 *Incoming Webhook* connector for Teams in 2026. In Teams, add the **Post to a channel when a webhook request is received** workflow to the channel and use the address it gives you.
+
+- A channel is complete. The places that use it only choose when to send. For different recipients, make another channel.
+- Names are unique.
+- What the adapter can't send without, such as an Email channel's recipients or a webhook address, must be filled in.
+- Teams and Slack webhook addresses must be https. They are secret, because anyone who has one can post to the channel.
+- Secret properties come back masked. Saving the mask keeps the stored value only while the adapter and where it connects stay the same. Otherwise, type the secret again.
+- A channel on the SMTP adapter with a password and `UseTls` off is refused.
+- Properties can hold `{{globals.SET.KEY}}` and `{{partner.KEY}}`, filled in on each send. Partner values come from the partner of the exchange being reported, so one Email channel can write to each partner's own contact. A test message has no partner.
+- A channel that anything still uses can't be deleted. Its page lists who uses it.
+- `bitween apply` can keep channels in a [configuration file](cli.md#configuration-as-code).
+
+### Delivery
+
+- Each send is tried up to three times, two and then four seconds apart.
+- Email, Teams and Slack sends share the built-in handlers' [circuit breaker](adapters.md#when-a-destination-keeps-failing). While the mail server or webhook host keeps failing, sends to it fail at once.
+- **Quiet window.** After a channel sends for a subscription and an outcome, more of the same within `Bitween:NotifierQuietMinutes` (5 by default) are held back: recorded, not sent. The next message says how many were held back (`SuppressedSinceLast`), so an outage reads as one message. `0` sends every one. Legacy notifiers work the same way.
+- A result event delivered twice does not notify twice.
+- Each send is recorded with its channel, whether it went or was held back, and any error. The alerts for a subscription going quiet and coming back are logged instead.
+
+### Testing and history
+
+**Send a test message** on the channel's page sends a made-up notification through the channel as saved, tried once, and shows whether it went or why not. An Email, Teams or Slack channel says it is a test. Any other adapter gets a notification shaped like a failure, with the subscription name *Test notification*, so its templates are tested too. Tests are not recorded.
+
+**Recent sends** on the same page lists every send through the channel, newest first: the subscription it reported, whether it was a retry or auto-pause alert, whether it went, failed or was held back, and why any failed.
+
+| Action | Endpoint | Permission |
+|---|---|---|
+| List channels, with who uses each | `GET /api/notificationchannels` | `notifiers.view` |
+| Channel names for pickers | `GET /api/notificationchannels?lookup=true` | signed in |
+| One channel | `GET /api/notificationchannels/{id}` | `notifiers.view` |
+| Create | `POST /api/notificationchannels` `{ name, handlerId, handlerProperties }` | `notifiers.create` |
+| Change | `POST /api/notificationchannels/{id}` | `notifiers.edit` |
+| Delete | `DELETE /api/notificationchannels/{id}` | `notifiers.delete` |
+| Send a test message | `POST /api/notificationchannels/{id}/test`, answers `{ sent, error }` | `notifiers.edit` |
+| Sends through one channel | `GET /api/notifications?filter=ChannelId:1:{id}` | `notifiers.view` |
+
+## Subscription notifications
+
+A subscription's **Notifications** card sends through channels when its exchanges finish or it goes quiet. Each row picks a channel and what it sends on, so failures can go to one team and successes to another. The card is on the subscription's page and on every create page.
+
+| Tick | Sends when |
+|---|---|
+| Fails | An exchange failed |
+| Bad result | An exchange finished, but its response was flagged bad |
+| Succeeds | An exchange finished with a good response |
+| Goes quiet | The subscription [expects traffic](entry-points.md#when-traffic-stops) and none came, and again when exchanges are back |
+
+A row ticked **Fails** also hears when the subscription [pauses itself](#auto-pause-alerts). **Goes quiet** can be a row's only tick.
+
+In the API these are the subscription's `notifications`, each `{ channelId, onFailure, onBadResult, onSuccess, onQuiet }`. Leaving `notifications` out of an update keeps what is stored, and an empty list clears it. A row with nothing ticked, a channel listed twice or a channel that doesn't exist is refused.
+
+An Email, Teams or Slack channel sends a message Bitween writes. Any other adapter receives a JSON document describing the result, with PascalCase fields: `Id`, `Success`, `Exception`, `StartedOn`, `FinishedOn`, `OutputBad`, `ResponseBad`, `SubscriptionId`, `SubscriptionName`, `DocumentId`, `DocumentName`, `CorrelationId`, `SuppressedSinceLast` and `Event`. Its properties also get `xchangeid`. `Event` is null for an exchange's result, and `gone-quiet` or `back` when the subscription goes quiet or comes back.
+
+Notifications run on each work group's `-Result` queue, separate from exchange processing. `GET /api/notifications` searches what was sent. Each row names its channel, the subscription it reported, and whether it was held back.
+
+## Legacy notifiers
+
+Notifiers made before channels still run, alongside the subscriptions' own notifications. **Settings > Notification channels** links to their page, where they can be viewed, changed and deleted. The page no longer offers new ones, though `POST /api/notifiers` still makes one.
 
 | Field | Meaning |
 |---|---|
@@ -223,10 +313,8 @@ A notifier runs a handler adapter after exchanges of chosen subscriptions finish
 | Handler and properties | Any handler adapter, such as `NativeSmtpHandler` or `NativeHttpHandler` |
 | Run on successful result | Fires for successes with a good response |
 | Run on bad result | Fires for successes whose response was flagged bad |
-| Run on failed result | Fires for failures |
+| Run on failed result | Fires for failures, and when a subscription it watches goes quiet or comes back |
 | Watches | The subscriptions it listens to. A notifier that watches nothing never fires. |
 | Inactive | Switches it off |
 
-The handler receives a JSON document describing the result, with PascalCase fields: `Id`, `Success`, `Exception`, `StartedOn`, `FinishedOn`, `OutputBad`, `ResponseBad`, `SubscriptionId`, `SubscriptionName`, `DocumentId`, `DocumentName`, `CorrelationId`, `SuppressedSinceLast` and `Event`. Its properties also get `xchangeid`. `Event` is null for an exchange's result; a notifier on failed results is also told when a subscription that [expects traffic](entry-points.md#when-traffic-stops) goes quiet (`gone-quiet`) and when it comes back (`back`). Partner and global tokens are not resolved in notifier properties.
-
-Each run is recorded with its outcome and any error. The notifier page lists recent notifications, and `GET /api/notifications` searches them. Notifiers run on each work group's `-Result` queue, separate from exchange processing.
+Its handler receives the same JSON document as a channel on another adapter, with the same quiet window and up to three tries. Partner and global tokens are not resolved in its properties. Its secret properties come back masked, as a channel's do.

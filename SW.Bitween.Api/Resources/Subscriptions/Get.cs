@@ -88,6 +88,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     WorkGroupId = subscriber.WorkGroupId,
                     RetryPolicyId = subscriber.RetryPolicyId,
                     CustomRetryPolicy = subscriber.CustomRetryPolicy,
+                    Notifications = subscriber.Notifications ?? [],
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,
