@@ -292,6 +292,12 @@ export function applyQueryDefaults(queryClient: QueryClient): void {
     // A history card sits on the same page as the form that writes to it, so it is never
     // allowed to be a few minutes behind what the person just did.
     keys.audit.all,
+    // A channel's "used by" changes whenever a subscription or retry policy is saved, and it decides
+    // whether Delete is offered; its sends arrive all the time. Only the names for pickers stay
+    // reference data.
+    keys.notificationChannels.list,
+    ["notification-channels", "detail"],
+    ["notification-channels", "sends"],
   ];
 
   for (const key of fixed) queryClient.setQueryDefaults(key, { staleTime: Infinity });
