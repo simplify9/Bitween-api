@@ -19,6 +19,7 @@
     <PackageReference Include="Testcontainers.MsSql" Version="3.10.0" />
     <PackageReference Include="Testcontainers.MySql" Version="3.10.0" />
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" Aliases="BouncyCastle2" />
   </ItemGroup>
 
   <ItemGroup>

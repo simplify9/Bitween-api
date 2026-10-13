@@ -191,6 +191,9 @@ A value that breaks a rule is refused with a validation error whose message says
 | `GET /api/marketplace/search?q=&tier=` | `subscriptions.view` | What the registry set under Settings lists: `{ configured, disabled, registry, result: [{ card, installed }], totalCount }`. `configured` is false, and nothing is fetched, when the marketplace is off or has no address. `installed` says what this Bitween has of each: `{ installed, fromRegistry, current, versions }`. |
 | `GET /api/marketplace/package?id=` | `subscriptions.view` | One registry package with its versions, the newest version's manifest, and what this Bitween has of it. |
 | `POST /api/marketplace/install` | `adapter-source.operate` | Install a version from the registry: `{ id, version, current }`. Every signature is checked first; see [Adapters](adapters.md#installing-from-the-marketplace). Returns `{ adapterId, version, current, sha256, publisher }`. Audited as an `AdapterRelease` with the action `installed`. |
+| `GET /api/marketplace/kit?id=&version=` | `subscriptions.view` | A kit's connectors and the parameters it asks for |
+| `POST /api/marketplace/kitplan` | `adapter-source.operate` | `{ id, version, name, parameters }`: what installing it would do, as `{ name, ready, applied, lines, problems, warnings, changes }`. Changes nothing. |
+| `POST /api/marketplace/kitinstall` | `adapter-source.operate` | The same, installed: its connectors, then its configuration, as the caller |
 | `POST /api/adapters/withdraw` | `adapter-source.operate` | Take a published version out of use: `{ adapterId, version }`. It stays listed but can't be pinned or made current. |
 | `GET /api/adapterdrafts?adapterId=` | `adapter-source.edit` | The editor's drafts, newest first, optionally for one adapter |
 | `GET /api/adapterdrafts/{id}` | `adapter-source.edit` | A draft with its files |

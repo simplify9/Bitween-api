@@ -87,6 +87,66 @@ public class Install(BitweenDbContext dbContext, RequestContext requestContext, 
     }
 }
 
+public class MarketplaceKitRequest
+{
+    public string Id { get; set; }
+    public string Version { get; set; }
+}
+
+public class MarketplaceKitInstallRequest
+{
+    public string Id { get; set; }
+    public string Version { get; set; }
+
+    /// <summary>What this installation is called; the kit's id unless given, another name for a second one.</summary>
+    public string Name { get; set; }
+
+    public Dictionary<string, string> Parameters { get; set; }
+}
+
+/// <summary>A kit's connectors and the parameters its install form asks for.</summary>
+[HandlerName("kit")]
+public class Kit(BitweenDbContext dbContext, RequestContext requestContext, KitInstaller kits)
+    : IQueryHandler<MarketplaceKitRequest, object>
+{
+    public async Task<object> Handle(MarketplaceKitRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+        return await kits.DescribeAsync(request.Id, request.Version);
+    }
+}
+
+/// <summary>What installing a kit would do, changing nothing.</summary>
+[HandlerName("kitplan")]
+public class KitPlan(BitweenDbContext dbContext, RequestContext requestContext, KitInstaller kits)
+    : ICommandHandler<MarketplaceKitInstallRequest, object>
+{
+    public async Task<object> Handle(MarketplaceKitInstallRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.AdapterSource.Operate);
+        return await kits.PlanAsync(request.Id, request.Version, request.Name, request.Parameters);
+    }
+}
+
+/// <summary>
+/// Installs a kit: its connectors, then its configuration with the parameters filled in, as the caller,
+/// so each change needs the caller's own permissions and is in the trail under their name.
+/// </summary>
+[HandlerName("kitinstall")]
+public class KitInstall(BitweenDbContext dbContext, RequestContext requestContext, KitInstaller kits)
+    : ICommandHandler<MarketplaceKitInstallRequest, object>
+{
+    public async Task<object> Handle(MarketplaceKitInstallRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.AdapterSource.Operate);
+        var run = await kits.InstallAsync(request.Id, request.Version, request.Name, request.Parameters);
+        if (run.Applied)
+            await dbContext.RecordNowAsync(requestContext, Domain.OperatorAction.InstallKit, $"{request.Id} {request.Version}",
+                $"installed as {run.Name}, {run.Changes} change(s)");
+        return run;
+    }
+}
+
 static class Installed
 {
     public static async Task<InstalledState> Of(AdapterCatalog catalog, string id)

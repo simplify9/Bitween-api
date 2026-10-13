@@ -2,10 +2,10 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Package, ShieldCheck, Store } from "lucide-react";
-import { api, type MarketplaceCard, type MarketplaceInstalled, type RegistryTier } from "../../api";
+import { api, type KitRun, type MarketplaceCard, type MarketplaceInstalled, type RegistryTier } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Checkbox, Select } from "../../components/ui/forms";
+import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { SearchBox } from "../../components/ui/SearchBox";
 import { Can } from "../../auth/guards";
@@ -88,7 +88,12 @@ export function MarketplaceTab() {
         </div>
       )}
 
-      {open && <ConnectorDialog id={open} onClose={() => setOpen(null)} />}
+      {open &&
+        (isKit(results.find((r) => r.card.id === open)?.card) ? (
+          <KitDialog card={results.find((r) => r.card.id === open)!.card} onClose={() => setOpen(null)} />
+        ) : (
+          <ConnectorDialog id={open} onClose={() => setOpen(null)} />
+        ))}
     </div>
   );
 }
@@ -114,6 +119,11 @@ function ConnectorCard({ card, installed, onOpen }: { card: MarketplaceCard; ins
           {card.tier}
         </Badge>
         {card.pricing === "Paid" && <Badge tone="warn">Paid</Badge>}
+        {isKit(card) && (
+          <Badge tone="ink" title="Connectors plus the configuration that makes them useful, installed with its parameters.">
+            Kit
+          </Badge>
+        )}
         {installed.fromRegistry && !update && <Badge tone="ok">Installed</Badge>}
         {update && <Badge tone="warn">Update available</Badge>}
         <span className="ml-auto text-xs text-ink-500">v{card.latest}</span>
@@ -248,6 +258,127 @@ function ConnectorDialog({ id, onClose }: { id: string; onClose: () => void }) {
               </ul>
             </div>
           </div>
+        )
+      )}
+    </Dialog>
+  );
+}
+
+/** A kit: connectors plus configuration, rather than an adapter. */
+const isKit = (card?: MarketplaceCard) => (card?.kinds ?? "").split(",").some((k) => k.trim().toLowerCase() === "kit");
+
+/**
+ * A kit's install: its parameters as a form, the plan of what it would make, then the install itself,
+ * which runs as the person installing, so it can do only what they can.
+ */
+function KitDialog({ card, onClose }: { card: MarketplaceCard; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const kit = useQuery({ queryKey: ["marketplace", "kit", card.id, card.latest], queryFn: () => api.getKit(card.id, card.latest) });
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [name, setName] = useState("");
+  const [run, setRun] = useState<KitRun | null>(null);
+
+  const request = () => {
+    const parameters: Record<string, string> = {};
+    for (const p of kit.data?.parameters ?? []) {
+      const v = values[p.name] ?? p.default ?? "";
+      if (v !== "" || !p.required) parameters[p.name] = v;
+    }
+    return { id: card.id, version: card.latest, name: name.trim() || undefined, parameters };
+  };
+  const plan = useMutation({ mutationFn: () => api.planKit(request()), onSuccess: setRun });
+  const install = useMutation({
+    mutationFn: () => api.installKit(request()),
+    onSuccess: (r) => {
+      setRun(r);
+      void queryClient.invalidateQueries();
+    },
+  });
+  const busy = plan.isPending || install.isPending;
+  const error = plan.error ?? install.error;
+
+  return (
+    <Dialog title={card.displayName} onClose={onClose} wide>
+      {kit.isLoading ? (
+        <LoadingBlock />
+      ) : kit.error ? (
+        <LoadError error={kit.error} what="this kit" />
+      ) : (
+        kit.data && (
+          <form
+            className="space-y-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              plan.mutate();
+            }}
+          >
+            <div>
+              <p className="text-sm text-ink-700">{card.summary}</p>
+              <p className="mt-1 text-xs text-ink-500">
+                Kit <code className="font-mono">{card.id}</code> {card.latest} by {card.publisherName}
+                {kit.data.connectors.length > 0 &&
+                  `, with ${kit.data.connectors.map((c) => `${c.id} ${c.version}`).join(", ")}`}
+              </p>
+            </div>
+            {kit.data.description && <p className="whitespace-pre-line text-sm text-ink-700">{kit.data.description}</p>}
+
+            <div className="space-y-4">
+              {kit.data.parameters.map((p) => {
+                const id = `kit-${p.name}`;
+                const props = {
+                  id,
+                  value: values[p.name] ?? p.default ?? "",
+                  placeholder: p.example ?? "",
+                  required: p.required && p.default == null,
+                  autoComplete: "off",
+                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, [p.name]: e.target.value }),
+                };
+                return (
+                  <Field key={p.name} label={p.name} htmlFor={id} hint={p.description ?? undefined}>
+                    {p.secret ? <PasswordInput {...props} /> : <TextInput {...props} />}
+                  </Field>
+                );
+              })}
+              <Field label="Install as" htmlFor="kit-name" hint={`Leave empty to install it as ${card.id}. Another name installs it a second time, as for a second org.`}>
+                <TextInput id="kit-name" value={name} placeholder={card.id} onChange={(e) => setName(e.target.value)} />
+              </Field>
+            </div>
+
+            <Can permission="adapter-source.operate">
+              <div className="flex flex-wrap items-center gap-3 rounded-lg bg-ink-50 px-4 py-3">
+                <ShieldCheck className="size-5 text-ok-600" aria-hidden />
+                <p className="flex-1 text-sm text-ink-700">
+                  Checked as a connector is: signed by {card.publisherName}, countersigned by the registry. It installs
+                  as you, so it can make only what you could make yourself.
+                </p>
+                <Button type="submit" busy={plan.isPending} disabled={busy}>
+                  Show plan
+                </Button>
+                <Button variant="primary" busy={install.isPending} disabled={busy || !run?.ready || run.applied} onClick={() => install.mutate()}>
+                  Install
+                </Button>
+              </div>
+            </Can>
+
+            {error && <FormError>{error.message}</FormError>}
+            {run && (
+              <div className="space-y-2">
+                {run.problems.map((p) => (
+                  <FormError key={p}>{p}</FormError>
+                ))}
+                {run.applied && (
+                  <p className="flex items-center gap-2 text-sm text-ok-600">
+                    <BadgeCheck className="size-4" aria-hidden /> Installed as {run.name}.
+                  </p>
+                )}
+                {run.lines.length > 0 && (
+                  <pre className="max-h-72 overflow-auto rounded-lg border border-ink-200 bg-white p-3 font-mono text-xs text-ink-800">
+                    {run.lines.join("\n")}
+                  </pre>
+                )}
+              </div>
+            )}
+          </form>
         )
       )}
     </Dialog>

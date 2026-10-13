@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Configuration as code, shared by the bitween CLI and Bitween itself: reading configuration files
+    and kits, planning them against a Bitween through its REST API, and applying them. Bitween runs
+    it against its own API, with the caller's token, to install a kit from the Marketplace tab, so
+    what an installation may do is what its caller may do.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- The CLI's namespaces, kept as they were when this code lived in it. -->
+    <RootNamespace>SW.Bitween.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SW.Bitween.Adapters.Tooling\SW.Bitween.Adapters.Tooling.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SW.Bitween.Cli" />
+    <InternalsVisibleTo Include="SW.Bitween.Api" />
+    <InternalsVisibleTo Include="SW.Bitween.HttpTests" />
+    <InternalsVisibleTo Include="SW.Bitween.UnitTests" />
+  </ItemGroup>
+
+</Project>

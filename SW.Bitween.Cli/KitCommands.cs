@@ -147,11 +147,16 @@ public static partial class Commands
 
         using (var zip = ZipFile.Open(out_, ZipArchiveMode.Create))
         {
-            foreach (var file in Directory.EnumerateFiles(kit.Folder, "*", SearchOption.AllDirectories))
+            // The kit is its own source: under source/, with each file's hash in the manifest, as an
+            // adapter package carries its source, so the registry checks it and a reviewer reads it.
+            var hashes = new JsonObject();
+            foreach (var file in Directory.EnumerateFiles(kit.Folder, "*", SearchOption.AllDirectories).OrderBy(f => f, StringComparer.Ordinal))
             {
                 var relative = Path.GetRelativePath(kit.Folder, file).Replace('\\', '/');
-                if (relative.StartsWith("bin/", StringComparison.Ordinal) || relative.StartsWith(".", StringComparison.Ordinal)) continue;
-                zip.CreateEntryFromFile(file, relative);
+                if (relative.StartsWith("bin/", StringComparison.Ordinal) || relative.Split('/').Any(p => p.StartsWith('.'))) continue;
+                zip.CreateEntryFromFile(file, "source/" + relative);
+                using var stream = File.OpenRead(file);
+                hashes[relative] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(stream));
             }
             // The manifest the registry and the Marketplace read, as an adapter package has, of kind kit.
             var m = kit.Metadata;
@@ -168,18 +173,17 @@ public static partial class Commands
                 ["categories"] = m["categories"]?.DeepClone(),
                 ["tags"] = m["tags"]?.DeepClone(),
                 ["kinds"] = new JsonArray("kit"),
+                ["source"] = new JsonObject { ["path"] = "source", ["files"] = hashes },
                 ["compatibility"] = new JsonObject { ["applications"] = new JsonObject { ["bitween"] = (string)m["bitween"] ?? "10.0.0" } },
-                ["extensions"] = new JsonObject
+                // Unknown to an adapter's manifest, so kept as it is by every tool that reads one.
+                ["kit"] = new JsonObject
                 {
-                    ["kit"] = new JsonObject
+                    ["connectors"] = new JsonArray(kit.Connectors.Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["version"] = c.Version }).ToArray()),
+                    ["parameters"] = new JsonArray(kit.Parameters.Select(p => (JsonNode)new JsonObject
                     {
-                        ["connectors"] = new JsonArray(kit.Connectors.Select(c => (JsonNode)new JsonObject { ["id"] = c.Id, ["version"] = c.Version }).ToArray()),
-                        ["parameters"] = new JsonArray(kit.Parameters.Select(p => (JsonNode)new JsonObject
-                        {
-                            ["name"] = p.Name, ["description"] = p.Description, ["required"] = p.Required, ["secret"] = p.Secret,
-                            ["default"] = p.Default, ["example"] = p.Example,
-                        }).ToArray()),
-                    },
+                        ["name"] = p.Name, ["description"] = p.Description, ["required"] = p.Required, ["secret"] = p.Secret,
+                        ["default"] = p.Default, ["example"] = p.Example,
+                    }).ToArray()),
                 },
             };
             using var writer = new StreamWriter(zip.CreateEntry("adapter.json").Open());

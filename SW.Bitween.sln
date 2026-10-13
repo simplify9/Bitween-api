@@ -59,6 +59,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.Adapters.Tooling
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.Cli", "SW.Bitween.Cli\SW.Bitween.Cli.csproj", "{36ED6ADB-32BF-4DBB-B8BE-C9E8115301FF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SW.Bitween.Configuration", "SW.Bitween.Configuration\SW.Bitween.Configuration.csproj", "{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -369,6 +371,18 @@ Global
 		{36ED6ADB-32BF-4DBB-B8BE-C9E8115301FF}.Release|x64.Build.0 = Release|Any CPU
 		{36ED6ADB-32BF-4DBB-B8BE-C9E8115301FF}.Release|x86.ActiveCfg = Release|Any CPU
 		{36ED6ADB-32BF-4DBB-B8BE-C9E8115301FF}.Release|x86.Build.0 = Release|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Debug|x64.Build.0 = Debug|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Debug|x86.Build.0 = Debug|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Release|x64.ActiveCfg = Release|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Release|x64.Build.0 = Release|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Release|x86.ActiveCfg = Release|Any CPU
+		{B70A3276-AD8E-40F6-BC08-2E91D8F7C27E}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

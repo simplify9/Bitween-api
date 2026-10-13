@@ -1,6 +1,9 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   AdapterInfo,
+  KitInfo,
+  KitInstallRequest,
+  KitRun,
   Connection,
   ConnectionInput,
   AdapterKind,
@@ -382,6 +385,12 @@ export interface ApiClient {
   getMarketplacePackage(id: string): Promise<MarketplacePackage>;
   /** Verifies a registry version's signatures and publishes it here, current only when asked. */
   installFromMarketplace(id: string, version: string, current: boolean): Promise<MarketplaceInstallResult>;
+  /** A kit's connectors and the parameters it asks for. */
+  getKit(id: string, version: string): Promise<KitInfo>;
+  /** What installing a kit would do, changing nothing. */
+  planKit(request: KitInstallRequest): Promise<KitRun>;
+  /** Installs a kit: its connectors, then its configuration with the parameters filled in. */
+  installKit(request: KitInstallRequest): Promise<KitRun>;
 
   // - the adapter editor (adapter-source.edit; publishing and promoting need adapter-source.operate) -
   listAdapterDrafts(): Promise<AdapterDraftSummary[]>;

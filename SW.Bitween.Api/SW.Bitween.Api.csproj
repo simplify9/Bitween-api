@@ -51,6 +51,7 @@
     <!-- SW-Serverless's tooling with Bitween's contract, kinds and packages, for the adapter editor:
          what Bitween builds and publishes is exactly what the bitween CLI would. -->
     <ProjectReference Include="..\SW.Bitween.Adapters.Tooling\SW.Bitween.Adapters.Tooling.csproj" />
+    <ProjectReference Include="..\SW.Bitween.Configuration\SW.Bitween.Configuration.csproj" />
     <ProjectReference Include="..\SW.Bitween.NativeAdapters\SW.Bitween.NativeAdapters.csproj" />
     <ProjectReference Include="..\SW.Bitween.Sdk\SW.Bitween.Sdk.csproj" />
   </ItemGroup>
@@ -62,6 +63,7 @@
   <ItemGroup>
     <!-- For AccountExtensions.MicrosoftSigningKeys: sign-in with Microsoft tested end to end. -->
     <InternalsVisibleTo Include="SW.Bitween.IntegrationTests" />
+    <InternalsVisibleTo Include="SW.Bitween.HttpTests" />
   </ItemGroup>
 
 </Project>

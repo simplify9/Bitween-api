@@ -46,7 +46,8 @@ public class Kit
         {
             var unpacked = Path.Combine(Path.GetTempPath(), "bitween-kit-" + Guid.NewGuid().ToString("N"));
             ZipFile.ExtractToDirectory(path, unpacked);
-            path = unpacked;
+            // A built kit carries itself under source/, beside its adapter.json.
+            path = File.Exists(Path.Combine(unpacked, "source", FileName)) ? Path.Combine(unpacked, "source") : unpacked;
         }
         if (!Directory.Exists(path)) throw new ConfigException($"There's no kit at {path}: a folder with a {FileName}, or a zip of one.");
         var file = Path.Combine(path, FileName);
@@ -106,6 +107,9 @@ public class Kit
     /// </summary>
     public Dictionary<string, string> Values(IReadOnlyDictionary<string, string> given)
     {
+        // Names match whatever their case: what reaches Bitween's API as JSON has its keys camel-cased.
+        given = given.ToDictionary(g => Parameters.FirstOrDefault(p => string.Equals(p.Name, g.Key, StringComparison.OrdinalIgnoreCase))?.Name ?? g.Key,
+            g => g.Value, StringComparer.Ordinal);
         var unknown = given.Keys.Where(k => Parameters.All(p => p.Name != k)).ToList();
         if (unknown.Count > 0)
             throw new ConfigException($"The kit has no parameter {string.Join(", ", unknown)}. It has: {string.Join(", ", Parameters.Select(p => p.Name))}.");

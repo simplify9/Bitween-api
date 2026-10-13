@@ -16,11 +16,11 @@
 
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SW.Bitween.Adapters.Tooling\SW.Bitween.Adapters.Tooling.csproj" />
+    <ProjectReference Include="..\SW.Bitween.Configuration\SW.Bitween.Configuration.csproj" />
   </ItemGroup>
 
   <ItemGroup>

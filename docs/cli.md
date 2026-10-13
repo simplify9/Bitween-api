@@ -285,7 +285,11 @@ bitween kit build kits/s9.salesforce.contacts                # a zip for the reg
   filled in. It is applied as a configuration named after the kit, or `--name`, so installing again
   changes only what differs, `--prune` removes what the kit dropped, and a second `--name` installs it a
   second time, for a second org; a `Label`-style parameter keeps the two apart.
-- **build** checks it and zips it with an `adapter.json` of kind `kit`, which the registry reads.
+- **build** checks it and zips it with an `adapter.json` of kind `kit`, which the registry reads: the kit's
+  files under `source/` with their hashes, and its connectors and parameters in a `kit` section.
+
+A kit published to the registry is also installed from Bitween's [Marketplace tab](adapters.md#installing-from-the-marketplace),
+which asks for its parameters in a form and shows the same plan.
 
 ### Exit codes
 

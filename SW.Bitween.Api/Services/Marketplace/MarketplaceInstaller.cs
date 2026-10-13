@@ -38,6 +38,21 @@ public class MarketplaceInstaller(
 
     public async Task<MarketplaceInstall> InstallAsync(string packageId, string version, bool current, string installedBy)
     {
+        var (package, detail, sha256) = await FetchVerifiedAsync(packageId, version, refuseKits: true);
+        packageId = detail.PackageId;
+        version = detail.Version;
+        var published = await workshop.UploadAsync(new MemoryStream(package), version, current, null, $"registry:{detail.Publisher}");
+        await RecordOrigin(packageId, detail);
+        return new MarketplaceInstall(published.Manifest.Id, published.Version, current, sha256, detail.Publisher);
+    }
+
+    /// <summary>
+    /// A version's bytes, once every check on it has passed: published, allowed here, not revoked,
+    /// and signed by its publisher and countersigned by a trusted registry key. What installing an
+    /// adapter and installing a kit both start from.
+    /// </summary>
+    public async Task<(byte[] Package, RegistryVersion Detail, string Sha256)> FetchVerifiedAsync(string packageId, string version, bool refuseKits)
+    {
         packageId = packageId?.Trim().ToLowerInvariant();
         version = version?.Trim();
         if (string.IsNullOrWhiteSpace(packageId) || string.IsNullOrWhiteSpace(version))
@@ -64,12 +79,19 @@ public class MarketplaceInstaller(
                 "This is a paid connector. Installing one needs a licence, which this version of Bitween can't check yet.");
 
         var manifest = AdapterManifest.Parse(detail.Manifest.GetRawText());
+        var isKit = IsKit(manifest);
+        if (isKit && refuseKits)
+            throw new SWValidationException("REGISTRY_KIT",
+                $"{packageId} is a kit, not an adapter: install it from its card on the Marketplace tab, which asks for its parameters, or with bitween kit install.");
+        if (!isKit && !refuseKits)
+            throw new SWValidationException("REGISTRY_NOT_KIT", $"{packageId} is an adapter, not a kit; install it as one.");
         var needs = manifest.Compatibility?.MinVersionOf(AdapterCatalog.Application);
         if (!BitweenInfo.Satisfies(needs, options))
             throw new SWValidationException("ADAPTER_NEEDS_NEWER_BITWEEN",
                 $"{packageId} {version} needs Bitween {needs} or later; this is {BitweenInfo.Version(options)}.");
 
-        await EnsureIdIsOurs(packageId, version, IsBitweensOwn(packageId, detail));
+        // A kit isn't stored as an adapter, so it can't take one's place.
+        if (!isKit) await EnsureIdIsOurs(packageId, version, IsBitweensOwn(packageId, detail));
         await EnsureNotRevoked(trusted, packageId, version, detail.Sha256);
 
         var package = await registry.DownloadAsync(packageId, version);
@@ -78,11 +100,12 @@ public class MarketplaceInstaller(
             throw new SWValidationException("REGISTRY_SIGNATURE", "The download doesn't match what the registry signed. Nothing was installed.");
 
         VerifySignatures(trusted, detail, sha256);
-
-        var published = await workshop.UploadAsync(new MemoryStream(package), version, current, null, $"registry:{detail.Publisher}");
-        await RecordOrigin(packageId, detail);
-        return new MarketplaceInstall(published.Manifest.Id, published.Version, current, sha256, detail.Publisher);
+        return (package, detail, sha256);
     }
+
+    /// <summary>A kit: connectors plus configuration, installed with its parameters rather than as an adapter.</summary>
+    public static bool IsKit(AdapterManifest manifest) =>
+        manifest?.Kinds?.Any(k => string.Equals(k, "kit", StringComparison.OrdinalIgnoreCase)) == true;
 
     /// <summary>
     /// Bitween's own packages, the data source providers, which Simplify9 publishes under their

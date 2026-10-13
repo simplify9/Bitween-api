@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { MarketplaceInstallResult, MarketplacePackage, MarketplaceSearch } from "../types";
+import type { KitInfo, KitInstallRequest, KitRun, MarketplaceInstallResult, MarketplacePackage, MarketplaceSearch } from "../types";
 import { get, post } from "./request";
 
 export const marketplaceMethods = {
@@ -10,4 +10,10 @@ export const marketplaceMethods = {
 
   installFromMarketplace: (id: string, version: string, current: boolean) =>
     post<MarketplaceInstallResult>("/marketplace/install", { id, version, current }),
+
+  getKit: (id: string, version: string) => get<KitInfo>(`/marketplace/kit?${new URLSearchParams({ id, version })}`),
+
+  planKit: (request: KitInstallRequest) => post<KitRun>("/marketplace/kitplan", request),
+
+  installKit: (request: KitInstallRequest) => post<KitRun>("/marketplace/kitinstall", request),
 } satisfies Partial<ApiClient>;

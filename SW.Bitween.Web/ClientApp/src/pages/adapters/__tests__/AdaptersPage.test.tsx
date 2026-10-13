@@ -297,6 +297,77 @@ describe("the Adapters page", () => {
     expect(await screen.findByText("No registry is set")).toBeVisible();
   });
 
+  it("installs a kit with its parameters, showing the plan first", async () => {
+    const card = {
+      id: "s9.salesforce.contacts",
+      displayName: "Salesforce contacts",
+      summary: "Contacts both ways.",
+      publisher: "s9",
+      publisherName: "Simplify9",
+      tier: "Official",
+      pricing: "Free",
+      latest: "1.0.0",
+      runtime: null,
+      kinds: "kit",
+      categories: ["CRM"],
+      iconDataUri: null,
+      downloads: 0,
+      updatedOn: "2026-10-13T00:00:00Z",
+    };
+    const installed = { installed: false, fromRegistry: false, current: null, versions: [] };
+    const sent: Array<{ path: string; body: unknown }> = [];
+    const run = (applied: boolean) => ({
+      name: "s9.salesforce.contacts", ready: true, applied, problems: [], warnings: [], changes: 2,
+      lines: ['Warning: connection "salesforce" is approved once: choose Authorize.', '  + information type "Salesforce contact"'],
+    });
+    const { user } = renderApp("/adapters?tab=marketplace", {
+      handlers: [
+        ...handlers,
+        http.get(apiPath("/marketplace/search"), () =>
+          HttpResponse.json({ configured: true, registry: "https://registry.bitween.io", totalCount: 1, result: [{ card, installed }] }),
+        ),
+        http.get(apiPath("/marketplace/kit"), () =>
+          HttpResponse.json({
+            id: card.id, version: "1.0.0", displayName: card.displayName, summary: card.summary, description: null,
+            connectors: [{ id: "s9.openapi", version: "1.0.0" }],
+            parameters: [
+              { name: "InstanceUrl", description: "Your org", required: true, secret: false, default: null, example: "https://acme.my.salesforce.com" },
+              { name: "ClientSecret", description: "The secret", required: true, secret: true, default: null, example: null },
+              { name: "Label", description: "Names", required: true, secret: false, default: "Salesforce", example: null },
+            ],
+          }),
+        ),
+        http.post(apiPath("/marketplace/kitplan"), async ({ request }) => {
+          sent.push({ path: "plan", body: await request.json() });
+          return HttpResponse.json(run(false));
+        }),
+        http.post(apiPath("/marketplace/kitinstall"), async ({ request }) => {
+          sent.push({ path: "install", body: await request.json() });
+          return HttpResponse.json(run(true));
+        }),
+      ],
+    });
+
+    await user.click(await screen.findByRole("button", { name: /Salesforce contacts/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Install" })).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("InstanceUrl"), "https://acme.my.salesforce.com");
+    await user.type(within(dialog).getByLabelText("ClientSecret"), "s3cret");
+    expect(within(dialog).getByLabelText("ClientSecret")).toHaveAttribute("type", "password");
+    expect(within(dialog).getByLabelText("Label")).toHaveValue("Salesforce");
+
+    await user.click(within(dialog).getByRole("button", { name: "Show plan" }));
+    expect(await within(dialog).findByText(/information type "Salesforce contact"/)).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Install" }));
+    expect(await within(dialog).findByText("Installed as s9.salesforce.contacts.")).toBeVisible();
+
+    expect(sent.map((x) => x.path)).toEqual(["plan", "install"]);
+    expect(sent[1].body).toEqual({
+      id: "s9.salesforce.contacts", version: "1.0.0",
+      parameters: { InstanceUrl: "https://acme.my.salesforce.com", ClientSecret: "s3cret", Label: "Salesforce" },
+    });
+  });
+
   it("lists the registry's connectors and installs one", async () => {
     const card = {
       id: "s9.openapi",

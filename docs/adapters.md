@@ -528,6 +528,16 @@ install is in the audit trail as an `AdapterRelease` with the action `installed`
 A card says **Installed** when this Bitween has the registry's newest version, and **Update available**
 when it has an older one. Nothing is updated by itself.
 
+A card marked **Kit** is connectors plus the configuration that makes them useful (see [Kits](cli.md#kits)).
+Opening it shows the kit's parameters as a form, with secrets as password fields and defaults filled in, and
+**Install as**, a name for a second installation of the same kit. **Show plan** says what it would make,
+changing nothing; **Install** then installs its connectors at the versions it names and applies its
+configuration. The kit's package is checked as a connector's is, every step above, before anything is read
+from it. It installs as you: Bitween runs the same planner as `bitween kit install` against its own API
+with your session, so it can make only what you could make yourself, and each change is in the audit
+trail under your name, with an `install-kit` operator action for the whole. Installing a kit as an adapter
+is refused (`REGISTRY_KIT`).
+
 The data source providers (Oracle, PostgreSQL, MySQL, SQL Server, RabbitMQ and Amazon SQS) are on the
 marketplace too, published by Simplify9 under their own ids, such as `bitween.db.oracle`, which data
 sources refer to. They are the one exception to `REGISTRY_ID_TAKEN`: one installed by hand from a CLI

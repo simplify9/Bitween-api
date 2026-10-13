@@ -123,6 +123,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<FileLinks>();
             services.AddScoped<OidcSignIn>();
             services.AddScoped<ReceiverBookmarks>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.KitInstaller>();
             services.AddSingleton<SealedState>();
             services.AddScoped<Services.Connections.ConnectionTokens>();
             services.AddSingleton<StorageRetention>();

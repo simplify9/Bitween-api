@@ -16,6 +16,7 @@ public class OperatorAction
     public const string RequeueDeadLetters = "requeue-dead-letters";
     public const string DeleteQueues = "delete-queues";
     public const string ForgetBookmark = "forget-bookmark";
+    public const string InstallKit = "install-kit";
 
     private OperatorAction()
     {

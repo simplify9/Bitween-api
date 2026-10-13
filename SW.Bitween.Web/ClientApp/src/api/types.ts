@@ -1913,6 +1913,44 @@ export interface MarketplacePackage {
   installed: MarketplaceInstalled;
 }
 
+/** A kit's parameter, as its install form asks for it. */
+export interface KitParameter {
+  name: string;
+  description: string | null;
+  required: boolean;
+  secret: boolean;
+  default: string | null;
+  example: string | null;
+}
+
+export interface KitInfo {
+  id: string;
+  version: string;
+  displayName: string;
+  summary: string | null;
+  description: string | null;
+  connectors: { id: string; version: string }[];
+  parameters: KitParameter[];
+}
+
+/** What planning or installing a kit came to, as bitween kit install prints it. */
+export interface KitRun {
+  name: string;
+  ready: boolean;
+  applied: boolean;
+  lines: string[];
+  problems: string[];
+  warnings: string[];
+  changes: number;
+}
+
+export interface KitInstallRequest {
+  id: string;
+  version: string;
+  name?: string;
+  parameters: Record<string, string>;
+}
+
 export interface MarketplaceInstallResult {
   adapterId: string;
   version: string;
