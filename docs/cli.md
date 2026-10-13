@@ -198,11 +198,12 @@ adapters:
 | `retryPolicies` | `name` | `groups` as Bitween writes them; groups keep their ids by name |
 | `dataSources` | `name` | `adapter`, `kind`, `properties` |
 | `dataSourceStatements` | `dataSource` and `name` | `sql`, `workGroup` |
-| `adapters` | the package | published unless that version already is; `current: true` makes it the one that runs |
+| `adapters` | the package | `package:` a zip, published unless that version already is; or `install:` a connector's id with `version:`, installed from the [marketplace](adapters.md#installing-from-the-marketplace) unless this Bitween has that version. `current: true` makes it the one that runs. |
 | `subscriptions` | `name` | `type`, `informationType`, `partner`, `receiver`/`validator`/`mapper`/`handler` blocks, `paused`, `expectTraffic` compared whole (a member left out is unset) |
 | `apiGateways` | `urlName` | `partners` attached, each `{ partner, subscription }` |
 | `busGateways` | `name` | `routes`, each `{ subscription, partner, matchExpression }` |
 | `notifiers` | `name` | `handler`, `properties`, `subscriptions` |
+| `connections` | `name` | `grant`, `authorizeUrl`, `tokenUrl`, `clientId`, `clientSecret`, `scopes`, `authorizeParameters`, `tokenAuth`, `username`, `password`; see [Connections](adapters.md#connections). An approve-once (`AuthorizationCode`) connection still has to be authorized in Bitween after apply makes it; plan says so. |
 
 - **Names, not ids.** Items refer to each other by name, so one file works on any Bitween. A name Bitween has
   twice can't be referred to; plan says which.
@@ -212,7 +213,8 @@ adapters:
   guess.
 - **Secrets.** `${secret:NAME}` comes from the variable `NAME`, or the file `NAME` in `--secrets-dir`
   (`BITWEEN_SECRETS_DIR`), such as a mounted Kubernetes secret. `${env:NAME}` and `${file:path}` (relative
-  to the file) work too. Secrets are never printed. Bitween doesn't show the secrets it holds, so an unchanged
+  to the file) work too, and `${param:NAME}` reads a value given with `--set NAME=value` (once per value) or a
+  `--values` file of `NAME: value` lines, as a [kit](#kits)'s parameters are. Secrets are never printed. Bitween doesn't show the secrets it holds, so an unchanged
   secret can't be told from a changed one: it is sent again whenever anything else about that item changes.
   A partner's key is compared by the five characters Bitween shows, and replaced when it no longer starts
   with them.
@@ -227,6 +229,63 @@ adapters:
 
 Apply needs the permissions of what it changes, and `global-values.create` and `global-values.edit` to
 remember what it made.
+
+### Kits
+
+A kit is connectors plus the configuration that makes them useful: one job between two systems, such
+as Salesforce contacts both ways. It is a folder:
+
+```
+kit.yaml     what it is, the connectors it needs, the parameters it asks for
+bundle/      configuration files, as apply takes them, reading the parameters as ${param:NAME};
+             files they read with ${file:...} (API descriptions, schemas, mappings) go in subfolders
+samples/     sample documents, optional
+```
+
+```yaml
+apiVersion: bitween/v1
+kind: Kit
+metadata:
+  id: s9.salesforce.contacts
+  version: 1.0.0
+  displayName: Salesforce contacts
+  summary: Contacts both ways between Salesforce and your system.
+connectors:
+  - { id: s9.openapi.receiver, version: 1.0.0 }
+parameters:
+  - name: InstanceUrl
+    description: Your Salesforce org's address.
+    example: https://acme.my.salesforce.com
+  - name: ClientSecret
+    description: The connected app's consumer secret.
+    secret: true
+  - name: Label
+    description: Put before the names of what it makes.
+    default: Salesforce
+```
+
+A parameter is required unless it has a `default` or says `required: false`. A `secret: true` one is kept
+out of what's printed, and can also come from a file of its name in `--secrets-dir`.
+
+```sh
+bitween kit test kits/s9.salesforce.contacts                 # checks it, without a Bitween
+bitween kit test kits/s9.salesforce.contacts --plan --set ...   # and what it would do on one
+bitween kit install kits/s9.salesforce.contacts --set InstanceUrl=https://acme.my.salesforce.com \
+  --set ClientSecret=... --dry-run
+bitween kit install kits/s9.salesforce.contacts --values acme.yaml --name salesforce-acme
+bitween kit build kits/s9.salesforce.contacts                # a zip for the registry
+```
+
+- **test** checks kit.yaml, that every `${param:...}` the bundle reads is declared (and warns about one
+  declared and never read), that every adapter it runs is built in or one of its connectors, and warns
+  about a connector its subscriptions don't pin to the version the kit names. With `--plan` it plans the
+  kit on the signed-in Bitween.
+- **install** installs its connectors from the marketplace at the versions it names (not made current,
+  so subscriptions already on another version keep it), then applies the bundle with the parameters
+  filled in. It is applied as a configuration named after the kit, or `--name`, so installing again
+  changes only what differs, `--prune` removes what the kit dropped, and a second `--name` installs it a
+  second time, for a second org; a `Label`-style parameter keeps the two apart.
+- **build** checks it and zips it with an `adapter.json` of kind `kit`, which the registry reads.
 
 ### Exit codes
 

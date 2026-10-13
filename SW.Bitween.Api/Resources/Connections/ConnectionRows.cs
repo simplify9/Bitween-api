@@ -48,9 +48,9 @@ internal static class ConnectionRows
             problems.Add("A name is letters, digits, '_' and '-', up to 100 of them; settings write it as {{connections.NAME.accessToken}}.");
         if (!Enum.TryParse<ConnectionGrant>(save.Grant, true, out var grant) || !Enum.IsDefined(grant))
             problems.Add("Grant is ClientCredentials, AuthorizationCode or Password.");
-        if (!IsHttps(save.TokenUrl)) problems.Add("The token URL must be an https address.");
+        if (!IsHttps(save.TokenUrl)) problems.Add("The token URL must be an https address (http only on this machine, for testing).");
         if (grant == ConnectionGrant.AuthorizationCode && !IsHttps(save.AuthorizeUrl))
-            problems.Add("An authorization code connection needs the provider's authorize URL, an https address.");
+            problems.Add("An authorization code connection needs the provider's authorize URL, an https address (http only on this machine, for testing).");
         if (string.IsNullOrWhiteSpace(save.ClientId)) problems.Add("The client ID is required.");
         if (grant == ConnectionGrant.Password && string.IsNullOrWhiteSpace(save.Username)) problems.Add("A password connection needs the username.");
         var tokenAuth = string.IsNullOrWhiteSpace(save.TokenAuth) ? "post" : save.TokenAuth.Trim().ToLowerInvariant();
@@ -87,8 +87,13 @@ internal static class ConnectionRows
             c.ForgetTokens();
     }
 
+    /// <summary>
+    /// https, or http to this machine itself: a provider played locally, to try a kit, has no
+    /// certificate, and nothing sent to the loopback address leaves the machine.
+    /// </summary>
     static bool IsHttps(string url) =>
-        Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
+        Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri) &&
+        (uri.Scheme == Uri.UriSchemeHttps || (uri.Scheme == Uri.UriSchemeHttp && uri.IsLoopback));
 
     static bool Same(string a, string b) => string.Equals(Trimmed(a), Trimmed(b), StringComparison.Ordinal);
 

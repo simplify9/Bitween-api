@@ -16,6 +16,7 @@ public static class Kinds
         new InformationTypes(),
         new Partners(),
         new GlobalValues(),
+        new Connections(),
         new RetryPolicies(),
         new DataSources(),
         new DataSourceStatements(),
@@ -25,7 +26,8 @@ public static class Kinds
         new Notifiers(),
     ];
 
-    public static readonly IReadOnlyList<string> Sections = [.. All.Select(k => k.Section).Take(8), Adapters, .. All.Select(k => k.Section).Skip(8)];
+    // Adapters come after the data source statements, as they always have, and before subscriptions.
+    public static readonly IReadOnlyList<string> Sections = [.. All.Select(k => k.Section).Take(9), Adapters, .. All.Select(k => k.Section).Skip(9)];
 
     public static Kind Of(string section) => All.First(k => k.Section == section);
 }
@@ -642,5 +644,34 @@ public class Notifiers : Kind
         var api = (JsonObject)await ctx.Api.GetAsync($"api/notifiers/{id}");
         await UpdateAsync(ctx, ToExisting(ctx, id, api), want);
         return id;
+    }
+}
+
+/// <summary>
+/// Connections: OAuth2 clients whose tokens Bitween keeps fresh. The client secret and password are
+/// secrets, which Bitween shows as __private__; an approve-once connection still has to be authorized
+/// in Bitween after it is applied, which plan says.
+/// </summary>
+public class Connections : Kind
+{
+    public override string Section => "connections";
+    public override string Noun => "connection";
+    public override string Resource => "connections";
+
+    public override IReadOnlyList<Field> Fields { get; } =
+    [
+        Same("name"), Same("grant"), Same("authorizeUrl"), Same("tokenUrl"), Same("clientId"), Same("clientSecret"),
+        Same("scopes"), Same("authorizeParameters"), Same("tokenAuth"), Same("username"), Same("password"),
+    ];
+
+    protected override Task<List<JsonObject>> ListAsync(Context ctx) => Listed(ctx, "api/connections");
+    protected override Task<(string, JsonObject)> DetailOf(Context ctx, JsonObject row) => Task.FromResult((row["id"]!.ToString(), row));
+
+    public override JsonObject ToFile(Context ctx, JsonObject api)
+    {
+        var file = base.ToFile(ctx, api);
+        // The default says nothing, so an exported file doesn't carry it.
+        if ((string)file["tokenAuth"] == "post") file.Remove("tokenAuth");
+        return file;
     }
 }

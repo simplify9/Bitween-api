@@ -7,9 +7,9 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.Connections;
 
-public class Delete(BitweenDbContext dbContext, RequestContext requestContext) : ICommandHandler<int, ConnectionDelete, object>
+public class Delete(BitweenDbContext dbContext, RequestContext requestContext) : IDeleteHandler<int, object>
 {
-    public async Task<object> Handle(int key, ConnectionDelete request)
+    public async Task<object> Handle(int key)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.GlobalValues.Delete);
         var connection = await dbContext.Set<Connection>().SingleOrDefaultAsync(c => c.Id == key)

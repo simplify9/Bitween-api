@@ -30,6 +30,9 @@ public static class Program
                 case "mapping":
                 case "mappings":
                     return await Mapping(args[1..], profiles);
+                case "kit":
+                case "kits":
+                    return await KitVerb(args[1..], profiles);
                 case "version":
                 case "--version":
                     Console.WriteLine($"bitween {Version}");
@@ -74,6 +77,17 @@ public static class Program
             _ => Task.FromResult(Help(parsed, "bitween mapping")));
     }
 
+    static async Task<int> KitVerb(string[] args, Profiles profiles)
+    {
+        var parsed = Parser().ParseArguments<KitTestOptions, KitInstallOptions, KitBuildOptions, KitPlaceholderOptions>(args);
+        return await parsed.MapResult(
+            (KitTestOptions o) => Commands.KitTest(o, profiles),
+            (KitInstallOptions o) => Commands.KitInstall(o, profiles),
+            (KitBuildOptions o) => Commands.KitBuild(o),
+            (KitPlaceholderOptions _) => Task.FromResult(Help(parsed, "bitween kit")),
+            _ => Task.FromResult(Help(parsed, "bitween kit")));
+    }
+
     static async Task<int> Adapter(string[] args, Profiles profiles)
     {
         var parsed = Parser().ParseArguments<InitOptions, BuildOptions, TestOptions, RunOptions,
@@ -94,6 +108,8 @@ public static class Program
     {
         s.HelpWriter = null;
         s.CaseInsensitiveEnumValues = true;
+        // --set NAME=value once per parameter: a value may hold commas, as a SOQL field list does.
+        s.AllowMultiInstance = true;
     });
 
     static int Help<T>(ParserResult<T> parsed, string command)
@@ -126,6 +142,12 @@ public static class Program
           bitween apply -f <file|folder>   Make the Bitween's configuration what the file says (--prune
                                            also removes what an earlier apply made and the file dropped)
           bitween export [-o file]         Write the Bitween's configuration as a file apply takes
+                                           (plan and apply take --set NAME=value and --values for ${param:NAME})
+
+          bitween kit test <kit>           Check a kit (--plan also plans it on the signed-in Bitween)
+          bitween kit install <kit>        Install its connectors and configuration (--set NAME=value,
+                                           --values file, --name for a second installation, --dry-run)
+          bitween kit build <kit>          Check it and pack it into a zip for the registry
 
           Without a profile, BITWEEN_URL and BITWEEN_TOKEN sign in as a service account.
 

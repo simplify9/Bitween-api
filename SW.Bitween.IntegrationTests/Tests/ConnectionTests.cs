@@ -418,6 +418,10 @@ public class ConnectionTests : IDisposable
         bad = ClientCredentials();
         bad.TokenUrl = "http://id.test/token";
         Assert.Contains("https", await Refused(bad));
+        // Plain http only to this machine, for a provider played locally.
+        var local = ClientCredentials();
+        local.TokenUrl = "http://127.0.0.1:9000/token";
+        Assert.Equal("New", (await Create(local)).Status);
         bad = AuthorizationCode();
         bad.AuthorizeUrl = null;
         Assert.Contains("authorize URL", await Refused(bad));
@@ -446,7 +450,7 @@ public class ConnectionTests : IDisposable
         }
 
         var delete = await Assert.ThrowsAsync<SWValidationException>(() =>
-            As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id, new ConnectionDelete())));
+            As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id)));
         Assert.Contains("notifier", delete.Validations.First().Value);
         var renamed = ClientCredentials(c.Name + "x");
         Assert.Contains("can't be renamed", (await Assert.ThrowsAsync<SWValidationException>(() => Update(c.Id, renamed))).Validations.First().Value);
@@ -457,7 +461,7 @@ public class ConnectionTests : IDisposable
             db.Remove(await db.Set<Notifier>().SingleAsync(n => n.Id == notifierId));
             await db.SaveChangesAsync();
         }
-        await As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id, new ConnectionDelete()));
+        await As(sp => ActivatorUtilities.CreateInstance<Resources.Connections.Delete>(sp).Handle(c.Id));
         await using (var scope = fixture.CreateScope())
             Assert.False(await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Connection>().AnyAsync(x => x.Id == c.Id));
     }

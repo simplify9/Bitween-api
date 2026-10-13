@@ -42,7 +42,9 @@ A connection is an OAuth2 client whose tokens Bitween asks for, renews and rotat
 | **Client ID and secret** (client credentials) | Nobody approves anything. ServiceNow and most partner APIs. |
 | **Service user** (password grant) | A service user's name and password, for providers that still allow it. |
 
-Register `https://<bitween host>/oauth-callback` as the redirect URI at the provider. The approval uses PKCE and a state checked against an encrypted cookie. **Extra approval parameters** are added to the approval page's address, as `access_type=offline&prompt=consent`, which Google needs before it gives a refresh token; others want a scope such as `offline_access` or `refresh_token`. A connection approved without one says so, and needs approving again when its token expires.
+Register `https://<bitween host>/oauth-callback` as the redirect URI at the provider. The token and authorize
+URLs are https; plain http is accepted only to this machine itself (`localhost`, `127.0.0.1`), to try a
+connection or a [kit](cli.md#kits) against a provider played locally. The approval uses PKCE and a state checked against an encrypted cookie. **Extra approval parameters** are added to the approval page's address, as `access_type=offline&prompt=consent`, which Google needs before it gives a refresh token; others want a scope such as `offline_access` or `refresh_token`. A connection approved without one says so, and needs approving again when its token expires.
 
 Write `{{connections.NAME.accessToken}}` in any setting: the HTTP handler's `LoginPassword` with `AuthType` `Bearer`, or the `Token` of `s9.openapi` with `Auth` `bearer`. As the adapter starts:
 

@@ -16,7 +16,8 @@ public class ConfigException(string message) : Exception(message);
 ///   partners: [...]
 ///
 /// Strings may hold ${secret:NAME} (from the variable NAME, or the file NAME in the secrets folder),
-/// ${env:NAME} and ${file:relative/path}; secrets are never printed.
+/// ${env:NAME}, ${file:relative/path} and ${param:NAME} (a value given with --set or --values, as a
+/// kit's parameters are); secrets are never printed.
 /// </summary>
 public class ConfigFile
 {
@@ -31,9 +32,25 @@ public class ConfigFile
     /// <summary>Every value that came from a secret, so it can be kept out of what's printed.</summary>
     public HashSet<string> SecretValues { get; } = new(StringComparer.Ordinal);
 
-    static readonly Regex Reference = new(@"\$\{(secret|env|file):([^}]+)\}", RegexOptions.Compiled);
+    static readonly Regex Reference = new(@"\$\{(secret|env|file|param):([^}]+)\}", RegexOptions.Compiled);
 
-    public static ConfigFile Load(string path, string secretsDir = null)
+    /// <summary>The parameters ${param:NAME} reads, and which of them are secrets.</summary>
+    IReadOnlyDictionary<string, string> parameters = new Dictionary<string, string>();
+    ISet<string> secretParameters = new HashSet<string>();
+
+    /// <summary>Every parameter the files named, given or not: what a kit checks its declarations against.</summary>
+    public SortedSet<string> ParametersUsed { get; } = new(StringComparer.Ordinal);
+
+    /// <param name="parameters">What ${param:NAME} reads; a name not given is an error, as an unset secret is.</param>
+    /// <param name="secretParameters">Parameters whose values are kept out of what's printed.</param>
+    /// <summary>Every ${secret:NAME} the files named, set or not.</summary>
+    public SortedSet<string> SecretReferences { get; } = new(StringComparer.Ordinal);
+
+    /// <param name="defaultName">The name when no file says metadata.name, as a kit's bundle needn't.</param>
+    /// <param name="allowMissingSecrets">For checking files without their secrets: an unset one is left empty.</param>
+    public static ConfigFile Load(string path, string secretsDir = null, IReadOnlyDictionary<string, string> parameters = null,
+        ISet<string> secretParameters = null, bool allowMissingParameters = false, string defaultName = null,
+        bool allowMissingSecrets = false)
     {
         var files = Directory.Exists(path)
             ? Directory.EnumerateFiles(path, "*.*", SearchOption.TopDirectoryOnly)
@@ -42,8 +59,14 @@ public class ConfigFile
             : File.Exists(path) ? [path] : throw new ConfigException($"There's no file or folder at {path}.");
         if (files.Count == 0) throw new ConfigException($"There are no .yaml files in {path}.");
 
-        var config = new ConfigFile();
+        var config = new ConfigFile
+        {
+            parameters = parameters ?? new Dictionary<string, string>(),
+            secretParameters = secretParameters ?? new HashSet<string>(),
+        };
         var missing = new SortedSet<string>(StringComparer.Ordinal);
+        var missingParameters = new SortedSet<string>(StringComparer.Ordinal);
+        config.missingParameters = missingParameters;
         foreach (var file in files)
         {
             List<JsonNode> documents;
@@ -57,12 +80,28 @@ public class ConfigFile
             }
         }
 
-        if (missing.Count > 0)
+        if (missingParameters.Count > 0 && !allowMissingParameters)
+            throw new ConfigException("These parameters aren't given: " + string.Join(", ", missingParameters) +
+                                      ". Give each with --set NAME=value, or in a --values file.");
+        if (missing.Count > 0 && !allowMissingSecrets)
             throw new ConfigException("These aren't set: " + string.Join(", ", missing) +
                                       ". Set each as a variable, or put it in a file of that name in the secrets folder (--secrets-dir).");
+        config.Name ??= defaultName;
         if (config.Name == null) throw new ConfigException("No metadata.name: name the configuration, e.g. metadata: { name: acme }.");
         return config;
     }
+
+    /// <summary>Applies it under another name, as a kit installed twice is, so each installation keeps its own record.</summary>
+    public void Rename(string name) => Name = name;
+
+    /// <summary>Items applied before the files' own, as a kit's connector installs are.</summary>
+    public void Prepend(string section, IEnumerable<JsonObject> items)
+    {
+        var list = Sections.TryGetValue(section, out var existing) ? existing : Sections[section] = [];
+        list.InsertRange(0, items);
+    }
+
+    SortedSet<string> missingParameters;
 
     void Add(string file, JsonObject root, string folder, string secretsDir, ISet<string> missing)
     {
@@ -117,6 +156,7 @@ public class ConfigFile
                     {
                         case "secret":
                             secret = true;
+                            SecretReferences.Add(name);
                             var value = Environment.GetEnvironmentVariable(name);
                             var inFolder = secretsDir == null ? null : Path.Combine(secretsDir, name);
                             if (value == null && inFolder != null && File.Exists(inFolder)) value = File.ReadAllText(inFolder).TrimEnd('\r', '\n');
@@ -126,6 +166,12 @@ public class ConfigFile
                             var env = Environment.GetEnvironmentVariable(name);
                             if (env == null) missing.Add(name);
                             return env ?? "";
+                        case "param":
+                            ParametersUsed.Add(name);
+                            if (secretParameters.Contains(name)) secret = true;
+                            if (parameters.TryGetValue(name, out var given) && given != null) return given;
+                            missingParameters.Add(name);
+                            return "";
                         default:
                             var full = Path.GetFullPath(Path.Combine(folder, name));
                             if (!File.Exists(full)) throw new ConfigException($"${{file:{name}}}: there's no file at {full}.");

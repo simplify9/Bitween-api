@@ -472,4 +472,134 @@ public class ApplyTests(HttpFixture fixture) : IDisposable
 
         Assert.Equal(1, (await Bitween(profiles, null, "plan", "-f", Write("apiVersion: bitween/v1\nkind: Configuration\nmetadata: { name: x }\nwidgets: []\n"))).Exit);
     }
+
+    /// <summary>A kit in the work folder: kit.yaml and a bundle, with an approve-once connection that needs authorizing.</summary>
+    string WriteKit()
+    {
+        var kit = Directory.CreateDirectory(Path.Combine(work, "kit")).FullName;
+        Directory.CreateDirectory(Path.Combine(kit, "bundle"));
+        File.WriteAllText(Path.Combine(kit, "kit.yaml"), $$"""
+            apiVersion: bitween/v1
+            kind: Kit
+            metadata: { id: s9.lab.kit{{s}}, version: 1.0.0, displayName: Lab kit, summary: For tests. }
+            parameters:
+              - { name: Label, description: Names, default: Lab {{s}} }
+              - { name: Url, description: Where to send }
+              - { name: ClientSecret, description: The secret, secret: true }
+            """);
+        File.WriteAllText(Path.Combine(kit, "bundle", "main.yaml"), """
+            apiVersion: bitween/v1
+            kind: Configuration
+            connections:
+              - name: ${param:Label}-crm
+                grant: AuthorizationCode
+                authorizeUrl: https://login.example.test/authorize
+                tokenUrl: https://login.example.test/token
+                clientId: bitween
+                clientSecret: ${param:ClientSecret}
+            informationTypes:
+              - name: ${param:Label} contact
+                format: Json
+            subscriptions:
+              - name: ${param:Label} contacts out
+                type: GatewayApiCall
+                informationType: ${param:Label} contact
+                handler:
+                  adapter: NativeHttpHandler
+                  properties:
+                    Url: ${param:Url}
+                    AuthType: Bearer
+                    LoginPassword: "{{connections.${param:Label}-crm.accessToken}}"
+            """.Replace("${param:Label}-crm", "${param:Label}crm").Replace("Lab {{s}}", ""));
+        return kit;
+    }
+
+    [Fact]
+    public async Task A_kit_installs_once_says_to_authorize_its_connection_and_installs_again_under_another_name()
+    {
+        var profiles = await SignedInAsync();
+        var kit = WriteKit();
+        var label = "Lab" + s;
+
+        var (exit, output) = await Bitween(profiles, null, "kit", "install", kit, "--set", $"Label={label}", "--set", "Url=https://crm.example.test/contacts",
+            "--set", "ClientSecret=kit-secret-" + s, "--dry-run");
+        Assert.True(exit == 0, output);
+        Assert.Contains($"+ connection \"{label}crm\"", output);
+        Assert.Contains("choose Authorize", output);
+        Assert.DoesNotContain("kit-secret-" + s, output);
+
+        using var admin = await fixture.AdminAsync();
+        Assert.DoesNotContain((await Api.Json(await admin.GetAsync("/api/connections")))["result"]!.AsArray(), c => (string)c!["name"]! == label + "crm");
+
+        (exit, output) = await Bitween(profiles, null, "kit", "install", kit, "--set", $"Label={label}", "--set", "Url=https://crm.example.test/contacts",
+            "--set", "ClientSecret=kit-secret-" + s);
+        Assert.True(exit == 0, output);
+
+        var connection = (await Api.Json(await admin.GetAsync("/api/connections")))["result"]!.AsArray().Single(c => (string)c!["name"]! == label + "crm")!;
+        Assert.Equal("NeedsAuthorizing", (string)connection["status"]!);
+        var subscription = await SubscriptionAsync(admin, $"{label} contacts out");
+        // The reference sits in a secret setting, so Bitween shows it masked, as any secret.
+        Assert.Contains("__private__", subscription["handlerProperties"]!.ToJsonString());
+
+        // Installed again as it is: nothing to change.
+        (exit, output) = await Bitween(profiles, null, "kit", "install", kit, "--set", $"Label={label}", "--set", "Url=https://crm.example.test/contacts",
+            "--set", "ClientSecret=kit-secret-" + s);
+        Assert.True(exit == 0, output);
+        Assert.Contains("No changes", output);
+
+        // A second installation, for another org, under its own name and labels.
+        (exit, output) = await Bitween(profiles, null, "kit", "install", kit, "--name", "second-" + s, "--set", $"Label={label}b",
+            "--set", "Url=https://crm2.example.test/contacts", "--set", "ClientSecret=kit-secret2-" + s);
+        Assert.True(exit == 0, output);
+        await SubscriptionAsync(admin, $"{label}b contacts out");
+        await SubscriptionAsync(admin, $"{label} contacts out");
+    }
+
+    [Fact]
+    public async Task A_kit_missing_a_parameter_installs_nothing_and_says_which()
+    {
+        var profiles = await SignedInAsync();
+        var (exit, output) = await Bitween(profiles, null, "kit", "install", WriteKit(), "--set", "Url=https://crm.example.test");
+        Assert.Equal(1, exit);
+        Assert.Contains("ClientSecret", output);
+    }
+
+    [Fact]
+    public async Task A_connection_exports_with_its_secret_named_and_applies_back_the_same()
+    {
+        var profiles = await SignedInAsync();
+        var name = "conn" + s;
+        Environment.SetEnvironmentVariable("LAB_CONN_SECRET", "conn-secret-" + s);
+        try
+        {
+            var file = Write($$"""
+                apiVersion: bitween/v1
+                kind: Configuration
+                metadata: { name: conn-{{s}} }
+                connections:
+                  - name: {{name}}
+                    grant: ClientCredentials
+                    tokenUrl: https://id.example.test/token
+                    clientId: app
+                    clientSecret: ${secret:LAB_CONN_SECRET}
+                    scopes: orders.write
+                """);
+            var (exit, output) = await Bitween(profiles, null, "apply", "-f", file);
+            Assert.True(exit == 0, output);
+            (exit, output) = await Bitween(profiles, null, "plan", "-f", file, "--detailed-exitcode");
+            Assert.True(exit == 0, output);
+
+            var exported = Path.Combine(work, "exported.yaml");
+            (exit, output) = await Bitween(profiles, null, "export", "--only", "connections", "-o", exported);
+            Assert.True(exit == 0, output);
+            var text = File.ReadAllText(exported);
+            Assert.Contains(name, text);
+            Assert.DoesNotContain("conn-secret-" + s, text);
+            Assert.Contains("${secret:", text);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("LAB_CONN_SECRET", null);
+        }
+    }
 }

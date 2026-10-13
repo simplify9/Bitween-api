@@ -5,7 +5,7 @@ using SW.Serverless.Tooling;
 
 namespace SW.Bitween.Cli.Configuration;
 
-public enum Op { Create, Update, Delete, Publish, Promote }
+public enum Op { Create, Update, Delete, Publish, Promote, Install }
 
 /// <summary>One thing apply would do.</summary>
 public record Change(Op Op, string Section, string Key, JsonObject Want = null, Existing Have = null, List<string> Fields = null)
@@ -101,6 +101,16 @@ public class Planner(Context ctx, ConfigFile config)
             }
         }
 
+        // An approve-once connection gets its tokens only once someone authorizes it in Bitween.
+        foreach (var want in config.Sections.GetValueOrDefault(Kinds.Of("connections").Section) ?? [])
+        {
+            if (!string.Equals((string)want["grant"], "AuthorizationCode", StringComparison.OrdinalIgnoreCase)) continue;
+            var key = Kinds.Of("connections").KeyOf(want);
+            var have = ctx.Current["connections"].FirstOrDefault(e => e.Key == key);
+            if (have == null || (string)have.Api["status"] != "Connected")
+                plan.Warnings.Add($"connection {Context.Quote(key)} is approved once: after applying, open it on Bitween's Connections page and choose Authorize.");
+        }
+
         // Removals last and in reverse, so nothing is removed while something still names it.
         var removals = plan.Changes.Where(c => c.Op == Op.Delete)
             .OrderByDescending(c => Kinds.All.ToList().FindIndex(k => k.Section == c.Section)).ToList();
@@ -140,6 +150,11 @@ public class Planner(Context ctx, ConfigFile config)
     {
         foreach (var want in config.Sections.GetValueOrDefault(Kinds.Adapters) ?? [])
         {
+            if (want.ContainsKey("install"))
+            {
+                await PlanInstallAsync(plan, want);
+                continue;
+            }
             var package = (string)want["package"];
             if (string.IsNullOrWhiteSpace(package) || !File.Exists(package))
             {
@@ -172,6 +187,33 @@ public class Planner(Context ctx, ConfigFile config)
                 else plan.Unchanged++;
             }
         }
+    }
+
+    /// <summary>
+    /// A connector from the marketplace, at a version: installed unless this Bitween has that version.
+    /// Not made current unless asked, so subscriptions already on another version keep running it.
+    /// </summary>
+    async Task PlanInstallAsync(Plan plan, JsonObject want)
+    {
+        var id = (string)want["install"];
+        var version = (string)want["version"];
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(version))
+        {
+            plan.Problems.Add("adapters: an install names the connector and its version, as install: s9.openapi and version: 1.0.0.");
+            return;
+        }
+
+        JsonNode listing = null;
+        try { listing = await ctx.Api.GetAsync($"api/adapters/versions?adapterId={Uri.EscapeDataString(id)}"); }
+        catch (BitweenApiException ex) when (ex.Status == System.Net.HttpStatusCode.NotFound) { }
+
+        var key = $"{id} {version}";
+        var current = (bool?)want["current"] ?? false;
+        var item = new JsonObject { ["install"] = id, ["id"] = id, ["version"] = version, ["current"] = current };
+        var has = (listing?["versions"] as JsonArray ?? []).OfType<JsonObject>().Any(v => (string)v["version"] == version);
+        if (!has) plan.Changes.Add(new Change(Op.Install, Kinds.Adapters, key, item));
+        else if (current && (string)listing?["current"] != version) plan.Changes.Add(new Change(Op.Promote, Kinds.Adapters, key, item));
+        else plan.Unchanged++;
     }
 
     // ---------------------------------------------------------------------- carrying it out
@@ -211,6 +253,10 @@ public class Planner(Context ctx, ConfigFile config)
                 break;
             case Op.Promote:
                 await ctx.Api.PostAsync("api/adapters/promote", new { adapterId = (string)change.Want["id"], version = (string)change.Want["version"] });
+                break;
+            case Op.Install:
+                await ctx.Api.PostAsync("api/marketplace/install",
+                    new { id = (string)change.Want["id"], version = (string)change.Want["version"], current = (bool)change.Want["current"]! });
                 break;
             case Op.Create:
                 var kind = Kinds.Of(change.Section);
@@ -287,12 +333,13 @@ public class Planner(Context ctx, ConfigFile config)
 
     // ---------------------------------------------------------------------- saying it
 
-    static string Sign(Op op) => op switch { Op.Create or Op.Publish => "+", Op.Delete => "-", _ => "~" };
+    static string Sign(Op op) => op switch { Op.Create or Op.Publish or Op.Install => "+", Op.Delete => "-", _ => "~" };
 
     public static string Describe(Change change) => change.Op switch
     {
         Op.Publish => $"+ publish adapter {change.Key}{((bool?)change.Want["current"] == true ? ", current" : "")}",
         Op.Promote => $"~ make adapter {change.Key} current",
+        Op.Install => $"+ install adapter {change.Key} from the marketplace{((bool?)change.Want["current"] == true ? ", current" : "")}",
         _ => $"{Sign(change.Op)} {change.Noun} {Context.Quote(change.Key)}",
     };
 
@@ -302,6 +349,7 @@ public class Planner(Context ctx, ConfigFile config)
         Op.Update => $"Updating {change.Noun} {Context.Quote(change.Key)}",
         Op.Delete => $"Removing {change.Noun} {Context.Quote(change.Key)}",
         Op.Publish => $"Publishing adapter {change.Key}",
+        Op.Install => $"Installing adapter {change.Key} from the marketplace",
         _ => $"Making adapter {change.Key} current",
     };
 
@@ -324,6 +372,6 @@ public class Planner(Context ctx, ConfigFile config)
         output.WriteLine(plan.Changes.Count == 0
             ? $"No changes. {plan.Unchanged} item(s) already as the file says."
             : $"{Count(Op.Create)} to create, {Count(Op.Update)} to update, {Count(Op.Delete)} to remove, " +
-              $"{Count(Op.Publish, Op.Promote)} adapter step(s); {plan.Unchanged} unchanged.");
+              $"{Count(Op.Publish, Op.Promote, Op.Install)} adapter step(s); {plan.Unchanged} unchanged.");
     }
 }

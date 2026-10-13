@@ -16,6 +16,12 @@ public class ConfigurationOptions
     [Option("prune", HelpText = "Also remove what an earlier apply of this configuration made and the file no longer lists.")]
     public bool Prune { get; set; }
 
+    [Option("set", HelpText = "A value for ${param:NAME} as NAME=value; give --set again for each.")]
+    public IEnumerable<string> Set { get; set; }
+
+    [Option("values", HelpText = "A .yaml file of NAME: value for ${param:NAME}.")]
+    public string ValuesFile { get; set; }
+
     [Option("profile", HelpText = "Which signed-in Bitween; the current one, or BITWEEN_URL with BITWEEN_TOKEN, unless given.")]
     public string Profile { get; set; }
 }
@@ -60,22 +66,28 @@ public static partial class Commands
         ConfigFile config;
         try
         {
-            config = ConfigFile.Load(opts.File, opts.SecretsDir ?? Environment.GetEnvironmentVariable("BITWEEN_SECRETS_DIR"));
+            config = ConfigFile.Load(opts.File, opts.SecretsDir ?? Environment.GetEnvironmentVariable("BITWEEN_SECRETS_DIR"),
+                Parameters(opts.Set, opts.ValuesFile));
         }
         catch (ConfigException ex)
         {
             Console.WriteLine(ex.Message);
             return Failure;
         }
+        return await PlanOrApply(config, profiles, opts.Profile, apply, detailed, opts.Prune);
+    }
 
-        using var api = Api(profiles, opts.Profile);
+    /// <summary>Plans a loaded configuration against the signed-in Bitween, and applies it when asked: apply's and a kit's.</summary>
+    static async Task<int> PlanOrApply(ConfigFile config, Profiles profiles, string profile, bool apply, bool detailed, bool prune)
+    {
+        using var api = Api(profiles, profile);
         if (api == null) return Failure;
 
         var ctx = new Context(api, config.SecretValues);
         var planner = new Planner(ctx, config);
         Console.WriteLine($"Reading {api.Url}...");
         await planner.ReadAsync();
-        var plan = await planner.PlanAsync(opts.Prune);
+        var plan = await planner.PlanAsync(prune);
 
         Console.WriteLine($"{(apply ? "Applying" : "Plan for")} {config.Name} on {api.Url}:");
         planner.Print(plan, Console.Out);
