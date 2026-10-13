@@ -47,6 +47,11 @@ jobs:
       dockerfile-path: './Dockerfile'
       docker-context: '.'
       docker-platforms: 'linux/amd64'
+      # The version computed for this run and its commit, stamped on the image's assemblies: a container
+      # says which release it is (10.0.94+<commit>) wherever it runs, with nothing to configure.
+      docker-version-build-arg: 'BITWEEN_VERSION'
+      docker-build-args: |
+        BITWEEN_COMMIT=${{ github.sha }}
 
       # The production chart, published as bitween-develop: rename-chart sets Chart.yaml's name
       # at package time, so develop and production ship from one chart directory and cannot drift.
@@ -148,6 +153,11 @@ jobs:
       dockerfile-path: './Dockerfile'
       docker-context: '.'
       docker-platforms: 'linux/amd64'
+      # The version computed for this run and its commit, stamped on the image's assemblies: a container
+      # says which release it is (10.0.94+<commit>) wherever it runs, with nothing to configure.
+      docker-version-build-arg: 'BITWEEN_VERSION'
+      docker-build-args: |
+        BITWEEN_COMMIT=${{ github.sha }}
 
       chart-name: 'bitween'
       chart-path: './charts/default'
