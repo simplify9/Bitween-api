@@ -28,15 +28,33 @@ namespace SW.Bitween.Resources.Notifications
                     Exception = notification.Exception,
                     FinishedOn = notification.FinishedOn,
                     NotifierName = notification.NotifierName,
-                    XchangeId = notification.XchangeId
+                    XchangeId = notification.XchangeId,
+                    ChannelId = notification.ChannelId
                 };
 
             query = query.AsNoTracking();
 
+            var page = await query.OrderByDescending(p => p.FinishedOn)
+                .Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex)
+                .ToListAsync();
+
+            // Which subscription each send was about, for this page alone: joined into the query, it
+            // was paid for on every row the count went through. A send can outlive its exchange,
+            // and still happened, so one without stays in the list unnamed.
+            var xchangeIds = page.Select(p => p.XchangeId).Where(id => id != null).Distinct().ToList();
+            var about = await (from xchange in dbContext.Set<Xchange>().AsNoTracking()
+                    where xchangeIds.Contains(xchange.Id)
+                    join subscription in dbContext.Set<Subscription>() on xchange.SubscriptionId equals (int?)subscription.Id
+                    select new { xchange.Id, SubscriptionId = subscription.Id, subscription.Name })
+                .ToDictionaryAsync(x => x.Id);
+            foreach (var row in page)
+                if (row.XchangeId != null && about.TryGetValue(row.XchangeId, out var subscription))
+                    (row.SubscriptionId, row.SubscriptionName) = (subscription.SubscriptionId, subscription.Name);
+
             return new SearchyResponse<NotificationsSearch>
             {
                 TotalCount = await query.Search(searchyRequest.Conditions).CountAsync(),
-                Result = await query.OrderByDescending(p => p.FinishedOn).Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync()
+                Result = page
             };
         }
     }

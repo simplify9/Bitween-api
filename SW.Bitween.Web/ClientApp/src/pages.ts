@@ -1,7 +1,6 @@
 import {
   Activity,
   ArrowLeftRight,
-  BellRing,
   Cable,
   CalendarClock,
   CornerDownLeft,
@@ -358,14 +357,25 @@ export const PAGES = definePages({
     permission: "retry-policies.view",
     parent: "retryPolicies",
   },
-  // Directly under retry policies: both are about what happens when something goes wrong, and a
-  // budget-exhausted alert is delivered by a notifier.
+  retryGroupNew: {
+    path: "retry-policies/:id/groups/new",
+    title: "New group",
+    permission: "retry-policies.edit",
+    parent: "retryPolicy",
+  },
+  retryGroup: {
+    path: "retry-policies/:id/groups/:groupId",
+    title: "Retry group",
+    permission: "retry-policies.view",
+    parent: "retryPolicy",
+  },
+  // Not in the sidebar: notifications are set on each subscription through a notification channel
+  // from Settings, and these older notifiers are reached from that Settings section.
   notifiers: {
     path: "notifiers",
-    title: "Notifiers",
+    title: "Legacy notifiers",
     permission: "notifiers.view",
-    nav: { group: "configuration", icon: BellRing },
-    keywords: ["alerts", "email"],
+    keywords: ["alerts", "email", "notifiers"],
   },
   notifier: { path: "notifiers/:id", title: "Notifier", permission: "notifiers.view", parent: "notifiers" },
 
@@ -408,7 +418,22 @@ export const PAGES = definePages({
     title: "Settings",
     permission: "settings.view",
     nav: { group: "administration", icon: Settings },
-    keywords: ["configuration", "branding", "sso"],
+    keywords: ["configuration", "branding", "sso", "mail server"],
+  },
+  // Under Settings, where channels are listed: set up once there, and picked wherever something
+  // notifies.
+  notificationChannelNew: {
+    path: "settings/notification-channels/new",
+    title: "New notification channel",
+    permission: "notifiers.create",
+    parent: "settings",
+  },
+  notificationChannel: {
+    path: "settings/notification-channels/:id",
+    title: "Notification channel",
+    permission: "notifiers.view",
+    parent: "settings",
+    keywords: ["email", "teams", "slack", "alerts"],
   },
   nodes: {
     path: "nodes",

@@ -23,8 +23,10 @@ import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { feederOf, returnPath, safeReturn, useResponseDetour } from "../../lib/responseDetour";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { feederOf, returnPath, safeReturn, useDetour } from "../../lib/detour";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
+import { NotificationsPanel } from "../subscriptions/studio/NotificationsPanel";
 
 const STAGES_HERE = stagesFor("Response");
 
@@ -41,6 +43,7 @@ type Draft = Pick<
   | "workGroupId"
   | "retryPolicyId"
   | "dataSourceId"
+  | "notifications"
 > & {
   informationTypeId: number | null;
   enable: boolean;
@@ -59,6 +62,7 @@ const EMPTY: Draft = {
   workGroupId: null,
   retryPolicyId: null,
   dataSourceId: null,
+  notifications: [],
   enable: true,
 };
 
@@ -84,9 +88,10 @@ function NewResponseSubscription() {
   const [params] = useSearchParams();
   const returnTo = safeReturn(params.get("return"));
   // It can hand its own response to a new response subscription too, which is this page again.
-  const detour = useResponseDetour<Draft>();
+  const detour = useDetour<Draft>();
+  // Back from the response trip specifically; a channel trip comes back to the Notifications card.
   const [stage, setStage] = useState<StageId | null>(
-    detour.kept || detour.pickedResponse !== null ? "response" : "delivery",
+    detour.pickedResponse !== null || (detour.kept !== null && detour.slot === null) ? "response" : "delivery",
   );
   /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
@@ -99,10 +104,17 @@ function NewResponseSubscription() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
-  const [draft, setDraft] = useState<Draft>(() => ({
-    ...(detour.kept ?? EMPTY),
-    ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
-  }));
+  const [draft, setDraft] = useState<Draft>(() => {
+    // EMPTY first: a draft kept by an older page has no notifications to spread over it.
+    const kept = { ...EMPTY, ...detour.kept };
+    return {
+      ...kept,
+      ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+      ...(detour.pickedChannel !== null
+        ? { notifications: withPickedChannel(kept.notifications, detour.slot, detour.pickedChannel) }
+        : {}),
+    };
+  });
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const bindsToDataSource = useBindsToDataSource();
 
@@ -122,6 +134,7 @@ function NewResponseSubscription() {
         workGroupId: draft.workGroupId,
         retryPolicyId: draft.retryPolicyId,
         dataSourceId: draft.dataSourceId,
+        notifications: draft.notifications,
         enabled: draft.enable,
       }),
     onSuccess: async (created) => {
@@ -177,6 +190,7 @@ function NewResponseSubscription() {
     draft.informationTypeId === null && "an information type",
     draft.handlerId === null && "a delivery",
     unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
+    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
   ].filter((m): m is string => typeof m === "string");
 
   const renderStage = (stageId: StageId) => {
@@ -332,6 +346,16 @@ function NewResponseSubscription() {
           </button>
         </div>
       )}
+
+      <div className="mt-5">
+        <NotificationsPanel
+          value={draft.notifications}
+          onChange={(notifications) => update({ notifications })}
+          canEdit
+          onNewChannel={(index) => detour.newChannel(draft, notificationSlot(index))}
+          onEditChannel={(channelId) => detour.openChannel(draft, channelId)}
+        />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
         <Checkbox

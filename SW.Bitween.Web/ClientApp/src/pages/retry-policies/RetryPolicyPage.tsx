@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FlaskConical, Pencil, Plus, Trash2 } from "lucide-react";
@@ -9,16 +9,23 @@ import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, Select, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
+import { ConfirmDialog } from "../../components/ui/overlays";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
-import { AdapterConfig } from "../../components/config/AdapterConfig";
-import { GroupDialog } from "./GroupDialog";
+import { NotificationChannelPicker } from "../../components/config/pickers";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
 import { UsagePanel } from "./UsagePanel";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../lib/pageTitle";
+import { useDetour } from "../../lib/detour";
+
+/** What the page itself edits; groups save from their own pages. */
+interface PolicyDraft {
+  name: string;
+  alertChannelId: number | null;
+}
 
 const matcherSummary = (m: RetryMatcher): string => {
   switch (m.type) {
@@ -51,7 +58,7 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
   return (
     <Panel
       title="Try it out"
-      description="Simulate a failure against the groups as configured above - including unsaved changes."
+      description="Simulate a failure against the groups above, as saved."
     >
       <form onSubmit={submit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -120,106 +127,55 @@ function TestPanel({ groups }: { groups: RetryGroup[] }) {
 }
 
 /**
- * The policy-wide alert, summarised - with its adapter form behind a dialog.
- *
- * Left open, a mail handler's thirteen fields filled the whole column and left the groups
- * table sitting beside a void; two columns of them inside a 360px rail wrapped every address
- * onto three lines. It is also set once and rarely revisited, where everything around it is
- * read on every visit, so it had the run of the page on the strength of being the longest
- * form rather than the most useful one.
- *
- * A dialog makes the three levels consistent too: a group routes its own alert in the group
- * dialog, one subscription-and-group pair in the override dialog, and the policy default here.
- * All three stage into the same save bar.
+ * The policy-wide alert: which notification channel it goes through, staged into the page's save
+ * bar like everything else. A group routes its own alert on its page, and one
+ * subscription-and-group pair in the override dialog.
  */
 function PolicyAlertCard({
-  handlerId,
-  properties,
+  channelId,
   groups,
   canEdit,
   onChange,
+  onNewChannel,
+  onEditChannel,
 }: {
-  handlerId: string | null;
-  properties: Record<string, string>;
+  channelId: number | null;
   groups: RetryGroup[];
   canEdit: boolean;
-  onChange: (handlerId: string | null, properties: Record<string, string>) => void;
+  onChange: (channelId: number | null) => void;
+  onNewChannel: () => void;
+  onEditChannel: (channelId: number) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-  const [draftId, setDraftId] = useState(handlerId);
-  const [draftProps, setDraftProps] = useState(properties);
+  const channels = useNotificationChannelNames();
+  const channelName = channels.data?.find((c) => c.id === channelId)?.name;
 
   // Only a group that retries within a total can exhaust a budget, so only those can inherit an alert.
   const canAlert = groups.filter((g) => g.action === "Allow" && g.budget?.maxAttemptsTotal !== null);
   const inheriting = canAlert.filter((g) => g.alertMode === "Inherit");
 
-  const open = () => {
-    setDraftId(handlerId);
-    setDraftProps(properties);
-    setEditing(true);
-  };
-
   return (
     <Panel
       title="Budget-exhausted alert"
       description="Sent when a group stops retrying. Groups and single subscriptions can each route their own instead."
-      action={
-        canEdit ? (
-          <Button size="sm" onClick={open}>
-            {handlerId ? "Change" : "Set up"}
-          </Button>
-        ) : undefined
-      }
     >
-      {handlerId ? (
-        <>
-          <p className="font-mono text-[13px] text-ink-800">{handlerId}</p>
-          <p className="mt-1 text-[13px] text-ink-500">
-            {inheriting.length === 0
-              ? "No group inherits it - each one routes its own alert, or is silent."
-              : `${inheriting.length} of ${canAlert.length} ${canAlert.length === 1 ? "group sends" : "groups send"} here.`}
-          </p>
-        </>
+      {canEdit ? (
+        <NotificationChannelPicker
+          value={channelId}
+          onChange={onChange}
+          clearLabel="No alert"
+          onNew={onNewChannel}
+          onEdit={onEditChannel}
+        />
       ) : (
-        <p className="text-[13px] text-ink-500">
-          No alert. Nothing is sent when a budget runs out, unless a group or a single
-          subscription routes one itself.
-        </p>
+        <p className="text-[13px] text-ink-800">{channelName ?? (channelId === null ? "No alert" : "…")}</p>
       )}
-
-      {editing && (
-        <Dialog title="Budget-exhausted alert" onClose={() => setEditing(false)} wide>
-          <div className="space-y-4">
-            <p className="text-[13px] text-ink-500">
-              Where this policy sends an alert when any of its groups stops retrying. Saved with
-              the rest of the page.
-            </p>
-            <AdapterConfig
-              kind="handler"
-              adapterId={draftId}
-              properties={draftProps}
-              disabled={false}
-              noneLabel="No alert - nothing is sent when a budget runs out"
-              onChange={(id, props) => {
-                setDraftId(id);
-                setDraftProps(props);
-              }}
-            />
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setEditing(false)}>Cancel</Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  onChange(draftId, draftProps);
-                  setEditing(false);
-                }}
-              >
-                Done
-              </Button>
-            </div>
-          </div>
-        </Dialog>
-      )}
+      <p className="mt-2 text-[13px] text-ink-500">
+        {channelId === null
+          ? "Nothing is sent when a budget runs out, unless a group or a single subscription routes one itself."
+          : inheriting.length === 0
+            ? "No group inherits it - each one routes its own alert, or is silent."
+            : `${inheriting.length} of ${canAlert.length} ${canAlert.length === 1 ? "group sends" : "groups send"} here.`}
+      </p>
     </Panel>
   );
 }
@@ -230,6 +186,7 @@ export function RetryPolicyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("retry-policies.edit");
+  const channelNames = useNotificationChannelNames();
 
   const policy = useQuery({
     queryKey: keys.retryPolicies.detail(policyId),
@@ -239,51 +196,77 @@ export function RetryPolicyPage() {
   usePageTitle(policy.data?.name);
 
   const [name, setName] = useState("");
-  const [groups, setGroups] = useState<RetryGroup[] | null>(null);
-  const [alertHandlerId, setAlertHandlerId] = useState<string | null>(null);
-  const [alertProps, setAlertProps] = useState<Record<string, string>>({});
-  const [editingGroup, setEditingGroup] = useState<RetryGroup | "new" | null>(null);
+  const [alertChannelId, setAlertChannelId] = useState<number | null>(null);
+  const [removingGroup, setRemovingGroup] = useState<RetryGroup | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  /** Back from making a channel for one pair's override: that override reopens with it picked. */
+  const [reopenOverride, setReopenOverride] = useState<{ key: string; channelId: number } | null>(null);
+
+  // Leaving for a group's page or a channel's keeps the unsaved name and alert, and the trip back
+  // restores them - with the new channel, when that is what the trip was for.
+  const detour = useDetour<PolicyDraft>();
+  const returning = useRef({ kept: detour.kept, slot: detour.slot, pickedChannel: detour.pickedChannel });
 
   useEffect(() => {
     if (!loaded && policy.data) {
-      setName(policy.data.name);
-      setGroups(structuredClone(policy.data.groups));
-      setAlertHandlerId(policy.data.alertHandlerId);
-      setAlertProps(structuredClone(policy.data.alertHandlerProperties));
+      const { kept, slot, pickedChannel } = returning.current;
+      returning.current = { kept: null, slot: null, pickedChannel: null };
+      setName(kept?.name ?? policy.data.name);
+      setAlertChannelId(
+        pickedChannel !== null && slot === "policy"
+          ? pickedChannel
+          : kept
+            ? kept.alertChannelId
+            : policy.data.alertChannelId,
+      );
+      if (pickedChannel !== null && slot?.startsWith("override:"))
+        setReopenOverride({ key: slot.slice("override:".length), channelId: pickedChannel });
       setLoaded(true);
     }
   }, [policy.data, loaded]);
 
   const dirty = useMemo(() => {
-    if (!policy.data || groups === null) return false;
-    return (
-      name !== policy.data.name ||
-      JSON.stringify(groups) !== JSON.stringify(policy.data.groups) ||
-      alertHandlerId !== policy.data.alertHandlerId ||
-      JSON.stringify(alertProps) !== JSON.stringify(policy.data.alertHandlerProperties)
-    );
-  }, [policy.data, name, groups, alertHandlerId, alertProps]);
+    if (!policy.data || !loaded) return false;
+    return name !== policy.data.name || alertChannelId !== policy.data.alertChannelId;
+  }, [policy.data, loaded, name, alertChannelId]);
 
   const save = useMutation({
     mutationFn: () =>
       api.updateRetryPolicy(policyId, {
         name,
-        groups: groups ?? [],
-        alertHandlerId,
-        alertHandlerProperties: alertProps,
+        groups: policy.data!.groups,
+        alertChannelId,
       }),
     onSuccess: async () => {
       // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
       await queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
-      // Editing a group can change which budgets exist, so the usage report is stale too.
       void queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
       setLoaded(false);
     },
   });
 
   const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+  /**
+   * Takes a group out straight away, like saving one on its page does. Written against the policy
+   * as the server has it, so the name and alert being edited here stay unsaved, not half-saved.
+   */
+  const removeGroup = useMutation({
+    mutationFn: async (groupId: string) => {
+      const fresh = await api.getRetryPolicy(policyId);
+      await api.updateRetryPolicy(policyId, {
+        name: fresh.name,
+        groups: fresh.groups.filter((g) => g.id !== groupId),
+        alertChannelId: fresh.alertChannelId,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
+      // Its budgets go with it, so the usage report is stale too.
+      void queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
+      setRemovingGroup(null);
+    },
+  });
 
   if (policy.isPending) return <LoadingBlock label="Loading retry policy…" />;
   if (policy.isError && !isNotFound(policy.error))
@@ -298,15 +281,13 @@ export function RetryPolicyPage() {
     );
 
   const p = policy.data;
-  const sortedGroups = [...(groups ?? [])].sort((a, b) => a.priority - b.priority);
-
-  const upsertGroup = (group: RetryGroup) =>
-    setGroups((prev) => {
-      const list = prev ?? [];
-      return list.some((g) => g.id === group.id)
-        ? list.map((g) => (g.id === group.id ? group : g))
-        : [...list, group];
-    });
+  const sortedGroups = [...p.groups].sort((a, b) => a.priority - b.priority);
+  const draft: PolicyDraft = { name, alertChannelId };
+  // The draft goes along and comes back, so leaving for these is not leaving the changes behind.
+  const openGroup = (groupId: string) =>
+    leave(() =>
+      detour.away(draft, (back) => `/retry-policies/${policyId}/groups/${groupId}?return=${encodeURIComponent(back)}`),
+    );
 
   return (
     <div className="pb-24">
@@ -335,7 +316,7 @@ export function RetryPolicyPage() {
             title="Groups"
             action={
               canEdit ? (
-                <Button size="sm" onClick={() => setEditingGroup("new")}>
+                <Button size="sm" onClick={() => openGroup("new")}>
                   <Plus className="size-3.5" /> Add group
                 </Button>
               ) : undefined
@@ -344,7 +325,7 @@ export function RetryPolicyPage() {
             <MiniTable
               rows={sortedGroups}
               rowKey={(g) => g.id}
-              onRowClick={canEdit ? (g) => setEditingGroup(g) : undefined}
+              onRowClick={(g) => openGroup(g.id)}
               empty="No groups yet - failures under this policy are never retried."
               columns={[
                 {
@@ -426,11 +407,13 @@ export function RetryPolicyPage() {
                       </span>
                     ) : g.alertMode === "Silent" ? (
                       <span className="text-[13px] text-ink-500">Silent</span>
-                    ) : g.alertMode === "Send" && g.alertHandlerId ? (
-                      <span className="block truncate font-mono text-xs text-ink-700">{g.alertHandlerId}</span>
+                    ) : g.alertMode === "Send" && g.alertChannelId !== null ? (
+                      <span className="block truncate text-[13px] text-ink-700">
+                        {channelNames.data?.find((c) => c.id === g.alertChannelId)?.name ?? "…"}
+                      </span>
                     ) : (
                       <span className="text-[13px] text-ink-500 italic">
-                        {alertHandlerId ? "Inherited" : "Nobody"}
+                        {alertChannelId !== null ? "Inherited" : "Nobody"}
                       </span>
                     ),
                 },
@@ -441,14 +424,14 @@ export function RetryPolicyPage() {
                     canEdit ? (
                       <span className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => setEditingGroup(g)}
+                          onClick={() => openGroup(g.id)}
                           aria-label={`Edit ${g.name}`}
                           className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                         >
                           <Pencil className="size-3.5" />
                         </button>
                         <button
-                          onClick={() => setGroups((prev) => (prev ?? []).filter((x) => x.id !== g.id))}
+                          onClick={() => setRemovingGroup(g)}
                           aria-label={`Remove ${g.name}`}
                           className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
                         >
@@ -465,21 +448,29 @@ export function RetryPolicyPage() {
 
         <div className="min-w-0 space-y-5">
           <PolicyAlertCard
-            handlerId={alertHandlerId}
-            properties={alertProps}
+            channelId={alertChannelId}
             groups={sortedGroups}
             canEdit={canEdit}
-            onChange={(id, props) => {
-              setAlertHandlerId(id);
-              setAlertProps(props);
-            }}
+            onChange={setAlertChannelId}
+            onNewChannel={() => leave(() => detour.newChannel(draft, "policy"))}
+            onEditChannel={(channelId) => leave(() => detour.openChannel(draft, channelId))}
           />
         </div>
       </div>
 
       <div className="mt-5 space-y-5">
-        <UsagePanel policyId={policyId} subscriptions={p.subscriptions} canEdit={canEdit} />
-        <TestPanel groups={groups ?? []} />
+        <UsagePanel
+          policyId={policyId}
+          subscriptions={p.subscriptions}
+          canEdit={canEdit}
+          onNewOverrideChannel={(row) =>
+            leave(() => detour.newChannel(draft, `override:${row.subscriptionId}:${row.groupId}`))
+          }
+          onOpenChannel={(channelId) => leave(() => detour.openChannel(draft, channelId))}
+          reopen={reopenOverride}
+          onReopened={() => setReopenOverride(null)}
+        />
+        <TestPanel groups={p.groups} />
         <HistoryCard entityName="RetryPolicy" entityKey={policyId} />
       </div>
 
@@ -492,12 +483,23 @@ export function RetryPolicyPage() {
         />
       )}
 
-      {editingGroup && (
-        <GroupDialog
-          initial={editingGroup === "new" ? undefined : editingGroup}
-          onSubmit={upsertGroup}
-          onClose={() => setEditingGroup(null)}
-          policyAlertHandlerId={alertHandlerId}
+      {removingGroup && (
+        <ConfirmDialog
+          title={`Remove ${removingGroup.name}?`}
+          body={
+            <>
+              <p>
+                Failures it caught fall through to the groups below it - or, with none left to match, aren't
+                retried. Its spent budgets go with it.
+              </p>
+              <FormError>{removeGroup.error?.message}</FormError>
+            </>
+          }
+          confirmLabel="Remove group"
+          onConfirm={async () => {
+            await removeGroup.mutateAsync(removingGroup.id);
+          }}
+          onClose={() => setRemovingGroup(null)}
         />
       )}
 

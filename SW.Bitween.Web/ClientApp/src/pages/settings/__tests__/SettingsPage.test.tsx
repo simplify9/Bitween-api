@@ -84,6 +84,13 @@ const ROWS: SettingRow[] = [
     hasValue: true,
   }),
   editable({
+    key: "Bitween.MailServer.Host",
+    section: "Mail server",
+    label: "Server",
+    kind: "string",
+    defaultValue: "",
+  }),
+  editable({
     key: "Bitween.RetryJobCron",
     section: "Reliability & jobs",
     label: "Retry poll schedule",
@@ -188,7 +195,7 @@ afterEach(() => {
 });
 
 describe("the settings page", () => {
-  it("lists a section per catalog section, in catalog order, with no restart-required rows", async () => {
+  it("lists a section per catalog section, in catalog order, with channels after the mail server", async () => {
     openSettings();
 
     const links = (await sectionNav()).getAllByRole("link");
@@ -197,6 +204,10 @@ describe("the settings page", () => {
       "API behavior",
       "Single sign-on (Microsoft)",
       "Adapters",
+      "Mail server",
+      // Not a catalog section: channels are records with their own pages, next to the mail server
+      // every Email channel sends through.
+      "Notification channels",
       "Reliability & jobs",
       "Messaging",
       "Database",

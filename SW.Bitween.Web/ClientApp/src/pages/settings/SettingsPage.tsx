@@ -15,12 +15,30 @@ import { keys } from "../../api/queryKeys";
 import { RETENTION_SECTION, retentionProposal, useRetention } from "../../lib/retention";
 import { NoticeList, RetentionPanel } from "./RetentionPanel";
 import { AboutPanel } from "./AboutPanel";
-
-/** Sections, in the order the backend catalog lists them. */
-const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section)), ABOUT_SECTION];
+import { NotificationChannelsPanel } from "./NotificationChannelsPanel";
 
 /** Not a section of the catalog: a read-only view of the instance, after the editable ones. */
 const ABOUT_SECTION = "About this instance";
+
+/**
+ * Not a catalog section either: channels are records with their own pages, not key/value
+ * settings. Listed with the sections all the same, because they are instance-wide configuration
+ * and this is where an administrator looks for it.
+ */
+const CHANNELS_SECTION = "Notification channels";
+
+/**
+ * Sections, in the order the backend catalog lists them, with channels placed after the mail
+ * server every Email channel sends through, and About last.
+ */
+const sectionsOf = (rows: SettingRow[], withChannels: boolean): string[] => {
+  const sections = [...new Set(rows.map((r) => r.section))];
+  if (withChannels) {
+    const after = sections.indexOf("Mail server");
+    sections.splice(after === -1 ? sections.length : after + 1, 0, CHANNELS_SECTION);
+  }
+  return [...sections, ABOUT_SECTION];
+};
 
 const sectionOf = (rows: SettingRow[], key: string) => rows.find((r) => r.key === key)?.section;
 
@@ -236,13 +254,14 @@ function SettingRowEditor({
  */
 export function SettingsPage() {
   const canEdit = useSessionCan("settings.edit");
+  const canViewChannels = useSessionCan("notifiers.view");
   const queryClient = useQueryClient();
   const { data: rows, isLoading } = useQuery({ queryKey: keys.settings.list, queryFn: () => api.listSettings() });
   const draft = useSettingsDraft();
   const [confirmingRetention, setConfirmingRetention] = useState(false);
 
   const [searchParams] = useSearchParams();
-  const sections = sectionsOf(rows ?? []);
+  const sections = sectionsOf(rows ?? [], canViewChannels);
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
   // Deleting exchanges, or changing where files go and so how long they last, is said out loud
@@ -367,7 +386,7 @@ export function SettingsPage() {
               <h2 className="text-[15px] font-semibold text-ink-900">{section}</h2>
               {/* Stages a reset per row rather than writing: the draft previews the stock
                   branding across the whole app, and Discard puts it all back untouched. */}
-              {resettable.length > 0 && (
+              {section !== CHANNELS_SECTION && resettable.length > 0 && (
                 <Button size="sm" onClick={() => resettable.forEach((r) => settingsDraft.stage(r, null))}>
                   <RotateCcw className="size-3.5" aria-hidden />
                   Reset all to default
@@ -383,15 +402,19 @@ export function SettingsPage() {
           </div>
           {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} />}
           {section === ABOUT_SECTION && <AboutPanel />}
-          <div className="divide-y divide-ink-100">
-            {sectionRows.map((row) =>
-              row.access === "editable" ? (
-                <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
-              ) : (
-                <EnvironmentSettingRow key={row.key} row={row} />
-              ),
-            )}
-          </div>
+          {section === CHANNELS_SECTION ? (
+            <NotificationChannelsPanel />
+          ) : (
+            <div className="divide-y divide-ink-100">
+              {sectionRows.map((row) =>
+                row.access === "editable" ? (
+                  <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
+                ) : (
+                  <EnvironmentSettingRow key={row.key} row={row} />
+                ),
+              )}
+            </div>
+          )}
         </div>
       </div>
 

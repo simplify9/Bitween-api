@@ -12,5 +12,12 @@ namespace SW.Bitween.Model
         /// <summary>Null when the notification succeeded.</summary>
         public string? Exception { get; set; }
         public DateTime FinishedOn { get; set; }
+
+        /// <summary>The channel it went through. Null for a legacy notifier's send.</summary>
+        public int? ChannelId { get; set; }
+
+        /// <summary>The subscription whose exchange it was about. Null once the exchange is gone.</summary>
+        public int? SubscriptionId { get; set; }
+        public string? SubscriptionName { get; set; }
     }
 }

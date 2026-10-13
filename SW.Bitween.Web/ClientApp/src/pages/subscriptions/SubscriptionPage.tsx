@@ -31,7 +31,8 @@ import { ResponseTrigger } from "./studio/ResponseTrigger";
 import { draftOf, entryPointsOf, feedersOf, stageDirty, type Draft } from "./studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
-import { useResponseDetour } from "../../lib/responseDetour";
+import { useDetour } from "../../lib/detour";
+import { notificationSlot, withPickedChannel } from "../../lib/notificationChannels";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { useCurrentPage } from "../../lib/currentPage";
 import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../lib/subscriptionPaths";
@@ -111,15 +112,24 @@ function SubscriptionStudio() {
   const [loaded, setLoaded] = useState(false);
   // Back from creating a response subscription: the edits as they were left, with that one
   // picked. Used for the first load only - Discard after that goes back to what is saved.
-  const detour = useResponseDetour<Draft>();
-  const returning = useRef({ kept: detour.kept, picked: detour.pickedResponse });
+  const detour = useDetour<Draft>();
+  const returning = useRef({
+    kept: detour.kept,
+    picked: detour.pickedResponse,
+    pickedChannel: detour.pickedChannel,
+    slot: detour.slot,
+  });
 
   useEffect(() => {
     if (!loaded && subscription.data) {
-      const { kept, picked } = returning.current;
-      returning.current = { kept: null, picked: null };
-      const base = kept ?? draftOf(subscription.data);
-      setDraft(picked !== null ? { ...base, responseSubscriptionId: picked } : base);
+      const { kept, picked, pickedChannel, slot } = returning.current;
+      returning.current = { kept: null, picked: null, pickedChannel: null, slot: null };
+      let next = kept ?? draftOf(subscription.data);
+      if (picked !== null) next = { ...next, responseSubscriptionId: picked };
+      // Back from making a channel in one of the notification rows: that row gets it.
+      if (pickedChannel !== null)
+        next = { ...next, notifications: withPickedChannel(next.notifications, slot, pickedChannel) };
+      setDraft(next);
       setLoaded(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -703,6 +713,8 @@ function SubscriptionStudio() {
             canEdit={canEdit}
             entryPoints={entryPoints}
             scheduled={isReceiver || isAggregation}
+            onNewChannel={(index) => leave(() => detour.newChannel(draft, notificationSlot(index)))}
+            onEditChannel={(channelId) => leave(() => detour.openChannel(draft, channelId))}
           />
         )
       ) : (

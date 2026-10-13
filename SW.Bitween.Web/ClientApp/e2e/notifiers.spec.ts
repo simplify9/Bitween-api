@@ -9,6 +9,9 @@ import { SEED } from "./seed-data";
  * A notifier configured on its page, followed all the way to a notification arriving: the test
  * listens on a local port, the notifier delivers there with the built-in HTTP handler, and an
  * exchange that really fails is what sets it off.
+ *
+ * Notifiers are legacy now: the page offers no New, so each test makes its notifier through the
+ * API, which still accepts one, and sets it up on the page from there.
  */
 
 /** A local HTTP endpoint that records every request made to it. */
@@ -48,13 +51,8 @@ test("a notifier set on its page to post failures of one subscription to an HTTP
   const subscriptionId = await api.idOf("subscriptions", subscriptionName);
 
   try {
-    const notifierName = `Playwright Notifier ${s}`;
-    await page.goto("notifiers");
-    await page.getByRole("button", { name: "New notifier" }).first().click();
-    await page.fill("#nn-name", notifierName);
-    await page.getByRole("button", { name: "Create notifier" }).click();
-    await expect(page).toHaveURL(/\/notifiers\/\d+$/);
-    const notifierId = Number(new URL(page.url()).pathname.split("/").pop());
+    const notifierId = await api.post<number>("/notifiers", { name: `Playwright Notifier ${s}` });
+    await page.goto(`notifiers/${notifierId}`);
 
     await page.getByRole("checkbox", { name: /^An exchange fails/ }).check();
     await pickOption(page, "Deliver via", "NativeHttpHandler");
@@ -115,12 +113,8 @@ test("a notifier switched off on its page sends nothing when a watched subscript
   const subscriptionId = await api.idOf("subscriptions", subscriptionName);
 
   try {
-    await page.goto("notifiers");
-    await page.getByRole("button", { name: "New notifier" }).first().click();
-    await page.fill("#nn-name", `Playwright Quiet Notifier ${s}`);
-    await page.getByRole("button", { name: "Create notifier" }).click();
-    await expect(page).toHaveURL(/\/notifiers\/\d+$/);
-    const notifierId = Number(new URL(page.url()).pathname.split("/").pop());
+    const notifierId = await api.post<number>("/notifiers", { name: `Playwright Quiet Notifier ${s}` });
+    await page.goto(`notifiers/${notifierId}`);
 
     await page.getByRole("checkbox", { name: /^An exchange fails/ }).check();
     await pickOption(page, "Deliver via", "NativeHttpHandler");

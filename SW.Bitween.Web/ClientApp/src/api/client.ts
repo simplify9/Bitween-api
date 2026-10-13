@@ -42,6 +42,7 @@ import type {
   SubscriptionDetail,
   SubscriptionInfo,
   SubscriptionLastRun,
+  SubscriptionNotification,
   SubscriptionRow,
   SubscriptionRun,
   SubscriptionType,
@@ -49,6 +50,10 @@ import type {
   NewResponseSubscriptionDraft,
   Notifier,
   NotifierDetail,
+  NotificationChannelDetail,
+  NotificationChannelRow,
+  NotificationChannelSend,
+  NotificationChannelTestResult,
   Paged,
   Partner,
   PartnerDetail,
@@ -304,6 +309,8 @@ export interface ApiClient {
     responseMessageTypeName?: string | null;
     /** Response type only: also run when the delivery that fed it came back bad. */
     runOnBadResponses?: boolean;
+    /** Who hears about its finished exchanges, and through which channel. */
+    notifications?: SubscriptionNotification[];
     enabled?: boolean;
   }): Promise<Subscription>;
   updateSubscription(
@@ -328,6 +335,7 @@ export interface ApiClient {
         | "responseSubscriptionId"
         | "responseMessageTypeName"
         | "runOnBadResponses"
+        | "notifications"
         | "aggregationTarget"
         | "autoPauseAfterFailures"
         | "expectTraffic"
@@ -576,8 +584,7 @@ export interface ApiClient {
     changes: {
       name: string;
       groups: RetryGroup[];
-      alertHandlerId: string | null;
-      alertHandlerProperties: Record<string, string>;
+      alertChannelId: number | null;
     },
   ): Promise<RetryPolicy>;
   deleteRetryPolicy(id: number): Promise<void>;
@@ -638,6 +645,29 @@ export interface ApiClient {
   createNotifier(input: { name: string }): Promise<Notifier>;
   updateNotifier(id: number, changes: Omit<Notifier, "id" | "createdOn">): Promise<Notifier>;
   deleteNotifier(id: number): Promise<void>;
+
+  // - notification channels -
+  listNotificationChannels(): Promise<NotificationChannelRow[]>;
+  /** Id and name only; readable by anyone signed in, for the pickers. */
+  lookupNotificationChannels(): Promise<{ id: number; name: string }[]>;
+  getNotificationChannel(id: number): Promise<NotificationChannelDetail>;
+  createNotificationChannel(input: {
+    name: string;
+    handlerId: string;
+    handlerProperties: Record<string, string>;
+  }): Promise<number>;
+  updateNotificationChannel(
+    id: number,
+    input: { name: string; handlerId: string; handlerProperties: Record<string, string> },
+  ): Promise<void>;
+  deleteNotificationChannel(id: number): Promise<void>;
+  /** Sends a made-up notification through the channel as saved. */
+  testNotificationChannel(id: number): Promise<NotificationChannelTestResult>;
+  /** Newest first. `failedOnly` keeps the sends that didn't go through. */
+  listNotificationChannelSends(
+    id: number,
+    query: { failedOnly: boolean; offset: number; limit: number },
+  ): Promise<Paged<NotificationChannelSend>>;
 
   // - exchanges -
   searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;

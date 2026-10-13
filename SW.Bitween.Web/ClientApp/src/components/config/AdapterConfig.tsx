@@ -391,19 +391,26 @@ function ReferenceHints({
 const isPureReference = (value: string): boolean =>
   /^\s*\{\{(globals\.[^.{}]+\.[^{}]+|partner\.[^{}]+|source\.[^{}]+)\}\}\s*$/i.test(value);
 
-/** One adapter property: grows with content, can insert reference tokens. */
-function PropField({
+/**
+ * One adapter property: grows with content, can insert reference tokens. Exported for forms that
+ * lay out a known adapter's fields themselves - a notification channel's - and want the same
+ * masking and `{ }` menu as everywhere else.
+ */
+export function PropField({
   prop,
   value,
   disabled,
   source,
   onChange,
+  label,
 }: {
   prop: AdapterInfo["props"][number];
   value: string;
   disabled: boolean;
   source: SourceDocument | null;
   onChange: (value: string) => void;
+  /** Shown instead of the property's key, for a form that knows a friendlier name for it. */
+  label?: string;
 }) {
   const { globals, partnerKeys, partners } = useReferenceTokens();
   const sourceKeys: ReferenceToken[] = (source?.paths ?? []).map((p) => ({
@@ -452,7 +459,7 @@ function PropField({
 
   return (
     <Field
-      label={prop.optional ? prop.key : `${prop.key} *`}
+      label={prop.optional ? (label ?? prop.key) : `${label ?? prop.key} *`}
       htmlFor={`prop-${prop.key}`}
       hint={prop.description}
     >
