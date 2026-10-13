@@ -16,6 +16,7 @@ public static class Kinds
         new InformationTypes(),
         new Partners(),
         new GlobalValues(),
+        new NotificationChannels(),
         new RetryPolicies(),
         new DataSources(),
         new DataSourceStatements(),
@@ -25,7 +26,7 @@ public static class Kinds
         new Notifiers(),
     ];
 
-    public static readonly IReadOnlyList<string> Sections = [.. All.Select(k => k.Section).Take(8), Adapters, .. All.Select(k => k.Section).Skip(8)];
+    public static readonly IReadOnlyList<string> Sections = [.. All.Select(k => k.Section).Take(9), Adapters, .. All.Select(k => k.Section).Skip(9)];
 
     public static Kind Of(string section) => All.First(k => k.Section == section);
 }
@@ -197,9 +198,21 @@ public class GlobalValues : Kind
     public override Task DeleteAsync(Context ctx, Existing have) => ctx.Api.PostAsync($"api/{Resource}/{Uri.EscapeDataString(have.Id)}/delete", new { });
 }
 
+/// <summary>Where notifications and alerts go: an adapter and what it needs, such as recipients or a webhook.</summary>
+public class NotificationChannels : Kind
+{
+    public override string Section => "notificationChannels";
+    public override string Noun => "notification channel";
+    public override string Resource => "notificationchannels";
+
+    public override IReadOnlyList<Field> Fields { get; } =
+        [Same("name"), new("handler", "handlerId"), new("properties", "handlerProperties", FieldMode.Dictionary)];
+}
+
 /// <summary>
 /// Retry policies. Bitween keys each group's usage and alert overrides by the group's id, and drops
 /// them for a group missing from an update, so groups keep their ids by name; the file never says them.
+/// Alerts go to a notification channel, named in alertChannel on the policy and on each group.
 /// </summary>
 public class RetryPolicies : Kind
 {
@@ -208,16 +221,59 @@ public class RetryPolicies : Kind
     public override string Resource => "retrypolicies";
 
     public override IReadOnlyList<Field> Fields { get; } =
-    [
-        Same("name"), Same("groups"), new("alertHandler", "alertHandlerId"),
-        new("alertHandlerProperties", "alertHandlerProperties", FieldMode.Dictionary),
-    ];
+        [Same("name"), Same("groups"), Reference("alertChannel", "alertChannelId", "notificationChannels")];
+
+    /// <summary>How a group sent its alert before channels; Bitween turns a group that still says them away.</summary>
+    static readonly string[] RetiredGroupFields = ["alertHandlerId", "alertHandlerProperties"];
 
     public override JsonObject ToFile(Context ctx, JsonObject api)
     {
         var file = base.ToFile(ctx, api);
+        file["groups"] = GroupsToFile(ctx, file["groups"]);
         foreach (var group in (file["groups"] as JsonArray ?? []).OfType<JsonObject>()) group.Remove("id");
         return file;
+    }
+
+    public override JsonObject ToApi(Context ctx, JsonObject want)
+    {
+        var api = base.ToApi(ctx, want);
+        if (api.ContainsKey("groups")) api["groups"] = GroupsToApi(ctx, api["groups"]);
+        return api;
+    }
+
+    /// <summary>Groups as the file writes them: the alert channel by name, the retired fields left out.</summary>
+    internal static JsonArray GroupsToFile(Context ctx, JsonNode groups) =>
+        Each(groups, group => Swap(group, "alertChannelId", "alertChannel", id => ctx.KeyOf("notificationChannels", id)));
+
+    /// <summary>Groups as the API takes them: the alert channel by id.</summary>
+    internal static JsonArray GroupsToApi(Context ctx, JsonNode groups) =>
+        Each(groups, group => Swap(group, "alertChannel", "alertChannelId", name => Id(ctx.IdOf("notificationChannels", name?.ToString()))));
+
+    /// <summary>Names a group's alert gives that are nowhere, and alerts still sent the retired way.</summary>
+    internal static IEnumerable<string> GroupProblems(string field, JsonNode groups, Func<string, string, bool> known)
+    {
+        foreach (var group in (groups as JsonArray ?? []).OfType<JsonObject>())
+        {
+            var name = Context.Quote((string)group["name"] ?? "(unnamed)");
+            // An older export wrote them as null, which says nothing.
+            if (RetiredGroupFields.Any(f => !Values.Empty(group[f])))
+                yield return $"{field}: {name} sends its alert through alertHandlerId, which is retired; name a notification channel in alertChannel";
+            if (group["alertChannel"]?.ToString() is { Length: > 0 } channel && !known("notificationChannels", channel))
+                yield return $"{field}: {name} names alertChannel {Context.Quote(channel)}, and there's no notification channel by that name";
+        }
+    }
+
+    static JsonArray Each(JsonNode groups, Func<JsonObject, JsonObject> change) =>
+        new((groups as JsonArray ?? []).Select(g => g is JsonObject group ? change(group) : g?.DeepClone()).ToArray());
+
+    /// <summary>The group with one field renamed and converted where it stands.</summary>
+    static JsonObject Swap(JsonObject group, string from, string to, Func<JsonNode, JsonNode> convert)
+    {
+        var swapped = new JsonObject();
+        foreach (var (key, value) in group)
+            if (key == from) swapped[to] = convert(value);
+            else if (!RetiredGroupFields.Contains(key)) swapped[key] = value?.DeepClone();
+        return swapped;
     }
 
     /// <summary>
@@ -228,6 +284,10 @@ public class RetryPolicies : Kind
     public override IEnumerable<string> Unresolved(JsonObject want, Func<string, string, bool> known)
     {
         foreach (var problem in base.Unresolved(want, known)) yield return problem;
+        // A file from before channels: the alert would otherwise be dropped without a word.
+        if (!Values.Empty(want["alertHandler"]) || !Values.Empty(want["alertHandlerProperties"]))
+            yield return "alertHandler is retired: alerts go through a notification channel; add one under notificationChannels and name it in alertChannel";
+        foreach (var problem in GroupProblems("groups", want["groups"], known)) yield return problem;
         foreach (var group in (want["groups"] as JsonArray ?? []).OfType<JsonObject>())
             if (group["budget"] is JsonObject budget && !string.Equals((string)group["action"], "Block", StringComparison.OrdinalIgnoreCase) &&
                 !budget.ContainsKey("maxAttemptsTotal"))
@@ -298,12 +358,14 @@ public class DataSourceStatements : Kind
 
 /// <summary>
 /// Subscriptions. Each adapter is a block: handler: { adapter, version, properties }; no version
-/// follows whatever is current. paused: true pauses one and false resumes it. What kind it is, its
+/// follows whatever is current. paused: true pauses one and false resumes it. notifications are rows of
+/// { channel, onFailure, onBadResult, onSuccess, onQuiet }, a tick left out being off. What kind it is, its
 /// information type, partner and what it aggregates are fixed once it exists.
 /// </summary>
 public class Subscriptions : Kind
 {
     static readonly string[] Roles = ["receiver", "validator", "mapper", "handler"];
+    static readonly string[] Ticks = ["onFailure", "onBadResult", "onSuccess", "onQuiet"];
 
     public override string Section => "subscriptions";
     public override string Noun => "subscription";
@@ -342,6 +404,14 @@ public class Subscriptions : Kind
             file[role] = block;
         }
         file["paused"] = api["pausedOn"] != null;
+        file["notifications"] = new JsonArray((api["notifications"] as JsonArray ?? []).OfType<JsonObject>().Select(n =>
+        {
+            var row = new JsonObject { ["channel"] = ctx.KeyOf("notificationChannels", n["channelId"]) };
+            foreach (var tick in Ticks.Where(t => On(n[t]))) row[tick] = true;
+            return (JsonNode)row;
+        }).ToArray());
+        if (file["customRetryPolicy"] is JsonObject inline && inline.ContainsKey("groups"))
+            inline["groups"] = RetryPolicies.GroupsToFile(ctx, inline["groups"]);
         // Bitween answers every member, set or not; the file names only what is set.
         if (file["expectTraffic"] is JsonObject expect)
             foreach (var key in expect.Where(p => Values.Empty(p.Value)).Select(p => p.Key).ToList()) expect.Remove(key);
@@ -357,7 +427,22 @@ public class Subscriptions : Kind
         // change to a field that can't change, on every apply after.
         if ((string)want["type"] == "Aggregation" && want.ContainsKey("informationType"))
             yield return "informationType: an aggregation has none of its own (it rolls up the exchanges of what it aggregates); leave it out";
+        foreach (var row in (want["notifications"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            var channel = row["channel"]?.ToString();
+            if (string.IsNullOrEmpty(channel)) yield return "notifications: a row names no channel";
+            else if (!known("notificationChannels", channel)) yield return $"notifications: there's no notification channel {Context.Quote(channel)}";
+        }
+        foreach (var problem in RetryPolicies.GroupProblems("customRetryPolicy", want["customRetryPolicy"]?["groups"], known)) yield return problem;
     }
+
+    static bool On(JsonNode tick) => Values.Same(tick, true);
+
+    /// <summary>Notification rows as a set, every tick said: one left out is off.</summary>
+    static IEnumerable<string> Rows(JsonNode rows) =>
+        (rows as JsonArray ?? []).OfType<JsonObject>()
+        .Select(r => string.Join("|", Ticks.Select(t => On(r[t]) ? t : "").Prepend(r["channel"]?.ToString())))
+        .Order(StringComparer.Ordinal);
 
     public override List<string> Differences(Context ctx, JsonObject want, Existing have)
     {
@@ -380,6 +465,8 @@ public class Subscriptions : Kind
             differ.Remove("expectTraffic");
             if (!Values.Same(want["expectTraffic"], have.File["expectTraffic"], exactKeys: true)) differ.Add("expectTraffic");
         }
+        if (want.ContainsKey("notifications") && !Rows(want["notifications"]).SequenceEqual(Rows(have.File["notifications"])))
+            differ.Add("notifications");
         return differ;
     }
 
@@ -397,6 +484,16 @@ public class Subscriptions : Kind
         // One or the other: a named policy, or one of its own.
         if (want["retryPolicy"] != null) api["customRetryPolicy"] = null;
         if (want["customRetryPolicy"] != null) api["retryPolicyId"] = null;
+        if (api["customRetryPolicy"] is JsonObject inline && inline.ContainsKey("groups"))
+            inline["groups"] = RetryPolicies.GroupsToApi(ctx, inline["groups"]);
+        // Left out, Bitween keeps the rows it has; said, even empty, they replace them.
+        if (want.ContainsKey("notifications"))
+            api["notifications"] = new JsonArray((want["notifications"] as JsonArray ?? []).OfType<JsonObject>().Select(r =>
+            {
+                var row = new JsonObject { ["channelId"] = Id(ctx.IdOf("notificationChannels", r["channel"]?.ToString())) };
+                foreach (var tick in Ticks) row[tick] = On(r[tick]);
+                return (JsonNode)row;
+            }).ToArray());
         return api;
     }
 
@@ -622,6 +719,7 @@ public class BusGateways : Kind
     }
 }
 
+/// <summary>Legacy notifiers, kept for those still in use; subscriptions now notify through notificationChannels.</summary>
 public class Notifiers : Kind
 {
     public override string Section => "notifiers";
