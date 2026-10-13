@@ -63,8 +63,10 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
     /// adapter, so both make the same choices about encryption, certificates and the circuit breaker.
     /// </summary>
     /// <param name="username">Empty signs in as <paramref name="from"/>.</param>
+    /// <param name="connectLimit">How long reaching the server may take; <see cref="ConnectLimit"/> unless a test says otherwise.</param>
     internal static async Task Deliver(DestinationCircuits circuits, MimeMessage message, string host, int port,
-        bool useTls, string? username, string? password, string from, string? certificateThumbprint)
+        bool useTls, string? username, string? password, string from, string? certificateThumbprint,
+        TimeSpan? connectLimit = null)
     {
         using var client = new SmtpClient();
 
@@ -99,7 +101,7 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
         using var pass = circuits.Enter($"smtp://{host}:{port}");
         try
         {
-            await Send(client, security, message, host, port, username, password, from);
+            await Send(client, security, message, host, port, username, password, from, connectLimit ?? ConnectLimit);
         }
         catch (Exception e)
         {
@@ -109,10 +111,30 @@ public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeIn
         pass.Succeeded();
     }
 
+    /// <summary>
+    /// How long connecting may take: reaching the server, its greeting and the TLS handshake. Left to
+    /// MailKit it is two minutes, which is what a test message sat through when a server expecting TLS
+    /// from the first byte was set on a port other than 465: each side waited for the other to speak.
+    /// </summary>
+    internal static readonly TimeSpan ConnectLimit = TimeSpan.FromSeconds(30);
+
     private static async Task Send(SmtpClient client, SecureSocketOptions security, MimeMessage message,
-        string host, int port, string? username, string? password, string from)
+        string host, int port, string? username, string? password, string from, TimeSpan connectLimit)
     {
-        await client.ConnectAsync(host, port, security);
+        using (var limit = new CancellationTokenSource(connectLimit))
+        {
+            try
+            {
+                await client.ConnectAsync(host, port, security, limit.Token);
+            }
+            catch (OperationCanceledException) when (limit.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    $"The mail server {host}:{port} didn't answer within {connectLimit.TotalSeconds:0} seconds. Either it can't be reached, " +
+                    "or it expects TLS from the first byte: Bitween does that only on port 465, and on any other port " +
+                    "starts plainly and asks for STARTTLS.");
+            }
+        }
 
         // A relay that accepts unauthenticated mail from inside the network is a normal setup, so
         // only authenticate when a password was actually supplied.

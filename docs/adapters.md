@@ -149,7 +149,7 @@ Sends an email built from the payload.
 | `IsHtml` | `true` | |
 | `CertificateThumbprint` | | The relay certificate's SHA-256 thumbprint, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before anything is sent. |
 
-Without a pinned thumbprint, server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
+Connecting, which covers reaching the relay, its greeting and the TLS handshake, may take 30 seconds. A relay that expects TLS from the first byte on a port other than 465 never greets a client that starts plainly, so it fails there, saying so. Without a pinned thumbprint, server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
 
 A relay that keeps failing is paused as the HTTP handler pauses a partner ([When a destination keeps failing](#when-a-destination-keeps-failing)), keyed by `smtp://{Host}:{Port}`. Timeouts, dropped connections and a 421 reply count. A refused recipient, a bad template or a refused sign-in don't.
 

@@ -179,7 +179,7 @@ The retry poll and retention crons are validated before they're saved, and savin
 
 ### Mail server
 
-The **Mail server** section is the one SMTP server every Email notification channel sends through, so a channel only names its recipients. It is read on each send. Until a host and a From address are set, Email channels can't send, and their page says so. The connection follows the [SMTP adapter's](adapters.md#nativesmtphandler) rules: a password is only sent over TLS, and `CertificateThumbprint` trusts exactly that certificate. The password is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`. Without one, set it through configuration (`Bitween__MailServer__Password`).
+The **Mail server** section is the one SMTP server every Email notification channel sends through, so a channel only names its recipients. It is read on each send. Until a host and a From address are set, Email channels can't send, and their page says so. The connection follows the [SMTP adapter's](adapters.md#nativesmtphandler) rules: a password is only sent over TLS, `CertificateThumbprint` trusts exactly that certificate, and a server that doesn't answer within 30 seconds fails the send. The password is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`. Without one, set it through configuration (`Bitween__MailServer__Password`).
 
 The page also has a **Notification channels** section. Channels are records rather than settings: they have their own table, each opens on a page of its own, and the `notifiers` permissions cover them rather than `settings`. See [Notification channels](retries-and-alerts.md#notification-channels).
 

@@ -40,6 +40,42 @@ public class ChannelMessageTests
         FinishedOn = Noon.AddSeconds(31)
     };
 
+    /// <summary>
+    /// A server that never greets, as one expecting TLS from the first byte does when Bitween starts
+    /// plainly for STARTTLS, fails at the connect limit, saying what to check, rather than after MailKit's two minutes.
+    /// </summary>
+    [TestMethod]
+    public async Task A_mail_server_that_never_answers_fails_at_the_connect_limit_saying_what_to_check()
+    {
+        var silent = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+        silent.Start();
+        var port = ((IPEndPoint)silent.LocalEndpoint).Port;
+        var accepted = silent.AcceptTcpClientAsync();
+        try
+        {
+            var message = new MimeKit.MimeMessage();
+            message.From.Add(MimeKit.MailboxAddress.Parse("bitween@acme.example"));
+            message.To.Add(MimeKit.MailboxAddress.Parse("ops@acme.example"));
+            message.Subject = "Test";
+            message.Body = new MimeKit.TextPart("plain") { Text = "Test" };
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var error = await Assert.ThrowsExceptionAsync<TimeoutException>(() => SW.Bitween.NativeAdapters.SmtpHandler.NativeSmtpHandler.Deliver(
+                new DestinationCircuits(new CircuitBreakerSettings()), message, "127.0.0.1", port, useTls: true,
+                username: null, password: null, from: "bitween@acme.example", certificateThumbprint: null,
+                connectLimit: TimeSpan.FromSeconds(1)));
+
+            Assert.IsTrue(clock.Elapsed < TimeSpan.FromSeconds(10), $"took {clock.Elapsed}");
+            StringAssert.Contains(error.Message, $"127.0.0.1:{port} didn't answer within 1 seconds");
+            StringAssert.Contains(error.Message, "only on port 465");
+        }
+        finally
+        {
+            silent.Stop();
+            (await accepted.ContinueWith(t => t.IsCompletedSuccessfully ? t.Result : null))?.Dispose();
+        }
+    }
+
     [TestMethod]
     public void A_failed_exchange_reads_as_a_failure_with_its_error_and_a_link_to_it()
     {
