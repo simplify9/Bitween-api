@@ -348,7 +348,8 @@ The signature is the one `scripts/sign.sh` in Bitween-Connectors makes, byte for
 `0` when the command did what was asked, `1` otherwise - a failed check, a refused publish, a problem
 in the arguments - with the reason printed. `bitween plan --detailed-exitcode` exits `2` when there are
 changes to apply, and `bitween registry publish` exits `2` when the version is already in the registry. `bitween adapter test` prints each check as `PASS`, `FAIL`
-or `SKIP`.
+or `SKIP`; with `--json` it prints only the report, `{ passed, checks: [{ name, outcome, detail, call }] }`, where
+`call` marks a check that called one of the adapter's commands, which needs its settings to pass.
 
 The CLI is `SW.Bitween.Cli`, built on `SW.Bitween.Adapters.Tooling`, which the adapter editor in Bitween
 also uses. It is released by `.github/workflows/cli-release.yml`; see [Deployment](deployment.md#cicd).

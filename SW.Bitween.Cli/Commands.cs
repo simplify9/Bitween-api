@@ -104,6 +104,9 @@ public class TestOptions
 
     [Option("timeout", Default = 60, HelpText = "Seconds one call may take.")]
     public int Timeout { get; set; }
+
+    [Option("json", HelpText = "Print the report as JSON, and nothing else: for the registry's check sandbox and other tools.")]
+    public bool Json { get; set; }
 }
 
 [Verb("run", HelpText = "Start an adapter and call one command.")]
@@ -378,8 +381,13 @@ public static partial class Commands
                 AllowDelete = opts.AllowDelete,
                 Contracts = { BitweenAdapters.Contract },
                 CommandTimeoutSeconds = opts.Timeout,
-                Log = Console.WriteLine,
+                Log = opts.Json ? _ => { } : Console.WriteLine,
             });
+            if (opts.Json)
+            {
+                Console.WriteLine(TestReportJson(report));
+                return report.Passed ? Success : Failure;
+            }
             foreach (var check in report.Checks)
                 Console.WriteLine($"{Mark(check.Outcome)} {check.Name}{(string.IsNullOrEmpty(check.Detail) ? "" : " - " + check.Detail)}");
             var failed = report.Checks.Count(c => c.Outcome == CheckOutcome.Failed);
@@ -503,6 +511,36 @@ public static partial class Commands
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /// <summary>
+    /// The report as JSON. <c>call</c> marks a check that called one of the adapter's commands with the
+    /// contract's example: one that needs its settings and what they point at to pass, which a sandbox
+    /// without either can't give it. The rest are about the package itself.
+    /// </summary>
+    internal static string TestReportJson(ConformanceReport report) =>
+        new JsonObject
+        {
+            ["passed"] = report.Passed,
+            ["checks"] = new JsonArray(report.Checks.Select(c => (JsonNode)new JsonObject
+            {
+                ["name"] = c.Name,
+                ["outcome"] = c.Outcome.ToString(),
+                ["detail"] = c.Detail,
+                ["call"] = IsCall(c.Name),
+            }).ToArray()),
+        }.ToJsonString();
+
+    /// <summary>
+    /// "{contract} {kind}: {Method} answers example 1", or a session kind's "{contract} {kind}: {Method}";
+    /// never "{contract} {kind}: methods", which only reads what the adapter says it has.
+    /// </summary>
+    internal static bool IsCall(string name)
+    {
+        var at = name.IndexOf(": ", StringComparison.Ordinal);
+        if (at < 0) return false;
+        var contractAndKind = name[..at];
+        return contractAndKind.Contains(' ') && name[(at + 2)..] != "methods";
+    }
 
     static string Mark(CheckOutcome outcome) => outcome switch
     {
