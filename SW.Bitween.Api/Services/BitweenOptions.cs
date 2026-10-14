@@ -106,6 +106,13 @@ namespace SW.Bitween
         public int MaxRetryAfterSeconds { get; set; } = 21600;
 
         /// <summary>
+        /// The largest input, in bytes, an exchange's created message carries beside its id, so the
+        /// worker need not read it back from storage: 256 KB. Larger ones are read from storage. Every
+        /// file is written to storage either way. 0 sends none.
+        /// </summary>
+        public int MessagePayloadMaxBytes { get; set; } = 262144;
+
+        /// <summary>
         /// After a notifier sends for a subscription and outcome, further notifications for the same
         /// pair within this many minutes are recorded as suppressed rather than sent, and the next
         /// one sent says how many there were. An outage no longer means one email per failure.

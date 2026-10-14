@@ -586,7 +586,14 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         xchange.StoreFilesUnder(BitweenSettings.DocumentPrefix);
         WriteBeforeSave(xchange, XchangeFileType.Input, file);
+        // A small input also travels with the created message, so the worker needn't read it back.
+        if (FitsInMessage(file.Data)) dbContext.Handoff.Carry(xchange.Id, file.Data);
     }
+
+    /// <summary>Whether a payload is small enough to travel in a bus message: <c>Bitween:MessagePayloadMaxBytes</c>.</summary>
+    private bool FitsInMessage(string data) =>
+        data != null && BitweenSettings.MessagePayloadMaxBytes > 0 && data.Length <= BitweenSettings.MessagePayloadMaxBytes &&
+        System.Text.Encoding.UTF8.GetByteCount(data) <= BitweenSettings.MessagePayloadMaxBytes;
 
     /// <summary>Starts writing an exchange file, for the next save to wait for.</summary>
     private void WriteBeforeSave(Xchange xchange, XchangeFileType type, XchangeFile file) =>
@@ -802,9 +809,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         try
         {
-            XchangeFile inputFile;
-            using (BitweenTelemetry.Stage("storage.read"))
-                inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
+            var inputFile = InputFrom(message, xchange);
+            if (inputFile == null)
+                using (BitweenTelemetry.Stage("storage.read"))
+                    inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
             // Whatever way it arrived - bus, receiver, response - input that doesn't match its
             // type's schema fails here, with what is wrong, before anything acts on it.
             // Promoted properties are read when the exchange is created now. Filtered here only for
@@ -912,6 +920,25 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 failure?.Message);
             commands.Record(serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>());
         }
+    }
+
+    /// <summary>
+    /// The input the created message carried, or null when it carried none and storage is read: a
+    /// message published again by the outbox dispatcher, an input over the size cap, or a message
+    /// from a version that didn't send it.
+    /// </summary>
+    /// <remarks>
+    /// Taken only when it hashes to what the exchange recorded at creation, so the copy on the bus can
+    /// never be used where it differs from the file in storage.
+    /// </remarks>
+    private XchangeFile InputFrom(XchangeMessage message, Xchange xchange)
+    {
+        if (message.Input == null) return null;
+        var carried = new XchangeFile(message.Input, xchange.InputName);
+        if (xchange.InputHash == null || carried.Hash == xchange.InputHash) return carried;
+
+        logger.LogWarning("The input carried by the message of xchange {XchangeId} doesn't match its hash; reading storage.", xchange.Id);
+        return null;
     }
 
     /// <summary>

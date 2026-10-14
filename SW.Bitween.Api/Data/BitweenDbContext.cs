@@ -857,7 +857,7 @@ namespace SW.Bitween
                 .ToArray();
             var fromEvents = raised
                 .SelectMany(entity => entity.Events)
-                .Select(ToOutboxMessage)
+                .Select(domainEvent => Handoff.Announcing(domainEvent, ToOutboxMessage(domainEvent)))
                 .ToList();
             foreach (var message in fromEvents) Add(message);
 
@@ -959,10 +959,13 @@ namespace SW.Bitween
                 {
                     // Bitween's bus publisher takes values as well; anything that only publishes
                     // (a test double) gets the message without them.
+                    // A created message goes with what its exchange handed over, such as the input;
+                    // the stored row, and so a later publish of it, is the id alone.
+                    var body = Handoff.BodyToPublish(message) ?? message.Body;
                     if (message.Headers is { Count: > 0 } && publish is SW.Bus.RabbitMqExtensions.IPublishWithValues withValues)
-                        await withValues.Publish(message.MessageType, message.Body, message.Headers);
+                        await withValues.Publish(message.MessageType, body, message.Headers);
                     else
-                        await publish.Publish(message.MessageType, message.Body);
+                        await publish.Publish(message.MessageType, body);
                     published.Add(message.Id);
                 }
                 catch (Exception ex)

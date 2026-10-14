@@ -106,6 +106,97 @@ public class ExchangeHandoffTests(BitweenFixture fixture)
             .GetFile(xchangeId, XchangeFileType.Response));
     }
 
+    [Fact]
+    public async Task A_small_input_travels_with_its_created_message_while_the_outbox_row_stays_the_id_alone()
+    {
+        var subscriptionId = await SubscriptionAsync();
+        var (xchangeId, published) = await CreateRecordingAsync(subscriptionId, "{\"small\":true}");
+
+        var message = JsonConvert.DeserializeObject<Dictionary<string, string>>(published.Single(p => p.Contains(xchangeId)))!;
+        Assert.Equal(xchangeId, message["Id"]);
+        Assert.Equal("{\"small\":true}", message["Input"]);
+
+        await using var check = fixture.CreateScope();
+        var row = await check.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<OutboxMessage>().AsNoTracking()
+            .SingleAsync(m => m.Body.Contains(xchangeId));
+        Assert.Equal(JsonConvert.SerializeObject(new { Id = xchangeId }), row.Body);
+    }
+
+    [Fact]
+    public async Task An_input_over_the_message_cap_is_left_to_storage()
+    {
+        var subscriptionId = await SubscriptionAsync();
+        var large = JsonConvert.SerializeObject(new { text = new string('x', 300 * 1024) });
+        var (xchangeId, published) = await CreateRecordingAsync(subscriptionId, large);
+
+        Assert.Equal(JsonConvert.SerializeObject(new { Id = xchangeId }), published.Single(p => p.Contains(xchangeId)));
+    }
+
+    [Fact]
+    public async Task The_worker_takes_the_input_from_the_message_and_reads_no_storage()
+    {
+        var subscriptionId = await SubscriptionAsync();
+        var xchangeId = await CreateAsync(subscriptionId, "{\"order\":9}");
+
+        await using (var worker = fixture.CreateScope())
+        {
+            var noReads = Storage.Wrapping(worker.ServiceProvider.GetRequiredService<ICloudFilesService>(), failReadsOf: "/input");
+            await ActivatorUtilities.CreateInstance<XchangeService>(worker.ServiceProvider, noReads)
+                .Process("handoff-test", JsonConvert.SerializeObject(new { Id = xchangeId, Input = "{\"order\":9}" }));
+        }
+
+        Assert.Equal("{\"order\":9}", await ResponseOfAsync(xchangeId));
+    }
+
+    [Fact]
+    public async Task A_carried_input_that_differs_from_the_stored_one_is_not_used()
+    {
+        var subscriptionId = await SubscriptionAsync();
+        var xchangeId = await CreateAsync(subscriptionId, "{\"order\":10}");
+
+        await using (var worker = fixture.CreateScope())
+            await worker.ServiceProvider.GetRequiredService<XchangeService>()
+                .Process("handoff-test", JsonConvert.SerializeObject(new { Id = xchangeId, Input = "{\"order\":666}" }));
+
+        Assert.Equal("{\"order\":10}", await ResponseOfAsync(xchangeId));
+    }
+
+    private async Task<string> ResponseOfAsync(string xchangeId)
+    {
+        await using var check = fixture.CreateScope();
+        var result = await check.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<XchangeResult>()
+            .AsNoTracking().SingleAsync(r => r.Id == xchangeId);
+        Assert.True(result.Success, result.Exception);
+        return await check.ServiceProvider.GetRequiredService<XchangeService>().GetFile(xchangeId, XchangeFileType.Response);
+    }
+
+    /// <summary>Creates an exchange through a context whose publishes are recorded, and returns them.</summary>
+    private async Task<(string XchangeId, List<string> Published)> CreateRecordingAsync(int subscriptionId, string payload)
+    {
+        await using var scope = fixture.CreateScope();
+        var publish = new RecordingPublish();
+        await using var db = ActivatorUtilities.CreateInstance<PgSql.BitweenDbContext>(scope.ServiceProvider, publish);
+        var service = ActivatorUtilities.CreateInstance<XchangeService>(scope.ServiceProvider, (BitweenDbContext)db);
+        var subscription = await scope.ServiceProvider.GetRequiredService<IInfolinkCache>().SubscriptionByIdAsync(subscriptionId);
+
+        var xchange = await service.CreateXchange(subscription, new XchangeFile(payload));
+        await db.SaveChangesAsync();
+        return (xchange.Id, publish.Bodies);
+    }
+
+    private sealed class RecordingPublish : IPublish
+    {
+        public List<string> Bodies { get; } = [];
+        public Task Publish<TMessage>(TMessage message) => Publish(typeof(TMessage).Name, JsonConvert.SerializeObject(message));
+        public Task Publish(string messageTypeName, byte[] message) => Publish(messageTypeName, System.Text.Encoding.UTF8.GetString(message));
+
+        public Task Publish(string messageTypeName, string message)
+        {
+            Bodies.Add(message);
+            return Task.CompletedTask;
+        }
+    }
+
     private async Task<string> CreateAsync(int subscriptionId, string payload)
     {
         await using var scope = fixture.CreateScope();
@@ -135,19 +226,20 @@ public class ExchangeHandoffTests(BitweenFixture fixture)
         return subscription.Id;
     }
 
-    /// <summary>The fixture's storage, with the writes of one kind of exchange file slowed down or refused.</summary>
+    /// <summary>The fixture's storage, with the writes of one kind of exchange file slowed down or refused, or its reads refused.</summary>
     public class Storage : DispatchProxy
     {
         private ICloudFilesService inner = null!;
-        private string? delayed, failed;
+        private string? delayed, failed, unreadable;
         private TimeSpan delay;
 
         public static ICloudFilesService Wrapping(ICloudFilesService inner, string? delayWritesOf = null,
-            string? failWritesOf = null, TimeSpan delay = default)
+            string? failWritesOf = null, TimeSpan delay = default, string? failReadsOf = null)
         {
             var proxy = Create<ICloudFilesService, Storage>();
             var storage = (Storage)(object)proxy;
-            (storage.inner, storage.delayed, storage.failed, storage.delay) = (inner, delayWritesOf, failWritesOf, delay);
+            (storage.inner, storage.delayed, storage.failed, storage.delay, storage.unreadable) =
+                (inner, delayWritesOf, failWritesOf, delay, failReadsOf);
             return proxy;
         }
 
@@ -162,6 +254,10 @@ public class ExchangeHandoffTests(BitweenFixture fixture)
                     return Returning(method.ReturnType, nameof(Later), () => method.Invoke(inner, args));
             }
 
+            if (unreadable != null && (method.Name.StartsWith("Open") || method.Name.StartsWith("Read")) &&
+                args?.FirstOrDefault() is string readKey && readKey.EndsWith(unreadable))
+                return Returning(method.ReturnType, nameof(Refused), () => null);
+
             return method.Invoke(inner, args);
         }
 
@@ -174,7 +270,7 @@ public class ExchangeHandoffTests(BitweenFixture fixture)
             return returnType.IsGenericType ? task : (Task)task;
         }
 
-        private Task<T> Refused<T>(Func<object?> _) => Task.FromException<T>(new IOException("storage refused the write"));
+        private Task<T> Refused<T>(Func<object?> _) => Task.FromException<T>(new IOException("storage refused the request"));
 
         private async Task<T> Later<T>(Func<object?> call)
         {

@@ -2,13 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using SW.Bitween.Domain;
 using SW.Bitween.Model;
 
 namespace SW.Bitween;
 
 /// <summary>
-/// What one unit of work hands to its save without the database ever carrying it: the exchange
-/// files being written to storage, which the save waits for.
+/// What one unit of work hands to its save, and to the publish straight after it, without the
+/// database ever carrying it: the exchange files being written to storage, which the save waits
+/// for, and what an exchange's created message carries beside its id.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,12 +23,16 @@ namespace SW.Bitween;
 /// has them, and a write that fails fails the save.
 /// </para>
 /// <para>
-/// One per <see cref="BitweenDbContext"/>, so per scope, like the change tracker it goes with.
+/// One per <see cref="BitweenDbContext"/>, so per scope, like the change tracker it goes with. A
+/// message the outbox dispatcher publishes later comes from another scope and carries the id
+/// alone; whoever reads it falls back to storage, which always has the files.
 /// </para>
 /// </remarks>
 public sealed class XchangeHandoff
 {
     private readonly List<(string XchangeId, XchangeFileType Type, Task Write)> writes = [];
+    private readonly Dictionary<string, string> inputs = new();
+    private readonly Dictionary<OutboxMessage, string> created = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>A file write that has started; the next save waits for it.</summary>
     public void Writing(string xchangeId, XchangeFileType type, Task write) => writes.Add((xchangeId, type, write));
@@ -66,4 +73,29 @@ public sealed class XchangeHandoff
         return failed;
     }
 
+    /// <summary>The input of a new exchange, as written to storage, for its created message to carry.</summary>
+    public void Carry(string xchangeId, string input) => inputs[xchangeId] = input;
+
+    /// <summary>
+    /// Notes which exchange an outbox message announces, when it is an exchange's created message;
+    /// the publish then adds what this unit of work holds for it. Returns the message.
+    /// </summary>
+    public OutboxMessage Announcing(object domainEvent, OutboxMessage message)
+    {
+        if (domainEvent is XchangeCreatedEvent createdEvent) created[message] = createdEvent.Id;
+        return message;
+    }
+
+    /// <summary>
+    /// The body to publish a message with straight after the commit, when it is a created message
+    /// this unit of work has something to add to; null to publish the stored body, the id alone.
+    /// </summary>
+    public string BodyToPublish(OutboxMessage message)
+    {
+        if (!created.Remove(message, out var xchangeId)) return null;
+        inputs.Remove(xchangeId, out var input);
+        if (input == null) return null;
+
+        return JsonConvert.SerializeObject(new XchangeMessage { Id = xchangeId, Input = input });
+    }
 }
