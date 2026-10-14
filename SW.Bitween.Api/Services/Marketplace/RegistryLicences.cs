@@ -99,6 +99,30 @@ public class RegistryLicences(BitweenDbContext dbContext, RegistryClient registr
         return await ReadAsync();
     }
 
+    /// <summary>
+    /// Licences that arrived in a bundle rather than from the registry: each that verifies with the
+    /// trusted keys is kept, replacing an older copy of the same licence; the rest are left alone.
+    /// </summary>
+    public async Task<RegistryLicenceSummary> ImportAsync(IReadOnlyList<RegistrySignedDocument> documents)
+    {
+        var (trusted, _) = RegistrySignatures.TrustedKeys(options.RegistryTrustedKeys);
+        if (trusted.Count == 0)
+            throw new SWValidationException("REGISTRY_KEYS", "No registry signing keys are set, so no licence can be checked. Add them under Settings, Marketplace.");
+        var held = (await LoadAsync())?.Licences ?? [];
+        var dropped = 0;
+        foreach (var document in documents)
+        {
+            if (!RegistrySignatures.VerifyAny(trusted, RegistrySignatures.LicenceMessage(document.Payload), document.Signature)) { dropped++; continue; }
+            var licence = Parse(document.Payload);
+            if (licence == null) { dropped++; continue; }
+            held.RemoveAll(l => l.LicenceId == licence.LicenceId && l.IssuedOn <= licence.IssuedOn);
+            if (held.All(l => l.LicenceId != licence.LicenceId)) held.Add(licence);
+        }
+        await SaveAsync(new Stored(DateTime.UtcNow, dropped > 0 ? $"{dropped} licence(s) in the bundle didn't verify with the trusted keys and were not kept." : null, held));
+        memory.Remove(CacheKey);
+        return await ReadAsync();
+    }
+
     public async Task<RegistryLicenceSummary> ReadAsync()
     {
         var stored = await LoadAsync();

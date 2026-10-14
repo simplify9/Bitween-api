@@ -104,6 +104,7 @@ import type {
   AdapterSourceListing,
   AdapterDraft,
   AdapterDraftSummary,
+  BundleInstall,
   MarketplaceInstallResult,
   MarketplacePackage,
   MarketplaceRegistration,
@@ -415,6 +416,8 @@ export interface ApiClient {
   refreshMarketplaceLicences(): Promise<RegistryLicenceSummary>;
   /** What a day's usage report says; sends it when asked (settings.edit). */
   marketplaceUsage(day: string | null, send: boolean): Promise<UsageReportPreview>;
+  /** Installs the packages a bundle zip holds, each checked as an online install is (adapter-source.operate). */
+  installBundle(file: Blob, current: boolean): Promise<BundleInstall>;
 
   // - the adapter editor (adapter-source.edit; publishing and promoting need adapter-source.operate) -
   listAdapterDrafts(): Promise<AdapterDraftSummary[]>;

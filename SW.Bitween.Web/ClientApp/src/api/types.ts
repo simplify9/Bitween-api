@@ -2058,6 +2058,21 @@ export interface UsageReportPreview {
   lines: RegistryUsageLine[];
 }
 
+/** What installing a bundle did, package by package. */
+export interface BundleItem {
+  id: string;
+  version: string;
+  outcome: "Installed" | "Skipped" | "Refused";
+  message: string;
+  sha256: string | null;
+}
+
+export interface BundleInstall {
+  registry: string | null;
+  madeOn: string | null;
+  items: BundleItem[];
+}
+
 /** A kit's parameter, as its install form asks for it. */
 export interface KitParameter {
   name: string;

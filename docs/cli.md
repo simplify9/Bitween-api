@@ -325,6 +325,7 @@ bitween registry publish connectors/s9.openapi/bin/serverless/s9.openapi-1.0.0.z
 bitween registry publish kits/s9.zoho.contacts/bin/s9.zoho.contacts-1.0.0.zip
 bitween registry status s9.openapi            # every version: in review, published, rejected, revoked
 bitween registry status s9.openapi 1.0.0      # one version's checks and the review's notes
+bitween registry bundle s9.openapi@1.2.0 s9.soap --out offline/bundle.zip
 bitween registry whoami
 bitween registry logout
 ```
@@ -340,6 +341,13 @@ bitween registry logout
   `--key-file` on publish, then `BITWEEN_SIGNING_KEY` (its PEM text), then `BITWEEN_SIGNING_KEY_FILE`, then
   the path login kept, in that order. A key that can't be read is named by where it came from, never shown.
 - In CI, skip login: `BITWEEN_REGISTRY_URL` and `BITWEEN_REGISTRY_TOKEN` win over what login kept.
+- **bundle** downloads the packages named, the newest published version where none is given, as one zip for
+  a Bitween that can't reach the registry: each package with both signatures, the registry's keys, its
+  revocation list and the licences the caller is entitled to (a customer's member signed in to the registry,
+  or an instance). It needs no sign-in for public packages; `--url` names a registry other than the one
+  login kept or Simplify9's. On the offline Bitween, **Install from bundle** on the Marketplace tab takes the
+  zip and checks every package against the keys in Settings, as an online install does
+  (see [Adapters](adapters.md#installing-from-a-bundle)).
 
 The signature is the one `scripts/sign.sh` in Bitween-Connectors makes, byte for byte.
 

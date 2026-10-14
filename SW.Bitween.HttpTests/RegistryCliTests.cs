@@ -61,6 +61,20 @@ public class RegistryCliTests : IDisposable
             return Json(HttpStatusCode.Unauthorized, new { code = "TOKEN_INVALID", message = "The token is unknown or revoked." });
 
         var path = request.RequestUri!.AbsolutePath;
+        if (path == "/v1/bundle")
+        {
+            // What was asked for, as the registry would pack it.
+            var packages = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query)["packages"] ?? "";
+            if (packages == "") return Json(HttpStatusCode.BadRequest, new { code = "PACKAGES_REQUIRED", message = "Name the packages." });
+            using var buffer = new MemoryStream();
+            using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, true))
+            {
+                foreach (var p in packages.Split(','))
+                    using (var w = new StreamWriter(zip.CreateEntry($"packages/{p.Replace('@', '-')}.zip").Open())) w.Write("zip");
+                using (var w = new StreamWriter(zip.CreateEntry("bundle.json").Open())) w.Write("{}");
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(buffer.ToArray()) };
+        }
         if (path == "/v1/me") return Json(HttpStatusCode.OK, new { name = "ci", scope = "Publish", publisher = "s9" });
         if (path == "/v1/mine/packages")
             return Json(HttpStatusCode.OK, new[]
@@ -220,5 +234,22 @@ public class RegistryCliTests : IDisposable
         Assert.Equal(1, bad.Exit);
         Assert.Contains("can't be read", bad.Output);
         Assert.DoesNotContain("bm90IGEga2V5", bad.Output);
+    }
+
+    [Fact]
+    public async Task Bundle_downloads_the_packages_named_as_one_zip()
+    {
+        await Bitween(Token, "registry", "login", "https://registry.test");
+        var path = Path.Combine(work, "offline", "bundle.zip");
+        var (exit, output) = await Bitween(null, "registry", "bundle", "s9.openapi@1.2.0", "s9.soap", "--out", path);
+        Assert.Equal(Commands.Success, exit);
+        Assert.Contains("2 package(s) from https://registry.test", output);
+        using var zip = ZipFile.OpenRead(path);
+        Assert.Equal(["packages/s9.openapi-1.2.0.zip", "packages/s9.soap.zip", "bundle.json"], zip.Entries.Select(e => e.FullName).ToArray());
+
+        // Without a package the registry's refusal is said as it said it.
+        var (refused, said) = await Bitween(null, "registry", "bundle", " ", "--out", path);
+        Assert.Equal(Commands.Failure, refused);
+        Assert.Contains("Name at least one package", said);
     }
 }

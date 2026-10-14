@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, KeyRound, Package, ShieldCheck, Store } from "lucide-react";
-import { api, type KitRun, type LicenceState, type MarketplaceCard, type MarketplaceInstalled, type RegistryLicenceSummary, type RegistryTier } from "../../api";
+import { BadgeCheck, FileArchive, KeyRound, Package, ShieldCheck, Store } from "lucide-react";
+import { api, type BundleInstall, type KitRun, type LicenceState, type MarketplaceCard, type MarketplaceInstalled, type RegistryLicenceSummary, type RegistryTier } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
@@ -64,6 +64,7 @@ export function MarketplaceTab() {
   const [runtime, setRuntime] = useState("");
   const [pricing, setPricing] = useState("");
   const [open, setOpen] = useState<string | null>(null);
+  const [bundle, setBundle] = useState(false);
   const search = useQuery({ queryKey: keys.marketplace(q, tier), queryFn: () => api.searchMarketplace(q, tier) });
   // Read from what was stored, so a paid connector's card says whether it is licensed here.
   const licences = useQuery({ queryKey: keys.marketplaceLicences, queryFn: () => api.getMarketplaceLicences() });
@@ -77,16 +78,25 @@ export function MarketplaceTab() {
         icon={<Store />}
         title={search.data?.disabled ? "The marketplace is turned off" : "No registry is set"}
         action={
-          <Can permission="settings.view">
-            <Link to="/settings" className="text-sm font-medium text-crimson-700 hover:underline">
-              Open Settings
-            </Link>
-          </Can>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Can permission="settings.view">
+              <Link to="/settings" className="text-sm font-medium text-crimson-700 hover:underline">
+                Open Settings
+              </Link>
+            </Can>
+            <Can permission="adapter-source.operate">
+              <Button size="sm" onClick={() => setBundle(true)}>
+                <FileArchive className="size-3.5" aria-hidden />
+                Install from bundle
+              </Button>
+            </Can>
+          </div>
         }
       >
         {search.data?.disabled
-          ? "An administrator turned it off under Settings, Marketplace. Turn it back on there to browse and install connectors."
+          ? "An administrator turned it off under Settings, Marketplace. Turn it back on there to browse and install connectors, or install from a bundle another machine downloaded with bitween registry bundle."
           : "Set the registry's address and signing keys under Settings, Marketplace to browse and install connectors."}
+        {bundle && <BundleDialog onClose={() => setBundle(false)} />}
       </EmptyState>
     );
 
@@ -155,7 +165,14 @@ export function MarketplaceTab() {
           ]}
         />
         <span className="ml-auto text-xs text-ink-500">From {search.data.registry}</span>
+        <Can permission="adapter-source.operate">
+          <Button size="sm" onClick={() => setBundle(true)} title="Install the packages a bundle zip holds, downloaded with bitween registry bundle.">
+            <FileArchive className="size-3.5" aria-hidden />
+            From bundle
+          </Button>
+        </Can>
       </div>
+      {bundle && <BundleDialog onClose={() => setBundle(false)} />}
 
       {results.length === 0 ? (
         <EmptyState icon={<Store />} title={filtered ? "Nothing matches" : "No connectors yet"}>
@@ -391,6 +408,82 @@ function ConnectorDialog({ id, onClose }: { id: string; onClose: () => void }) {
           </div>
         )
       )}
+    </Dialog>
+  );
+}
+
+/**
+ * Install from bundle: the zip bitween registry bundle wrote, for a Bitween that can't reach the
+ * registry. Every package in it is checked against the keys in Settings as an online install is,
+ * and installed or refused on its own.
+ */
+function BundleDialog({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const input = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [current, setCurrent] = useState(true);
+  const install = useMutation({
+    mutationFn: () => api.installBundle(file!, current),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["marketplace"] }),
+        queryClient.invalidateQueries({ queryKey: ["adapters"] }),
+      ]),
+  });
+  const result: BundleInstall | undefined = install.data;
+  const tone = (outcome: BundleInstall["items"][number]["outcome"]) =>
+    outcome === "Installed" ? "ok" : outcome === "Skipped" ? "neutral" : "danger";
+
+  return (
+    <Dialog title="Install from bundle" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-ink-700">
+          A bundle is one zip with packages, both signatures on each, the registry's revocation list and your licences,
+          made with <code className="font-mono text-[13px]">bitween registry bundle</code> on a machine that can reach the
+          registry. Each package is checked here against the signing keys in Settings, exactly as an online install is.
+        </p>
+        <input
+          ref={input}
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            install.reset();
+          }}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={() => input.current?.click()}>{file ? "Choose another" : "Choose a bundle"}</Button>
+          {file && (
+            <span className="text-sm text-ink-700">
+              {file.name} <span className="text-ink-500">({Math.max(1, Math.round(file.size / 1024))} KB)</span>
+            </span>
+          )}
+        </div>
+        <Checkbox label="Make each one current" checked={current} onChange={(e) => setCurrent(e.target.checked)} />
+        {install.error && <FormError>{install.error.message}</FormError>}
+        {result && (
+          <ul className="divide-y divide-ink-100 rounded-lg border border-ink-200">
+            {result.items.map((item) => (
+              <li key={`${item.id}@${item.version}`} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                <code className="font-mono text-ink-800">
+                  {item.id} {item.version}
+                </code>
+                <Badge tone={tone(item.outcome)}>{item.outcome}</Badge>
+                <span className="w-full text-xs text-ink-500 sm:ml-auto sm:w-auto">{item.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button onClick={onClose}>{result ? "Close" : "Cancel"}</Button>
+          {!result && (
+            <Button variant="primary" disabled={!file} busy={install.isPending} onClick={() => install.mutate()}>
+              Install
+            </Button>
+          )}
+        </div>
+      </div>
     </Dialog>
   );
 }

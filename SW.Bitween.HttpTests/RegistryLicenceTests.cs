@@ -268,6 +268,97 @@ public class RegistryLicenceTests(HttpFixture fixture) : IDisposable
         }
     }
 
+    /// <summary>A bundle as the registry writes it, for this test's package, with the bytes given as the package.</summary>
+    byte[] Bundle(byte[] package, object[] bundledLicences, bool tamper = false)
+    {
+        var sha = Convert.ToHexStringLower(SHA256.HashData(package));
+        var publisherPublic = publisherKey.GeneratePublicKey();
+        var publisherKeyId = RegistrySignatures.KeyIdOf(publisherPublic);
+        var signedOn = new DateTime(2026, 10, 13, 10, 0, 0, DateTimeKind.Utc);
+        var revocations = JsonSerializer.Serialize(new { generatedOn = "2026-10-13T10:00:00Z", revoked = Array.Empty<object>() });
+
+        using var buffer = new MemoryStream();
+        using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            void Write(string name, byte[] bytes) { using var s = zip.CreateEntry(name).Open(); s.Write(bytes); }
+            void WriteText(string name, string text) => Write(name, Encoding.UTF8.GetBytes(text));
+            Write($"packages/{id}-1.0.0.zip", tamper ? [.. package, 0] : package);
+            WriteText("bundle.json", JsonSerializer.Serialize(new
+            {
+                version = 1, registry = "https://registry.test", madeOn = "2026-10-14T12:00:00Z",
+                packages = new[]
+                {
+                    new
+                    {
+                        id, version = "1.0.0", file = $"packages/{id}-1.0.0.zip", sha256 = sha, size = package.Length,
+                        publisher = "s9", tier = "Official", pricing = "Paid", publisherKeyId,
+                        publisherPublicKey = PublicText(publisherPublic),
+                        publisherSignature = Sign(publisherKey, RegistrySignatures.PublishMessage(id, "1.0.0", sha)),
+                        registryKeyId = "test",
+                        registrySignature = Sign(registryKey, RegistrySignatures.CountersignMessage(id, "1.0.0", sha, "s9", publisherKeyId, "Official", signedOn)),
+                        signedOn = "2026-10-13T10:00:00Z",
+                        manifest = JsonDocument.Parse(Manifest.ToJson()).RootElement,
+                    },
+                },
+            }));
+            WriteText("keys.json", "{}");
+            WriteText("revocations.json", JsonSerializer.Serialize(new { payload = revocations, keyId = "test", signature = Sign(registryKey, RegistrySignatures.RevocationsMessage(revocations)) }));
+            WriteText("licences.json", JsonSerializer.Serialize(bundledLicences));
+        }
+        return buffer.ToArray();
+    }
+
+    [Fact]
+    public async Task A_bundle_installs_offline_with_its_licences_and_a_tampered_package_is_refused()
+    {
+        Serve();
+        using var admin = await fixture.AdminAsync();
+        // The marketplace is off, as an offline site has it; only the keys in Settings matter.
+        (await admin.PostAsJsonAsync("/api/settings/Bitween.RegistryEnabled", new { value = "false" })).EnsureSuccessStatusCode();
+        var now = DateTime.UtcNow;
+        var package = Package();
+
+        async Task<JsonObject> Install(byte[] bundle)
+        {
+            using var content = new ByteArrayContent(bundle);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/zip");
+            return await Json(await admin.PostAsync("/api/marketplace/bundle?current=true", content));
+        }
+
+        // Paid, and the bundle carries no licence: refused, and the other checks aren't what refused it.
+        var unlicensed = await Install(Bundle(package, []));
+        var item = unlicensed["items"]!.AsArray().Single()!;
+        Assert.Equal("Refused", (string)item["outcome"]);
+        Assert.Contains("no licence", (string)item["message"]);
+
+        // Tampered bytes: refused for the signature, whatever the licence says.
+        var tampered = await Install(Bundle(package, [Licence(now.AddDays(-1), now.AddDays(30), 14)], tamper: true));
+        Assert.Equal("Refused", (string)tampered["items"]![0]!["outcome"]);
+        Assert.Contains("doesn't match what the registry signed", (string)tampered["items"]![0]!["message"]);
+
+        // With its licence: installed, the licence now held, the origin the bundle's registry.
+        var installed = await Install(Bundle(package, [Licence(now.AddDays(-1), now.AddDays(30), 14)]));
+        Assert.Equal("https://registry.test", (string)installed["registry"]);
+        Assert.Equal("Installed", (string)installed["items"]![0]!["outcome"]);
+        var held = await Json(await admin.GetAsync("/api/marketplace/licences"));
+        Assert.Equal("Live", (string)held["licences"]![0]!["state"]);
+        using (var scope = fixture.App.Services.CreateScope())
+        {
+            var catalog = scope.ServiceProvider.GetRequiredService<Services.Adapters.AdapterCatalog>();
+            var origin = (await catalog.GetAsync(id))!.Extensions![MarketplaceInstaller.OriginExtension];
+            Assert.Equal("https://registry.test", origin.GetProperty("url").GetString());
+            Assert.Equal("paid", origin.GetProperty("pricing").GetString());
+        }
+
+        // Again: skipped, not an error.
+        var again = await Install(Bundle(package, []));
+        Assert.Equal("Skipped", (string)again["items"]![0]!["outcome"]);
+
+        // Not a bundle at all.
+        var notZip = await admin.PostAsync("/api/marketplace/bundle?current=true", new ByteArrayContent(Encoding.UTF8.GetBytes("hello")));
+        await Refusal(notZip, "BUNDLE_INVALID");
+    }
+
     [Fact]
     public async Task Registering_needs_settings_edit_and_licences_need_view()
     {

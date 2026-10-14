@@ -93,13 +93,14 @@ public static class Program
     static async Task<int> RegistryVerb(string[] args, Profiles profiles, TextReader input)
     {
         var parsed = Parser().ParseArguments<RegistryLoginOptions, RegistryLogoutOptions, RegistryWhoAmIOptions,
-            RegistryPublishOptions, RegistryStatusOptions, RegistryPlaceholderOptions>(args);
+            RegistryPublishOptions, RegistryStatusOptions, RegistryBundleOptions, RegistryPlaceholderOptions>(args);
         return await parsed.MapResult(
             (RegistryLoginOptions o) => Commands.RegistryLogin(o, profiles, input),
             (RegistryLogoutOptions _) => Commands.RegistryLogout(profiles),
             (RegistryWhoAmIOptions _) => Commands.RegistryWhoAmI(profiles),
             (RegistryPublishOptions o) => Commands.RegistryPublish(o, profiles),
             (RegistryStatusOptions o) => Commands.RegistryStatus(o, profiles),
+            (RegistryBundleOptions o) => Commands.RegistryBundle(o, profiles),
             (RegistryPlaceholderOptions _) => Task.FromResult(Help(parsed, "bitween registry")),
             _ => Task.FromResult(Help(parsed, "bitween registry")));
     }
@@ -183,6 +184,9 @@ public static class Program
           bitween registry publish <zip>   Sign a package or kit and send it for review (exit 2: already there)
           bitween registry status <id> [version]
                                            Where your versions are, or one version's checks and review
+          bitween registry bundle <id[@version]>... [--out file.zip]
+                                           Packages, signatures, keys, revocations and licences as one zip,
+                                           for a Bitween that can't reach the registry (Install from bundle)
           bitween registry whoami | logout
                                            (BITWEEN_REGISTRY_URL, BITWEEN_REGISTRY_TOKEN and BITWEEN_SIGNING_KEY
                                            or BITWEEN_SIGNING_KEY_FILE for CI)

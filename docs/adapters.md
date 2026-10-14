@@ -527,6 +527,18 @@ install. Once installed, a connector runs from this Bitween's own storage like a
 never needs the registry again; pinning, **Make current** and **Withdraw** work as for any other. Each
 install is in the audit trail as an `AdapterRelease` with the action `installed`.
 
+#### Installing from a bundle
+
+A Bitween that must not reach the internet installs from a bundle instead: the zip `bitween registry bundle`
+downloads on a machine that can, with the packages named, both signatures on each, the registry's keys, its
+revocation list and the licences the downloader is entitled to. **Install from bundle** on the Marketplace
+tab (`adapter-source.operate`) takes the zip, with the marketplace on or off, and runs every check above on
+each package against the signing keys in **Settings**, never the keys the bundle carries: published, allowed
+here, not revoked by the bundled list, the bytes those signed, both signatures. Licences in the bundle are
+kept, so a paid connector installs when one covers it. Each package is installed, skipped (already here) or
+refused on its own, and the answer says which and why; the catalog entry records the registry the bundle
+came from. The API is `POST /api/marketplace/bundle?current=true` with the zip as the body.
+
 A card says **Installed** when this Bitween has the registry's newest version, and **Update available**
 when it has an older one. Nothing is updated by itself. Besides the search and the publisher, the tab
 filters by type (connectors or kits), category, runtime and price.

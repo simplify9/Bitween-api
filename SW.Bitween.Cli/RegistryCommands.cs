@@ -51,6 +51,19 @@ public class RegistryStatusOptions
     public string Version { get; set; }
 }
 
+[Verb("bundle", HelpText = "Download packages with both signatures, the registry's keys, its revocation list and your licences as one zip, for a Bitween that can't reach the registry.")]
+public class RegistryBundleOptions
+{
+    [Value(0, Required = true, Min = 1, MetaName = "packages", HelpText = "Package ids, each with an optional @version: s9.openapi@1.2.0 s9.soap. The newest published version when none.")]
+    public IEnumerable<string> Packages { get; set; }
+
+    [Option('o', "out", HelpText = "Where to write the zip; bitween-bundle-<date>.zip in the current directory by default.")]
+    public string Out { get; set; }
+
+    [Option("url", HelpText = "The registry, when not signed in to one; https://registry.bitween.io by default.")]
+    public string Url { get; set; }
+}
+
 [Verb("help-registry", Hidden = true)]
 public class RegistryPlaceholderOptions;
 
@@ -70,10 +83,51 @@ internal sealed class RegistryApi : IDisposable
     {
         Url = url.Trim().TrimEnd('/');
         http = new HttpClient(HandlerOverride?.Invoke() ?? new HttpClientHandler()) { Timeout = TimeSpan.FromMinutes(5) };
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
+        if (!string.IsNullOrWhiteSpace(token))
+            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.Trim());
     }
 
+    public const string OfficialUrl = "https://registry.bitween.io";
+
     public static RegistryApi For(string url, string token) => new(url, token);
+
+    /// <summary>
+    /// For reading: the registry given, else the environment's, else the one login kept, else
+    /// Simplify9's; with the token when there is one, so a signed-in reader gets what it is entitled to.
+    /// </summary>
+    public static RegistryApi ForReading(Profiles profiles, string url)
+    {
+        var kept = profiles.Load().Registry;
+        var envUrl = Environment.GetEnvironmentVariable("BITWEEN_REGISTRY_URL");
+        var chosen = !string.IsNullOrWhiteSpace(url) ? url : !string.IsNullOrWhiteSpace(envUrl) ? envUrl : kept?.Url ?? OfficialUrl;
+        // A token kept for another registry isn't sent to this one.
+        var token = Environment.GetEnvironmentVariable("BITWEEN_REGISTRY_TOKEN") is { Length: > 0 } t ? t
+            : string.Equals(kept?.Url?.TrimEnd('/'), chosen.Trim().TrimEnd('/'), StringComparison.OrdinalIgnoreCase) ? kept?.Token : null;
+        return new RegistryApi(chosen, token);
+    }
+
+    /// <summary>A file the registry builds, as its bytes; on a refusal, its words.</summary>
+    public async Task<(HttpStatusCode Status, byte[] Bytes, JsonNode Body)> DownloadAsync(string path)
+    {
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.GetAsync(Url + path);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new BitweenApiException($"The registry at {Url} can't be reached: {ex.Message}");
+        }
+        using (response)
+        {
+            if (response.IsSuccessStatusCode) return (response.StatusCode, await response.Content.ReadAsByteArrayAsync(), null);
+            var text = await response.Content.ReadAsStringAsync();
+            JsonNode body = null;
+            try { body = string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text); }
+            catch (System.Text.Json.JsonException) { /* said by status */ }
+            return (response.StatusCode, null, body);
+        }
+    }
 
     /// <summary>From the environment, then what login kept; null, after saying why, when neither has one.</summary>
     public static RegistryApi From(Profiles profiles)
@@ -310,6 +364,32 @@ public static partial class Commands
                 Console.WriteLine(RegistryApi.Said(status, body));
                 return Failure;
         }
+    }
+
+    internal static async Task<int> RegistryBundle(RegistryBundleOptions opts, Profiles profiles)
+    {
+        var packages = string.Join(",", opts.Packages.Select(p => p.Trim()).Where(p => p.Length > 0));
+        if (packages.Length == 0)
+        {
+            Console.WriteLine("Name at least one package: bitween registry bundle s9.openapi@1.2.0 s9.soap");
+            return Failure;
+        }
+        using var api = RegistryApi.ForReading(profiles, opts.Url);
+        var (status, bytes, body) = await api.DownloadAsync("/v1/bundle?packages=" + Uri.EscapeDataString(packages));
+        if (bytes == null)
+        {
+            Console.WriteLine(RegistryApi.Said(status, body));
+            return Failure;
+        }
+        var path = string.IsNullOrWhiteSpace(opts.Out) ? $"bitween-bundle-{DateTime.UtcNow:yyyyMMdd-HHmm}.zip" : opts.Out;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        await File.WriteAllBytesAsync(path, bytes);
+        var count = 0;
+        using (var zip = new ZipArchive(new MemoryStream(bytes)))
+            count = zip.Entries.Count(e => e.FullName.StartsWith("packages/", StringComparison.Ordinal));
+        Console.WriteLine($"Wrote {path}: {count} package(s) from {api.Url}, {bytes.Length / 1024} KB, with the keys, the revocation list and the licences.");
+        Console.WriteLine("On the Bitween that can't reach the registry: Adapters, Marketplace, Install from bundle.");
+        return Success;
     }
 
     internal static async Task<int> RegistryStatus(RegistryStatusOptions opts, Profiles profiles)

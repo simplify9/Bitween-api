@@ -1,5 +1,6 @@
 import type { ApiClient } from "../client";
 import type {
+  BundleInstall,
   KitInfo,
   KitInstallRequest,
   KitRun,
@@ -11,7 +12,7 @@ import type {
   RegistryLicenceSummary,
   UsageReportPreview,
 } from "../types";
-import { get, post } from "./request";
+import { get, post, request } from "./request";
 
 export const marketplaceMethods = {
   searchMarketplace: (q: string, tier: string) =>
@@ -40,4 +41,7 @@ export const marketplaceMethods = {
   refreshMarketplaceLicences: () => post<RegistryLicenceSummary>("/marketplace/refreshlicences", {}),
 
   marketplaceUsage: (day: string | null, send: boolean) => post<UsageReportPreview>("/marketplace/usage", { day, send }),
+
+  installBundle: (file: Blob, current: boolean) =>
+    request<BundleInstall>(`/marketplace/bundle?${new URLSearchParams({ current: String(current) })}`, { method: "POST", file }),
 } satisfies Partial<ApiClient>;
