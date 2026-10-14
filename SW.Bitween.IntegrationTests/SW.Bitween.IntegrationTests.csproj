@@ -22,7 +22,7 @@
   <ItemGroup>
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" Aliases="BouncyCastle2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="10.0.1" />
+    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="10.0.2" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <PrivateAssets>all</PrivateAssets>

@@ -46,10 +46,10 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
     <PackageReference Include="SimplyWorks.Bus" Version="10.0.3" />
-    <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="10.0.1" />
-    <PackageReference Include="SimplyWorks.CloudFiles.OC.Extensions" Version="10.0.1" />
-    <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="10.0.1" />
-    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="10.0.1" />
+    <PackageReference Include="SimplyWorks.CloudFiles.AS.Extensions" Version="10.0.2" />
+    <PackageReference Include="SimplyWorks.CloudFiles.OC.Extensions" Version="10.0.2" />
+    <PackageReference Include="SimplyWorks.CloudFiles.S3.Extensions" Version="10.0.2" />
+    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="10.0.2" />
     <PackageReference Include="SimplyWorks.CqApi" Version="8.2.6" />
     <PackageReference Include="SimplyWorks.Logger.Console" Version="8.1.5" />
     <PackageReference Include="SimplyWorks.PrimitiveTypes" Version="10.0.1" />
