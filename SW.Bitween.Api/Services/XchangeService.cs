@@ -95,6 +95,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var newXchange = new Xchange(xchange, file, workGroup, manualRetry);
         await AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
+        await AddPromotedProperties(newXchange, file);
         dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
     }
 
@@ -110,6 +111,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             groupAttemptCounts, manualRetry);
         await AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
+        await AddPromotedProperties(newXchange, file);
         dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
     }
 
@@ -160,6 +162,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             source);
         await AddInputFile(xchange, file);
         dbContext.Add(xchange);
+        await AddPromotedProperties(xchange, file);
         BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "routing"));
         return xchange;
     }
@@ -189,6 +192,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             globalAdapterValuesSets, source);
         await AddInputFile(xchange, file);
         dbContext.Add(xchange);
+        await AddPromotedProperties(xchange, file);
         BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "subscription"));
         return xchange;
     }
@@ -578,6 +582,45 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         return AddFile(xchange, XchangeFileType.Input, file);
     }
 
+    /// <summary>
+    /// Reads a new exchange's promoted properties out of its input while it is still in hand, and
+    /// adds them to go in the same insert batch as the exchange.
+    /// </summary>
+    /// <remarks>
+    /// They used to be read by the worker, which then made an insert of its own for them, and read
+    /// the payload once more to do it. A few paths out of a document already parsed for the mapper
+    /// cost about a millisecond here. A payload they can't be read from stores nothing, and the
+    /// worker reads it as it always did, so it fails there the way it always has.
+    /// </remarks>
+    private async Task AddPromotedProperties(Xchange xchange, XchangeFile file)
+    {
+        FilterResult result;
+        try
+        {
+            using (BitweenTelemetry.Stage("filter"))
+                result = await filterService.Filter(xchange.DocumentId, file);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Promoted properties of xchange {XchangeId} couldn't be read at creation.", xchange.Id);
+            return;
+        }
+
+        AddPromotedProperties(xchange, result);
+    }
+
+    private void AddPromotedProperties(Xchange xchange, FilterResult result)
+    {
+        // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
+        // short value and picked up a notes field or a whole object instead.
+        foreach (var (key, value) in result.Properties)
+            if (value?.Length > XchangePromotedProperties.MaxValueLength)
+                logger.LogWarning(
+                    "Promoted property {Key} of xchange {XchangeId} is {Length} characters long; it is stored cut to {MaxLength}.",
+                    key, xchange.Id, value.Length, XchangePromotedProperties.MaxValueLength);
+        dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
+    }
+
     private async Task AddFile(Xchange xchange, XchangeFileType type, XchangeFile file)
     {
         var key = FileKey(xchange, type);
@@ -713,7 +756,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         // The exchange and whether it has a result, in one query: they were two.
         var loaded = await dbContext.Set<Xchange>()
             .Where(x => x.Id == message.Id)
-            .Select(x => new { Xchange = x, HasResult = dbContext.Set<XchangeResult>().Any(r => r.Id == x.Id) })
+            .Select(x => new
+            {
+                Xchange = x,
+                HasResult = dbContext.Set<XchangeResult>().Any(r => r.Id == x.Id),
+                HasPromoted = dbContext.Set<XchangePromotedProperties>().Any(p => p.Id == x.Id),
+            })
             .FirstOrDefaultAsync();
         var xchange = loaded?.Xchange;
 
@@ -749,21 +797,19 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
             // Whatever way it arrived - bus, receiver, response - input that doesn't match its
             // type's schema fails here, with what is wrong, before anything acts on it.
-            FilterResult result;
+            // Promoted properties are read when the exchange is created now. Filtered here only for
+            // what still needs it: a routing exchange's hits, and the promoted properties of an
+            // exchange created by a version that didn't read them, or from a payload they couldn't
+            // be read out of then - which fails here, as it always did.
+            FilterResult result = null;
             using (BitweenTelemetry.Stage("filter"))
             {
                 await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile.Data);
-                result = await filterService.Filter(xchange.DocumentId, inputFile);
+                if (!loaded.HasPromoted || xchange.SubscriptionId == null)
+                    result = await filterService.Filter(xchange.DocumentId, inputFile);
             }
 
-            // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
-            // short value and picked up a notes field or a whole object instead.
-            foreach (var (key, value) in result.Properties)
-                if (value?.Length > XchangePromotedProperties.MaxValueLength)
-                    logger.LogWarning(
-                        "Promoted property {Key} of xchange {XchangeId} is {Length} characters long; it is stored cut to {MaxLength}.",
-                        key, xchange.Id, value.Length, XchangePromotedProperties.MaxValueLength);
-            dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
+            if (!loaded.HasPromoted) AddPromotedProperties(xchange, result);
 
             if (xchange.SubscriptionId != null)
             {

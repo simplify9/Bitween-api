@@ -43,9 +43,11 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
     /// partners and keys come from the cache, the exchange loads with its has-result flag and the
     /// retry budget is asked only of policies that have one (phase 1); 7 once published outbox rows
     /// are deleted in batches off the exchange's path instead of updated inline (phase 2); 5 once the
-    /// result lane only hears of results something notifies on (phase 3).
+    /// result lane only hears of results something notifies on (phase 3); 4 once the sync wait reads
+    /// the result in the poll that finds it (phase 4). Promoted properties ride in the creation
+    /// batch, and cost no command of their own.
     /// </summary>
-    private const int SyncCallBudget = 5;
+    private const int SyncCallBudget = 4;
 
     [Fact]
     public async Task A_sync_gateway_call_stays_within_its_database_command_budget()

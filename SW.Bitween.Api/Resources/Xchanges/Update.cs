@@ -111,17 +111,16 @@ namespace SW.Bitween.Resources.Xchanges
                 var subscription = await cache.SubscriptionByIdAsync(sub.Id);
                 var xchange = await xchangeService.CreateXchange(subscription, xchangeFile,
                     xchangeReferences.ToArray(), Guid.NewGuid().ToString("N"));
-                if (!string.IsNullOrEmpty(idempotencyKey))
-                    await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
-                try
+                if (string.IsNullOrEmpty(idempotencyKey))
                 {
                     await dbContext.SaveChangesAsync();
                     xchangeId = xchange.Id;
                 }
-                catch (DbUpdateException ex) when (IdempotencyGuard.IsDuplicateKey(ex))
+                else
                 {
-                    dbContext.ChangeTracker.Clear();
-                    xchangeId = await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+                    await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+                    (xchangeId, _) = await IdempotencyGuard.SaveAsync(dbContext, idempotencyScope, idempotencyKey,
+                        xchange.Id);
                 }
             }
 

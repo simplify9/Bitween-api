@@ -185,20 +185,17 @@ public class GatewayController(
             // The sets already read at the top of the request, from the cache.
             var xchange = await xchangeService.CreateXchange(subscription, xchangeFile, xchangeReferences.ToArray(),
                 Guid.NewGuid().ToString("N"), partner, globalAdapterValuesSet);
-            if (!string.IsNullOrEmpty(idempotencyKey))
-                await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
-
-            try
+            if (string.IsNullOrEmpty(idempotencyKey))
             {
                 await dbContext.SaveChangesAsync();
                 xchangeId = xchange.Id;
             }
-            catch (DbUpdateException ex) when (IdempotencyGuard.IsDuplicateKey(ex))
+            else
             {
-                // Another call with the same key committed first: its exchange is the answer.
-                dbContext.ChangeTracker.Clear();
-                xchangeId = await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
-                Response.Headers["Idempotent-Replay"] = "true";
+                await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+                (xchangeId, var replayed) =
+                    await IdempotencyGuard.SaveAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+                if (replayed) Response.Headers["Idempotent-Replay"] = "true";
             }
         }
 
@@ -215,13 +212,16 @@ public class GatewayController(
             int.TryParse(Request.Headers["Wait-Period"].FirstOrDefault(), out var asked) ? asked : null,
             options.MaxResponseWaitSeconds);
 
+        // Each poll reads the result itself rather than asking whether there is one and then reading
+        // it: one query once it is there, where it was two.
+        XchangeResult xchangeResult = null;
         var available = await ResultWait.UntilAsync(
-            () => dbContext.Set<XchangeResult>().AsNoTracking().AnyAsync(i => i.Id == xchangeId),
+            async () => (xchangeResult = await dbContext.Set<XchangeResult>().AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == xchangeId)) != null,
             waitResponse, HttpContext.RequestAborted);
 
         if (available)
         {
-            var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
 
 
             switch (xchangeResult!.Success)
